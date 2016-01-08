@@ -17,14 +17,18 @@
 
 #include <exception>
 #include <sstream>
-#include <boost/cstdint.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/unordered_map.hpp>
-#include "gen-cpp/parquet_constants.h"
-#include "gen-cpp/parquet_types.h"
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-#include "impala/rle-encoding.h"
+// Needed for thrift
+#include <boost/shared_ptr.hpp>
+
+#include "parquet/thrift/parquet_constants.h"
+#include "parquet/thrift/parquet_types.h"
+#include "parquet/util/rle-encoding.h"
 
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
@@ -35,6 +39,17 @@
 
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
+
+namespace std {
+
+template <>
+struct hash<parquet::Encoding::type> {
+  std::size_t operator()(const parquet::Encoding::type& k) const {
+    return hash<int>()(static_cast<int>(k));
+  }
+};
+
+} // namespace std
 
 namespace parquet_cpp {
 
@@ -146,18 +161,18 @@ class ColumnReader {
   InputStream* stream_;
 
   // Compression codec to use.
-  boost::scoped_ptr<Codec> decompressor_;
+  std::unique_ptr<Codec> decompressor_;
   std::vector<uint8_t> decompression_buffer_;
 
   // Map of compression type to decompressor object.
-  boost::unordered_map<parquet::Encoding::type, boost::shared_ptr<Decoder> > decoders_;
+  std::unordered_map<parquet::Encoding::type, std::shared_ptr<Decoder> > decoders_;
 
   parquet::PageHeader current_page_header_;
 
   // Not set if field is required.
-  boost::scoped_ptr<impala::RleDecoder> definition_level_decoder_;
+  std::unique_ptr<RleDecoder> definition_level_decoder_;
   // Not set for flat schemas.
-  boost::scoped_ptr<impala::RleDecoder> repetition_level_decoder_;
+  std::unique_ptr<RleDecoder> repetition_level_decoder_;
   Decoder* current_decoder_;
   int num_buffered_values_;
 
@@ -241,7 +256,6 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
   *len = *len - bytes_left;
 }
 
-}
+} // namespace parquet_cpp
 
 #endif
-
