@@ -26,4 +26,5 @@ set_target_properties(parquet_thrift
 install(FILES
   parquet_types.h
   parquet_constants.h
+  util.h
   DESTINATION include/parquet/thrift)

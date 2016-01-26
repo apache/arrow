@@ -15,45 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdlib>
-#include <iostream>
+#ifndef PARQUET_EXCEPTION_H
+#define PARQUET_EXCEPTION_H
+
+#include <exception>
 #include <sstream>
 #include <string>
 
-#include <gtest/gtest.h>
-
-#include "parquet/reader.h"
-
-using std::string;
-
 namespace parquet_cpp {
 
-const char* data_dir = std::getenv("PARQUET_TEST_DATA");
-
-
-class TestAllTypesPlain : public ::testing::Test {
+class ParquetException : public std::exception {
  public:
-  void SetUp() {
-    std::string dir_string(data_dir);
-
+  static void EofException() { throw ParquetException("Unexpected end of stream."); }
+  static void NYI(const std::string& msg) {
     std::stringstream ss;
-    ss << dir_string << "/" << "alltypes_plain.parquet";
-    file_.Open(ss.str());
-    reader_.Open(&file_);
+    ss << "Not yet implemented: " << msg << ".";
+    throw ParquetException(ss.str());
   }
 
-  void TearDown() {
-    reader_.Close();
-  }
+  explicit ParquetException(const char* msg) : msg_(msg) {}
+  explicit ParquetException(const std::string& msg) : msg_(msg) {}
+  explicit ParquetException(const char* msg, exception& e) : msg_(msg) {}
 
- protected:
-  LocalFile file_;
-  ParquetFileReader reader_;
+  virtual ~ParquetException() throw() {}
+  virtual const char* what() const throw() { return msg_.c_str(); }
+
+ private:
+  std::string msg_;
 };
 
-
-TEST_F(TestAllTypesPlain, ParseMetaData) {
-  reader_.ParseMetaData();
-}
-
 } // namespace parquet_cpp
+
+#endif // PARQUET_EXCEPTION_H

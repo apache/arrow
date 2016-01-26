@@ -1,44 +1,35 @@
-// Copyright 2012 Cloudera Inc.
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #ifndef PARQUET_PARQUET_H
 #define PARQUET_PARQUET_H
 
 #include <exception>
-#include <sstream>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-// Needed for thrift
-#include <boost/shared_ptr.hpp>
-
+#include "parquet/exception.h"
 #include "parquet/thrift/parquet_constants.h"
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/util/rle-encoding.h"
-
-// TCompactProtocol requires some #defines to work right.
-#define SIGNED_RIGHT_SHIFT_IS 1
-#define ARITHMETIC_RIGHT_SHIFT 1
-#include <thrift/protocol/TCompactProtocol.h>
-#include <thrift/protocol/TDebugProtocol.h>
-#include <thrift/TApplicationException.h>
-
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/transport/TBufferTransports.h>
 
 namespace std {
 
@@ -59,26 +50,6 @@ class Decoder;
 struct ByteArray {
   uint32_t len;
   const uint8_t* ptr;
-};
-
-class ParquetException : public std::exception {
- public:
-  static void EofException() { throw ParquetException("Unexpected end of stream."); }
-  static void NYI(const std::string& msg) {
-    std::stringstream ss;
-    ss << "Not yet implemented: " << msg << ".";
-    throw ParquetException(ss.str());
-  }
-
-  explicit ParquetException(const char* msg) : msg_(msg) {}
-  explicit ParquetException(const std::string& msg) : msg_(msg) {}
-  explicit ParquetException(const char* msg, exception& e) : msg_(msg) {}
-
-  virtual ~ParquetException() throw() {}
-  virtual const char* what() const throw() { return msg_.c_str(); }
-
- private:
-  std::string msg_;
 };
 
 // Interface for the column reader to get the bytes. The interface is a stream
@@ -233,27 +204,6 @@ inline bool ColumnReader::ReadDefinitionRepetitionLevels(int* def_level, int* re
   }
   --num_buffered_values_;
   return *def_level == 0;
-}
-
-// Deserialize a thrift message from buf/len.  buf/len must at least contain
-// all the bytes needed to store the thrift message.  On return, len will be
-// set to the actual length of the header.
-template <class T>
-inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg) {
-  // Deserialize msg bytes into c++ thrift msg using memory transport.
-  boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
-      new apache::thrift::transport::TMemoryBuffer(const_cast<uint8_t*>(buf), *len));
-  apache::thrift::protocol::TCompactProtocolFactoryT<
-      apache::thrift::transport::TMemoryBuffer> tproto_factory;
-  boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
-      tproto_factory.getProtocol(tmem_transport);
-  try {
-    deserialized_msg->read(tproto.get());
-  } catch (apache::thrift::protocol::TProtocolException& e) {
-    throw ParquetException("Couldn't deserialize thrift.", e);
-  }
-  uint32_t bytes_left = tmem_transport->available_read();
-  *len = *len - bytes_left;
 }
 
 } // namespace parquet_cpp

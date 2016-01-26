@@ -18,6 +18,8 @@
 # Headers: top level
 install(FILES
   parquet.h
+  reader.h
+  exception.h
   DESTINATION include/parquet)
 
 ADD_PARQUET_TEST(reader-test)

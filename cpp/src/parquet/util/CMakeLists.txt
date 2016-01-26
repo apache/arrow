@@ -28,14 +28,14 @@ add_library(parquet_test_main
 
 if (APPLE)
   target_link_libraries(parquet_test_main
-	gtest
-	dl)
+    gtest
+    dl)
   set_target_properties(parquet_test_main
-		PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   target_link_libraries(parquet_test_main
     dl
-	gtest
+    gtest
     pthread
   )
 endif()
