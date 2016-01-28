@@ -21,7 +21,12 @@ install(FILES
   logging.h
   rle-encoding.h
   stopwatch.h
+  input_stream.h
   DESTINATION include/parquet/util)
+
+add_library(parquet_util STATIC
+  input_stream.cc
+)
 
 add_library(parquet_test_main
   test_main.cc)

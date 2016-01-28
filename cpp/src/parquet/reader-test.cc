@@ -42,9 +42,7 @@ class TestAllTypesPlain : public ::testing::Test {
     reader_.Open(&file_);
   }
 
-  void TearDown() {
-    reader_.Close();
-  }
+  void TearDown() {}
 
  protected:
   LocalFile file_;
@@ -54,6 +52,16 @@ class TestAllTypesPlain : public ::testing::Test {
 
 TEST_F(TestAllTypesPlain, ParseMetaData) {
   reader_.ParseMetaData();
+}
+
+TEST_F(TestAllTypesPlain, DebugPrintWorks) {
+  std::stringstream ss;
+
+  // Automatically parses metadata
+  reader_.DebugPrint(ss);
+
+  std::string result = ss.str();
+  ASSERT_TRUE(result.size() > 0);
 }
 
 } // namespace parquet_cpp

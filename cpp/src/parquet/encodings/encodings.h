@@ -17,6 +17,8 @@
 
 #include <cstdint>
 
+#include "parquet/types.h"
+
 #include "parquet/thrift/parquet_constants.h"
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/util/rle-encoding.h"
@@ -24,8 +26,12 @@
 
 namespace parquet_cpp {
 
+// The Decoder template is parameterized on parquet::Type::type
+template <int TYPE>
 class Decoder {
  public:
+  typedef typename type_traits<TYPE>::value_type T;
+
   virtual ~Decoder() {}
 
   // Sets the data for a new page. This will be called multiple times on the same
@@ -36,22 +42,7 @@ class Decoder {
   // the decoder would decode put to 'max_values', storing the result in 'buffer'.
   // The function returns the number of values decoded, which should be max_values
   // except for end of the current data page.
-  virtual int GetBool(bool* buffer, int max_values) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
-  virtual int GetInt32(int32_t* buffer, int max_values) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
-  virtual int GetInt64(int64_t* buffer, int max_values) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
-  virtual int GetFloat(float* buffer, int max_values) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
-  virtual int GetDouble(double* buffer, int max_values) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
-  virtual int GetByteArray(ByteArray* buffer, int max_values) {
+  virtual int Decode(T* buffer, int max_values) {
     throw ParquetException("Decoder does not implement this type.");
   }
 
@@ -62,19 +53,22 @@ class Decoder {
   const parquet::Encoding::type encoding() const { return encoding_; }
 
  protected:
-  Decoder(const parquet::Type::type& type, const parquet::Encoding::type& encoding)
-    : type_(type), encoding_(encoding), num_values_(0) {}
+  explicit Decoder(const parquet::SchemaElement* schema,
+      const parquet::Encoding::type& encoding)
+      : schema_(schema), encoding_(encoding), num_values_(0) {}
 
-  const parquet::Type::type type_;
+  // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
+  const parquet::SchemaElement* schema_;
+
   const parquet::Encoding::type encoding_;
   int num_values_;
 };
 
 } // namespace parquet_cpp
 
-#include "parquet/encodings/bool-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
 #include "parquet/encodings/dictionary-encoding.h"
+
 #include "parquet/encodings/delta-bit-pack-encoding.h"
 #include "parquet/encodings/delta-length-byte-array-encoding.h"
 #include "parquet/encodings/delta-byte-array-encoding.h"

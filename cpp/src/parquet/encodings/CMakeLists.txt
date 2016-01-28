@@ -15,7 +15,6 @@
 # Headers: encodings
 install(FILES
   encodings.h
-  bool-encoding.h
   delta-bit-pack-encoding.h
   delta-byte-array-encoding.h
   delta-length-byte-array-encoding.h

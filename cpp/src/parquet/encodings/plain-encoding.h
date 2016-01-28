@@ -21,11 +21,15 @@
 
 namespace parquet_cpp {
 
-class PlainDecoder : public Decoder {
+template <int TYPE>
+class PlainDecoder : public Decoder<TYPE> {
  public:
-  explicit PlainDecoder(const parquet::Type::type& type)
-    : Decoder(type, parquet::Encoding::PLAIN), data_(NULL), len_(0) {
-  }
+  typedef typename type_traits<TYPE>::value_type T;
+  using Decoder<TYPE>::num_values_;
+
+  explicit PlainDecoder(const parquet::SchemaElement* schema) :
+      Decoder<TYPE>(schema, parquet::Encoding::PLAIN),
+      data_(NULL), len_(0) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -33,49 +37,61 @@ class PlainDecoder : public Decoder {
     len_ = len;
   }
 
-  int GetValues(void* buffer, int max_values, int byte_size) {
-    max_values = std::min(max_values, num_values_);
-    int size = max_values * byte_size;
-    if (len_ < size)  ParquetException::EofException();
-    memcpy(buffer, data_, size);
-    data_ += size;
-    len_ -= size;
-    num_values_ -= max_values;
-    return max_values;
+  virtual int Decode(T* buffer, int max_values);
+ private:
+  const uint8_t* data_;
+  int len_;
+};
+
+template <int TYPE>
+inline int PlainDecoder<TYPE>::Decode(T* buffer, int max_values) {
+  max_values = std::min(max_values, num_values_);
+  int size = max_values * sizeof(T);
+  if (len_ < size)  ParquetException::EofException();
+  memcpy(buffer, data_, size);
+  data_ += size;
+  len_ -= size;
+  num_values_ -= max_values;
+  return max_values;
+}
+
+// Template specialization for BYTE_ARRAY
+template <>
+inline int PlainDecoder<parquet::Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
+    int max_values) {
+  max_values = std::min(max_values, num_values_);
+  for (int i = 0; i < max_values; ++i) {
+    buffer[i].len = *reinterpret_cast<const uint32_t*>(data_);
+    if (len_ < sizeof(uint32_t) + buffer[i].len) ParquetException::EofException();
+    buffer[i].ptr = data_ + sizeof(uint32_t);
+    data_ += sizeof(uint32_t) + buffer[i].len;
+    len_ -= sizeof(uint32_t) + buffer[i].len;
+  }
+  num_values_ -= max_values;
+  return max_values;
+}
+
+template <>
+class PlainDecoder<parquet::Type::BOOLEAN> : public Decoder<parquet::Type::BOOLEAN> {
+ public:
+  explicit PlainDecoder(const parquet::SchemaElement* schema) :
+      Decoder<parquet::Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
+
+  virtual void SetData(int num_values, const uint8_t* data, int len) {
+    num_values_ = num_values;
+    decoder_ = RleDecoder(data, len, 1);
   }
 
-  virtual int GetInt32(int32_t* buffer, int max_values) {
-    return GetValues(buffer, max_values, sizeof(int32_t));
-  }
-
-  virtual int GetInt64(int64_t* buffer, int max_values) {
-    return GetValues(buffer, max_values, sizeof(int64_t));
-  }
-
-  virtual int GetFloat(float* buffer, int max_values) {
-    return GetValues(buffer, max_values, sizeof(float));
-  }
-
-  virtual int GetDouble(double* buffer, int max_values) {
-    return GetValues(buffer, max_values, sizeof(double));
-  }
-
-  virtual int GetByteArray(ByteArray* buffer, int max_values) {
+  virtual int Decode(bool* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
     for (int i = 0; i < max_values; ++i) {
-      buffer[i].len = *reinterpret_cast<const uint32_t*>(data_);
-      if (len_ < sizeof(uint32_t) + buffer[i].len) ParquetException::EofException();
-      buffer[i].ptr = data_ + sizeof(uint32_t);
-      data_ += sizeof(uint32_t) + buffer[i].len;
-      len_ -= sizeof(uint32_t) + buffer[i].len;
+      if (!decoder_.Get(&buffer[i])) ParquetException::EofException();
     }
     num_values_ -= max_values;
     return max_values;
   }
-
  private:
-  const uint8_t* data_;
-  int len_;
+  RleDecoder decoder_;
 };
 
 } // namespace parquet_cpp
