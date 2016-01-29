@@ -36,16 +36,11 @@ using parquet::FieldRepetitionType;
 using parquet::PageType;
 using parquet::Type;
 
-
-ColumnReader::~ColumnReader() {
-  delete stream_;
-}
-
 ColumnReader::ColumnReader(const parquet::ColumnMetaData* metadata,
-    const parquet::SchemaElement* schema, InputStream* stream)
+    const parquet::SchemaElement* schema, std::unique_ptr<InputStream> stream)
   : metadata_(metadata),
     schema_(schema),
-    stream_(stream),
+    stream_(std::move(stream)),
     num_buffered_values_(0),
     num_decoded_values_(0),
     buffered_values_offset_(0) {
@@ -171,24 +166,24 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
 }
 
 std::shared_ptr<ColumnReader> ColumnReader::Make(const parquet::ColumnMetaData* metadata,
-    const parquet::SchemaElement* element, InputStream* stream) {
+    const parquet::SchemaElement* element, std::unique_ptr<InputStream> stream) {
   switch (metadata->type) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolReader>(metadata, element, stream);
+      return std::make_shared<BoolReader>(metadata, element, std::move(stream));
     case Type::INT32:
-      return std::make_shared<Int32Reader>(metadata, element, stream);
+      return std::make_shared<Int32Reader>(metadata, element, std::move(stream));
     case Type::INT64:
-      return std::make_shared<Int64Reader>(metadata, element, stream);
+      return std::make_shared<Int64Reader>(metadata, element, std::move(stream));
     case Type::INT96:
-      return std::make_shared<Int96Reader>(metadata, element, stream);
+      return std::make_shared<Int96Reader>(metadata, element, std::move(stream));
     case Type::FLOAT:
-      return std::make_shared<FloatReader>(metadata, element, stream);
+      return std::make_shared<FloatReader>(metadata, element, std::move(stream));
     case Type::DOUBLE:
-      return std::make_shared<DoubleReader>(metadata, element, stream);
+      return std::make_shared<DoubleReader>(metadata, element, std::move(stream));
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayReader>(metadata, element, stream);
+      return std::make_shared<ByteArrayReader>(metadata, element, std::move(stream));
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayReader>(metadata, element, stream);
+      return std::make_shared<FixedLenByteArrayReader>(metadata, element, std::move(stream));
     default:
       ParquetException::NYI("type reader not implemented");
   }

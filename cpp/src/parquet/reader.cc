@@ -98,7 +98,7 @@ ColumnReader* RowGroupReader::Column(size_t i) {
     col_start = col.meta_data.dictionary_page_offset;
   }
 
-  std::unique_ptr<ScopedInMemoryInputStream> input(
+  std::unique_ptr<InputStream> input(
       new ScopedInMemoryInputStream(col.meta_data.total_compressed_size));
 
   FileLike* source = this->parent_->buffer_;
@@ -106,9 +106,9 @@ ColumnReader* RowGroupReader::Column(size_t i) {
   source->Seek(col_start);
 
   // TODO(wesm): Law of demeter violation
-  size_t bytes_read = source->Read(input->size(), input->data());
-
-  if (bytes_read != input->size()) {
+  ScopedInMemoryInputStream* scoped_input = static_cast<ScopedInMemoryInputStream*>(input.get());
+  size_t bytes_read = source->Read(scoped_input->size(), scoped_input->data());
+  if (bytes_read != scoped_input->size()) {
     std::cout << "Bytes needed: " << col.meta_data.total_compressed_size << std::endl;
     std::cout << "Bytes read: " << bytes_read << std::endl;
     throw ParquetException("Unable to read column chunk data");
@@ -116,7 +116,7 @@ ColumnReader* RowGroupReader::Column(size_t i) {
 
   // TODO(wesm): This presumes a flat schema
   std::shared_ptr<ColumnReader> reader = ColumnReader::Make(&col.meta_data,
-      &this->parent_->metadata_.schema[i + 1], input.release());
+      &this->parent_->metadata_.schema[i + 1], std::move(input));
   column_readers_[i] = reader;
 
   return reader.get();
