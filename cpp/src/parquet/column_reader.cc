@@ -187,6 +187,8 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const parquet::ColumnMetaData* 
       return std::make_shared<DoubleReader>(metadata, element, stream);
     case Type::BYTE_ARRAY:
       return std::make_shared<ByteArrayReader>(metadata, element, stream);
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return std::make_shared<FixedLenByteArrayReader>(metadata, element, stream);
     default:
       ParquetException::NYI("type reader not implemented");
   }

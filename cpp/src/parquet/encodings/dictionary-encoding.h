@@ -111,6 +111,25 @@ inline void DictionaryDecoder<parquet::Type::BYTE_ARRAY>::Init(
   }
 }
 
+template <>
+inline void DictionaryDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Init(
+    Decoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>* dictionary) {
+  int num_dictionary_values = dictionary->values_left();
+  dictionary_.resize(num_dictionary_values);
+  dictionary->Decode(&dictionary_[0], num_dictionary_values);
+
+  int fixed_len = schema_->type_length;
+  int total_size = num_dictionary_values*fixed_len;
+
+  byte_array_data_.resize(total_size);
+  int offset = 0;
+  for (int i = 0; i < num_dictionary_values; ++i) {
+    memcpy(&byte_array_data_[offset], dictionary_[i].ptr, fixed_len);
+    dictionary_[i].ptr = &byte_array_data_[offset];
+    offset += fixed_len;
+  }
+}
+
 } // namespace parquet_cpp
 
 #endif

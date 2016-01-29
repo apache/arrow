@@ -217,6 +217,9 @@ static string parquet_type_to_string(Type::type t) {
     case Type::INT64:
       return "INT64";
       break;
+    case Type::INT96:
+      return "INT96";
+      break;
     case Type::FLOAT:
       return "FLOAT";
       break;
@@ -225,9 +228,6 @@ static string parquet_type_to_string(Type::type t) {
       break;
     case Type::BYTE_ARRAY:
       return "BYTE_ARRAY";
-      break;
-    case Type::INT96:
-      return "INT96";
       break;
     case Type::FIXED_LEN_BYTE_ARRAY:
       return "FIXED_LEN_BYTE_ARRAY";
@@ -239,7 +239,7 @@ static string parquet_type_to_string(Type::type t) {
 }
 
 // the fixed initial size is just for an example
-#define COL_WIDTH "17"
+#define COL_WIDTH "20"
 
 void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   if (!parsed_metadata_) {
@@ -251,10 +251,6 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   for (int c = 1; c < metadata_.schema.size(); ++c) {
     stream << "Column " << c-1 << ": " << metadata_.schema[c].name << " ("
            << parquet_type_to_string(metadata_.schema[c].type);
-    if (metadata_.schema[c].type == Type::INT96 ||
-        metadata_.schema[c].type == Type::FIXED_LEN_BYTE_ARRAY) {
-      stream << " - not supported";
-    }
     stream << ")\n";
   }
 
@@ -290,10 +286,6 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
       Type::type col_type = col_reader->type();
 
       printf("%-" COL_WIDTH"s", metadata_.schema[c+1].name.c_str());
-
-      if (col_type == Type::INT96 || col_type == Type::FIXED_LEN_BYTE_ARRAY) {
-        continue;
-      }
 
       // This is OK in this method as long as the RowGroupReader does not get deleted
       readers[c] = col_reader;
@@ -345,6 +337,16 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
               }
               break;
             }
+            case Type::INT96: {
+              Int96 val = reinterpret_cast<Int96Reader*>(readers[c])->NextValue(
+                  &def_level[c], &rep_level[c]);
+              if (def_level[c] >= rep_level[c]) {
+                string result = Int96ToString(val);
+                snprintf(buffer, bufsize, "%-" COL_WIDTH"s", result.c_str());
+                stream << buffer;
+              }
+              break;
+            }
             case Type::FLOAT: {
               float val = reinterpret_cast<FloatReader*>(readers[c])->NextValue(
                   &def_level[c], &rep_level[c]);
@@ -373,7 +375,17 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
               }
               break;
             }
-            default:
+             case Type::FIXED_LEN_BYTE_ARRAY: {
+              FixedLenByteArray val = reinterpret_cast<FixedLenByteArrayReader*>(
+                  readers[c])->NextValue(&def_level[c], &rep_level[c]);
+              if (def_level[c] >= rep_level[c]) {
+                string result = FixedLenByteArrayToString(val, metadata_.schema[c+1].type_length);
+                snprintf(buffer, bufsize, "%-" COL_WIDTH"s", result.c_str());
+                stream << buffer;
+              }
+              break;
+            }
+           default:
               continue;
           }
         }

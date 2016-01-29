@@ -159,6 +159,7 @@ typedef TypedColumnReader<parquet::Type::INT96> Int96Reader;
 typedef TypedColumnReader<parquet::Type::FLOAT> FloatReader;
 typedef TypedColumnReader<parquet::Type::DOUBLE> DoubleReader;
 typedef TypedColumnReader<parquet::Type::BYTE_ARRAY> ByteArrayReader;
+typedef TypedColumnReader<parquet::Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
 
 
 template <int TYPE>

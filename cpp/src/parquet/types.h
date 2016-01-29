@@ -22,8 +22,10 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <sstream>
 
 #include "parquet/thrift/parquet_types.h"
+#include "parquet/util/compiler-util.h"
 
 namespace parquet_cpp {
 
@@ -32,9 +34,34 @@ struct ByteArray {
   const uint8_t* ptr;
 };
 
+struct FixedLenByteArray {
+  const uint8_t* ptr;
+};
+
+MANUALLY_ALIGNED_STRUCT(1) Int96 {
+  uint32_t value[3];
+};
+STRUCT_END(Int96, 12);
 
 static inline std::string ByteArrayToString(const ByteArray& a) {
   return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
+}
+
+static inline std::string Int96ToString(const Int96& a) {
+  std::stringstream result;
+  for (int i = 0; i < 3; i++) {
+     result << a.value[i]  << " ";
+  }
+  return result.str();
+}
+
+static inline std::string FixedLenByteArrayToString(const FixedLenByteArray& a, int len) {
+  const uint8_t *bytes = reinterpret_cast<const uint8_t*>(a.ptr);
+  std::stringstream result;
+  for (int i = 0; i < len; i++) {
+     result << (uint32_t)bytes[i]  << " ";
+  }
+  return result.str();
 }
 
 static inline int ByteCompare(const ByteArray& x1, const ByteArray& x2) {
@@ -76,8 +103,7 @@ struct type_traits<parquet::Type::INT64> {
 
 template <>
 struct type_traits<parquet::Type::INT96> {
-  // TODO
-  typedef void* value_type;
+  typedef Int96 value_type;
   static constexpr parquet::Type::type parquet_type = parquet::Type::INT96;
 
   static constexpr size_t value_byte_size = 12;
@@ -105,6 +131,14 @@ struct type_traits<parquet::Type::BYTE_ARRAY> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::BYTE_ARRAY;
 
   static constexpr size_t value_byte_size = sizeof(ByteArray);
+};
+
+template <>
+struct type_traits<parquet::Type::FIXED_LEN_BYTE_ARRAY> {
+  typedef FixedLenByteArray value_type;
+  static constexpr parquet::Type::type parquet_type = parquet::Type::FIXED_LEN_BYTE_ARRAY;
+
+  static constexpr size_t value_byte_size = sizeof(FixedLenByteArray);
 };
 
 } // namespace parquet_cpp
