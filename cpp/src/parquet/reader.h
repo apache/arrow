@@ -79,9 +79,9 @@ class RowGroupReader {
       parent_(parent),
       row_group_(group) {}
 
-  // Construct a ColumnReader for the indicated row group-relative column. The
-  // returned object is owned by the RowGroupReader
-  ColumnReader* Column(size_t i);
+  // Construct a ColumnReader for the indicated row group-relative
+  // column. Ownership is shared with the RowGroupReader.
+  std::shared_ptr<ColumnReader> Column(size_t i);
 
   size_t num_columns() const {
     return row_group_->columns.size();

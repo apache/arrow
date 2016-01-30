@@ -24,11 +24,10 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column_reader.h"
+#include "parquet/column/reader.h"
+#include "parquet/column/scanner.h"
 #include "parquet/exception.h"
-
 #include "parquet/thrift/util.h"
-
 #include "parquet/util/input_stream.h"
 
 using std::string;
@@ -82,12 +81,12 @@ size_t LocalFile::Read(size_t nbytes, uint8_t* buffer) {
 // ----------------------------------------------------------------------
 // RowGroupReader
 
-ColumnReader* RowGroupReader::Column(size_t i) {
+std::shared_ptr<ColumnReader> RowGroupReader::Column(size_t i) {
   // TODO: boundschecking
   auto it = column_readers_.find(i);
   if (it !=  column_readers_.end()) {
     // Already have constructed the ColumnReader
-    return it->second.get();
+    return it->second;
   }
 
   const parquet::ColumnChunk& col = row_group_->columns[i];
@@ -119,7 +118,7 @@ ColumnReader* RowGroupReader::Column(size_t i) {
       &this->parent_->metadata_.schema[i + 1], std::move(input));
   column_readers_[i] = reader;
 
-  return reader.get();
+  return reader;
 }
 
 // ----------------------------------------------------------------------
@@ -144,6 +143,10 @@ void ParquetFileReader::Close() {
 }
 
 RowGroupReader* ParquetFileReader::RowGroup(size_t i) {
+  if (!parsed_metadata_) {
+    ParseMetaData();
+  }
+
   if (i >= num_row_groups()) {
     std::stringstream ss;
     ss << "The file only has " << num_row_groups()
@@ -241,6 +244,7 @@ static string parquet_type_to_string(Type::type t) {
 // the fixed initial size is just for an example
 #define COL_WIDTH "20"
 
+
 void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   if (!parsed_metadata_) {
     ParseMetaData();
@@ -278,116 +282,40 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
       continue;
     }
 
-    // Create readers for all columns and print contents
-    vector<ColumnReader*> readers(nColumns, NULL);
-    for (int c = 0; c < nColumns; ++c) {
-      ColumnReader* col_reader = group_reader->Column(c);
-
-      Type::type col_type = col_reader->type();
-
-      printf("%-" COL_WIDTH"s", metadata_.schema[c+1].name.c_str());
-
-      // This is OK in this method as long as the RowGroupReader does not get deleted
-      readers[c] = col_reader;
-    }
-    stream << "\n";
-
-    vector<int> def_level(nColumns, 0);
-    vector<int> rep_level(nColumns, 0);
-
     static constexpr size_t bufsize = 25;
     char buffer[bufsize];
+
+    // Create readers for all columns and print contents
+    vector<std::shared_ptr<Scanner> > scanners(nColumns, NULL);
+    for (int c = 0; c < nColumns; ++c) {
+      std::shared_ptr<ColumnReader> col_reader = group_reader->Column(c);
+      Type::type col_type = col_reader->type();
+
+      std::stringstream ss;
+      ss << "%-" << COL_WIDTH << "s";
+      std::string fmt = ss.str();
+
+      snprintf(buffer, bufsize, fmt.c_str(), metadata_.schema[c+1].name.c_str());
+      stream << buffer;
+
+      // This is OK in this method as long as the RowGroupReader does not get
+      // deleted
+      scanners[c] = Scanner::Make(col_reader);
+    }
+    stream << "\n";
 
     bool hasRow;
     do {
       hasRow = false;
       for (int c = 0; c < nColumns; ++c) {
-        if (readers[c] == NULL) {
+        if (scanners[c] == NULL) {
           snprintf(buffer, bufsize, "%-" COL_WIDTH"s", " ");
           stream << buffer;
           continue;
         }
-        if (readers[c]->HasNext()) {
+        if (scanners[c]->HasNext()) {
           hasRow = true;
-          switch (readers[c]->type()) {
-            case Type::BOOLEAN: {
-              bool val = reinterpret_cast<BoolReader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"d",val);
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::INT32: {
-              int32_t val = reinterpret_cast<Int32Reader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"d",val);
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::INT64: {
-              int64_t val = reinterpret_cast<Int64Reader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"ld",val);
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::INT96: {
-              Int96 val = reinterpret_cast<Int96Reader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                string result = Int96ToString(val);
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"s", result.c_str());
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::FLOAT: {
-              float val = reinterpret_cast<FloatReader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"f",val);
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::DOUBLE: {
-              double val = reinterpret_cast<DoubleReader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"lf",val);
-                stream << buffer;
-              }
-              break;
-            }
-            case Type::BYTE_ARRAY: {
-              ByteArray val = reinterpret_cast<ByteArrayReader*>(readers[c])->NextValue(
-                  &def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                string result = ByteArrayToString(val);
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"s", result.c_str());
-                stream << buffer;
-              }
-              break;
-            }
-             case Type::FIXED_LEN_BYTE_ARRAY: {
-              FixedLenByteArray val = reinterpret_cast<FixedLenByteArrayReader*>(
-                  readers[c])->NextValue(&def_level[c], &rep_level[c]);
-              if (def_level[c] >= rep_level[c]) {
-                string result = FixedLenByteArrayToString(val, metadata_.schema[c+1].type_length);
-                snprintf(buffer, bufsize, "%-" COL_WIDTH"s", result.c_str());
-                stream << buffer;
-              }
-              break;
-            }
-           default:
-              continue;
-          }
+          scanners[c]->PrintNext(stream, 17);
         }
       }
       stream << "\n";

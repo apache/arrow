@@ -28,7 +28,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/reader.h"
-#include "parquet/column_reader.h"
+#include "parquet/column/reader.h"
 #include "parquet/util/input_stream.h"
 
 #endif

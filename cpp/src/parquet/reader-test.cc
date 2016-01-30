@@ -23,6 +23,8 @@
 #include <gtest/gtest.h>
 
 #include "parquet/reader.h"
+#include "parquet/column/reader.h"
+#include "parquet/column/scanner.h"
 
 using std::string;
 
@@ -53,6 +55,63 @@ class TestAllTypesPlain : public ::testing::Test {
 TEST_F(TestAllTypesPlain, ParseMetaData) {
   reader_.ParseMetaData();
 }
+
+TEST_F(TestAllTypesPlain, TestBatchRead) {
+  RowGroupReader* group = reader_.RowGroup(0);
+
+  // column 0, id
+  std::shared_ptr<Int32Reader> col = std::dynamic_pointer_cast<Int32Reader>(group->Column(0));
+
+  int16_t def_levels[4];
+  int16_t rep_levels[4];
+  int32_t values[4];
+
+  // This file only has 8 rows
+
+  ASSERT_TRUE(col->HasNext());
+  size_t values_read;
+  size_t levels_read = col->ReadBatch(4, def_levels, rep_levels, values, &values_read);
+  ASSERT_EQ(4, levels_read);
+  ASSERT_EQ(4, values_read);
+
+  // Now read past the end of the file
+  ASSERT_TRUE(col->HasNext());
+  levels_read = col->ReadBatch(5, def_levels, rep_levels, values, &values_read);
+  ASSERT_EQ(4, levels_read);
+  ASSERT_EQ(4, values_read);
+
+  ASSERT_FALSE(col->HasNext());
+}
+
+TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
+  RowGroupReader* group = reader_.RowGroup(0);
+
+  // column 0, id
+  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
+
+  int32_t val;
+  bool is_null;
+  for (size_t i = 0; i < 8; ++i) {
+    ASSERT_TRUE(scanner->HasNext());
+    ASSERT_TRUE(scanner->NextValue(&val, &is_null));
+    ASSERT_FALSE(is_null);
+  }
+  ASSERT_FALSE(scanner->HasNext());
+  ASSERT_FALSE(scanner->NextValue(&val, &is_null));
+}
+
+
+TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
+  RowGroupReader* group = reader_.RowGroup(0);
+
+  // column 0, id
+  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
+
+  ASSERT_EQ(128, scanner->batch_size());
+  scanner->SetBatchSize(1024);
+  ASSERT_EQ(1024, scanner->batch_size());
+}
+
 
 TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::stringstream ss;

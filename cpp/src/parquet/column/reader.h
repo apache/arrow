@@ -18,7 +18,7 @@
 #ifndef PARQUET_COLUMN_READER_H
 #define PARQUET_COLUMN_READER_H
 
-#include <exception>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -48,6 +48,7 @@ struct hash<parquet::Encoding::type> {
 namespace parquet_cpp {
 
 class Codec;
+class Scanner;
 
 class ColumnReader {
  public:
@@ -68,13 +69,14 @@ class ColumnReader {
   static std::shared_ptr<ColumnReader> Make(const parquet::ColumnMetaData*,
       const parquet::SchemaElement*, std::unique_ptr<InputStream> stream);
 
-  virtual bool ReadNewPage() = 0;
-
   // Returns true if there are still values in this column.
   bool HasNext() {
-    if (num_buffered_values_ == 0) {
-      ReadNewPage();
-      if (num_buffered_values_ == 0) return false;
+    // Either there is no data page available yet, or the data page has been
+    // exhausted
+    if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
+      if (!ReadNewPage() || num_buffered_values_ == 0) {
+        return false;
+      }
     }
     return true;
   }
@@ -87,9 +89,22 @@ class ColumnReader {
     return metadata_;
   }
 
+  const parquet::SchemaElement* schema() const {
+    return schema_;
+  }
+
  protected:
-  // Reads the next definition and repetition level. Returns true if the value is NULL.
-  bool ReadDefinitionRepetitionLevels(int* def_level, int* rep_level);
+  virtual bool ReadNewPage() = 0;
+
+  // Read multiple definition levels into preallocated memory
+  //
+  // Returns the number of decoded definition levels
+  size_t ReadDefinitionLevels(size_t batch_size, int16_t* levels);
+
+  // Read multiple repetition levels into preallocated memory
+  //
+  // Returns the number of decoded repetition levels
+  size_t ReadRepetitionLevels(size_t batch_size, int16_t* levels);
 
   Config config_;
 
@@ -103,16 +118,27 @@ class ColumnReader {
 
   parquet::PageHeader current_page_header_;
 
-  // Not set if field is required.
+  // Not set if full schema for this field has no optional or repeated elements
   std::unique_ptr<RleDecoder> definition_level_decoder_;
+
   // Not set for flat schemas.
   std::unique_ptr<RleDecoder> repetition_level_decoder_;
+
+  // Temporarily storing this to assist with batch reading
+  int16_t max_definition_level_;
+
+  // The total number of values stored in the data page. This is the maximum of
+  // the number of encoded definition levels or encoded values. For
+  // non-repeated, required columns, this is equal to the number of encoded
+  // values. For repeated or optional values, there may be fewer data values
+  // than levels, and this tells you how many encoded levels there are in that
+  // case.
   int num_buffered_values_;
 
+  // The number of values from the current data page that have been decoded
+  // into memory
   int num_decoded_values_;
-  int buffered_values_offset_;
 };
-
 
 // API to read values from a single column. This is the main client facing API.
 template <int TYPE>
@@ -128,20 +154,33 @@ class TypedColumnReader : public ColumnReader {
     values_buffer_.resize(config_.batch_size * value_byte_size);
   }
 
-  // Returns the next value of this type.
-  // TODO: batchify this interface.
-  T NextValue(int* def_level, int* rep_level) {
-    if (ReadDefinitionRepetitionLevels(def_level, rep_level)) return T();
-    if (buffered_values_offset_ == num_decoded_values_) BatchDecode();
-    return reinterpret_cast<T*>(&values_buffer_[0])[buffered_values_offset_++];
-  }
+  // Read a batch of repetition levels, definition levels, and values from the
+  // column.
+  //
+  // Since null values are not stored in the values, the number of values read
+  // may be less than the number of repetition and definition levels. With
+  // nested data this is almost certainly true.
+  //
+  // To fully exhaust a row group, you must read batches until the number of
+  // values read reaches the number of stored values according to the metadata.
+  //
+  // This API is the same for both V1 and V2 of the DataPage
+  //
+  // @returns: actual number of levels read (see values_read for number of values read)
+  size_t ReadBatch(int batch_size, int16_t* def_levels, int16_t* rep_levels,
+      T* values, size_t* values_read);
 
  private:
-  void BatchDecode();
+  typedef Decoder<TYPE> DecoderType;
 
+  // Advance to the next data page
   virtual bool ReadNewPage();
 
-  typedef Decoder<TYPE> DecoderType;
+  // Read up to batch_size values from the current data page into the
+  // pre-allocated memory T*
+  //
+  // @returns: the number of values read into the out buffer
+  size_t ReadValues(size_t batch_size, T* out);
 
   // Map of compression type to decompressor object.
   std::unordered_map<parquet::Encoding::type, std::shared_ptr<DecoderType> > decoders_;
@@ -149,6 +188,59 @@ class TypedColumnReader : public ColumnReader {
   DecoderType* current_decoder_;
   std::vector<uint8_t> values_buffer_;
 };
+
+
+template <int TYPE>
+inline size_t TypedColumnReader<TYPE>::ReadValues(size_t batch_size, T* out) {
+  size_t num_decoded = current_decoder_->Decode(out, batch_size);
+  num_decoded_values_ += num_decoded;
+  return num_decoded;
+}
+
+template <int TYPE>
+inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_levels,
+    int16_t* rep_levels, T* values, size_t* values_read) {
+  // HasNext invokes ReadNewPage
+  if (!HasNext()) {
+    *values_read = 0;
+    return 0;
+  }
+
+  // TODO(wesm): keep reading data pages until batch_size is reached, or the
+  // row group is finished
+  batch_size = std::min(batch_size, num_buffered_values_);
+
+  size_t num_def_levels = 0;
+  size_t num_rep_levels = 0;
+
+  // If the field is required and non-repeated, there are no definition levels
+  if (definition_level_decoder_) {
+    num_def_levels = ReadDefinitionLevels(batch_size, def_levels);
+  }
+
+  // Not present for non-repeated fields
+  if (repetition_level_decoder_) {
+    num_rep_levels = ReadRepetitionLevels(batch_size, rep_levels);
+
+    if (num_def_levels != num_rep_levels) {
+      throw ParquetException("Number of decoded rep / def levels did not match");
+    }
+  }
+
+  // TODO(wesm): this tallying of values-to-decode can be performed with better
+  // cache-efficiency if fused with the level decoding.
+  size_t values_to_read = 0;
+  for (size_t i = 0; i < num_def_levels; ++i) {
+    if (def_levels[i] == max_definition_level_) {
+      ++values_to_read;
+    }
+  }
+
+  *values_read = ReadValues(values_to_read, values);
+
+  return num_def_levels;
+}
+
 
 typedef TypedColumnReader<parquet::Type::BOOLEAN> BoolReader;
 typedef TypedColumnReader<parquet::Type::INT32> Int32Reader;
@@ -158,24 +250,6 @@ typedef TypedColumnReader<parquet::Type::FLOAT> FloatReader;
 typedef TypedColumnReader<parquet::Type::DOUBLE> DoubleReader;
 typedef TypedColumnReader<parquet::Type::BYTE_ARRAY> ByteArrayReader;
 typedef TypedColumnReader<parquet::Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
-
-
-template <int TYPE>
-void TypedColumnReader<TYPE>::BatchDecode() {
-  buffered_values_offset_ = 0;
-  T* buf = reinterpret_cast<T*>(&values_buffer_[0]);
-  int batch_size = config_.batch_size;
-  num_decoded_values_ = current_decoder_->Decode(buf, batch_size);
-}
-
-inline bool ColumnReader::ReadDefinitionRepetitionLevels(int* def_level, int* rep_level) {
-  *rep_level = 1;
-  if (definition_level_decoder_ && !definition_level_decoder_->Get(def_level)) {
-    ParquetException::EofException();
-  }
-  --num_buffered_values_;
-  return *def_level == 0;
-}
 
 } // namespace parquet_cpp
 

@@ -21,8 +21,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/util/compiler-util.h"
@@ -37,6 +37,8 @@ struct ByteArray {
 struct FixedLenByteArray {
   const uint8_t* ptr;
 };
+
+typedef FixedLenByteArray FLBA;
 
 MANUALLY_ALIGNED_STRUCT(1) Int96 {
   uint32_t value[3];
@@ -81,8 +83,9 @@ template <>
 struct type_traits<parquet::Type::BOOLEAN> {
   typedef bool value_type;
   static constexpr parquet::Type::type parquet_type = parquet::Type::BOOLEAN;
-
   static constexpr size_t value_byte_size = 1;
+
+  static constexpr const char* printf_code = "d";
 };
 
 template <>
@@ -91,6 +94,7 @@ struct type_traits<parquet::Type::INT32> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::INT32;
 
   static constexpr size_t value_byte_size = 4;
+  static constexpr const char* printf_code = "d";
 };
 
 template <>
@@ -99,6 +103,7 @@ struct type_traits<parquet::Type::INT64> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::INT64;
 
   static constexpr size_t value_byte_size = 8;
+  static constexpr const char* printf_code = "ld";
 };
 
 template <>
@@ -107,6 +112,7 @@ struct type_traits<parquet::Type::INT96> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::INT96;
 
   static constexpr size_t value_byte_size = 12;
+  static constexpr const char* printf_code = "s";
 };
 
 template <>
@@ -115,6 +121,7 @@ struct type_traits<parquet::Type::FLOAT> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::FLOAT;
 
   static constexpr size_t value_byte_size = 4;
+  static constexpr const char* printf_code = "f";
 };
 
 template <>
@@ -123,6 +130,7 @@ struct type_traits<parquet::Type::DOUBLE> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::DOUBLE;
 
   static constexpr size_t value_byte_size = 8;
+  static constexpr const char* printf_code = "lf";
 };
 
 template <>
@@ -131,6 +139,7 @@ struct type_traits<parquet::Type::BYTE_ARRAY> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::BYTE_ARRAY;
 
   static constexpr size_t value_byte_size = sizeof(ByteArray);
+  static constexpr const char* printf_code = "s";
 };
 
 template <>
@@ -139,7 +148,15 @@ struct type_traits<parquet::Type::FIXED_LEN_BYTE_ARRAY> {
   static constexpr parquet::Type::type parquet_type = parquet::Type::FIXED_LEN_BYTE_ARRAY;
 
   static constexpr size_t value_byte_size = sizeof(FixedLenByteArray);
+  static constexpr const char* printf_code = "s";
 };
+
+template <int TYPE>
+inline std::string format_fwf(int width) {
+  std::stringstream ss;
+  ss << "%-" << width << type_traits<TYPE>::printf_code;
+  return ss.str();
+}
 
 } // namespace parquet_cpp
 

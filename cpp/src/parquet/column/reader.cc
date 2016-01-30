@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column_reader.h"
+#include "parquet/column/reader.h"
 
 #include <algorithm>
 #include <string>
 #include <string.h>
 
-#include "parquet/encodings/encodings.h"
 #include "parquet/compression/codec.h"
+#include "parquet/encodings/encodings.h"
 #include "parquet/thrift/util.h"
 #include "parquet/util/input_stream.h"
 
@@ -42,8 +42,7 @@ ColumnReader::ColumnReader(const parquet::ColumnMetaData* metadata,
     schema_(schema),
     stream_(std::move(stream)),
     num_buffered_values_(0),
-    num_decoded_values_(0),
-    buffered_values_offset_(0) {
+    num_decoded_values_(0) {
 
   switch (metadata->codec) {
     case CompressionCodec::UNCOMPRESSED:
@@ -68,7 +67,6 @@ static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
 template <int TYPE>
 bool TypedColumnReader<TYPE>::ReadNewPage() {
   // Loop until we find the next data page.
-
 
   while (true) {
     int bytes_read = 0;
@@ -114,15 +112,25 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       // Read a data page.
       num_buffered_values_ = current_page_header_.data_page_header.num_values;
 
+      // Have not decoded any values from the data page yet
+      num_decoded_values_ = 0;
+
       // Read definition levels.
       if (schema_->repetition_type != FieldRepetitionType::REQUIRED) {
         int num_definition_bytes = *reinterpret_cast<const uint32_t*>(buffer);
+
+        // Temporary hack until schema resolution
+        max_definition_level_ = 1;
+
         buffer += sizeof(uint32_t);
         definition_level_decoder_.reset(
             new RleDecoder(buffer, num_definition_bytes, 1));
         buffer += num_definition_bytes;
         uncompressed_len -= sizeof(uint32_t);
         uncompressed_len -= num_definition_bytes;
+      } else {
+        // REQUIRED field
+        max_definition_level_ = 0;
       }
 
       // TODO: repetition levels
@@ -164,6 +172,39 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
   }
   return true;
 }
+
+// ----------------------------------------------------------------------
+// Batch read APIs
+
+static size_t DecodeMany(RleDecoder* decoder, int16_t* levels, size_t batch_size) {
+  size_t num_decoded = 0;
+
+  // TODO(wesm): Push this decoding down into RleDecoder itself
+  for (size_t i = 0; i < batch_size; ++i) {
+    if (!decoder->Get(levels + i)) {
+      break;
+    }
+    ++num_decoded;
+  }
+  return num_decoded;
+}
+
+size_t ColumnReader::ReadDefinitionLevels(size_t batch_size, int16_t* levels) {
+  if (!definition_level_decoder_) {
+    return 0;
+  }
+  return DecodeMany(definition_level_decoder_.get(), levels, batch_size);
+}
+
+size_t ColumnReader::ReadRepetitionLevels(size_t batch_size, int16_t* levels) {
+  if (!repetition_level_decoder_) {
+    return 0;
+  }
+  return DecodeMany(repetition_level_decoder_.get(), levels, batch_size);
+}
+
+// ----------------------------------------------------------------------
+// Dynamic column reader constructor
 
 std::shared_ptr<ColumnReader> ColumnReader::Make(const parquet::ColumnMetaData* metadata,
     const parquet::SchemaElement* element, std::unique_ptr<InputStream> stream) {
