@@ -105,7 +105,8 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(size_t i) {
   source->Seek(col_start);
 
   // TODO(wesm): Law of demeter violation
-  ScopedInMemoryInputStream* scoped_input = static_cast<ScopedInMemoryInputStream*>(input.get());
+  ScopedInMemoryInputStream* scoped_input =
+    static_cast<ScopedInMemoryInputStream*>(input.get());
   size_t bytes_read = source->Read(scoped_input->size(), scoped_input->data());
   if (bytes_read != scoped_input->size()) {
     std::cout << "Bytes needed: " << col.meta_data.total_compressed_size << std::endl;
@@ -165,7 +166,8 @@ RowGroupReader* ParquetFileReader::RowGroup(size_t i) {
   }
 
   // Construct the RowGroupReader
-  row_group_readers_[i] = std::make_shared<RowGroupReader>(this, &metadata_.row_groups[i]);
+  row_group_readers_[i] = std::make_shared<RowGroupReader>(this,
+      &metadata_.row_groups[i]);
   return row_group_readers_[i].get();
 }
 
@@ -272,9 +274,9 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
              << ": " << meta_data->num_values << " rows, "
              << meta_data->statistics.null_count << " null values, "
              << meta_data->statistics.distinct_count << " distinct values, "
-             << "min value: " << (meta_data->statistics.min.length()>0 ?
+             << "min value: " << (meta_data->statistics.min.length() > 0 ?
                  meta_data->statistics.min : "N/A")
-             << ", max value: " << (meta_data->statistics.max.length()>0 ?
+             << ", max value: " << (meta_data->statistics.max.length() > 0 ?
                  meta_data->statistics.max : "N/A") << ".\n";
     }
 

@@ -76,8 +76,8 @@ inline int PlainDecoder<parquet::Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
 
 // Template specialization for FIXED_LEN_BYTE_ARRAY
 template <>
-inline int PlainDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Decode(FixedLenByteArray* buffer,
-    int max_values) {
+inline int PlainDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Decode(
+    FixedLenByteArray* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
   int len = schema_->type_length;
   for (int i = 0; i < max_values; ++i) {

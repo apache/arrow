@@ -51,7 +51,6 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
   }
   // Unreachable code, but supress compiler warning
   return std::shared_ptr<Scanner>(nullptr);
-
 }
 
 } // namespace parquet_cpp

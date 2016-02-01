@@ -52,7 +52,6 @@ class Scanner;
 
 class ColumnReader {
  public:
-
   struct Config {
     int batch_size;
 

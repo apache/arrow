@@ -60,7 +60,8 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   RowGroupReader* group = reader_.RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<Int32Reader> col = std::dynamic_pointer_cast<Int32Reader>(group->Column(0));
+  std::shared_ptr<Int32Reader> col =
+    std::dynamic_pointer_cast<Int32Reader>(group->Column(0));
 
   int16_t def_levels[4];
   int16_t rep_levels[4];
@@ -120,7 +121,7 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   reader_.DebugPrint(ss);
 
   std::string result = ss.str();
-  ASSERT_TRUE(result.size() > 0);
+  ASSERT_GT(result.size(), 0);
 }
 
 } // namespace parquet_cpp

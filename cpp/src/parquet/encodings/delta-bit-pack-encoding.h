@@ -32,7 +32,6 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
 
   explicit DeltaBitPackDecoder(const parquet::SchemaElement* schema)
       : Decoder<TYPE>(schema, parquet::Encoding::DELTA_BINARY_PACKED) {
-
     parquet::Type::type type = type_traits<TYPE>::parquet_type;
 
     if (type != parquet::Type::INT32 && type != parquet::Type::INT64) {
@@ -117,7 +116,6 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
 
   int64_t last_value_;
 };
-
 } // namespace parquet_cpp
 
 #endif

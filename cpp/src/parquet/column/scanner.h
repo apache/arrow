@@ -101,8 +101,8 @@ class TypedScanner : public Scanner {
 
   bool NextLevels(int16_t* def_level, int16_t* rep_level) {
     if (level_offset_ == levels_buffered_) {
-      levels_buffered_ = typed_reader_->ReadBatch(batch_size_, &def_levels_[0], &rep_levels_[0],
-          values_, &values_buffered_);
+      levels_buffered_ = typed_reader_->ReadBatch(batch_size_, &def_levels_[0],
+          &rep_levels_[0], values_, &values_buffered_);
 
       // TODO: repetition levels
 
@@ -151,9 +151,9 @@ class TypedScanner : public Scanner {
 
     if (is_null) {
       std::string null_fmt = format_fwf<parquet::Type::BYTE_ARRAY>(width);
-      snprintf(buffer, 25, null_fmt.c_str(), "NULL");
+      snprintf(buffer, sizeof(buffer), null_fmt.c_str(), "NULL");
     } else {
-      FormatValue(&val, buffer, 25, width);
+      FormatValue(&val, buffer, sizeof(buffer), width);
     }
     out << buffer;
   }

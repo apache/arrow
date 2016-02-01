@@ -24,7 +24,7 @@
 namespace parquet_cpp {
 
 InMemoryInputStream::InMemoryInputStream(const uint8_t* buffer, int64_t len) :
-   buffer_(buffer), len_(len), offset_(0) {}
+    buffer_(buffer), len_(len), offset_(0) {}
 
 const uint8_t* InMemoryInputStream::Peek(int num_to_peek, int* num_bytes) {
   *num_bytes = std::min(static_cast<int64_t>(num_to_peek), len_ - offset_);

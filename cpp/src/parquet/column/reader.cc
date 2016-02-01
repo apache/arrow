@@ -43,7 +43,6 @@ ColumnReader::ColumnReader(const parquet::ColumnMetaData* metadata,
     stream_(std::move(stream)),
     num_buffered_values_(0),
     num_decoded_values_(0) {
-
   switch (metadata->codec) {
     case CompressionCodec::UNCOMPRESSED:
       break;
@@ -103,7 +102,8 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       PlainDecoder<TYPE> dictionary(schema_);
       dictionary.SetData(current_page_header_.dictionary_page_header.num_values,
           buffer, uncompressed_len);
-      std::shared_ptr<DecoderType> decoder(new DictionaryDecoder<TYPE>(schema_, &dictionary));
+      std::shared_ptr<DecoderType> decoder(
+          new DictionaryDecoder<TYPE>(schema_, &dictionary));
 
       decoders_[Encoding::RLE_DICTIONARY] = decoder;
       current_decoder_ = decoders_[Encoding::RLE_DICTIONARY].get();
@@ -222,9 +222,11 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const parquet::ColumnMetaData* 
     case Type::DOUBLE:
       return std::make_shared<DoubleReader>(metadata, element, std::move(stream));
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayReader>(metadata, element, std::move(stream));
+      return std::make_shared<ByteArrayReader>(metadata, element,
+          std::move(stream));
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayReader>(metadata, element, std::move(stream));
+      return std::make_shared<FixedLenByteArrayReader>(metadata, element,
+          std::move(stream));
     default:
       ParquetException::NYI("type reader not implemented");
   }

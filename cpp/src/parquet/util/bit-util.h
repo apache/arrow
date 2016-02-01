@@ -168,7 +168,6 @@ class BitUtil {
   static inline int16_t  FromBigEndian(int16_t val)  { return val; }
   static inline uint16_t FromBigEndian(uint16_t val) { return val; }
 #endif
-
 };
 
 } // namespace parquet_cpp
