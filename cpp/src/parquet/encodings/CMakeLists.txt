@@ -24,3 +24,5 @@ install(FILES
   dictionary-encoding.h
   plain-encoding.h
   DESTINATION include/parquet/encodings)
+
+ADD_PARQUET_TEST(plain-encoding-test)

@@ -21,6 +21,7 @@
 #include "parquet/encodings/encodings.h"
 
 #include <algorithm>
+#include <vector>
 
 using parquet::Type;
 
@@ -103,19 +104,38 @@ class PlainDecoder<Type::BOOLEAN> : public Decoder<Type::BOOLEAN> {
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
-    decoder_ = RleDecoder(data, len, 1);
+    bit_reader_ = BitReader(data, len);
   }
 
-  virtual int Decode(bool* buffer, int max_values) {
+  // Two flavors of bool decoding
+  int Decode(uint8_t* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
+    bool val;
     for (int i = 0; i < max_values; ++i) {
-      if (!decoder_.Get(&buffer[i])) ParquetException::EofException();
+      if (!bit_reader_.GetValue(1, &val)) {
+        ParquetException::EofException();
+      }
+      BitUtil::SetArrayBit(buffer, i, val);
     }
     num_values_ -= max_values;
     return max_values;
   }
+
+  virtual int Decode(bool* buffer, int max_values) {
+    max_values = std::min(max_values, num_values_);
+    bool val;
+    for (int i = 0; i < max_values; ++i) {
+      if (!bit_reader_.GetValue(1, &val)) {
+        ParquetException::EofException();
+      }
+      buffer[i] = val;
+    }
+    num_values_ -= max_values;
+    return max_values;
+  }
+
  private:
-  RleDecoder decoder_;
+  BitReader bit_reader_;
 };
 
 // ----------------------------------------------------------------------
@@ -132,19 +152,30 @@ class PlainEncoder : public Encoder<TYPE> {
   virtual size_t Encode(const T* src, int num_values, uint8_t* dst);
 };
 
+template <>
+class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
+ public:
+  explicit PlainEncoder(const parquet::SchemaElement* schema) :
+      Encoder<Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
+
+  virtual size_t Encode(const std::vector<bool>& src, int num_values,
+      uint8_t* dst) {
+    size_t bytes_required = BitUtil::RoundUp(num_values, 8) / 8;
+    BitWriter bit_writer(dst, bytes_required);
+    for (size_t i = 0; i < num_values; ++i) {
+      bit_writer.PutValue(src[i], 1);
+    }
+    bit_writer.Flush();
+    return bit_writer.bytes_written();
+  }
+};
+
 template <int TYPE>
 inline size_t PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
     uint8_t* dst) {
   size_t nbytes = num_values * sizeof(T);
   memcpy(dst, buffer, nbytes);
   return nbytes;
-}
-
-template <>
-inline size_t PlainEncoder<Type::BOOLEAN>::Encode(
-    const bool* src, int num_values, uint8_t* dst) {
-  ParquetException::NYI("bool encoding");
-  return 0;
 }
 
 template <>

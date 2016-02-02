@@ -20,10 +20,9 @@
 
 #include <cstdint>
 
+#include "parquet/exception.h"
 #include "parquet/types.h"
 
-#include "parquet/thrift/parquet_constants.h"
-#include "parquet/thrift/parquet_types.h"
 #include "parquet/util/rle-encoding.h"
 #include "parquet/util/bit-stream-utils.inline.h"
 

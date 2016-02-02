@@ -19,6 +19,7 @@
 #define PARQUET_UTIL_TEST_COMMON_H
 
 #include <iostream>
+#include <random>
 #include <vector>
 
 using std::vector;
@@ -45,6 +46,32 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
 
   return true;
 }
+
+static inline vector<bool> flip_coins_seed(size_t n, double p, uint32_t seed) {
+  std::mt19937 gen(seed);
+  std::bernoulli_distribution d(p);
+
+  vector<bool> draws;
+  for (size_t i = 0; i < n; ++i) {
+    draws.push_back(d(gen));
+  }
+  return draws;
+}
+
+
+static inline vector<bool> flip_coins(size_t n, double p) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  std::bernoulli_distribution d(p);
+
+  vector<bool> draws;
+  for (size_t i = 0; i < n; ++i) {
+    draws.push_back(d(gen));
+  }
+  return draws;
+}
+
 
 } // namespace test
 

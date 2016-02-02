@@ -270,6 +270,14 @@ class BitUtil {
     return v | (static_cast<T>(0x1) << bitpos);
   }
 
+  static inline bool GetArrayBit(const uint8_t* bits, size_t i) {
+    return bits[i / 8] & (1 << (i % 8));
+  }
+
+  static inline void SetArrayBit(uint8_t* bits, size_t i, bool is_set) {
+    bits[i / 8] |= (1 << (i % 8)) * is_set;
+  }
+
   // Set a specific bit to 0
   // Behavior when bitpos is negative is undefined
   template<typename T>
