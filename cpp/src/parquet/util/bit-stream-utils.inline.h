@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// From Apache Impala as of 2016-01-29
+
 #ifndef PARQUET_UTIL_BIT_STREAM_UTILS_INLINE_H
 #define PARQUET_UTIL_BIT_STREAM_UTILS_INLINE_H
 
@@ -73,7 +75,7 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   return true;
 }
 
-inline bool BitWriter::PutVlqInt(uint32_t v) {
+inline bool BitWriter::PutVlqInt(int32_t v) {
   bool result = true;
   while ((v & 0xFFFFFF80) != 0L) {
     result &= PutAligned<uint8_t>((v & 0x7F) | 0x80, 1);
@@ -83,13 +85,9 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
   return result;
 }
 
-inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  uint32_t u = (v << 1) ^ (v >> 31);
-  return PutVlqInt(u);
-}
-
 template<typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
+  DCHECK(buffer_ != NULL);
   // TODO: revisit this limit if necessary
   DCHECK_LE(num_bits, 32);
   DCHECK_LE(num_bits, sizeof(T) * 8);
@@ -140,7 +138,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   return true;
 }
 
-inline bool BitReader::GetVlqInt(uint64_t* v) {
+inline bool BitReader::GetVlqInt(int32_t* v) {
   *v = 0;
   int shift = 0;
   int num_bytes = 0;
@@ -154,12 +152,20 @@ inline bool BitReader::GetVlqInt(uint64_t* v) {
   return true;
 }
 
-inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
-  uint64_t u;
-  if (!GetVlqInt(&u)) return false;
-  *reinterpret_cast<uint64_t*>(v) = (u >> 1) ^ -(u & 1);
-  return true;
-}
+// TODO(nongli): review/test these implementations given divergence in Impala
+// functions
+
+// inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
+//   uint32_t u = (v << 1) ^ (v >> 31);
+//   return PutVlqInt(u);
+// }
+
+// inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
+//   uint64_t u;
+//   if (!GetVlqInt(&u)) return false;
+//   *reinterpret_cast<uint64_t*>(v) = (u >> 1) ^ -(u & 1);
+//   return true;
+// }
 
 } // namespace parquet_cpp
 

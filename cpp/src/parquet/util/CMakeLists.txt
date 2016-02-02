@@ -20,6 +20,8 @@ install(FILES
   bit-stream-utils.h
   bit-stream-utils.inline.h
   bit-util.h
+  cpu-info.h
+  sse-info.h
   compiler-util.h
   logging.h
   rle-encoding.h
@@ -29,6 +31,7 @@ install(FILES
 
 add_library(parquet_util STATIC
   input_stream.cc
+  cpu-info.cc
 )
 
 add_library(parquet_test_main
@@ -47,3 +50,6 @@ else()
     pthread
   )
 endif()
+
+ADD_PARQUET_TEST(bit-util-test)
+ADD_PARQUET_TEST(rle-test)
