@@ -276,6 +276,14 @@ class BitUtil {
   static T UnsetBit(T v, int bitpos) {
     return v & ~(static_cast<T>(0x1) << bitpos);
   }
+
+  // Returns the minimum number of bits needed to represent the value of 'x'
+  static inline int NumRequiredBits(uint64_t x) {
+    for (int i = 63; i >= 0; --i) {
+      if (x & 1L << i) return i + 1;
+    }
+    return 0;
+  }
 };
 
 } // namespace parquet_cpp

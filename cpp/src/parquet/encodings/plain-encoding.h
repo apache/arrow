@@ -22,7 +22,12 @@
 
 #include <algorithm>
 
+using parquet::Type;
+
 namespace parquet_cpp {
+
+// ----------------------------------------------------------------------
+// Encoding::PLAIN decoder implementation
 
 template <int TYPE>
 class PlainDecoder : public Decoder<TYPE> {
@@ -60,7 +65,7 @@ inline int PlainDecoder<TYPE>::Decode(T* buffer, int max_values) {
 
 // Template specialization for BYTE_ARRAY
 template <>
-inline int PlainDecoder<parquet::Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
+inline int PlainDecoder<Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
     int max_values) {
   max_values = std::min(max_values, num_values_);
   for (int i = 0; i < max_values; ++i) {
@@ -76,7 +81,7 @@ inline int PlainDecoder<parquet::Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
 
 // Template specialization for FIXED_LEN_BYTE_ARRAY
 template <>
-inline int PlainDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Decode(
+inline int PlainDecoder<Type::FIXED_LEN_BYTE_ARRAY>::Decode(
     FixedLenByteArray* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
   int len = schema_->type_length;
@@ -91,10 +96,10 @@ inline int PlainDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Decode(
 }
 
 template <>
-class PlainDecoder<parquet::Type::BOOLEAN> : public Decoder<parquet::Type::BOOLEAN> {
+class PlainDecoder<Type::BOOLEAN> : public Decoder<Type::BOOLEAN> {
  public:
   explicit PlainDecoder(const parquet::SchemaElement* schema) :
-      Decoder<parquet::Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
+      Decoder<Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -112,6 +117,49 @@ class PlainDecoder<parquet::Type::BOOLEAN> : public Decoder<parquet::Type::BOOLE
  private:
   RleDecoder decoder_;
 };
+
+// ----------------------------------------------------------------------
+// Encoding::PLAIN encoder implementation
+
+template <int TYPE>
+class PlainEncoder : public Encoder<TYPE> {
+ public:
+  typedef typename type_traits<TYPE>::value_type T;
+
+  explicit PlainEncoder(const parquet::SchemaElement* schema) :
+      Encoder<TYPE>(schema, parquet::Encoding::PLAIN) {}
+
+  virtual size_t Encode(const T* src, int num_values, uint8_t* dst);
+};
+
+template <int TYPE>
+inline size_t PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
+    uint8_t* dst) {
+  size_t nbytes = num_values * sizeof(T);
+  memcpy(dst, buffer, nbytes);
+  return nbytes;
+}
+
+template <>
+inline size_t PlainEncoder<Type::BOOLEAN>::Encode(
+    const bool* src, int num_values, uint8_t* dst) {
+  ParquetException::NYI("bool encoding");
+  return 0;
+}
+
+template <>
+inline size_t PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
+    int num_values, uint8_t* dst) {
+  ParquetException::NYI("byte array encoding");
+  return 0;
+}
+
+template <>
+inline size_t PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
+    const FixedLenByteArray* src, int num_values, uint8_t* dst) {
+  ParquetException::NYI("FLBA encoding");
+  return 0;
+}
 
 } // namespace parquet_cpp
 

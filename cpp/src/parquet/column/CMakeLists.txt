@@ -17,6 +17,10 @@
 
 # Headers: top level
 install(FILES
+  page.h
   reader.h
+  serialized-page.h
   scanner.h
   DESTINATION include/parquet/column)
+
+ADD_PARQUET_TEST(column-reader-test)

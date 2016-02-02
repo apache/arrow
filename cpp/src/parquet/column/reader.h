@@ -28,9 +28,11 @@
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
+
+#include "parquet/column/page.h"
+
 #include "parquet/thrift/parquet_constants.h"
 #include "parquet/thrift/parquet_types.h"
-#include "parquet/util/input_stream.h"
 #include "parquet/encodings/encodings.h"
 #include "parquet/util/rle-encoding.h"
 
@@ -52,21 +54,10 @@ class Scanner;
 
 class ColumnReader {
  public:
-  struct Config {
-    int batch_size;
+  ColumnReader(const parquet::SchemaElement*, std::unique_ptr<PageReader>);
 
-    static Config DefaultConfig() {
-      Config config;
-      config.batch_size = 128;
-      return config;
-    }
-  };
-
-  ColumnReader(const parquet::ColumnMetaData*, const parquet::SchemaElement*,
-      std::unique_ptr<InputStream> stream);
-
-  static std::shared_ptr<ColumnReader> Make(const parquet::ColumnMetaData*,
-      const parquet::SchemaElement*, std::unique_ptr<InputStream> stream);
+  static std::shared_ptr<ColumnReader> Make(const parquet::SchemaElement*,
+      std::unique_ptr<PageReader>);
 
   // Returns true if there are still values in this column.
   bool HasNext() {
@@ -81,11 +72,7 @@ class ColumnReader {
   }
 
   parquet::Type::type type() const {
-    return metadata_->type;
-  }
-
-  const parquet::ColumnMetaData* metadata() const {
-    return metadata_;
+    return schema_->type;
   }
 
   const parquet::SchemaElement* schema() const {
@@ -105,17 +92,10 @@ class ColumnReader {
   // Returns the number of decoded repetition levels
   size_t ReadRepetitionLevels(size_t batch_size, int16_t* levels);
 
-  Config config_;
-
-  const parquet::ColumnMetaData* metadata_;
   const parquet::SchemaElement* schema_;
-  std::unique_ptr<InputStream> stream_;
 
-  // Compression codec to use.
-  std::unique_ptr<Codec> decompressor_;
-  std::vector<uint8_t> decompression_buffer_;
-
-  parquet::PageHeader current_page_header_;
+  std::unique_ptr<PageReader> pager_;
+  std::shared_ptr<Page> current_page_;
 
   // Not set if full schema for this field has no optional or repeated elements
   std::unique_ptr<RleDecoder> definition_level_decoder_;
@@ -145,12 +125,10 @@ class TypedColumnReader : public ColumnReader {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  TypedColumnReader(const parquet::ColumnMetaData* metadata,
-      const parquet::SchemaElement* schema, std::unique_ptr<InputStream> stream) :
-      ColumnReader(metadata, schema, std::move(stream)),
+  TypedColumnReader(const parquet::SchemaElement* schema,
+      std::unique_ptr<PageReader> pager) :
+      ColumnReader(schema, std::move(pager)),
       current_decoder_(NULL) {
-    size_t value_byte_size = type_traits<TYPE>::value_byte_size;
-    values_buffer_.resize(config_.batch_size * value_byte_size);
   }
 
   // Read a batch of repetition levels, definition levels, and values from the
@@ -181,18 +159,20 @@ class TypedColumnReader : public ColumnReader {
   // @returns: the number of values read into the out buffer
   size_t ReadValues(size_t batch_size, T* out);
 
-  // Map of compression type to decompressor object.
+  // Map of encoding type to the respective decoder object. For example, a
+  // column chunk's data pages may include both dictionary-encoded and
+  // plain-encoded data.
   std::unordered_map<parquet::Encoding::type, std::shared_ptr<DecoderType> > decoders_;
 
+  void ConfigureDictionary(const DictionaryPage* page);
+
   DecoderType* current_decoder_;
-  std::vector<uint8_t> values_buffer_;
 };
 
 
 template <int TYPE>
 inline size_t TypedColumnReader<TYPE>::ReadValues(size_t batch_size, T* out) {
   size_t num_decoded = current_decoder_->Decode(out, batch_size);
-  num_decoded_values_ += num_decoded;
   return num_decoded;
 }
 
@@ -212,9 +192,22 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
   size_t num_def_levels = 0;
   size_t num_rep_levels = 0;
 
+  size_t values_to_read = 0;
+
   // If the field is required and non-repeated, there are no definition levels
   if (definition_level_decoder_) {
     num_def_levels = ReadDefinitionLevels(batch_size, def_levels);
+
+    // TODO(wesm): this tallying of values-to-decode can be performed with better
+    // cache-efficiency if fused with the level decoding.
+    for (size_t i = 0; i < num_def_levels; ++i) {
+      if (def_levels[i] == max_definition_level_) {
+        ++values_to_read;
+      }
+    }
+  } else {
+    // Required field, read all values
+    values_to_read = batch_size;
   }
 
   // Not present for non-repeated fields
@@ -226,18 +219,11 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
     }
   }
 
-  // TODO(wesm): this tallying of values-to-decode can be performed with better
-  // cache-efficiency if fused with the level decoding.
-  size_t values_to_read = 0;
-  for (size_t i = 0; i < num_def_levels; ++i) {
-    if (def_levels[i] == max_definition_level_) {
-      ++values_to_read;
-    }
-  }
-
   *values_read = ReadValues(values_to_read, values);
+  size_t total_values = std::max(num_def_levels, *values_read);
+  num_decoded_values_ += total_values;
 
-  return num_def_levels;
+  return total_values;
 }
 
 

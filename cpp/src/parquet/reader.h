@@ -83,6 +83,10 @@ class RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(size_t i);
 
+  const parquet::ColumnMetaData* column_metadata(size_t i) const {
+    return &row_group_->columns[i].meta_data;
+  }
+
   size_t num_columns() const {
     return row_group_->columns.size();
   }

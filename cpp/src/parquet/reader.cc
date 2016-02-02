@@ -25,7 +25,9 @@
 #include <vector>
 
 #include "parquet/column/reader.h"
+#include "parquet/column/serialized-page.h"
 #include "parquet/column/scanner.h"
+
 #include "parquet/exception.h"
 #include "parquet/thrift/util.h"
 #include "parquet/util/input_stream.h"
@@ -115,8 +117,13 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(size_t i) {
   }
 
   // TODO(wesm): This presumes a flat schema
-  std::shared_ptr<ColumnReader> reader = ColumnReader::Make(&col.meta_data,
-      &this->parent_->metadata_.schema[i + 1], std::move(input));
+  const parquet::SchemaElement* schema = &parent_->metadata_.schema[i + 1];
+
+  std::unique_ptr<PageReader> pager(
+      new SerializedPageReader(std::move(input), col.meta_data.codec));
+
+  std::shared_ptr<ColumnReader> reader = ColumnReader::Make(schema,
+      std::move(pager));
   column_readers_[i] = reader;
 
   return reader;
@@ -269,7 +276,7 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
     size_t nColumns = group_reader->num_columns();
 
     for (int c = 0; c < group_reader->num_columns(); ++c) {
-      const parquet::ColumnMetaData* meta_data = group_reader->Column(c)->metadata();
+      const parquet::ColumnMetaData* meta_data = group_reader->column_metadata(c);
       stream << "Column " << c
              << ": " << meta_data->num_values << " rows, "
              << meta_data->statistics.null_count << " null values, "

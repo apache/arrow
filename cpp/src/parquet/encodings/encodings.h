@@ -67,6 +67,40 @@ class Decoder {
   int num_values_;
 };
 
+
+// Base class for value encoders. Since encoders may or not have state (e.g.,
+// dictionary encoding) we use a class instance to maintain any state.
+//
+// TODO(wesm): Encode interface API is temporary
+template <int TYPE>
+class Encoder {
+ public:
+  typedef typename type_traits<TYPE>::value_type T;
+
+  virtual ~Encoder() {}
+
+  // TODO(wesm): use an output stream
+
+  // Subclasses should override the ones they support
+  //
+  // @returns: the number of bytes written to dst
+  virtual size_t Encode(const T* src, int num_values, uint8_t* dst) {
+    throw ParquetException("Encoder does not implement this type.");
+    return 0;
+  }
+
+  const parquet::Encoding::type encoding() const { return encoding_; }
+
+ protected:
+  explicit Encoder(const parquet::SchemaElement* schema,
+      const parquet::Encoding::type& encoding)
+      : schema_(schema), encoding_(encoding) {}
+
+  // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
+  const parquet::SchemaElement* schema_;
+  const parquet::Encoding::type encoding_;
+};
+
 } // namespace parquet_cpp
 
 #include "parquet/encodings/plain-encoding.h"
