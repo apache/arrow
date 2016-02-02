@@ -54,7 +54,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
   using Decoder<TYPE>::num_values_;
 
   void InitBlock() {
-    uint64_t block_size;
+    int32_t block_size;
     if (!decoder_.GetVlqInt(&block_size)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&values_current_block_)) {
@@ -104,17 +104,17 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
   }
 
   BitReader decoder_;
-  uint64_t values_current_block_;
-  uint64_t num_mini_blocks_;
+  int32_t values_current_block_;
+  int32_t num_mini_blocks_;
   uint64_t values_per_mini_block_;
   uint64_t values_current_mini_block_;
 
-  int64_t min_delta_;
+  int32_t min_delta_;
   int mini_block_idx_;
   std::vector<uint8_t> delta_bit_widths_;
   int delta_bit_width_;
 
-  int64_t last_value_;
+  int32_t last_value_;
 };
 } // namespace parquet_cpp
 

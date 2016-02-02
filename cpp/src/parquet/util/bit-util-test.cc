@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 
 #include "parquet/util/bit-util.h"
+#include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/cpu-info.h"
 
 namespace parquet_cpp {
@@ -159,6 +160,24 @@ TEST(BitUtil, RoundUpDown) {
   EXPECT_EQ(BitUtil::RoundDownNumi64(63), 0);
   EXPECT_EQ(BitUtil::RoundDownNumi64(64), 1);
   EXPECT_EQ(BitUtil::RoundDownNumi64(65), 1);
+}
+
+void TestZigZag(int32_t v) {
+  uint8_t buffer[BitReader::MAX_VLQ_BYTE_LEN];
+  BitWriter writer(buffer, sizeof(buffer));
+  BitReader reader(buffer, sizeof(buffer));
+  writer.PutZigZagVlqInt(v);
+  int32_t result;
+  EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
+  EXPECT_EQ(v, result);
+}
+
+TEST(BitStreamUtil, ZigZag) {
+  TestZigZag(0);
+  TestZigZag(1);
+  TestZigZag(-1);
+  TestZigZag(std::numeric_limits<int32_t>::max());
+  TestZigZag(-std::numeric_limits<int32_t>::max());
 }
 
 } // namespace parquet_cpp

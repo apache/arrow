@@ -75,7 +75,7 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   return true;
 }
 
-inline bool BitWriter::PutVlqInt(int32_t v) {
+inline bool BitWriter::PutVlqInt(uint32_t v) {
   bool result = true;
   while ((v & 0xFFFFFF80) != 0L) {
     result &= PutAligned<uint8_t>((v & 0x7F) | 0x80, 1);
@@ -152,20 +152,18 @@ inline bool BitReader::GetVlqInt(int32_t* v) {
   return true;
 }
 
-// TODO(nongli): review/test these implementations given divergence in Impala
-// functions
+inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
+  uint32_t u = (v << 1) ^ (v >> 31);
+  return PutVlqInt(u);
+}
 
-// inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-//   uint32_t u = (v << 1) ^ (v >> 31);
-//   return PutVlqInt(u);
-// }
-
-// inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
-//   uint64_t u;
-//   if (!GetVlqInt(&u)) return false;
-//   *reinterpret_cast<uint64_t*>(v) = (u >> 1) ^ -(u & 1);
-//   return true;
-// }
+inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
+  int32_t u_signed;
+  if (!GetVlqInt(&u_signed)) return false;
+  uint32_t u = static_cast<uint32_t>(u_signed);
+  *reinterpret_cast<uint32_t*>(v) = (u >> 1) ^ -(u & 1);
+  return true;
+}
 
 } // namespace parquet_cpp
 

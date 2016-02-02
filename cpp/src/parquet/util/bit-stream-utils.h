@@ -69,7 +69,10 @@ class BitWriter {
   /// room.  The value is written byte aligned.
   /// For more details on vlq:
   /// en.wikipedia.org/wiki/Variable-length_quantity
-  bool PutVlqInt(int32_t v);
+  bool PutVlqInt(uint32_t v);
+
+  // Writes an int zigzag encoded.
+  bool PutZigZagVlqInt(int32_t v);
 
   /// Get a pointer to the next aligned byte and advance the underlying buffer
   /// by num_bytes.
@@ -135,16 +138,15 @@ class BitReader {
   /// the buffer.
   bool GetVlqInt(int32_t* v);
 
+  // Reads a zigzag encoded int `into` v.
+  bool GetZigZagVlqInt(int32_t* v);
+
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
   int bytes_left() { return max_bytes_ - (byte_offset_ + BitUtil::Ceil(bit_offset_, 8)); }
 
   /// Maximum byte length of a vlq encoded int
   static const int MAX_VLQ_BYTE_LEN = 5;
-
-  // TODO(nongli): implementations to be fixed given changes in Impala
-  // bool GetZigZagVlqInt(int64_t* v);
-  // bool PutZigZagVlqInt(int32_t v);
 
  private:
   const uint8_t* buffer_;
