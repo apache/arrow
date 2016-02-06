@@ -199,7 +199,7 @@ void ParquetFileReader::ParseMetaData() {
 
   uint32_t metadata_len = *reinterpret_cast<uint32_t*>(footer_buffer);
   size_t metadata_start = filesize - FOOTER_SIZE - metadata_len;
-  if (metadata_start < 0) {
+  if (FOOTER_SIZE + metadata_len > filesize) {
     throw ParquetException("Invalid parquet file. File is less than file metadata size.");
   }
 

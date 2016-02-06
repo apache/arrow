@@ -156,7 +156,12 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
   explicit PlainEncoder(const ColumnDescriptor* descr) :
       Encoder<Type::BOOLEAN>(descr, parquet::Encoding::PLAIN) {}
 
-  virtual size_t Encode(const std::vector<bool>& src, int num_values,
+  virtual size_t Encode(const bool* src, int num_values, uint8_t* dst) {
+    throw ParquetException("this API for encoding bools not implemented");
+    return 0;
+  }
+
+  size_t Encode(const std::vector<bool>& src, int num_values,
       uint8_t* dst) {
     size_t bytes_required = BitUtil::RoundUp(num_values, 8) / 8;
     BitWriter bit_writer(dst, bytes_required);
