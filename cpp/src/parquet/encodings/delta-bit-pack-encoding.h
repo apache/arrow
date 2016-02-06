@@ -30,11 +30,9 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  explicit DeltaBitPackDecoder(const parquet::SchemaElement* schema)
-      : Decoder<TYPE>(schema, parquet::Encoding::DELTA_BINARY_PACKED) {
-    parquet::Type::type type = type_traits<TYPE>::parquet_type;
-
-    if (type != parquet::Type::INT32 && type != parquet::Type::INT64) {
+  explicit DeltaBitPackDecoder(const ColumnDescriptor* descr)
+      : Decoder<TYPE>(descr, parquet::Encoding::DELTA_BINARY_PACKED) {
+    if (TYPE != Type::INT32 && TYPE != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
   }

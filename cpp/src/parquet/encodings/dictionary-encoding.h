@@ -30,11 +30,12 @@ class DictionaryDecoder : public Decoder<TYPE> {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  // Initializes the dictionary with values from 'dictionary'. The data in dictionary
-  // is not guaranteed to persist in memory after this call so the dictionary decoder
-  // needs to copy the data out if necessary.
-  DictionaryDecoder(const parquet::SchemaElement* schema, Decoder<TYPE>* dictionary)
-      : Decoder<TYPE>(schema, parquet::Encoding::RLE_DICTIONARY) {
+  // Initializes the dictionary with values from 'dictionary'. The data in
+  // dictionary is not guaranteed to persist in memory after this call so the
+  // dictionary decoder needs to copy the data out if necessary.
+  DictionaryDecoder(const ColumnDescriptor* descr,
+      Decoder<TYPE>* dictionary)
+      : Decoder<TYPE>(descr, parquet::Encoding::RLE_DICTIONARY) {
     Init(dictionary);
   }
 
@@ -86,14 +87,14 @@ inline void DictionaryDecoder<TYPE>::Init(Decoder<TYPE>* dictionary) {
 }
 
 template <>
-inline void DictionaryDecoder<parquet::Type::BOOLEAN>::Init(
-    Decoder<parquet::Type::BOOLEAN>* dictionary) {
+inline void DictionaryDecoder<Type::BOOLEAN>::Init(
+    Decoder<Type::BOOLEAN>* dictionary) {
   ParquetException::NYI("Dictionary encoding is not implemented for boolean values");
 }
 
 template <>
-inline void DictionaryDecoder<parquet::Type::BYTE_ARRAY>::Init(
-    Decoder<parquet::Type::BYTE_ARRAY>* dictionary) {
+inline void DictionaryDecoder<Type::BYTE_ARRAY>::Init(
+    Decoder<Type::BYTE_ARRAY>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
@@ -112,13 +113,13 @@ inline void DictionaryDecoder<parquet::Type::BYTE_ARRAY>::Init(
 }
 
 template <>
-inline void DictionaryDecoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>::Init(
-    Decoder<parquet::Type::FIXED_LEN_BYTE_ARRAY>* dictionary) {
+inline void DictionaryDecoder<Type::FIXED_LEN_BYTE_ARRAY>::Init(
+    Decoder<Type::FIXED_LEN_BYTE_ARRAY>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 
-  int fixed_len = schema_->type_length;
+  int fixed_len = descr_->type_length();
   int total_size = num_dictionary_values*fixed_len;
 
   byte_array_data_.resize(total_size);

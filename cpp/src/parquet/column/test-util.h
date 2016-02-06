@@ -28,8 +28,6 @@
 
 #include "parquet/column/page.h"
 
-using parquet::Encoding;
-
 namespace parquet_cpp {
 
 namespace test {
@@ -96,7 +94,7 @@ class DataPageBuilder {
 
   void AppendValues(const std::vector<T>& values,
       parquet::Encoding::type encoding) {
-    if (encoding != Encoding::PLAIN) {
+    if (encoding != parquet::Encoding::PLAIN) {
       ParquetException::NYI("only plain encoding currently implemented");
     }
     size_t bytes_to_encode = values.size() * sizeof(T);
@@ -150,7 +148,7 @@ class DataPageBuilder {
   // Used internally for both repetition and definition levels
   void AppendLevels(const std::vector<int16_t>& levels, int16_t max_level,
       parquet::Encoding::type encoding) {
-    if (encoding != Encoding::RLE) {
+    if (encoding != parquet::Encoding::RLE) {
       ParquetException::NYI("only rle encoding currently implemented");
     }
 

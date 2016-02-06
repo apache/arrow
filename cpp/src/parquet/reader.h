@@ -25,7 +25,10 @@
 #include <unordered_map>
 
 #include "parquet/thrift/parquet_types.h"
+
 #include "parquet/types.h"
+
+#include "parquet/schema/descriptor.h"
 
 namespace parquet_cpp {
 
@@ -122,6 +125,14 @@ class ParquetFileReader {
     return metadata_.row_groups.size();
   }
 
+  const ColumnDescriptor* column_descr(size_t i) const {
+    return schema_descr_.Column(i);
+  }
+
+  size_t num_columns() const {
+    return schema_descr_.num_columns();
+  }
+
   const parquet::FileMetaData& metadata() const {
     return metadata_;
   }
@@ -132,6 +143,8 @@ class ParquetFileReader {
   friend class RowGroupReader;
 
   parquet::FileMetaData metadata_;
+  SchemaDescriptor schema_descr_;
+
   bool parsed_metadata_;
 
   // Row group index -> RowGroupReader

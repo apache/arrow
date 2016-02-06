@@ -24,10 +24,109 @@
 #include <sstream>
 #include <string>
 
-#include "parquet/thrift/parquet_types.h"
 #include "parquet/util/compiler-util.h"
 
 namespace parquet_cpp {
+
+// ----------------------------------------------------------------------
+// Metadata enums to match Thrift metadata
+//
+// The reason we maintain our own enums is to avoid transitive dependency on
+// the compiled Thrift headers (and thus thrift/Thrift.h) for users of the
+// public API. After building parquet-cpp, you should not need to include
+// Thrift headers in your application. This means some boilerplate to convert
+// between our types and Parquet's Thrift types.
+//
+// We can also add special values like NONE to distinguish between metadata
+// values being set and not set. As an example consider ConvertedType and
+// CompressionCodec
+
+// Mirrors parquet::Type
+struct Type {
+  enum type {
+    BOOLEAN = 0,
+    INT32 = 1,
+    INT64 = 2,
+    INT96 = 3,
+    FLOAT = 4,
+    DOUBLE = 5,
+    BYTE_ARRAY = 6,
+    FIXED_LEN_BYTE_ARRAY = 7
+  };
+};
+
+// Mirrors parquet::ConvertedType
+struct LogicalType {
+  enum type {
+    NONE,
+    UTF8,
+    MAP,
+    MAP_KEY_VALUE,
+    LIST,
+    ENUM,
+    DECIMAL,
+    DATE,
+    TIME_MILLIS,
+    TIMESTAMP_MILLIS,
+    UINT_8,
+    UINT_16,
+    UINT_32,
+    UINT_64,
+    INT_8,
+    INT_16,
+    INT_32,
+    INT_64,
+    JSON,
+    BSON,
+    INTERVAL
+  };
+};
+
+// Mirrors parquet::FieldRepetitionType
+struct Repetition {
+  enum type {
+    REQUIRED = 0,
+    OPTIONAL = 1,
+    REPEATED = 2
+  };
+};
+
+// Data encodings. Mirrors parquet::Encoding
+struct Encoding {
+  enum type {
+    PLAIN = 0,
+    PLAIN_DICTIONARY = 2,
+    RLE = 3,
+    BIT_PACKED = 4,
+    DELTA_BINARY_PACKED = 5,
+    DELTA_LENGTH_BYTE_ARRAY = 6,
+    DELTA_BYTE_ARRAY = 7,
+    RLE_DICTIONARY = 8
+  };
+};
+
+// Compression, mirrors parquet::CompressionCodec
+struct Compression {
+  enum type {
+    NONE,
+    UNCOMPRESSED,
+    SNAPPY,
+    GZIP,
+    LZO
+  };
+};
+
+// parquet::PageType
+struct PageType {
+  enum type {
+    DATA_PAGE,
+    INDEX_PAGE,
+    DICTIONARY_PAGE,
+    DATA_PAGE_V2
+  };
+};
+
+// ----------------------------------------------------------------------
 
 struct ByteArray {
   uint32_t len;
@@ -80,72 +179,64 @@ struct type_traits {
 };
 
 template <>
-struct type_traits<parquet::Type::BOOLEAN> {
+struct type_traits<Type::BOOLEAN> {
   typedef bool value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::BOOLEAN;
   static constexpr size_t value_byte_size = 1;
 
   static constexpr const char* printf_code = "d";
 };
 
 template <>
-struct type_traits<parquet::Type::INT32> {
+struct type_traits<Type::INT32> {
   typedef int32_t value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::INT32;
 
   static constexpr size_t value_byte_size = 4;
   static constexpr const char* printf_code = "d";
 };
 
 template <>
-struct type_traits<parquet::Type::INT64> {
+struct type_traits<Type::INT64> {
   typedef int64_t value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::INT64;
 
   static constexpr size_t value_byte_size = 8;
   static constexpr const char* printf_code = "ld";
 };
 
 template <>
-struct type_traits<parquet::Type::INT96> {
+struct type_traits<Type::INT96> {
   typedef Int96 value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::INT96;
 
   static constexpr size_t value_byte_size = 12;
   static constexpr const char* printf_code = "s";
 };
 
 template <>
-struct type_traits<parquet::Type::FLOAT> {
+struct type_traits<Type::FLOAT> {
   typedef float value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::FLOAT;
 
   static constexpr size_t value_byte_size = 4;
   static constexpr const char* printf_code = "f";
 };
 
 template <>
-struct type_traits<parquet::Type::DOUBLE> {
+struct type_traits<Type::DOUBLE> {
   typedef double value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::DOUBLE;
 
   static constexpr size_t value_byte_size = 8;
   static constexpr const char* printf_code = "lf";
 };
 
 template <>
-struct type_traits<parquet::Type::BYTE_ARRAY> {
+struct type_traits<Type::BYTE_ARRAY> {
   typedef ByteArray value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::BYTE_ARRAY;
 
   static constexpr size_t value_byte_size = sizeof(ByteArray);
   static constexpr const char* printf_code = "s";
 };
 
 template <>
-struct type_traits<parquet::Type::FIXED_LEN_BYTE_ARRAY> {
+struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
   typedef FixedLenByteArray value_type;
-  static constexpr parquet::Type::type parquet_type = parquet::Type::FIXED_LEN_BYTE_ARRAY;
 
   static constexpr size_t value_byte_size = sizeof(FixedLenByteArray);
   static constexpr const char* printf_code = "s";
@@ -156,6 +247,38 @@ inline std::string format_fwf(int width) {
   std::stringstream ss;
   ss << "%-" << width << type_traits<TYPE>::printf_code;
   return ss.str();
+}
+
+static inline std::string type_to_string(Type::type t) {
+  switch (t) {
+    case Type::BOOLEAN:
+      return "BOOLEAN";
+      break;
+    case Type::INT32:
+      return "INT32";
+      break;
+    case Type::INT64:
+      return "INT64";
+      break;
+    case Type::INT96:
+      return "INT96";
+      break;
+    case Type::FLOAT:
+      return "FLOAT";
+      break;
+    case Type::DOUBLE:
+      return "DOUBLE";
+      break;
+    case Type::BYTE_ARRAY:
+      return "BYTE_ARRAY";
+      break;
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return "FIXED_LEN_BYTE_ARRAY";
+      break;
+    default:
+      return "UNKNOWN";
+      break;
+  }
 }
 
 } // namespace parquet_cpp

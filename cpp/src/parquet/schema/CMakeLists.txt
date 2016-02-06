@@ -15,42 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: util
+# Headers: top level
 install(FILES
-  bit-stream-utils.h
-  bit-stream-utils.inline.h
-  bit-util.h
-  cpu-info.h
-  sse-info.h
-  compiler-util.h
-  logging.h
-  macros.h
-  rle-encoding.h
-  stopwatch.h
-  input_stream.h
-  DESTINATION include/parquet/util)
+  builder.h
+  converter.h
+  descriptor.h
+  types.h
+  DESTINATION include/parquet/schema)
 
-add_library(parquet_util STATIC
-  input_stream.cc
-  cpu-info.cc
-)
-
-add_library(parquet_test_main
-  test_main.cc)
-
-if (APPLE)
-  target_link_libraries(parquet_test_main
-    gtest
-    dl)
-  set_target_properties(parquet_test_main
-        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-else()
-  target_link_libraries(parquet_test_main
-    dl
-    gtest
-    pthread
-  )
-endif()
-
-ADD_PARQUET_TEST(bit-util-test)
-ADD_PARQUET_TEST(rle-test)
+ADD_PARQUET_TEST(schema-converter-test)
+ADD_PARQUET_TEST(schema-descriptor-test)
+ADD_PARQUET_TEST(schema-printer-test)
+ADD_PARQUET_TEST(schema-types-test)

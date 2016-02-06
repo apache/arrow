@@ -30,22 +30,9 @@
 #include "parquet/types.h"
 
 #include "parquet/column/page.h"
-
-#include "parquet/thrift/parquet_constants.h"
-#include "parquet/thrift/parquet_types.h"
 #include "parquet/encodings/encodings.h"
+#include "parquet/schema/descriptor.h"
 #include "parquet/util/rle-encoding.h"
-
-namespace std {
-
-template <>
-struct hash<parquet::Encoding::type> {
-  std::size_t operator()(const parquet::Encoding::type& k) const {
-    return hash<int>()(static_cast<int>(k));
-  }
-};
-
-} // namespace std
 
 namespace parquet_cpp {
 
@@ -54,9 +41,9 @@ class Scanner;
 
 class ColumnReader {
  public:
-  ColumnReader(const parquet::SchemaElement*, std::unique_ptr<PageReader>);
+  ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>);
 
-  static std::shared_ptr<ColumnReader> Make(const parquet::SchemaElement*,
+  static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor*,
       std::unique_ptr<PageReader>);
 
   // Returns true if there are still values in this column.
@@ -71,12 +58,12 @@ class ColumnReader {
     return true;
   }
 
-  parquet::Type::type type() const {
-    return schema_->type;
+  Type::type type() const {
+    return descr_->physical_type();
   }
 
-  const parquet::SchemaElement* schema() const {
-    return schema_;
+  const ColumnDescriptor* descr() const {
+    return descr_;
   }
 
  protected:
@@ -92,7 +79,7 @@ class ColumnReader {
   // Returns the number of decoded repetition levels
   size_t ReadRepetitionLevels(size_t batch_size, int16_t* levels);
 
-  const parquet::SchemaElement* schema_;
+  const ColumnDescriptor* descr_;
 
   std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
@@ -125,7 +112,7 @@ class TypedColumnReader : public ColumnReader {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  TypedColumnReader(const parquet::SchemaElement* schema,
+  TypedColumnReader(const ColumnDescriptor* schema,
       std::unique_ptr<PageReader> pager) :
       ColumnReader(schema, std::move(pager)),
       current_decoder_(NULL) {
@@ -162,7 +149,7 @@ class TypedColumnReader : public ColumnReader {
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
-  std::unordered_map<parquet::Encoding::type, std::shared_ptr<DecoderType> > decoders_;
+  std::unordered_map<int, std::shared_ptr<DecoderType> > decoders_;
 
   void ConfigureDictionary(const DictionaryPage* page);
 
@@ -227,14 +214,14 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
 }
 
 
-typedef TypedColumnReader<parquet::Type::BOOLEAN> BoolReader;
-typedef TypedColumnReader<parquet::Type::INT32> Int32Reader;
-typedef TypedColumnReader<parquet::Type::INT64> Int64Reader;
-typedef TypedColumnReader<parquet::Type::INT96> Int96Reader;
-typedef TypedColumnReader<parquet::Type::FLOAT> FloatReader;
-typedef TypedColumnReader<parquet::Type::DOUBLE> DoubleReader;
-typedef TypedColumnReader<parquet::Type::BYTE_ARRAY> ByteArrayReader;
-typedef TypedColumnReader<parquet::Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
+typedef TypedColumnReader<Type::BOOLEAN> BoolReader;
+typedef TypedColumnReader<Type::INT32> Int32Reader;
+typedef TypedColumnReader<Type::INT64> Int64Reader;
+typedef TypedColumnReader<Type::INT96> Int96Reader;
+typedef TypedColumnReader<Type::FLOAT> FloatReader;
+typedef TypedColumnReader<Type::DOUBLE> DoubleReader;
+typedef TypedColumnReader<Type::BYTE_ARRAY> ByteArrayReader;
+typedef TypedColumnReader<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
 
 } // namespace parquet_cpp
 

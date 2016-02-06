@@ -36,10 +36,10 @@ using std::vector;
 using std::shared_ptr;
 using parquet::FieldRepetitionType;
 using parquet::SchemaElement;
-using parquet::Encoding;
-using parquet::Type;
 
 namespace parquet_cpp {
+
+using schema::NodePtr;
 
 namespace test {
 
@@ -49,9 +49,9 @@ class TestPrimitiveReader : public ::testing::Test {
 
   void TearDown() {}
 
-  void InitReader(const SchemaElement* element) {
+  void InitReader(const ColumnDescriptor* descr) {
     pager_.reset(new test::MockPageReader(pages_));
-    reader_ = ColumnReader::Make(element, std::move(pager_));
+    reader_ = ColumnReader::Make(descr, std::move(pager_));
   }
 
  protected:
@@ -77,18 +77,17 @@ static vector<T> slice(const vector<T>& values, size_t start, size_t end) {
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
   vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
   size_t num_values = values.size();
-  Encoding::type value_encoding = Encoding::PLAIN;
+  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
 
   vector<uint8_t> page1;
   test::DataPageBuilder<Type::INT32> page_builder(&page1);
-  page_builder.AppendValues(values, Encoding::PLAIN);
+  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
   pages_.push_back(page_builder.Finish());
 
   // TODO: simplify this
-  SchemaElement element;
-  element.__set_type(Type::INT32);
-  element.__set_repetition_type(FieldRepetitionType::REQUIRED);
-  InitReader(&element);
+  NodePtr type = schema::Int32("a", Repetition::REQUIRED);
+  ColumnDescriptor descr(type, 0, 0);
+  InitReader(&descr);
 
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 
@@ -108,22 +107,20 @@ TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
   vector<int16_t> def_levels = {1, 0, 0, 1, 1, 0, 0, 0, 1, 1};
 
   size_t num_values = values.size();
-  Encoding::type value_encoding = Encoding::PLAIN;
+  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
 
   vector<uint8_t> page1;
   test::DataPageBuilder<Type::INT32> page_builder(&page1);
 
   // Definition levels precede the values
-  page_builder.AppendDefLevels(def_levels, 1, Encoding::RLE);
-  page_builder.AppendValues(values, Encoding::PLAIN);
+  page_builder.AppendDefLevels(def_levels, 1, parquet::Encoding::RLE);
+  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
 
   pages_.push_back(page_builder.Finish());
 
-  // TODO: simplify this
-  SchemaElement element;
-  element.__set_type(Type::INT32);
-  element.__set_repetition_type(FieldRepetitionType::OPTIONAL);
-  InitReader(&element);
+  NodePtr type = schema::Int32("a", Repetition::OPTIONAL);
+  ColumnDescriptor descr(type, 1, 0);
+  InitReader(&descr);
 
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 

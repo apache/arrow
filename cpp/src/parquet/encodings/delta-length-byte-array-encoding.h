@@ -24,11 +24,11 @@
 
 namespace parquet_cpp {
 
-class DeltaLengthByteArrayDecoder : public Decoder<parquet::Type::BYTE_ARRAY> {
+class DeltaLengthByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
  public:
-  explicit DeltaLengthByteArrayDecoder(const parquet::SchemaElement* schema)
-      : Decoder<parquet::Type::BYTE_ARRAY>(
-          schema, parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY),
+  explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr)
+      : Decoder<Type::BYTE_ARRAY>(descr,
+          parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY),
       len_decoder_(nullptr) {
   }
 
@@ -57,8 +57,8 @@ class DeltaLengthByteArrayDecoder : public Decoder<parquet::Type::BYTE_ARRAY> {
   }
 
  private:
-  using Decoder<parquet::Type::BYTE_ARRAY>::num_values_;
-  DeltaBitPackDecoder<parquet::Type::INT32> len_decoder_;
+  using Decoder<Type::BYTE_ARRAY>::num_values_;
+  DeltaBitPackDecoder<Type::INT32> len_decoder_;
   const uint8_t* data_;
   int len_;
 };

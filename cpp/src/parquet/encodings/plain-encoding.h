@@ -23,8 +23,6 @@
 #include <algorithm>
 #include <vector>
 
-using parquet::Type;
-
 namespace parquet_cpp {
 
 // ----------------------------------------------------------------------
@@ -36,8 +34,8 @@ class PlainDecoder : public Decoder<TYPE> {
   typedef typename type_traits<TYPE>::value_type T;
   using Decoder<TYPE>::num_values_;
 
-  explicit PlainDecoder(const parquet::SchemaElement* schema) :
-      Decoder<TYPE>(schema, parquet::Encoding::PLAIN),
+  explicit PlainDecoder(const ColumnDescriptor* descr) :
+      Decoder<TYPE>(descr, parquet::Encoding::PLAIN),
       data_(NULL), len_(0) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
@@ -85,7 +83,7 @@ template <>
 inline int PlainDecoder<Type::FIXED_LEN_BYTE_ARRAY>::Decode(
     FixedLenByteArray* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
-  int len = schema_->type_length;
+  int len = descr_->type_length();
   for (int i = 0; i < max_values; ++i) {
     if (len_ < len) ParquetException::EofException();
     buffer[i].ptr = data_;
@@ -99,8 +97,8 @@ inline int PlainDecoder<Type::FIXED_LEN_BYTE_ARRAY>::Decode(
 template <>
 class PlainDecoder<Type::BOOLEAN> : public Decoder<Type::BOOLEAN> {
  public:
-  explicit PlainDecoder(const parquet::SchemaElement* schema) :
-      Decoder<Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
+  explicit PlainDecoder(const ColumnDescriptor* descr) :
+      Decoder<Type::BOOLEAN>(descr, parquet::Encoding::PLAIN) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -146,8 +144,8 @@ class PlainEncoder : public Encoder<TYPE> {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  explicit PlainEncoder(const parquet::SchemaElement* schema) :
-      Encoder<TYPE>(schema, parquet::Encoding::PLAIN) {}
+  explicit PlainEncoder(const ColumnDescriptor* descr) :
+      Encoder<TYPE>(descr, parquet::Encoding::PLAIN) {}
 
   virtual size_t Encode(const T* src, int num_values, uint8_t* dst);
 };
@@ -155,8 +153,8 @@ class PlainEncoder : public Encoder<TYPE> {
 template <>
 class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
  public:
-  explicit PlainEncoder(const parquet::SchemaElement* schema) :
-      Encoder<Type::BOOLEAN>(schema, parquet::Encoding::PLAIN) {}
+  explicit PlainEncoder(const ColumnDescriptor* descr) :
+      Encoder<Type::BOOLEAN>(descr, parquet::Encoding::PLAIN) {}
 
   virtual size_t Encode(const std::vector<bool>& src, int num_values,
       uint8_t* dst) {

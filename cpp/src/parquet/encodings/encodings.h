@@ -26,9 +26,13 @@
 #include "parquet/util/rle-encoding.h"
 #include "parquet/util/bit-stream-utils.inline.h"
 
+#include "parquet/schema/descriptor.h"
+
+#include "parquet/thrift/parquet_types.h"
+
 namespace parquet_cpp {
 
-// The Decoder template is parameterized on parquet::Type::type
+// The Decoder template is parameterized on parquet_cpp::Type::type
 template <int TYPE>
 class Decoder {
  public:
@@ -55,12 +59,12 @@ class Decoder {
   const parquet::Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Decoder(const parquet::SchemaElement* schema,
+  explicit Decoder(const ColumnDescriptor* descr,
       const parquet::Encoding::type& encoding)
-      : schema_(schema), encoding_(encoding), num_values_(0) {}
+      : descr_(descr), encoding_(encoding), num_values_(0) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
-  const parquet::SchemaElement* schema_;
+  const ColumnDescriptor* descr_;
 
   const parquet::Encoding::type encoding_;
   int num_values_;
@@ -91,12 +95,12 @@ class Encoder {
   const parquet::Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Encoder(const parquet::SchemaElement* schema,
+  explicit Encoder(const ColumnDescriptor* descr,
       const parquet::Encoding::type& encoding)
-      : schema_(schema), encoding_(encoding) {}
+      : descr_(descr), encoding_(encoding) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
-  const parquet::SchemaElement* schema_;
+  const ColumnDescriptor* descr_;
   const parquet::Encoding::type encoding_;
 };
 
