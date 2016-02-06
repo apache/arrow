@@ -35,21 +35,22 @@ add_library(parquet_util STATIC
   cpu-info.cc
 )
 
-add_library(parquet_test_main
-  test_main.cc)
-
-if (APPLE)
-  target_link_libraries(parquet_test_main
-    gtest
-    dl)
-  set_target_properties(parquet_test_main
-        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-else()
-  target_link_libraries(parquet_test_main
-    dl
-    gtest
-    pthread
-  )
+if(PARQUET_BUILD_TESTS)
+  add_library(parquet_test_main
+	test_main.cc)
+  if (APPLE)
+	target_link_libraries(parquet_test_main
+      gtest
+      dl)
+	set_target_properties(parquet_test_main
+      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  else()
+	target_link_libraries(parquet_test_main
+      dl
+      gtest
+      pthread
+	  )
+  endif()
 endif()
 
 ADD_PARQUET_TEST(bit-util-test)
