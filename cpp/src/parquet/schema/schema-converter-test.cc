@@ -125,7 +125,7 @@ TEST_F(TestSchemaConverter, NotEnoughChildren) {
   SchemaElement elt;
   std::vector<SchemaElement> elements;
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2));
-  ASSERT_THROW(Convert(&elements[0], 2), ParquetException);
+  ASSERT_THROW(Convert(&elements[0], 1), ParquetException);
 }
 
 // ----------------------------------------------------------------------
