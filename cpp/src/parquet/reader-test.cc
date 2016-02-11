@@ -17,12 +17,13 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "parquet/reader.h"
+#include "parquet/file/reader.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
 #include "parquet/util/input.h"
@@ -41,24 +42,22 @@ class TestAllTypesPlain : public ::testing::Test {
 
     std::stringstream ss;
     ss << dir_string << "/" << "alltypes_plain.parquet";
-    file_.Open(ss.str());
-    reader_.Open(&file_);
+
+    reader_ = ParquetFileReader::OpenFile(ss.str());
   }
 
   void TearDown() {}
 
  protected:
-  LocalFileSource file_;
-  ParquetFileReader reader_;
+  std::unique_ptr<ParquetFileReader> reader_;
 };
 
 
-TEST_F(TestAllTypesPlain, ParseMetaData) {
-  reader_.ParseMetaData();
+TEST_F(TestAllTypesPlain, NoopConstructDestruct) {
 }
 
 TEST_F(TestAllTypesPlain, TestBatchRead) {
-  RowGroupReader* group = reader_.RowGroup(0);
+  RowGroupReader* group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Reader> col =
@@ -86,7 +85,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
 }
 
 TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
-  RowGroupReader* group = reader_.RowGroup(0);
+  RowGroupReader* group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
@@ -103,7 +102,7 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
 
 
 TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
-  RowGroupReader* group = reader_.RowGroup(0);
+  RowGroupReader* group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
@@ -118,7 +117,7 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::stringstream ss;
 
   // Automatically parses metadata
-  reader_.DebugPrint(ss);
+  reader_->DebugPrint(ss);
 
   std::string result = ss.str();
   ASSERT_GT(result.size(), 0);

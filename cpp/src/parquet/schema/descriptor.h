@@ -98,6 +98,10 @@ class SchemaDescriptor {
     return leaves_.size();
   }
 
+  const schema::NodePtr& schema() const {
+    return schema_;
+  }
+
  private:
   friend class ColumnDescriptor;
 

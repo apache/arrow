@@ -27,8 +27,8 @@
 #include <vector>
 
 #include "parquet/exception.h"
-#include "parquet/reader.h"
 #include "parquet/column/reader.h"
+#include "parquet/file/reader.h"
 
 #include "parquet/util/input.h"
 #include "parquet/util/output.h"

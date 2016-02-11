@@ -15,11 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
 install(FILES
-  parquet.h
-  exception.h
-  types.h
-  DESTINATION include/parquet)
-
-ADD_PARQUET_TEST(reader-test)
+  reader.h
+  DESTINATION include/parquet/file)
