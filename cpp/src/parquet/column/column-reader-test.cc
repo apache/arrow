@@ -29,6 +29,7 @@
 #include "parquet/column/reader.h"
 #include "parquet/column/test-util.h"
 
+#include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 
 using std::string;
@@ -60,31 +61,15 @@ class TestPrimitiveReader : public ::testing::Test {
   vector<shared_ptr<Page> > pages_;
 };
 
-template <typename T>
-static vector<T> slice(const vector<T>& values, size_t start, size_t end) {
-  if (end < start) {
-    return vector<T>(0);
-  }
-
-  vector<T> out(end - start);
-  for (size_t i = start; i < end; ++i) {
-    out[i - start] = values[i];
-  }
-  return out;
-}
-
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
   vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  size_t num_values = values.size();
-  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
 
-  vector<uint8_t> page1;
-  test::DataPageBuilder<Type::INT32> page_builder(&page1);
-  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
-  pages_.push_back(page_builder.Finish());
+  std::vector<uint8_t> buffer;
+  std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values, {}, 0,
+    {}, 0, &buffer);
+  pages_.push_back(page);
 
-  // TODO: simplify this
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
   ColumnDescriptor descr(type, 0, 0);
   InitReader(&descr);
@@ -102,21 +87,16 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
   ASSERT_TRUE(vector_equal(result, values));
 }
 
+
 TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
   vector<int32_t> values = {1, 2, 3, 4, 5};
   vector<int16_t> def_levels = {1, 0, 0, 1, 1, 0, 0, 0, 1, 1};
 
-  size_t num_values = values.size();
-  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
+  std::vector<uint8_t> buffer;
+  std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values, def_levels, 1,
+    {}, 0, &buffer);
 
-  vector<uint8_t> page1;
-  test::DataPageBuilder<Type::INT32> page_builder(&page1);
-
-  // Definition levels precede the values
-  page_builder.AppendDefLevels(def_levels, 1, parquet::Encoding::RLE);
-  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
-
-  pages_.push_back(page_builder.Finish());
+  pages_.push_back(page);
 
   NodePtr type = schema::Int32("a", Repetition::OPTIONAL);
   ColumnDescriptor descr(type, 1, 0);
@@ -159,18 +139,11 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   vector<int16_t> def_levels = {2, 1, 1, 2, 2, 1, 1, 2, 2, 1};
   vector<int16_t> rep_levels = {0, 1, 1, 0, 0, 1, 1, 0, 0, 1};
 
-  size_t num_values = values.size();
-  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
+  std::vector<uint8_t> buffer;
+  std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values,
+      def_levels, 2, rep_levels, 1, &buffer);
 
-  vector<uint8_t> page1;
-  test::DataPageBuilder<Type::INT32> page_builder(&page1);
-
-  // Definition levels precede the values
-  page_builder.AppendRepLevels(rep_levels, 1, parquet::Encoding::RLE);
-  page_builder.AppendDefLevels(def_levels, 2, parquet::Encoding::RLE);
-  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
-
-  pages_.push_back(page_builder.Finish());
+  pages_.push_back(page);
 
   NodePtr type = schema::Int32("a", Repetition::REPEATED);
   ColumnDescriptor descr(type, 2, 1);

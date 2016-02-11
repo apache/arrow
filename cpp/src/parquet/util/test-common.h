@@ -29,6 +29,16 @@ namespace parquet_cpp {
 namespace test {
 
 template <typename T>
+static inline void assert_vector_equal(const vector<T>& left,
+    const vector<T>& right) {
+  ASSERT_EQ(left.size(), right.size());
+
+  for (size_t i = 0; i < left.size(); ++i) {
+    ASSERT_EQ(left[i], right[i]) << i;
+  }
+}
+
+template <typename T>
 static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
   if (left.size() != right.size()) {
     return false;
@@ -45,6 +55,19 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
   }
 
   return true;
+}
+
+template <typename T>
+static vector<T> slice(const vector<T>& values, size_t start, size_t end) {
+  if (end < start) {
+    return vector<T>(0);
+  }
+
+  vector<T> out(end - start);
+  for (size_t i = start; i < end; ++i) {
+    out[i - start] = values[i];
+  }
+  return out;
 }
 
 static inline vector<bool> flip_coins_seed(size_t n, double p, uint32_t seed) {

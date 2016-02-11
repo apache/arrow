@@ -23,6 +23,7 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
+#include "parquet/util/output.h"
 #include "parquet/util/rle-encoding.h"
 #include "parquet/util/bit-stream-utils.inline.h"
 
@@ -82,14 +83,9 @@ class Encoder {
 
   virtual ~Encoder() {}
 
-  // TODO(wesm): use an output stream
-
   // Subclasses should override the ones they support
-  //
-  // @returns: the number of bytes written to dst
-  virtual size_t Encode(const T* src, int num_values, uint8_t* dst) {
+  virtual void Encode(const T* src, int num_values, OutputStream* dst) {
     throw ParquetException("Encoder does not implement this type.");
-    return 0;
   }
 
   const parquet::Encoding::type encoding() const { return encoding_; }

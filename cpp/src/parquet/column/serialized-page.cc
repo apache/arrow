@@ -21,7 +21,6 @@
 
 #include "parquet/exception.h"
 #include "parquet/thrift/util.h"
-#include "parquet/util/input_stream.h"
 
 using parquet::PageType;
 
@@ -52,7 +51,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   while (true) {
-    int bytes_read = 0;
+    int64_t bytes_read = 0;
     const uint8_t* buffer = stream_->Peek(DATA_PAGE_SIZE, &bytes_read);
     if (bytes_read == 0) {
       return std::shared_ptr<Page>(nullptr);

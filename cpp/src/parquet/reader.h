@@ -27,53 +27,12 @@
 #include "parquet/thrift/parquet_types.h"
 
 #include "parquet/types.h"
-
 #include "parquet/schema/descriptor.h"
+#include "parquet/util/input.h"
 
 namespace parquet_cpp {
 
 class ColumnReader;
-
-class FileLike {
- public:
-  virtual ~FileLike() {}
-
-  virtual void Close() = 0;
-  virtual size_t Size() = 0;
-  virtual size_t Tell() = 0;
-  virtual void Seek(size_t pos) = 0;
-
-  // Returns actual number of bytes read
-  virtual size_t Read(size_t nbytes, uint8_t* out) = 0;
-};
-
-
-class LocalFile : public FileLike {
- public:
-  LocalFile() : file_(nullptr), is_open_(false) {}
-  virtual ~LocalFile();
-
-  void Open(const std::string& path);
-
-  virtual void Close();
-  virtual size_t Size();
-  virtual size_t Tell();
-  virtual void Seek(size_t pos);
-
-  // Returns actual number of bytes read
-  virtual size_t Read(size_t nbytes, uint8_t* out);
-
-  bool is_open() const { return is_open_;}
-  const std::string& path() const { return path_;}
-
- private:
-  void CloseFile();
-
-  std::string path_;
-  FILE* file_;
-  bool is_open_;
-};
-
 class ParquetFileReader;
 
 class RowGroupReader {
@@ -112,7 +71,7 @@ class ParquetFileReader {
 
   // This class does _not_ take ownership of the file. You must manage its
   // lifetime separately
-  void Open(FileLike* buffer);
+  void Open(RandomAccessSource* buffer);
 
   void Close();
 
@@ -150,7 +109,7 @@ class ParquetFileReader {
   // Row group index -> RowGroupReader
   std::unordered_map<int, std::shared_ptr<RowGroupReader> > row_group_readers_;
 
-  FileLike* buffer_;
+  RandomAccessSource* buffer_;
 };
 
 

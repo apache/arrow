@@ -147,7 +147,7 @@ class PlainEncoder : public Encoder<TYPE> {
   explicit PlainEncoder(const ColumnDescriptor* descr) :
       Encoder<TYPE>(descr, parquet::Encoding::PLAIN) {}
 
-  virtual size_t Encode(const T* src, int num_values, uint8_t* dst);
+  virtual void Encode(const T* src, int num_values, OutputStream* dst);
 };
 
 template <>
@@ -156,43 +156,46 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
   explicit PlainEncoder(const ColumnDescriptor* descr) :
       Encoder<Type::BOOLEAN>(descr, parquet::Encoding::PLAIN) {}
 
-  virtual size_t Encode(const bool* src, int num_values, uint8_t* dst) {
+  virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
     throw ParquetException("this API for encoding bools not implemented");
-    return 0;
   }
 
-  size_t Encode(const std::vector<bool>& src, int num_values,
-      uint8_t* dst) {
+  void Encode(const std::vector<bool>& src, int num_values, OutputStream* dst) {
     size_t bytes_required = BitUtil::RoundUp(num_values, 8) / 8;
-    BitWriter bit_writer(dst, bytes_required);
+
+    // TODO(wesm)
+    // Use a temporary buffer for now and copy, because the BitWriter is not
+    // aware of OutputStream. Later we can add some kind of Request/Flush API
+    // to OutputStream
+    std::vector<uint8_t> tmp_buffer(bytes_required);
+
+    BitWriter bit_writer(&tmp_buffer[0], bytes_required);
     for (size_t i = 0; i < num_values; ++i) {
       bit_writer.PutValue(src[i], 1);
     }
     bit_writer.Flush();
-    return bit_writer.bytes_written();
+
+    // Write the result to the output stream
+    dst->Write(bit_writer.buffer(), bit_writer.bytes_written());
   }
 };
 
 template <int TYPE>
-inline size_t PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
-    uint8_t* dst) {
-  size_t nbytes = num_values * sizeof(T);
-  memcpy(dst, buffer, nbytes);
-  return nbytes;
+inline void PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
+    OutputStream* dst) {
+  dst->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
 }
 
 template <>
-inline size_t PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
-    int num_values, uint8_t* dst) {
+inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
+    int num_values, OutputStream* dst) {
   ParquetException::NYI("byte array encoding");
-  return 0;
 }
 
 template <>
-inline size_t PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
-    const FixedLenByteArray* src, int num_values, uint8_t* dst) {
+inline void PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
+    const FixedLenByteArray* src, int num_values, OutputStream* dst) {
   ParquetException::NYI("FLBA encoding");
-  return 0;
 }
 
 } // namespace parquet_cpp

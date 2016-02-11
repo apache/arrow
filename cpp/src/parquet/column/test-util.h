@@ -52,26 +52,22 @@ class MockPageReader : public PageReader {
   size_t page_index_;
 };
 
-// TODO(wesm): this is only used for testing for now
-
-static constexpr int DEFAULT_DATA_PAGE_SIZE = 64 * 1024;
-static constexpr int INIT_BUFFER_SIZE = 1024;
+// TODO(wesm): this is only used for testing for now. Refactor to form part of
+// primary file write path
 
 template <int TYPE>
 class DataPageBuilder {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  // The passed vector is the owner of the page's data
-  explicit DataPageBuilder(std::vector<uint8_t>* out) :
-      out_(out),
-      buffer_size_(0),
+  // This class writes data and metadata to the passed inputs
+  explicit DataPageBuilder(InMemoryOutputStream* sink, parquet::DataPageHeader* header) :
+      sink_(sink),
+      header_(header),
       num_values_(0),
       have_def_levels_(false),
       have_rep_levels_(false),
       have_values_(false) {
-    out_->resize(INIT_BUFFER_SIZE);
-    buffer_capacity_ = INIT_BUFFER_SIZE;
   }
 
   void AppendDefLevels(const std::vector<int16_t>& levels,
@@ -79,7 +75,7 @@ class DataPageBuilder {
     AppendLevels(levels, max_level, encoding);
 
     num_values_ = std::max(levels.size(), num_values_);
-    header_.__set_definition_level_encoding(encoding);
+    header_->__set_definition_level_encoding(encoding);
     have_def_levels_ = true;
   }
 
@@ -88,7 +84,7 @@ class DataPageBuilder {
     AppendLevels(levels, max_level, encoding);
 
     num_values_ = std::max(levels.size(), num_values_);
-    header_.__set_repetition_level_encoding(encoding);
+    header_->__set_repetition_level_encoding(encoding);
     have_rep_levels_ = true;
   }
 
@@ -98,52 +94,30 @@ class DataPageBuilder {
       ParquetException::NYI("only plain encoding currently implemented");
     }
     size_t bytes_to_encode = values.size() * sizeof(T);
-    Reserve(bytes_to_encode);
 
     PlainEncoder<TYPE> encoder(nullptr);
-    size_t nbytes = encoder.Encode(&values[0], values.size(), Head());
-    // In case for some reason it's fewer than bytes_to_encode
-    buffer_size_ += nbytes;
+    encoder.Encode(&values[0], values.size(), sink_);
 
     num_values_ = std::max(values.size(), num_values_);
-    header_.__set_encoding(encoding);
+    header_->__set_encoding(encoding);
     have_values_ = true;
   }
 
-  std::shared_ptr<Page> Finish() {
+  void Finish() {
     if (!have_values_) {
       throw ParquetException("A data page must at least contain values");
     }
-    header_.__set_num_values(num_values_);
-    return std::make_shared<DataPage>(&(*out_)[0], buffer_size_, header_);
+    header_->__set_num_values(num_values_);
   }
 
  private:
-  std::vector<uint8_t>* out_;
-
-  size_t buffer_size_;
-  size_t buffer_capacity_;
-
-  parquet::DataPageHeader header_;
+  InMemoryOutputStream* sink_;
+  parquet::DataPageHeader* header_;
 
   size_t num_values_;
-
   bool have_def_levels_;
   bool have_rep_levels_;
   bool have_values_;
-
-  void Reserve(size_t nbytes) {
-    while ((nbytes + buffer_size_) > buffer_capacity_) {
-      // TODO(wesm): limit to one reserve when this loop runs more than once
-      size_t new_capacity = 2 * buffer_capacity_;
-      out_->resize(new_capacity);
-      buffer_capacity_ = new_capacity;
-    }
-  }
-
-  uint8_t* Head() {
-    return &(*out_)[buffer_size_];
-  }
 
   // Used internally for both repetition and definition levels
   void AppendLevels(const std::vector<int16_t>& levels, int16_t max_level,
@@ -153,9 +127,11 @@ class DataPageBuilder {
     }
 
     // TODO: compute a more precise maximum size for the encoded levels
-    std::vector<uint8_t> encode_buffer(DEFAULT_DATA_PAGE_SIZE);
+    std::vector<uint8_t> encode_buffer(levels.size() * 4);
 
-
+    // We encode into separate memory from the output stream because the
+    // RLE-encoded bytes have to be preceded in the stream by their absolute
+    // size.
     LevelEncoder encoder;
     encoder.Init(encoding, max_level, levels.size(),
         encode_buffer.data(), encode_buffer.size());
@@ -163,14 +139,42 @@ class DataPageBuilder {
     encoder.Encode(levels.size(), levels.data());
 
     uint32_t rle_bytes = encoder.len();
-    size_t levels_footprint = sizeof(uint32_t) + rle_bytes;
-    Reserve(levels_footprint);
-
-    *reinterpret_cast<uint32_t*>(Head()) = rle_bytes;
-    memcpy(Head() + sizeof(uint32_t), encode_buffer.data(), rle_bytes);
-    buffer_size_ += levels_footprint;
+    sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(uint32_t));
+    sink_->Write(encode_buffer.data(), rle_bytes);
   }
 };
+
+template <int TYPE, typename T>
+static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
+    const std::vector<int16_t>& def_levels, int16_t max_def_level,
+    const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+    std::vector<uint8_t>* out_buffer) {
+  size_t num_values = values.size();
+
+  InMemoryOutputStream page_stream;
+  parquet::DataPageHeader page_header;
+
+  test::DataPageBuilder<TYPE> page_builder(&page_stream, &page_header);
+
+  if (!rep_levels.empty()) {
+    page_builder.AppendRepLevels(rep_levels, max_rep_level,
+        parquet::Encoding::RLE);
+  }
+
+  if (!def_levels.empty()) {
+    page_builder.AppendDefLevels(def_levels, max_def_level,
+        parquet::Encoding::RLE);
+  }
+
+  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
+  page_builder.Finish();
+
+  // Hand off the data stream to the passed std::vector
+  page_stream.Transfer(out_buffer);
+
+  return std::make_shared<DataPage>(&(*out_buffer)[0], out_buffer->size(), page_header);
+}
+
 
 } // namespace test
 

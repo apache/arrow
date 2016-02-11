@@ -15,22 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_PARQUET_H
-#define PARQUET_PARQUET_H
-
-#include <exception>
-#include <cstdint>
-#include <cstring>
 #include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
-#include "parquet/exception.h"
-#include "parquet/reader.h"
-#include "parquet/column/reader.h"
+#include <gtest/gtest.h>
 
-#include "parquet/util/input.h"
 #include "parquet/util/output.h"
+#include "parquet/util/test-common.h"
 
-#endif
+namespace parquet_cpp {
+
+TEST(TestInMemoryOutputStream, Basics) {
+  std::unique_ptr<InMemoryOutputStream> stream(new InMemoryOutputStream(8));
+
+  std::vector<uint8_t> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+
+  stream->Write(&data[0], 4);
+  ASSERT_EQ(4, stream->Tell());
+  stream->Write(&data[4], data.size() - 4);
+
+  std::vector<uint8_t> out;
+  stream->Transfer(&out);
+
+  test::assert_vector_equal(data, out);
+
+  ASSERT_EQ(0, stream->Tell());
+}
+
+} // namespace parquet_cpp

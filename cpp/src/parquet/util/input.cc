@@ -15,27 +15,76 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/util/input_stream.h"
+#include "parquet/util/input.h"
 
 #include <algorithm>
+#include <string>
 
 #include "parquet/exception.h"
 
 namespace parquet_cpp {
 
+// ----------------------------------------------------------------------
+// LocalFileSource
+
+LocalFileSource::~LocalFileSource() {
+  CloseFile();
+}
+
+void LocalFileSource::Open(const std::string& path) {
+  path_ = path;
+  file_ = fopen(path_.c_str(), "r");
+  is_open_ = true;
+}
+
+void LocalFileSource::Close() {
+  // Pure virtual
+  CloseFile();
+}
+
+void LocalFileSource::CloseFile() {
+  if (is_open_) {
+    fclose(file_);
+    is_open_ = false;
+  }
+}
+
+size_t LocalFileSource::Size() {
+  fseek(file_, 0L, SEEK_END);
+  return Tell();
+}
+
+void LocalFileSource::Seek(size_t pos) {
+  fseek(file_, pos, SEEK_SET);
+}
+
+size_t LocalFileSource::Tell() {
+  return ftell(file_);
+}
+
+size_t LocalFileSource::Read(size_t nbytes, uint8_t* buffer) {
+  return fread(buffer, 1, nbytes, file_);
+}
+
+// ----------------------------------------------------------------------
+// InMemoryInputStream
+
 InMemoryInputStream::InMemoryInputStream(const uint8_t* buffer, int64_t len) :
     buffer_(buffer), len_(len), offset_(0) {}
 
-const uint8_t* InMemoryInputStream::Peek(int num_to_peek, int* num_bytes) {
+const uint8_t* InMemoryInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
   *num_bytes = std::min(static_cast<int64_t>(num_to_peek), len_ - offset_);
   return buffer_ + offset_;
 }
 
-const uint8_t* InMemoryInputStream::Read(int num_to_read, int* num_bytes) {
+const uint8_t* InMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
   const uint8_t* result = Peek(num_to_read, num_bytes);
   offset_ += *num_bytes;
   return result;
 }
+
+// ----------------------------------------------------------------------
+// ScopedInMemoryInputStream:: like InMemoryInputStream but owns its memory
 
 ScopedInMemoryInputStream::ScopedInMemoryInputStream(int64_t len) {
   buffer_.resize(len);
@@ -50,13 +99,11 @@ int64_t ScopedInMemoryInputStream::size() {
   return buffer_.size();
 }
 
-const uint8_t* ScopedInMemoryInputStream::Peek(int num_to_peek,
-                                               int* num_bytes) {
+const uint8_t* ScopedInMemoryInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
   return stream_->Peek(num_to_peek, num_bytes);
 }
 
-const uint8_t* ScopedInMemoryInputStream::Read(int num_to_read,
-                                               int* num_bytes) {
+const uint8_t* ScopedInMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
   return stream_->Read(num_to_read, num_bytes);
 }
 

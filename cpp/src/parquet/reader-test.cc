@@ -25,6 +25,7 @@
 #include "parquet/reader.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
+#include "parquet/util/input.h"
 
 using std::string;
 
@@ -47,7 +48,7 @@ class TestAllTypesPlain : public ::testing::Test {
   void TearDown() {}
 
  protected:
-  LocalFile file_;
+  LocalFileSource file_;
   ParquetFileReader reader_;
 };
 

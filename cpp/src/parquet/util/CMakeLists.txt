@@ -27,11 +27,13 @@ install(FILES
   macros.h
   rle-encoding.h
   stopwatch.h
-  input_stream.h
+  input.h
+  output.h
   DESTINATION include/parquet/util)
 
 add_library(parquet_util STATIC
-  input_stream.cc
+  input.cc
+  output.cc
   cpu-info.cc
 )
 
@@ -54,4 +56,5 @@ if(PARQUET_BUILD_TESTS)
 endif()
 
 ADD_PARQUET_TEST(bit-util-test)
+ADD_PARQUET_TEST(output-test)
 ADD_PARQUET_TEST(rle-test)

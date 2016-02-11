@@ -31,54 +31,11 @@
 #include "parquet/exception.h"
 #include "parquet/schema/converter.h"
 #include "parquet/thrift/util.h"
-#include "parquet/util/input_stream.h"
 
 using std::string;
 using std::vector;
 
 namespace parquet_cpp {
-
-// ----------------------------------------------------------------------
-// LocalFile methods
-
-LocalFile::~LocalFile() {
-  CloseFile();
-}
-
-void LocalFile::Open(const std::string& path) {
-  path_ = path;
-  file_ = fopen(path_.c_str(), "r");
-  is_open_ = true;
-}
-
-void LocalFile::Close() {
-  // Pure virtual
-  CloseFile();
-}
-
-void LocalFile::CloseFile() {
-  if (is_open_) {
-    fclose(file_);
-    is_open_ = false;
-  }
-}
-
-size_t LocalFile::Size() {
-  fseek(file_, 0L, SEEK_END);
-  return Tell();
-}
-
-void LocalFile::Seek(size_t pos) {
-  fseek(file_, pos, SEEK_SET);
-}
-
-size_t LocalFile::Tell() {
-  return ftell(file_);
-}
-
-size_t LocalFile::Read(size_t nbytes, uint8_t* buffer) {
-  return fread(buffer, 1, nbytes, file_);
-}
 
 // ----------------------------------------------------------------------
 // RowGroupReader
@@ -102,7 +59,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(size_t i) {
   std::unique_ptr<InputStream> input(
       new ScopedInMemoryInputStream(col.meta_data.total_compressed_size));
 
-  FileLike* source = this->parent_->buffer_;
+  RandomAccessSource* source = this->parent_->buffer_;
 
   source->Seek(col_start);
 
@@ -141,7 +98,7 @@ ParquetFileReader::ParquetFileReader() :
 
 ParquetFileReader::~ParquetFileReader() {}
 
-void ParquetFileReader::Open(FileLike* buffer) {
+void ParquetFileReader::Open(RandomAccessSource* buffer) {
   buffer_ = buffer;
 }
 

@@ -43,15 +43,18 @@ TEST(BooleanTest, TestEncodeDecode) {
   PlainEncoder<Type::BOOLEAN> encoder(nullptr);
   PlainDecoder<Type::BOOLEAN> decoder(nullptr);
 
-  std::vector<uint8_t> encode_buffer(nbytes);
+  InMemoryOutputStream dst;
+  encoder.Encode(draws, nvalues, &dst);
 
-  size_t encoded_bytes = encoder.Encode(draws, nvalues, &encode_buffer[0]);
-  ASSERT_EQ(nbytes, encoded_bytes);
+  std::vector<uint8_t> encode_buffer;
+  dst.Transfer(&encode_buffer);
+
+  ASSERT_EQ(nbytes, encode_buffer.size());
 
   std::vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
-  decoder.SetData(nvalues, &encode_buffer[0], encoded_bytes);
+  decoder.SetData(nvalues, &encode_buffer[0], encode_buffer.size());
   size_t values_decoded = decoder.Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 

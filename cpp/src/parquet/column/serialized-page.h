@@ -27,7 +27,7 @@
 
 #include "parquet/column/page.h"
 #include "parquet/compression/codec.h"
-#include "parquet/util/input_stream.h"
+#include "parquet/util/input.h"
 #include "parquet/thrift/parquet_types.h"
 
 namespace parquet_cpp {
