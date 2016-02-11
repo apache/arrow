@@ -15,7 +15,9 @@
 
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <sstream>
 
+#include "parquet/util/logging.h"
 #include "parquet/exception.h"
 
 namespace parquet_cpp {
@@ -34,11 +36,35 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
       tproto_factory.getProtocol(tmem_transport);
   try {
     deserialized_msg->read(tproto.get());
-  } catch (apache::thrift::protocol::TProtocolException& e) {
-    throw ParquetException("Couldn't deserialize thrift.", e);
+  } catch (std::exception& e) {
+    std::stringstream ss;
+    ss << "Couldn't deserialize thrift: " << e.what() << "\n";
+    throw ParquetException(ss.str());
   }
   uint32_t bytes_left = tmem_transport->available_read();
   *len = *len - bytes_left;
+}
+
+// Serialize obj into a buffer. The result is returned as a string.
+// The arguments are the object to be serialized and
+// the expected size of the serialized object
+template <class T>
+inline std::string SerializeThriftMsg(T* obj, uint32_t len) {
+  boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
+      new apache::thrift::transport::TMemoryBuffer(len));
+  apache::thrift::protocol::TCompactProtocolFactoryT<
+      apache::thrift::transport::TMemoryBuffer> tproto_factory;
+  boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+      tproto_factory.getProtocol(mem_buffer);
+  try {
+    mem_buffer->resetBuffer();
+    obj->write(tproto.get());
+  } catch (std::exception& e) {
+    std::stringstream ss;
+    ss << "Couldn't serialize thrift: " << e.what() << "\n";
+    throw ParquetException(ss.str());
+  }
+  return mem_buffer->getBufferAsString();
 }
 
 } // namespace parquet_cpp

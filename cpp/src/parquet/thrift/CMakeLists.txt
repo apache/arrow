@@ -30,3 +30,5 @@ install(FILES
   parquet_constants.h
   util.h
   DESTINATION include/parquet/thrift)
+
+ADD_PARQUET_TEST(serializer-test)

@@ -25,9 +25,9 @@
 #include <algorithm>
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "parquet/column/page.h"
-
 namespace parquet_cpp {
 
 namespace test {
@@ -174,9 +174,33 @@ static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
 
   return std::make_shared<DataPage>(&(*out_buffer)[0], out_buffer->size(), page_header);
 }
-
-
 } // namespace test
+
+static inline void InitDataPage(const parquet::Statistics& stat,
+    parquet::DataPageHeader& data_page, int nvalues) {
+  data_page.encoding = parquet::Encoding::PLAIN;
+  data_page.definition_level_encoding = parquet::Encoding::RLE;
+  data_page.repetition_level_encoding = parquet::Encoding::RLE;
+  data_page.num_values = nvalues;
+  data_page.__set_statistics(stat);
+}
+
+static inline void InitStats(size_t stat_size, parquet::Statistics& stat) {
+  std::vector<char> stat_buffer;
+  stat_buffer.resize(stat_size);
+  for (int i = 0; i < stat_size; i++) {
+    (reinterpret_cast<uint8_t*>(stat_buffer.data()))[i] = i % 255;
+  }
+  stat.__set_max(std::string(stat_buffer.data(), stat_size));
+}
+
+static inline void InitPageHeader(const parquet::DataPageHeader &data_page,
+    parquet::PageHeader& page_header) {
+  page_header.__set_data_page_header(data_page);
+  page_header.uncompressed_page_size = 0;
+  page_header.compressed_page_size = 0;
+  page_header.type = parquet::PageType::DATA_PAGE;
+}
 
 } // namespace parquet_cpp
 

@@ -33,6 +33,7 @@ namespace parquet_cpp {
 SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
     parquet::CompressionCodec::type codec) :
     stream_(std::move(stream)) {
+  max_page_header_size_ = DEFAULT_MAX_PAGE_HEADER_SIZE;
   switch (codec) {
     case parquet::CompressionCodec::UNCOMPRESSED:
       break;
@@ -44,23 +45,42 @@ SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
   }
 }
 
-// TODO(wesm): this may differ from file to file
-static constexpr int DATA_PAGE_SIZE = 64 * 1024;
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   while (true) {
     int64_t bytes_read = 0;
-    const uint8_t* buffer = stream_->Peek(DATA_PAGE_SIZE, &bytes_read);
-    if (bytes_read == 0) {
-      return std::shared_ptr<Page>(nullptr);
+    int64_t bytes_available = 0;
+    uint32_t header_size = 0;
+    const uint8_t* buffer;
+    uint32_t allowed_page_size = DEFAULT_PAGE_HEADER_SIZE;
+    std::stringstream ss;
+
+    // Page headers can be very large because of page statistics
+    // We try to deserialize a larger buffer progressively
+    // until a maximum allowed header limit
+    while (true) {
+      buffer = stream_->Peek(allowed_page_size, &bytes_available);
+      if (bytes_available == 0) {
+        return std::shared_ptr<Page>(nullptr);
+      }
+
+      // This gets used, then set by DeserializeThriftMsg
+      header_size = bytes_available;
+      try {
+        DeserializeThriftMsg(buffer, &header_size, &current_page_header_);
+        break;
+      } catch (std::exception& e) {
+        // Failed to deserialize. Double the allowed page header size and try again
+        ss << e.what();
+        allowed_page_size *= 2;
+        if (allowed_page_size > max_page_header_size_) {
+          ss << "Deserializing page header failed.\n";
+          throw ParquetException(ss.str());
+        }
+      }
     }
-
-    // This gets used, then set by DeserializeThriftMsg
-    uint32_t header_size = bytes_read;
-    DeserializeThriftMsg(buffer, &header_size, &current_page_header_);
-
     // Advance the stream offset
     stream_->Read(header_size, &bytes_read);
 
