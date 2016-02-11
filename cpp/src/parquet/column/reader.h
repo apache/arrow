@@ -33,8 +33,10 @@
 #include "parquet/encodings/encodings.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/util/rle-encoding.h"
+#include "parquet/column/levels.h"
 
 namespace parquet_cpp {
+
 
 class Codec;
 class Scanner;
@@ -85,13 +87,10 @@ class ColumnReader {
   std::shared_ptr<Page> current_page_;
 
   // Not set if full schema for this field has no optional or repeated elements
-  std::unique_ptr<RleDecoder> definition_level_decoder_;
+  LevelDecoder definition_level_decoder_;
 
   // Not set for flat schemas.
-  std::unique_ptr<RleDecoder> repetition_level_decoder_;
-
-  // Temporarily storing this to assist with batch reading
-  int16_t max_definition_level_;
+  LevelDecoder repetition_level_decoder_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
@@ -182,13 +181,12 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
   size_t values_to_read = 0;
 
   // If the field is required and non-repeated, there are no definition levels
-  if (definition_level_decoder_) {
+  if (descr_->max_definition_level() > 0) {
     num_def_levels = ReadDefinitionLevels(batch_size, def_levels);
-
     // TODO(wesm): this tallying of values-to-decode can be performed with better
     // cache-efficiency if fused with the level decoding.
     for (size_t i = 0; i < num_def_levels; ++i) {
-      if (def_levels[i] == max_definition_level_) {
+      if (def_levels[i] == descr_->max_definition_level()) {
         ++values_to_read;
       }
     }
@@ -198,9 +196,8 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
   }
 
   // Not present for non-repeated fields
-  if (repetition_level_decoder_) {
+  if (descr_->max_repetition_level() > 0) {
     num_rep_levels = ReadRepetitionLevels(batch_size, rep_levels);
-
     if (num_def_levels != num_rep_levels) {
       throw ParquetException("Number of decoded rep / def levels did not match");
     }

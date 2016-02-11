@@ -155,22 +155,19 @@ class DataPageBuilder {
     // TODO: compute a more precise maximum size for the encoded levels
     std::vector<uint8_t> encode_buffer(DEFAULT_DATA_PAGE_SIZE);
 
-    RleEncoder encoder(&encode_buffer[0], encode_buffer.size(),
-        BitUtil::NumRequiredBits(max_level));
 
-    // TODO(wesm): push down vector encoding
-    for (int16_t level : levels) {
-      if (!encoder.Put(level)) {
-        throw ParquetException("out of space");
-      }
-    }
+    LevelEncoder encoder;
+    encoder.Init(encoding, max_level, levels.size(),
+        encode_buffer.data(), encode_buffer.size());
 
-    uint32_t rle_bytes = encoder.Flush();
+    encoder.Encode(levels.size(), levels.data());
+
+    uint32_t rle_bytes = encoder.len();
     size_t levels_footprint = sizeof(uint32_t) + rle_bytes;
     Reserve(levels_footprint);
 
     *reinterpret_cast<uint32_t*>(Head()) = rle_bytes;
-    memcpy(Head() + sizeof(uint32_t), encoder.buffer(), rle_bytes);
+    memcpy(Head() + sizeof(uint32_t), encode_buffer.data(), rle_bytes);
     buffer_size_ += levels_footprint;
   }
 };

@@ -89,7 +89,6 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
 
   // column 0, id
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
-
   int32_t val;
   bool is_null;
   for (size_t i = 0; i < 8; ++i) {

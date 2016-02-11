@@ -242,10 +242,10 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
            << ")" << std::endl;
   }
 
-  for (int i = 0; i < num_row_groups(); ++i) {
-    stream << "--- Row Group " << i << " ---\n";
+  for (int r = 0; r < num_row_groups(); ++r) {
+    stream << "--- Row Group " << r << " ---\n";
 
-    RowGroupReader* group_reader = RowGroup(i);
+    RowGroupReader* group_reader = RowGroup(r);
 
     // Print column metadata
     size_t num_columns = group_reader->num_columns();

@@ -84,6 +84,14 @@ class DataPage : public Page {
     return header_.encoding;
   }
 
+  parquet::Encoding::type repetition_level_encoding() const {
+    return header_.repetition_level_encoding;
+  }
+
+  parquet::Encoding::type definition_level_encoding() const {
+    return header_.definition_level_encoding;
+  }
+
  private:
   parquet::DataPageHeader header_;
 };

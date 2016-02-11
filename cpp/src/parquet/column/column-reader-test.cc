@@ -124,9 +124,6 @@ TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
 
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 
-  std::vector<int32_t> vexpected;
-  std::vector<int16_t> dexpected;
-
   size_t values_read = 0;
   size_t batch_actual = 0;
 
@@ -157,6 +154,62 @@ TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
   ASSERT_EQ(0, values_read);
 }
 
+TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
+  vector<int32_t> values = {1, 2, 3, 4, 5};
+  vector<int16_t> def_levels = {2, 1, 1, 2, 2, 1, 1, 2, 2, 1};
+  vector<int16_t> rep_levels = {0, 1, 1, 0, 0, 1, 1, 0, 0, 1};
+
+  size_t num_values = values.size();
+  parquet::Encoding::type value_encoding = parquet::Encoding::PLAIN;
+
+  vector<uint8_t> page1;
+  test::DataPageBuilder<Type::INT32> page_builder(&page1);
+
+  // Definition levels precede the values
+  page_builder.AppendRepLevels(rep_levels, 1, parquet::Encoding::RLE);
+  page_builder.AppendDefLevels(def_levels, 2, parquet::Encoding::RLE);
+  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
+
+  pages_.push_back(page_builder.Finish());
+
+  NodePtr type = schema::Int32("a", Repetition::REPEATED);
+  ColumnDescriptor descr(type, 2, 1);
+  InitReader(&descr);
+
+  Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
+
+  size_t values_read = 0;
+  size_t batch_actual = 0;
+
+  vector<int32_t> vresult(3, -1);
+  vector<int16_t> dresult(5, -1);
+  vector<int16_t> rresult(5, -1);
+
+  batch_actual = reader->ReadBatch(5, &dresult[0], &rresult[0],
+      &vresult[0], &values_read);
+  ASSERT_EQ(5, batch_actual);
+  ASSERT_EQ(3, values_read);
+
+  ASSERT_TRUE(vector_equal(vresult, slice(values, 0, 3)));
+  ASSERT_TRUE(vector_equal(dresult, slice(def_levels, 0, 5)));
+  ASSERT_TRUE(vector_equal(rresult, slice(rep_levels, 0, 5)));
+
+  batch_actual = reader->ReadBatch(5, &dresult[0], &rresult[0],
+      &vresult[0], &values_read);
+  ASSERT_EQ(5, batch_actual);
+  ASSERT_EQ(2, values_read);
+
+  ASSERT_TRUE(vector_equal(slice(vresult, 0, 2), slice(values, 3, 5)));
+  ASSERT_TRUE(vector_equal(dresult, slice(def_levels, 5, 10)));
+  ASSERT_TRUE(vector_equal(rresult, slice(rep_levels, 5, 10)));
+
+  // EOS, pass all nullptrs to check for improper writes. Do not segfault /
+  // core dump
+  batch_actual = reader->ReadBatch(5, nullptr, nullptr,
+      nullptr, &values_read);
+  ASSERT_EQ(0, batch_actual);
+  ASSERT_EQ(0, values_read);
+}
 } // namespace test
 
 } // namespace parquet_cpp

@@ -59,18 +59,6 @@ void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
   current_decoder_ = decoders_[encoding].get();
 }
 
-
-static size_t InitializeLevelDecoder(const uint8_t* buffer,
-    int16_t max_level, std::unique_ptr<RleDecoder>& decoder) {
-  int num_definition_bytes = *reinterpret_cast<const uint32_t*>(buffer);
-
-  decoder.reset(new RleDecoder(buffer + sizeof(uint32_t),
-          num_definition_bytes,
-          BitUtil::NumRequiredBits(max_level)));
-
-  return sizeof(uint32_t) + num_definition_bytes;
-}
-
 // PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
 // encoding.
 static bool IsDictionaryIndexEncoding(const parquet::Encoding::type& e) {
@@ -109,23 +97,29 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       // the page size to determine the number of bytes in the encoded data.
       size_t data_size = page->size();
 
-      max_definition_level_ = descr_->max_definition_level();
+      int16_t max_definition_level = descr_->max_definition_level();
+      int16_t max_repetition_level = descr_->max_repetition_level();
+      //Data page Layout: Repetition Levels - Definition Levels - encoded values.
+      //Levels are encoded as rle or bit-packed.
+      //Init repetition levels
+      if (max_repetition_level > 0) {
+        size_t rep_levels_bytes = repetition_level_decoder_.Init(
+            page->repetition_level_encoding(),
+            max_repetition_level, num_buffered_values_, buffer);
+        buffer += rep_levels_bytes;
+        data_size -= rep_levels_bytes;
+      }
+      //TODO figure a way to set max_definition_level_ to 0
+      //if the initial value is invalid
 
-      // Read definition levels.
-      if (max_definition_level_ > 0) {
-        // Temporary hack until schema resolution implemented
-
-        size_t def_levels_bytes = InitializeLevelDecoder(buffer,
-            max_definition_level_, definition_level_decoder_);
-
+      //Init definition levels
+      if (max_definition_level > 0) {
+        size_t def_levels_bytes = definition_level_decoder_.Init(
+            page->definition_level_encoding(),
+            max_definition_level, num_buffered_values_, buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
-      } else {
-        // REQUIRED field
-        max_definition_level_ = 0;
       }
-
-      // TODO: repetition levels
 
       // Get a decoder object for this page or create a new decoder if this is the
       // first page with this encoding.
@@ -172,31 +166,18 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
 // ----------------------------------------------------------------------
 // Batch read APIs
 
-static size_t DecodeMany(RleDecoder* decoder, int16_t* levels, size_t batch_size) {
-  size_t num_decoded = 0;
-
-  // TODO(wesm): Push this decoding down into RleDecoder itself
-  for (size_t i = 0; i < batch_size; ++i) {
-    if (!decoder->Get(levels + i)) {
-      break;
-    }
-    ++num_decoded;
-  }
-  return num_decoded;
-}
-
 size_t ColumnReader::ReadDefinitionLevels(size_t batch_size, int16_t* levels) {
-  if (!definition_level_decoder_) {
+  if (descr_->max_definition_level() == 0) {
     return 0;
   }
-  return DecodeMany(definition_level_decoder_.get(), levels, batch_size);
+  return definition_level_decoder_.Decode(batch_size, levels);
 }
 
 size_t ColumnReader::ReadRepetitionLevels(size_t batch_size, int16_t* levels) {
-  if (!repetition_level_decoder_) {
+  if (descr_->max_repetition_level() == 0) {
     return 0;
   }
-  return DecodeMany(repetition_level_decoder_.get(), levels, batch_size);
+  return repetition_level_decoder_.Decode(batch_size, levels);
 }
 
 // ----------------------------------------------------------------------
