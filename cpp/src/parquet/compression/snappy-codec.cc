@@ -21,20 +21,20 @@
 
 namespace parquet_cpp {
 
-void SnappyCodec::Decompress(int input_len, const uint8_t* input,
-      int output_len, uint8_t* output_buffer) {
+void SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
+      int64_t output_len, uint8_t* output_buffer) {
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
       static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer))) {
     throw parquet_cpp::ParquetException("Corrupt snappy compressed data.");
   }
 }
 
-int SnappyCodec::MaxCompressedLen(int input_len, const uint8_t* input) {
+int64_t SnappyCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
   return snappy::MaxCompressedLength(input_len);
 }
 
-int SnappyCodec::Compress(int input_len, const uint8_t* input,
-    int output_buffer_len, uint8_t* output_buffer) {
+int64_t SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
+    int64_t output_buffer_len, uint8_t* output_buffer) {
   size_t output_len;
   snappy::RawCompress(reinterpret_cast<const char*>(input),
       static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer),

@@ -95,6 +95,14 @@ static inline vector<bool> flip_coins(size_t n, double p) {
   return draws;
 }
 
+void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+
+  for (int i = 0; i < n; ++i) {
+    out->push_back(d(gen) & 0xFF);
+  }
+}
 
 } // namespace test
 

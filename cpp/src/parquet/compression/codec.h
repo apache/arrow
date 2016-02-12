@@ -20,6 +20,8 @@
 
 #include <cstdint>
 
+#include <zlib.h>
+
 #include "parquet/exception.h"
 
 namespace parquet_cpp {
@@ -27,13 +29,13 @@ namespace parquet_cpp {
 class Codec {
  public:
   virtual ~Codec() {}
-  virtual void Decompress(int input_len, const uint8_t* input,
-      int output_len, uint8_t* output_buffer) = 0;
+  virtual void Decompress(int64_t input_len, const uint8_t* input,
+      int64_t output_len, uint8_t* output_buffer) = 0;
 
-  virtual int Compress(int input_len, const uint8_t* input,
-      int output_buffer_len, uint8_t* output_buffer) = 0;
+  virtual int64_t Compress(int64_t input_len, const uint8_t* input,
+      int64_t output_buffer_len, uint8_t* output_buffer) = 0;
 
-  virtual int MaxCompressedLen(int input_len, const uint8_t* input) = 0;
+  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
 
   virtual const char* name() const = 0;
 };
@@ -42,13 +44,13 @@ class Codec {
 // Snappy codec.
 class SnappyCodec : public Codec {
  public:
-  virtual void Decompress(int input_len, const uint8_t* input,
-      int output_len, uint8_t* output_buffer);
+  virtual void Decompress(int64_t input_len, const uint8_t* input,
+      int64_t output_len, uint8_t* output_buffer);
 
-  virtual int Compress(int input_len, const uint8_t* input,
-      int output_buffer_len, uint8_t* output_buffer);
+  virtual int64_t Compress(int64_t input_len, const uint8_t* input,
+      int64_t output_buffer_len, uint8_t* output_buffer);
 
-  virtual int MaxCompressedLen(int input_len, const uint8_t* input);
+  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input);
 
   virtual const char* name() const { return "snappy"; }
 };
@@ -56,15 +58,59 @@ class SnappyCodec : public Codec {
 // Lz4 codec.
 class Lz4Codec : public Codec {
  public:
-  virtual void Decompress(int input_len, const uint8_t* input,
-      int output_len, uint8_t* output_buffer);
+  virtual void Decompress(int64_t input_len, const uint8_t* input,
+      int64_t output_len, uint8_t* output_buffer);
 
-  virtual int Compress(int input_len, const uint8_t* input,
-      int output_buffer_len, uint8_t* output_buffer);
+  virtual int64_t Compress(int64_t input_len, const uint8_t* input,
+      int64_t output_buffer_len, uint8_t* output_buffer);
 
-  virtual int MaxCompressedLen(int input_len, const uint8_t* input);
+  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input);
 
   virtual const char* name() const { return "lz4"; }
+};
+
+// GZip codec.
+class GZipCodec : public Codec {
+ public:
+  /// Compression formats supported by the zlib library
+  enum Format {
+    ZLIB,
+    DEFLATE,
+    GZIP,
+  };
+
+  explicit GZipCodec(Format format = GZIP);
+
+  virtual void Decompress(int64_t input_len, const uint8_t* input,
+      int64_t output_len, uint8_t* output_buffer);
+
+  virtual int64_t Compress(int64_t input_len, const uint8_t* input,
+      int64_t output_buffer_len, uint8_t* output_buffer);
+
+  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input);
+
+  virtual const char* name() const { return "gzip"; }
+
+ private:
+  // zlib is stateful and the z_stream state variable must be initialized
+  // before
+  z_stream stream_;
+
+  // Realistically, this will always be GZIP, but we leave the option open to
+  // configure
+  Format format_;
+
+  // These variables are mutually exclusive. When the codec is in "compressor"
+  // state, compressor_initialized_ is true while decompressor_initialized_ is
+  // false. When it's decompressing, the opposite is true.
+  //
+  // Indeed, this is slightly hacky, but the alternative is having separate
+  // Compressor and Decompressor classes. If this ever becomes an issue, we can
+  // perform the refactoring then
+  void InitCompressor();
+  void InitDecompressor();
+  bool compressor_initialized_;
+  bool decompressor_initialized_;
 };
 
 } // namespace parquet_cpp
