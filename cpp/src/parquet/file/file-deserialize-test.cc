@@ -15,28 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include <gtest/gtest.h>
 
-#include "parquet/types.h"
-#include "parquet/thrift/parquet_types.h"
-#include "parquet/thrift/util.h"
-#include "parquet/column/serialized-page.h"
+#include <algorithm>
+#include <cstdlib>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "parquet/column/page.h"
-#include "parquet/column/reader.h"
 #include "parquet/column/test-util.h"
 
+#include "parquet/file/reader-internal.h"
+#include "parquet/thrift/parquet_types.h"
+#include "parquet/thrift/util.h"
+#include "parquet/types.h"
+#include "parquet/util/input.h"
 
 namespace parquet_cpp {
 
 class TestSerializedPage : public ::testing::Test {
  public:
   void InitSerializedPageReader(const uint8_t* buffer, size_t header_size,
-      parquet::CompressionCodec::type codec) {
+      Compression::type codec) {
     std::unique_ptr<InputStream> stream;
     stream.reset(new InMemoryInputStream(buffer, header_size));
     page_reader_.reset(new SerializedPageReader(std::move(stream), codec));
@@ -68,10 +70,10 @@ TEST_F(TestSerializedPage, TestLargePageHeaders) {
   ASSERT_GE(DEFAULT_MAX_PAGE_HEADER_SIZE, serialized_buffer.length());
 
   InitSerializedPageReader(reinterpret_cast<const uint8_t*>(serialized_buffer.c_str()),
-      serialized_buffer.length(), parquet::CompressionCodec::UNCOMPRESSED);
+      serialized_buffer.length(), Compression::UNCOMPRESSED);
 
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
-  ASSERT_EQ(parquet::PageType::DATA_PAGE, current_page->type());
+  ASSERT_EQ(PageType::DATA_PAGE, current_page->type());
   const DataPage* page = static_cast<const DataPage*>(current_page.get());
   ASSERT_EQ(num_values, page->num_values());
 }
@@ -99,7 +101,7 @@ TEST_F(TestSerializedPage, TestFailLargePageHeaders) {
   ASSERT_GE(DEFAULT_MAX_PAGE_HEADER_SIZE, serialized_buffer.length());
 
   InitSerializedPageReader(reinterpret_cast<const uint8_t*>(serialized_buffer.c_str()),
-      serialized_buffer.length(), parquet::CompressionCodec::UNCOMPRESSED);
+      serialized_buffer.length(), Compression::UNCOMPRESSED);
 
   // Set the max page header size to 128 KB, which is less than the current header size
   page_reader_->set_max_page_header_size(max_header_size);

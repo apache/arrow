@@ -16,13 +16,17 @@
 // under the License.
 
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "parquet/util/test-common.h"
 
-#include "parquet/encodings/encodings.h"
+#include "parquet/encodings/plain-encoding.h"
+#include "parquet/types.h"
+#include "parquet/util/bit-util.h"
+#include "parquet/util/output.h"
+#include "parquet/util/test-common.h"
 
 using std::string;
 using std::vector;

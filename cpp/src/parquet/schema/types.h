@@ -26,7 +26,6 @@
 #include <string>
 #include <vector>
 
-#include "parquet/exception.h"
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 
@@ -254,11 +253,11 @@ class GroupNode : public Node {
 
   virtual bool Equals(const Node* other) const;
 
-  const NodePtr& field(size_t i) const {
+  const NodePtr& field(int i) const {
     return fields_[i];
   }
 
-  size_t field_count() const {
+  int field_count() const {
     return fields_.size();
   }
 

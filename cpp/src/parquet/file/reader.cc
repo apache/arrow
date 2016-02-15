@@ -18,17 +18,19 @@
 #include "parquet/file/reader.h"
 
 #include <cstdio>
-#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "parquet/column/page.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
-
 #include "parquet/exception.h"
 #include "parquet/file/reader-internal.h"
+#include "parquet/util/input.h"
+#include "parquet/types.h"
 
 using std::string;
 using std::vector;

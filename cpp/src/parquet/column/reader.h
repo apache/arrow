@@ -22,24 +22,16 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
+#include "parquet/column/levels.h"
+#include "parquet/column/page.h"
+#include "parquet/encodings/decoder.h"
 #include "parquet/exception.h"
+#include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
 
-#include "parquet/column/page.h"
-#include "parquet/encodings/encodings.h"
-#include "parquet/schema/descriptor.h"
-#include "parquet/util/rle-encoding.h"
-#include "parquet/column/levels.h"
-
 namespace parquet_cpp {
-
-
-class Codec;
-class Scanner;
 
 class ColumnReader {
  public:

@@ -18,3 +18,5 @@
 install(FILES
   reader.h
   DESTINATION include/parquet/file)
+
+ADD_PARQUET_TEST(file-deserialize-test)

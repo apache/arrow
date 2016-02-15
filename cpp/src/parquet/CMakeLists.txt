@@ -22,4 +22,5 @@ install(FILES
   types.h
   DESTINATION include/parquet)
 
+ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(reader-test)

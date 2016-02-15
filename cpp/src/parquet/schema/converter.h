@@ -25,19 +25,19 @@
 #ifndef PARQUET_SCHEMA_CONVERTER_H
 #define PARQUET_SCHEMA_CONVERTER_H
 
-#include <cstdint>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/types.h"
-
-#include "parquet/thrift/parquet_types.h"
+namespace parquet { class SchemaElement;}
 
 namespace parquet_cpp {
 
+class SchemaDescriptor;
+
 namespace schema {
+
+class GroupNode;
+class Node;
 
 // ----------------------------------------------------------------------
 // Conversion from Parquet Thrift metadata
@@ -47,7 +47,7 @@ std::shared_ptr<SchemaDescriptor> FromParquet(
 
 class FlatSchemaConverter {
  public:
-  FlatSchemaConverter(const parquet::SchemaElement* elements, size_t length) :
+  FlatSchemaConverter(const parquet::SchemaElement* elements, int length) :
       elements_(elements),
       length_(length),
       pos_(0),
@@ -57,11 +57,11 @@ class FlatSchemaConverter {
 
  private:
   const parquet::SchemaElement* elements_;
-  size_t length_;
-  size_t pos_;
-  size_t current_id_;
+  int length_;
+  int pos_;
+  int current_id_;
 
-  size_t next_id() {
+  int next_id() {
     return current_id_++;
   }
 

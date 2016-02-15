@@ -15,23 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ENCODINGS_ENCODINGS_H
-#define PARQUET_ENCODINGS_ENCODINGS_H
+#ifndef PARQUET_ENCODINGS_DECODER_H
+#define PARQUET_ENCODINGS_DECODER_H
 
 #include <cstdint>
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-#include "parquet/util/output.h"
-#include "parquet/util/rle-encoding.h"
-#include "parquet/util/bit-stream-utils.inline.h"
-
-#include "parquet/schema/descriptor.h"
-
-#include "parquet/thrift/parquet_types.h"
-
 namespace parquet_cpp {
+
+class ColumnDescriptor;
 
 // The Decoder template is parameterized on parquet_cpp::Type::type
 template <int TYPE>
@@ -57,55 +51,20 @@ class Decoder {
   // the number of values left in this page.
   int values_left() const { return num_values_; }
 
-  const parquet::Encoding::type encoding() const { return encoding_; }
+  const Encoding::type encoding() const { return encoding_; }
 
  protected:
   explicit Decoder(const ColumnDescriptor* descr,
-      const parquet::Encoding::type& encoding)
+      const Encoding::type& encoding)
       : descr_(descr), encoding_(encoding), num_values_(0) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
   const ColumnDescriptor* descr_;
 
-  const parquet::Encoding::type encoding_;
+  const Encoding::type encoding_;
   int num_values_;
-};
-
-
-// Base class for value encoders. Since encoders may or not have state (e.g.,
-// dictionary encoding) we use a class instance to maintain any state.
-//
-// TODO(wesm): Encode interface API is temporary
-template <int TYPE>
-class Encoder {
- public:
-  typedef typename type_traits<TYPE>::value_type T;
-
-  virtual ~Encoder() {}
-
-  // Subclasses should override the ones they support
-  virtual void Encode(const T* src, int num_values, OutputStream* dst) {
-    throw ParquetException("Encoder does not implement this type.");
-  }
-
-  const parquet::Encoding::type encoding() const { return encoding_; }
-
- protected:
-  explicit Encoder(const ColumnDescriptor* descr,
-      const parquet::Encoding::type& encoding)
-      : descr_(descr), encoding_(encoding) {}
-
-  // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
-  const ColumnDescriptor* descr_;
-  const parquet::Encoding::type encoding_;
 };
 
 } // namespace parquet_cpp
 
-#include "parquet/encodings/plain-encoding.h"
-#include "parquet/encodings/dictionary-encoding.h"
-#include "parquet/encodings/delta-bit-pack-encoding.h"
-#include "parquet/encodings/delta-length-byte-array-encoding.h"
-#include "parquet/encodings/delta-byte-array-encoding.h"
-
-#endif // PARQUET_ENCODINGS_ENCODINGS_H
+#endif // PARQUET_ENCODINGS_DECODER_H

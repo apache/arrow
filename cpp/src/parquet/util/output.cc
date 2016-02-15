@@ -17,9 +17,7 @@
 
 #include "parquet/util/output.h"
 
-#include <algorithm>
 #include <cstring>
-#include <sstream>
 
 #include "parquet/exception.h"
 

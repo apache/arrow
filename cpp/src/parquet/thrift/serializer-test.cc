@@ -15,18 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <exception>
+#include <string>
+
+#include "parquet/column/test-util.h"
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/thrift/util.h"
-#include "parquet/column/page.h"
-#include "parquet/column/reader.h"
-#include "parquet/column/test-util.h"
 
 using std::string;
 
@@ -59,12 +56,12 @@ TEST_F(TestThrift, TestSerializerDeserializer) {
   uint32_t header_size = 1024;
   // Deserialize the serialized page buffer
   ASSERT_NO_THROW(DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(serialized_buffer.c_str()),
-      &header_size, &out_page_header));  
+      &header_size, &out_page_header));
   ASSERT_LE(stats_size, header_size);
   ASSERT_GE(max_header_len, header_size);
 
   ASSERT_EQ(parquet::Encoding::PLAIN, out_page_header.data_page_header.encoding);
-  ASSERT_EQ(parquet::Encoding::RLE, out_page_header.data_page_header.definition_level_encoding); 
+  ASSERT_EQ(parquet::Encoding::RLE, out_page_header.data_page_header.definition_level_encoding);
   ASSERT_EQ(parquet::Encoding::RLE, out_page_header.data_page_header.repetition_level_encoding);
   for(int i = 0; i < stats_size; i++){
     EXPECT_EQ(i % 255, (reinterpret_cast<const uint8_t*>

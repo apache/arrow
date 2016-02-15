@@ -18,6 +18,7 @@
 #ifndef PARQUET_UTIL_INPUT_H
 #define PARQUET_UTIL_INPUT_H
 
+#include <stdio.h>
 #include <cstdint>
 #include <memory>
 #include <string>

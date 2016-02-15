@@ -27,7 +27,14 @@
 #include <vector>
 #include <string>
 
+#include "parquet/column/levels.h"
 #include "parquet/column/page.h"
+
+// Depended on by SerializedPageReader test utilities for now
+#include "parquet/encodings/plain-encoding.h"
+#include "parquet/thrift/util.h"
+#include "parquet/util/input.h"
+
 namespace parquet_cpp {
 
 namespace test {
@@ -61,36 +68,38 @@ class DataPageBuilder {
   typedef typename type_traits<TYPE>::value_type T;
 
   // This class writes data and metadata to the passed inputs
-  explicit DataPageBuilder(InMemoryOutputStream* sink, parquet::DataPageHeader* header) :
+  explicit DataPageBuilder(InMemoryOutputStream* sink) :
       sink_(sink),
-      header_(header),
       num_values_(0),
+      encoding_(Encoding::PLAIN),
+      definition_level_encoding_(Encoding::RLE),
+      repetition_level_encoding_(Encoding::RLE),
       have_def_levels_(false),
       have_rep_levels_(false),
       have_values_(false) {
   }
 
-  void AppendDefLevels(const std::vector<int16_t>& levels,
-      int16_t max_level, parquet::Encoding::type encoding) {
+  void AppendDefLevels(const std::vector<int16_t>& levels, int16_t max_level,
+      Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
-    num_values_ = std::max(levels.size(), num_values_);
-    header_->__set_definition_level_encoding(encoding);
+    num_values_ = std::max(static_cast<int32_t>(levels.size()), num_values_);
+    definition_level_encoding_ = encoding;
     have_def_levels_ = true;
   }
 
-  void AppendRepLevels(const std::vector<int16_t>& levels,
-      int16_t max_level, parquet::Encoding::type encoding) {
+  void AppendRepLevels(const std::vector<int16_t>& levels, int16_t max_level,
+      Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
-    num_values_ = std::max(levels.size(), num_values_);
-    header_->__set_repetition_level_encoding(encoding);
+    num_values_ = std::max(static_cast<int32_t>(levels.size()), num_values_);
+    repetition_level_encoding_ = encoding;
     have_rep_levels_ = true;
   }
 
   void AppendValues(const std::vector<T>& values,
-      parquet::Encoding::type encoding) {
-    if (encoding != parquet::Encoding::PLAIN) {
+      Encoding::type encoding = Encoding::PLAIN) {
+    if (encoding != Encoding::PLAIN) {
       ParquetException::NYI("only plain encoding currently implemented");
     }
     size_t bytes_to_encode = values.size() * sizeof(T);
@@ -98,31 +107,43 @@ class DataPageBuilder {
     PlainEncoder<TYPE> encoder(nullptr);
     encoder.Encode(&values[0], values.size(), sink_);
 
-    num_values_ = std::max(values.size(), num_values_);
-    header_->__set_encoding(encoding);
+    num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
+    encoding_ = encoding;
     have_values_ = true;
   }
 
-  void Finish() {
-    if (!have_values_) {
-      throw ParquetException("A data page must at least contain values");
-    }
-    header_->__set_num_values(num_values_);
+  int32_t num_values() const {
+    return num_values_;
+  }
+
+  Encoding::type encoding() const {
+    return encoding_;
+  }
+
+  Encoding::type rep_level_encoding() const {
+    return repetition_level_encoding_;
+  }
+
+  Encoding::type def_level_encoding() const {
+    return definition_level_encoding_;
   }
 
  private:
   InMemoryOutputStream* sink_;
-  parquet::DataPageHeader* header_;
 
-  size_t num_values_;
+  int32_t num_values_;
+  Encoding::type encoding_;
+  Encoding::type definition_level_encoding_;
+  Encoding::type repetition_level_encoding_;
+
   bool have_def_levels_;
   bool have_rep_levels_;
   bool have_values_;
 
   // Used internally for both repetition and definition levels
   void AppendLevels(const std::vector<int16_t>& levels, int16_t max_level,
-      parquet::Encoding::type encoding) {
-    if (encoding != parquet::Encoding::RLE) {
+      Encoding::type encoding) {
+    if (encoding != Encoding::RLE) {
       ParquetException::NYI("only rle encoding currently implemented");
     }
 
@@ -152,32 +173,32 @@ static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
   size_t num_values = values.size();
 
   InMemoryOutputStream page_stream;
-  parquet::DataPageHeader page_header;
-
-  test::DataPageBuilder<TYPE> page_builder(&page_stream, &page_header);
+  test::DataPageBuilder<TYPE> page_builder(&page_stream);
 
   if (!rep_levels.empty()) {
-    page_builder.AppendRepLevels(rep_levels, max_rep_level,
-        parquet::Encoding::RLE);
+    page_builder.AppendRepLevels(rep_levels, max_rep_level);
   }
 
   if (!def_levels.empty()) {
-    page_builder.AppendDefLevels(def_levels, max_def_level,
-        parquet::Encoding::RLE);
+    page_builder.AppendDefLevels(def_levels, max_def_level);
   }
 
-  page_builder.AppendValues(values, parquet::Encoding::PLAIN);
-  page_builder.Finish();
-
-  // Hand off the data stream to the passed std::vector
+  page_builder.AppendValues(values);
   page_stream.Transfer(out_buffer);
 
-  return std::make_shared<DataPage>(&(*out_buffer)[0], out_buffer->size(), page_header);
+  return std::make_shared<DataPage>(&(*out_buffer)[0], out_buffer->size(),
+      page_builder.num_values(),
+      page_builder.encoding(),
+      page_builder.def_level_encoding(),
+      page_builder.rep_level_encoding());
 }
+
 } // namespace test
 
+// Utilities for testing the SerializedPageReader internally
+
 static inline void InitDataPage(const parquet::Statistics& stat,
-    parquet::DataPageHeader& data_page, int nvalues) {
+    parquet::DataPageHeader& data_page, int32_t nvalues) {
   data_page.encoding = parquet::Encoding::PLAIN;
   data_page.definition_level_encoding = parquet::Encoding::RLE;
   data_page.repetition_level_encoding = parquet::Encoding::RLE;

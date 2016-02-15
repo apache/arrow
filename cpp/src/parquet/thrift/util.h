@@ -17,10 +17,38 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <sstream>
 
-#include "parquet/util/logging.h"
 #include "parquet/exception.h"
+#include "parquet/util/logging.h"
+#include "parquet/thrift/parquet_types.h"
 
 namespace parquet_cpp {
+
+// ----------------------------------------------------------------------
+// Convert Thrift enums to / from parquet_cpp enums
+
+static inline Type::type FromThrift(parquet::Type::type type) {
+  return static_cast<Type::type>(type);
+}
+
+static inline LogicalType::type FromThrift(parquet::ConvertedType::type type) {
+  // item 0 is NONE
+  return static_cast<LogicalType::type>(static_cast<int>(type) + 1);
+}
+
+static inline Repetition::type FromThrift(parquet::FieldRepetitionType::type type) {
+  return static_cast<Repetition::type>(type);
+}
+
+static inline Encoding::type FromThrift(parquet::Encoding::type type) {
+  return static_cast<Encoding::type>(type);
+}
+
+static inline Compression::type FromThrift(parquet::CompressionCodec::type type) {
+  return static_cast<Compression::type>(type);
+}
+
+// ----------------------------------------------------------------------
+// Thrift struct serialization / deserialization utilities
 
 // Deserialize a thrift message from buf/len.  buf/len must at least contain
 // all the bytes needed to store the thrift message.  On return, len will be

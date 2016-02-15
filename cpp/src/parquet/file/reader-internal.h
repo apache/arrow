@@ -18,15 +18,56 @@
 #ifndef PARQUET_FILE_READER_INTERNAL_H
 #define PARQUET_FILE_READER_INTERNAL_H
 
-#include "parquet/file/reader.h"
-
+#include <cstdint>
 #include <memory>
+#include <vector>
 
-#include "parquet/schema/descriptor.h"
-#include "parquet/util/input.h"
+#include "parquet/column/page.h"
+#include "parquet/compression/codec.h"
+#include "parquet/file/reader.h"
 #include "parquet/thrift/parquet_types.h"
+#include "parquet/types.h"
+#include "parquet/util/input.h"
 
 namespace parquet_cpp {
+
+class SchemaDescriptor;
+
+// 16 MB is the default maximum page header size
+static constexpr uint32_t DEFAULT_MAX_PAGE_HEADER_SIZE = 16 * 1024 * 1024;
+
+// 16 KB is the default expected page header size
+static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
+
+// This subclass delimits pages appearing in a serialized stream, each preceded
+// by a serialized Thrift parquet::PageHeader indicating the type of each page
+// and the page metadata.
+class SerializedPageReader : public PageReader {
+ public:
+  SerializedPageReader(std::unique_ptr<InputStream> stream,
+      Compression::type codec);
+
+  virtual ~SerializedPageReader() {}
+
+  // Implement the PageReader interface
+  virtual std::shared_ptr<Page> NextPage();
+
+  void set_max_page_header_size(uint32_t size) {
+    max_page_header_size_ = size;
+  }
+
+ private:
+  std::unique_ptr<InputStream> stream_;
+
+  parquet::PageHeader current_page_header_;
+  std::shared_ptr<Page> current_page_;
+
+  // Compression codec to use.
+  std::unique_ptr<Codec> decompressor_;
+  std::vector<uint8_t> decompression_buffer_;
+  // Maximum allowed page size
+  uint32_t max_page_header_size_;
+};
 
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {

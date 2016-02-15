@@ -17,9 +17,10 @@
 
 #include "parquet/schema/converter.h"
 
-#include <string>
-
 #include "parquet/exception.h"
+#include "parquet/schema/descriptor.h"
+#include "parquet/schema/types.h"
+#include "parquet/thrift/parquet_types.h"
 
 using parquet::SchemaElement;
 
@@ -46,7 +47,7 @@ std::unique_ptr<Node> FlatSchemaConverter::Convert() {
 std::unique_ptr<Node> FlatSchemaConverter::NextNode() {
   const SchemaElement& element = Next();
 
-  size_t node_id = next_id();
+  int node_id = next_id();
 
   const void* opaque_element = static_cast<const void*>(&element);
 
@@ -56,7 +57,7 @@ std::unique_ptr<Node> FlatSchemaConverter::NextNode() {
   } else {
     // Group
     NodeVector fields;
-    for (size_t i = 0; i < element.num_children; ++i) {
+    for (int i = 0; i < element.num_children; ++i) {
       std::unique_ptr<Node> field = NextNode();
       fields.push_back(NodePtr(field.release()));
     }
@@ -81,25 +82,6 @@ std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& 
 
   return descr;
 }
-
-// ----------------------------------------------------------------------
-// Conversion back to Parquet metadata
-
-// TODO: decide later what to do with these. When converting back only need to
-// write into a parquet::SchemaElement
-
-// FieldRepetitionType::type ToParquet(Repetition::type type) {
-//   return static_cast<FieldRepetitionType::type>(type);
-// }
-
-// parquet::ConvertedType::type ToParquet(LogicalType::type type) {
-//   // item 0 is NONE
-//   return static_cast<parquet::ConvertedType::type>(static_cast<int>(type) - 1);
-// }
-
-// parquet::Type::type ToParquet(Type::type type) {
-//   return static_cast<parquet::Type::type>(type);
-// }
 
 } // namespace schema
 

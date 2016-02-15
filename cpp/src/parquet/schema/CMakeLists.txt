@@ -17,9 +17,8 @@
 
 # Headers: top level
 install(FILES
-  builder.h
-  converter.h
   descriptor.h
+  printer.h
   types.h
   DESTINATION include/parquet/schema)
 

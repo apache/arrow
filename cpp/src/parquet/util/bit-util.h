@@ -26,7 +26,7 @@
 #include <endian.h>
 #endif
 
-#include <boost/type_traits/make_unsigned.hpp>
+#include <cstdint>
 
 #include "parquet/util/compiler-util.h"
 #include "parquet/util/cpu-info.h"
@@ -34,10 +34,35 @@
 
 namespace parquet_cpp {
 
-using boost::make_unsigned;
+// TODO(wesm): The source from Impala was depending on boost::make_unsigned
+//
+// We add a partial stub implementation here
+
+template <typename T>
+struct make_unsigned {
+};
+
+template <>
+struct make_unsigned<int8_t> {
+  typedef uint8_t type;
+};
+
+template <>
+struct make_unsigned<int16_t> {
+  typedef uint16_t type;
+};
+
+template <>
+struct make_unsigned<int32_t> {
+  typedef uint32_t type;
+};
+
+template <>
+struct make_unsigned<int64_t> {
+  typedef uint64_t type;
+};
 
 /// Utility class to do standard bit tricks
-/// TODO: is this in boost or something else like that?
 class BitUtil {
  public:
   /// Returns the ceil of value/divisor

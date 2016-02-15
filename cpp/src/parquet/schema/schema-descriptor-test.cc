@@ -18,16 +18,15 @@
 // Schema / column descriptor correctness tests (from flat Parquet schemas)
 
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "parquet/util/test-common.h"
 
-#include "parquet/schema/converter.h"
+#include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
-
-#include "parquet/thrift/parquet_types.h"
+#include "parquet/schema/types.h"
 
 using std::string;
 using std::vector;

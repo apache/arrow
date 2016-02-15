@@ -18,6 +18,9 @@
 #include "parquet/compression/codec.h"
 
 #include <lz4.h>
+#include <cstdint>
+
+#include "parquet/exception.h"
 
 namespace parquet_cpp {
 
@@ -26,7 +29,7 @@ void Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
   int64_t n = LZ4_decompress_fast(reinterpret_cast<const char*>(input),
       reinterpret_cast<char*>(output_buffer), output_len);
   if (n != input_len) {
-    throw parquet_cpp::ParquetException("Corrupt lz4 compressed data.");
+    throw ParquetException("Corrupt lz4 compressed data.");
   }
 }
 

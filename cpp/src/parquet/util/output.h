@@ -19,7 +19,6 @@
 #define PARQUET_UTIL_OUTPUT_H
 
 #include <cstdint>
-#include <memory>
 #include <vector>
 
 namespace parquet_cpp {

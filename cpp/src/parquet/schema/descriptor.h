@@ -19,12 +19,14 @@
 #define PARQUET_SCHEMA_DESCRIPTOR_H
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "parquet/schema/types.h"
+#include "parquet/types.h"
 
 namespace parquet_cpp {
 

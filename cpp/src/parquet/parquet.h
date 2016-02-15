@@ -27,9 +27,19 @@
 #include <vector>
 
 #include "parquet/exception.h"
+
+// Column reader API
 #include "parquet/column/reader.h"
+
+// File API
 #include "parquet/file/reader.h"
 
+// Schemas
+#include "parquet/schema/descriptor.h"
+#include "parquet/schema/printer.h"
+#include "parquet/schema/types.h"
+
+// IO
 #include "parquet/util/input.h"
 #include "parquet/util/output.h"
 

@@ -20,16 +20,16 @@
 #ifndef PARQUET_SCHEMA_PRINTER_H
 #define PARQUET_SCHEMA_PRINTER_H
 
-#include "parquet/schema/types.h"
-
 #include <ostream>
 
 namespace parquet_cpp {
 
 namespace schema {
 
+class Node;
+
 void PrintSchema(const Node* schema, std::ostream& stream,
-    size_t indent_width = 2);
+    int indent_width = 2);
 
 } // namespace schema
 

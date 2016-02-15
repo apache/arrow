@@ -18,10 +18,12 @@
 #ifndef PARQUET_DELTA_BIT_PACK_ENCODING_H
 #define PARQUET_DELTA_BIT_PACK_ENCODING_H
 
-#include "parquet/encodings/encodings.h"
-
 #include <algorithm>
+#include <cstdint>
 #include <vector>
+
+#include "parquet/encodings/decoder.h"
+#include "parquet/util/bit-stream-utils.inline.h"
 
 namespace parquet_cpp {
 
@@ -31,7 +33,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
   typedef typename type_traits<TYPE>::value_type T;
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr)
-      : Decoder<TYPE>(descr, parquet::Encoding::DELTA_BINARY_PACKED) {
+      : Decoder<TYPE>(descr, Encoding::DELTA_BINARY_PACKED) {
     if (TYPE != Type::INT32 && TYPE != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }

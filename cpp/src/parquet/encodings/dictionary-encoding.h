@@ -18,10 +18,13 @@
 #ifndef PARQUET_DICTIONARY_ENCODING_H
 #define PARQUET_DICTIONARY_ENCODING_H
 
-#include "parquet/encodings/encodings.h"
-
 #include <algorithm>
+#include <cstdint>
 #include <vector>
+
+#include "parquet/encodings/decoder.h"
+#include "parquet/encodings/encoder.h"
+#include "parquet/util/rle-encoding.h"
 
 namespace parquet_cpp {
 
@@ -35,7 +38,7 @@ class DictionaryDecoder : public Decoder<TYPE> {
   // dictionary decoder needs to copy the data out if necessary.
   DictionaryDecoder(const ColumnDescriptor* descr,
       Decoder<TYPE>* dictionary)
-      : Decoder<TYPE>(descr, parquet::Encoding::RLE_DICTIONARY) {
+      : Decoder<TYPE>(descr, Encoding::RLE_DICTIONARY) {
     Init(dictionary);
   }
 

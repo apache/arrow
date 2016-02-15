@@ -18,24 +18,26 @@
 #ifndef PARQUET_COLUMN_SCANNER_H
 #define PARQUET_COLUMN_SCANNER_H
 
+#include <stdio.h>
+#include <cstdint>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <vector>
 
 #include "parquet/column/reader.h"
-
+#include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
 
 namespace parquet_cpp {
 
-static constexpr size_t DEFAULT_SCANNER_BATCH_SIZE = 128;
+static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 
 class Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
-      size_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
       batch_size_(batch_size),
       level_offset_(0),
       levels_buffered_(0),
@@ -50,7 +52,7 @@ class Scanner {
   virtual ~Scanner() {}
 
   static std::shared_ptr<Scanner> Make(std::shared_ptr<ColumnReader> col_reader,
-      size_t batch_size = DEFAULT_SCANNER_BATCH_SIZE);
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE);
 
   virtual void PrintNext(std::ostream& out, int width) = 0;
 
@@ -62,14 +64,14 @@ class Scanner {
     return reader_->descr();
   }
 
-  size_t batch_size() const { return batch_size_;}
+  int64_t batch_size() const { return batch_size_;}
 
-  void SetBatchSize(size_t batch_size) {
+  void SetBatchSize(int64_t batch_size) {
     batch_size_ = batch_size;
   }
 
  protected:
-  size_t batch_size_;
+  int64_t batch_size_;
 
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
@@ -91,7 +93,7 @@ class TypedScanner : public Scanner {
   typedef typename type_traits<TYPE>::value_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
-      size_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
       Scanner(reader, batch_size) {
     typed_reader_ = static_cast<TypedColumnReader<TYPE>*>(reader.get());
     size_t value_byte_size = type_traits<TYPE>::value_byte_size;

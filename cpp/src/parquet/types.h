@@ -108,7 +108,6 @@ struct Encoding {
 // Compression, mirrors parquet::CompressionCodec
 struct Compression {
   enum type {
-    NONE,
     UNCOMPRESSED,
     SNAPPY,
     GZIP,

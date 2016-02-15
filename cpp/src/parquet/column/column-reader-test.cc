@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
-#include <sstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,15 +28,13 @@
 #include "parquet/column/page.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/test-util.h"
-
-#include "parquet/util/output.h"
+#include "parquet/schema/descriptor.h"
+#include "parquet/schema/types.h"
 #include "parquet/util/test-common.h"
 
 using std::string;
 using std::vector;
 using std::shared_ptr;
-using parquet::FieldRepetitionType;
-using parquet::SchemaElement;
 
 namespace parquet_cpp {
 

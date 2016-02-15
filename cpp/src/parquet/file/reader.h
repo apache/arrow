@@ -19,21 +19,17 @@
 #define PARQUET_FILE_READER_H
 
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <string>
-#include <stdio.h>
 #include <unordered_map>
 
-#include "parquet/types.h"
-#include "parquet/schema/descriptor.h"
-
-// TODO(wesm): Still depends on Thrift
 #include "parquet/column/page.h"
+#include "parquet/schema/descriptor.h"
 
 namespace parquet_cpp {
 
 class ColumnReader;
-class ParquetFileReader;
 
 struct RowGroupStatistics {
   int64_t num_values;

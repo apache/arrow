@@ -18,9 +18,10 @@
 #ifndef PARQUET_COLUMN_LEVELS_H
 #define PARQUET_COLUMN_LEVELS_H
 
+#include <memory>
+
 #include "parquet/exception.h"
-#include "parquet/thrift/parquet_types.h"
-#include "parquet/encodings/encodings.h"
+#include "parquet/types.h"
 #include "parquet/util/rle-encoding.h"
 
 namespace parquet_cpp {
@@ -30,16 +31,16 @@ class LevelEncoder {
   LevelEncoder() {}
 
   // Initialize the LevelEncoder.
-  void Init(parquet::Encoding::type encoding, int16_t max_level,
+  void Init(Encoding::type encoding, int16_t max_level,
       int num_buffered_values, uint8_t* data, int data_size) {
     bit_width_ = BitUtil::Log2(max_level + 1);
     encoding_ = encoding;
     switch (encoding) {
-      case parquet::Encoding::RLE: {
+      case Encoding::RLE: {
         rle_encoder_.reset(new RleEncoder(data, data_size, bit_width_));
         break;
       }
-      case parquet::Encoding::BIT_PACKED: {
+      case Encoding::BIT_PACKED: {
         int num_bytes = BitUtil::Ceil(num_buffered_values * bit_width_, 8);
         bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
         break;
@@ -56,7 +57,7 @@ class LevelEncoder {
       throw ParquetException("Level encoders are not initialized.");
     }
 
-    if (encoding_ == parquet::Encoding::RLE) {
+    if (encoding_ == Encoding::RLE) {
       for (size_t i = 0; i < batch_size; ++i) {
         if (!rle_encoder_->Put(*(levels + i))) {
           break;
@@ -78,14 +79,16 @@ class LevelEncoder {
   }
 
   int32_t len() {
-    assert(encoding_ == parquet::Encoding::RLE);
+    if (encoding_ != Encoding::RLE) {
+      throw ParquetException("Only implemented for RLE encoding");
+    }
     return rle_length_;
   }
 
  private:
   int bit_width_;
   int rle_length_;
-  parquet::Encoding::type encoding_;
+  Encoding::type encoding_;
   std::unique_ptr<RleEncoder> rle_encoder_;
   std::unique_ptr<BitWriter> bit_packed_encoder_;
 };
@@ -96,20 +99,20 @@ class LevelDecoder {
   LevelDecoder() {}
 
   // Initialize the LevelDecoder and return the number of bytes consumed
-  size_t Init(parquet::Encoding::type encoding, int16_t max_level,
+  size_t Init(Encoding::type encoding, int16_t max_level,
       int num_buffered_values, const uint8_t* data) {
     uint32_t num_bytes = 0;
     uint32_t total_bytes = 0;
     bit_width_ = BitUtil::Log2(max_level + 1);
     encoding_ = encoding;
     switch (encoding) {
-      case parquet::Encoding::RLE: {
+      case Encoding::RLE: {
         num_bytes = *reinterpret_cast<const uint32_t*>(data);
         const uint8_t* decoder_data = data + sizeof(uint32_t);
         rle_decoder_.reset(new RleDecoder(decoder_data, num_bytes, bit_width_));
         return sizeof(uint32_t) + num_bytes;
       }
-      case parquet::Encoding::BIT_PACKED: {
+      case Encoding::BIT_PACKED: {
         num_bytes = BitUtil::Ceil(num_buffered_values * bit_width_, 8);
         bit_packed_decoder_.reset(new BitReader(data, num_bytes));
         return num_bytes;
@@ -127,7 +130,7 @@ class LevelDecoder {
       throw ParquetException("Level decoders are not initialized.");
     }
 
-    if (encoding_ == parquet::Encoding::RLE) {
+    if (encoding_ == Encoding::RLE) {
       for (size_t i = 0; i < batch_size; ++i) {
         if (!rle_decoder_->Get(levels + i)) {
           break;
@@ -147,7 +150,7 @@ class LevelDecoder {
 
  private:
   int bit_width_;
-  parquet::Encoding::type encoding_;
+  Encoding::type encoding_;
   std::unique_ptr<RleDecoder> rle_decoder_;
   std::unique_ptr<BitReader> bit_packed_decoder_;
 };

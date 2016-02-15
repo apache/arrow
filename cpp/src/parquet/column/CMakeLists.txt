@@ -20,10 +20,8 @@ install(FILES
   page.h
   levels.h
   reader.h
-  serialized-page.h
   scanner.h
   DESTINATION include/parquet/column)
 
 ADD_PARQUET_TEST(column-reader-test)
 ADD_PARQUET_TEST(levels-test)
-ADD_PARQUET_TEST(serialized-page-test)
