@@ -118,6 +118,8 @@ class BitReader {
     max_bytes_ = buffer_len;
     byte_offset_ = 0;
     bit_offset_ = 0;
+    int num_bytes = std::min(8, max_bytes_ - byte_offset_);
+    memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if

@@ -181,6 +181,62 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   ASSERT_EQ(0, batch_actual);
   ASSERT_EQ(0, values_read);
 }
-} // namespace test
 
+TEST_F(TestPrimitiveReader, TestInt32FlatRepeatedMultiplePages) {
+  vector<int32_t> values[2] = {{1, 2, 3, 4, 5},
+    {6, 7, 8, 9, 10}};
+  vector<int16_t> def_levels[2] = {{2, 1, 1, 2, 2, 1, 1, 2, 2, 1},
+    {2, 2, 1, 2, 1, 1, 2, 1, 2, 1}};
+  vector<int16_t> rep_levels[2] = {{0, 1, 1, 0, 0, 1, 1, 0, 0, 1},
+    {0, 0, 1, 0, 1, 1, 0, 1, 0, 1}};
+
+  std::vector<uint8_t> buffer[4];
+  std::shared_ptr<DataPage> page;
+
+  for (int i = 0; i < 4; i++) {
+    page = MakeDataPage<Type::INT32>(values[i % 2],
+        def_levels[i % 2], 2, rep_levels[i % 2], 1, &buffer[i]);
+    pages_.push_back(page);
+  }
+
+  NodePtr type = schema::Int32("a", Repetition::REPEATED);
+  ColumnDescriptor descr(type, 2, 1);
+  InitReader(&descr);
+
+  Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
+
+  size_t values_read = 0;
+  size_t batch_actual = 0;
+
+  vector<int32_t> vresult(3, -1);
+  vector<int16_t> dresult(5, -1);
+  vector<int16_t> rresult(5, -1);
+
+  for (int i = 0; i < 4; i++) {
+    batch_actual = reader->ReadBatch(5, &dresult[0], &rresult[0],
+        &vresult[0], &values_read);
+    ASSERT_EQ(5, batch_actual);
+    ASSERT_EQ(3, values_read);
+
+    ASSERT_TRUE(vector_equal(vresult, slice(values[i % 2], 0, 3)));
+    ASSERT_TRUE(vector_equal(dresult, slice(def_levels[i % 2], 0, 5)));
+    ASSERT_TRUE(vector_equal(rresult, slice(rep_levels[i % 2], 0, 5)));
+
+    batch_actual = reader->ReadBatch(5, &dresult[0], &rresult[0],
+        &vresult[0], &values_read);
+    ASSERT_EQ(5, batch_actual);
+    ASSERT_EQ(2, values_read);
+
+    ASSERT_TRUE(vector_equal(slice(vresult, 0, 2), slice(values[i % 2], 3, 5)));
+    ASSERT_TRUE(vector_equal(dresult, slice(def_levels[i % 2], 5, 10)));
+    ASSERT_TRUE(vector_equal(rresult, slice(rep_levels[i % 2], 5, 10)));
+  }
+  // EOS, pass all nullptrs to check for improper writes. Do not segfault /
+  // core dump
+  batch_actual = reader->ReadBatch(5, nullptr, nullptr,
+      nullptr, &values_read);
+  ASSERT_EQ(0, batch_actual);
+  ASSERT_EQ(0, values_read);
+}
+} // namespace test
 } // namespace parquet_cpp

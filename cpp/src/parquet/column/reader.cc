@@ -97,15 +97,13 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       // the page size to determine the number of bytes in the encoded data.
       size_t data_size = page->size();
 
-      int16_t max_definition_level = descr_->max_definition_level();
-      int16_t max_repetition_level = descr_->max_repetition_level();
       //Data page Layout: Repetition Levels - Definition Levels - encoded values.
       //Levels are encoded as rle or bit-packed.
       //Init repetition levels
-      if (max_repetition_level > 0) {
-        size_t rep_levels_bytes = repetition_level_decoder_.Init(
-            page->repetition_level_encoding(),
-            max_repetition_level, num_buffered_values_, buffer);
+      if (descr_->max_repetition_level() > 0) {
+        size_t rep_levels_bytes = repetition_level_decoder_.SetData(
+            page->repetition_level_encoding(), descr_->max_repetition_level(),
+            num_buffered_values_, buffer);
         buffer += rep_levels_bytes;
         data_size -= rep_levels_bytes;
       }
@@ -113,10 +111,10 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       //if the initial value is invalid
 
       //Init definition levels
-      if (max_definition_level > 0) {
-        size_t def_levels_bytes = definition_level_decoder_.Init(
-            page->definition_level_encoding(),
-            max_definition_level, num_buffered_values_, buffer);
+      if (descr_->max_definition_level() > 0) {
+        size_t def_levels_bytes = definition_level_decoder_.SetData(
+            page->definition_level_encoding(), descr_->max_definition_level(),
+            num_buffered_values_, buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
       }
