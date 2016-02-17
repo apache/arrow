@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
+  license agreements. See the NOTICE file distributed with this work for additional
+  information regarding copyright ownership. The ASF licenses this file to
+  You under the Apache License, Version 2.0 (the "License"); you may not use
+  this file except in compliance with the License. You may obtain a copy of
+  the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required
+  by applicable law or agreed to in writing, software distributed under the
+  License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+  OF ANY KIND, either express or implied. See the License for the specific
+  language governing permissions and limitations under the License. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.apache</groupId>
+    <artifactId>apache</artifactId>
+    <version>14</version>
+  </parent>
+
+  <groupId>org.apache.arrow</groupId>
+  <artifactId>arrow-java-root</artifactId>
+  <version>0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>Apache Arrow Java Root POM</name>
+  <description>Apache arrow is an open source, low latency SQL query engine for Hadoop and NoSQL.</description>
+  <url>http://arrow.apache.org/</url>
+
+  <properties>
+    <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
+    <dep.junit.version>4.11</dep.junit.version>
+    <dep.slf4j.version>1.7.6</dep.slf4j.version>
+    <dep.guava.version>18.0</dep.guava.version>
+    <forkCount>2</forkCount>
+    <jackson.version>2.7.1</jackson.version>
+    <hadoop.version>2.7.1</hadoop.version>
+    <fmpp.version>0.9.15</fmpp.version>
+    <freemarker.version>2.3.21</freemarker.version>
+  </properties>
+
+  <scm>
+    <connection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</connection>
+    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</developerConnection>
+    <url>https://github.com/apache/arrow</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <mailingLists>
+    <mailingList>
+      <name>Developer List</name>
+      <subscribe>dev-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
+      <post>dev@arrow.apache.org</post>
+      <archive>http://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
+    </mailingList>
+    <mailingList>
+      <name>Commits List</name>
+      <subscribe>commits-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
+      <post>commits@arrow.apache.org</post>
+      <archive>http://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
+    </mailingList>
+    <mailingList>
+      <name>Issues List</name>
+      <subscribe>issues-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
+      <archive>http://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
+    </mailingList>
+  </mailingLists>
+
+  <repositories>
+
+  </repositories>
+
+  <issueManagement>
+    <system>Jira</system>
+    <url>https://issues.apache.org/jira/browse/arrow</url>
+  </issueManagement>
+
+  <build>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>rat-checks</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <excludeSubprojects>false</excludeSubprojects>
+          <excludes>
+            <exclude>**/*.log</exclude>
+            <exclude>**/*.css</exclude>
+            <exclude>**/*.js</exclude>
+            <exclude>**/*.md</exclude>
+            <exclude>**/*.eps</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/*.seq</exclude>
+            <exclude>**/*.parquet</exclude>
+            <exclude>**/*.sql</exclude>
+            <exclude>**/git.properties</exclude>
+            <exclude>**/*.csv</exclude>
+            <exclude>**/*.csvh</exclude>
+            <exclude>**/*.csvh-test</exclude>
+            <exclude>**/*.tsv</exclude>
+            <exclude>**/*.txt</exclude>
+            <exclude>**/*.ssv</exclude>
+            <exclude>**/arrow-*.conf</exclude>
+            <exclude>**/.buildpath</exclude>
+            <exclude>**/*.proto</exclude>
+            <exclude>**/*.fmpp</exclude>
+            <exclude>**/target/**</exclude>
+            <exclude>**/*.iml</exclude>
+            <exclude>**/*.tdd</exclude>
+            <exclude>**/*.project</exclude>
+            <exclude>**/TAGS</exclude>
+            <exclude>**/*.checkstyle</exclude>
+            <exclude>**/.classpath</exclude>
+            <exclude>**/.settings/**</exclude>
+            <exclude>.*/**</exclude>
+            <exclude>**/*.patch</exclude>
+            <exclude>**/*.pb.cc</exclude>
+            <exclude>**/*.pb.h</exclude>
+            <exclude>**/*.linux</exclude>
+            <exclude>**/client/build/**</exclude>
+            <exclude>**/*.tbl</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/logging.properties</exclude>
+            <exclude>**/logback-test.xml</exclude>
+            <exclude>**/logback.out.xml</exclude>
+            <exclude>**/logback.xml</exclude>
+          </excludes>
+          <archive>
+            <index>true</index>
+            <manifest>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+            </manifest>
+            <manifestEntries>
+              <Extension-Name>org.apache.arrow</Extension-Name>
+              <Built-By>${username}</Built-By>
+              <url>http://arrow.apache.org/</url>
+            </manifestEntries>
+          </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+            <configuration>
+              <skipIfEmpty>true</skipIfEmpty>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.7</source>
+          <target>1.7</target>
+          <maxmem>2048m</maxmem>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
+          <fork>true</fork>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>validate_java_and_maven_version</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <inherited>false</inherited>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.0.4,4)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+          <execution>
+            <id>avoid_bad_dependencies</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>commons-logging</exclude>
+                    <exclude>javax.servlet:servlet-api</exclude>
+                    <exclude>org.mortbay.jetty:servlet-api</exclude>
+                    <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
+                    <exclude>log4j:log4j</exclude>
+                  </excludes>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>pl.project13.maven</groupId>
+        <artifactId>git-commit-id-plugin</artifactId>
+        <version>2.1.9</version>
+        <executions>
+          <execution>
+            <id>for-jars</id>
+            <inherited>true</inherited>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <configuration>
+              <generateGitPropertiesFilename>target/classes/git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+          <execution>
+            <id>for-source-tarball</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <inherited>false</inherited>
+            <configuration>
+              <generateGitPropertiesFilename>./git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+        </executions>
+
+        <configuration>
+          <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
+          <verbose>true</verbose>
+          <skipPoms>false</skipPoms>
+          <generateGitPropertiesFile>true</generateGitPropertiesFile>
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <gitDescribe>
+            <skip>false</skip>
+            <always>false</always>
+            <abbrev>7</abbrev>
+            <dirty>-dirty</dirty>
+            <forceLongFormat>true</forceLongFormat>
+          </gitDescribe>
+        </configuration>
+      </plugin>
+    </plugins>
+    <pluginManagement>
+
+      <plugins>
+        <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <version>0.11</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>2.6</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>1.3.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.17</version>
+          <configuration>
+            <argLine>-ea</argLine>
+            <forkCount>${forkCount}</forkCount>
+            <reuseForks>true</reuseForks>
+            <systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>2.5.2</version>
+          <configuration>
+            <useReleaseProfile>false</useReleaseProfile>
+            <pushChanges>false</pushChanges>
+            <goals>deploy</goals>
+            <arguments>-Papache-release ${arguments}</arguments>
+          </configuration>
+        </plugin>
+
+        <!--This plugin's configuration is used to store Eclipse m2e settings
+          only. It has no influence on the Maven build itself. -->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <versionRange>[1.6,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <versionRange>[1.2,)</versionRange>
+                    <goals>
+                      <goal>enforce</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>
+                      maven-remote-resources-plugin
+                    </artifactId>
+                    <versionRange>[1.1,)</versionRange>
+                    <goals>
+                      <goal>process</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <versionRange>[0.10,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+  <dependencies>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>4.0.27.Final</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${dep.guava.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${dep.slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jul-to-slf4j</artifactId>
+      <version>${dep.slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jcl-over-slf4j</artifactId>
+      <version>${dep.slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>log4j-over-slf4j</artifactId>
+      <version>${dep.slf4j.version}</version>
+    </dependency>
+
+    <!-- Test Dependencies -->
+    <dependency>
+      <!-- JMockit needs to be on class path before JUnit. -->
+      <groupId>com.googlecode.jmockit</groupId>
+      <artifactId>jmockit</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${dep.junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- Mockito needs to be on the class path after JUnit (or Hamcrest) as 
+           long as Mockito _contains_ older Hamcrest classes.  See arrow-2130. --> 
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>1.9.5</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.0.13</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>de.huxhorn.lilith</groupId>
+      <artifactId>de.huxhorn.lilith.logback.appender.multiplex-classic</artifactId>
+      <version>0.9.44</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <modules>
+    <module>memory</module>
+    <module>vector</module>
+  </modules>
+</project>

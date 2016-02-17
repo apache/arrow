@@ -1,0 +1,168 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http:# www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  modes: [
+    {name: "Optional", prefix: "Nullable"},
+    {name: "Required", prefix: ""},
+    {name: "Repeated", prefix: "Repeated"}
+    ],
+  types: [
+    {
+      major: "Fixed",
+      width: 1,
+      javaType: "byte",
+      boxedType: "Byte",
+      fields: [{name: "value", type: "byte"}],
+      minor: [
+        { class: "TinyInt", valueHolder: "IntHolder" },
+        { class: "UInt1", valueHolder: "UInt1Holder" }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 2,
+      javaType: "char",
+      boxedType: "Character",
+      fields: [{name: "value", type: "char"}],
+      minor: [
+        { class: "UInt2", valueHolder: "UInt2Holder"}
+      ]
+    },    {
+      major: "Fixed",
+      width: 2,
+      javaType: "short",
+      boxedType: "Short",
+      fields: [{name: "value", type: "short"}],
+      minor: [
+        { class: "SmallInt", valueHolder: "Int2Holder"},
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 4,
+      javaType: "int",
+      boxedType: "Integer",
+      fields: [{name: "value", type: "int"}],
+      minor: [
+        { class: "Int", valueHolder: "IntHolder"},
+        { class: "UInt4", valueHolder: "UInt4Holder" },
+        { class: "Float4", javaType: "float" , boxedType: "Float", fields: [{name: "value", type: "float"}]},
+        { class: "Time", javaType: "int", friendlyType: "DateTime" },
+        { class: "IntervalYear", javaType: "int", friendlyType: "Period" }
+        { class: "Decimal9", maxPrecisionDigits: 9, friendlyType: "BigDecimal", fields: [{name:"value", type:"int"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] },
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 8,
+      javaType: "long",
+      boxedType: "Long",
+      fields: [{name: "value", type: "long"}],
+      minor: [
+        { class: "BigInt"},
+        { class: "UInt8" },
+        { class: "Float8", javaType: "double" , boxedType: "Double", fields: [{name: "value", type: "double"}], },
+        { class: "Date", javaType: "long", friendlyType: "DateTime" },
+        { class: "TimeStamp", javaType: "long", friendlyType: "DateTime" }
+        { class: "Decimal18", maxPrecisionDigits: 18, friendlyType: "BigDecimal", fields: [{name:"value", type:"long"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] },
+        <#--
+        { class: "Money", maxPrecisionDigits: 2, scale: 1, },
+        -->
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 12,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      minor: [
+        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 16,
+      javaType: "ArrowBuf"
+      boxedType: "ArrowBuf",      
+      minor: [
+        { class: "Interval", daysOffset: 4, millisecondsOffset: 8, friendlyType: "Period", fields: [ {name: "months", type: "int"}, {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 12,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      minor: [
+        <#--
+        { class: "TimeTZ" },
+        { class: "Interval" }
+        -->
+        { class: "Decimal28Dense", maxPrecisionDigits: 28, nDecimalDigits: 3, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 16,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      
+      minor: [
+        { class: "Decimal38Dense", maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 24,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      minor: [
+        { class: "Decimal38Sparse", maxPrecisionDigits: 38, nDecimalDigits: 6, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 20,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      minor: [
+        { class: "Decimal28Sparse", maxPrecisionDigits: 28, nDecimalDigits: 5, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+      ]
+    },
+    {
+      major: "VarLen",
+      width: 4,
+      javaType: "int",
+      boxedType: "ArrowBuf",
+      fields: [{name: "start", type: "int"}, {name: "end", type: "int"}, {name: "buffer", type: "ArrowBuf"}],
+      minor: [
+        { class: "VarBinary" , friendlyType: "byte[]" },
+        { class: "VarChar" , friendlyType: "Text" },
+        { class: "Var16Char" , friendlyType: "String" }
+      ]
+    },
+    {
+      major: "Bit",
+      width: 1,
+      javaType: "int",
+      boxedType: "Integer",
+      minor: [
+        { class: "Bit" , friendlyType: "Boolean", fields: [{name: "value", type: "int"}] }
+      ]
+    }
+  ]
+}

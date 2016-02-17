@@ -1,0 +1,196 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p/>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p/>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.arrow.vector.complex.impl;
+
+import java.lang.reflect.Constructor;
+
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VectorDescriptor;
+import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.AbstractMapVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.types.MaterializedField;
+import org.apache.arrow.vector.types.Types.DataMode;
+import org.apache.arrow.vector.types.Types.MajorType;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.util.BasicTypeHelper;
+import org.apache.arrow.vector.util.TransferPair;
+
+/**
+ * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
+ * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the specifically
+ * typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the original vector
+ * in the parent vector, which can be either an AbstractMapVector or a ListVector.
+ */
+public class PromotableWriter extends AbstractPromotableFieldWriter {
+
+  private final AbstractMapVector parentContainer;
+  private final ListVector listVector;
+  private int position;
+
+  private enum State {
+    UNTYPED, SINGLE, UNION
+  }
+
+  private MinorType type;
+  private ValueVector vector;
+  private UnionVector unionVector;
+  private State state;
+  private FieldWriter writer;
+
+  public PromotableWriter(ValueVector v, AbstractMapVector parentContainer) {
+    super(null);
+    this.parentContainer = parentContainer;
+    this.listVector = null;
+    init(v);
+  }
+
+  public PromotableWriter(ValueVector v, ListVector listVector) {
+    super(null);
+    this.listVector = listVector;
+    this.parentContainer = null;
+    init(v);
+  }
+
+  private void init(ValueVector v) {
+    if (v instanceof UnionVector) {
+      state = State.UNION;
+      unionVector = (UnionVector) v;
+      writer = new UnionWriter(unionVector);
+    } else if (v instanceof ZeroVector) {
+      state = State.UNTYPED;
+    } else {
+      setWriter(v);
+    }
+  }
+
+  private void setWriter(ValueVector v) {
+    state = State.SINGLE;
+    vector = v;
+    type = v.getField().getType().getMinorType();
+    Class writerClass = BasicTypeHelper
+        .getWriterImpl(v.getField().getType().getMinorType(), v.getField().getDataMode());
+    if (writerClass.equals(SingleListWriter.class)) {
+      writerClass = UnionListWriter.class;
+    }
+    Class vectorClass = BasicTypeHelper.getValueVectorClass(v.getField().getType().getMinorType(), v.getField()
+        .getDataMode());
+    try {
+      Constructor constructor = null;
+      for (Constructor c : writerClass.getConstructors()) {
+        if (c.getParameterTypes().length == 3) {
+          constructor = c;
+        }
+      }
+      if (constructor == null) {
+        constructor = writerClass.getConstructor(vectorClass, AbstractFieldWriter.class);
+        writer = (FieldWriter) constructor.newInstance(vector, null);
+      } else {
+        writer = (FieldWriter) constructor.newInstance(vector, null, true);
+      }
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public void setPosition(int index) {
+    super.setPosition(index);
+    FieldWriter w = getWriter();
+    if (w == null) {
+      position = index;
+    } else {
+      w.setPosition(index);
+    }
+  }
+
+  protected FieldWriter getWriter(MinorType type) {
+    if (state == State.UNION) {
+      return writer;
+    }
+    if (state == State.UNTYPED) {
+      if (type == null) {
+        return null;
+      }
+      ValueVector v = listVector.addOrGetVector(new VectorDescriptor(new MajorType(type, DataMode.OPTIONAL))).getVector();
+      v.allocateNew();
+      setWriter(v);
+      writer.setPosition(position);
+    }
+    if (type != this.type) {
+      return promoteToUnion();
+    }
+    return writer;
+  }
+
+  @Override
+  public boolean isEmptyMap() {
+    return writer.isEmptyMap();
+  }
+
+  protected FieldWriter getWriter() {
+    return getWriter(type);
+  }
+
+  private FieldWriter promoteToUnion() {
+    String name = vector.getField().getLastName();
+    TransferPair tp = vector.getTransferPair(vector.getField().getType().getMinorType().name().toLowerCase(), vector.getAllocator());
+    tp.transfer();
+    if (parentContainer != null) {
+      unionVector = parentContainer.addOrGet(name, new MajorType(MinorType.UNION, DataMode.OPTIONAL), UnionVector.class);
+    } else if (listVector != null) {
+      unionVector = listVector.promoteToUnion();
+    }
+    unionVector.addVector(tp.getTo());
+    writer = new UnionWriter(unionVector);
+    writer.setPosition(idx());
+    for (int i = 0; i < idx(); i++) {
+      unionVector.getMutator().setType(i, vector.getField().getType().getMinorType());
+    }
+    vector = null;
+    state = State.UNION;
+    return writer;
+  }
+
+  @Override
+  public void allocate() {
+    getWriter().allocate();
+  }
+
+  @Override
+  public void clear() {
+    getWriter().clear();
+  }
+
+  @Override
+  public MaterializedField getField() {
+    return getWriter().getField();
+  }
+
+  @Override
+  public int getValueCapacity() {
+    return getWriter().getValueCapacity();
+  }
+
+  @Override
+  public void close() throws Exception {
+    getWriter().close();
+  }
+}
