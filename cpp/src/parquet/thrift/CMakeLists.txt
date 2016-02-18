@@ -15,20 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_library(parquet_thrift STATIC
+set(THRIFT_SRCS
   parquet_constants.cpp
-  parquet_types.cpp
+  parquet_types.cpp)
+
+add_library(parquet_thrift STATIC
+  ${THRIFT_SRCS}
 )
+
 set_target_properties(parquet_thrift
   PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set_source_files_properties(${THRIFT_SRCS} PROPERTIES GENERATED TRUE)
 
+# List of thrift output targets
+set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/parquet/thrift)
+set(THRIFT_OUTPUT_FILES "${OUTPUT_DIR}/parquet_types.cpp")
+set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${OUTPUT_DIR}/parquet_types.h")
+set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${OUTPUT_DIR}/parquet_constants.cpp")
+set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${OUTPUT_DIR}/parquet_constants.h")
 
-# Headers: thrift
-install(FILES
-  parquet_types.h
-  parquet_constants.h
-  util.h
-  DESTINATION include/parquet/thrift)
+get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
+
+add_custom_command(
+  OUTPUT ${THRIFT_OUTPUT_FILES}
+  COMMAND ${THRIFT_COMPILER} --gen cpp -out ${OUTPUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
+  DEPENDS ${ABS_PARQUET_THRIFT}
+  COMMENT "Running thrift compiler on parquet.thrift"
+  VERBATIM
+)
 
 ADD_PARQUET_TEST(serializer-test)
