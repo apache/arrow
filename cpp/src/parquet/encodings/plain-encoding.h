@@ -67,22 +67,26 @@ inline int PlainDecoder<TYPE>::Decode(T* buffer, int max_values) {
 }
 
 // Template specialization for BYTE_ARRAY
+// BA does not currently own its data
+// the lifetime is tied to the input stream
 template <>
 inline int PlainDecoder<Type::BYTE_ARRAY>::Decode(ByteArray* buffer,
     int max_values) {
   max_values = std::min(max_values, num_values_);
   for (int i = 0; i < max_values; ++i) {
-    buffer[i].len = *reinterpret_cast<const uint32_t*>(data_);
-    if (len_ < sizeof(uint32_t) + buffer[i].len) ParquetException::EofException();
+    uint32_t len = buffer[i].len = *reinterpret_cast<const uint32_t*>(data_);
+    if (len_ < sizeof(uint32_t) + len) ParquetException::EofException();
     buffer[i].ptr = data_ + sizeof(uint32_t);
-    data_ += sizeof(uint32_t) + buffer[i].len;
-    len_ -= sizeof(uint32_t) + buffer[i].len;
+    data_ += sizeof(uint32_t) + len;
+    len_ -= sizeof(uint32_t) + len;
   }
   num_values_ -= max_values;
   return max_values;
 }
 
 // Template specialization for FIXED_LEN_BYTE_ARRAY
+// FLBA does not currently own its data
+// the lifetime is tied to the input stream
 template <>
 inline int PlainDecoder<Type::FIXED_LEN_BYTE_ARRAY>::Decode(
     FixedLenByteArray* buffer, int max_values) {
@@ -161,11 +165,21 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
       Encoder<Type::BOOLEAN>(descr, Encoding::PLAIN) {}
 
   virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
-    throw ParquetException("this API for encoding bools not implemented");
+    size_t bytes_required = BitUtil::Ceil(num_values, 8);
+    std::vector<uint8_t> tmp_buffer(bytes_required);
+
+    BitWriter bit_writer(&tmp_buffer[0], bytes_required);
+    for (size_t i = 0; i < num_values; ++i) {
+      bit_writer.PutValue(src[i], 1);
+    }
+    bit_writer.Flush();
+
+    // Write the result to the output stream
+    dst->Write(bit_writer.buffer(), bit_writer.bytes_written());
   }
 
   void Encode(const std::vector<bool>& src, int num_values, OutputStream* dst) {
-    size_t bytes_required = BitUtil::RoundUp(num_values, 8) / 8;
+    size_t bytes_required = BitUtil::Ceil(num_values, 8);
 
     // TODO(wesm)
     // Use a temporary buffer for now and copy, because the BitWriter is not
@@ -193,15 +207,21 @@ inline void PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
 template <>
 inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
     int num_values, OutputStream* dst) {
-  ParquetException::NYI("byte array encoding");
+  for (size_t i = 0; i < num_values; ++i) {
+    // Write the result to the output stream
+    dst->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
+    dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
+  }
 }
 
 template <>
 inline void PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
     const FixedLenByteArray* src, int num_values, OutputStream* dst) {
-  ParquetException::NYI("FLBA encoding");
+  for (size_t i = 0; i < num_values; ++i) {
+    // Write the result to the output stream
+    dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
+  }
 }
-
 } // namespace parquet_cpp
 
 #endif

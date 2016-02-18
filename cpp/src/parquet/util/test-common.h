@@ -19,8 +19,11 @@
 #define PARQUET_UTIL_TEST_COMMON_H
 
 #include <iostream>
+#include <limits>
 #include <random>
 #include <vector>
+
+#include "parquet/types.h"
 
 using std::vector;
 
@@ -81,7 +84,6 @@ static inline vector<bool> flip_coins_seed(size_t n, double p, uint32_t seed) {
   return draws;
 }
 
-
 static inline vector<bool> flip_coins(size_t n, double p) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -104,8 +106,84 @@ void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
   }
 }
 
-} // namespace test
+template <typename T>
+void random_numbers(int n, uint32_t seed, T* out) {
+  std::mt19937 gen(seed);
+    std::uniform_real_distribution<T> d(std::numeric_limits<T>::lowest(),
+        std::numeric_limits<T>::max());
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
 
+void random_bools(int n, double p, uint32_t seed, bool* out) {
+  std::mt19937 gen(seed);
+  std::bernoulli_distribution d(p);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <>
+void random_numbers(int n, uint32_t seed, int32_t* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::lowest(),
+      std::numeric_limits<int32_t>::max());
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <>
+void random_numbers(int n, uint32_t seed, int64_t* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::lowest(),
+      std::numeric_limits<int64_t>::max());
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <>
+void random_numbers(int n, uint32_t seed, Int96* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<uint32_t> d(std::numeric_limits<uint32_t>::lowest(),
+      std::numeric_limits<uint32_t>::max());
+  for (int i = 0; i < n; ++i) {
+    out[i].value[0] = d(gen);
+    out[i].value[1] = d(gen);
+    out[i].value[2] = d(gen);
+  }
+}
+
+void random_fixed_byte_array(int n, uint32_t seed, uint8_t *buf, int len,
+    FLBA* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+  for (int i = 0; i < n; ++i) {
+    out[i].ptr = buf;
+    for (int j = 0; j < len; ++j) {
+      buf[j] = d(gen) & 0xFF;
+    }
+    buf += len;
+  }
+}
+
+void random_byte_array(int n, uint32_t seed, uint8_t *buf,
+    ByteArray* out, int max_size) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> d1(0, max_size);
+  std::uniform_int_distribution<int> d2(0, 255);
+  for (int i = 0; i < n; ++i) {
+    out[i].len = d1(gen);
+    out[i].ptr = buf;
+    for (int j = 0; j < out[i].len; ++j) {
+      buf[j] = d2(gen) & 0xFF;
+    }
+    buf += out[i].len;
+  }
+}
+} // namespace test
 } // namespace parquet_cpp
 
 #endif // PARQUET_UTIL_TEST_COMMON_H
