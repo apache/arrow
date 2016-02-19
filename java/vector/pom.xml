@@ -106,7 +106,7 @@
       <plugin> <!-- generate sources from fmpp -->
         <groupId>org.apache.drill.tools</groupId>
         <artifactId>drill-fmpp-maven-plugin</artifactId>
-        <version>1.4.0</version>
+        <version>1.5.0</version>
         <executions>
           <execution>
             <id>generate-fmpp</id>
