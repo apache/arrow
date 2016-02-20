@@ -36,8 +36,6 @@
     <forkCount>2</forkCount>
     <jackson.version>2.7.1</jackson.version>
     <hadoop.version>2.7.1</hadoop.version>
-    <fmpp.version>0.9.15</fmpp.version>
-    <freemarker.version>2.3.21</freemarker.version>
   </properties>
 
   <scm>
