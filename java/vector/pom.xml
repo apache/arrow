@@ -60,7 +60,7 @@
         <pluginRepository>
             <id>apache</id>
             <name>apache</name>
-            <url>https://repo.maven.apache.org/</url>
+            <url>https://repo.maven.apache.org/maven2/</url>
             <releases>
                 <enabled>true</enabled>
             </releases>
