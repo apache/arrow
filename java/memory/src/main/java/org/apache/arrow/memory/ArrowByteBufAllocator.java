@@ -23,19 +23,19 @@ import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.ExpandableByteBuf;
 
 /**
- * An implementation of ByteBufAllocator that wraps a Drill BufferAllocator. This allows the RPC layer to be accounted
- * and managed using Drill's BufferAllocator infrastructure. The only thin different from a typical BufferAllocator is
+ * An implementation of ByteBufAllocator that wraps a Arrow BufferAllocator. This allows the RPC layer to be accounted
+ * and managed using Arrow's BufferAllocator infrastructure. The only thin different from a typical BufferAllocator is
  * the signature and the fact that this Allocator returns ExpandableByteBufs which enable otherwise non-expandable
- * DrillBufs to be expandable.
+ * ArrowBufs to be expandable.
  */
-public class DrillByteBufAllocator implements ByteBufAllocator {
+public class ArrowByteBufAllocator implements ByteBufAllocator {
 
   private static final int DEFAULT_BUFFER_SIZE = 4096;
   private static final int DEFAULT_MAX_COMPOSITE_COMPONENTS = 16;
 
   private final BufferAllocator allocator;
 
-  public DrillByteBufAllocator(BufferAllocator allocator) {
+  public ArrowByteBufAllocator(BufferAllocator allocator) {
     this.allocator = allocator;
   }
 

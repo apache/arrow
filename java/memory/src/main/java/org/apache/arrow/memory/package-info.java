@@ -18,7 +18,7 @@
 /**
  *  Memory Allocation, Account and Management
  *
- *  See the README.md file in this directory for detailed information about Drill's memory allocation subsystem.
+ *  See the README.md file in this directory for detailed information about Arrow's memory allocation subsystem.
  *
  */
 package org.apache.arrow.memory;

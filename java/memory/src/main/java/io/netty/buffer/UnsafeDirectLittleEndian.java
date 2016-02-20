@@ -24,7 +24,7 @@ import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * The underlying class we use for little-endian access to memory. Is used underneath DrillBufs to abstract away the
+ * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to abstract away the
  * Netty classes and underlying Netty memory management.
  */
 public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
@@ -55,7 +55,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake, AtomicLong bufferCount, AtomicLong bufferSize) {
     super(buf);
     if (!NATIVE_ORDER || buf.order() != ByteOrder.BIG_ENDIAN) {
-      throw new IllegalStateException("Drill only runs on LittleEndian systems.");
+      throw new IllegalStateException("Arrow only runs on LittleEndian systems.");
     }
 
     this.bufferCount = bufferCount;

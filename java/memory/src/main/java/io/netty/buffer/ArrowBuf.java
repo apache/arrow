@@ -56,7 +56,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   private final boolean isEmpty;
   private volatile int length;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
-      new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "DrillBuf[%d]", id) : null;
+      new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
 
   public ArrowBuf(
       final AtomicInteger refCnt,
@@ -155,18 +155,18 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Create a new DrillBuf that is associated with an alternative allocator for the purposes of memory ownership and
-   * accounting. This has no impact on the reference counting for the current DrillBuf except in the situation where the
+   * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of memory ownership and
+   * accounting. This has no impact on the reference counting for the current ArrowBuf except in the situation where the
    * passed in Allocator is the same as the current buffer.
    *
-   * This operation has no impact on the reference count of this DrillBuf. The newly created DrillBuf with either have a
+   * This operation has no impact on the reference count of this ArrowBuf. The newly created ArrowBuf with either have a
    * reference count of 1 (in the case that this is the first time this memory is being associated with the new
    * allocator) or the current value of the reference count + 1 for the other AllocationManager/BufferLedger combination
    * in the case that the provided allocator already had an association to this underlying memory.
    *
    * @param target
    *          The target allocator to create an association with.
-   * @return A new DrillBuf which shares the same underlying memory as this DrillBuf.
+   * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
    */
   public ArrowBuf retain(BufferAllocator target) {
 
@@ -178,17 +178,17 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       historicalLog.recordEvent("retain(%s)", target.getName());
     }
     final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    return otherLedger.newDrillBuf(offset, length, null);
+    return otherLedger.newArrowBuf(offset, length, null);
   }
 
   /**
-   * Transfer the memory accounting ownership of this DrillBuf to another allocator. This will generate a new DrillBuf
-   * that carries an association with the underlying memory of this DrillBuf. If this DrillBuf is connected to the
+   * Transfer the memory accounting ownership of this ArrowBuf to another allocator. This will generate a new ArrowBuf
+   * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is connected to the
    * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to the taret allocator. If
-   * this DrillBuf does not currently own the memory underlying it (and is only associated with it), this does not
-   * transfer any ownership to the newly created DrillBuf.
+   * this ArrowBuf does not currently own the memory underlying it (and is only associated with it), this does not
+   * transfer any ownership to the newly created ArrowBuf.
    *
-   * This operation has no impact on the reference count of this DrillBuf. The newly created DrillBuf with either have a
+   * This operation has no impact on the reference count of this ArrowBuf. The newly created ArrowBuf with either have a
    * reference count of 1 (in the case that this is the first time this memory is being associated with the new
    * allocator) or the current value of the reference count for the other AllocationManager/BufferLedger combination in
    * the case that the provided allocator already had an association to this underlying memory.
@@ -203,7 +203,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param target
    *          The allocator to transfer ownership to.
    * @return A new transfer result with the impact of the transfer (whether it was overlimit) as well as the newly
-   *         created DrillBuf.
+   *         created ArrowBuf.
    */
   public TransferResult transferOwnership(BufferAllocator target) {
 
@@ -212,7 +212,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    final ArrowBuf newBuf = otherLedger.newDrillBuf(offset, length, null);
+    final ArrowBuf newBuf = otherLedger.newArrowBuf(offset, length, null);
     final boolean allocationFit = this.ledger.transferBalance(otherLedger);
     return new TransferResult(allocationFit, newBuf);
   }
@@ -267,7 +267,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
     if (refCnt < 0) {
       throw new IllegalStateException(
-          String.format("DrillBuf[%d] refCnt has gone negative. Buffer Info: %s", id, toVerboseString()));
+          String.format("ArrowBuf[%d] refCnt has gone negative. Buffer Info: %s", id, toVerboseString()));
     }
 
     return refCnt == 0;
@@ -370,7 +370,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
      * Re the behavior of reference counting, see http://netty.io/wiki/reference-counted-objects.html#wiki-h3-5, which
      * explains that derived buffers share their reference count with their parent
      */
-    final ArrowBuf newBuf = ledger.newDrillBuf(offset + index, length);
+    final ArrowBuf newBuf = ledger.newArrowBuf(offset + index, length);
     newBuf.writerIndex(length);
     return newBuf;
   }
@@ -437,7 +437,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public String toString() {
-    return String.format("DrillBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
+    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
   }
 
   @Override
@@ -782,7 +782,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Returns the possible memory consumed by this DrillBuf in the worse case scenario. (not shared, connected to larger
+   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not shared, connected to larger
    * underlying buffer of allocated memory)
    *
    * @return Size in bytes.
@@ -833,7 +833,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Get the integer id assigned to this DrillBuf for debugging purposes.
+   * Get the integer id assigned to this ArrowBuf for debugging purposes.
    *
    * @return integer id
    */

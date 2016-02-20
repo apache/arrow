@@ -29,12 +29,12 @@ public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
   /**
-   * Helper function to check for equality of bytes in two DrillBuffers
+   * Helper function to check for equality of bytes in two ArrowBufs
    *
-   * @param left Left DrillBuf for comparison
+   * @param left Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
    * @param lEnd end offset in the buffer
-   * @param right Right DrillBuf for comparison
+   * @param right Right ArrowBuf for comparison
    * @param rStart start offset in the buffer
    * @param rEnd end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
@@ -81,14 +81,14 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * Helper function to compare a set of bytes in two DrillBuffers.
+   * Helper function to compare a set of bytes in two ArrowBufs.
    *
    * Function will check data before completing in the case that
    *
-   * @param left Left DrillBuf to compare
+   * @param left Left ArrowBuf to compare
    * @param lStart start offset in the buffer
    * @param lEnd end offset in the buffer
-   * @param right Right DrillBuf to compare
+   * @param right Right ArrowBuf to compare
    * @param rStart start offset in the buffer
    * @param rEnd end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
@@ -138,9 +138,9 @@ public class ByteFunctionHelpers {
   }
 
   /**
-   * Helper function to compare a set of bytes in DrillBuf to a ByteArray.
+   * Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
    *
-   * @param left Left DrillBuf for comparison purposes
+   * @param left Left ArrowBuf for comparison purposes
    * @param lStart start offset in the buffer
    * @param lEnd end offset in the buffer
    * @param right second input to be compared

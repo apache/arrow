@@ -145,16 +145,16 @@ public class DecimalUtility extends CoreDecimalUtility{
   public static BigDecimal getBigDecimalFromIntermediate(ByteBuf data, int startIndex, int nDecimalDigits, int scale) {
 
         // In the intermediate representation we don't pad the scale with zeroes, so set truncate = false
-        return getBigDecimalFromDrillBuf(data, startIndex, nDecimalDigits, scale, false);
+        return getBigDecimalFromArrowBuf(data, startIndex, nDecimalDigits, scale, false);
     }
 
     public static BigDecimal getBigDecimalFromSparse(ArrowBuf data, int startIndex, int nDecimalDigits, int scale) {
 
         // In the sparse representation we pad the scale with zeroes for ease of arithmetic, need to truncate
-        return getBigDecimalFromDrillBuf(data, startIndex, nDecimalDigits, scale, true);
+        return getBigDecimalFromArrowBuf(data, startIndex, nDecimalDigits, scale, true);
     }
 
-    public static BigDecimal getBigDecimalFromDrillBuf(ArrowBuf bytebuf, int start, int length, int scale) {
+    public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int start, int length, int scale) {
       byte[] value = new byte[length];
       bytebuf.getBytes(start, value, 0, length);
       BigInteger unscaledValue = new BigInteger(value);
@@ -168,17 +168,17 @@ public class DecimalUtility extends CoreDecimalUtility{
     return new BigDecimal(unscaledValue, scale);
   }
 
-    /* Create a BigDecimal object using the data in the DrillBuf.
+    /* Create a BigDecimal object using the data in the ArrowBuf.
      * This function assumes that data is provided in a non-dense format
      * It works on both sparse and intermediate representations.
      */
-  public static BigDecimal getBigDecimalFromDrillBuf(ByteBuf data, int startIndex, int nDecimalDigits, int scale,
+  public static BigDecimal getBigDecimalFromArrowBuf(ByteBuf data, int startIndex, int nDecimalDigits, int scale,
       boolean truncateScale) {
 
         // For sparse decimal type we have padded zeroes at the end, strip them while converting to BigDecimal.
         int actualDigits;
 
-        // Initialize the BigDecimal, first digit in the DrillBuf has the sign so mask it out
+        // Initialize the BigDecimal, first digit in the ArrowBuf has the sign so mask it out
         BigInteger decimalDigits = BigInteger.valueOf((data.getInt(startIndex)) & 0x7FFFFFFF);
 
         BigInteger base = BigInteger.valueOf(DIGITS_BASE);
@@ -208,7 +208,7 @@ public class DecimalUtility extends CoreDecimalUtility{
 
     /* This function returns a BigDecimal object from the dense decimal representation.
      * First step is to convert the dense representation into an intermediate representation
-     * and then invoke getBigDecimalFromDrillBuf() to get the BigDecimal object
+     * and then invoke getBigDecimalFromArrowBuf() to get the BigDecimal object
      */
     public static BigDecimal getBigDecimalFromDense(ArrowBuf data, int startIndex, int nDecimalDigits, int scale, int maxPrecision, int width) {
 
@@ -340,7 +340,7 @@ public class DecimalUtility extends CoreDecimalUtility{
         destIndex = nDecimalDigits - 1;
 
         while (scale > 0) {
-            // Get next set of MAX_DIGITS (9) store it in the DrillBuf
+            // Get next set of MAX_DIGITS (9) store it in the ArrowBuf
             fractionalPart = fractionalPart.movePointLeft(MAX_DIGITS);
             BigDecimal temp = fractionalPart.remainder(BigDecimal.ONE);
 

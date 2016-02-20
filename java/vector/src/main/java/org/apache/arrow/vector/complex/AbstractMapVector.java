@@ -137,7 +137,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       }
       return vector;
     }
-    final String message = "Drill does not support schema change yet. Existing[%s] and desired[%s] vector types mismatch";
+    final String message = "Arrow does not support schema change yet. Existing[%s] and desired[%s] vector types mismatch";
     throw new IllegalStateException(String.format(message, existing.getClass().getSimpleName(), clazz.getSimpleName()));
   }
 

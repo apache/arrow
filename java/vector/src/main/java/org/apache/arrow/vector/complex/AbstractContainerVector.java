@@ -106,7 +106,7 @@ public abstract class AbstractContainerVector implements ValueVector {
     if (clazz.isAssignableFrom(v.getClass())) {
       return (T) v;
     }
-    throw new IllegalStateException(String.format("Vector requested [%s] was different than type stored [%s].  Drill doesn't yet support hetergenous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
+    throw new IllegalStateException(String.format("Vector requested [%s] was different than type stored [%s]. Arrow doesn't yet support hetergenous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
   }
 
   MajorType getLastPathType() {

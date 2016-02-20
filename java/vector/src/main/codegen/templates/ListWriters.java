@@ -226,7 +226,7 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
   private String getUnsupportedErrorMsg(String expected, String found) {
     final String f = found.substring(3);
     return String.format("In a list of type %s, encountered a value of type %s. "+
-      "Drill does not support lists of different types.",
+      "Arrow does not support lists of different types.",
        f, expected
     );
   }
