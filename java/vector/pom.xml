@@ -106,23 +106,7 @@
       <plugin> <!-- generate sources from fmpp -->
         <groupId>org.apache.drill.tools</groupId>
         <artifactId>drill-fmpp-maven-plugin</artifactId>
-        <version>1.4.0</version>
-        <dependencies>
-          <!-- override ${fmpp.version} defined in drill-root.pom with ${fmpp.version} defined in arrow-java-root.pom -->
-          <!-- see ARROW-5 -->
-          <dependency>
-            <groupId>net.sourceforge.fmpp</groupId>
-            <artifactId>fmpp</artifactId>
-            <version>${fmpp.version}</version>
-          </dependency>
-          <!-- override ${freemarker.version} defined in drill-root.pom with ${freemarker.version} defined in arrow-java-root.pom -->
-          <!-- see ARROW-5 -->
-          <dependency>
-            <groupId>org.freemarker</groupId>
-            <artifactId>freemarker</artifactId>
-            <version>${freemarker.version}</version>
-          </dependency>
-        </dependencies>
+        <version>1.5.0</version>
         <executions>
           <execution>
             <id>generate-fmpp</id>
