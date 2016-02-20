@@ -64,17 +64,17 @@ public class TestBaseAllocator {
   public void test_privateMax() throws Exception {
     try(final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
-      final ArrowBuf drillBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
-      assertNotNull("allocation failed", drillBuf1);
+      final ArrowBuf arrowBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
+      assertNotNull("allocation failed", arrowBuf1);
 
       try(final BufferAllocator childAllocator =
           rootAllocator.newChildAllocator("noLimits", 0, MAX_ALLOCATION)) {
-        final ArrowBuf drillBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", drillBuf2);
-        drillBuf2.release();
+        final ArrowBuf arrowBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
+        assertNotNull("allocation failed", arrowBuf2);
+        arrowBuf2.release();
       }
 
-      drillBuf1.release();
+      arrowBuf1.release();
     }
   }
 
@@ -83,8 +83,8 @@ public class TestBaseAllocator {
     try {
       try(final RootAllocator rootAllocator =
           new RootAllocator(MAX_ALLOCATION)) {
-        final ArrowBuf drillBuf = rootAllocator.buffer(512);
-        assertNotNull("allocation failed", drillBuf);
+        final ArrowBuf arrowBuf = rootAllocator.buffer(512);
+        assertNotNull("allocation failed", arrowBuf);
       }
     } finally {
       /*
@@ -105,10 +105,10 @@ public class TestBaseAllocator {
   public void testRootAllocator_getEmpty() throws Exception {
     try(final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
-      final ArrowBuf drillBuf = rootAllocator.buffer(0);
-      assertNotNull("allocation failed", drillBuf);
-      assertEquals("capacity was non-zero", 0, drillBuf.capacity());
-      drillBuf.release();
+      final ArrowBuf arrowBuf = rootAllocator.buffer(0);
+      assertNotNull("allocation failed", arrowBuf);
+      assertEquals("capacity was non-zero", 0, arrowBuf.capacity());
+      arrowBuf.release();
     }
   }
 
@@ -118,7 +118,7 @@ public class TestBaseAllocator {
     try(final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
       @SuppressWarnings("unused")
-      final ArrowBuf drillBuf = rootAllocator.buffer(0);
+      final ArrowBuf arrowBuf = rootAllocator.buffer(0);
     }
   }
 
@@ -131,14 +131,14 @@ public class TestBaseAllocator {
       final BufferAllocator childAllocator2 =
           rootAllocator.newChildAllocator("changeOwnership2", 0, MAX_ALLOCATION);
 
-      final ArrowBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
-      TransferResult transferOwnership = drillBuf1.transferOwnership(childAllocator2);
+      TransferResult transferOwnership = arrowBuf1.transferOwnership(childAllocator2);
       final boolean allocationFit = transferOwnership.allocationFit;
       rootAllocator.verify();
       assertTrue(allocationFit);
 
-      drillBuf1.release();
+      arrowBuf1.release();
       childAllocator1.close();
       rootAllocator.verify();
 
@@ -152,34 +152,34 @@ public class TestBaseAllocator {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("shareOwnership1", 0, MAX_ALLOCATION);
       final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("shareOwnership2", 0, MAX_ALLOCATION);
-      final ArrowBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
 
       // share ownership of buffer.
-      final ArrowBuf drillBuf2 = drillBuf1.retain(childAllocator2);
+      final ArrowBuf arrowBuf2 = arrowBuf1.retain(childAllocator2);
       rootAllocator.verify();
-      assertNotNull(drillBuf2);
-      assertNotEquals(drillBuf2, drillBuf1);
+      assertNotNull(arrowBuf2);
+      assertNotEquals(arrowBuf2, arrowBuf1);
 
       // release original buffer (thus transferring ownership to allocator 2. (should leave allocator 1 in empty state)
-      drillBuf1.release();
+      arrowBuf1.release();
       rootAllocator.verify();
       childAllocator1.close();
       rootAllocator.verify();
 
       final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("shareOwnership3", 0, MAX_ALLOCATION);
-      final ArrowBuf drillBuf3 = drillBuf1.retain(childAllocator3);
-      assertNotNull(drillBuf3);
-      assertNotEquals(drillBuf3, drillBuf1);
-      assertNotEquals(drillBuf3, drillBuf2);
+      final ArrowBuf arrowBuf3 = arrowBuf1.retain(childAllocator3);
+      assertNotNull(arrowBuf3);
+      assertNotEquals(arrowBuf3, arrowBuf1);
+      assertNotEquals(arrowBuf3, arrowBuf2);
       rootAllocator.verify();
 
-      drillBuf2.release();
+      arrowBuf2.release();
       rootAllocator.verify();
       childAllocator2.close();
       rootAllocator.verify();
 
-      drillBuf3.release();
+      arrowBuf3.release();
       rootAllocator.verify();
       childAllocator3.close();
     }
@@ -190,9 +190,9 @@ public class TestBaseAllocator {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createChildAndUse", 0,
           MAX_ALLOCATION)) {
-        final ArrowBuf drillBuf = childAllocator.buffer(512);
-        assertNotNull("allocation failed", drillBuf);
-        drillBuf.release();
+        final ArrowBuf arrowBuf = childAllocator.buffer(512);
+        assertNotNull("allocation failed", arrowBuf);
+        arrowBuf.release();
       }
     }
   }
@@ -203,8 +203,8 @@ public class TestBaseAllocator {
       try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
         final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createChildDontClose", 0,
             MAX_ALLOCATION);
-        final ArrowBuf drillBuf = childAllocator.buffer(512);
-        assertNotNull("allocation failed", drillBuf);
+        final ArrowBuf arrowBuf = childAllocator.buffer(512);
+        assertNotNull("allocation failed", arrowBuf);
       }
     } finally {
       /*
@@ -222,23 +222,23 @@ public class TestBaseAllocator {
   }
 
   private static void allocateAndFree(final BufferAllocator allocator) {
-    final ArrowBuf drillBuf = allocator.buffer(512);
-    assertNotNull("allocation failed", drillBuf);
-    drillBuf.release();
+    final ArrowBuf arrowBuf = allocator.buffer(512);
+    assertNotNull("allocation failed", arrowBuf);
+    arrowBuf.release();
 
-    final ArrowBuf drillBuf2 = allocator.buffer(MAX_ALLOCATION);
-    assertNotNull("allocation failed", drillBuf2);
-    drillBuf2.release();
+    final ArrowBuf arrowBuf2 = allocator.buffer(MAX_ALLOCATION);
+    assertNotNull("allocation failed", arrowBuf2);
+    arrowBuf2.release();
 
     final int nBufs = 8;
-    final ArrowBuf[] drillBufs = new ArrowBuf[nBufs];
-    for(int i = 0; i < drillBufs.length; ++i) {
-      ArrowBuf drillBufi = allocator.buffer(MAX_ALLOCATION / nBufs);
-      assertNotNull("allocation failed", drillBufi);
-      drillBufs[i] = drillBufi;
+    final ArrowBuf[] arrowBufs = new ArrowBuf[nBufs];
+    for(int i = 0; i < arrowBufs.length; ++i) {
+      ArrowBuf arrowBufi = allocator.buffer(MAX_ALLOCATION / nBufs);
+      assertNotNull("allocation failed", arrowBufi);
+      arrowBufs[i] = arrowBufi;
     }
-    for(ArrowBuf drillBufi : drillBufs) {
-      drillBufi.release();
+    for(ArrowBuf arrowBufi : arrowBufs) {
+      arrowBufi.release();
     }
   }
 
@@ -277,10 +277,10 @@ public class TestBaseAllocator {
         new RootAllocator(MAX_ALLOCATION)) {
       try(final BufferAllocator childAllocator =
           rootAllocator.newChildAllocator("overAllocateParent", 0, MAX_ALLOCATION)) {
-        final ArrowBuf drillBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", drillBuf1);
-        final ArrowBuf drillBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", drillBuf2);
+        final ArrowBuf arrowBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
+        assertNotNull("allocation failed", arrowBuf1);
+        final ArrowBuf arrowBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
+        assertNotNull("allocation failed", arrowBuf2);
 
         try {
           childAllocator.buffer(MAX_ALLOCATION / 4);
@@ -289,26 +289,26 @@ public class TestBaseAllocator {
           // expected
         }
 
-        drillBuf1.release();
-        drillBuf2.release();
+        arrowBuf1.release();
+        arrowBuf2.release();
       }
     }
   }
 
   private static void testAllocator_sliceUpBufferAndRelease(
       final RootAllocator rootAllocator, final BufferAllocator bufferAllocator) {
-    final ArrowBuf drillBuf1 = bufferAllocator.buffer(MAX_ALLOCATION / 2);
+    final ArrowBuf arrowBuf1 = bufferAllocator.buffer(MAX_ALLOCATION / 2);
     rootAllocator.verify();
 
-    final ArrowBuf drillBuf2 = drillBuf1.slice(16, drillBuf1.capacity() - 32);
+    final ArrowBuf arrowBuf2 = arrowBuf1.slice(16, arrowBuf1.capacity() - 32);
     rootAllocator.verify();
-    final ArrowBuf drillBuf3 = drillBuf2.slice(16, drillBuf2.capacity() - 32);
+    final ArrowBuf arrowBuf3 = arrowBuf2.slice(16, arrowBuf2.capacity() - 32);
     rootAllocator.verify();
     @SuppressWarnings("unused")
-    final ArrowBuf drillBuf4 = drillBuf3.slice(16, drillBuf3.capacity() - 32);
+    final ArrowBuf arrowBuf4 = arrowBuf3.slice(16, arrowBuf3.capacity() - 32);
     rootAllocator.verify();
 
-    drillBuf3.release(); // since they share refcounts, one is enough to release them all
+    arrowBuf3.release(); // since they share refcounts, one is enough to release them all
     rootAllocator.verify();
   }
 
@@ -327,11 +327,11 @@ public class TestBaseAllocator {
       try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
         try (final BufferAllocator childAllocator2 =
             childAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
-          final ArrowBuf drillBuf1 = childAllocator2.buffer(MAX_ALLOCATION / 8);
+          final ArrowBuf arrowBuf1 = childAllocator2.buffer(MAX_ALLOCATION / 8);
           @SuppressWarnings("unused")
-          final ArrowBuf drillBuf2 = drillBuf1.slice(MAX_ALLOCATION / 16, MAX_ALLOCATION / 16);
+          final ArrowBuf arrowBuf2 = arrowBuf1.slice(MAX_ALLOCATION / 16, MAX_ALLOCATION / 16);
           testAllocator_sliceUpBufferAndRelease(rootAllocator, childAllocator);
-          drillBuf1.release();
+          arrowBuf1.release();
           rootAllocator.verify();
         }
         rootAllocator.verify();
@@ -348,14 +348,14 @@ public class TestBaseAllocator {
     try(final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
-      final ArrowBuf drillBuf = rootAllocator.buffer(256);
-      assertEquals(256, drillBuf.capacity());
-      assertEquals(0, drillBuf.readerIndex());
-      assertEquals(0, drillBuf.readableBytes());
-      assertEquals(0, drillBuf.writerIndex());
-      assertEquals(256, drillBuf.writableBytes());
+      final ArrowBuf arrowBuf = rootAllocator.buffer(256);
+      assertEquals(256, arrowBuf.capacity());
+      assertEquals(0, arrowBuf.readerIndex());
+      assertEquals(0, arrowBuf.readableBytes());
+      assertEquals(0, arrowBuf.writerIndex());
+      assertEquals(256, arrowBuf.writableBytes());
 
-      final ArrowBuf slice3 = (ArrowBuf) drillBuf.slice();
+      final ArrowBuf slice3 = (ArrowBuf) arrowBuf.slice();
       assertEquals(0, slice3.readerIndex());
       assertEquals(0, slice3.readableBytes());
       assertEquals(0, slice3.writerIndex());
@@ -363,14 +363,14 @@ public class TestBaseAllocator {
 //      assertEquals(256, slice3.writableBytes());
 
       for(int i = 0; i < 256; ++i) {
-        drillBuf.writeByte(i);
+        arrowBuf.writeByte(i);
       }
-      assertEquals(0, drillBuf.readerIndex());
-      assertEquals(256, drillBuf.readableBytes());
-      assertEquals(256, drillBuf.writerIndex());
-      assertEquals(0, drillBuf.writableBytes());
+      assertEquals(0, arrowBuf.readerIndex());
+      assertEquals(256, arrowBuf.readableBytes());
+      assertEquals(256, arrowBuf.writerIndex());
+      assertEquals(0, arrowBuf.writableBytes());
 
-      final ArrowBuf slice1 = (ArrowBuf) drillBuf.slice();
+      final ArrowBuf slice1 = (ArrowBuf) arrowBuf.slice();
       assertEquals(0, slice1.readerIndex());
       assertEquals(256, slice1.readableBytes());
       for(int i = 0; i < 10; ++i) {
@@ -381,7 +381,7 @@ public class TestBaseAllocator {
         assertEquals((byte) i, slice1.getByte(i));
       }
 
-      final ArrowBuf slice2 = (ArrowBuf) drillBuf.slice(25, 25);
+      final ArrowBuf slice2 = (ArrowBuf) arrowBuf.slice(25, 25);
       assertEquals(0, slice2.readerIndex());
       assertEquals(25, slice2.readableBytes());
       for(int i = 25; i < 50; ++i) {
@@ -397,7 +397,7 @@ public class TestBaseAllocator {
       }
 */
 
-      drillBuf.release(); // all the derived buffers share this fate
+      arrowBuf.release(); // all the derived buffers share this fate
     }
   }
 
@@ -407,33 +407,33 @@ public class TestBaseAllocator {
     try(final RootAllocator rootAllocator =
         new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
-      final ArrowBuf drillBuf = rootAllocator.buffer(256);
+      final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       for(int i = 0; i < 256; ++i) {
-        drillBuf.writeByte(i);
+        arrowBuf.writeByte(i);
       }
 
       // Slice it up.
-      final ArrowBuf slice0 = drillBuf.slice(0, drillBuf.capacity());
+      final ArrowBuf slice0 = arrowBuf.slice(0, arrowBuf.capacity());
       for(int i = 0; i < 256; ++i) {
-        assertEquals((byte) i, drillBuf.getByte(i));
+        assertEquals((byte) i, arrowBuf.getByte(i));
       }
 
-      final ArrowBuf slice10 = slice0.slice(10, drillBuf.capacity() - 10);
+      final ArrowBuf slice10 = slice0.slice(10, arrowBuf.capacity() - 10);
       for(int i = 10; i < 256; ++i) {
         assertEquals((byte) i, slice10.getByte(i - 10));
       }
 
-      final ArrowBuf slice20 = slice10.slice(10, drillBuf.capacity() - 20);
+      final ArrowBuf slice20 = slice10.slice(10, arrowBuf.capacity() - 20);
       for(int i = 20; i < 256; ++i) {
         assertEquals((byte) i, slice20.getByte(i - 20));
       }
 
-      final ArrowBuf slice30 = slice20.slice(10,  drillBuf.capacity() - 30);
+      final ArrowBuf slice30 = slice20.slice(10,  arrowBuf.capacity() - 30);
       for(int i = 30; i < 256; ++i) {
         assertEquals((byte) i, slice30.getByte(i - 30));
       }
 
-      drillBuf.release();
+      arrowBuf.release();
     }
   }
 
@@ -443,24 +443,24 @@ public class TestBaseAllocator {
       final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced1", 0, MAX_ALLOCATION);
       final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced2", 0, MAX_ALLOCATION);
 
-      final ArrowBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
-      final ArrowBuf drillBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
+      final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
 
-      final ArrowBuf drillBuf1s = drillBuf1.slice(0, drillBuf1.capacity() / 2);
-      final ArrowBuf drillBuf2s = drillBuf2.slice(0, drillBuf2.capacity() / 2);
+      final ArrowBuf arrowBuf1s = arrowBuf1.slice(0, arrowBuf1.capacity() / 2);
+      final ArrowBuf arrowBuf2s = arrowBuf2.slice(0, arrowBuf2.capacity() / 2);
 
       rootAllocator.verify();
 
-      TransferResult result1 = drillBuf2s.transferOwnership(childAllocator1);
+      TransferResult result1 = arrowBuf2s.transferOwnership(childAllocator1);
       rootAllocator.verify();
-      TransferResult result2 = drillBuf1s.transferOwnership(childAllocator2);
+      TransferResult result2 = arrowBuf1s.transferOwnership(childAllocator2);
       rootAllocator.verify();
 
       result1.buffer.release();
       result2.buffer.release();
 
-      drillBuf1s.release(); // releases drillBuf1
-      drillBuf2s.release(); // releases drillBuf2
+      arrowBuf1s.release(); // releases arrowBuf1
+      arrowBuf2s.release(); // releases arrowBuf2
 
       childAllocator1.close();
       childAllocator2.close();
@@ -473,24 +473,24 @@ public class TestBaseAllocator {
       final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
       final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
 
-      final ArrowBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
-      final ArrowBuf drillBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
+      final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
 
-      final ArrowBuf drillBuf1s = drillBuf1.slice(0, drillBuf1.capacity() / 2);
-      final ArrowBuf drillBuf2s = drillBuf2.slice(0, drillBuf2.capacity() / 2);
+      final ArrowBuf arrowBuf1s = arrowBuf1.slice(0, arrowBuf1.capacity() / 2);
+      final ArrowBuf arrowBuf2s = arrowBuf2.slice(0, arrowBuf2.capacity() / 2);
 
       rootAllocator.verify();
 
-      final ArrowBuf drillBuf2s1 = drillBuf2s.retain(childAllocator1);
-      final ArrowBuf drillBuf1s2 = drillBuf1s.retain(childAllocator2);
+      final ArrowBuf arrowBuf2s1 = arrowBuf2s.retain(childAllocator1);
+      final ArrowBuf arrowBuf1s2 = arrowBuf1s.retain(childAllocator2);
       rootAllocator.verify();
 
-      drillBuf1s.release(); // releases drillBuf1
-      drillBuf2s.release(); // releases drillBuf2
+      arrowBuf1s.release(); // releases arrowBuf1
+      arrowBuf2s.release(); // releases arrowBuf2
       rootAllocator.verify();
 
-      drillBuf2s1.release(); // releases the shared drillBuf2 slice
-      drillBuf1s2.release(); // releases the shared drillBuf1 slice
+      arrowBuf2s1.release(); // releases the shared arrowBuf2 slice
+      arrowBuf1s2.release(); // releases the shared arrowBuf1 slice
 
       childAllocator1.close();
       childAllocator2.close();
@@ -504,42 +504,42 @@ public class TestBaseAllocator {
       final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferShared2", 0, MAX_ALLOCATION);
       final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("transferShared3", 0, MAX_ALLOCATION);
 
-      final ArrowBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
 
       boolean allocationFit;
 
-      ArrowBuf drillBuf2 = drillBuf1.retain(childAllocator2);
+      ArrowBuf arrowBuf2 = arrowBuf1.retain(childAllocator2);
       rootAllocator.verify();
-      assertNotNull(drillBuf2);
-      assertNotEquals(drillBuf2, drillBuf1);
+      assertNotNull(arrowBuf2);
+      assertNotEquals(arrowBuf2, arrowBuf1);
 
-      TransferResult result = drillBuf1.transferOwnership(childAllocator3);
+      TransferResult result = arrowBuf1.transferOwnership(childAllocator3);
       allocationFit = result.allocationFit;
-      final ArrowBuf drillBuf3 = result.buffer;
+      final ArrowBuf arrowBuf3 = result.buffer;
       assertTrue(allocationFit);
       rootAllocator.verify();
 
       // Since childAllocator3 now has childAllocator1's buffer, 1, can close
-      drillBuf1.release();
+      arrowBuf1.release();
       childAllocator1.close();
       rootAllocator.verify();
 
-      drillBuf2.release();
+      arrowBuf2.release();
       childAllocator2.close();
       rootAllocator.verify();
 
       final BufferAllocator childAllocator4 = rootAllocator.newChildAllocator("transferShared4", 0, MAX_ALLOCATION);
-      TransferResult result2 = drillBuf3.transferOwnership(childAllocator4);
+      TransferResult result2 = arrowBuf3.transferOwnership(childAllocator4);
       allocationFit = result.allocationFit;
-      final ArrowBuf drillBuf4 = result2.buffer;
+      final ArrowBuf arrowBuf4 = result2.buffer;
       assertTrue(allocationFit);
       rootAllocator.verify();
 
-      drillBuf3.release();
+      arrowBuf3.release();
       childAllocator3.close();
       rootAllocator.verify();
 
-      drillBuf4.release();
+      arrowBuf4.release();
       childAllocator4.close();
       rootAllocator.verify();
     }
@@ -569,11 +569,11 @@ public class TestBaseAllocator {
           assertTrue(reservation.add(32));
           assertTrue(reservation.add(32));
 
-          final ArrowBuf drillBuf = reservation.allocateBuffer();
-          assertEquals(64, drillBuf.capacity());
+          final ArrowBuf arrowBuf = reservation.allocateBuffer();
+          assertEquals(64, arrowBuf.capacity());
           rootAllocator.verify();
 
-          drillBuf.release();
+          arrowBuf.release();
           rootAllocator.verify();
         }
         rootAllocator.verify();
