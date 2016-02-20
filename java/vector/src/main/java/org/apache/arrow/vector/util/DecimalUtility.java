@@ -173,7 +173,7 @@ public class DecimalUtility extends CoreDecimalUtility{
      * It works on both sparse and intermediate representations.
      */
   public static BigDecimal getBigDecimalFromArrowBuf(ByteBuf data, int startIndex, int nDecimalDigits, int scale,
-                                                     boolean truncateScale) {
+      boolean truncateScale) {
 
         // For sparse decimal type we have padded zeroes at the end, strip them while converting to BigDecimal.
         int actualDigits;
