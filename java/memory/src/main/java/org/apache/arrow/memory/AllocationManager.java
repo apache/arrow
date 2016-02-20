@@ -356,8 +356,6 @@ public class AllocationManager {
      *          The length in bytes that this DrillBuf will provide access to.
      * @param manager
      *          An optional BufferManager argument that can be used to manage expansion of this DrillBuf
-     * @param retain
-     *          Whether or not the newly created buffer should get an additional reference count added to it.
      * @return A new DrillBuf that shares references with all DrillBufs associated with this BufferLedger
      */
     public ArrowBuf newDrillBuf(int offset, int length, BufferManager manager) {

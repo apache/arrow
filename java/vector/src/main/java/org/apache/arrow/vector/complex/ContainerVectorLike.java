@@ -31,7 +31,7 @@ public interface ContainerVectorLike {
    *
    * @param  descriptor vector descriptor
    * @return  result of operation wrapping vector corresponding to the given descriptor and whether it's newly created
-   * @throws org.apache.drill.common.exceptions.DrillRuntimeException
+   * @throws org.apache.arrow.vector.util.SchemaChangeRuntimeException
    *    if schema change is not permissible between the given and existing data vector types.
    */
   <T extends ValueVector> AddOrGetResult<T> addOrGetVector(VectorDescriptor descriptor);
