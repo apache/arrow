@@ -82,7 +82,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     this.parentAllocator = parentAllocator;
     this.name = name;
 
-    this.thisAsByteBufAllocator = new DrillByteBufAllocator(this);
+    this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
 
     if (DEBUG) {
       childAllocators = new IdentityHashMap<>();
@@ -236,7 +236,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     final AllocationManager manager = new AllocationManager(this, size);
     final BufferLedger ledger = manager.associate(this); // +1 ref cnt (required)
-    final ArrowBuf buffer = ledger.newDrillBuf(0, size, bufferManager);
+    final ArrowBuf buffer = ledger.newArrowBuf(0, size, bufferManager);
 
     // make sure that our allocation is equal to what we expected.
     Preconditions.checkArgument(buffer.capacity() == size,
@@ -314,9 +314,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       Preconditions.checkState(!closed, "Attempt to allocate after closed");
       Preconditions.checkState(!used, "Attempt to allocate more than once");
 
-      final ArrowBuf drillBuf = allocate(nBytes);
+      final ArrowBuf arrowBuf = allocate(nBytes);
       used = true;
-      return drillBuf;
+      return arrowBuf;
     }
 
     public int getSize() {
@@ -397,13 +397,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
        * as well, so we need to return the same number back to avoid double-counting them.
        */
       try {
-        final ArrowBuf drillBuf = BaseAllocator.this.bufferWithoutReservation(nBytes, null);
+        final ArrowBuf arrowBuf = BaseAllocator.this.bufferWithoutReservation(nBytes, null);
 
         if (DEBUG) {
-          historicalLog.recordEvent("allocate() => %s", String.format("DrillBuf[%d]", drillBuf.getId()));
+          historicalLog.recordEvent("allocate() => %s", String.format("ArrowBuf[%d]", arrowBuf.getId()));
         }
         success = true;
-        return drillBuf;
+        return arrowBuf;
       } finally {
         if (!success) {
           releaseBytes(nBytes);
@@ -565,7 +565,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * Verifies the accounting state of the allocator. Only works for DEBUG.
    *
    * <p>
-   * This overload is used for recursive calls, allowing for checking that DrillBufs are unique across all allocators
+   * This overload is used for recursive calls, allowing for checking that ArrowBufs are unique across all allocators
    * that are checked.
    * </p>
    *
@@ -594,7 +594,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
        * Verify my relationships with my descendants.
        *
        * The sum of direct child allocators' owned memory must be <= my allocated memory; my allocated memory also
-       * includes DrillBuf's directly allocated by me.
+       * includes ArrowBuf's directly allocated by me.
        */
       long childTotal = 0;
       for (final BaseAllocator childAllocator : childSet) {
@@ -623,11 +623,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
         final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
         /*
-         * Even when shared, DrillBufs are rewrapped, so we should never see the same instance twice.
+         * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance twice.
          */
         final BaseAllocator otherOwner = buffersSeen.get(udle);
         if (otherOwner != null) {
-          throw new IllegalStateException("This allocator's drillBuf already owned by another allocator");
+          throw new IllegalStateException("This allocator's ArrowBuf already owned by another allocator");
         }
         buffersSeen.put(udle, this);
 

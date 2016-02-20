@@ -32,7 +32,7 @@ import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 
 /**
- * The base allocator that we use for all of Drill's memory management. Returns UnsafeDirectLittleEndian buffers.
+ * The base allocator that we use for all of Arrow's memory management. Returns UnsafeDirectLittleEndian buffers.
  */
 public class PooledByteBufAllocatorL {
   private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("drill.allocator");
@@ -184,7 +184,7 @@ public class PooledByteBufAllocatorL {
 
     private UnsupportedOperationException fail() {
       return new UnsupportedOperationException(
-          "Drill requries that the JVM used supports access sun.misc.Unsafe.  This platform didn't provide that functionality.");
+          "Arrow requries that the JVM used supports access sun.misc.Unsafe.  This platform didn't provide that functionality.");
     }
 
     public UnsafeDirectLittleEndian directBuffer(int initialCapacity, int maxCapacity) {
@@ -197,7 +197,7 @@ public class PooledByteBufAllocatorL {
 
     @Override
     public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
-      throw new UnsupportedOperationException("Drill doesn't support using heap buffers.");
+      throw new UnsupportedOperationException("Arrow doesn't support using heap buffers.");
     }
 
 

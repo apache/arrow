@@ -30,7 +30,7 @@ public interface BufferAllocator extends AutoCloseable {
    *
    * @param size
    *          The size in bytes.
-   * @return a new DrillBuf, or null if the request can't be satisfied
+   * @return a new ArrowBuf, or null if the request can't be satisfied
    * @throws OutOfMemoryException
    *           if buffer cannot be allocated
    */
@@ -44,7 +44,7 @@ public interface BufferAllocator extends AutoCloseable {
    *          The size in bytes.
    * @param manager
    *          A buffer manager to manage reallocation.
-   * @return a new DrillBuf, or null if the request can't be satisfied
+   * @return a new ArrowBuf, or null if the request can't be satisfied
    * @throws OutOfMemoryException
    *           if buffer cannot be allocated
    */
