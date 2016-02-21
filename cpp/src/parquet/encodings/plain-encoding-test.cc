@@ -17,11 +17,13 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "parquet/schema/descriptor.h"
 #include "parquet/encodings/plain-encoding.h"
 #include "parquet/types.h"
 #include "parquet/schema/types.h"
@@ -80,7 +82,7 @@ class EncodeDecode{
 
   void generate_data() {
     // seed the prng so failure is deterministic
-    random_numbers(num_values_, 0.5, draws_);
+    random_numbers(num_values_, 0, draws_);
   }
 
   void encode_decode(ColumnDescriptor *d) {
@@ -141,7 +143,7 @@ void EncodeDecode<ByteArray, Type::BYTE_ARRAY>::generate_data() {
   int max_byte_array_len = 12 + sizeof(uint32_t);
   size_t nbytes = num_values_ * max_byte_array_len;
   data_buffer_.resize(nbytes);
-  random_byte_array(num_values_, 0.5, data_buffer_.data(), draws_,
+  random_byte_array(num_values_, 0, data_buffer_.data(), draws_,
       max_byte_array_len);
 }
 
@@ -160,7 +162,7 @@ void EncodeDecode<FLBA, Type::FIXED_LEN_BYTE_ARRAY>::generate_data() {
   size_t nbytes = num_values_ * flba_length;
   data_buffer_.resize(nbytes);
   ASSERT_EQ(nbytes, data_buffer_.size());
-  random_fixed_byte_array(num_values_, 0.5, data_buffer_.data(), flba_length, draws_);
+  random_fixed_byte_array(num_values_, 0, data_buffer_.data(), flba_length, draws_);
 }
 
 template<>

@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "parquet/types.h"
 
@@ -93,13 +94,26 @@ class DataPage : public Page {
     return definition_level_encoding_;
   }
 
+  // DataPageHeader::statistics::max field, if it was set
+  const uint8_t* max() const {
+    return reinterpret_cast<const uint8_t*>(max_.c_str());
+  }
+
+  // DataPageHeader::statistics::min field, if it was set
+  const uint8_t* min() const {
+    return reinterpret_cast<const uint8_t*>(min_.c_str());
+  }
+
  private:
   int32_t num_values_;
   Encoding::type encoding_;
   Encoding::type definition_level_encoding_;
   Encoding::type repetition_level_encoding_;
 
-  // TODO(wesm): parquet::DataPageHeader.statistics
+  // So max/min can be populated privately
+  friend class SerializedPageReader;
+  std::string max_;
+  std::string min_;
 };
 
 

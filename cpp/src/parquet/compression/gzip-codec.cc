@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/compression/codec.h"
-
 #include <cstring>
 #include <sstream>
+#include <string>
+
+#include "parquet/compression/codec.h"
+#include "parquet/exception.h"
 
 namespace parquet_cpp {
 
@@ -40,7 +42,13 @@ GZipCodec::GZipCodec(Format format) :
     decompressor_initialized_(false) {
 }
 
+GZipCodec::~GZipCodec() {
+  EndCompressor();
+  EndDecompressor();
+}
+
 void GZipCodec::InitCompressor() {
+  EndDecompressor();
   memset(&stream_, 0, sizeof(stream_));
 
   int ret;
@@ -58,12 +66,18 @@ void GZipCodec::InitCompressor() {
   }
 
   compressor_initialized_ = true;
-  decompressor_initialized_ = false;
+}
+
+void GZipCodec::EndCompressor() {
+  if (compressor_initialized_) {
+    (void)deflateEnd(&stream_);
+  }
+  compressor_initialized_ = false;
 }
 
 void GZipCodec::InitDecompressor() {
+  EndCompressor();
   memset(&stream_, 0, sizeof(stream_));
-
   int ret;
 
   // Initialize to run either deflate or zlib/gzip format
@@ -71,9 +85,14 @@ void GZipCodec::InitDecompressor() {
   if ((ret = inflateInit2(&stream_, window_bits)) != Z_OK) {
     throw ParquetException("zlib inflateInit failed: " +  std::string(stream_.msg));
   }
-
-  compressor_initialized_ = false;
   decompressor_initialized_ = true;
+}
+
+void GZipCodec::EndDecompressor() {
+  if (decompressor_initialized_) {
+    (void)inflateEnd(&stream_);
+  }
+  decompressor_initialized_ = false;
 }
 
 void GZipCodec::Decompress(int64_t input_length, const uint8_t* input,

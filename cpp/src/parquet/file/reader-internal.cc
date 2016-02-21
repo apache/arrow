@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <exception>
 #include <ostream>
+#include <string>
 #include <vector>
 
 #include "parquet/column/page.h"
@@ -40,22 +41,10 @@ namespace parquet_cpp {
 // assembled in a serialized stream for storing in a Parquet files
 
 SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
-    Compression::type codec) :
+    Compression::type codec_type) :
     stream_(std::move(stream)) {
   max_page_header_size_ = DEFAULT_MAX_PAGE_HEADER_SIZE;
-  // TODO(wesm): add GZIP after PARQUET-456
-  switch (codec) {
-    case Compression::UNCOMPRESSED:
-      break;
-    case Compression::SNAPPY:
-      decompressor_.reset(new SnappyCodec());
-      break;
-    case Compression::LZO:
-      decompressor_.reset(new Lz4Codec());
-      break;
-    default:
-      ParquetException::NYI("Reading compressed data");
-  }
+  decompressor_ = Codec::Create(codec_type);
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
@@ -126,11 +115,22 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (current_page_header_.type == parquet::PageType::DATA_PAGE) {
       const parquet::DataPageHeader& header = current_page_header_.data_page_header;
 
-      return std::make_shared<DataPage>(buffer, uncompressed_len,
+      auto page = std::make_shared<DataPage>(buffer, uncompressed_len,
           header.num_values,
           FromThrift(header.encoding),
           FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding));
+
+      if (header.__isset.statistics) {
+        const parquet::Statistics stats = header.statistics;
+        if (stats.__isset.max) {
+          page->max_ = stats.max;
+        }
+        if (stats.__isset.min) {
+          page->min_ = stats.min;
+        }
+      }
+      return page;
     } else if (current_page_header_.type == parquet::PageType::DATA_PAGE_V2) {
       const parquet::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed? header.is_compressed : false;

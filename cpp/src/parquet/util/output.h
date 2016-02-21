@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "parquet/util/macros.h"
+
 namespace parquet_cpp {
 
 // ----------------------------------------------------------------------
@@ -63,6 +65,8 @@ class InMemoryOutputStream : public OutputStream {
   std::vector<uint8_t> buffer_;
   int64_t size_;
   int64_t capacity_;
+
+  DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
 };
 
 } // namespace parquet_cpp

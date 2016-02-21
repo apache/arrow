@@ -44,5 +44,3 @@ add_custom_command(
   COMMENT "Running thrift compiler on parquet.thrift"
   VERBATIM
 )
-
-ADD_PARQUET_TEST(serializer-test)

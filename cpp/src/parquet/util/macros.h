@@ -20,6 +20,11 @@
 
 // Useful macros from elsewhere
 
+// From Google gutil
+#define DISALLOW_COPY_AND_ASSIGN(TypeName)      \
+  TypeName(const TypeName&) = delete;           \
+  void operator=(const TypeName&) = delete
+
 // ----------------------------------------------------------------------
 // From googletest
 

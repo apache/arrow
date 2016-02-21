@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 #include <string>
 

@@ -16,6 +16,7 @@
 # under the License.
 
 add_library(parquet_compression STATIC
+  codec.cc
   lz4-codec.cc
   snappy-codec.cc
   gzip-codec.cc

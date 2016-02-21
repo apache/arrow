@@ -18,8 +18,9 @@
 #include <sstream>
 
 #include "parquet/exception.h"
-#include "parquet/util/logging.h"
 #include "parquet/thrift/parquet_types.h"
+#include "parquet/util/logging.h"
+#include "parquet/util/output.h"
 
 namespace parquet_cpp {
 
@@ -77,7 +78,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
 // The arguments are the object to be serialized and
 // the expected size of the serialized object
 template <class T>
-inline std::string SerializeThriftMsg(T* obj, uint32_t len) {
+inline void SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
   boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
       new apache::thrift::transport::TMemoryBuffer(len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
@@ -92,7 +93,11 @@ inline std::string SerializeThriftMsg(T* obj, uint32_t len) {
     ss << "Couldn't serialize thrift: " << e.what() << "\n";
     throw ParquetException(ss.str());
   }
-  return mem_buffer->getBufferAsString();
+
+  uint8_t* out_buffer;
+  uint32_t out_length;
+  mem_buffer->getBuffer(&out_buffer, &out_length);
+  out->Write(out_buffer, out_length);
 }
 
 } // namespace parquet_cpp

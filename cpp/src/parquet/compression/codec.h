@@ -19,16 +19,21 @@
 #define PARQUET_COMPRESSION_CODEC_H
 
 #include <cstdint>
+#include <memory>
 
 #include <zlib.h>
 
 #include "parquet/exception.h"
+#include "parquet/types.h"
 
 namespace parquet_cpp {
 
 class Codec {
  public:
   virtual ~Codec() {}
+
+  static std::unique_ptr<Codec> Create(Compression::type codec);
+
   virtual void Decompress(int64_t input_len, const uint8_t* input,
       int64_t output_len, uint8_t* output_buffer) = 0;
 
@@ -80,6 +85,7 @@ class GZipCodec : public Codec {
   };
 
   explicit GZipCodec(Format format = GZIP);
+  virtual ~GZipCodec();
 
   virtual void Decompress(int64_t input_len, const uint8_t* input,
       int64_t output_len, uint8_t* output_buffer);
@@ -109,6 +115,8 @@ class GZipCodec : public Codec {
   // perform the refactoring then
   void InitCompressor();
   void InitDecompressor();
+  void EndCompressor();
+  void EndDecompressor();
   bool compressor_initialized_;
   bool decompressor_initialized_;
 };
