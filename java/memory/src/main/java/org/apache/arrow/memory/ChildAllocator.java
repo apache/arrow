@@ -31,15 +31,12 @@ class ChildAllocator extends BaseAllocator {
    * Constructor.
    *
    * @param parentAllocator parent allocator -- the one creating this child
-   * @param allocatorOwner a handle to the object making the request
-   * @param allocationPolicy the allocation policy to use; the policy for all
-   *   allocators must match for each invocation of a drillbit
+   * @param name the name of this child allocator
    * @param initReservation initial amount of space to reserve (obtained from the parent)
    * @param maxAllocation maximum amount of space that can be obtained from this allocator;
    *   note this includes direct allocations (via {@see BufferAllocator#buffer(int, int)}
    *   et al) and requests from descendant allocators. Depending on the allocation policy in
    *   force, even less memory may be available
-   * @param flags one or more of BaseAllocator.F_* flags
    */
   ChildAllocator(
       BaseAllocator parentAllocator,

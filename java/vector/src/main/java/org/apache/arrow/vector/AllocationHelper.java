@@ -49,7 +49,7 @@ public class AllocationHelper {
    * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation
    * @param v value vector we are trying to allocate
    * @param valueCount  size we are trying to allocate
-   * @throws org.apache.drill.exec.memory.OutOfMemoryException if it can't allocate the memory
+   * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory
    */
   public static void allocateNew(ValueVector v, int valueCount) {
     if (v instanceof  FixedWidthVector) {
