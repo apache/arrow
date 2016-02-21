@@ -28,6 +28,7 @@
 #include "parquet/types.h"
 #include "parquet/schema/types.h"
 #include "parquet/util/bit-util.h"
+#include "parquet/util/buffer.h"
 #include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 
@@ -52,15 +53,13 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   InMemoryOutputStream dst;
   encoder.Encode(draws, nvalues, &dst);
 
-  vector<uint8_t> encode_buffer;
-  dst.Transfer(&encode_buffer);
-
-  ASSERT_EQ(nbytes, encode_buffer.size());
+  std::shared_ptr<Buffer> encode_buffer = dst.GetBuffer();
+  ASSERT_EQ(nbytes, encode_buffer->size());
 
   vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
-  decoder.SetData(nvalues, &encode_buffer[0], encode_buffer.size());
+  decoder.SetData(nvalues, encode_buffer->data(), encode_buffer->size());
   size_t values_decoded = decoder.Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
@@ -92,9 +91,10 @@ class EncodeDecode{
     InMemoryOutputStream dst;
     encoder.Encode(draws_, num_values_, &dst);
 
-    dst.Transfer(&encode_buffer_);
+    encode_buffer_ = dst.GetBuffer();
 
-    decoder.SetData(num_values_, &encode_buffer_[0], encode_buffer_.size());
+    decoder.SetData(num_values_, encode_buffer_->data(),
+        encode_buffer_->size());
     size_t values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
   }
@@ -119,7 +119,8 @@ class EncodeDecode{
   vector<uint8_t> input_bytes_;
   vector<uint8_t> output_bytes_;
   vector<uint8_t> data_buffer_;
-  vector<uint8_t> encode_buffer_;
+
+  std::shared_ptr<Buffer> encode_buffer_;
 };
 
 template<>

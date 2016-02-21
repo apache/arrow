@@ -27,6 +27,7 @@
 #include <string>
 
 #include "parquet/types.h"
+#include "parquet/util/buffer.h"
 
 namespace parquet_cpp {
 
@@ -39,9 +40,8 @@ namespace parquet_cpp {
 // here, both on the read and write path
 class Page {
  public:
-  Page(const uint8_t* buffer, int32_t buffer_size, PageType::type type) :
+  Page(const std::shared_ptr<Buffer>& buffer, PageType::type type) :
       buffer_(buffer),
-      buffer_size_(buffer_size),
       type_(type) {}
 
   PageType::type type() const {
@@ -50,29 +50,27 @@ class Page {
 
   // @returns: a pointer to the page's data
   const uint8_t* data() const {
-    return buffer_;
+    return buffer_->data();
   }
 
   // @returns: the total size in bytes of the page's data buffer
   int32_t size() const {
-    return buffer_size_;
+    return buffer_->size();
   }
 
  private:
-  const uint8_t* buffer_;
-  int32_t buffer_size_;
-
+  std::shared_ptr<Buffer> buffer_;
   PageType::type type_;
 };
 
 
 class DataPage : public Page {
  public:
-  DataPage(const uint8_t* buffer, int32_t buffer_size,
+  DataPage(const std::shared_ptr<Buffer>& buffer,
       int32_t num_values, Encoding::type encoding,
       Encoding::type definition_level_encoding,
       Encoding::type repetition_level_encoding) :
-      Page(buffer, buffer_size, PageType::DATA_PAGE),
+      Page(buffer, PageType::DATA_PAGE),
       num_values_(num_values),
       encoding_(encoding),
       definition_level_encoding_(definition_level_encoding),
@@ -119,12 +117,12 @@ class DataPage : public Page {
 
 class DataPageV2 : public Page {
  public:
-  DataPageV2(const uint8_t* buffer, int32_t buffer_size,
+  DataPageV2(const std::shared_ptr<Buffer>& buffer,
       int32_t num_values, int32_t num_nulls, int32_t num_rows,
       Encoding::type encoding,
       int32_t definition_levels_byte_length,
       int32_t repetition_levels_byte_length, bool is_compressed = false) :
-      Page(buffer, buffer_size, PageType::DATA_PAGE_V2),
+      Page(buffer, PageType::DATA_PAGE_V2),
       num_values_(num_values),
       num_nulls_(num_nulls),
       num_rows_(num_rows),
@@ -176,9 +174,9 @@ class DataPageV2 : public Page {
 
 class DictionaryPage : public Page {
  public:
-  DictionaryPage(const uint8_t* buffer, int32_t buffer_size,
+  DictionaryPage(const std::shared_ptr<Buffer>& buffer,
       int32_t num_values, Encoding::type encoding, bool is_sorted = false) :
-      Page(buffer, buffer_size, PageType::DICTIONARY_PAGE),
+      Page(buffer, PageType::DICTIONARY_PAGE),
       num_values_(num_values),
       encoding_(encoding),
       is_sorted_(is_sorted) {}

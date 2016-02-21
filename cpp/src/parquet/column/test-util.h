@@ -167,8 +167,7 @@ class DataPageBuilder {
 template <int TYPE, typename T>
 static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
     const std::vector<int16_t>& def_levels, int16_t max_def_level,
-    const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
-    std::vector<uint8_t>* out_buffer) {
+    const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
   size_t num_values = values.size();
 
   InMemoryOutputStream page_stream;
@@ -183,10 +182,10 @@ static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
   }
 
   page_builder.AppendValues(values);
-  page_stream.Transfer(out_buffer);
 
-  return std::make_shared<DataPage>(&(*out_buffer)[0], out_buffer->size(),
-      page_builder.num_values(),
+  auto buffer = page_stream.GetBuffer();
+
+  return std::make_shared<DataPage>(buffer, page_builder.num_values(),
       page_builder.encoding(),
       page_builder.def_level_encoding(),
       page_builder.rep_level_encoding());

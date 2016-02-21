@@ -56,7 +56,7 @@ TEST_F(TestAllTypesPlain, NoopConstructDestruct) {
 }
 
 TEST_F(TestAllTypesPlain, TestBatchRead) {
-  RowGroupReader* group = reader_->RowGroup(0);
+  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Reader> col =
@@ -84,7 +84,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
 }
 
 TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
-  RowGroupReader* group = reader_->RowGroup(0);
+  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
@@ -101,7 +101,7 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
 
 
 TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
-  RowGroupReader* group = reader_->RowGroup(0);
+  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));

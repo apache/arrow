@@ -32,6 +32,7 @@
 #include "parquet/schema/types.h"
 #include "parquet/thrift/util.h"
 #include "parquet/types.h"
+#include "parquet/util/buffer.h"
 #include "parquet/util/input.h"
 
 namespace parquet_cpp {
@@ -83,7 +84,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       }
     }
     // Advance the stream offset
-    stream_->Read(header_size, &bytes_read);
+    stream_->Advance(header_size);
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
@@ -103,19 +104,21 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       buffer = &decompression_buffer_[0];
     }
 
+    auto page_buffer = std::make_shared<Buffer>(buffer, uncompressed_len);
+
     if (current_page_header_.type == parquet::PageType::DICTIONARY_PAGE) {
       const parquet::DictionaryPageHeader& dict_header =
         current_page_header_.dictionary_page_header;
 
       bool is_sorted = dict_header.__isset.is_sorted? dict_header.is_sorted : false;
 
-      return std::make_shared<DictionaryPage>(buffer, uncompressed_len,
+      return std::make_shared<DictionaryPage>(page_buffer,
           dict_header.num_values, FromThrift(dict_header.encoding),
           is_sorted);
     } else if (current_page_header_.type == parquet::PageType::DATA_PAGE) {
       const parquet::DataPageHeader& header = current_page_header_.data_page_header;
 
-      auto page = std::make_shared<DataPage>(buffer, uncompressed_len,
+      auto page = std::make_shared<DataPage>(page_buffer,
           header.num_values,
           FromThrift(header.encoding),
           FromThrift(header.definition_level_encoding),
@@ -134,7 +137,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (current_page_header_.type == parquet::PageType::DATA_PAGE_V2) {
       const parquet::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed? header.is_compressed : false;
-      return std::make_shared<DataPageV2>(buffer, uncompressed_len,
+      return std::make_shared<DataPageV2>(page_buffer,
           header.num_values, header.num_nulls, header.num_rows,
           FromThrift(header.encoding),
           header.definition_levels_byte_length,
@@ -165,24 +168,15 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
     col_start = col.meta_data.dictionary_page_offset;
   }
 
-  // TODO(wesm): some input streams (e.g. memory maps) may not require
-  // copying data. This should be added to the input stream API to support
-  // zero-copy streaming
-  std::unique_ptr<InputStream> input(
-      new ScopedInMemoryInputStream(col.meta_data.total_compressed_size));
+  int64_t bytes_to_read = col.meta_data.total_compressed_size;
+  std::shared_ptr<Buffer> buffer = source_->ReadAt(col_start, bytes_to_read);
 
-  source_->Seek(col_start);
-  ScopedInMemoryInputStream* scoped_input =
-    static_cast<ScopedInMemoryInputStream*>(input.get());
-  size_t bytes_read = source_->Read(scoped_input->size(), scoped_input->data());
-
-  if (bytes_read != scoped_input->size()) {
+  if (buffer->size() < bytes_to_read) {
     throw ParquetException("Unable to read column chunk data");
   }
 
-  const ColumnDescriptor* descr = schema_->Column(i);
-
-  return std::unique_ptr<PageReader>(new SerializedPageReader(std::move(input),
+  std::unique_ptr<InputStream> stream(new InMemoryInputStream(buffer));
+  return std::unique_ptr<PageReader>(new SerializedPageReader(std::move(stream),
           FromThrift(col.meta_data.codec)));
 }
 
@@ -223,7 +217,7 @@ void SerializedFile::Close() {
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(source_.get(),
-          &schema_, &metadata_.row_groups[i]));
+          &metadata_.row_groups[i]));
 
   return std::make_shared<RowGroupReader>(&schema_, std::move(contents));
 }

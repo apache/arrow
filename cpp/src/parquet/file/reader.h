@@ -22,7 +22,6 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
-#include <unordered_map>
 
 #include "parquet/column/page.h"
 #include "parquet/schema/descriptor.h"
@@ -63,9 +62,6 @@ class RowGroupReader {
   // This is declared in the .cc file so that we can hide compiled Thrift
   // headers from the public API and also more easily create test fixtures.
   std::unique_ptr<Contents> contents_;
-
-  // Column index -> ColumnReader
-  std::unordered_map<int, std::shared_ptr<ColumnReader> > column_readers_;
 };
 
 
@@ -99,7 +95,7 @@ class ParquetFileReader {
   void Close();
 
   // The RowGroupReader is owned by the FileReader
-  RowGroupReader* RowGroup(int i);
+  std::shared_ptr<RowGroupReader> RowGroup(int i);
 
   int num_columns() const;
   int64_t num_rows() const;
@@ -124,9 +120,6 @@ class ParquetFileReader {
 
   // The SchemaDescriptor is provided by the Contents impl
   const SchemaDescriptor* schema_;
-
-  // Row group index -> RowGroupReader
-  std::unordered_map<int, std::shared_ptr<RowGroupReader> > row_group_readers_;
 };
 
 

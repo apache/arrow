@@ -15,32 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
+#include "parquet/util/buffer.h"
 
 #include <cstdint>
-#include <memory>
-#include <vector>
 
-#include "parquet/util/buffer.h"
-#include "parquet/util/output.h"
-#include "parquet/util/test-common.h"
+#include "parquet/exception.h"
 
 namespace parquet_cpp {
 
-TEST(TestInMemoryOutputStream, Basics) {
-  std::unique_ptr<InMemoryOutputStream> stream(new InMemoryOutputStream(8));
+Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
+    int64_t size) {
+  data_ = parent->data() + offset;
+  size_ = size;
+  parent_ = parent;
+}
 
-  std::vector<uint8_t> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
+  return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
+}
 
-  stream->Write(&data[0], 4);
-  ASSERT_EQ(4, stream->Tell());
-  stream->Write(&data[4], data.size() - 4);
+OwnedMutableBuffer::OwnedMutableBuffer() :
+    ResizableBuffer(nullptr, 0) {}
 
-  std::shared_ptr<Buffer> buffer = stream->GetBuffer();
-
-  Buffer data_buf(data.data(), data.size());
-
-  ASSERT_TRUE(data_buf.Equals(*buffer));
+void OwnedMutableBuffer::Resize(int64_t new_size) {
+  size_ = new_size;
+  try {
+    buffer_owner_.resize(new_size);
+  } catch (const std::bad_alloc& e) {
+    throw ParquetException("OOM: resize failed");
+  }
+  data_ = buffer_owner_.data();
+  mutable_data_ = buffer_owner_.data();
 }
 
 } // namespace parquet_cpp

@@ -19,11 +19,15 @@
 #define PARQUET_UTIL_OUTPUT_H
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "parquet/util/macros.h"
 
 namespace parquet_cpp {
+
+class Buffer;
+class ResizableBuffer;
 
 // ----------------------------------------------------------------------
 // Output stream classes
@@ -55,14 +59,14 @@ class InMemoryOutputStream : public OutputStream {
 
   virtual void Write(const uint8_t* data, int64_t length);
 
-  // Hand off the in-memory data to a (preferably-empty) std::vector owner
-  void Transfer(std::vector<uint8_t>* out);
+  // Return complete stream as Buffer
+  std::shared_ptr<Buffer> GetBuffer();
 
  private:
   // Mutable pointer to the current write position in the stream
   uint8_t* Head();
 
-  std::vector<uint8_t> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
   int64_t size_;
   int64_t capacity_;
 

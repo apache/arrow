@@ -72,10 +72,9 @@ class SerializedPageReader : public PageReader {
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(RandomAccessSource* source, const SchemaDescriptor* schema,
+  SerializedRowGroup(RandomAccessSource* source,
       const parquet::RowGroup* metadata) :
       source_(source),
-      schema_(schema),
       metadata_(metadata) {}
 
   virtual int num_columns() const;
@@ -84,7 +83,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
  private:
   RandomAccessSource* source_;
-  const SchemaDescriptor* schema_;
   const parquet::RowGroup* metadata_;
 };
 

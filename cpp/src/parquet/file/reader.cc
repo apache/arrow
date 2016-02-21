@@ -51,19 +51,10 @@ int RowGroupReader::num_columns() const {
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
   // TODO: boundschecking
-  auto it = column_readers_.find(i);
-  if (it !=  column_readers_.end()) {
-    // Already have constructed the ColumnReader
-    return it->second;
-  }
-
   const ColumnDescriptor* descr = schema_->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
-  std::shared_ptr<ColumnReader> reader = ColumnReader::Make(descr,
-      std::move(page_reader));
-  column_readers_[i] = reader;
-  return reader;
+  return ColumnReader::Make(descr, std::move(page_reader));
 }
 
 RowGroupStatistics RowGroupReader::GetColumnStats(int i) const {
@@ -109,7 +100,7 @@ int ParquetFileReader::num_columns() const {
   return schema_->num_columns();
 }
 
-RowGroupReader* ParquetFileReader::RowGroup(int i) {
+std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   if (i >= num_row_groups()) {
     std::stringstream ss;
     ss << "The file only has " << num_row_groups()
@@ -118,14 +109,7 @@ RowGroupReader* ParquetFileReader::RowGroup(int i) {
     throw ParquetException(ss.str());
   }
 
-  auto it = row_group_readers_.find(i);
-  if (it != row_group_readers_.end()) {
-    // Constructed the RowGroupReader already
-    return it->second.get();
-  }
-
-  row_group_readers_[i] = contents_->GetRowGroup(i);
-  return row_group_readers_[i].get();
+  return contents_->GetRowGroup(i);
 }
 
 // ----------------------------------------------------------------------
@@ -133,7 +117,6 @@ RowGroupReader* ParquetFileReader::RowGroup(int i) {
 
 // the fixed initial size is just for an example
 #define COL_WIDTH "20"
-
 
 void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   stream << "File statistics:\n";
@@ -151,7 +134,7 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   for (int r = 0; r < num_row_groups(); ++r) {
     stream << "--- Row Group " << r << " ---\n";
 
-    RowGroupReader* group_reader = RowGroup(r);
+    auto group_reader = RowGroup(r);
 
     // Print column metadata
     size_t num_columns = group_reader->num_columns();

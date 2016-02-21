@@ -67,8 +67,7 @@ class TestPageSerde : public ::testing::Test {
       Compression::UNCOMPRESSED) {
     EndStream();
     std::unique_ptr<InputStream> stream;
-    stream.reset(new InMemoryInputStream(out_buffer_.data(),
-            out_buffer_.size()));
+    stream.reset(new InMemoryInputStream(out_buffer_));
     page_reader_.reset(new SerializedPageReader(std::move(stream), codec));
   }
 
@@ -89,19 +88,16 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void ResetStream() {
-    out_buffer_.resize(0);
     out_stream_.reset(new InMemoryOutputStream());
   }
 
   void EndStream() {
-    out_stream_->Transfer(&out_buffer_);
+    out_buffer_ = out_stream_->GetBuffer();
   }
 
  protected:
   std::unique_ptr<InMemoryOutputStream> out_stream_;
-
-  // TODO(wesm): Owns the results of the output stream. To be refactored
-  std::vector<uint8_t> out_buffer_;
+  std::shared_ptr<Buffer> out_buffer_;
 
   std::unique_ptr<SerializedPageReader> page_reader_;
   parquet::PageHeader page_header_;

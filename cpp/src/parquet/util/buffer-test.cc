@@ -16,31 +16,42 @@
 // under the License.
 
 #include <gtest/gtest.h>
-
+#include <cstdlib>
 #include <cstdint>
+#include <limits>
 #include <memory>
-#include <vector>
+#include <string>
 
+#include "parquet/exception.h"
 #include "parquet/util/buffer.h"
-#include "parquet/util/output.h"
-#include "parquet/util/test-common.h"
+
+using std::string;
 
 namespace parquet_cpp {
 
-TEST(TestInMemoryOutputStream, Basics) {
-  std::unique_ptr<InMemoryOutputStream> stream(new InMemoryOutputStream(8));
+class TestBuffer : public ::testing::Test {
+};
 
-  std::vector<uint8_t> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+TEST_F(TestBuffer, Resize) {
+  OwnedMutableBuffer buf;
 
-  stream->Write(&data[0], 4);
-  ASSERT_EQ(4, stream->Tell());
-  stream->Write(&data[4], data.size() - 4);
+  ASSERT_EQ(0, buf.size());
+  ASSERT_NO_THROW(buf.Resize(100));
+  ASSERT_EQ(100, buf.size());
+  ASSERT_NO_THROW(buf.Resize(200));
+  ASSERT_EQ(200, buf.size());
 
-  std::shared_ptr<Buffer> buffer = stream->GetBuffer();
+  // Make it smaller, too
+  ASSERT_NO_THROW(buf.Resize(50));
+  ASSERT_EQ(50, buf.size());
+}
 
-  Buffer data_buf(data.data(), data.size());
-
-  ASSERT_TRUE(data_buf.Equals(*buffer));
+TEST_F(TestBuffer, ResizeOOM) {
+  // realloc fails, even though there may be no explicit limit
+  OwnedMutableBuffer buf;
+  ASSERT_NO_THROW(buf.Resize(100));
+  int64_t to_alloc = std::numeric_limits<int64_t>::max();
+  ASSERT_THROW(buf.Resize(to_alloc), ParquetException);
 }
 
 } // namespace parquet_cpp

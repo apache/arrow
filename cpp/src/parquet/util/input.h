@@ -26,6 +26,8 @@
 
 namespace parquet_cpp {
 
+class Buffer;
+
 // ----------------------------------------------------------------------
 // Random access input (e.g. file-like)
 
@@ -35,12 +37,15 @@ class RandomAccessSource {
   virtual ~RandomAccessSource() {}
 
   virtual void Close() = 0;
-  virtual size_t Size() = 0;
-  virtual size_t Tell() = 0;
-  virtual void Seek(size_t pos) = 0;
+  virtual int64_t Size() = 0;
+  virtual int64_t Tell() = 0;
+  virtual void Seek(int64_t pos) = 0;
 
   // Returns actual number of bytes read
-  virtual size_t Read(size_t nbytes, uint8_t* out) = 0;
+  virtual int64_t Read(int64_t nbytes, uint8_t* out) = 0;
+
+  virtual std::shared_ptr<Buffer> Read(int64_t nbytes) = 0;
+  std::shared_ptr<Buffer> ReadAt(int64_t pos, int64_t nbytes);
 };
 
 
@@ -52,12 +57,14 @@ class LocalFileSource : public RandomAccessSource {
   void Open(const std::string& path);
 
   virtual void Close();
-  virtual size_t Size();
-  virtual size_t Tell();
-  virtual void Seek(size_t pos);
+  virtual int64_t Size();
+  virtual int64_t Tell();
+  virtual void Seek(int64_t pos);
 
   // Returns actual number of bytes read
-  virtual size_t Read(size_t nbytes, uint8_t* out);
+  virtual int64_t Read(int64_t nbytes, uint8_t* out);
+
+  virtual std::shared_ptr<Buffer> Read(int64_t nbytes);
 
   bool is_open() const { return is_open_;}
   const std::string& path() const { return path_;}
@@ -90,6 +97,9 @@ class InputStream {
   // *num_bytes.
   virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes) = 0;
 
+  // Advance the stream without reading
+  virtual void Advance(int64_t num_bytes) = 0;
+
   virtual ~InputStream() {}
 
  protected:
@@ -99,29 +109,16 @@ class InputStream {
 // Implementation of an InputStream when all the bytes are in memory.
 class InMemoryInputStream : public InputStream {
  public:
-  InMemoryInputStream(const uint8_t* buffer, int64_t len);
+  explicit InMemoryInputStream(const std::shared_ptr<Buffer>& buffer);
   virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
   virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
 
+  virtual void Advance(int64_t num_bytes);
+
  private:
-  const uint8_t* buffer_;
+  std::shared_ptr<Buffer> buffer_;
   int64_t len_;
   int64_t offset_;
-};
-
-
-// A wrapper for InMemoryInputStream to manage the memory.
-class ScopedInMemoryInputStream : public InputStream {
- public:
-  explicit ScopedInMemoryInputStream(int64_t len);
-  uint8_t* data();
-  int64_t size();
-  virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
-  virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
-
- private:
-  std::vector<uint8_t> buffer_;
-  std::unique_ptr<InMemoryInputStream> stream_;
 };
 
 } // namespace parquet_cpp

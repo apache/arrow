@@ -18,8 +18,10 @@
 #include "parquet/util/output.h"
 
 #include <cstring>
+#include <memory>
 
 #include "parquet/exception.h"
+#include "parquet/util/buffer.h"
 
 namespace parquet_cpp {
 
@@ -34,14 +36,15 @@ InMemoryOutputStream::InMemoryOutputStream(int64_t initial_capacity) :
   if (initial_capacity == 0) {
     initial_capacity = IN_MEMORY_DEFAULT_CAPACITY;
   }
-  buffer_.resize(initial_capacity);
+  buffer_.reset(new OwnedMutableBuffer());
+  buffer_->Resize(initial_capacity);
 }
 
 InMemoryOutputStream::InMemoryOutputStream() :
     InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY) {}
 
 uint8_t* InMemoryOutputStream::Head() {
-  return &buffer_[size_];
+  return buffer_->mutable_data() + size_;
 }
 
 void InMemoryOutputStream::Write(const uint8_t* data, int64_t length) {
@@ -50,7 +53,7 @@ void InMemoryOutputStream::Write(const uint8_t* data, int64_t length) {
     while (new_capacity < size_ + length) {
       new_capacity *= 2;
     }
-    buffer_.resize(new_capacity);
+    buffer_->Resize(new_capacity);
     capacity_ = new_capacity;
   }
   memcpy(Head(), data, length);
@@ -61,11 +64,11 @@ int64_t InMemoryOutputStream::Tell() {
   return size_;
 }
 
-void InMemoryOutputStream::Transfer(std::vector<uint8_t>* out) {
-  buffer_.resize(size_);
-  buffer_.swap(*out);
-  size_ = 0;
-  capacity_ = buffer_.size();
+std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
+  buffer_->Resize(size_);
+  std::shared_ptr<Buffer> result = buffer_;
+  buffer_ = nullptr;
+  return result;
 }
 
 } // namespace parquet_cpp

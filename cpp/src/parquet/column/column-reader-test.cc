@@ -63,9 +63,8 @@ class TestPrimitiveReader : public ::testing::Test {
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
   vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-  std::vector<uint8_t> buffer;
   std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values, {}, 0,
-    {}, 0, &buffer);
+    {}, 0);
   pages_.push_back(page);
 
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
@@ -90,9 +89,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
   vector<int32_t> values = {1, 2, 3, 4, 5};
   vector<int16_t> def_levels = {1, 0, 0, 1, 1, 0, 0, 0, 1, 1};
 
-  std::vector<uint8_t> buffer;
   std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values, def_levels, 1,
-    {}, 0, &buffer);
+    {}, 0);
 
   pages_.push_back(page);
 
@@ -137,9 +135,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   vector<int16_t> def_levels = {2, 1, 1, 2, 2, 1, 1, 2, 2, 1};
   vector<int16_t> rep_levels = {0, 1, 1, 0, 0, 1, 1, 0, 0, 1};
 
-  std::vector<uint8_t> buffer;
   std::shared_ptr<DataPage> page = MakeDataPage<Type::INT32>(values,
-      def_levels, 2, rep_levels, 1, &buffer);
+      def_levels, 2, rep_levels, 1);
 
   pages_.push_back(page);
 
@@ -190,12 +187,11 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeatedMultiplePages) {
   vector<int16_t> rep_levels[2] = {{0, 1, 1, 0, 0, 1, 1, 0, 0, 1},
     {0, 0, 1, 0, 1, 1, 0, 1, 0, 1}};
 
-  std::vector<uint8_t> buffer[4];
   std::shared_ptr<DataPage> page;
 
   for (int i = 0; i < 4; i++) {
     page = MakeDataPage<Type::INT32>(values[i % 2],
-        def_levels[i % 2], 2, rep_levels[i % 2], 1, &buffer[i]);
+        def_levels[i % 2], 2, rep_levels[i % 2], 1);
     pages_.push_back(page);
   }
 

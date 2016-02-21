@@ -21,8 +21,17 @@
 #include <string>
 
 #include "parquet/exception.h"
+#include "parquet/util/buffer.h"
 
 namespace parquet_cpp {
+
+// ----------------------------------------------------------------------
+// RandomAccessSource
+
+std::shared_ptr<Buffer> RandomAccessSource::ReadAt(int64_t pos, int64_t nbytes) {
+  Seek(pos);
+  return Read(nbytes);
+}
 
 // ----------------------------------------------------------------------
 // LocalFileSource
@@ -49,32 +58,45 @@ void LocalFileSource::CloseFile() {
   }
 }
 
-size_t LocalFileSource::Size() {
+int64_t LocalFileSource::Size() {
   fseek(file_, 0L, SEEK_END);
   return Tell();
 }
 
-void LocalFileSource::Seek(size_t pos) {
+void LocalFileSource::Seek(int64_t pos) {
   fseek(file_, pos, SEEK_SET);
 }
 
-size_t LocalFileSource::Tell() {
+int64_t LocalFileSource::Tell() {
   return ftell(file_);
 }
 
-size_t LocalFileSource::Read(size_t nbytes, uint8_t* buffer) {
+int64_t LocalFileSource::Read(int64_t nbytes, uint8_t* buffer) {
   return fread(buffer, 1, nbytes, file_);
+}
+
+std::shared_ptr<Buffer> LocalFileSource::Read(int64_t nbytes) {
+  auto result = std::make_shared<OwnedMutableBuffer>();
+  result->Resize(nbytes);
+
+  int64_t bytes_read = Read(nbytes, result->mutable_data());
+  if (bytes_read < nbytes) {
+    result->Resize(bytes_read);
+  }
+  return result;
 }
 
 // ----------------------------------------------------------------------
 // InMemoryInputStream
 
-InMemoryInputStream::InMemoryInputStream(const uint8_t* buffer, int64_t len) :
-    buffer_(buffer), len_(len), offset_(0) {}
+InMemoryInputStream::InMemoryInputStream(const std::shared_ptr<Buffer>& buffer) :
+    buffer_(buffer), offset_(0) {
+  len_ = buffer_->size();
+}
 
 const uint8_t* InMemoryInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
   *num_bytes = std::min(static_cast<int64_t>(num_to_peek), len_ - offset_);
-  return buffer_ + offset_;
+  return buffer_->data() + offset_;
 }
 
 const uint8_t* InMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
@@ -83,28 +105,8 @@ const uint8_t* InMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes
   return result;
 }
 
-// ----------------------------------------------------------------------
-// ScopedInMemoryInputStream:: like InMemoryInputStream but owns its memory
-
-ScopedInMemoryInputStream::ScopedInMemoryInputStream(int64_t len) {
-  buffer_.resize(len);
-  stream_.reset(new InMemoryInputStream(buffer_.data(), buffer_.size()));
-}
-
-uint8_t* ScopedInMemoryInputStream::data() {
-  return buffer_.data();
-}
-
-int64_t ScopedInMemoryInputStream::size() {
-  return buffer_.size();
-}
-
-const uint8_t* ScopedInMemoryInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
-  return stream_->Peek(num_to_peek, num_bytes);
-}
-
-const uint8_t* ScopedInMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
-  return stream_->Read(num_to_read, num_bytes);
+void InMemoryInputStream::Advance(int64_t num_bytes) {
+  offset_ += num_bytes;
 }
 
 } // namespace parquet_cpp
