@@ -43,6 +43,7 @@ public interface BufferManager extends AutoCloseable {
    * @param newSize
    *          Size of new replacement buffer.
    * @return
+   *          A new version of the buffer.
    */
   public ArrowBuf replace(ArrowBuf old, int newSize);
 

@@ -328,7 +328,8 @@ public class AllocationManager {
      * destroyed before use.
      *
      * @param allocator
-     * @return
+     *          A BufferAllocator.
+     * @return The ledger associated with the BufferAllocator.
      */
     public BufferLedger getLedgerForAllocator(BufferAllocator allocator) {
       return associate((BaseAllocator) allocator);
