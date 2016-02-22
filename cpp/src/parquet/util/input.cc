@@ -44,6 +44,9 @@ void LocalFileSource::Open(const std::string& path) {
   path_ = path;
   file_ = fopen(path_.c_str(), "r");
   is_open_ = true;
+  fseek(file_, 0L, SEEK_END);
+  size_ = Tell();
+  Seek(0);
 }
 
 void LocalFileSource::Close() {
@@ -58,16 +61,15 @@ void LocalFileSource::CloseFile() {
   }
 }
 
-int64_t LocalFileSource::Size() {
-  fseek(file_, 0L, SEEK_END);
-  return Tell();
-}
-
 void LocalFileSource::Seek(int64_t pos) {
   fseek(file_, pos, SEEK_SET);
 }
 
-int64_t LocalFileSource::Tell() {
+int64_t LocalFileSource::Size() const {
+  return size_;
+}
+
+int64_t LocalFileSource::Tell() const {
   return ftell(file_);
 }
 
@@ -83,6 +85,46 @@ std::shared_ptr<Buffer> LocalFileSource::Read(int64_t nbytes) {
   if (bytes_read < nbytes) {
     result->Resize(bytes_read);
   }
+  return result;
+}
+
+// ----------------------------------------------------------------------
+// BufferReader
+
+BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer) :
+    buffer_(buffer),
+    data_(buffer->data()),
+    pos_(0) {
+  size_ = buffer->size();
+}
+
+int64_t BufferReader::Tell() const {
+  return pos_;
+}
+
+void BufferReader::Seek(int64_t pos) {
+  if (pos < 0 || pos >= size_) {
+    std::stringstream ss;
+    ss << "Cannot seek to " << pos
+       << "File is length " << size_;
+    throw ParquetException(ss.str());
+  }
+  pos_ = pos;
+}
+
+int64_t BufferReader::Size() const {
+  return size_;
+}
+
+int64_t BufferReader::Read(int64_t nbytes, uint8_t* out) {
+  ParquetException::NYI("not implemented");
+  return 0;
+}
+
+std::shared_ptr<Buffer> BufferReader::Read(int64_t nbytes) {
+  int64_t bytes_available = std::min(nbytes, size_ - pos_);
+  auto result = std::make_shared<Buffer>(Head(), bytes_available);
+  pos_ += bytes_available;
   return result;
 }
 

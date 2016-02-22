@@ -36,9 +36,10 @@ class RandomAccessSource {
  public:
   virtual ~RandomAccessSource() {}
 
+  virtual int64_t Size() const = 0;
+
   virtual void Close() = 0;
-  virtual int64_t Size() = 0;
-  virtual int64_t Tell() = 0;
+  virtual int64_t Tell() const = 0;
   virtual void Seek(int64_t pos) = 0;
 
   // Returns actual number of bytes read
@@ -46,6 +47,9 @@ class RandomAccessSource {
 
   virtual std::shared_ptr<Buffer> Read(int64_t nbytes) = 0;
   std::shared_ptr<Buffer> ReadAt(int64_t pos, int64_t nbytes);
+
+ protected:
+  int64_t size_;
 };
 
 
@@ -57,8 +61,8 @@ class LocalFileSource : public RandomAccessSource {
   void Open(const std::string& path);
 
   virtual void Close();
-  virtual int64_t Size();
-  virtual int64_t Tell();
+  virtual int64_t Size() const;
+  virtual int64_t Tell() const;
   virtual void Seek(int64_t pos);
 
   // Returns actual number of bytes read
@@ -75,6 +79,31 @@ class LocalFileSource : public RandomAccessSource {
   std::string path_;
   FILE* file_;
   bool is_open_;
+};
+
+// ----------------------------------------------------------------------
+// A file-like object that reads from virtual address space
+
+class BufferReader : public RandomAccessSource {
+ public:
+  explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
+  virtual void Close() {}
+  virtual int64_t Tell() const;
+  virtual void Seek(int64_t pos);
+  virtual int64_t Size() const;
+
+  virtual int64_t Read(int64_t nbytes, uint8_t* out);
+
+  virtual std::shared_ptr<Buffer> Read(int64_t nbytes);
+
+ protected:
+  const uint8_t* Head() {
+    return data_ + pos_;
+  }
+
+  std::shared_ptr<Buffer> buffer_;
+  const uint8_t* data_;
+  int64_t pos_;
 };
 
 // ----------------------------------------------------------------------

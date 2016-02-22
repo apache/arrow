@@ -236,4 +236,59 @@ TEST_F(TestPageSerde, LZONotSupported) {
   ASSERT_THROW(InitSerializedPageReader(Compression::LZO), ParquetException);
 }
 
+// ----------------------------------------------------------------------
+// File structure tests
+
+class TestParquetFileReader : public ::testing::Test {
+ public:
+  void AssertInvalidFileThrows(const std::shared_ptr<Buffer>& buffer) {
+    std::unique_ptr<BufferReader> reader(new BufferReader(buffer));
+    reader_.reset(new ParquetFileReader());
+
+    ASSERT_THROW(reader_->Open(SerializedFile::Open(std::move(reader))),
+        ParquetException);
+  }
+
+ protected:
+  std::unique_ptr<ParquetFileReader> reader_;
+};
+
+TEST_F(TestParquetFileReader, InvalidHeader) {
+  const char* bad_header = "PAR2";
+
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(bad_header), strlen(bad_header));
+  AssertInvalidFileThrows(buffer);
+}
+
+TEST_F(TestParquetFileReader, InvalidFooter) {
+  // File is smaller than FOOTER_SIZE
+  const char* bad_file = "PAR1PAR";
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(bad_file), strlen(bad_file));
+  AssertInvalidFileThrows(buffer);
+
+  // Magic number incorrect
+  const char* bad_file2 = "PAR1PAR2";
+  buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(bad_file2), strlen(bad_file2));
+  AssertInvalidFileThrows(buffer);
+}
+
+TEST_F(TestParquetFileReader, IncompleteMetadata) {
+  InMemoryOutputStream stream;
+
+  const char* magic = "PAR1";
+
+  stream.Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic));
+  std::vector<uint8_t> bytes(10);
+  stream.Write(bytes.data(), bytes.size());
+  uint32_t metadata_len = 24;
+  stream.Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t));
+  stream.Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic));
+
+  auto buffer = stream.GetBuffer();
+  AssertInvalidFileThrows(buffer);
+}
+
 } // namespace parquet_cpp

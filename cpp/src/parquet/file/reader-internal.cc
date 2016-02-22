@@ -248,11 +248,8 @@ void SerializedFile::ParseMetaData() {
   uint8_t footer_buffer[FOOTER_SIZE];
   source_->Seek(filesize - FOOTER_SIZE);
   size_t bytes_read = source_->Read(FOOTER_SIZE, footer_buffer);
-
-  if (bytes_read != FOOTER_SIZE) {
-    throw ParquetException("Invalid parquet file. Corrupt footer.");
-  }
-  if (memcmp(footer_buffer + 4, PARQUET_MAGIC, 4) != 0) {
+  if (bytes_read != FOOTER_SIZE ||
+      memcmp(footer_buffer + 4, PARQUET_MAGIC, 4) != 0) {
     throw ParquetException("Invalid parquet file. Corrupt footer.");
   }
 
@@ -262,7 +259,6 @@ void SerializedFile::ParseMetaData() {
     throw ParquetException("Invalid parquet file. File is less than "
         "file metadata size.");
   }
-
   source_->Seek(metadata_start);
 
   std::vector<uint8_t> metadata_buffer(metadata_len);
@@ -270,7 +266,6 @@ void SerializedFile::ParseMetaData() {
   if (bytes_read != metadata_len) {
     throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
   }
-
   DeserializeThriftMsg(&metadata_buffer[0], &metadata_len, &metadata_);
 
   schema::FlatSchemaConverter converter(&metadata_.schema[0],
