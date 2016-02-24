@@ -81,7 +81,8 @@ class EncodeDecode{
 
   void generate_data() {
     // seed the prng so failure is deterministic
-    random_numbers(num_values_, 0, draws_);
+    random_numbers(num_values_, 0, std::numeric_limits<T>::min(),
+       std::numeric_limits<T>::max(), draws_);
   }
 
   void encode_decode(ColumnDescriptor *d) {
@@ -130,6 +131,13 @@ void EncodeDecode<bool, Type::BOOLEAN>::generate_data() {
 }
 
 template<>
+void EncodeDecode<Int96, Type::INT96>::generate_data() {
+  // seed the prng so failure is deterministic
+    random_Int96_numbers(num_values_, 0, std::numeric_limits<int32_t>::min(),
+       std::numeric_limits<int32_t>::max(), draws_);
+}
+
+template<>
 void EncodeDecode<Int96, Type::INT96>::verify_results() {
   for (size_t i = 0; i < num_values_; ++i) {
     ASSERT_EQ(draws_[i].value[0], decode_buf_[i].value[0]) << i;
@@ -141,8 +149,9 @@ void EncodeDecode<Int96, Type::INT96>::verify_results() {
 template<>
 void EncodeDecode<ByteArray, Type::BYTE_ARRAY>::generate_data() {
   // seed the prng so failure is deterministic
-  int max_byte_array_len = 12 + sizeof(uint32_t);
-  size_t nbytes = num_values_ * max_byte_array_len;
+  int max_byte_array_len = 12;
+  int num_bytes = max_byte_array_len + sizeof(uint32_t);
+  size_t nbytes = num_values_ * num_bytes;
   data_buffer_.resize(nbytes);
   random_byte_array(num_values_, 0, data_buffer_.data(), draws_,
       max_byte_array_len);
@@ -168,7 +177,7 @@ void EncodeDecode<FLBA, Type::FIXED_LEN_BYTE_ARRAY>::generate_data() {
 
 template<>
 void EncodeDecode<FLBA, Type::FIXED_LEN_BYTE_ARRAY>::verify_results() {
-  for (size_t i = 0; i < 1000; ++i) {
+  for (size_t i = 0; i < num_values_; ++i) {
     ASSERT_EQ(0, memcmp(draws_[i].ptr, decode_buf_[i].ptr, flba_length)) << i;
   }
 }
@@ -213,7 +222,7 @@ TEST(BAEncodeDecode, TestEncodeDecode) {
 TEST(FLBAEncodeDecode, TestEncodeDecode) {
   schema::NodePtr node;
   node = schema::PrimitiveNode::MakeFLBA("name", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, flba_length, LogicalType::UTF8);
+      flba_length, LogicalType::UTF8);
   ColumnDescriptor d(node, 0, 0);
   EncodeDecode<FixedLenByteArray, Type::FIXED_LEN_BYTE_ARRAY> obj;
   obj.execute(num_values, &d);

@@ -122,7 +122,7 @@ class TypedColumnReader : public ColumnReader {
   // This API is the same for both V1 and V2 of the DataPage
   //
   // @returns: actual number of levels read (see values_read for number of values read)
-  size_t ReadBatch(int batch_size, int16_t* def_levels, int16_t* rep_levels,
+  size_t ReadBatch(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
       T* values, size_t* values_read);
 
  private:

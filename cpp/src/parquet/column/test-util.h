@@ -33,6 +33,7 @@
 // Depended on by SerializedPageReader test utilities for now
 #include "parquet/encodings/plain-encoding.h"
 #include "parquet/util/input.h"
+#include "parquet/util/test-common.h"
 
 namespace parquet_cpp {
 
@@ -96,14 +97,14 @@ class DataPageBuilder {
     have_rep_levels_ = true;
   }
 
-  void AppendValues(const std::vector<T>& values,
+  void AppendValues(const ColumnDescriptor *d, const std::vector<T>& values,
       Encoding::type encoding = Encoding::PLAIN) {
     if (encoding != Encoding::PLAIN) {
       ParquetException::NYI("only plain encoding currently implemented");
     }
     size_t bytes_to_encode = values.size() * sizeof(T);
 
-    PlainEncoder<TYPE> encoder(nullptr);
+    PlainEncoder<TYPE> encoder(d);
     encoder.Encode(&values[0], values.size(), sink_);
 
     num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
@@ -164,8 +165,25 @@ class DataPageBuilder {
   }
 };
 
+template<>
+void DataPageBuilder<Type::BOOLEAN>::AppendValues(const ColumnDescriptor *d,
+    const std::vector<bool>& values, Encoding::type encoding) {
+  if (encoding != Encoding::PLAIN) {
+    ParquetException::NYI("only plain encoding currently implemented");
+  }
+  size_t bytes_to_encode = values.size() * sizeof(bool);
+
+  PlainEncoder<Type::BOOLEAN> encoder(d);
+  encoder.Encode(values, values.size(), sink_);
+
+  num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
+  encoding_ = encoding;
+  have_values_ = true;
+}
+
 template <int TYPE, typename T>
-static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
+static std::shared_ptr<DataPage> MakeDataPage(const ColumnDescriptor *d,
+    const std::vector<T>& values,
     const std::vector<int16_t>& def_levels, int16_t max_def_level,
     const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
   size_t num_values = values.size();
@@ -181,7 +199,7 @@ static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
     page_builder.AppendDefLevels(def_levels, max_def_level);
   }
 
-  page_builder.AppendValues(values);
+  page_builder.AppendValues(d, values);
 
   auto buffer = page_stream.GetBuffer();
 
@@ -189,6 +207,37 @@ static std::shared_ptr<DataPage> MakeDataPage(const std::vector<T>& values,
       page_builder.encoding(),
       page_builder.def_level_encoding(),
       page_builder.rep_level_encoding());
+}
+
+template <int TYPE, typename T>
+static void Paginate(const ColumnDescriptor *d,
+    const std::vector<T>& values,
+    const std::vector<int16_t>& def_levels, int16_t max_def_level,
+    const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+    int num_levels_per_page, const std::vector<int>& values_per_page,
+    std::vector<std::shared_ptr<Page> >& pages) {
+  int num_pages = values_per_page.size();
+  int def_level_start = 0;
+  int def_level_end = 0;
+  int rep_level_start = 0;
+  int rep_level_end = 0;
+  int value_start = 0;
+  for (int i = 0; i < num_pages; i++) {
+    if (max_def_level > 0) {
+      def_level_start = i * num_levels_per_page;
+      def_level_end = (i + 1) * num_levels_per_page;
+    }
+    if (max_rep_level > 0) {
+      rep_level_start = i * num_levels_per_page;
+      rep_level_end = (i + 1) * num_levels_per_page;
+    }
+    std::shared_ptr<DataPage> page = MakeDataPage<TYPE>(d,
+        slice(values, value_start, value_start + values_per_page[i]),
+        slice(def_levels, def_level_start, def_level_end), max_def_level,
+        slice(rep_levels, rep_level_start, rep_level_end), max_rep_level);
+    pages.push_back(page);
+    value_start += values_per_page[i];
+  }
 }
 
 } // namespace test

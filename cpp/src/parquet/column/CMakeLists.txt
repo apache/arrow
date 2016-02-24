@@ -25,3 +25,4 @@ install(FILES
 
 ADD_PARQUET_TEST(column-reader-test)
 ADD_PARQUET_TEST(levels-test)
+ADD_PARQUET_TEST(scanner-test)

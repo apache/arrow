@@ -106,16 +106,6 @@ void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
   }
 }
 
-template <typename T>
-void random_numbers(int n, uint32_t seed, T* out) {
-  std::mt19937 gen(seed);
-    std::uniform_real_distribution<T> d(std::numeric_limits<T>::lowest(),
-        std::numeric_limits<T>::max());
-  for (int i = 0; i < n; ++i) {
-    out[i] = d(gen);
-  }
-}
-
 void random_bools(int n, double p, uint32_t seed, bool* out) {
   std::mt19937 gen(seed);
   std::bernoulli_distribution d(p);
@@ -124,31 +114,38 @@ void random_bools(int n, double p, uint32_t seed, bool* out) {
   }
 }
 
-template <>
-void random_numbers(int n, uint32_t seed, int32_t* out) {
+template <typename T>
+void random_numbers(int n, uint32_t seed, T min_value, T max_value, T* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::lowest(),
-      std::numeric_limits<int32_t>::max());
+  std::uniform_int_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
   }
 }
 
 template <>
-void random_numbers(int n, uint32_t seed, int64_t* out) {
+void random_numbers(int n, uint32_t seed, float min_value, float max_value, float* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::lowest(),
-      std::numeric_limits<int64_t>::max());
+  std::uniform_real_distribution<float> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen);
   }
 }
 
 template <>
-void random_numbers(int n, uint32_t seed, Int96* out) {
+void random_numbers(int n, uint32_t seed, double min_value, double max_value,
+    double* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<uint32_t> d(std::numeric_limits<uint32_t>::lowest(),
-      std::numeric_limits<uint32_t>::max());
+  std::uniform_real_distribution<double> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
+    Int96* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int32_t> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
     out[i].value[0] = d(gen);
     out[i].value[1] = d(gen);
@@ -183,6 +180,7 @@ void random_byte_array(int n, uint32_t seed, uint8_t *buf,
     buf += out[i].len;
   }
 }
+
 } // namespace test
 } // namespace parquet_cpp
 

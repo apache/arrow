@@ -58,6 +58,18 @@ class ColumnDescriptor {
     return primitive_node_->name();
   }
 
+  bool is_required() const {
+    return max_definition_level_ == 0;
+  }
+
+  bool is_optional() const {
+    return max_definition_level_ > 0;
+  }
+
+  bool is_repeated() const {
+    return max_repetition_level_ > 0;
+  }
+
   int type_length() const;
 
  private:

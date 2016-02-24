@@ -183,10 +183,9 @@ class PrimitiveNode : public Node {
 
   // Alternate constructor for FIXED_LEN_BYTE_ARRAY (FLBA)
   static inline NodePtr MakeFLBA(const std::string& name,
-      Repetition::type repetition, Type::type type,
-      int32_t type_length,
+      Repetition::type repetition, int32_t type_length,
       LogicalType::type logical_type = LogicalType::NONE) {
-    NodePtr result = Make(name, repetition, type, logical_type);
+    NodePtr result = Make(name, repetition, Type::FIXED_LEN_BYTE_ARRAY, logical_type);
     static_cast<PrimitiveNode*>(result.get())->SetTypeLength(type_length);
     return result;
   }
