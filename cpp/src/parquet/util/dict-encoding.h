@@ -15,39 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_STOPWATCH_H
-#define PARQUET_UTIL_STOPWATCH_H
+#ifndef PARQUET_UTIL_DICT_ENCODING_H
+#define PARQUET_UTIL_DICT_ENCODING_H
 
-#include <stdio.h>
-#include <sys/time.h>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <vector>
 
-#include <iostream>
-#include <ctime>
+#include "parquet/types.h"
+#include "parquet/encodings/plain-encoding.h"
+#include "parquet/util/hash-util.h"
+#include "parquet/util/mem-pool.h"
+#include "parquet/util/rle-encoding.h"
 
 namespace parquet_cpp {
 
-class StopWatch {
- public:
-  StopWatch() {
-  }
-
-  void Start() {
-    gettimeofday(&start_time, 0);
-  }
-
-  // Returns time in nanoseconds.
-  uint64_t Stop() {
-    struct timeval t_time;
-    gettimeofday(&t_time, 0);
-
-    return (1000L * 1000L * 1000L * (t_time.tv_sec - start_time.tv_sec)
-                   + (t_time.tv_usec - start_time.tv_usec));
-  }
-
- private:
-  struct timeval  start_time;
-};
-
 } // namespace parquet_cpp
 
-#endif
+#endif // PARQUET_UTIL_DICT_ENCODING_H

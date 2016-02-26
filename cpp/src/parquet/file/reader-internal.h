@@ -31,8 +31,6 @@
 
 namespace parquet_cpp {
 
-class SchemaDescriptor;
-
 // 16 MB is the default maximum page header size
 static constexpr uint32_t DEFAULT_MAX_PAGE_HEADER_SIZE = 16 * 1024 * 1024;
 

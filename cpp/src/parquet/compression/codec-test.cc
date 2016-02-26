@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-#include "parquet/util/test-common.h"
-
 #include "parquet/compression/codec.h"
+#include "parquet/util/test-common.h"
 
 using std::string;
 using std::vector;

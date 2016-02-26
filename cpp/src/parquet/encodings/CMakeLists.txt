@@ -26,4 +26,4 @@ install(FILES
   plain-encoding.h
   DESTINATION include/parquet/encodings)
 
-ADD_PARQUET_TEST(plain-encoding-test)
+ADD_PARQUET_TEST(encoding-test)

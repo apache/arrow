@@ -18,10 +18,10 @@
 #ifndef PARQUET_COMPRESSION_CODEC_H
 #define PARQUET_COMPRESSION_CODEC_H
 
+#include <zlib.h>
+
 #include <cstdint>
 #include <memory>
-
-#include <zlib.h>
 
 #include "parquet/exception.h"
 #include "parquet/types.h"

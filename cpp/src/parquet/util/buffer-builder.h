@@ -15,39 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_STOPWATCH_H
-#define PARQUET_UTIL_STOPWATCH_H
+// Initially imported from Impala on 2016-02-23
 
-#include <stdio.h>
-#include <sys/time.h>
+#ifndef PARQUET_UTIL_BUFFER_BUILDER_H
+#define PARQUET_UTIL_BUFFER_BUILDER_H
 
-#include <iostream>
-#include <ctime>
+#include <stdlib.h>
+#include <cstdint>
 
 namespace parquet_cpp {
 
-class StopWatch {
+/// Utility class to build an in-memory buffer.
+class BufferBuilder {
  public:
-  StopWatch() {
+  BufferBuilder(uint8_t* dst_buffer, int dst_len)
+    : buffer_(dst_buffer), capacity_(dst_len), size_(0) {
   }
 
-  void Start() {
-    gettimeofday(&start_time, 0);
+  BufferBuilder(char* dst_buffer, int dst_len)
+    : buffer_(reinterpret_cast<uint8_t*>(dst_buffer)),
+      capacity_(dst_len), size_(0) {
   }
 
-  // Returns time in nanoseconds.
-  uint64_t Stop() {
-    struct timeval t_time;
-    gettimeofday(&t_time, 0);
-
-    return (1000L * 1000L * 1000L * (t_time.tv_sec - start_time.tv_sec)
-                   + (t_time.tv_usec - start_time.tv_usec));
+  inline void Append(const void* buffer, int len) {
+    memcpy(buffer_ + size_, buffer, len);
+    size_ += len;
   }
+
+  template<typename T>
+  inline void Append(const T& v) {
+    Append(&v, sizeof(T));
+  }
+
+  int capacity() const { return capacity_; }
+  int size() const { return size_; }
 
  private:
-  struct timeval  start_time;
+  uint8_t* buffer_;
+  int capacity_;
+  int size_;
 };
 
 } // namespace parquet_cpp
 
-#endif
+#endif // PARQUET_UTIL_BUFFER_BUILDER_H

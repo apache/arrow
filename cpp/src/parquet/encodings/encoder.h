@@ -39,11 +39,6 @@ class Encoder {
 
   virtual ~Encoder() {}
 
-  // Subclasses should override the ones they support
-  virtual void Encode(const T* src, int num_values, OutputStream* dst) {
-    throw ParquetException("Encoder does not implement this type.");
-  }
-
   const Encoding::type encoding() const { return encoding_; }
 
  protected:

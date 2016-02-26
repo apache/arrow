@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
-
-#include <gtest/gtest.h>
 
 #include "parquet/file/reader.h"
 #include "parquet/column/reader.h"

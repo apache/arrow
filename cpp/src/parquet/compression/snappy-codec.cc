@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/compression/codec.h"
-
 #include <snappy.h>
 #include <cstdint>
 #include <cstdlib>
 
+#include "parquet/compression/codec.h"
 #include "parquet/exception.h"
 
 namespace parquet_cpp {

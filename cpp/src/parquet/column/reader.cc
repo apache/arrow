@@ -52,8 +52,9 @@ void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
   //
   // TODO(wesm): investigate whether this all-or-nothing decoding of the
   // dictionary makes sense and whether performance can be improved
-  std::shared_ptr<DecoderType> decoder(
-      new DictionaryDecoder<TYPE>(descr_, &dictionary));
+
+  auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_);
+  decoder->SetDict(&dictionary);
 
   decoders_[encoding] = decoder;
   current_decoder_ = decoders_[encoding].get();

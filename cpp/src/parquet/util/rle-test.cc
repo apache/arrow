@@ -17,16 +17,17 @@
 
 // From Apache Impala as of 2016-01-29
 
+#include <gtest/gtest.h>
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include <boost/utility.hpp>
+
 #include <cstdint>
 #include <iostream>
 #include <random>
 #include <vector>
-
-#include <boost/utility.hpp>
-#include <gtest/gtest.h>
-#include <math.h>
 
 #include "parquet/util/rle-encoding.h"
 #include "parquet/util/bit-stream-utils.inline.h"

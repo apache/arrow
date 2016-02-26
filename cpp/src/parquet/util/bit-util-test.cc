@@ -19,11 +19,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <iostream>
 #include <limits.h>
+#include <gtest/gtest.h>
 
 #include <boost/utility.hpp>
-#include <gtest/gtest.h>
+
+#include <iostream>
 
 #include "parquet/util/bit-util.h"
 #include "parquet/util/bit-stream-utils.inline.h"

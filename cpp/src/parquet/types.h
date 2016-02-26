@@ -128,11 +128,24 @@ struct PageType {
 // ----------------------------------------------------------------------
 
 struct ByteArray {
+  ByteArray() {}
+  ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
   uint32_t len;
   const uint8_t* ptr;
+
+  bool operator==(const ByteArray& other) const {
+    return this->len == other.len &&
+      0 == memcmp(this->ptr, other.ptr, this->len);
+  }
+
+  bool operator!=(const ByteArray& other) const {
+    return this->len != other.len || 0 != memcmp(this->ptr, other.ptr, this->len);
+  }
 };
 
 struct FixedLenByteArray {
+  FixedLenByteArray() {}
+  explicit FixedLenByteArray(const uint8_t* ptr) : ptr(ptr) {}
   const uint8_t* ptr;
 };
 
@@ -140,6 +153,14 @@ typedef FixedLenByteArray FLBA;
 
 MANUALLY_ALIGNED_STRUCT(1) Int96 {
   uint32_t value[3];
+
+  bool operator==(const Int96& other) const {
+    return 0 == memcmp(this->value, other.value, 3 * sizeof(uint32_t));
+  }
+
+  bool operator!=(const Int96& other) const {
+    return !(*this == other);
+  }
 };
 STRUCT_END(Int96, 12);
 
@@ -240,6 +261,21 @@ struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
   static constexpr size_t value_byte_size = sizeof(FixedLenByteArray);
   static constexpr const char* printf_code = "s";
 };
+
+template <Type::type TYPE>
+struct DataType {
+  static constexpr Type::type type_num = TYPE;
+  typedef typename type_traits<TYPE>::value_type c_type;
+};
+
+typedef DataType<Type::BOOLEAN> BooleanType;
+typedef DataType<Type::INT32> Int32Type;
+typedef DataType<Type::INT64> Int64Type;
+typedef DataType<Type::INT96> Int96Type;
+typedef DataType<Type::FLOAT> FloatType;
+typedef DataType<Type::DOUBLE> DoubleType;
+typedef DataType<Type::BYTE_ARRAY> ByteArrayType;
+typedef DataType<Type::FIXED_LEN_BYTE_ARRAY> FLBAType;
 
 template <int TYPE>
 inline std::string format_fwf(int width) {

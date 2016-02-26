@@ -20,8 +20,8 @@
 #ifndef PARQUET_UTIL_RLE_ENCODING_H
 #define PARQUET_UTIL_RLE_ENCODING_H
 
-#include <algorithm>
 #include <math.h>
+#include <algorithm>
 
 #include "parquet/util/compiler-util.h"
 #include "parquet/util/bit-stream-utils.inline.h"

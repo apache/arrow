@@ -20,7 +20,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include "parquet/util/macros.h"
 

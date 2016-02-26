@@ -24,16 +24,18 @@
 #include <sys/sysctl.h>
 #endif
 
+#include <mmintrin.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <boost/algorithm/string.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
-#include <mmintrin.h>
 #include <sstream>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <string>
 
 #include "parquet/exception.h"

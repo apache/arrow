@@ -17,12 +17,11 @@
 
 // Schema / column descriptor correctness tests (from flat Parquet schemas)
 
+#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
