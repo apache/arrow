@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "parquet/exception.h"
 #include "parquet/schema/test-util.h"
 #include "parquet/schema/types.h"
 #include "parquet/thrift/parquet_types.h"
@@ -130,15 +131,15 @@ TEST_F(TestPrimitiveNode, FromParquet) {
       parquet::Type::FIXED_LEN_BYTE_ARRAY);
   elt.__set_converted_type(ConvertedType::DECIMAL);
   elt.__set_type_length(6);
-  elt.__set_scale(12);
-  elt.__set_precision(2);
+  elt.__set_scale(2);
+  elt.__set_precision(12);
 
   Convert(&elt);
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(LogicalType::DECIMAL, prim_node_->logical_type());
   ASSERT_EQ(6, prim_node_->type_length());
-  ASSERT_EQ(12, prim_node_->decimal_metadata().scale);
-  ASSERT_EQ(2, prim_node_->decimal_metadata().precision);
+  ASSERT_EQ(2, prim_node_->decimal_metadata().scale);
+  ASSERT_EQ(12, prim_node_->decimal_metadata().precision);
 }
 
 TEST_F(TestPrimitiveNode, Equals) {
@@ -154,17 +155,66 @@ TEST_F(TestPrimitiveNode, Equals) {
   ASSERT_FALSE(node1.Equals(&node4));
   ASSERT_TRUE(node1.Equals(&node5));
 
-  PrimitiveNode flba1("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY);
-  flba1.SetTypeLength(12);
+  PrimitiveNode flba1("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::DECIMAL, 12, 4, 2);
 
-  PrimitiveNode flba2("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY);
+  PrimitiveNode flba2("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::DECIMAL, 1, 4, 2);
   flba2.SetTypeLength(12);
 
-  PrimitiveNode flba3("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY);
+  PrimitiveNode flba3("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::DECIMAL, 1, 4, 2);
   flba3.SetTypeLength(16);
+
+  PrimitiveNode flba4("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::DECIMAL, 12, 4, 0);
+
+  PrimitiveNode flba5("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::NONE, 12, 4, 0);
 
   ASSERT_TRUE(flba1.Equals(&flba2));
   ASSERT_FALSE(flba1.Equals(&flba3));
+  ASSERT_FALSE(flba1.Equals(&flba4));
+  ASSERT_FALSE(flba1.Equals(&flba5));
+}
+
+TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::INT32, LogicalType::INT_32));
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::BYTE_ARRAY, LogicalType::JSON));
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::INT32, LogicalType::JSON), ParquetException);
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::INT64, LogicalType::TIMESTAMP_MILLIS));
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::INT32, LogicalType::INT_64), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::BYTE_ARRAY, LogicalType::INT_8), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+        Type::BYTE_ARRAY, LogicalType::INTERVAL), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM), ParquetException);
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::BYTE_ARRAY, LogicalType::ENUM));
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 0, 2, 4), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FLOAT, LogicalType::DECIMAL, 0, 2, 4), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 0, 4, 0), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 0, 4), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 4, -1), ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 2, 4), ParquetException);
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 6, 4));
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 12));
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 10), ParquetException);
 }
 
 // ----------------------------------------------------------------------
@@ -220,11 +270,14 @@ TEST_F(TestGroupNode, Equals) {
   // This is copied in the GroupNode ctor, so this is okay
   f2.push_back(Float("four", Repetition::OPTIONAL));
   GroupNode group4("group", Repetition::REPEATED, f2);
+  GroupNode group5("group", Repetition::REPEATED, Fields1());
 
+  ASSERT_TRUE(group1.Equals(&group1));
   ASSERT_TRUE(group1.Equals(&group2));
   ASSERT_FALSE(group1.Equals(&group3));
 
   ASSERT_FALSE(group1.Equals(&group4));
+  ASSERT_FALSE(group5.Equals(&group4));
 }
 
 } // namespace schema

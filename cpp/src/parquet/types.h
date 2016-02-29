@@ -316,6 +316,73 @@ static inline std::string type_to_string(Type::type t) {
   }
 }
 
+static inline std::string logical_type_to_string(LogicalType::type t) {
+  switch (t) {
+    case LogicalType::NONE:
+      return "NONE";
+      break;
+    case LogicalType::UTF8:
+      return "UTF8";
+      break;
+    case LogicalType::MAP_KEY_VALUE:
+      return "MAP_KEY_VALUE";
+      break;
+    case LogicalType::LIST:
+      return "LIST";
+      break;
+    case LogicalType::ENUM:
+      return "ENUM";
+      break;
+    case LogicalType::DECIMAL:
+      return "DECIMAL";
+      break;
+    case LogicalType::DATE:
+      return "DATE";
+      break;
+    case LogicalType::TIME_MILLIS:
+      return "TIME_MILLIS";
+      break;
+    case LogicalType::TIMESTAMP_MILLIS:
+      return "TIMESTAMP_MILLIS";
+      break;
+    case LogicalType::UINT_8:
+      return "UINT_8";
+      break;
+    case LogicalType::UINT_16:
+      return "UINT_16";
+      break;
+    case LogicalType::UINT_32:
+      return "UINT_32";
+      break;
+    case LogicalType::UINT_64:
+      return "UINT_64";
+      break;
+    case LogicalType::INT_8:
+      return "INT_8";
+      break;
+    case LogicalType::INT_16:
+      return "INT_16";
+      break;
+    case LogicalType::INT_32:
+      return "INT_32";
+      break;
+    case LogicalType::INT_64:
+      return "INT_64";
+      break;
+    case LogicalType::JSON:
+      return "JSON";
+      break;
+    case LogicalType::BSON:
+      return "BSON";
+      break;
+    case LogicalType::INTERVAL:
+      return "INTERVAL";
+      break;
+    default:
+      return "UNKNOWN";
+      break;
+  }
+}
 } // namespace parquet_cpp
 
 #endif // PARQUET_TYPES_H

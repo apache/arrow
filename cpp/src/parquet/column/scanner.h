@@ -45,8 +45,8 @@ class Scanner {
       values_buffered_(0),
       reader_(reader) {
     // TODO: don't allocate for required fields
-    def_levels_.resize(reader->descr()->is_optional() ? batch_size_ : 0);
-    rep_levels_.resize(reader->descr()->is_repeated() ? batch_size_ : 0);
+    def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
+    rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
   }
 
   virtual ~Scanner() {}
@@ -114,10 +114,8 @@ class TypedScanner : public Scanner {
         return false;
       }
     }
-    *def_level = descr()->is_optional() ?
-      def_levels_[level_offset_] : descr()->max_definition_level();
-    *rep_level = descr()->is_repeated() ?
-      rep_levels_[level_offset_] : descr()->max_repetition_level();
+    *def_level = descr()->max_definition_level() > 0 ? def_levels_[level_offset_] : 0;
+    *rep_level = descr()->max_repetition_level() > 0 ? rep_levels_[level_offset_] : 0;
     level_offset_++;
     return true;
   }
@@ -172,10 +170,12 @@ class TypedScanner : public Scanner {
 
   virtual void PrintNext(std::ostream& out, int width) {
     T val;
-    bool is_null;
-
+    bool is_null = false;
     char buffer[25];
-    NextValue(&val, &is_null);
+
+    if (!NextValue(&val, &is_null)) {
+      throw ParquetException("No more values buffered");
+    }
 
     if (is_null) {
       std::string null_fmt = format_fwf<Type::BYTE_ARRAY>(width);

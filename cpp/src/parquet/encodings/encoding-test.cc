@@ -134,8 +134,8 @@ std::shared_ptr<ColumnDescriptor> ExampleDescr() {
 
 template <>
 std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBA>() {
-  auto node = schema::PrimitiveNode::MakeFLBA("name", Repetition::OPTIONAL,
-      flba_length, LogicalType::UTF8);
+  auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, flba_length, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 

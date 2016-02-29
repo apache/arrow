@@ -103,7 +103,7 @@ class TestFlatScanner : public ::testing::Test {
     TypedScanner<Type::type_num>* scanner =
       reinterpret_cast<TypedScanner<Type::type_num>* >(scanner_.get());
     T val;
-    bool is_null;
+    bool is_null = false;
     int16_t def_level;
     int16_t rep_level;
     size_t j = 0;
@@ -113,15 +113,15 @@ class TestFlatScanner : public ::testing::Test {
       if (!is_null) {
         ASSERT_EQ(values_[j++], val) << i <<"V"<< j;
       }
-      if (!d->is_required()) {
+      if (d->max_definition_level() > 0) {
         ASSERT_EQ(def_levels_[i], def_level) << i <<"D"<< j;
       }
-      if (d->is_repeated()) {
+      if (d->max_repetition_level() > 0) {
         ASSERT_EQ(rep_levels_[i], rep_level) << i <<"R"<< j;
       }
     }
     ASSERT_EQ(num_values_, j);
-    ASSERT_FALSE(scanner->HasNext());
+    ASSERT_FALSE(scanner->Next(&val, &def_level, &rep_level, &is_null));
   }
 
   void Clear() {
@@ -140,21 +140,25 @@ class TestFlatScanner : public ::testing::Test {
   }
 
   void InitDescriptors(std::shared_ptr<ColumnDescriptor>& d1,
-      std::shared_ptr<ColumnDescriptor>& d2, std::shared_ptr<ColumnDescriptor>& d3) {
+      std::shared_ptr<ColumnDescriptor>& d2, std::shared_ptr<ColumnDescriptor>& d3,
+      int length) {
     NodePtr type;
-    type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED, Type::type_num);
+    type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED, Type::type_num,
+       LogicalType::NONE, length);
     d1.reset(new ColumnDescriptor(type, 0, 0));
-    type = schema::PrimitiveNode::Make("c2", Repetition::OPTIONAL, Type::type_num);
+    type = schema::PrimitiveNode::Make("c2", Repetition::OPTIONAL, Type::type_num,
+       LogicalType::NONE, length);
     d2.reset(new ColumnDescriptor(type, 4, 0));
-    type = schema::PrimitiveNode::Make("c3", Repetition::REPEATED, Type::type_num);
+    type = schema::PrimitiveNode::Make("c3", Repetition::REPEATED, Type::type_num,
+       LogicalType::NONE, length);
     d3.reset(new ColumnDescriptor(type, 4, 2));
   }
 
-  void ExecuteAll(int num_pages, int num_levels, int batch_size) {
+  void ExecuteAll(int num_pages, int num_levels, int batch_size, int type_length) {
     std::shared_ptr<ColumnDescriptor> d1;
     std::shared_ptr<ColumnDescriptor> d2;
     std::shared_ptr<ColumnDescriptor> d3;
-    InitDescriptors(d1, d2, d3);
+    InitDescriptors(d1, d2, d3, type_length);
     // evaluate REQUIRED pages
     Execute(num_pages, num_levels, batch_size, d1.get());
     // evaluate OPTIONAL pages
@@ -203,42 +207,71 @@ void TestFlatScanner<FLBAType>::InitValues() {
       values_.data());
 }
 
-template<>
-void TestFlatScanner<FLBAType>::InitDescriptors(
-    std::shared_ptr<ColumnDescriptor>& d1, std::shared_ptr<ColumnDescriptor>& d2,
-    std::shared_ptr<ColumnDescriptor>& d3) {
-  NodePtr type = schema::PrimitiveNode::MakeFLBA("c1", Repetition::REQUIRED,
-      FLBA_LENGTH, LogicalType::UTF8);
-  d1.reset(new ColumnDescriptor(type, 0, 0));
-  type = schema::PrimitiveNode::MakeFLBA("c2", Repetition::OPTIONAL,
-      FLBA_LENGTH, LogicalType::UTF8);
-  d2.reset(new ColumnDescriptor(type, 4, 0));
-  type = schema::PrimitiveNode::MakeFLBA("c3", Repetition::REPEATED,
-      FLBA_LENGTH, LogicalType::UTF8);
-  d3.reset(new ColumnDescriptor(type, 4, 2));
-}
-
 typedef TestFlatScanner<FLBAType> TestFlatFLBAScanner;
 
 static int num_levels_per_page = 100;
 static int num_pages = 20;
 static int batch_size = 32;
 
-TYPED_TEST_CASE(TestFlatScanner, ParquetTypes);
+typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type,
+                         FloatType, DoubleType, ByteArrayType> TestTypes;
+
+typedef TestFlatScanner<FLBAType> TestFLBAFlatScanner;
+
+TYPED_TEST_CASE(TestFlatScanner, TestTypes);
 
 TYPED_TEST(TestFlatScanner, TestScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size);
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0);
+}
+
+TEST_F(TestFLBAFlatScanner, TestScanner) {
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH);
 }
 
 //PARQUET 502
 TEST_F(TestFlatFLBAScanner, TestSmallBatch) {
-  NodePtr type = schema::PrimitiveNode::MakeFLBA("c1", Repetition::REQUIRED,
-      FLBA_LENGTH, LogicalType::UTF8);
+  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 0, 0);
   MakePages(&d, 1, 100);
   InitScanner(&d);
   CheckResults(1, &d);
 }
+
+TEST_F(TestFlatFLBAScanner, TestDescriptorAPI) {
+  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
+  const ColumnDescriptor d(type, 4, 0);
+  MakePages(&d, 1, 100);
+  InitScanner(&d);
+  TypedScanner<FLBAType::type_num>* scanner =
+    reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
+  ASSERT_EQ(10, scanner->descr()->type_precision());
+  ASSERT_EQ(2, scanner->descr()->type_scale());
+  ASSERT_EQ(FLBA_LENGTH, scanner->descr()->type_length());
+}
+
+TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
+  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
+  const ColumnDescriptor d(type, 4, 0);
+  MakePages(&d, 1, 100);
+  InitScanner(&d);
+  TypedScanner<FLBAType::type_num>* scanner =
+    reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
+  size_t j = 0;
+  scanner->SetBatchSize(batch_size);
+  std::stringstream ss_fail;
+  for (size_t i = 0; i < num_levels_; i++) {
+    std::stringstream ss;
+    scanner->PrintNext(ss, 17);
+    std::string result = ss.str();
+    ASSERT_LE(17, result.size()) << i;
+  }
+  ASSERT_THROW(scanner->PrintNext(ss_fail, 17), ParquetException);
+}
+
+//Test for GroupNode
 
 } // namespace test
 } // namespace parquet_cpp

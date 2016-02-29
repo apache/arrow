@@ -84,10 +84,15 @@ const ColumnDescriptor* SchemaDescriptor::Column(size_t i) const {
   return &leaves_[i];
 }
 
+int ColumnDescriptor::type_scale() const {
+  return primitive_node_->decimal_metadata().scale;
+}
+
+int ColumnDescriptor::type_precision() const {
+  return primitive_node_->decimal_metadata().precision;
+}
+
 int ColumnDescriptor::type_length() const {
-  if (primitive_node_->physical_type() != Type::FIXED_LEN_BYTE_ARRAY) {
-    throw ParquetException("Not a FIXED_LEN_BYTE_ARRAY");
-  }
   return primitive_node_->type_length();
 }
 

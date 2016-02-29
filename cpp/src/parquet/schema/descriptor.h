@@ -24,7 +24,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
 #include "parquet/schema/types.h"
 #include "parquet/types.h"
 
@@ -54,23 +53,19 @@ class ColumnDescriptor {
     return primitive_node_->physical_type();
   }
 
+  LogicalType::type logical_type() const {
+    return primitive_node_->logical_type();
+  }
+
   const std::string& name() const {
     return primitive_node_->name();
   }
 
-  bool is_required() const {
-    return max_definition_level_ == 0;
-  }
-
-  bool is_optional() const {
-    return max_definition_level_ > 0;
-  }
-
-  bool is_repeated() const {
-    return max_repetition_level_ > 0;
-  }
-
   int type_length() const;
+
+  int type_precision() const;
+
+  int type_scale() const;
 
  private:
   schema::NodePtr node_;
