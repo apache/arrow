@@ -18,8 +18,8 @@
 #ifndef PARQUET_UTIL_INPUT_H
 #define PARQUET_UTIL_INPUT_H
 
-#include <stdio.h>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -58,7 +58,7 @@ class LocalFileSource : public RandomAccessSource {
   LocalFileSource() : file_(nullptr), is_open_(false) {}
   virtual ~LocalFileSource();
 
-  void Open(const std::string& path);
+  virtual void Open(const std::string& path);
 
   virtual void Close();
   virtual int64_t Size() const;
@@ -73,12 +73,45 @@ class LocalFileSource : public RandomAccessSource {
   bool is_open() const { return is_open_;}
   const std::string& path() const { return path_;}
 
- private:
+  // Return the integer file descriptor
+  int file_descriptor() const;
+
+ protected:
   void CloseFile();
+  void SeekFile(int64_t pos, int origin = SEEK_SET);
 
   std::string path_;
   FILE* file_;
   bool is_open_;
+};
+
+class MemoryMapSource : public LocalFileSource {
+ public:
+  MemoryMapSource() :
+      LocalFileSource(),
+      data_(nullptr),
+      pos_(0) {}
+
+  virtual ~MemoryMapSource();
+
+  virtual void Close();
+  virtual void Open(const std::string& path);
+
+  virtual int64_t Tell() const;
+  virtual void Seek(int64_t pos);
+
+  // Copy data from memory map into out (must be already allocated memory)
+  // @returns: actual number of bytes read
+  virtual int64_t Read(int64_t nbytes, uint8_t* out);
+
+  // Return a buffer referencing memory-map (no copy)
+  virtual std::shared_ptr<Buffer> Read(int64_t nbytes);
+
+ private:
+  void CloseFile();
+
+  uint8_t* data_;
+  int64_t pos_;
 };
 
 // ----------------------------------------------------------------------
