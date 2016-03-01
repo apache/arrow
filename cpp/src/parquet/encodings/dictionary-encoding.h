@@ -27,6 +27,7 @@
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/encodings/plain-encoding.h"
+#include "parquet/util/cpu-info.h"
 #include "parquet/util/dict-encoding.h"
 #include "parquet/util/hash-util.h"
 #include "parquet/util/mem-pool.h"
@@ -203,7 +204,11 @@ class DictEncoderBase {
       mod_bitmask_(hash_table_size_ - 1),
       hash_slots_(hash_table_size_, HASH_SLOT_EMPTY),
       pool_(pool),
-      dict_encoded_size_(0) {}
+      dict_encoded_size_(0) {
+    if (!CpuInfo::initialized()) {
+      CpuInfo::Init();
+    }
+  }
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;
@@ -426,6 +431,8 @@ inline int DictEncoderBase::WriteIndices(uint8_t* buffer, int buffer_len) {
     if (!encoder.Put(index)) return -1;
   }
   encoder.Flush();
+
+  ClearIndices();
   return 1 + encoder.len();
 }
 

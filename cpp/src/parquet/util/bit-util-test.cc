@@ -32,6 +32,12 @@
 
 namespace parquet_cpp {
 
+static void ensure_cpu_info_initialized() {
+  if (!CpuInfo::initialized()) {
+    CpuInfo::Init();
+  }
+}
+
 TEST(BitUtil, Ceil) {
   EXPECT_EQ(BitUtil::Ceil(0, 1), 0);
   EXPECT_EQ(BitUtil::Ceil(1, 1), 1);
@@ -71,6 +77,8 @@ TEST(BitUtil, RoundDown) {
 }
 
 TEST(BitUtil, Popcount) {
+  ensure_cpu_info_initialized();
+
   EXPECT_EQ(BitUtil::Popcount(BOOST_BINARY(0 1 0 1 0 1 0 1)), 4);
   EXPECT_EQ(BitUtil::PopcountNoHw(BOOST_BINARY(0 1 0 1 0 1 0 1)), 4);
   EXPECT_EQ(BitUtil::Popcount(BOOST_BINARY(1 1 1 1 0 1 0 1)), 6);

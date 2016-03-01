@@ -155,6 +155,10 @@ class TestEncodingBase : public ::testing::Test {
     }
   }
 
+  void TearDown() {
+    pool_.FreeAll();
+  }
+
   void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(T));

@@ -292,7 +292,7 @@ bool RleDecoder::NextCounts() {
 /// This function buffers input values 8 at a time.  After seeing all 8 values,
 /// it decides whether they should be encoded as a literal or repeated run.
 inline bool RleEncoder::Put(uint64_t value) {
-  DCHECK(bit_width_ == 64 || value < (1LL << bit_width_));
+  DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
   if (UNLIKELY(buffer_full_)) return false;
 
   if (LIKELY(current_value_ == value)) {

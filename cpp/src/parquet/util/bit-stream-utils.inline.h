@@ -90,7 +90,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
   DCHECK(buffer_ != NULL);
   // TODO: revisit this limit if necessary
   DCHECK_LE(num_bits, 32);
-  DCHECK_LE(num_bits, sizeof(T) * 8);
+  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));
 
   if (UNLIKELY(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8)) return false;
 
@@ -118,7 +118,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
 template<typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
-  DCHECK_LE(num_bytes, sizeof(T));
+  DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
   int bytes_read = BitUtil::Ceil(bit_offset_, 8);
   if (UNLIKELY(byte_offset_ + bytes_read + num_bytes > max_bytes_)) return false;
 

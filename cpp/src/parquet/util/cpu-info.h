@@ -93,6 +93,10 @@ class CpuInfo {
     return model_name_;
   }
 
+  static bool initialized() {
+    return initialized_;
+  }
+
  private:
   static bool initialized_;
   static int64_t hardware_flags_;

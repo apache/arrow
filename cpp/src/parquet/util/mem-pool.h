@@ -197,7 +197,7 @@ class MemPool {
     DCHECK_LE(info.allocated_bytes + num_bytes, info.size);
     info.allocated_bytes += num_bytes;
     total_allocated_bytes_ += num_bytes;
-    DCHECK_LE(current_chunk_idx_, chunks_.size() - 1);
+    DCHECK_LE(current_chunk_idx_, static_cast<int>(chunks_.size()) - 1);
     peak_allocated_bytes_ = std::max(total_allocated_bytes_, peak_allocated_bytes_);
     return result;
   }
