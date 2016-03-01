@@ -57,7 +57,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
   private final MaterializedField offsetsField = MaterializedField.create(OFFSETS_VECTOR_NAME, new MajorType(MinorType.UINT4, DataMode.REQUIRED));
-  private final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(offsetsField, allocator);
+  final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(offsetsField, allocator);
   private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
 
   private final Accessor accessor;

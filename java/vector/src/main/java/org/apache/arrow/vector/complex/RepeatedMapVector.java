@@ -53,7 +53,7 @@ public class RepeatedMapVector extends AbstractMapVector
 
   public final static MajorType TYPE = new MajorType(MinorType.MAP, DataMode.REPEATED);
 
-  private final UInt4Vector offsets;   // offsets to start of each record (considering record indices are 0-indexed)
+  final UInt4Vector offsets;   // offsets to start of each record (considering record indices are 0-indexed)
   private final RepeatedMapReaderImpl reader = new RepeatedMapReaderImpl(RepeatedMapVector.this);
   private final RepeatedMapAccessor accessor = new RepeatedMapAccessor();
   private final Mutator mutator = new Mutator();

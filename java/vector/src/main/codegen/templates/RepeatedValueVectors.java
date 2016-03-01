@@ -42,7 +42,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Repeated${minor.class}Vector.class);
 
   // we maintain local reference to concrete vector type for performance reasons.
-  private ${minor.class}Vector values;
+  ${minor.class}Vector values;
   private final FieldReader reader = new Repeated${minor.class}ReaderImpl(Repeated${minor.class}Vector.this);
   private final Mutator mutator = new Mutator();
   private final Accessor accessor = new Accessor();

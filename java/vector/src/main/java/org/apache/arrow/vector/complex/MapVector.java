@@ -52,7 +52,7 @@ public class MapVector extends AbstractMapVector {
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(MapVector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
-  private int valueCount;
+  int valueCount;
 
   public MapVector(String path, BufferAllocator allocator, CallBack callBack){
     this(MaterializedField.create(path, TYPE), allocator, callBack);

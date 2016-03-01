@@ -231,6 +231,7 @@ public class BasicTypeHelper {
     return getNewVector(field, allocator, null);
   }
   public static ValueVector getNewVector(MaterializedField field, BufferAllocator allocator, CallBack callBack){
+    field = field.clone();
     MajorType type = field.getType();
 
     switch (type.getMinorType()) {

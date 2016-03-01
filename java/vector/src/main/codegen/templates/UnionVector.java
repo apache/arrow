@@ -51,9 +51,9 @@ public class UnionVector implements ValueVector {
   private BufferAllocator allocator;
   private Accessor accessor = new Accessor();
   private Mutator mutator = new Mutator();
-  private int valueCount;
+  int valueCount;
 
-  private MapVector internalMap;
+  MapVector internalMap;
   private UInt1Vector typeVector;
 
   private MapVector mapVector;

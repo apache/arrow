@@ -49,7 +49,7 @@ public class RepeatedListVector extends AbstractContainerVector
 
   public final static MajorType TYPE = new MajorType(MinorType.LIST, DataMode.REPEATED);
   private final RepeatedListReaderImpl reader = new RepeatedListReaderImpl(null, this);
-  private final DelegateRepeatedVector delegate;
+  final DelegateRepeatedVector delegate;
 
   protected static class DelegateRepeatedVector extends BaseRepeatedValueVector {
 
@@ -313,7 +313,6 @@ public class RepeatedListVector extends AbstractContainerVector
     if (result.isCreated() && callBack != null) {
       callBack.doWork();
     }
-    this.field = delegate.getField();
     return result;
   }
 
