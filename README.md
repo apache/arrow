@@ -1,5 +1,16 @@
 ## Apache Arrow
 
+<table>
+  <tr>
+    <td>Build Status</td>
+    <td>
+    <a href="https://travis-ci.org/apache/arrow">
+    <img src="https://travis-ci.org/apache/arrow.svg?branch=master" alt="travis build status" />
+    </a>
+    </td>
+  </tr>
+</table>
+
 #### Powering Columnar In-Memory Analytics
 
 Arrow is a set of technologies that enable big-data systems to process and move data fast.

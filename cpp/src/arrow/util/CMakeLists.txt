@@ -26,7 +26,7 @@ set(UTIL_SRCS
 )
 
 set(UTIL_LIBS
-  rt)
+)
 
 add_library(arrow_util STATIC
   ${UTIL_SRCS}

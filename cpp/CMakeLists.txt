@@ -44,6 +44,11 @@ if (NOT "$ENV{ARROW_GCC_ROOT}" STREQUAL "")
   set(CMAKE_CXX_COMPILER ${GCC_ROOT}/bin/g++)
 endif()
 
+if(APPLE)
+  # In newer versions of CMake, this is the default setting
+  set(CMAKE_MACOSX_RPATH 1)
+endif()
+
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -68,19 +73,15 @@ endif()
 ############################################################
 
 # compiler flags that are common across debug/release builds
-#  - msse4.2: Enable sse4.2 compiler intrinsics.
 #  - Wall: Enable all warnings.
-#  - Wno-sign-compare: suppress warnings for comparison between signed and unsigned
-#    integers
-#  -Wno-deprecated: some of the gutil code includes old things like ext/hash_set, ignore that
-#  - pthread: enable multithreaded malloc
-#  - -D__STDC_FORMAT_MACROS: for PRI* print format macros
-#  -fno-strict-aliasing
-#     Assume programs do not follow strict aliasing rules.
-#     GCC cannot always verify whether strict aliasing rules are indeed followed due to
-#     fundamental limitations in escape analysis, which can result in subtle bad code generation.
-#     This has a small perf hit but worth it to avoid hard to debug crashes.
-set(CXX_COMMON_FLAGS "-std=c++11 -fno-strict-aliasing -msse3 -Wall -Wno-deprecated -pthread -D__STDC_FORMAT_MACROS")
+set(CXX_COMMON_FLAGS "-std=c++11 -msse3 -Wall")
+
+if (APPLE)
+  # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
+  # the default standard library which does not support C++11. libc++ is the
+  # default from 10.9 onward.
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+endif()
 
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
@@ -157,10 +158,6 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   else()
     message("Running without a controlling terminal or in a dumb terminal")
   endif()
-
-  # Use libstdc++ and not libc++. The latter lacks support for tr1 in OSX
-  # and since 10.9 is now the default.
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 endif()
 
 # Sanity check linking option.
@@ -473,11 +470,15 @@ set(ARROW_SRCS
   src/arrow/type.cc
 )
 
-add_library(arrow SHARED
+set(LIBARROW_LINKAGE "SHARED")
+
+add_library(arrow
+  ${LIBARROW_LINKAGE}
   ${ARROW_SRCS}
 )
 target_link_libraries(arrow ${LINK_LIBS})
 set_target_properties(arrow PROPERTIES LINKER_LANGUAGE CXX)
 
 install(TARGETS arrow
-  LIBRARY DESTINATION lib)
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)

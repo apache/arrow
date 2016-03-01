@@ -1,0 +1,27 @@
+sudo: required
+dist: trusty
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    - kalakris-cmake
+    packages:
+    - gcc-4.9   # Needed for C++11
+    - g++-4.9   # Needed for C++11
+    - gcov
+    - cmake
+    - valgrind
+
+matrix:
+  include:
+  - compiler: gcc
+    language: cpp
+    os: linux
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+  - compiler: clang
+    language: cpp
+    os: osx
+    addons:
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
