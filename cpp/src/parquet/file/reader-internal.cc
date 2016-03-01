@@ -96,7 +96,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Uncompress it if we need to
     if (decompressor_ != NULL) {
       // Grow the uncompressed buffer if we need to.
-      if (uncompressed_len > decompression_buffer_.size()) {
+      if (uncompressed_len > static_cast<int>(decompression_buffer_.size())) {
         decompression_buffer_.resize(uncompressed_len);
       }
       decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
@@ -239,7 +239,7 @@ SerializedFile::SerializedFile(std::unique_ptr<RandomAccessSource> source) :
 
 
 void SerializedFile::ParseMetaData() {
-  size_t filesize = source_->Size();
+  int64_t filesize = source_->Size();
 
   if (filesize < FOOTER_SIZE) {
     throw ParquetException("Corrupted file, smaller than file footer");
@@ -247,14 +247,14 @@ void SerializedFile::ParseMetaData() {
 
   uint8_t footer_buffer[FOOTER_SIZE];
   source_->Seek(filesize - FOOTER_SIZE);
-  size_t bytes_read = source_->Read(FOOTER_SIZE, footer_buffer);
+  int64_t bytes_read = source_->Read(FOOTER_SIZE, footer_buffer);
   if (bytes_read != FOOTER_SIZE ||
       memcmp(footer_buffer + 4, PARQUET_MAGIC, 4) != 0) {
     throw ParquetException("Invalid parquet file. Corrupt footer.");
   }
 
   uint32_t metadata_len = *reinterpret_cast<uint32_t*>(footer_buffer);
-  size_t metadata_start = filesize - FOOTER_SIZE - metadata_len;
+  int64_t metadata_start = filesize - FOOTER_SIZE - metadata_len;
   if (FOOTER_SIZE + metadata_len > filesize) {
     throw ParquetException("Invalid parquet file. File is less than "
         "file metadata size.");

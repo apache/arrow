@@ -49,7 +49,7 @@ class TestSchemaConverter : public ::testing::Test {
     name_ = "parquet_cpp_schema";
   }
 
-  void Convert(const parquet::SchemaElement* elements, size_t length) {
+  void Convert(const parquet::SchemaElement* elements, int length) {
     FlatSchemaConverter converter(elements, length);
     node_ = converter.Convert();
     ASSERT_TRUE(node_->is_group());

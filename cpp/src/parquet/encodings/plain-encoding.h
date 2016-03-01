@@ -185,11 +185,11 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
       Encoder<Type::BOOLEAN>(descr, Encoding::PLAIN) {}
 
   virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
-    size_t bytes_required = BitUtil::Ceil(num_values, 8);
+    int bytes_required = BitUtil::Ceil(num_values, 8);
     std::vector<uint8_t> tmp_buffer(bytes_required);
 
     BitWriter bit_writer(&tmp_buffer[0], bytes_required);
-    for (size_t i = 0; i < num_values; ++i) {
+    for (int i = 0; i < num_values; ++i) {
       bit_writer.PutValue(src[i], 1);
     }
     bit_writer.Flush();
@@ -199,7 +199,7 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
   }
 
   void Encode(const std::vector<bool>& src, int num_values, OutputStream* dst) {
-    size_t bytes_required = BitUtil::Ceil(num_values, 8);
+    int bytes_required = BitUtil::Ceil(num_values, 8);
 
     // TODO(wesm)
     // Use a temporary buffer for now and copy, because the BitWriter is not
@@ -208,7 +208,7 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
     std::vector<uint8_t> tmp_buffer(bytes_required);
 
     BitWriter bit_writer(&tmp_buffer[0], bytes_required);
-    for (size_t i = 0; i < num_values; ++i) {
+    for (int i = 0; i < num_values; ++i) {
       bit_writer.PutValue(src[i], 1);
     }
     bit_writer.Flush();
@@ -227,7 +227,7 @@ inline void PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
 template <>
 inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
     int num_values, OutputStream* dst) {
-  for (size_t i = 0; i < num_values; ++i) {
+  for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
     dst->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
     dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
@@ -237,7 +237,7 @@ inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
 template <>
 inline void PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
     const FixedLenByteArray* src, int num_values, OutputStream* dst) {
-  for (size_t i = 0; i < num_values; ++i) {
+  for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
     dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
   }

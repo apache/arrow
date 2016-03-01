@@ -183,7 +183,7 @@ void ValidateRle(const vector<int>& values, int bit_width,
   EXPECT_LE(expected_len, len);
 
   RleEncoder encoder(buffer, len, bit_width);
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     EXPECT_TRUE(result);
   }
@@ -198,7 +198,7 @@ void ValidateRle(const vector<int>& values, int bit_width,
 
   // Verify read
   RleDecoder decoder(buffer, len, bit_width);
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     uint64_t val;
     bool result = decoder.Get(&val);
     EXPECT_TRUE(result);
@@ -212,7 +212,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
   uint8_t buffer[len];
   RleEncoder encoder(buffer, len, bit_width);
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     if (!result) {
       return false;
@@ -222,7 +222,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
   int out;
 
   RleDecoder decoder(buffer, len, bit_width);
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     uint64_t val;
     bool result = decoder.Get(&out);
     if (values[i] != out) {
@@ -345,9 +345,9 @@ TEST(BitRle, Flush) {
 
 // Test some random sequences.
 TEST(BitRle, Random) {
-  size_t niters = 50;
-  size_t ngroups = 1000;
-  size_t max_group_size = 16;
+  int niters = 50;
+  int ngroups = 1000;
+  int max_group_size = 16;
   vector<int> values(ngroups + max_group_size);
 
   // prng setup

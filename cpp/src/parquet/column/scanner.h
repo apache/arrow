@@ -75,12 +75,12 @@ class Scanner {
 
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
-  size_t level_offset_;
-  size_t levels_buffered_;
+  int level_offset_;
+  int levels_buffered_;
 
   std::vector<uint8_t> value_buffer_;
-  size_t value_offset_;
-  size_t values_buffered_;
+  int value_offset_;
+  int64_t values_buffered_;
 
  private:
   std::shared_ptr<ColumnReader> reader_;
@@ -96,7 +96,7 @@ class TypedScanner : public Scanner {
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
       Scanner(reader, batch_size) {
     typed_reader_ = static_cast<TypedColumnReader<TYPE>*>(reader.get());
-    size_t value_byte_size = type_traits<TYPE>::value_byte_size;
+    int value_byte_size = type_traits<TYPE>::value_byte_size;
     value_buffer_.resize(batch_size_ * value_byte_size);
     values_ = reinterpret_cast<T*>(&value_buffer_[0]);
   }
@@ -190,7 +190,7 @@ class TypedScanner : public Scanner {
   // The ownership of this object is expressed through the reader_ variable in the base
   TypedColumnReader<TYPE>* typed_reader_;
 
-  inline void FormatValue(void* val, char* buffer, size_t bufsize, size_t width);
+  inline void FormatValue(void* val, char* buffer, int bufsize, int width);
 
   T* values_;
 };
@@ -198,14 +198,14 @@ class TypedScanner : public Scanner {
 
 template <int TYPE>
 inline void TypedScanner<TYPE>::FormatValue(void* val, char* buffer,
-    size_t bufsize, size_t width) {
+    int bufsize, int width) {
   std::string fmt = format_fwf<TYPE>(width);
   snprintf(buffer, bufsize, fmt.c_str(), *reinterpret_cast<T*>(val));
 }
 
 template <>
 inline void TypedScanner<Type::INT96>::FormatValue(
-    void* val, char* buffer, size_t bufsize, size_t width) {
+    void* val, char* buffer, int bufsize, int width) {
   std::string fmt = format_fwf<Type::INT96>(width);
   std::string result = Int96ToString(*reinterpret_cast<Int96*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
@@ -213,7 +213,7 @@ inline void TypedScanner<Type::INT96>::FormatValue(
 
 template <>
 inline void TypedScanner<Type::BYTE_ARRAY>::FormatValue(
-    void* val, char* buffer, size_t bufsize, size_t width) {
+    void* val, char* buffer, int bufsize, int width) {
   std::string fmt = format_fwf<Type::BYTE_ARRAY>(width);
   std::string result = ByteArrayToString(*reinterpret_cast<ByteArray*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
@@ -221,7 +221,7 @@ inline void TypedScanner<Type::BYTE_ARRAY>::FormatValue(
 
 template <>
 inline void TypedScanner<Type::FIXED_LEN_BYTE_ARRAY>::FormatValue(
-    void* val, char* buffer, size_t bufsize, size_t width) {
+    void* val, char* buffer, int bufsize, int width) {
   std::string fmt = format_fwf<Type::FIXED_LEN_BYTE_ARRAY>(width);
   std::string result = FixedLenByteArrayToString(
       *reinterpret_cast<FixedLenByteArray*>(val),

@@ -65,37 +65,37 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
 }
 
 template <typename T>
-static vector<T> slice(const vector<T>& values, size_t start, size_t end) {
+static vector<T> slice(const vector<T>& values, int start, int end) {
   if (end < start) {
     return vector<T>(0);
   }
 
   vector<T> out(end - start);
-  for (size_t i = start; i < end; ++i) {
+  for (int i = start; i < end; ++i) {
     out[i - start] = values[i];
   }
   return out;
 }
 
-static inline vector<bool> flip_coins_seed(size_t n, double p, uint32_t seed) {
+static inline vector<bool> flip_coins_seed(int n, double p, uint32_t seed) {
   std::mt19937 gen(seed);
   std::bernoulli_distribution d(p);
 
   vector<bool> draws;
-  for (size_t i = 0; i < n; ++i) {
+  for (int i = 0; i < n; ++i) {
     draws.push_back(d(gen));
   }
   return draws;
 }
 
-static inline vector<bool> flip_coins(size_t n, double p) {
+static inline vector<bool> flip_coins(int n, double p) {
   std::random_device rd;
   std::mt19937 gen(rd());
 
   std::bernoulli_distribution d(p);
 
   vector<bool> draws;
-  for (size_t i = 0; i < n; ++i) {
+  for (int i = 0; i < n; ++i) {
     draws.push_back(d(gen));
   }
   return draws;
@@ -176,12 +176,13 @@ void random_byte_array(int n, uint32_t seed, uint8_t *buf,
   std::uniform_int_distribution<int> d1(min_size, max_size);
   std::uniform_int_distribution<int> d2(0, 255);
   for (int i = 0; i < n; ++i) {
-    out[i].len = d1(gen);
+    int len = d1(gen);
+    out[i].len = len;
     out[i].ptr = buf;
-    for (int j = 0; j < out[i].len; ++j) {
+    for (int j = 0; j < len; ++j) {
       buf[j] = d2(gen) & 0xFF;
     }
-    buf += out[i].len;
+    buf += len;
   }
 }
 

@@ -137,7 +137,7 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
     auto group_reader = RowGroup(r);
 
     // Print column metadata
-    size_t num_columns = group_reader->num_columns();
+    int num_columns = group_reader->num_columns();
 
     for (int i = 0; i < num_columns; ++i) {
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
@@ -153,7 +153,7 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
       continue;
     }
 
-    static constexpr size_t bufsize = 25;
+    static constexpr int bufsize = 25;
     char buffer[bufsize];
 
     // Create readers for all columns and print contents

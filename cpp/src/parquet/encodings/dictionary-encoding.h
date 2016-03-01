@@ -263,24 +263,24 @@ class DictEncoder : public DictEncoderBase {
   int type_length_;
 
   /// Hash function for mapping a value to a bucket.
-  inline uint32_t Hash(const T& value) const;
+  inline int Hash(const T& value) const;
 
   /// Adds value to the hash table and updates dict_encoded_size_
   void AddDictKey(const T& value);
 };
 
 template<typename T>
-inline uint32_t DictEncoder<T>::Hash(const T& value) const {
+inline int DictEncoder<T>::Hash(const T& value) const {
   return HashUtil::Hash(&value, sizeof(value), 0);
 }
 
 template<>
-inline uint32_t DictEncoder<ByteArray>::Hash(const ByteArray& value) const {
+inline int DictEncoder<ByteArray>::Hash(const ByteArray& value) const {
   return HashUtil::Hash(value.ptr, value.len, 0);
 }
 
 template<>
-inline uint32_t DictEncoder<FixedLenByteArray>::Hash(
+inline int DictEncoder<FixedLenByteArray>::Hash(
     const FixedLenByteArray& value) const {
   return HashUtil::Hash(value.ptr, type_length_, 0);
 }
@@ -298,7 +298,7 @@ inline bool DictEncoder<FixedLenByteArray>::SlotDifferent(
 
 template <typename T>
 inline void DictEncoder<T>::Put(const T& v) {
-  uint32_t j = Hash(v) & mod_bitmask_;
+  int j = Hash(v) & mod_bitmask_;
   hash_slot_t index = hash_slots_[j];
 
   // Find an empty slot
@@ -316,8 +316,8 @@ inline void DictEncoder<T>::Put(const T& v) {
     hash_slots_[j] = index;
     AddDictKey(v);
 
-    if (UNLIKELY(uniques_.size() >
-            static_cast<size_t>(hash_table_size_ * MAX_HASH_LOAD))) {
+    if (UNLIKELY(static_cast<int>(uniques_.size()) >
+            hash_table_size_ * MAX_HASH_LOAD)) {
       DoubleTableSize();
     }
   }
@@ -330,7 +330,7 @@ inline void DictEncoder<T>::DoubleTableSize() {
   int new_size = hash_table_size_ * 2;
   std::vector<hash_slot_t> new_hash_slots(new_size, HASH_SLOT_EMPTY);
   hash_slot_t index, slot;
-  uint32_t j;
+  int j;
   for (int i = 0; i < hash_table_size_; ++i) {
     index = hash_slots_[i];
 

@@ -91,13 +91,13 @@ class TestPrimitiveReader : public ::testing::Test {
     vector<int32_t> vresult(num_values_, -1);
     vector<int16_t> dresult(num_levels_, -1);
     vector<int16_t> rresult(num_levels_, -1);
-    size_t values_read = 0;
-    size_t total_values_read = 0;
-    size_t batch_actual = 0;
+    int64_t values_read = 0;
+    int total_values_read = 0;
+    int batch_actual = 0;
 
     Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
     int32_t batch_size = 8;
-    size_t batch = 0;
+    int batch = 0;
     // This will cover both the cases
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)

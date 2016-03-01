@@ -94,7 +94,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
 
   descr_.Init(schema);
 
-  size_t nleaves = 6;
+  int nleaves = 6;
 
   // 6 leaves
   ASSERT_EQ(nleaves, descr_.num_columns());
@@ -111,7 +111,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   int16_t ex_max_def_levels[6] = {0, 1, 1, 2, 3, 3};
   int16_t ex_max_rep_levels[6] = {0, 0, 1, 1, 1, 2};
 
-  for (size_t i = 0; i < nleaves; ++i) {
+  for (int i = 0; i < nleaves; ++i) {
     const ColumnDescriptor* col = descr_.Column(i);
     EXPECT_EQ(ex_max_def_levels[i], col->max_definition_level()) << i;
     EXPECT_EQ(ex_max_rep_levels[i], col->max_repetition_level()) << i;

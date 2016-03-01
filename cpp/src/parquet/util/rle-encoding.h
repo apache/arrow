@@ -234,7 +234,7 @@ class RleEncoder {
   /// many times in a row that value has been seen.  This is maintained even
   /// if we are in a literal run.  If the repeat_count_ get high enough, we switch
   /// to encoding repeated runs.
-  int64_t current_value_;
+  uint64_t current_value_;
   int repeat_count_;
 
   /// Number of literals in the current run.  This does not include the literals

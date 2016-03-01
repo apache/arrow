@@ -100,10 +100,10 @@ class SchemaDescriptor {
   void Init(std::unique_ptr<schema::Node> schema);
   void Init(const schema::NodePtr& schema);
 
-  const ColumnDescriptor* Column(size_t i) const;
+  const ColumnDescriptor* Column(int i) const;
 
   // The number of physical columns appearing in the file
-  size_t num_columns() const {
+  int num_columns() const {
     return leaves_.size();
   }
 

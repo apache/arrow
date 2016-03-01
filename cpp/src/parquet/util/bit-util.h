@@ -295,11 +295,11 @@ class BitUtil {
     return v | (static_cast<T>(0x1) << bitpos);
   }
 
-  static inline bool GetArrayBit(const uint8_t* bits, size_t i) {
+  static inline bool GetArrayBit(const uint8_t* bits, int i) {
     return bits[i / 8] & (1 << (i % 8));
   }
 
-  static inline void SetArrayBit(uint8_t* bits, size_t i, bool is_set) {
+  static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
     bits[i / 8] |= (1 << (i % 8)) * is_set;
   }
 

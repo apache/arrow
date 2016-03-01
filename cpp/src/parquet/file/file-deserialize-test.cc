@@ -42,7 +42,7 @@ namespace parquet_cpp {
 
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
-static inline void AddDummyStats(size_t stat_size,
+static inline void AddDummyStats(int stat_size,
     parquet::DataPageHeader& data_page) {
 
   std::vector<uint8_t> stat_bytes(stat_size);
@@ -199,7 +199,7 @@ TEST_F(TestPageSerde, Compression) {
     std::vector<uint8_t> buffer;
     for (int i = 0; i < num_pages; ++i) {
       const uint8_t* data = faux_data[i].data();
-      size_t data_size = faux_data[i].size();
+      int data_size = faux_data[i].size();
 
       int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
       buffer.resize(max_compressed_size);
@@ -216,7 +216,7 @@ TEST_F(TestPageSerde, Compression) {
     std::shared_ptr<Page> page;
     const DataPage* data_page;
     for (int i = 0; i < num_pages; ++i) {
-      size_t data_size = faux_data[i].size();
+      int data_size = faux_data[i].size();
       page = page_reader_->NextPage();
       data_page = static_cast<const DataPage*>(page.get());
       ASSERT_EQ(data_size, data_page->size());

@@ -47,7 +47,7 @@ static inline SchemaElement NewPrimitive(const std::string& name,
 }
 
 static inline SchemaElement NewGroup(const std::string& name,
-    FieldRepetitionType::type repetition, size_t num_children) {
+    FieldRepetitionType::type repetition, int num_children) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);

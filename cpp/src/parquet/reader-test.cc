@@ -68,8 +68,8 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   // This file only has 8 rows
 
   ASSERT_TRUE(col->HasNext());
-  size_t values_read;
-  size_t levels_read = col->ReadBatch(4, def_levels, rep_levels, values, &values_read);
+  int64_t values_read;
+  int levels_read = col->ReadBatch(4, def_levels, rep_levels, values, &values_read);
   ASSERT_EQ(4, levels_read);
   ASSERT_EQ(4, values_read);
 
@@ -89,7 +89,7 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
   std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
   int32_t val;
   bool is_null;
-  for (size_t i = 0; i < 8; ++i) {
+  for (int i = 0; i < 8; ++i) {
     ASSERT_TRUE(scanner->HasNext());
     ASSERT_TRUE(scanner->NextValue(&val, &is_null));
     ASSERT_FALSE(is_null);

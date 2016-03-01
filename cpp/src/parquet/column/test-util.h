@@ -47,7 +47,7 @@ class MockPageReader : public PageReader {
 
   // Implement the PageReader interface
   virtual std::shared_ptr<Page> NextPage() {
-    if (page_index_ == pages_.size()) {
+    if (page_index_ == static_cast<int>(pages_.size())) {
       // EOS to consumer
       return std::shared_ptr<Page>(nullptr);
     }
@@ -56,7 +56,7 @@ class MockPageReader : public PageReader {
 
  private:
   std::vector<std::shared_ptr<Page> > pages_;
-  size_t page_index_;
+  int page_index_;
 };
 
 // TODO(wesm): this is only used for testing for now. Refactor to form part of
@@ -102,7 +102,7 @@ class DataPageBuilder {
     if (encoding != Encoding::PLAIN) {
       ParquetException::NYI("only plain encoding currently implemented");
     }
-    size_t bytes_to_encode = values.size() * sizeof(T);
+    int bytes_to_encode = values.size() * sizeof(T);
 
     PlainEncoder<TYPE> encoder(d);
     encoder.Encode(&values[0], values.size(), sink_);
@@ -171,7 +171,7 @@ void DataPageBuilder<Type::BOOLEAN>::AppendValues(const ColumnDescriptor *d,
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
-  size_t bytes_to_encode = values.size() * sizeof(bool);
+  int bytes_to_encode = values.size() * sizeof(bool);
 
   PlainEncoder<Type::BOOLEAN> encoder(d);
   encoder.Encode(values, values.size(), sink_);
@@ -186,7 +186,7 @@ static std::shared_ptr<DataPage> MakeDataPage(const ColumnDescriptor *d,
     const std::vector<T>& values,
     const std::vector<int16_t>& def_levels, int16_t max_def_level,
     const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
-  size_t num_values = values.size();
+  int num_values = values.size();
 
   InMemoryOutputStream page_stream;
   test::DataPageBuilder<TYPE> page_builder(&page_stream);

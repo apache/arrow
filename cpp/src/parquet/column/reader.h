@@ -66,12 +66,12 @@ class ColumnReader {
   // Read multiple definition levels into preallocated memory
   //
   // Returns the number of decoded definition levels
-  size_t ReadDefinitionLevels(size_t batch_size, int16_t* levels);
+  int64_t ReadDefinitionLevels(int64_t batch_size, int16_t* levels);
 
   // Read multiple repetition levels into preallocated memory
   //
   // Returns the number of decoded repetition levels
-  size_t ReadRepetitionLevels(size_t batch_size, int16_t* levels);
+  int64_t ReadRepetitionLevels(int64_t batch_size, int16_t* levels);
 
   const ColumnDescriptor* descr_;
 
@@ -122,8 +122,8 @@ class TypedColumnReader : public ColumnReader {
   // This API is the same for both V1 and V2 of the DataPage
   //
   // @returns: actual number of levels read (see values_read for number of values read)
-  size_t ReadBatch(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-      T* values, size_t* values_read);
+  int64_t ReadBatch(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+      T* values, int64_t* values_read);
 
  private:
   typedef Decoder<TYPE> DecoderType;
@@ -135,7 +135,7 @@ class TypedColumnReader : public ColumnReader {
   // pre-allocated memory T*
   //
   // @returns: the number of values read into the out buffer
-  size_t ReadValues(size_t batch_size, T* out);
+  int64_t ReadValues(int64_t batch_size, T* out);
 
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
@@ -149,14 +149,14 @@ class TypedColumnReader : public ColumnReader {
 
 
 template <int TYPE>
-inline size_t TypedColumnReader<TYPE>::ReadValues(size_t batch_size, T* out) {
-  size_t num_decoded = current_decoder_->Decode(out, batch_size);
+inline int64_t TypedColumnReader<TYPE>::ReadValues(int64_t batch_size, T* out) {
+  int64_t num_decoded = current_decoder_->Decode(out, batch_size);
   return num_decoded;
 }
 
 template <int TYPE>
-inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_levels,
-    int16_t* rep_levels, T* values, size_t* values_read) {
+inline int64_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_levels,
+    int16_t* rep_levels, T* values, int64_t* values_read) {
   // HasNext invokes ReadNewPage
   if (!HasNext()) {
     *values_read = 0;
@@ -167,17 +167,17 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
   // row group is finished
   batch_size = std::min(batch_size, num_buffered_values_);
 
-  size_t num_def_levels = 0;
-  size_t num_rep_levels = 0;
+  int64_t num_def_levels = 0;
+  int64_t num_rep_levels = 0;
 
-  size_t values_to_read = 0;
+  int64_t values_to_read = 0;
 
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
     num_def_levels = ReadDefinitionLevels(batch_size, def_levels);
     // TODO(wesm): this tallying of values-to-decode can be performed with better
     // cache-efficiency if fused with the level decoding.
-    for (size_t i = 0; i < num_def_levels; ++i) {
+    for (int64_t i = 0; i < num_def_levels; ++i) {
       if (def_levels[i] == descr_->max_definition_level()) {
         ++values_to_read;
       }
@@ -196,7 +196,7 @@ inline size_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_le
   }
 
   *values_read = ReadValues(values_to_read, values);
-  size_t total_values = std::max(num_def_levels, *values_read);
+  int64_t total_values = std::max(num_def_levels, *values_read);
   num_decoded_values_ += total_values;
 
   return total_values;

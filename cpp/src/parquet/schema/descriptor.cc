@@ -39,7 +39,7 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
   group_ = static_cast<const GroupNode*>(schema_.get());
   leaves_.clear();
 
-  for (size_t i = 0; i < group_->field_count(); ++i) {
+  for (int i = 0; i < group_->field_count(); ++i) {
     BuildTree(group_->field(i), 0, 0);
   }
 }
@@ -58,7 +58,7 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
-    for (size_t i = 0; i < group->field_count(); ++i) {
+    for (int i = 0; i < group->field_count(); ++i) {
       BuildTree(group->field(i), max_def_level, max_rep_level);
     }
   } else {
@@ -80,7 +80,7 @@ ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
   primitive_node_ = static_cast<const PrimitiveNode*>(node_.get());
 }
 
-const ColumnDescriptor* SchemaDescriptor::Column(size_t i) const {
+const ColumnDescriptor* SchemaDescriptor::Column(int i) const {
   return &leaves_[i];
 }
 

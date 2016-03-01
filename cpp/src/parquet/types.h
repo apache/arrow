@@ -186,7 +186,7 @@ static inline std::string FixedLenByteArrayToString(const FixedLenByteArray& a, 
 }
 
 static inline int ByteCompare(const ByteArray& x1, const ByteArray& x2) {
-  int len = std::min(x1.len, x2.len);
+  uint32_t len = std::min(x1.len, x2.len);
   int cmp = memcmp(x1.ptr, x2.ptr, len);
   if (cmp != 0) return cmp;
   if (len < x1.len) return 1;
@@ -201,7 +201,7 @@ struct type_traits {
 template <>
 struct type_traits<Type::BOOLEAN> {
   typedef bool value_type;
-  static constexpr size_t value_byte_size = 1;
+  static constexpr int value_byte_size = 1;
 
   static constexpr const char* printf_code = "d";
 };
@@ -210,7 +210,7 @@ template <>
 struct type_traits<Type::INT32> {
   typedef int32_t value_type;
 
-  static constexpr size_t value_byte_size = 4;
+  static constexpr int value_byte_size = 4;
   static constexpr const char* printf_code = "d";
 };
 
@@ -218,7 +218,7 @@ template <>
 struct type_traits<Type::INT64> {
   typedef int64_t value_type;
 
-  static constexpr size_t value_byte_size = 8;
+  static constexpr int value_byte_size = 8;
   static constexpr const char* printf_code = "ld";
 };
 
@@ -226,7 +226,7 @@ template <>
 struct type_traits<Type::INT96> {
   typedef Int96 value_type;
 
-  static constexpr size_t value_byte_size = 12;
+  static constexpr int value_byte_size = 12;
   static constexpr const char* printf_code = "s";
 };
 
@@ -234,7 +234,7 @@ template <>
 struct type_traits<Type::FLOAT> {
   typedef float value_type;
 
-  static constexpr size_t value_byte_size = 4;
+  static constexpr int value_byte_size = 4;
   static constexpr const char* printf_code = "f";
 };
 
@@ -242,7 +242,7 @@ template <>
 struct type_traits<Type::DOUBLE> {
   typedef double value_type;
 
-  static constexpr size_t value_byte_size = 8;
+  static constexpr int value_byte_size = 8;
   static constexpr const char* printf_code = "lf";
 };
 
@@ -250,7 +250,7 @@ template <>
 struct type_traits<Type::BYTE_ARRAY> {
   typedef ByteArray value_type;
 
-  static constexpr size_t value_byte_size = sizeof(ByteArray);
+  static constexpr int value_byte_size = sizeof(ByteArray);
   static constexpr const char* printf_code = "s";
 };
 
@@ -258,7 +258,7 @@ template <>
 struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
   typedef FixedLenByteArray value_type;
 
-  static constexpr size_t value_byte_size = sizeof(FixedLenByteArray);
+  static constexpr int value_byte_size = sizeof(FixedLenByteArray);
   static constexpr const char* printf_code = "s";
 };
 

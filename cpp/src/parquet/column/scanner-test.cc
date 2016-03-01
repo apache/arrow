@@ -106,9 +106,9 @@ class TestFlatScanner : public ::testing::Test {
     bool is_null = false;
     int16_t def_level;
     int16_t rep_level;
-    size_t j = 0;
+    int j = 0;
     scanner->SetBatchSize(batch_size);
-    for (size_t i = 0; i < num_levels_; i++) {
+    for (int i = 0; i < num_levels_; i++) {
       ASSERT_TRUE(scanner->Next(&val, &def_level, &rep_level, &is_null)) << i << j;
       if (!is_null) {
         ASSERT_EQ(values_[j++], val) << i <<"V"<< j;
@@ -193,7 +193,7 @@ template<>
 void TestFlatScanner<ByteArrayType>::InitValues() {
   int max_byte_array_len = 12;
   int num_bytes = max_byte_array_len + sizeof(uint32_t);
-  size_t nbytes = num_values_ * num_bytes;
+  int nbytes = num_values_ * num_bytes;
   data_buffer_.resize(nbytes);
   random_byte_array(num_values_, 0, data_buffer_.data(), values_.data(),
       max_byte_array_len);
@@ -201,7 +201,7 @@ void TestFlatScanner<ByteArrayType>::InitValues() {
 
 template<>
 void TestFlatScanner<FLBAType>::InitValues() {
-  size_t nbytes = num_values_ * FLBA_LENGTH;
+  int nbytes = num_values_ * FLBA_LENGTH;
   data_buffer_.resize(nbytes);
   random_fixed_byte_array(num_values_, 0, data_buffer_.data(), FLBA_LENGTH,
       values_.data());
@@ -259,10 +259,9 @@ TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
   InitScanner(&d);
   TypedScanner<FLBAType::type_num>* scanner =
     reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
-  size_t j = 0;
   scanner->SetBatchSize(batch_size);
   std::stringstream ss_fail;
-  for (size_t i = 0; i < num_levels_; i++) {
+  for (int i = 0; i < num_levels_; i++) {
     std::stringstream ss;
     scanner->PrintNext(ss, 17);
     std::string result = ss.str();
@@ -270,8 +269,6 @@ TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
   }
   ASSERT_THROW(scanner->PrintNext(ss_fail, 17), ParquetException);
 }
-
-//Test for GroupNode
 
 } // namespace test
 } // namespace parquet_cpp

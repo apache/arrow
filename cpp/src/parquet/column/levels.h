@@ -52,14 +52,14 @@ class LevelEncoder {
   }
 
   // Encodes a batch of levels from an array and returns the number of levels encoded
-  size_t Encode(size_t batch_size, const int16_t* levels) {
-    size_t num_encoded = 0;
+  int Encode(int batch_size, const int16_t* levels) {
+    int num_encoded = 0;
     if (!rle_encoder_ && !bit_packed_encoder_) {
       throw ParquetException("Level encoders are not initialized.");
     }
 
     if (encoding_ == Encoding::RLE) {
-      for (size_t i = 0; i < batch_size; ++i) {
+      for (int i = 0; i < batch_size; ++i) {
         if (!rle_encoder_->Put(*(levels + i))) {
           break;
         }
@@ -68,7 +68,7 @@ class LevelEncoder {
       rle_encoder_->Flush();
       rle_length_ = rle_encoder_->len();
     } else {
-      for (size_t i = 0; i < batch_size; ++i) {
+      for (int i = 0; i < batch_size; ++i) {
         if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) {
           break;
         }
@@ -101,7 +101,7 @@ class LevelDecoder {
 
   // Initialize the LevelDecoder state with new data
   // and return the number of bytes consumed
-  size_t SetData(Encoding::type encoding, int16_t max_level,
+  int SetData(Encoding::type encoding, int16_t max_level,
       int num_buffered_values, const uint8_t* data) {
     uint32_t num_bytes = 0;
     uint32_t total_bytes = 0;
@@ -135,19 +135,19 @@ class LevelDecoder {
   }
 
   // Decodes a batch of levels into an array and returns the number of levels decoded
-  size_t Decode(size_t batch_size, int16_t* levels) {
-    size_t num_decoded = 0;
+  int Decode(int batch_size, int16_t* levels) {
+    int num_decoded = 0;
 
-    size_t num_values = std::min(num_values_remaining_, batch_size);
+    int num_values = std::min(num_values_remaining_, batch_size);
     if (encoding_ == Encoding::RLE) {
-      for (size_t i = 0; i < num_values; ++i) {
+      for (int i = 0; i < num_values; ++i) {
         if (!rle_decoder_->Get(levels + i)) {
           break;
         }
         ++num_decoded;
       }
     } else {
-      for (size_t i = 0; i < num_values; ++i) {
+      for (int i = 0; i < num_values; ++i) {
         if (!bit_packed_decoder_->GetValue(bit_width_, levels + i)) {
           break;
         }
@@ -160,7 +160,7 @@ class LevelDecoder {
 
  private:
   int bit_width_;
-  size_t num_values_remaining_;
+  int num_values_remaining_;
   Encoding::type encoding_;
   std::unique_ptr<RleDecoder> rle_decoder_;
   std::unique_ptr<BitReader> bit_packed_decoder_;

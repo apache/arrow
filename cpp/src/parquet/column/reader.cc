@@ -96,13 +96,13 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       // If the data page includes repetition and definition levels, we
       // initialize the level decoder and subtract the encoded level bytes from
       // the page size to determine the number of bytes in the encoded data.
-      size_t data_size = page->size();
+      int64_t data_size = page->size();
 
       //Data page Layout: Repetition Levels - Definition Levels - encoded values.
       //Levels are encoded as rle or bit-packed.
       //Init repetition levels
       if (descr_->max_repetition_level() > 0) {
-        size_t rep_levels_bytes = repetition_level_decoder_.SetData(
+        int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
             page->repetition_level_encoding(), descr_->max_repetition_level(),
             num_buffered_values_, buffer);
         buffer += rep_levels_bytes;
@@ -113,7 +113,7 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
 
       //Init definition levels
       if (descr_->max_definition_level() > 0) {
-        size_t def_levels_bytes = definition_level_decoder_.SetData(
+        int64_t def_levels_bytes = definition_level_decoder_.SetData(
             page->definition_level_encoding(), descr_->max_definition_level(),
             num_buffered_values_, buffer);
         buffer += def_levels_bytes;
@@ -165,14 +165,14 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
 // ----------------------------------------------------------------------
 // Batch read APIs
 
-size_t ColumnReader::ReadDefinitionLevels(size_t batch_size, int16_t* levels) {
+int64_t ColumnReader::ReadDefinitionLevels(int64_t batch_size, int16_t* levels) {
   if (descr_->max_definition_level() == 0) {
     return 0;
   }
   return definition_level_decoder_.Decode(batch_size, levels);
 }
 
-size_t ColumnReader::ReadRepetitionLevels(size_t batch_size, int16_t* levels) {
+int64_t ColumnReader::ReadRepetitionLevels(int64_t batch_size, int16_t* levels) {
   if (descr_->max_repetition_level() == 0) {
     return 0;
   }

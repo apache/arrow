@@ -110,7 +110,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
   uint64_t values_current_mini_block_;
 
   int32_t min_delta_;
-  int mini_block_idx_;
+  size_t mini_block_idx_;
   std::vector<uint8_t> delta_bit_widths_;
   int delta_bit_width_;
 

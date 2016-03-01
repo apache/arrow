@@ -186,7 +186,7 @@ std::string MemPool::DebugString() {
   std::stringstream out;
   char str[16];
   out << "MemPool(#chunks=" << chunks_.size() << " [";
-  for (int i = 0; i < chunks_.size(); ++i) {
+  for (size_t i = 0; i < chunks_.size(); ++i) {
     sprintf(str, "0x%lx=", reinterpret_cast<size_t>(chunks_[i].data)); // NOLINT
     out << (i > 0 ? " " : "")
         << str
@@ -202,7 +202,7 @@ std::string MemPool::DebugString() {
 
 int64_t MemPool::GetTotalChunkSizes() const {
   int64_t result = 0;
-  for (int i = 0; i < chunks_.size(); ++i) {
+  for (size_t i = 0; i < chunks_.size(); ++i) {
     result += chunks_[i].size;
   }
   return result;
@@ -212,7 +212,7 @@ bool MemPool::CheckIntegrity(bool current_chunk_empty) {
   // check that current_chunk_idx_ points to the last chunk with allocated data
   DCHECK_LT(current_chunk_idx_, static_cast<int>(chunks_.size()));
   int64_t total_allocated = 0;
-  for (int i = 0; i < chunks_.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(chunks_.size()); ++i) {
     DCHECK_GT(chunks_[i].size, 0);
     if (i < current_chunk_idx_) {
       DCHECK_GT(chunks_[i].allocated_bytes, 0);
