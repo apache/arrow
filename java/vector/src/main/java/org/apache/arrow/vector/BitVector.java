@@ -41,7 +41,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
 
-  private int valueCount;
+  int valueCount;
   private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
   private int allocationMonitor = 0;
 
@@ -64,7 +64,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     return getSizeFromCount(valueCount);
   }
 
-  private int getSizeFromCount(int valueCount) {
+  int getSizeFromCount(int valueCount) {
     return (int) Math.ceil(valueCount / 8.0);
   }
 

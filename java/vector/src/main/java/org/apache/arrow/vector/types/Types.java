@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class Types {
   public enum MinorType {
@@ -73,26 +74,35 @@ public class Types {
   public static class MajorType {
     private MinorType minorType;
     private DataMode mode;
-    private Integer precision;
-    private Integer scale;
-    private Integer timezone;
+    private int precision;
+    private int scale;
+    private int timezone;
+    private int width;
     private List<MinorType> subTypes;
 
     public MajorType(MinorType minorType, DataMode mode) {
-      this(minorType, mode, null, null, null, null);
+      this(minorType, mode, 0, 0, 0, 0, null);
     }
 
-    public MajorType(MinorType minorType, DataMode mode, Integer precision, Integer scale) {
-      this(minorType, mode, precision, scale, null, null);
+    public MajorType(MinorType minorType, DataMode mode, int precision, int scale) {
+      this(minorType, mode, precision, scale, 0, 0, null);
     }
 
-    public MajorType(MinorType minorType, DataMode mode, Integer precision, Integer scale, Integer timezone, List<MinorType> subTypes) {
+    public MajorType(MinorType minorType, DataMode mode, int precision, int scale, int timezone, List<MinorType> subTypes) {
+      this(minorType, mode, precision, scale, timezone, 0, subTypes);
+    }
+
+    public MajorType(MinorType minorType, DataMode mode, int precision, int scale, int timezone, int width, List<MinorType> subTypes) {
       this.minorType = minorType;
       this.mode = mode;
       this.precision = precision;
       this.scale = scale;
       this.timezone = timezone;
+      this.width = width;
       this.subTypes = subTypes;
+      if (subTypes == null) {
+        this.subTypes = new ArrayList<>();
+      }
     }
 
     public MinorType getMinorType() {
@@ -103,21 +113,45 @@ public class Types {
       return mode;
     }
 
-    public Integer getPrecision() {
+    public int getPrecision() {
       return precision;
     }
 
-    public Integer getScale() {
+    public int getScale() {
       return scale;
     }
 
-    public Integer getTimezone() {
+    public int getTimezone() {
       return timezone;
     }
 
     public List<MinorType> getSubTypes() {
       return subTypes;
     }
+
+    public int getWidth() {
+      return width;
+    }
+
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null) {
+        return false;
+      }
+      if (!(other instanceof MajorType)) {
+        return false;
+      }
+      MajorType that = (MajorType) other;
+      return this.minorType == that.minorType &&
+              this.mode == that.mode &&
+              this.precision == that.precision &&
+              this.scale == that.scale &&
+              this.timezone == that.timezone &&
+              this.width == that.width &&
+              Objects.equals(this.subTypes, that.subTypes);
+    }
+
   }
 
   public static MajorType required(MinorType minorType) {
