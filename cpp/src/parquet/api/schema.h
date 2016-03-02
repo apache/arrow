@@ -15,18 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
+#ifndef PARQUET_API_SCHEMA_H
+#define PARQUET_API_SCHEMA_H
 
-#include "parquet/api/io.h"
-#include "parquet/api/reader.h"
-#include "parquet/api/schema.h"
+// Schemas
+#include "parquet/schema/descriptor.h"
+#include "parquet/schema/printer.h"
+#include "parquet/schema/types.h"
 
-namespace parquet_cpp {
-
-TEST(TestPublicAPI, DoesNotIncludeThrift) {
-#ifdef _THRIFT_THRIFT_H_
-  FAIL() << "Thrift headers should not be in the public API";
-#endif
-}
-
-} // namespace parquet_cpp
+#endif // PARQUET_API_SCHEMA_H

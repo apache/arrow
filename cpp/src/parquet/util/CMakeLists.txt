@@ -20,10 +20,10 @@ install(FILES
   bit-stream-utils.h
   bit-stream-utils.inline.h
   bit-util.h
+  buffer.h
   buffer-builder.h
   compiler-util.h
   cpu-info.h
-  dict-encoding.h
   hash-util.h
   input.h
   logging.h
@@ -32,7 +32,7 @@ install(FILES
   output.h
   rle-encoding.h
   stopwatch.h
-  sse-info.h
+  sse-util.h
   DESTINATION include/parquet/util)
 
 add_library(parquet_util STATIC

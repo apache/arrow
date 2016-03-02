@@ -29,7 +29,6 @@
 #include "parquet/schema/types.h"
 #include "parquet/util/bit-util.h"
 #include "parquet/util/buffer.h"
-#include "parquet/util/dict-encoding.h"
 #include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 

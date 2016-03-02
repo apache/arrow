@@ -15,32 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_PARQUET_H
-#define PARQUET_PARQUET_H
-
-#include <exception>
-#include <cstdint>
-#include <cstring>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#ifndef PARQUET_API_IO_H
+#define PARQUET_API_IO_H
 
 #include "parquet/exception.h"
-
-// Column reader API
-#include "parquet/column/reader.h"
-
-// File API
-#include "parquet/file/reader.h"
-
-// Schemas
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/printer.h"
-#include "parquet/schema/types.h"
-
-// IO
+#include "parquet/util/buffer.h"
 #include "parquet/util/input.h"
 #include "parquet/util/output.h"
 
-#endif
+#endif // PARQUET_API_IO_H

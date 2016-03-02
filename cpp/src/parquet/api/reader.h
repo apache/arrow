@@ -15,22 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_DICT_ENCODING_H
-#define PARQUET_UTIL_DICT_ENCODING_H
+#ifndef PARQUET_API_READER_H
+#define PARQUET_API_READER_H
 
-#include <algorithm>
-#include <cstdint>
-#include <limits>
-#include <vector>
+// Column reader API
+#include "parquet/column/reader.h"
+#include "parquet/exception.h"
+#include "parquet/file/reader.h"
 
-#include "parquet/types.h"
-#include "parquet/encodings/plain-encoding.h"
-#include "parquet/util/hash-util.h"
-#include "parquet/util/mem-pool.h"
-#include "parquet/util/rle-encoding.h"
+// Schemas
+#include "parquet/api/schema.h"
 
-namespace parquet_cpp {
+// IO
+#include "parquet/api/io.h"
 
-} // namespace parquet_cpp
-
-#endif // PARQUET_UTIL_DICT_ENCODING_H
+#endif // PARQUET_API_READER_H

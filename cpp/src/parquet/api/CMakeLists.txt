@@ -15,12 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
+# Headers: public api
 install(FILES
-  exception.h
-  types.h
-  DESTINATION include/parquet)
-
-ADD_PARQUET_TEST(public-api-test)
-ADD_PARQUET_TEST(types-test)
-ADD_PARQUET_TEST(reader-test)
+  io.h
+  reader.h
+  schema.h
+  DESTINATION include/parquet/api)

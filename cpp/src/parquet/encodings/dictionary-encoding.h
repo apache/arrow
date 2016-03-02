@@ -28,7 +28,6 @@
 #include "parquet/encodings/encoder.h"
 #include "parquet/encodings/plain-encoding.h"
 #include "parquet/util/cpu-info.h"
-#include "parquet/util/dict-encoding.h"
 #include "parquet/util/hash-util.h"
 #include "parquet/util/mem-pool.h"
 #include "parquet/util/rle-encoding.h"
