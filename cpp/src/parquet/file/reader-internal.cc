@@ -215,6 +215,10 @@ void SerializedFile::Close() {
   source_->Close();
 }
 
+SerializedFile::~SerializedFile() {
+  Close();
+}
+
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(source_.get(),
           &metadata_.row_groups[i]));

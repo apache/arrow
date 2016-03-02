@@ -100,6 +100,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   virtual int64_t num_rows() const;
   virtual int num_columns() const;
   virtual int num_row_groups() const;
+  virtual ~SerializedFile();
 
  private:
   // This class takes ownership of the provided data source

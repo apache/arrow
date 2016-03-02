@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <fcntl.h>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
@@ -23,8 +24,10 @@
 #include <string>
 
 #include "parquet/file/reader.h"
+#include "parquet/file/reader-internal.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
+#include "parquet/util/input.h"
 
 using std::string;
 
@@ -49,7 +52,6 @@ class TestAllTypesPlain : public ::testing::Test {
  protected:
   std::unique_ptr<ParquetFileReader> reader_;
 };
-
 
 TEST_F(TestAllTypesPlain, NoopConstructDestruct) {
 }
@@ -120,5 +122,36 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::string result = ss.str();
   ASSERT_GT(result.size(), 0);
 }
+
+
+class TestLocalFileSource : public ::testing::Test {
+ public:
+  void SetUp() {
+    std::string dir_string(data_dir);
+
+    std::stringstream ss;
+    ss << dir_string << "/" << "alltypes_plain.parquet";
+
+    file.reset(new LocalFileSource());
+    file->Open(ss.str());
+  }
+
+  void TearDown() {}
+
+ protected:
+  std::unique_ptr<LocalFileSource> file;
+};
+
+TEST_F(TestLocalFileSource, FileClosedOnDestruction) {
+  int file_desc = file->file_descriptor();
+  {
+    auto contents = SerializedFile::Open(std::move(file));
+    std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
+    result->Open(std::move(contents));
+  }
+  ASSERT_EQ(-1, fcntl(file_desc, F_GETFD));
+  ASSERT_EQ(EBADF, errno);
+}
+
 
 } // namespace parquet_cpp
