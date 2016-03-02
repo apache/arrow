@@ -314,7 +314,6 @@ inline void DictEncoder<T>::Put(const T& v) {
     index = hash_slots_[j];
   }
 
-  int bytes_added = 0;
   if (index == HASH_SLOT_EMPTY) {
     // Not in the hash table, so we insert it now
     index = uniques_.size();

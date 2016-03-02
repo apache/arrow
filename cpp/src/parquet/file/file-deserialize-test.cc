@@ -77,7 +77,6 @@ class TestPageSerde : public ::testing::Test {
     // have meaningful data associated with them
 
     // Serialize the Page header
-    uint32_t serialized_len = max_serialized_len;
     page_header_.__set_data_page_header(data_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;

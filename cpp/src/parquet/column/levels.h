@@ -104,7 +104,6 @@ class LevelDecoder {
   int SetData(Encoding::type encoding, int16_t max_level,
       int num_buffered_values, const uint8_t* data) {
     uint32_t num_bytes = 0;
-    uint32_t total_bytes = 0;
     encoding_ = encoding;
     num_values_remaining_ = num_buffered_values;
     bit_width_ = BitUtil::Log2(max_level + 1);

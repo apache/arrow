@@ -102,8 +102,6 @@ class DataPageBuilder {
     if (encoding != Encoding::PLAIN) {
       ParquetException::NYI("only plain encoding currently implemented");
     }
-    int bytes_to_encode = values.size() * sizeof(T);
-
     PlainEncoder<TYPE> encoder(d);
     encoder.Encode(&values[0], values.size(), sink_);
 
@@ -171,8 +169,6 @@ void DataPageBuilder<Type::BOOLEAN>::AppendValues(const ColumnDescriptor *d,
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
-  int bytes_to_encode = values.size() * sizeof(bool);
-
   PlainEncoder<Type::BOOLEAN> encoder(d);
   encoder.Encode(values, values.size(), sink_);
 
@@ -186,8 +182,6 @@ static std::shared_ptr<DataPage> MakeDataPage(const ColumnDescriptor *d,
     const std::vector<T>& values,
     const std::vector<int16_t>& def_levels, int16_t max_def_level,
     const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
-  int num_values = values.size();
-
   InMemoryOutputStream page_stream;
   test::DataPageBuilder<TYPE> page_builder(&page_stream);
 

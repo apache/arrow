@@ -30,7 +30,6 @@ namespace parquet_cpp {
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor,
     int max_level, std::vector<int16_t>& input_levels) {
-  int total_count = 0;
   // for each repetition count upto max_repeat_factor
   for (int repeat = min_repeat_factor; repeat <= max_repeat_factor; repeat++) {
     // repeat count increases by a factor of 2 for every iteration

@@ -170,7 +170,6 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
     vector<std::shared_ptr<Scanner> > scanners(num_columns, NULL);
     for (int i = 0; i < num_columns; ++i) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
-      Type::type col_type = col_reader->type();
 
       std::stringstream ss;
       ss << "%-" << COL_WIDTH << "s";

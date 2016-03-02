@@ -19,6 +19,9 @@ set(THRIFT_SRCS
   parquet_constants.cpp
   parquet_types.cpp)
 
+set_source_files_properties(parquet_types.cpp PROPERTIES
+  COMPILE_FLAGS -Wno-unused-variable)
+
 add_library(parquet_thrift STATIC
   ${THRIFT_SRCS}
 )

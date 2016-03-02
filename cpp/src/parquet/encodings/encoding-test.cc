@@ -96,7 +96,6 @@ template <>
 void GenerateData<ByteArray>(int num_values, ByteArray* out, vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
-  int num_bytes = max_byte_array_len + sizeof(uint32_t);
   heap->resize(num_values * max_byte_array_len);
   random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
 }
