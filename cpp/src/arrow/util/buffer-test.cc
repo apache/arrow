@@ -16,10 +16,8 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include <cstdlib>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <string>
 
 #include "arrow/test-util.h"

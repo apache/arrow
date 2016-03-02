@@ -17,6 +17,7 @@
 
 #include "arrow/types/struct.h"
 
+#include <cstdlib>
 #include <memory>
 #include <sstream>
 #include <string>

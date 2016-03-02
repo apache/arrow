@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,6 +30,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
 using std::string;
 using std::vector;

@@ -19,7 +19,6 @@
 
 #include <cstdlib>
 #include <sstream>
-#include <thread>
 #include <mutex>
 
 #include "arrow/util/status.h"

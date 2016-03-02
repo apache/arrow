@@ -27,12 +27,13 @@
 #include "arrow/type.h"
 #include "arrow/types/integer.h"
 #include "arrow/types/list.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
 class ArrayBuilder;
+class Buffer;
+class MemoryPool;
 
 struct CharType : public DataType {
   int size;

@@ -19,7 +19,6 @@
 #define ARROW_UTIL_BUFFER_H
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 

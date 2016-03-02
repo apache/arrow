@@ -20,11 +20,8 @@
 #include <limits>
 
 #include "arrow/test-util.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
-
-using std::string;
 
 namespace arrow {
 

@@ -19,11 +19,9 @@
 #define ARROW_UTIL_MEMORY_POOL_H
 
 #include <cstdint>
-#include <memory>
 
 namespace arrow {
 
-class Buffer;
 class Status;
 
 class MemoryPool {

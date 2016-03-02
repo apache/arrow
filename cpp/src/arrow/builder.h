@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/type.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
 
@@ -31,6 +30,7 @@ namespace arrow {
 
 class Array;
 class MemoryPool;
+class PoolBuffer;
 
 static constexpr int64_t MIN_BUILDER_CAPACITY = 1 << 8;
 

@@ -19,7 +19,6 @@
 #define ARROW_ARRAY_H
 
 #include <cstdint>
-#include <cstdlib>
 #include <memory>
 
 #include "arrow/type.h"
