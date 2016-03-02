@@ -136,7 +136,7 @@ class ResizableBuffer : public MutableBuffer {
 // A Buffer whose lifetime is tied to a particular MemoryPool
 class PoolBuffer : public ResizableBuffer {
  public:
-  PoolBuffer(MemoryPool* pool = nullptr);
+  explicit PoolBuffer(MemoryPool* pool = nullptr);
 
   virtual Status Resize(int64_t new_size);
   virtual Status Reserve(int64_t new_capacity);
