@@ -34,6 +34,8 @@
 
 namespace arrow {
 
+class MemoryPool;
+
 struct ListType : public DataType {
   // List can contain any other logical value type
   TypePtr value_type;
@@ -100,8 +102,9 @@ class ListArray : public Array {
 // have been appended to the child array)
 class ListBuilder : public Int32Builder {
  public:
-  ListBuilder(const TypePtr& type, ArrayBuilder* value_builder)
-      : Int32Builder(type) {
+  ListBuilder(MemoryPool* pool, const TypePtr& type,
+      ArrayBuilder* value_builder)
+      : Int32Builder(pool, type) {
     value_builder_.reset(value_builder);
   }
 

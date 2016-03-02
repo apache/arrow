@@ -33,7 +33,7 @@ Status util::bytes_to_bits(uint8_t* bytes, int length,
     std::shared_ptr<Buffer>* out) {
   int bit_length = ceil_byte(length) / 8;
 
-  auto buffer = std::make_shared<OwnedMutableBuffer>();
+  auto buffer = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(buffer->Resize(bit_length));
   memset(buffer->mutable_data(), 0, bit_length);
   bytes_to_bits(bytes, length, buffer->mutable_data());

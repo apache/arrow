@@ -32,12 +32,13 @@ class ArrayBuilder;
 // Initially looked at doing this with vtables, but shared pointers makes it
 // difficult
 
-#define BUILDER_CASE(ENUM, BuilderType)                         \
-    case TypeEnum::ENUM:                                        \
-      *out = static_cast<ArrayBuilder*>(new BuilderType(type)); \
+#define BUILDER_CASE(ENUM, BuilderType)                                 \
+    case TypeEnum::ENUM:                                                \
+      *out = static_cast<ArrayBuilder*>(new BuilderType(pool, type));   \
       return Status::OK();
 
-Status make_builder(const TypePtr& type, ArrayBuilder** out) {
+Status make_builder(MemoryPool* pool, const TypePtr& type,
+    ArrayBuilder** out) {
   switch (type->type) {
     BUILDER_CASE(UINT8, UInt8Builder);
     BUILDER_CASE(INT8, Int8Builder);
@@ -59,10 +60,10 @@ Status make_builder(const TypePtr& type, ArrayBuilder** out) {
       {
         ListType* list_type = static_cast<ListType*>(type.get());
         ArrayBuilder* value_builder;
-        RETURN_NOT_OK(make_builder(list_type->value_type, &value_builder));
+        RETURN_NOT_OK(make_builder(pool, list_type->value_type, &value_builder));
 
         // The ListBuilder takes ownership of the value_builder
-        ListBuilder* builder = new ListBuilder(type, value_builder);
+        ListBuilder* builder = new ListBuilder(pool, type, value_builder);
         *out = static_cast<ArrayBuilder*>(builder);
         return Status::OK();
       }

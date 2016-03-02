@@ -175,7 +175,7 @@ class TestStringBuilder : public TestBuilder {
     type_ = TypePtr(new StringType());
 
     ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(type_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_.reset(static_cast<StringBuilder*>(tmp));
   }
 

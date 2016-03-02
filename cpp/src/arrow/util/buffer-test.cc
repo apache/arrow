@@ -34,7 +34,7 @@ class TestBuffer : public ::testing::Test {
 };
 
 TEST_F(TestBuffer, Resize) {
-  OwnedMutableBuffer buf;
+  PoolBuffer buf;
 
   ASSERT_EQ(0, buf.size());
   ASSERT_OK(buf.Resize(100));
@@ -49,7 +49,7 @@ TEST_F(TestBuffer, Resize) {
 
 TEST_F(TestBuffer, ResizeOOM) {
   // realloc fails, even though there may be no explicit limit
-  OwnedMutableBuffer buf;
+  PoolBuffer buf;
   ASSERT_OK(buf.Resize(100));
   int64_t to_alloc = std::numeric_limits<int64_t>::max();
   ASSERT_RAISES(OutOfMemory, buf.Resize(to_alloc));

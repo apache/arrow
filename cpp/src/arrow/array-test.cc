@@ -28,6 +28,7 @@
 #include "arrow/types/integer.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
 
 using std::string;
 using std::vector;
@@ -41,8 +42,10 @@ static TypePtr int32_nn = TypePtr(new Int32Type(false));
 class TestArray : public ::testing::Test {
  public:
   void SetUp() {
-    auto data = std::make_shared<OwnedMutableBuffer>();
-    auto nulls = std::make_shared<OwnedMutableBuffer>();
+    pool_ = GetDefaultMemoryPool();
+
+    auto data = std::make_shared<PoolBuffer>(pool_);
+    auto nulls = std::make_shared<PoolBuffer>(pool_);
 
     ASSERT_OK(data->Resize(400));
     ASSERT_OK(nulls->Resize(128));
@@ -51,6 +54,7 @@ class TestArray : public ::testing::Test {
   }
 
  protected:
+  MemoryPool* pool_;
   std::unique_ptr<Int32Array> arr_;
 };
 
