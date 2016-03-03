@@ -25,7 +25,9 @@ namespace arrow {
 
 void util::bytes_to_bits(uint8_t* bytes, int length, uint8_t* bits) {
   for (int i = 0; i < length; ++i) {
-    set_bit(bits, i, static_cast<bool>(bytes[i]));
+    if (static_cast<bool>(bytes[i])) {
+      set_bit(bits, i);
+    }
   }
 }
 

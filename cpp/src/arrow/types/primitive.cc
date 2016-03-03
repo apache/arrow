@@ -26,20 +26,23 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-void PrimitiveArray::Init(const TypePtr& type, int64_t length,
+void PrimitiveArray::Init(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& data,
+    int32_t null_count,
     const std::shared_ptr<Buffer>& nulls) {
-  Array::Init(type, length, nulls);
+  Array::Init(type, length, null_count, nulls);
   data_ = data;
   raw_data_ = data == nullptr? nullptr : data_->data();
 }
 
 bool PrimitiveArray::Equals(const PrimitiveArray& other) const {
   if (this == &other) return true;
-  if (type_->nullable != other.type_->nullable) return false;
+  if (null_count_ != other.null_count_) {
+    return false;
+  }
 
   bool equal_data = data_->Equals(*other.data_, length_);
-  if (type_->nullable) {
+  if (null_count_ > 0) {
     return equal_data &&
       nulls_->Equals(*other.nulls_, util::ceil_byte(length_) / 8);
   } else {

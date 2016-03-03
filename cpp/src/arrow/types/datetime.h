@@ -31,12 +31,12 @@ struct DateType : public DataType {
 
   Unit unit;
 
-  explicit DateType(Unit unit = Unit::DAY, bool nullable = true)
-      : DataType(TypeEnum::DATE, nullable),
+  explicit DateType(Unit unit = Unit::DAY)
+      : DataType(TypeEnum::DATE),
         unit(unit) {}
 
   DateType(const DateType& other)
-      : DateType(other.unit, other.nullable) {}
+      : DateType(other.unit) {}
 
   static char const *name() {
     return "date";
@@ -58,12 +58,12 @@ struct TimestampType : public DataType {
 
   Unit unit;
 
-  explicit TimestampType(Unit unit = Unit::MILLI, bool nullable = true)
-      : DataType(TypeEnum::TIMESTAMP, nullable),
+  explicit TimestampType(Unit unit = Unit::MILLI)
+      : DataType(TypeEnum::TIMESTAMP),
         unit(unit) {}
 
   TimestampType(const TimestampType& other)
-      : TimestampType(other.unit, other.nullable) {}
+      : TimestampType(other.unit) {}
 
   static char const *name() {
     return "timestamp";

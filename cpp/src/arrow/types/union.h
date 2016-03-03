@@ -33,9 +33,8 @@ class Buffer;
 struct DenseUnionType : public CollectionType<TypeEnum::DENSE_UNION> {
   typedef CollectionType<TypeEnum::DENSE_UNION> Base;
 
-  DenseUnionType(const std::vector<TypePtr>& child_types,
-      bool nullable = true)
-      : Base(nullable) {
+  explicit DenseUnionType(const std::vector<TypePtr>& child_types) :
+      Base() {
     child_types_ = child_types;
   }
 
@@ -46,9 +45,8 @@ struct DenseUnionType : public CollectionType<TypeEnum::DENSE_UNION> {
 struct SparseUnionType : public CollectionType<TypeEnum::SPARSE_UNION> {
   typedef CollectionType<TypeEnum::SPARSE_UNION> Base;
 
-  SparseUnionType(const std::vector<TypePtr>& child_types,
-      bool nullable = true)
-      : Base(nullable) {
+  explicit SparseUnionType(const std::vector<TypePtr>& child_types) :
+      Base() {
     child_types_ = child_types;
   }
 

@@ -35,6 +35,6 @@ std::string VarcharType::ToString() const {
   return s.str();
 }
 
-TypePtr StringBuilder::value_type_ = TypePtr(new UInt8Type(false));
+TypePtr StringBuilder::value_type_ = TypePtr(new UInt8Type());
 
 } // namespace arrow

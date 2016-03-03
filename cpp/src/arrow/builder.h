@@ -32,7 +32,7 @@ class Array;
 class MemoryPool;
 class PoolBuffer;
 
-static constexpr int64_t MIN_BUILDER_CAPACITY = 1 << 8;
+static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 8;
 
 // Base class for all data array builders
 class ArrayBuilder {
@@ -40,8 +40,9 @@ class ArrayBuilder {
   explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type) :
       pool_(pool),
       type_(type),
-      nullable_(type_->nullable),
-      nulls_(nullptr), null_bits_(nullptr),
+      nulls_(nullptr),
+      null_count_(0),
+      null_bits_(nullptr),
       length_(0),
       capacity_(0) {}
 
@@ -57,21 +58,21 @@ class ArrayBuilder {
     return children_.size();
   }
 
-  int64_t length() const { return length_;}
-  int64_t capacity() const { return capacity_;}
-  bool nullable() const { return nullable_;}
+  int32_t length() const { return length_;}
+  int32_t null_count() const { return null_count_;}
+  int32_t capacity() const { return capacity_;}
 
   // Allocates requires memory at this level, but children need to be
   // initialized independently
-  Status Init(int64_t capacity);
+  Status Init(int32_t capacity);
 
-  // Resizes the nulls array (if nullable)
-  Status Resize(int64_t new_bits);
+  // Resizes the nulls array
+  Status Resize(int32_t new_bits);
 
   // For cases where raw data was memcpy'd into the internal buffers, allows us
   // to advance the length of the builder. It is your responsibility to use
   // this function responsibly.
-  Status Advance(int64_t elements);
+  Status Advance(int32_t elements);
 
   const std::shared_ptr<PoolBuffer>& nulls() const { return nulls_;}
 
@@ -83,15 +84,15 @@ class ArrayBuilder {
   MemoryPool* pool_;
 
   TypePtr type_;
-  bool nullable_;
 
-  // If the type is not nullable, then null_ is nullptr after initialization
+  // When nulls are first appended to the builder, the null bitmap is allocated
   std::shared_ptr<PoolBuffer> nulls_;
+  int32_t null_count_;
   uint8_t* null_bits_;
 
   // Array length, so far. Also, the index of the next element to be added
-  int64_t length_;
-  int64_t capacity_;
+  int32_t length_;
+  int32_t capacity_;
 
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder> > children_;

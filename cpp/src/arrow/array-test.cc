@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "arrow/array.h"
@@ -32,60 +31,60 @@
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
-using std::string;
-using std::vector;
-
 namespace arrow {
 
 static TypePtr int32 = TypePtr(new Int32Type());
-static TypePtr int32_nn = TypePtr(new Int32Type(false));
-
 
 class TestArray : public ::testing::Test {
  public:
   void SetUp() {
     pool_ = GetDefaultMemoryPool();
-
-    auto data = std::make_shared<PoolBuffer>(pool_);
-    auto nulls = std::make_shared<PoolBuffer>(pool_);
-
-    ASSERT_OK(data->Resize(400));
-    ASSERT_OK(nulls->Resize(128));
-
-    arr_.reset(new Int32Array(100, data, nulls));
   }
 
  protected:
   MemoryPool* pool_;
-  std::unique_ptr<Int32Array> arr_;
 };
 
 
-TEST_F(TestArray, TestNullable) {
-  std::shared_ptr<Buffer> tmp = arr_->data();
-  std::unique_ptr<Int32Array> arr_nn(new Int32Array(100, tmp));
+TEST_F(TestArray, TestNullCount) {
+  auto data = std::make_shared<PoolBuffer>(pool_);
+  auto nulls = std::make_shared<PoolBuffer>(pool_);
 
-  ASSERT_TRUE(arr_->nullable());
-  ASSERT_FALSE(arr_nn->nullable());
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, 10, nulls));
+  ASSERT_EQ(10, arr->null_count());
+
+  std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
+  ASSERT_EQ(0, arr_no_nulls->null_count());
 }
 
 
 TEST_F(TestArray, TestLength) {
-  ASSERT_EQ(arr_->length(), 100);
+  auto data = std::make_shared<PoolBuffer>(pool_);
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
+  ASSERT_EQ(arr->length(), 100);
 }
 
 TEST_F(TestArray, TestIsNull) {
-  vector<uint8_t> nulls = {1, 0, 1, 1, 0, 1, 0, 0,
-                           1, 0, 1, 1, 0, 1, 0, 0,
-                           1, 0, 1, 1, 0, 1, 0, 0,
-                           1, 0, 1, 1, 0, 1, 0, 0,
-                           1, 0, 0, 1};
+  std::vector<uint8_t> nulls = {1, 0, 1, 1, 0, 1, 0, 0,
+                                1, 0, 1, 1, 0, 1, 0, 0,
+                                1, 0, 1, 1, 0, 1, 0, 0,
+                                1, 0, 1, 1, 0, 1, 0, 0,
+                                1, 0, 0, 1};
+  int32_t null_count = 0;
+  for (uint8_t x : nulls) {
+    if (x > 0) ++null_count;
+  }
 
-  std::shared_ptr<Buffer> null_buf = bytes_to_null_buffer(nulls.data(), nulls.size());
+  std::shared_ptr<Buffer> null_buf = bytes_to_null_buffer(nulls.data(),
+      nulls.size());
   std::unique_ptr<Array> arr;
-  arr.reset(new Array(int32, nulls.size(), null_buf));
+  arr.reset(new Array(int32, nulls.size(), null_count, null_buf));
 
-  ASSERT_EQ(null_buf->size(), 5);
+  ASSERT_EQ(null_count, arr->null_count());
+  ASSERT_EQ(5, null_buf->size());
+
+  ASSERT_TRUE(arr->nulls()->Equals(*null_buf.get()));
+
   for (size_t i = 0; i < nulls.size(); ++i) {
     ASSERT_EQ(static_cast<bool>(nulls[i]), arr->IsNull(i));
   }
