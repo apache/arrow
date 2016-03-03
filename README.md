@@ -22,4 +22,4 @@ Initial implementations include:
  - [Arrow Structures and APIs in Java](https://github.com/apache/arrow/tree/master/java)
 
 Arrow is an [Apache Software Foundation](www.apache.org) project. 
-More info can be found at [arrow.apache.org](http://arrow.apache.org).
+More information can be found at [arrow.apache.org](http://arrow.apache.org).
