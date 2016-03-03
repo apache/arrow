@@ -262,38 +262,11 @@ def resolve_jira(title, merge_branches, comment):
     print ("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n" % (
         cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    versions = asf_jira.project_versions("ARROW")
-    versions = sorted(versions, key=lambda x: x.name, reverse=True)
-    versions = filter(lambda x: x.raw['released'] is False, versions)
+    resolve = filter(lambda a: a['name'] == "Resolve Issue",
+                     asf_jira.transitions(jira_id))[0]
+    asf_jira.transition_issue(jira_id, resolve["id"], comment=comment)
 
-    default_fix_versions = map(lambda x: fix_version_from_branch(x, versions).name, merge_branches)
-    for v in default_fix_versions:
-        # Handles the case where we have forked a release branch but not yet made the release.
-        # In this case, if the PR is committed to the master branch and the release branch, we
-        # only consider the release branch to be the fix version. E.g. it is not valid to have
-        # both 1.1.0 and 1.0.0 as fix versions.
-        (major, minor, patch) = v.split(".")
-        if patch == "0":
-            previous = "%s.%s.%s" % (major, int(minor) - 1, 0)
-            if previous in default_fix_versions:
-                default_fix_versions = filter(lambda x: x != v, default_fix_versions)
-    default_fix_versions = ",".join(default_fix_versions)
-
-    fix_versions = raw_input("Enter comma-separated fix version(s) [%s]: " % default_fix_versions)
-    if fix_versions == "":
-        fix_versions = default_fix_versions
-    fix_versions = fix_versions.replace(" ", "").split(",")
-
-    def get_version_json(version_str):
-        return filter(lambda v: v.name == version_str, versions)[0].raw
-
-    jira_fix_versions = map(lambda v: get_version_json(v), fix_versions)
-
-    resolve = filter(lambda a: a['name'] == "Resolve Issue", asf_jira.transitions(jira_id))[0]
-    asf_jira.transition_issue(
-        jira_id, resolve["id"], fixVersions=jira_fix_versions, comment=comment)
-
-    print "Succesfully resolved %s with fixVersions=%s!" % (jira_id, fix_versions)
+    print "Succesfully resolved %s!" % (jira_id)
 
 
 if not JIRA_USERNAME:
