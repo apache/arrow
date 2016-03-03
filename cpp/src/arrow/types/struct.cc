@@ -26,6 +26,7 @@ namespace arrow {
 
 std::string StructType::ToString() const {
   std::stringstream s;
+  if (nullable) s << "?";
   s << "struct<";
   for (size_t i = 0; i < fields_.size(); ++i) {
     if (i > 0) s << ", ";

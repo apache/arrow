@@ -49,7 +49,7 @@ TEST(TestStructType, Basics) {
   ASSERT_TRUE(struct_type.field(1).Equals(f1));
   ASSERT_TRUE(struct_type.field(2).Equals(f2));
 
-  ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
+  ASSERT_EQ(struct_type.ToString(), "?struct<f0: ?int32, f1: ?string, f2: ?uint8>");
 
   // TODO: out of bounds for field(...)
 }

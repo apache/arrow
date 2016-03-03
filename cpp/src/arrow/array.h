@@ -62,8 +62,8 @@ class Array {
   int32_t length() const { return length_;}
   int32_t null_count() const { return null_count_;}
 
-  const TypePtr& type() const { return type_;}
-  TypeEnum type_enum() const { return type_->type;}
+  const std::shared_ptr<DataType>& type() const { return type_;}
+  LogicalType::type logical_type() const { return type_->type;}
 
   const std::shared_ptr<Buffer>& nulls() const {
     return nulls_;

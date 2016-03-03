@@ -22,10 +22,6 @@
 
 namespace arrow {
 
-struct BooleanType : public PrimitiveType<BooleanType> {
-  PRIMITIVE_DECL(BooleanType, uint8_t, BOOL, 1, "bool");
-};
-
 typedef PrimitiveArrayImpl<BooleanType> BooleanArray;
 
 // typedef PrimitiveBuilder<BooleanType, BooleanArray> BooleanBuilder;

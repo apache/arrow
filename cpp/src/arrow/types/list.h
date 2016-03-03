@@ -40,8 +40,8 @@ struct ListType : public DataType {
   // List can contain any other logical value type
   TypePtr value_type;
 
-  explicit ListType(const TypePtr& value_type)
-      : DataType(TypeEnum::LIST),
+  explicit ListType(const TypePtr& value_type, bool nullable = true)
+      : DataType(LogicalType::LIST, nullable),
         value_type(value_type) {}
 
   static char const *name() {
@@ -50,7 +50,6 @@ struct ListType : public DataType {
 
   virtual std::string ToString() const;
 };
-
 
 class ListArray : public Array {
  public:

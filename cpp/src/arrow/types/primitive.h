@@ -34,28 +34,6 @@ namespace arrow {
 
 class MemoryPool;
 
-template <typename Derived>
-struct PrimitiveType : public DataType {
-  PrimitiveType()
-      : DataType(Derived::type_enum) {}
-
-  virtual std::string ToString() const {
-    return std::string(static_cast<const Derived*>(this)->name());
-  }
-};
-
-#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)  \
-  typedef C_TYPE c_type;                                    \
-  static constexpr TypeEnum type_enum = TypeEnum::ENUM;     \
-  static constexpr int size = SIZE;                         \
-                                                            \
-  TYPENAME()                                                \
-      : PrimitiveType<TYPENAME>() {}                        \
-                                                            \
-  static const char* name() {                               \
-    return NAME;                                            \
-  }
-
 
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {

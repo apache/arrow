@@ -38,14 +38,14 @@ class Buffer;
 TEST(TypesTest, TestCharType) {
   CharType t1(5);
 
-  ASSERT_EQ(t1.type, TypeEnum::CHAR);
+  ASSERT_EQ(t1.type, LogicalType::CHAR);
   ASSERT_EQ(t1.size, 5);
 
   ASSERT_EQ(t1.ToString(), std::string("char(5)"));
 
   // Test copy constructor
   CharType t2 = t1;
-  ASSERT_EQ(t2.type, TypeEnum::CHAR);
+  ASSERT_EQ(t2.type, LogicalType::CHAR);
   ASSERT_EQ(t2.size, 5);
 }
 
@@ -53,7 +53,7 @@ TEST(TypesTest, TestCharType) {
 TEST(TypesTest, TestVarcharType) {
   VarcharType t1(5);
 
-  ASSERT_EQ(t1.type, TypeEnum::VARCHAR);
+  ASSERT_EQ(t1.type, LogicalType::VARCHAR);
   ASSERT_EQ(t1.size, 5);
   ASSERT_EQ(t1.physical_type.size, 6);
 
@@ -61,14 +61,14 @@ TEST(TypesTest, TestVarcharType) {
 
   // Test copy constructor
   VarcharType t2 = t1;
-  ASSERT_EQ(t2.type, TypeEnum::VARCHAR);
+  ASSERT_EQ(t2.type, LogicalType::VARCHAR);
   ASSERT_EQ(t2.size, 5);
   ASSERT_EQ(t2.physical_type.size, 6);
 }
 
 TEST(TypesTest, TestStringType) {
   StringType str;
-  ASSERT_EQ(str.type, TypeEnum::STRING);
+  ASSERT_EQ(str.type, LogicalType::STRING);
   ASSERT_EQ(str.name(), std::string("string"));
 }
 
@@ -128,8 +128,8 @@ TEST_F(TestStringContainer, TestArrayBasics) {
 TEST_F(TestStringContainer, TestType) {
   TypePtr type = strings_.type();
 
-  ASSERT_EQ(TypeEnum::STRING, type->type);
-  ASSERT_EQ(TypeEnum::STRING, strings_.type_enum());
+  ASSERT_EQ(LogicalType::STRING, type->type);
+  ASSERT_EQ(LogicalType::STRING, strings_.logical_type());
 }
 
 

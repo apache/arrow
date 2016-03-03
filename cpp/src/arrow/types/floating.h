@@ -21,16 +21,9 @@
 #include <string>
 
 #include "arrow/types/primitive.h"
+#include "arrow/type.h"
 
 namespace arrow {
-
-struct FloatType : public PrimitiveType<FloatType> {
-  PRIMITIVE_DECL(FloatType, float, FLOAT, 4, "float");
-};
-
-struct DoubleType : public PrimitiveType<DoubleType> {
-  PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
-};
 
 typedef PrimitiveArrayImpl<FloatType> FloatArray;
 typedef PrimitiveArrayImpl<DoubleType> DoubleArray;
