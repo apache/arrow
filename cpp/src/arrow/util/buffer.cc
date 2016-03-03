@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -34,19 +35,34 @@ std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }
 
-OwnedMutableBuffer::OwnedMutableBuffer() :
-    MutableBuffer(nullptr, 0) {}
-
-Status OwnedMutableBuffer::Resize(int64_t new_size) {
-  size_ = new_size;
-  try {
-    buffer_owner_.resize(new_size);
-  } catch (const std::bad_alloc& e) {
-    return Status::OutOfMemory("resize failed");
+PoolBuffer::PoolBuffer(MemoryPool* pool) :
+    ResizableBuffer(nullptr, 0) {
+  if (pool == nullptr) {
+    pool = GetDefaultMemoryPool();
   }
-  data_ = buffer_owner_.data();
-  mutable_data_ = buffer_owner_.data();
+  pool_ = pool;
+}
 
+Status PoolBuffer::Reserve(int64_t new_capacity) {
+  if (!mutable_data_ || new_capacity > capacity_) {
+    uint8_t* new_data;
+    if (mutable_data_) {
+      RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
+      memcpy(new_data, mutable_data_, size_);
+      pool_->Free(mutable_data_, capacity_);
+    } else {
+      RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
+    }
+    mutable_data_ = new_data;
+    data_ = mutable_data_;
+    capacity_ = new_capacity;
+  }
+  return Status::OK();
+}
+
+Status PoolBuffer::Resize(int64_t new_size) {
+  RETURN_NOT_OK(Reserve(new_size));
+  size_ = new_size;
   return Status::OK();
 }
 

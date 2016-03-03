@@ -27,12 +27,13 @@
 #include "arrow/type.h"
 #include "arrow/types/integer.h"
 #include "arrow/types/list.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
 class ArrayBuilder;
+class Buffer;
+class MemoryPool;
 
 struct CharType : public DataType {
   int size;
@@ -148,8 +149,9 @@ class StringArray : public ListArray {
 
 class StringBuilder : public ListBuilder {
  public:
-  explicit StringBuilder(const TypePtr& type) :
-      ListBuilder(type, static_cast<ArrayBuilder*>(new UInt8Builder(value_type_))) {
+  explicit StringBuilder(MemoryPool* pool, const TypePtr& type) :
+      ListBuilder(pool, type,
+          static_cast<ArrayBuilder*>(new UInt8Builder(pool, value_type_))) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
@@ -171,6 +173,7 @@ class StringBuilder : public ListBuilder {
   }
 
  protected:
+  std::shared_ptr<ListBuilder> list_builder_;
   UInt8Builder* byte_builder_;
 
   static TypePtr value_type_;

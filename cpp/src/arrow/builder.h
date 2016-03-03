@@ -23,25 +23,27 @@
 #include <vector>
 
 #include "arrow/type.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
 class Array;
+class MemoryPool;
+class PoolBuffer;
 
 static constexpr int64_t MIN_BUILDER_CAPACITY = 1 << 8;
 
 // Base class for all data array builders
 class ArrayBuilder {
  public:
-  explicit ArrayBuilder(const TypePtr& type)
-      : type_(type),
-        nullable_(type_->nullable),
-        nulls_(nullptr), null_bits_(nullptr),
-        length_(0),
-        capacity_(0) {}
+  explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type) :
+      pool_(pool),
+      type_(type),
+      nullable_(type_->nullable),
+      nulls_(nullptr), null_bits_(nullptr),
+      length_(0),
+      capacity_(0) {}
 
   virtual ~ArrayBuilder() {}
 
@@ -71,18 +73,20 @@ class ArrayBuilder {
   // this function responsibly.
   Status Advance(int64_t elements);
 
-  const std::shared_ptr<OwnedMutableBuffer>& nulls() const { return nulls_;}
+  const std::shared_ptr<PoolBuffer>& nulls() const { return nulls_;}
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data
   virtual Status ToArray(Array** out) = 0;
 
  protected:
+  MemoryPool* pool_;
+
   TypePtr type_;
   bool nullable_;
 
   // If the type is not nullable, then null_ is nullptr after initialization
-  std::shared_ptr<OwnedMutableBuffer> nulls_;
+  std::shared_ptr<PoolBuffer> nulls_;
   uint8_t* null_bits_;
 
   // Array length, so far. Also, the index of the next element to be added

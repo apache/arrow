@@ -31,12 +31,9 @@
 #include "arrow/types/test-common.h"
 #include "arrow/util/status.h"
 
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
 namespace arrow {
 
+class Buffer;
 
 TEST(TypesTest, TestCharType) {
   CharType t1(5);
@@ -45,7 +42,7 @@ TEST(TypesTest, TestCharType) {
   ASSERT_TRUE(t1.nullable);
   ASSERT_EQ(t1.size, 5);
 
-  ASSERT_EQ(t1.ToString(), string("char(5)"));
+  ASSERT_EQ(t1.ToString(), std::string("char(5)"));
 
   // Test copy constructor
   CharType t2 = t1;
@@ -63,7 +60,7 @@ TEST(TypesTest, TestVarcharType) {
   ASSERT_EQ(t1.size, 5);
   ASSERT_EQ(t1.physical_type.size, 6);
 
-  ASSERT_EQ(t1.ToString(), string("varchar(5)"));
+  ASSERT_EQ(t1.ToString(), std::string("varchar(5)"));
 
   // Test copy constructor
   VarcharType t2 = t1;
@@ -78,7 +75,7 @@ TEST(TypesTest, TestStringType) {
   StringType str_nn(false);
 
   ASSERT_EQ(str.type, TypeEnum::STRING);
-  ASSERT_EQ(str.name(), string("string"));
+  ASSERT_EQ(str.name(), std::string("string"));
   ASSERT_TRUE(str.nullable);
   ASSERT_FALSE(str_nn.nullable);
 }
@@ -111,11 +108,11 @@ class TestStringContainer : public ::testing::Test  {
   }
 
  protected:
-  vector<int32_t> offsets_;
-  vector<char> chars_;
-  vector<uint8_t> nulls_;
+  std::vector<int32_t> offsets_;
+  std::vector<char> chars_;
+  std::vector<uint8_t> nulls_;
 
-  vector<string> expected_;
+  std::vector<std::string> expected_;
 
   std::shared_ptr<Buffer> value_buf_;
   std::shared_ptr<Buffer> offsets_buf_;
@@ -175,7 +172,7 @@ class TestStringBuilder : public TestBuilder {
     type_ = TypePtr(new StringType());
 
     ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(type_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_.reset(static_cast<StringBuilder*>(tmp));
   }
 
@@ -188,8 +185,8 @@ class TestStringBuilder : public TestBuilder {
  protected:
   TypePtr type_;
 
-  unique_ptr<StringBuilder> builder_;
-  unique_ptr<StringArray> result_;
+  std::unique_ptr<StringBuilder> builder_;
+  std::unique_ptr<StringArray> result_;
 };
 
 TEST_F(TestStringBuilder, TestAttrs) {
@@ -197,8 +194,8 @@ TEST_F(TestStringBuilder, TestAttrs) {
 }
 
 TEST_F(TestStringBuilder, TestScalarAppend) {
-  vector<string> strings = {"a", "bb", "", "", "ccc"};
-  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<std::string> strings = {"a", "bb", "", "", "ccc"};
+  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = strings.size();
   int reps = 1000;

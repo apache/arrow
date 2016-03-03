@@ -19,15 +19,14 @@
 #define ARROW_UTIL_BUFFER_H
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <vector>
 
 #include "arrow/util/macros.h"
 
 namespace arrow {
 
+class MemoryPool;
 class Status;
 
 // ----------------------------------------------------------------------
@@ -115,17 +114,34 @@ class MutableBuffer : public Buffer {
   uint8_t* mutable_data_;
 };
 
-// A MutableBuffer whose memory is owned by the class instance. For example,
-// for reading data out of files that you want to deallocate when this class is
-// garbage-collected
-class OwnedMutableBuffer : public MutableBuffer {
+class ResizableBuffer : public MutableBuffer {
  public:
-  OwnedMutableBuffer();
-  Status Resize(int64_t new_size);
+  // Change buffer reported size to indicated size, allocating memory if
+  // necessary
+  virtual Status Resize(int64_t new_size) = 0;
+
+  // Ensure that buffer has enough memory allocated to fit the indicated
+  // capacity. Does not change buffer's reported size
+  virtual Status Reserve(int64_t new_capacity) = 0;
+
+ protected:
+  ResizableBuffer(uint8_t* data, int64_t size) :
+      MutableBuffer(data, size),
+      capacity_(size) {}
+
+  int64_t capacity_;
+};
+
+// A Buffer whose lifetime is tied to a particular MemoryPool
+class PoolBuffer : public ResizableBuffer {
+ public:
+  explicit PoolBuffer(MemoryPool* pool = nullptr);
+
+  virtual Status Resize(int64_t new_size);
+  virtual Status Reserve(int64_t new_capacity);
 
  private:
-  // TODO: aligned allocations
-  std::vector<uint8_t> buffer_owner_;
+  MemoryPool* pool_;
 };
 
 } // namespace arrow

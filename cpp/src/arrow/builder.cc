@@ -30,7 +30,7 @@ Status ArrayBuilder::Init(int64_t capacity) {
 
   if (nullable_) {
     int64_t to_alloc = util::ceil_byte(capacity) / 8;
-    nulls_ = std::make_shared<OwnedMutableBuffer>();
+    nulls_ = std::make_shared<PoolBuffer>(pool_);
     RETURN_NOT_OK(nulls_->Resize(to_alloc));
     null_bits_ = nulls_->mutable_data();
     memset(null_bits_, 0, to_alloc);

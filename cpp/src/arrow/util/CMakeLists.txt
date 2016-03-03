@@ -22,6 +22,7 @@
 set(UTIL_SRCS
   bit-util.cc
   buffer.cc
+  memory-pool.cc
   status.cc
 )
 
@@ -39,6 +40,7 @@ install(FILES
   bit-util.h
   buffer.h
   macros.h
+  memory-pool.h
   status.h
   DESTINATION include/arrow/util)
 
@@ -79,3 +81,4 @@ endif()
 
 ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(buffer-test)
+ADD_ARROW_TEST(memory-pool-test)

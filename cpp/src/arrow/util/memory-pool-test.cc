@@ -15,40 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_TEST_COMMON_H
-#define ARROW_TYPES_TEST_COMMON_H
-
 #include <gtest/gtest.h>
-#include <memory>
-#include <string>
-#include <vector>
+#include <cstdint>
+#include <limits>
 
 #include "arrow/test-util.h"
-#include "arrow/type.h"
 #include "arrow/util/memory-pool.h"
-
-using std::unique_ptr;
+#include "arrow/util/status.h"
 
 namespace arrow {
 
-class TestBuilder : public ::testing::Test {
- public:
-  void SetUp() {
-    pool_ = GetDefaultMemoryPool();
-    type_ = TypePtr(new UInt8Type());
-    type_nn_ = TypePtr(new UInt8Type(false));
-    builder_.reset(new UInt8Builder(pool_, type_));
-    builder_nn_.reset(new UInt8Builder(pool_, type_nn_));
-  }
- protected:
-  MemoryPool* pool_;
+TEST(DefaultMemoryPool, MemoryTracking) {
+  MemoryPool* pool = GetDefaultMemoryPool();
 
-  TypePtr type_;
-  TypePtr type_nn_;
-  unique_ptr<ArrayBuilder> builder_;
-  unique_ptr<ArrayBuilder> builder_nn_;
-};
+  uint8_t* data;
+  ASSERT_OK(pool->Allocate(100, &data));
+  ASSERT_EQ(100, pool->bytes_allocated());
+
+  pool->Free(data, 100);
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(DefaultMemoryPool, OOM) {
+  MemoryPool* pool = GetDefaultMemoryPool();
+
+  uint8_t* data;
+  int64_t to_alloc = std::numeric_limits<int64_t>::max();
+  ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+}
 
 } // namespace arrow
-
-#endif // ARROW_TYPES_TEST_COMMON_H

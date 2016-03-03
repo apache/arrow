@@ -15,40 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_TEST_COMMON_H
-#define ARROW_TYPES_TEST_COMMON_H
+#ifndef ARROW_UTIL_MEMORY_POOL_H
+#define ARROW_UTIL_MEMORY_POOL_H
 
-#include <gtest/gtest.h>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "arrow/test-util.h"
-#include "arrow/type.h"
-#include "arrow/util/memory-pool.h"
-
-using std::unique_ptr;
+#include <cstdint>
 
 namespace arrow {
 
-class TestBuilder : public ::testing::Test {
- public:
-  void SetUp() {
-    pool_ = GetDefaultMemoryPool();
-    type_ = TypePtr(new UInt8Type());
-    type_nn_ = TypePtr(new UInt8Type(false));
-    builder_.reset(new UInt8Builder(pool_, type_));
-    builder_nn_.reset(new UInt8Builder(pool_, type_nn_));
-  }
- protected:
-  MemoryPool* pool_;
+class Status;
 
-  TypePtr type_;
-  TypePtr type_nn_;
-  unique_ptr<ArrayBuilder> builder_;
-  unique_ptr<ArrayBuilder> builder_nn_;
+class MemoryPool {
+ public:
+  virtual ~MemoryPool();
+
+  virtual Status Allocate(int64_t size, uint8_t** out) = 0;
+  virtual void Free(uint8_t* buffer, int64_t size) = 0;
+
+  virtual int64_t bytes_allocated() const = 0;
 };
+
+MemoryPool* GetDefaultMemoryPool();
 
 } // namespace arrow
 
-#endif // ARROW_TYPES_TEST_COMMON_H
+#endif // ARROW_UTIL_MEMORY_POOL_H

@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -104,10 +103,10 @@ class TestPrimitiveBuilder : public TestBuilder {
     type_nn_ = Attrs::type(false);
 
     ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(type_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_.reset(static_cast<BuilderType*>(tmp));
 
-    ASSERT_OK(make_builder(type_nn_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_nn_, &tmp));
     builder_nn_.reset(static_cast<BuilderType*>(tmp));
   }
 

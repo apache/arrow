@@ -76,7 +76,7 @@ class TestListBuilder : public TestBuilder {
     type_ = TypePtr(new ListType(value_type_));
 
     ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(type_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_.reset(static_cast<ListBuilder*>(tmp));
   }
 

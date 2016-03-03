@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include "arrow/array.h"
@@ -30,6 +31,8 @@
 #include "arrow/util/status.h"
 
 namespace arrow {
+
+class MemoryPool;
 
 template <typename Derived>
 struct PrimitiveType : public DataType {
@@ -113,8 +116,9 @@ class PrimitiveBuilder : public ArrayBuilder {
  public:
   typedef typename Type::c_type T;
 
-  explicit PrimitiveBuilder(const TypePtr& type)
-      : ArrayBuilder(type), values_(nullptr) {
+  explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type) :
+      ArrayBuilder(pool, type),
+      values_(nullptr) {
     elsize_ = sizeof(T);
   }
 
@@ -139,7 +143,7 @@ class PrimitiveBuilder : public ArrayBuilder {
   Status Init(int64_t capacity) {
     RETURN_NOT_OK(ArrayBuilder::Init(capacity));
 
-    values_ = std::make_shared<OwnedMutableBuffer>();
+    values_ = std::make_shared<PoolBuffer>(pool_);
     return values_->Resize(capacity * elsize_);
   }
 
@@ -231,7 +235,7 @@ class PrimitiveBuilder : public ArrayBuilder {
   }
 
  protected:
-  std::shared_ptr<OwnedMutableBuffer> values_;
+  std::shared_ptr<PoolBuffer> values_;
   int64_t elsize_;
 };
 

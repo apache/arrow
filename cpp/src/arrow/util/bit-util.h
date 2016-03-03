@@ -22,10 +22,9 @@
 #include <cstdlib>
 #include <memory>
 
-#include "arrow/util/buffer.h"
-
 namespace arrow {
 
+class Buffer;
 class Status;
 
 namespace util {

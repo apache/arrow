@@ -23,9 +23,11 @@
 namespace arrow {
 
 class ArrayBuilder;
+class MemoryPool;
 class Status;
 
-Status make_builder(const TypePtr& type, ArrayBuilder** out);
+Status make_builder(MemoryPool* pool, const TypePtr& type,
+    ArrayBuilder** out);
 
 } // namespace arrow
 
