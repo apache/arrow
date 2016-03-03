@@ -44,19 +44,19 @@ TEST(TypesTest, TestListType) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 
   ListType list_type(vt);
-  ASSERT_EQ(list_type.type, TypeEnum::LIST);
+  ASSERT_EQ(list_type.type, LogicalType::LIST);
 
   ASSERT_EQ(list_type.name(), string("list"));
-  ASSERT_EQ(list_type.ToString(), string("list<uint8>"));
+  ASSERT_EQ(list_type.ToString(), string("?list<?uint8>"));
 
   ASSERT_EQ(list_type.value_type->type, vt->type);
   ASSERT_EQ(list_type.value_type->type, vt->type);
 
-  std::shared_ptr<DataType> st = std::make_shared<StringType>();
-  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st);
+  std::shared_ptr<DataType> st = std::make_shared<StringType>(false);
+  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st, false);
   ASSERT_EQ(lt->ToString(), string("list<string>"));
 
-  ListType lt2(lt);
+  ListType lt2(lt, false);
   ASSERT_EQ(lt2.ToString(), string("list<list<string>>"));
 }
 

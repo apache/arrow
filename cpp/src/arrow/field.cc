@@ -15,24 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-#include <memory>
-#include <string>
-
 #include "arrow/field.h"
-#include "arrow/type.h"
-#include "arrow/types/integer.h"
 
-using std::string;
+#include <sstream>
+#include <string>
 
 namespace arrow {
 
-TEST(TestField, Basics) {
-  TypePtr ftype = TypePtr(new Int32Type());
-  Field f0("f0", ftype);
-
-  ASSERT_EQ(f0.name, "f0");
-  ASSERT_EQ(f0.type->ToString(), ftype->ToString());
+std::string Field::ToString() const {
+  std::stringstream ss;
+  ss << this->name << " " << this->type->ToString();
+  return ss.str();
 }
 
 } // namespace arrow

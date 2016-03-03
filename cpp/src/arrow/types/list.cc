@@ -24,6 +24,9 @@ namespace arrow {
 
 std::string ListType::ToString() const {
   std::stringstream s;
+  if (this->nullable) {
+    s << "?";
+  }
   s << "list<" << value_type->ToString() << ">";
   return s.str();
 }

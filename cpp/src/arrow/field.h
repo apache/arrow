@@ -35,12 +35,27 @@ struct Field {
   TypePtr type;
 
   Field(const std::string& name, const TypePtr& type) :
-      name(name), type(type) {}
+      name(name),
+      type(type) {}
+
+  bool operator==(const Field& other) const {
+    return this->Equals(other);
+  }
+
+  bool operator!=(const Field& other) const {
+    return !this->Equals(other);
+  }
 
   bool Equals(const Field& other) const {
     return (this == &other) || (this->name == other.name &&
         this->type->Equals(other.type.get()));
   }
+
+  bool nullable() const {
+    return this->type->nullable;
+  }
+
+  std::string ToString() const;
 };
 
 } // namespace arrow

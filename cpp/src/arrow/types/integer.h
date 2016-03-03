@@ -22,40 +22,9 @@
 #include <string>
 
 #include "arrow/types/primitive.h"
+#include "arrow/type.h"
 
 namespace arrow {
-
-struct UInt8Type : public PrimitiveType<UInt8Type> {
-  PRIMITIVE_DECL(UInt8Type, uint8_t, UINT8, 1, "uint8");
-};
-
-struct Int8Type : public PrimitiveType<Int8Type> {
-  PRIMITIVE_DECL(Int8Type, int8_t, INT8, 1, "int8");
-};
-
-struct UInt16Type : public PrimitiveType<UInt16Type> {
-  PRIMITIVE_DECL(UInt16Type, uint16_t, UINT16, 2, "uint16");
-};
-
-struct Int16Type : public PrimitiveType<Int16Type> {
-  PRIMITIVE_DECL(Int16Type, int16_t, INT16, 2, "int16");
-};
-
-struct UInt32Type : public PrimitiveType<UInt32Type> {
-  PRIMITIVE_DECL(UInt32Type, uint32_t, UINT32, 4, "uint32");
-};
-
-struct Int32Type : public PrimitiveType<Int32Type> {
-  PRIMITIVE_DECL(Int32Type, int32_t, INT32, 4, "int32");
-};
-
-struct UInt64Type : public PrimitiveType<UInt64Type> {
-  PRIMITIVE_DECL(UInt64Type, uint64_t, UINT64, 8, "uint64");
-};
-
-struct Int64Type : public PrimitiveType<Int64Type> {
-  PRIMITIVE_DECL(Int64Type, int64_t, INT64, 8, "int64");
-};
 
 // Array containers
 

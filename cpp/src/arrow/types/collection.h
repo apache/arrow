@@ -25,7 +25,7 @@
 
 namespace arrow {
 
-template <TypeEnum T>
+template <LogicalType::type T>
 struct CollectionType : public DataType {
   std::vector<TypePtr> child_types_;
 

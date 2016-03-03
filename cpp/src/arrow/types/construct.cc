@@ -33,7 +33,7 @@ class ArrayBuilder;
 // difficult
 
 #define BUILDER_CASE(ENUM, BuilderType)                                 \
-    case TypeEnum::ENUM:                                                \
+    case LogicalType::ENUM:                                             \
       *out = static_cast<ArrayBuilder*>(new BuilderType(pool, type));   \
       return Status::OK();
 
@@ -56,7 +56,7 @@ Status make_builder(MemoryPool* pool, const TypePtr& type,
 
     BUILDER_CASE(STRING, StringBuilder);
 
-    case TypeEnum::LIST:
+    case LogicalType::LIST:
       {
         ListType* list_type = static_cast<ListType*>(type.get());
         ArrayBuilder* value_builder;

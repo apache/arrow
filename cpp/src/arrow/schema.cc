@@ -15,16 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_BINARY_H
-#define ARROW_TYPES_BINARY_H
+#include "arrow/schema.h"
 
+#include <memory>
 #include <string>
+#include <sstream>
 #include <vector>
 
-#include "arrow/type.h"
+#include "arrow/field.h"
 
 namespace arrow {
 
-} // namespace arrow
+Schema::Schema(const std::vector<std::shared_ptr<Field> >& fields) :
+    fields_(fields) {}
 
-#endif // ARROW_TYPES_BINARY_H
+bool Schema::Equals(const Schema& other) const {
+  if (this == &other) return true;
+  if (num_fields() != other.num_fields()) {
+    return false;
+  }
+  for (int i = 0; i < num_fields(); ++i) {
+    if (!field(i)->Equals(*other.field(i).get())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Schema::Equals(const std::shared_ptr<Schema>& other) const {
+  return Equals(*other.get());
+}
+
+std::string Schema::ToString() const {
+  std::stringstream buffer;
+
+  for (auto field : fields_) {
+    buffer << field->ToString() << std::endl;
+  }
+  return buffer.str();
+}
+
+} // namespace arrow

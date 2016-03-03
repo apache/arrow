@@ -31,8 +31,8 @@ struct DateType : public DataType {
 
   Unit unit;
 
-  explicit DateType(Unit unit = Unit::DAY)
-      : DataType(TypeEnum::DATE),
+  explicit DateType(Unit unit = Unit::DAY, bool nullable = true)
+      : DataType(LogicalType::DATE, nullable),
         unit(unit) {}
 
   DateType(const DateType& other)
@@ -58,8 +58,8 @@ struct TimestampType : public DataType {
 
   Unit unit;
 
-  explicit TimestampType(Unit unit = Unit::MILLI)
-      : DataType(TypeEnum::TIMESTAMP),
+  explicit TimestampType(Unit unit = Unit::MILLI, bool nullable = true)
+      : DataType(LogicalType::TIMESTAMP, nullable),
         unit(unit) {}
 
   TimestampType(const TimestampType& other)

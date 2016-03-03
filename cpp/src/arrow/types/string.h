@@ -40,8 +40,8 @@ struct CharType : public DataType {
 
   BytesType physical_type;
 
-  explicit CharType(int size)
-      : DataType(TypeEnum::CHAR),
+  explicit CharType(int size, bool nullable = true)
+      : DataType(LogicalType::CHAR, nullable),
         size(size),
         physical_type(BytesType(size)) {}
 
@@ -58,8 +58,8 @@ struct VarcharType : public DataType {
 
   BytesType physical_type;
 
-  explicit VarcharType(int size)
-      : DataType(TypeEnum::VARCHAR),
+  explicit VarcharType(int size, bool nullable = true)
+      : DataType(LogicalType::VARCHAR, nullable),
         size(size),
         physical_type(BytesType(size + 1)) {}
   VarcharType(const VarcharType& other)
@@ -73,25 +73,25 @@ static const LayoutPtr physical_string = LayoutPtr(new ListLayoutType(byte1));
 
 // String is a logical type consisting of a physical list of 1-byte values
 struct StringType : public DataType {
-  StringType()
-      : DataType(TypeEnum::STRING) {}
+  explicit StringType(bool nullable = true)
+      : DataType(LogicalType::STRING, nullable) {}
 
   StringType(const StringType& other)
       : StringType() {}
-
-  const LayoutPtr& physical_type() {
-    return physical_string;
-  }
 
   static char const *name() {
     return "string";
   }
 
   virtual std::string ToString() const {
-    return name();
+    std::string result;
+    if (nullable) {
+      result.append("?");
+    }
+    result.append(name());
+    return result;
   }
 };
-
 
 // TODO: add a BinaryArray layer in between
 class StringArray : public ListArray {

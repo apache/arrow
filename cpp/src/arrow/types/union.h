@@ -30,8 +30,8 @@ namespace arrow {
 
 class Buffer;
 
-struct DenseUnionType : public CollectionType<TypeEnum::DENSE_UNION> {
-  typedef CollectionType<TypeEnum::DENSE_UNION> Base;
+struct DenseUnionType : public CollectionType<LogicalType::DENSE_UNION> {
+  typedef CollectionType<LogicalType::DENSE_UNION> Base;
 
   explicit DenseUnionType(const std::vector<TypePtr>& child_types) :
       Base() {
@@ -42,8 +42,8 @@ struct DenseUnionType : public CollectionType<TypeEnum::DENSE_UNION> {
 };
 
 
-struct SparseUnionType : public CollectionType<TypeEnum::SPARSE_UNION> {
-  typedef CollectionType<TypeEnum::SPARSE_UNION> Base;
+struct SparseUnionType : public CollectionType<LogicalType::SPARSE_UNION> {
+  typedef CollectionType<LogicalType::SPARSE_UNION> Base;
 
   explicit SparseUnionType(const std::vector<TypePtr>& child_types) :
       Base() {

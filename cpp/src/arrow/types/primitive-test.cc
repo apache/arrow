@@ -54,11 +54,11 @@ TEST(TypesTest, TestBytesType) {
   TEST(TypesTest, TestPrimitive_##ENUM) {       \
     KLASS tp;                                   \
                                                 \
-    ASSERT_EQ(tp.type, TypeEnum::ENUM);         \
+    ASSERT_EQ(tp.type, LogicalType::ENUM);      \
     ASSERT_EQ(tp.name(), string(NAME));         \
                                                 \
     KLASS tp_copy = tp;                         \
-    ASSERT_EQ(tp_copy.type, TypeEnum::ENUM);    \
+    ASSERT_EQ(tp_copy.type, LogicalType::ENUM); \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
