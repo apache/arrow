@@ -44,11 +44,7 @@ TEST(TypesTest, TestListType) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 
   ListType list_type(vt);
-  ListType list_type_nn(vt, false);
-
   ASSERT_EQ(list_type.type, TypeEnum::LIST);
-  ASSERT_TRUE(list_type.nullable);
-  ASSERT_FALSE(list_type_nn.nullable);
 
   ASSERT_EQ(list_type.name(), string("list"));
   ASSERT_EQ(list_type.ToString(), string("list<uint8>"));
@@ -132,8 +128,8 @@ TEST_F(TestListBuilder, TestBasics) {
 
   Done();
 
-  ASSERT_TRUE(result_->nullable());
-  ASSERT_TRUE(result_->values()->nullable());
+  ASSERT_EQ(1, result_->null_count());
+  ASSERT_EQ(0, result_->values()->null_count());
 
   ASSERT_EQ(3, result_->length());
   vector<int32_t> ex_offsets = {0, 3, 3, 7};
@@ -152,10 +148,6 @@ TEST_F(TestListBuilder, TestBasics) {
     ASSERT_EQ(values[i], varr->Value(i));
   }
 }
-
-TEST_F(TestListBuilder, TestBasicsNonNullable) {
-}
-
 
 TEST_F(TestListBuilder, TestZeroLength) {
   // All buffers are null

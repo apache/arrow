@@ -53,15 +53,12 @@ TEST(TypesTest, TestBytesType) {
 #define PRIMITIVE_TEST(KLASS, ENUM, NAME)       \
   TEST(TypesTest, TestPrimitive_##ENUM) {       \
     KLASS tp;                                   \
-    KLASS tp_nn(false);                         \
                                                 \
     ASSERT_EQ(tp.type, TypeEnum::ENUM);         \
     ASSERT_EQ(tp.name(), string(NAME));         \
-    ASSERT_TRUE(tp.nullable);                   \
-    ASSERT_FALSE(tp_nn.nullable);               \
                                                 \
-    KLASS tp_copy = tp_nn;                      \
-    ASSERT_FALSE(tp_copy.nullable);             \
+    KLASS tp_copy = tp;                         \
+    ASSERT_EQ(tp_copy.type, TypeEnum::ENUM);    \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
@@ -100,17 +97,16 @@ class TestPrimitiveBuilder : public TestBuilder {
     TestBuilder::SetUp();
 
     type_ = Attrs::type();
-    type_nn_ = Attrs::type(false);
 
     ArrayBuilder* tmp;
     ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_.reset(static_cast<BuilderType*>(tmp));
 
-    ASSERT_OK(make_builder(pool_, type_nn_, &tmp));
+    ASSERT_OK(make_builder(pool_, type_, &tmp));
     builder_nn_.reset(static_cast<BuilderType*>(tmp));
   }
 
-  void RandomData(int64_t N, double pct_null = 0.1) {
+  void RandomData(int N, double pct_null = 0.1) {
     Attrs::draw(N, &draws_);
     random_nulls(N, pct_null, &nulls_);
   }
@@ -118,28 +114,33 @@ class TestPrimitiveBuilder : public TestBuilder {
   void CheckNullable() {
     ArrayType result;
     ArrayType expected;
-    int64_t size = builder_->length();
+    int size = builder_->length();
 
-    auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
+    auto ex_data = std::make_shared<Buffer>(
+        reinterpret_cast<uint8_t*>(draws_.data()),
         size * sizeof(T));
 
     auto ex_nulls = bytes_to_null_buffer(nulls_.data(), size);
 
-    expected.Init(size, ex_data, ex_nulls);
+    int32_t ex_null_count = null_count(nulls_);
+
+    expected.Init(size, ex_data, ex_null_count, ex_nulls);
     ASSERT_OK(builder_->Transfer(&result));
 
     // Builder is now reset
     ASSERT_EQ(0, builder_->length());
     ASSERT_EQ(0, builder_->capacity());
+    ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
     ASSERT_TRUE(result.Equals(expected));
+    ASSERT_EQ(ex_null_count, result.null_count());
   }
 
   void CheckNonNullable() {
     ArrayType result;
     ArrayType expected;
-    int64_t size = builder_nn_->length();
+    int size = builder_nn_->length();
 
     auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
         size * sizeof(T));
@@ -153,6 +154,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(nullptr, builder_nn_->buffer());
 
     ASSERT_TRUE(result.Equals(expected));
+    ASSERT_EQ(0, result.null_count());
   }
 
  protected:
@@ -171,14 +173,14 @@ class TestPrimitiveBuilder : public TestBuilder {
   typedef CapType##Type Type;                   \
   typedef c_type T;                             \
                                                 \
-  static TypePtr type(bool nullable = true) {   \
-    return TypePtr(new Type(nullable));         \
+  static TypePtr type() {                       \
+    return TypePtr(new Type());                 \
   }
 
 #define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
   struct P##CapType {                               \
     PTYPE_DECL(CapType, c_type);                    \
-    static void draw(int64_t N, vector<T>* draws) {  \
+    static void draw(int N, vector<T>* draws) {  \
       randint<T>(N, LOWER, UPPER, draws);           \
     }                                               \
   }
@@ -208,7 +210,7 @@ TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_T();
 
-  int64_t n = 1000;
+  int n = 1000;
   ASSERT_OK(this->builder_->Init(n));
   ASSERT_EQ(n, this->builder_->capacity());
   ASSERT_EQ(n * sizeof(T), this->builder_->buffer()->size());

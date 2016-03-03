@@ -36,15 +36,13 @@ class TestBuilder : public ::testing::Test {
   void SetUp() {
     pool_ = GetDefaultMemoryPool();
     type_ = TypePtr(new UInt8Type());
-    type_nn_ = TypePtr(new UInt8Type(false));
     builder_.reset(new UInt8Builder(pool_, type_));
-    builder_nn_.reset(new UInt8Builder(pool_, type_nn_));
+    builder_nn_.reset(new UInt8Builder(pool_, type_));
   }
  protected:
   MemoryPool* pool_;
 
   TypePtr type_;
-  TypePtr type_nn_;
   unique_ptr<ArrayBuilder> builder_;
   unique_ptr<ArrayBuilder> builder_nn_;
 };

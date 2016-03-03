@@ -43,11 +43,7 @@ TEST(TestStructType, Basics) {
 
   vector<Field> fields = {f0, f1, f2};
 
-  StructType struct_type(fields, true);
-  StructType struct_type_nn(fields, false);
-
-  ASSERT_TRUE(struct_type.nullable);
-  ASSERT_FALSE(struct_type_nn.nullable);
+  StructType struct_type(fields);
 
   ASSERT_TRUE(struct_type.field(0).Equals(f0));
   ASSERT_TRUE(struct_type.field(1).Equals(f1));

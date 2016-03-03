@@ -36,24 +36,24 @@ class MemoryPool;
 
 template <typename Derived>
 struct PrimitiveType : public DataType {
-  explicit PrimitiveType(bool nullable = true)
-      : DataType(Derived::type_enum, nullable) {}
+  PrimitiveType()
+      : DataType(Derived::type_enum) {}
 
   virtual std::string ToString() const {
     return std::string(static_cast<const Derived*>(this)->name());
   }
 };
 
-#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)          \
-  typedef C_TYPE c_type;                                            \
-  static constexpr TypeEnum type_enum = TypeEnum::ENUM;             \
-  static constexpr int size = SIZE;                              \
-                                                                    \
-  explicit TYPENAME(bool nullable = true)                           \
-      : PrimitiveType<TYPENAME>(nullable) {}                        \
-                                                                    \
-  static const char* name() {                                       \
-    return NAME;                                                    \
+#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)  \
+  typedef C_TYPE c_type;                                    \
+  static constexpr TypeEnum type_enum = TypeEnum::ENUM;     \
+  static constexpr int size = SIZE;                         \
+                                                            \
+  TYPENAME()                                                \
+      : PrimitiveType<TYPENAME>() {}                        \
+                                                            \
+  static const char* name() {                               \
+    return NAME;                                            \
   }
 
 
@@ -64,7 +64,9 @@ class PrimitiveArray : public Array {
 
   virtual ~PrimitiveArray() {}
 
-  void Init(const TypePtr& type, int64_t length, const std::shared_ptr<Buffer>& data,
+  void Init(const TypePtr& type, int32_t length,
+      const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
 
   const std::shared_ptr<Buffer>& data() const { return data_;}
@@ -84,15 +86,17 @@ class PrimitiveArrayImpl : public PrimitiveArray {
 
   PrimitiveArrayImpl() : PrimitiveArray() {}
 
-  PrimitiveArrayImpl(int64_t length, const std::shared_ptr<Buffer>& data,
+  PrimitiveArrayImpl(int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr) {
-    Init(length, data, nulls);
+    Init(length, data, null_count, nulls);
   }
 
-  void Init(int64_t length, const std::shared_ptr<Buffer>& data,
+  void Init(int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr) {
-    TypePtr type(new TypeClass(nulls != nullptr));
-    PrimitiveArray::Init(type, length, data, nulls);
+    TypePtr type(new TypeClass());
+    PrimitiveArray::Init(type, length, data, null_count, nulls);
   }
 
   bool Equals(const PrimitiveArrayImpl& other) const {
@@ -101,7 +105,7 @@ class PrimitiveArrayImpl : public PrimitiveArray {
 
   const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_);}
 
-  T Value(int64_t i) const {
+  T Value(int i) const {
     return raw_data()[i];
   }
 
@@ -124,7 +128,7 @@ class PrimitiveBuilder : public ArrayBuilder {
 
   virtual ~PrimitiveBuilder() {}
 
-  Status Resize(int64_t capacity) {
+  Status Resize(int32_t capacity) {
     // XXX: Set floor size for now
     if (capacity < MIN_BUILDER_CAPACITY) {
       capacity = MIN_BUILDER_CAPACITY;
@@ -135,27 +139,26 @@ class PrimitiveBuilder : public ArrayBuilder {
     } else {
       RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
       RETURN_NOT_OK(values_->Resize(capacity * elsize_));
-      capacity_ = capacity;
     }
+    capacity_ = capacity;
     return Status::OK();
   }
 
-  Status Init(int64_t capacity) {
+  Status Init(int32_t capacity) {
     RETURN_NOT_OK(ArrayBuilder::Init(capacity));
-
     values_ = std::make_shared<PoolBuffer>(pool_);
     return values_->Resize(capacity * elsize_);
   }
 
-  Status Reserve(int64_t elements) {
+  Status Reserve(int32_t elements) {
     if (length_ + elements > capacity_) {
-      int64_t new_capacity = util::next_power2(length_ + elements);
+      int32_t new_capacity = util::next_power2(length_ + elements);
       return Resize(new_capacity);
     }
     return Status::OK();
   }
 
-  Status Advance(int64_t elements) {
+  Status Advance(int32_t elements) {
     return ArrayBuilder::Advance(elements);
   }
 
@@ -165,8 +168,9 @@ class PrimitiveBuilder : public ArrayBuilder {
       // If the capacity was not already a multiple of 2, do so here
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
-    if (nullable_) {
-      util::set_bit(null_bits_, length_, is_null);
+    if (is_null) {
+      ++null_count_;
+      util::set_bit(null_bits_, length_);
     }
     raw_buffer()[length_++] = val;
     return Status::OK();
@@ -176,42 +180,49 @@ class PrimitiveBuilder : public ArrayBuilder {
   //
   // If passed, null_bytes is of equal length to values, and any nonzero byte
   // will be considered as a null for that slot
-  Status Append(const T* values, int64_t length, uint8_t* null_bytes = nullptr) {
+  Status Append(const T* values, int32_t length,
+      const uint8_t* null_bytes = nullptr) {
     if (length_ + length > capacity_) {
-      int64_t new_capacity = util::next_power2(length_ + length);
+      int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
     memcpy(raw_buffer() + length_, values, length * elsize_);
 
-    if (nullable_ && null_bytes != nullptr) {
-      // If null_bytes is all not null, then none of the values are null
-      for (int64_t i = 0; i < length; ++i) {
-        util::set_bit(null_bits_, length_ + i, static_cast<bool>(null_bytes[i]));
-      }
+    if (null_bytes != nullptr) {
+      AppendNulls(null_bytes, length);
     }
 
     length_ += length;
     return Status::OK();
   }
 
-  Status AppendNull() {
-    if (!nullable_) {
-      return Status::Invalid("not nullable");
+  // Write nulls as uint8_t* into pre-allocated memory
+  void AppendNulls(const uint8_t* null_bytes, int32_t length) {
+    // If null_bytes is all not null, then none of the values are null
+    for (int i = 0; i < length; ++i) {
+      if (static_cast<bool>(null_bytes[i])) {
+        ++null_count_;
+        util::set_bit(null_bits_, length_ + i);
+      }
     }
+  }
+
+  Status AppendNull() {
     if (length_ == capacity_) {
       // If the capacity was not already a multiple of 2, do so here
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
-    util::set_bit(null_bits_, length_++, true);
+    ++null_count_;
+    util::set_bit(null_bits_, length_++);
     return Status::OK();
   }
 
   // Initialize an array type instance with the results of this builder
   // Transfers ownership of all buffers
   Status Transfer(PrimitiveArray* out) {
-    out->Init(type_, length_, values_, nulls_);
+    out->Init(type_, length_, values_, null_count_, nulls_);
     values_ = nulls_ = nullptr;
-    capacity_ = length_ = 0;
+    capacity_ = length_ = null_count_ = 0;
     return Status::OK();
   }
 
@@ -236,7 +247,7 @@ class PrimitiveBuilder : public ArrayBuilder {
 
  protected:
   std::shared_ptr<PoolBuffer> values_;
-  int64_t elsize_;
+  int elsize_;
 };
 
 } // namespace arrow

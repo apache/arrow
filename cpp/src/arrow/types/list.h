@@ -40,8 +40,8 @@ struct ListType : public DataType {
   // List can contain any other logical value type
   TypePtr value_type;
 
-  explicit ListType(const TypePtr& value_type, bool nullable = true)
-      : DataType(TypeEnum::LIST, nullable),
+  explicit ListType(const TypePtr& value_type)
+      : DataType(TypeEnum::LIST),
         value_type(value_type) {}
 
   static char const *name() {
@@ -56,21 +56,25 @@ class ListArray : public Array {
  public:
   ListArray() : Array(), offset_buf_(nullptr), offsets_(nullptr) {}
 
-  ListArray(const TypePtr& type, int64_t length, std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values, std::shared_ptr<Buffer> nulls = nullptr) {
-    Init(type, length, offsets, values, nulls);
+  ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
+      const ArrayPtr& values,
+      int32_t null_count = 0,
+      std::shared_ptr<Buffer> nulls = nullptr) {
+    Init(type, length, offsets, values, null_count, nulls);
   }
 
   virtual ~ListArray() {}
 
-  void Init(const TypePtr& type, int64_t length, std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values, std::shared_ptr<Buffer> nulls = nullptr) {
+  void Init(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
+      const ArrayPtr& values,
+      int32_t null_count = 0,
+      std::shared_ptr<Buffer> nulls = nullptr) {
     offset_buf_ = offsets;
     offsets_ = offsets == nullptr? nullptr :
       reinterpret_cast<const int32_t*>(offset_buf_->data());
 
     values_ = values;
-    Array::Init(type, length, nulls);
+    Array::Init(type, length, null_count, nulls);
   }
 
   // Return a shared pointer in case the requestor desires to share ownership
@@ -108,7 +112,7 @@ class ListBuilder : public Int32Builder {
     value_builder_.reset(value_builder);
   }
 
-  Status Init(int64_t elements) {
+  Status Init(int32_t elements) {
     // One more than requested.
     //
     // XXX: This is slightly imprecise, because we might trigger null mask
@@ -116,7 +120,7 @@ class ListBuilder : public Int32Builder {
     return Int32Builder::Init(elements + 1);
   }
 
-  Status Resize(int64_t capacity) {
+  Status Resize(int32_t capacity) {
     // Need space for the end offset
     RETURN_NOT_OK(Int32Builder::Resize(capacity + 1));
 
@@ -129,18 +133,15 @@ class ListBuilder : public Int32Builder {
   //
   // If passed, null_bytes is of equal length to values, and any nonzero byte
   // will be considered as a null for that slot
-  Status Append(T* values, int64_t length, uint8_t* null_bytes = nullptr) {
+  Status Append(T* values, int32_t length, uint8_t* null_bytes = nullptr) {
     if (length_ + length > capacity_) {
-      int64_t new_capacity = util::next_power2(length_ + length);
+      int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
     memcpy(raw_buffer() + length_, values, length * elsize_);
 
-    if (nullable_ && null_bytes != nullptr) {
-      // If null_bytes is all not null, then none of the values are null
-      for (int i = 0; i < length; ++i) {
-        util::set_bit(null_bits_, length_ + i, static_cast<bool>(null_bytes[i]));
-      }
+    if (null_bytes != nullptr) {
+      AppendNulls(null_bytes, length);
     }
 
     length_ += length;
@@ -159,9 +160,10 @@ class ListBuilder : public Int32Builder {
       raw_buffer()[length_] = child_values->length();
     }
 
-    out->Init(type_, length_, values_, ArrayPtr(child_values), nulls_);
+    out->Init(type_, length_, values_, ArrayPtr(child_values),
+        null_count_, nulls_);
     values_ = nulls_ = nullptr;
-    capacity_ = length_ = 0;
+    capacity_ = length_ = null_count_ = 0;
     return Status::OK();
   }
 
@@ -181,10 +183,10 @@ class ListBuilder : public Int32Builder {
       // If the capacity was not already a multiple of 2, do so here
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
-    if (nullable_) {
-      util::set_bit(null_bits_, length_, is_null);
+    if (is_null) {
+      ++null_count_;
+      util::set_bit(null_bits_, length_);
     }
-
     raw_buffer()[length_++] = value_builder_->length();
     return Status::OK();
   }

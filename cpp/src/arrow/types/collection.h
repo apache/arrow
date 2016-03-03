@@ -29,7 +29,7 @@ template <TypeEnum T>
 struct CollectionType : public DataType {
   std::vector<TypePtr> child_types_;
 
-  explicit CollectionType(bool nullable = true) : DataType(T, nullable) {}
+  CollectionType() : DataType(T) {}
 
   const TypePtr& child(int i) const {
     return child_types_[i];

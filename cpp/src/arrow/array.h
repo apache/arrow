@@ -30,38 +30,49 @@ namespace arrow {
 class Buffer;
 
 // Immutable data array with some logical type and some length. Any memory is
-// owned by the respective Buffer instance (or its parents). May or may not be
-// nullable.
+// owned by the respective Buffer instance (or its parents).
 //
-// The base class only has a null array (if the data type is nullable)
+// The base class is only required to have a nulls buffer if the null count is
+// greater than 0
 //
 // Any buffers used to initialize the array have their references "stolen". If
 // you wish to use the buffer beyond the lifetime of the array, you need to
 // explicitly increment its reference count
 class Array {
  public:
-  Array() : length_(0), nulls_(nullptr), null_bits_(nullptr) {}
-  Array(const TypePtr& type, int64_t length,
+  Array() :
+      null_count_(0),
+      length_(0),
+      nulls_(nullptr),
+      null_bits_(nullptr) {}
+
+  Array(const TypePtr& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
 
   virtual ~Array() {}
 
-  void Init(const TypePtr& type, int64_t length, const std::shared_ptr<Buffer>& nulls);
+  void Init(const TypePtr& type, int32_t length, int32_t null_count,
+      const std::shared_ptr<Buffer>& nulls);
 
-  // Determine if a slot if null. For inner loops. Does *not* boundscheck
-  bool IsNull(int64_t i) const {
-    return nullable_ && util::get_bit(null_bits_, i);
+  // Determine if a slot is null. For inner loops. Does *not* boundscheck
+  bool IsNull(int i) const {
+    return null_count_ > 0 && util::get_bit(null_bits_, i);
   }
 
-  int64_t length() const { return length_;}
-  bool nullable() const { return nullable_;}
+  int32_t length() const { return length_;}
+  int32_t null_count() const { return null_count_;}
+
   const TypePtr& type() const { return type_;}
   TypeEnum type_enum() const { return type_->type;}
 
+  const std::shared_ptr<Buffer>& nulls() const {
+    return nulls_;
+  }
+
  protected:
   TypePtr type_;
-  bool nullable_;
-  int64_t length_;
+  int32_t null_count_;
+  int32_t length_;
 
   std::shared_ptr<Buffer> nulls_;
   const uint8_t* null_bits_;

@@ -29,9 +29,8 @@ namespace arrow {
 struct StructType : public DataType {
   std::vector<Field> fields_;
 
-  StructType(const std::vector<Field>& fields,
-      bool nullable = true)
-      : DataType(TypeEnum::STRUCT, nullable) {
+  explicit StructType(const std::vector<Field>& fields)
+      : DataType(TypeEnum::STRUCT) {
     fields_ = fields;
   }
 

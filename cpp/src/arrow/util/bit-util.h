@@ -41,8 +41,8 @@ static inline bool get_bit(const uint8_t* bits, int i) {
   return bits[i / 8] & (1 << (i % 8));
 }
 
-static inline void set_bit(uint8_t* bits, int i, bool is_set) {
-  bits[i / 8] |= (1 << (i % 8)) * is_set;
+static inline void set_bit(uint8_t* bits, int i) {
+  bits[i / 8] |= 1 << (i % 8);
 }
 
 static inline int64_t next_power2(int64_t n) {

@@ -17,6 +17,8 @@
 
 #include "arrow/array.h"
 
+#include <cstdint>
+
 #include "arrow/util/buffer.h"
 
 namespace arrow {
@@ -24,18 +26,17 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const TypePtr& type, int64_t length,
+Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& nulls) {
-  Init(type, length, nulls);
+  Init(type, length, null_count, nulls);
 }
 
-void Array::Init(const TypePtr& type, int64_t length,
+void Array::Init(const TypePtr& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& nulls) {
   type_ = type;
   length_ = length;
+  null_count_ = null_count;
   nulls_ = nulls;
-
-  nullable_ = type->nullable;
   if (nulls_) {
     null_bits_ = nulls_->data();
   }

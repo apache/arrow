@@ -57,11 +57,9 @@ struct LayoutType {
 // either a primitive physical type (bytes or bits of some fixed size), a
 // nested type consisting of other data types, or another data type (e.g. a
 // timestamp encoded as an int64)
-//
-// Any data type can be nullable
 
 enum class TypeEnum: char {
-  // A degerate NULL type represented as 0 bytes/bits
+  // A degenerate NULL type represented as 0 bytes/bits
   NA = 0,
 
   // Little-endian integer types
@@ -138,14 +136,12 @@ enum class TypeEnum: char {
 
 struct DataType {
   TypeEnum type;
-  bool nullable;
 
-  explicit DataType(TypeEnum type, bool nullable = true)
-      : type(type), nullable(nullable) {}
+  explicit DataType(TypeEnum type)
+      : type(type) {}
 
   virtual bool Equals(const DataType* other) {
-    return (this == other) || (this->type == other->type &&
-        this->nullable == other->nullable);
+    return this == other || this->type == other->type;
   }
 
   virtual std::string ToString() const = 0;

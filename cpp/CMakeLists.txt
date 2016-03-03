@@ -92,7 +92,7 @@ endif()
 # For CMAKE_BUILD_TYPE=Release
 #   -O3: Enable all compiler optimizations
 #   -g: Enable symbols for profiler tools (TODO: remove for shipping)
-set(CXX_FLAGS_DEBUG "-ggdb")
+set(CXX_FLAGS_DEBUG "-ggdb -O0")
 set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
 set(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
 

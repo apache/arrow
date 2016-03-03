@@ -28,8 +28,8 @@ struct JSONScalar : public DataType {
   static TypePtr dense_type;
   static TypePtr sparse_type;
 
-  explicit JSONScalar(bool dense = true, bool nullable = true)
-      : DataType(TypeEnum::JSON_SCALAR, nullable),
+  explicit JSONScalar(bool dense = true)
+      : DataType(TypeEnum::JSON_SCALAR),
         dense(dense) {}
 };
 

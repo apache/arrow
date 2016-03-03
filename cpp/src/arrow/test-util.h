@@ -84,6 +84,16 @@ void random_nulls(int64_t n, double pct_null, std::vector<bool>* nulls) {
   }
 }
 
+static inline int null_count(const std::vector<uint8_t>& nulls) {
+  int result = 0;
+  for (size_t i = 0; i < nulls.size(); ++i) {
+    if (nulls[i] > 0) {
+      ++result;
+    }
+  }
+  return result;
+}
+
 std::shared_ptr<Buffer> bytes_to_null_buffer(uint8_t* bytes, int length) {
   std::shared_ptr<Buffer> out;
 

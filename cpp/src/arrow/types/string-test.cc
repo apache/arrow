@@ -39,7 +39,6 @@ TEST(TypesTest, TestCharType) {
   CharType t1(5);
 
   ASSERT_EQ(t1.type, TypeEnum::CHAR);
-  ASSERT_TRUE(t1.nullable);
   ASSERT_EQ(t1.size, 5);
 
   ASSERT_EQ(t1.ToString(), std::string("char(5)"));
@@ -47,7 +46,6 @@ TEST(TypesTest, TestCharType) {
   // Test copy constructor
   CharType t2 = t1;
   ASSERT_EQ(t2.type, TypeEnum::CHAR);
-  ASSERT_TRUE(t2.nullable);
   ASSERT_EQ(t2.size, 5);
 }
 
@@ -56,7 +54,6 @@ TEST(TypesTest, TestVarcharType) {
   VarcharType t1(5);
 
   ASSERT_EQ(t1.type, TypeEnum::VARCHAR);
-  ASSERT_TRUE(t1.nullable);
   ASSERT_EQ(t1.size, 5);
   ASSERT_EQ(t1.physical_type.size, 6);
 
@@ -65,19 +62,14 @@ TEST(TypesTest, TestVarcharType) {
   // Test copy constructor
   VarcharType t2 = t1;
   ASSERT_EQ(t2.type, TypeEnum::VARCHAR);
-  ASSERT_TRUE(t2.nullable);
   ASSERT_EQ(t2.size, 5);
   ASSERT_EQ(t2.physical_type.size, 6);
 }
 
 TEST(TypesTest, TestStringType) {
   StringType str;
-  StringType str_nn(false);
-
   ASSERT_EQ(str.type, TypeEnum::STRING);
   ASSERT_EQ(str.name(), std::string("string"));
-  ASSERT_TRUE(str.nullable);
-  ASSERT_FALSE(str_nn.nullable);
 }
 
 // ----------------------------------------------------------------------
@@ -96,7 +88,7 @@ class TestStringContainer : public ::testing::Test  {
 
   void MakeArray() {
     length_ = offsets_.size() - 1;
-    int64_t nchars = chars_.size();
+    int nchars = chars_.size();
 
     value_buf_ = to_buffer(chars_);
     values_ = ArrayPtr(new UInt8Array(nchars, value_buf_));
@@ -104,7 +96,9 @@ class TestStringContainer : public ::testing::Test  {
     offsets_buf_ = to_buffer(offsets_);
 
     nulls_buf_ = bytes_to_null_buffer(nulls_.data(), nulls_.size());
-    strings_.Init(length_, offsets_buf_, values_, nulls_buf_);
+    null_count_ = null_count(nulls_);
+
+    strings_.Init(length_, offsets_buf_, values_, null_count_, nulls_buf_);
   }
 
  protected:
@@ -118,7 +112,8 @@ class TestStringContainer : public ::testing::Test  {
   std::shared_ptr<Buffer> offsets_buf_;
   std::shared_ptr<Buffer> nulls_buf_;
 
-  int64_t length_;
+  int null_count_;
+  int length_;
 
   ArrayPtr values_;
   StringArray strings_;
@@ -127,7 +122,7 @@ class TestStringContainer : public ::testing::Test  {
 
 TEST_F(TestStringContainer, TestArrayBasics) {
   ASSERT_EQ(length_, strings_.length());
-  ASSERT_TRUE(strings_.nullable());
+  ASSERT_EQ(1, strings_.null_count());
 }
 
 TEST_F(TestStringContainer, TestType) {
@@ -149,7 +144,8 @@ TEST_F(TestStringContainer, TestListFunctions) {
 
 
 TEST_F(TestStringContainer, TestDestructor) {
-  auto arr = std::make_shared<StringArray>(length_, offsets_buf_, values_, nulls_buf_);
+  auto arr = std::make_shared<StringArray>(length_, offsets_buf_, values_,
+      null_count_, nulls_buf_);
 }
 
 TEST_F(TestStringContainer, TestGetString) {
@@ -189,10 +185,6 @@ class TestStringBuilder : public TestBuilder {
   std::unique_ptr<StringArray> result_;
 };
 
-TEST_F(TestStringBuilder, TestAttrs) {
-  ASSERT_FALSE(builder_->value_builder()->nullable());
-}
-
 TEST_F(TestStringBuilder, TestScalarAppend) {
   std::vector<std::string> strings = {"a", "bb", "", "", "ccc"};
   std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
@@ -212,10 +204,11 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   Done();
 
   ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(reps * null_count(is_null), result_->null_count());
   ASSERT_EQ(reps * 6, result_->values()->length());
 
-  int64_t length;
-  int64_t pos = 0;
+  int32_t length;
+  int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
       ASSERT_TRUE(result_->IsNull(i));
