@@ -41,58 +41,57 @@ namespace parquet_cpp {
 using schema::NodePtr;
 
 static int FLBA_LENGTH = 12;
+
 bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
   return 0 == memcmp(a.ptr, b.ptr, FLBA_LENGTH);
 }
 
 namespace test {
 
+template<>
+void InitValues<bool>(int num_values,  vector<bool>& values,
+     vector<uint8_t>& buffer) {
+  values = flip_coins(num_values, 0);
+}
+
+template<>
+void InitValues<Int96>(int num_values, vector<Int96>& values,
+    vector<uint8_t>& buffer) {
+  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
+      std::numeric_limits<int32_t>::max(), values.data());
+}
+
+template<>
+void InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
+    vector<uint8_t>& buffer) {
+  int max_byte_array_len = 12;
+  int num_bytes = max_byte_array_len + sizeof(uint32_t);
+  size_t nbytes = num_values * num_bytes;
+  buffer.resize(nbytes);
+  random_byte_array(num_values, 0, buffer.data(), values.data(),
+      max_byte_array_len);
+}
+
+template<>
+void InitValues<FLBA>(int num_values, vector<FLBA>& values,
+    vector<uint8_t>& buffer) {
+  size_t nbytes = num_values * FLBA_LENGTH;
+  buffer.resize(nbytes);
+  random_fixed_byte_array(num_values, 0, buffer.data(), FLBA_LENGTH,
+      values.data());
+}
+
+template<>
+void InitDictValues<bool>(int num_values, int dict_per_page,
+    vector<bool>& values, vector<uint8_t>& buffer) {
+  // No op for bool
+}
+
+
 template <typename Type>
 class TestFlatScanner : public ::testing::Test {
  public:
   typedef typename Type::c_type T;
-
-  void InitValues() {
-    random_numbers(num_values_, 0, std::numeric_limits<T>::min(),
-        std::numeric_limits<T>::max(), values_.data());
-  }
-
-  void MakePages(const ColumnDescriptor *d, int num_pages, int levels_per_page) {
-    num_levels_ = levels_per_page * num_pages;
-    num_values_ = 0;
-    uint32_t seed = 0;
-    int16_t zero = 0;
-    int16_t max_def_level = d->max_definition_level();
-    int16_t max_rep_level = d->max_repetition_level();
-    vector<int> values_per_page(num_pages, levels_per_page);
-    // Create definition levels
-    if (max_def_level > 0) {
-      def_levels_.resize(num_levels_);
-      random_numbers(num_levels_, seed, zero, max_def_level, def_levels_.data());
-      for (int p = 0; p < num_pages; p++) {
-        int num_values_per_page = 0;
-        for (int i = 0; i < levels_per_page; i++) {
-          if (def_levels_[i + p * levels_per_page] == max_def_level) {
-            num_values_per_page++;
-            num_values_++;
-          }
-        }
-        values_per_page[p] = num_values_per_page;
-      }
-    } else {
-      num_values_ = num_levels_;
-    }
-    // Create repitition levels
-    if (max_rep_level > 0) {
-      rep_levels_.resize(num_levels_);
-      random_numbers(num_levels_, seed, zero, max_rep_level, rep_levels_.data());
-    }
-    // Create values
-    values_.resize(num_values_);
-    InitValues();
-    Paginate<Type::type_num>(d, values_, def_levels_, max_def_level,
-        rep_levels_, max_rep_level, levels_per_page, values_per_page, pages_);
-  }
 
   void InitScanner(const ColumnDescriptor *d) {
     std::unique_ptr<PageReader> pager(new test::MockPageReader(pages_));
@@ -111,7 +110,8 @@ class TestFlatScanner : public ::testing::Test {
     for (int i = 0; i < num_levels_; i++) {
       ASSERT_TRUE(scanner->Next(&val, &def_level, &rep_level, &is_null)) << i << j;
       if (!is_null) {
-        ASSERT_EQ(values_[j++], val) << i <<"V"<< j;
+        ASSERT_EQ(values_[j], val) << i <<"V"<< j;
+        j++;
       }
       if (d->max_definition_level() > 0) {
         ASSERT_EQ(def_levels_[i], def_level) << i <<"D"<< j;
@@ -131,9 +131,11 @@ class TestFlatScanner : public ::testing::Test {
     rep_levels_.clear();
   }
 
-  void Execute(int num_pages, int levels_page, int batch_size,
-      const ColumnDescriptor *d) {
-    MakePages(d, num_pages, levels_page);
+  void Execute(int num_pages, int levels_per_page, int batch_size,
+      const ColumnDescriptor *d, Encoding::type encoding) {
+    num_values_ = MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+        values_, data_buffer_, pages_, encoding);
+    num_levels_ = num_pages * levels_per_page;
     InitScanner(d);
     CheckResults(batch_size, d);
     Clear();
@@ -154,17 +156,18 @@ class TestFlatScanner : public ::testing::Test {
     d3.reset(new ColumnDescriptor(type, 4, 2));
   }
 
-  void ExecuteAll(int num_pages, int num_levels, int batch_size, int type_length) {
+  void ExecuteAll(int num_pages, int num_levels, int batch_size, int type_length,
+      Encoding::type encoding = Encoding::PLAIN) {
     std::shared_ptr<ColumnDescriptor> d1;
     std::shared_ptr<ColumnDescriptor> d2;
     std::shared_ptr<ColumnDescriptor> d3;
     InitDescriptors(d1, d2, d3, type_length);
     // evaluate REQUIRED pages
-    Execute(num_pages, num_levels, batch_size, d1.get());
+    Execute(num_pages, num_levels, batch_size, d1.get(), encoding);
     // evaluate OPTIONAL pages
-    Execute(num_pages, num_levels, batch_size, d2.get());
+    Execute(num_pages, num_levels, batch_size, d2.get(), encoding);
     // evaluate REPEATED pages
-    Execute(num_pages, num_levels, batch_size, d3.get());
+    Execute(num_pages, num_levels, batch_size, d3.get(), encoding);
   }
 
  protected:
@@ -178,54 +181,40 @@ class TestFlatScanner : public ::testing::Test {
   vector<uint8_t> data_buffer_; // For BA and FLBA
 };
 
-template<>
-void TestFlatScanner<BooleanType>::InitValues() {
-  values_ = flip_coins(num_values_, 0);
-}
-
-template<>
-void TestFlatScanner<Int96Type>::InitValues() {
-  random_Int96_numbers(num_values_, 0, std::numeric_limits<int32_t>::min(),
-      std::numeric_limits<int32_t>::max(), values_.data());
-}
-
-template<>
-void TestFlatScanner<ByteArrayType>::InitValues() {
-  int max_byte_array_len = 12;
-  int num_bytes = max_byte_array_len + sizeof(uint32_t);
-  int nbytes = num_values_ * num_bytes;
-  data_buffer_.resize(nbytes);
-  random_byte_array(num_values_, 0, data_buffer_.data(), values_.data(),
-      max_byte_array_len);
-}
-
-template<>
-void TestFlatScanner<FLBAType>::InitValues() {
-  int nbytes = num_values_ * FLBA_LENGTH;
-  data_buffer_.resize(nbytes);
-  random_fixed_byte_array(num_values_, 0, data_buffer_.data(), FLBA_LENGTH,
-      values_.data());
-}
-
 typedef TestFlatScanner<FLBAType> TestFlatFLBAScanner;
 
 static int num_levels_per_page = 100;
 static int num_pages = 20;
 static int batch_size = 32;
 
-typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type,
+typedef ::testing::Types<Int32Type, Int64Type, Int96Type,
                          FloatType, DoubleType, ByteArrayType> TestTypes;
 
+typedef TestFlatScanner<BooleanType> TestBooleanFlatScanner;
 typedef TestFlatScanner<FLBAType> TestFLBAFlatScanner;
 
 TYPED_TEST_CASE(TestFlatScanner, TestTypes);
 
-TYPED_TEST(TestFlatScanner, TestScanner) {
+TYPED_TEST(TestFlatScanner, TestPlainScanner) {
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0, Encoding::PLAIN);
+}
+
+TYPED_TEST(TestFlatScanner, TestDictScanner) {
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0,
+      Encoding::RLE_DICTIONARY);
+}
+
+TEST_F(TestBooleanFlatScanner, TestPlainScanner) {
   this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0);
 }
 
-TEST_F(TestFLBAFlatScanner, TestScanner) {
+TEST_F(TestFLBAFlatScanner, TestPlainScanner) {
   this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH);
+}
+
+TEST_F(TestFLBAFlatScanner, TestDictScanner) {
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
+      Encoding::RLE_DICTIONARY);
 }
 
 //PARQUET 502
@@ -233,7 +222,9 @@ TEST_F(TestFlatFLBAScanner, TestSmallBatch) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 0, 0);
-  MakePages(&d, 1, 100);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+      data_buffer_, pages_);
+  num_levels_ = 1 * 100;
   InitScanner(&d);
   CheckResults(1, &d);
 }
@@ -242,7 +233,9 @@ TEST_F(TestFlatFLBAScanner, TestDescriptorAPI) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);
-  MakePages(&d, 1, 100);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+      data_buffer_, pages_);
+  num_levels_ = 1 * 100;
   InitScanner(&d);
   TypedScanner<FLBAType::type_num>* scanner =
     reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
@@ -255,7 +248,9 @@ TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);
-  MakePages(&d, 1, 100);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+      data_buffer_, pages_);
+  num_levels_ = 1 * 100;
   InitScanner(&d);
   TypedScanner<FLBAType::type_num>* scanner =
     reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());

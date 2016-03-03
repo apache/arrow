@@ -45,42 +45,6 @@ namespace test {
 
 class TestPrimitiveReader : public ::testing::Test {
  public:
-  void MakePages(const ColumnDescriptor *d, int num_pages, int levels_per_page) {
-    num_levels_ = levels_per_page * num_pages;
-    num_values_ = 0;
-    uint32_t seed = 0;
-    int16_t zero = 0;
-    vector<int> values_per_page(num_pages, levels_per_page);
-    // Create definition levels
-    if (max_def_level_ > 0) {
-      def_levels_.resize(num_levels_);
-      random_numbers(num_levels_, seed, zero, max_def_level_, def_levels_.data());
-      for (int p = 0; p < num_pages; p++) {
-        int num_values_per_page = 0;
-        for (int i = 0; i < levels_per_page; i++) {
-          if (def_levels_[i + p * levels_per_page] == max_def_level_) {
-            num_values_per_page++;
-            num_values_++;
-          }
-        }
-        values_per_page[p] = num_values_per_page;
-      }
-    } else {
-      num_values_ = num_levels_;
-    }
-    // Create repitition levels
-    if (max_rep_level_ > 0) {
-      rep_levels_.resize(num_levels_);
-      random_numbers(num_levels_, seed, zero, max_rep_level_, rep_levels_.data());
-    }
-    // Create values
-    values_.resize(num_values_);
-    random_numbers(num_values_, seed, std::numeric_limits<int32_t>::min(),
-       std::numeric_limits<int32_t>::max(), values_.data());
-    Paginate<Type::INT32, int32_t>(d, values_, def_levels_, max_def_level_,
-        rep_levels_, max_rep_level_, levels_per_page, values_per_page, pages_);
-  }
-
   void InitReader(const ColumnDescriptor* d) {
     std::unique_ptr<PageReader> pager_;
     pager_.reset(new test::MockPageReader(pages_));
@@ -124,8 +88,23 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(0, values_read);
   }
 
-  void execute(int num_pages, int levels_page, const ColumnDescriptor *d) {
-    MakePages(d, num_pages, levels_page);
+  void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor *d) {
+    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
+        rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_levels_ = num_pages * levels_per_page;
+    InitReader(d);
+    CheckResults();
+    values_.clear();
+    def_levels_.clear();
+    rep_levels_.clear();
+    pages_.clear();
+    reader_.reset();
+  }
+
+  void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor *d) {
+    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
+        rep_levels_, values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+    num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
   }
@@ -140,6 +119,7 @@ class TestPrimitiveReader : public ::testing::Test {
   vector<int32_t> values_;
   vector<int16_t> def_levels_;
   vector<int16_t> rep_levels_;
+  vector<uint8_t> data_buffer_; // For BA and FLBA
 };
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
@@ -149,7 +129,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
   max_rep_level_ = 0;
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
-  execute(num_pages, levels_per_page, &descr);
+  ExecutePlain(num_pages, levels_per_page, &descr);
+  ExecuteDict(num_pages, levels_per_page, &descr);
 }
 
 TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
@@ -159,7 +140,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatOptional) {
   max_rep_level_ = 0;
   NodePtr type = schema::Int32("b", Repetition::OPTIONAL);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
-  execute(num_pages, levels_per_page, &descr);
+  ExecutePlain(num_pages, levels_per_page, &descr);
+  ExecuteDict(num_pages, levels_per_page, &descr);
 }
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
@@ -169,7 +151,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   max_rep_level_ = 2;
   NodePtr type = schema::Int32("c", Repetition::REPEATED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
-  execute(num_pages, levels_per_page, &descr);
+  ExecutePlain(num_pages, levels_per_page, &descr);
+  ExecuteDict(num_pages, levels_per_page, &descr);
 }
 
 } // namespace test
