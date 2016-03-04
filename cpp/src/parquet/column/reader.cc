@@ -37,26 +37,35 @@ ColumnReader::ColumnReader(const ColumnDescriptor* descr,
 
 template <int TYPE>
 void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
-  int encoding = static_cast<int>(Encoding::RLE_DICTIONARY);
+  int encoding = static_cast<int>(page->encoding());
+  if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
+      page->encoding() == Encoding::PLAIN) {
+    encoding = static_cast<int>(Encoding::RLE_DICTIONARY);
+  }
 
   auto it = decoders_.find(encoding);
   if (it != decoders_.end()) {
     throw ParquetException("Column cannot have more than one dictionary.");
   }
 
-  PlainDecoder<TYPE> dictionary(descr_);
-  dictionary.SetData(page->num_values(), page->data(), page->size());
+  if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
+      page->encoding() == Encoding::PLAIN) {
+    PlainDecoder<TYPE> dictionary(descr_);
+    dictionary.SetData(page->num_values(), page->data(), page->size());
 
-  // The dictionary is fully decoded during DictionaryDecoder::Init, so the
-  // DictionaryPage buffer is no longer required after this step
-  //
-  // TODO(wesm): investigate whether this all-or-nothing decoding of the
-  // dictionary makes sense and whether performance can be improved
+    // The dictionary is fully decoded during DictionaryDecoder::Init, so the
+    // DictionaryPage buffer is no longer required after this step
+    //
+    // TODO(wesm): investigate whether this all-or-nothing decoding of the
+    // dictionary makes sense and whether performance can be improved
 
-  auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_);
-  decoder->SetDict(&dictionary);
+    auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_);
+    decoder->SetDict(&dictionary);
+    decoders_[encoding] = decoder;
+  } else {
+    ParquetException::NYI("only plain dictionary encoding has been implemented");
+  }
 
-  decoders_[encoding] = decoder;
   current_decoder_ = decoders_[encoding].get();
 }
 
@@ -130,6 +139,9 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
 
       auto it = decoders_.find(static_cast<int>(encoding));
       if (it != decoders_.end()) {
+        if (encoding == Encoding::RLE_DICTIONARY) {
+            DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
+        }
         current_decoder_ = it->second.get();
       } else {
         switch (encoding) {

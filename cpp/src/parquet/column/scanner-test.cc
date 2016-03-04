@@ -217,6 +217,12 @@ TEST_F(TestFLBAFlatScanner, TestDictScanner) {
       Encoding::RLE_DICTIONARY);
 }
 
+TEST_F(TestFLBAFlatScanner, TestPlainDictScanner) {
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
+      Encoding::PLAIN_DICTIONARY);
+}
+
+
 //PARQUET 502
 TEST_F(TestFlatFLBAScanner, TestSmallBatch) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED,

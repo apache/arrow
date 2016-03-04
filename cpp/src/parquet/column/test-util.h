@@ -444,7 +444,8 @@ static int MakePages(const ColumnDescriptor *d, int num_pages, int levels_per_pa
     InitValues<typename Type::c_type>(num_values, values, buffer);
     PaginatePlain<Type>(d, values, def_levels, max_def_level,
         rep_levels, max_rep_level, levels_per_page, values_per_page, pages);
-  } else if (encoding == Encoding::RLE_DICTIONARY) {
+  } else if (encoding == Encoding::RLE_DICTIONARY
+      || encoding == Encoding::PLAIN_DICTIONARY) {
     // Calls InitValues and repeats the data
     InitDictValues<typename Type::c_type>(num_values, levels_per_page, values, buffer);
     PaginateDict<Type>(d, values, def_levels, max_def_level,

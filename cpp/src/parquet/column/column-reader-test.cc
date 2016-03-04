@@ -155,5 +155,70 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   ExecuteDict(num_pages, levels_per_page, &descr);
 }
 
+TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
+  max_def_level_ = 0;
+  max_rep_level_ = 0;
+  NodePtr type = schema::Int32("a", Repetition::REQUIRED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  shared_ptr<OwnedMutableBuffer> dummy = std::make_shared<OwnedMutableBuffer>();
+
+  shared_ptr<DictionaryPage> dict_page = std::make_shared<DictionaryPage>(dummy,
+      0, Encoding::PLAIN);
+  shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
+      Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  pages_.push_back(dict_page);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  // Tests Dict : PLAIN, Data : RLE_DICTIONARY
+  ASSERT_NO_THROW(reader_->HasNext());
+  pages_.clear();
+
+  dict_page = std::make_shared<DictionaryPage>(dummy,
+      0, Encoding::PLAIN_DICTIONARY);
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
+      Encoding::PLAIN_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  pages_.push_back(dict_page);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  // Tests Dict : PLAIN_DICTIONARY, Data : PLAIN_DICTIONARY
+  ASSERT_NO_THROW(reader_->HasNext());
+  pages_.clear();
+
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
+      Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  // Tests dictionary page must occur before data page
+  ASSERT_THROW(reader_->HasNext(), ParquetException);
+  pages_.clear();
+
+  dict_page = std::make_shared<DictionaryPage>(dummy,
+      0, Encoding::DELTA_BYTE_ARRAY);
+  pages_.push_back(dict_page);
+  InitReader(&descr);
+  // Tests only RLE_DICTIONARY is supported
+  ASSERT_THROW(reader_->HasNext(), ParquetException);
+  pages_.clear();
+
+  shared_ptr<DictionaryPage> dict_page1 = std::make_shared<DictionaryPage>(dummy,
+      0, Encoding::PLAIN_DICTIONARY);
+  shared_ptr<DictionaryPage> dict_page2 = std::make_shared<DictionaryPage>(dummy,
+      0, Encoding::PLAIN);
+  pages_.push_back(dict_page1);
+  pages_.push_back(dict_page2);
+  InitReader(&descr);
+  // Column cannot have more than one dictionary
+  ASSERT_THROW(reader_->HasNext(), ParquetException);
+  pages_.clear();
+
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
+      Encoding::DELTA_BYTE_ARRAY, {}, 0, {}, 0, {}, 0);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  // unsupported encoding
+  ASSERT_THROW(reader_->HasNext(), ParquetException);
+  pages_.clear();
+}
+
 } // namespace test
 } // namespace parquet_cpp
