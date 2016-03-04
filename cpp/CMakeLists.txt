@@ -54,7 +54,7 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  option(ARROW_WITH_PARQUET
+  option(ARROW_PARQUET
     "Build the Parquet adapter and link to libparquet"
     OFF)
 
@@ -441,7 +441,7 @@ endif (UNIX)
 #----------------------------------------------------------------------
 # Parquet adapter
 
-if(ARROW_WITH_PARQUET)
+if(ARROW_PARQUET)
   find_package(Parquet REQUIRED)
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(parquet
