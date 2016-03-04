@@ -33,7 +33,7 @@ typedef std::vector<std::shared_ptr<Array> > ArrayVector;
 // large array
 class ChunkedArray {
  public:
-  ChunkedArray(const ArrayVector& chunks);
+  explicit ChunkedArray(const ArrayVector& chunks);
 
   // @returns: the total length of the chunked array; computed on construction
   int64_t length() const {

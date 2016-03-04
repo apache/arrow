@@ -68,7 +68,6 @@ TEST_F(TestColumn, BasicAPI) {
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
-
 }
 
 } // namespace arrow
