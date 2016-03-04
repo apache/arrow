@@ -33,6 +33,10 @@ static inline int64_t ceil_byte(int64_t size) {
   return (size + 7) & ~7;
 }
 
+static inline int64_t bytes_for_bits(int64_t size) {
+  return ceil_byte(size) / 8;
+}
+
 static inline int64_t ceil_2bytes(int64_t size) {
   return (size + 15) & ~15;
 }

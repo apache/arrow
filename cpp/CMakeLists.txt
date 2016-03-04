@@ -458,10 +458,12 @@ endif()
 
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/util)
+add_subdirectory(src/arrow/table)
 add_subdirectory(src/arrow/types)
 
 set(LINK_LIBS
   arrow_util
+  arrow_table
   arrow_types)
 
 set(ARROW_SRCS

@@ -19,4 +19,16 @@
 
 namespace arrow {
 
+const std::shared_ptr<BooleanType> BOOL = std::make_shared<BooleanType>();
+const std::shared_ptr<UInt8Type> UINT8 = std::make_shared<UInt8Type>();
+const std::shared_ptr<UInt16Type> UINT16 = std::make_shared<UInt16Type>();
+const std::shared_ptr<UInt32Type> UINT32 = std::make_shared<UInt32Type>();
+const std::shared_ptr<UInt64Type> UINT64 = std::make_shared<UInt64Type>();
+const std::shared_ptr<Int8Type> INT8 = std::make_shared<Int8Type>();
+const std::shared_ptr<Int16Type> INT16 = std::make_shared<Int16Type>();
+const std::shared_ptr<Int32Type> INT32 = std::make_shared<Int32Type>();
+const std::shared_ptr<Int64Type> INT64 = std::make_shared<Int64Type>();
+const std::shared_ptr<FloatType> FLOAT = std::make_shared<FloatType>();
+const std::shared_ptr<DoubleType> DOUBLE = std::make_shared<DoubleType>();
+
 } // namespace arrow
