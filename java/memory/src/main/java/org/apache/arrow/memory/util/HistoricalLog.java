@@ -126,7 +126,7 @@ public class HistoricalLog {
   /**
    *
    * @param sb
-   * @param indexLevel
+   * @param indent
    * @param includeStackTrace
    */
   public synchronized void buildHistory(final StringBuilder sb, int indent, boolean includeStackTrace) {

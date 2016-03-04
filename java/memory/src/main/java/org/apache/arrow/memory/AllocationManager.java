@@ -328,7 +328,8 @@ public class AllocationManager {
      * destroyed before use.
      *
      * @param allocator
-     * @return
+     *          A BufferAllocator.
+     * @return The ledger associated with the BufferAllocator.
      */
     public BufferLedger getLedgerForAllocator(BufferAllocator allocator) {
       return associate((BaseAllocator) allocator);
@@ -356,8 +357,6 @@ public class AllocationManager {
      *          The length in bytes that this ArrowBuf will provide access to.
      * @param manager
      *          An optional BufferManager argument that can be used to manage expansion of this ArrowBuf
-     * @param retain
-     *          Whether or not the newly created buffer should get an additional reference count added to it.
      * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length, BufferManager manager) {
