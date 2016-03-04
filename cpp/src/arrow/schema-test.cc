@@ -31,7 +31,7 @@ using std::vector;
 namespace arrow {
 
 TEST(TestField, Basics) {
-  shared_ptr<DataType> ftype = std::make_shared<Int32Type>();
+  shared_ptr<DataType> ftype = INT32;
   shared_ptr<DataType> ftype_nn = std::make_shared<Int32Type>(false);
   Field f0("f0", ftype);
   Field f0_nn("f0", ftype_nn);
@@ -44,7 +44,7 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, Equals) {
-  shared_ptr<DataType> ftype = std::make_shared<Int32Type>();
+  shared_ptr<DataType> ftype = INT32;
   shared_ptr<DataType> ftype_nn = std::make_shared<Int32Type>(false);
 
   Field f0("f0", ftype);
@@ -61,8 +61,7 @@ class TestSchema : public ::testing::Test {
 };
 
 TEST_F(TestSchema, Basics) {
-  auto f0 = std::make_shared<Field>("f0", std::make_shared<Int32Type>());
-
+  auto f0 = std::make_shared<Field>("f0", INT32);
   auto f1 = std::make_shared<Field>("f1", std::make_shared<UInt8Type>(false));
   auto f1_optional = std::make_shared<Field>("f1", std::make_shared<UInt8Type>());
 
