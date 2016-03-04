@@ -133,17 +133,13 @@ struct LogicalType {
   };
 };
 
-struct DataType : public std::enable_shared_from_this<DataType> {
+struct DataType {
   LogicalType::type type;
   bool nullable;
 
   explicit DataType(LogicalType::type type, bool nullable = true) :
       type(type),
       nullable(nullable) {}
-
-  std::shared_ptr<DataType> operator()() {
-    return shared_from_this();
-  }
 
   virtual bool Equals(const DataType* other) {
     return this == other || (this->type == other->type &&
