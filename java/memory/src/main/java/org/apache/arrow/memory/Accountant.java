@@ -247,7 +247,7 @@ class Accountant implements AutoCloseable {
     /**
      * Allocation succeeded but only because the allocator was forced to move beyond a limit.
      */
-    FORCED_SUCESS(true),
+    FORCED_SUCCESS(true),
 
     /**
      * Allocation failed because the local allocator's limits were exceeded.
