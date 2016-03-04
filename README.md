@@ -33,11 +33,13 @@ other Arrow-enabled systems.
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
-- [Join the mailing list][1]. Share your ideas and use cases for the project.
+- Join the mailing list: send an email to
+  [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
+  project.
 - [Follow our activity on JIRA][3]
 - [Learn the format][2]
 - Contribute code to one of the reference implementations
 
-[1]: dev-subscribe@arrow.apache.org
+[1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
