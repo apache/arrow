@@ -28,7 +28,7 @@ namespace arrow {
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) :
     chunks_(chunks) {
   length_ = 0;
-  for (auto chunk : chunks) {
+  for (const std::shared_ptr<Array>& chunk : chunks) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
