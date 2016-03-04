@@ -68,7 +68,7 @@ class Column {
 
   // @returns: the column's name in the passed metadata
   const std::string& name() const {
-    return field_->name();
+    return field_->name;
   }
 
   // @returns: the column's type according to the metadata

@@ -25,6 +25,10 @@
 #include "arrow/schema.h"
 #include "arrow/table/column.h"
 #include "arrow/type.h"
+#include "arrow/types/integer.h"
+#include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -38,7 +42,11 @@ class TestColumn : public ::testing::Test {
   }
 
   std::shared_ptr<Array> MakeInt32Array(int32_t length, int32_t null_count = 0) {
-
+    auto data = std::make_shared<PoolBuffer>(pool_);
+    auto nulls = std::make_shared<PoolBuffer>(pool_);
+    data->Resize(400);
+    data->Resize(13);
+    return std::make_shared<Int32Array>(100, data, 10, nulls);
   }
 
  protected:
@@ -55,9 +63,8 @@ TEST_F(TestColumn, BasicAPI) {
   arrays.push_back(MakeInt32Array(100, 10));
   arrays.push_back(MakeInt32Array(100, 20));
 
-  auto field = std::make_shared<Field>("c0",
-
-  column_.reset(new Column(arrays)
+  auto field = std::make_shared<Field>("c0", INT32);
+  column_.reset(new Column(field, arrays));
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {

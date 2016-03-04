@@ -20,6 +20,7 @@
 #######################################
 
 set(TABLE_SRCS
+  column.cc
 )
 
 set(TABLE_LIBS
