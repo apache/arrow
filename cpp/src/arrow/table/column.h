@@ -40,17 +40,20 @@ class ChunkedArray {
     return length_;
   }
 
+  int64_t null_count() const {
+    return null_count_;
+  }
+
   int num_chunks() const {
     return chunks_.size();
   }
 
   const std::shared_ptr<Array>& chunk(int i) const;
 
-  int64_t total_null_count() const;
-
  protected:
   ArrayVector chunks_;
   int64_t length_;
+  int64_t null_count_;
 };
 
 // An immutable column data structure consisting of a field (type metadata) and
@@ -64,6 +67,10 @@ class Column {
 
   int64_t length() const {
     return data_->length();
+  }
+
+  int64_t null_count() const {
+    return data_->null_count();
   }
 
   // @returns: the column's name in the passed metadata

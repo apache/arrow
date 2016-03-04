@@ -28,6 +28,7 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) :
   length_ = 0;
   for (auto chunk : chunks) {
     length_ += chunk->length();
+    null_count_ += chunk->null_count();
   }
 }
 

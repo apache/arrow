@@ -65,6 +65,10 @@ TEST_F(TestColumn, BasicAPI) {
 
   auto field = std::make_shared<Field>("c0", INT32);
   column_.reset(new Column(field, arrays));
+
+  ASSERT_EQ(300, column_->length());
+  ASSERT_EQ(30, column_->null_count());
+  ASSERT_EQ(3, column_->data()->num_chunks());
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
