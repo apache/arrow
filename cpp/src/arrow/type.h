@@ -142,8 +142,13 @@ struct DataType {
       nullable(nullable) {}
 
   virtual bool Equals(const DataType* other) {
+    // Call with a pointer so more friendly to subclasses
     return this == other || (this->type == other->type &&
         this->nullable == other->nullable);
+  }
+
+  bool Equals(const std::shared_ptr<DataType>& other) {
+    return Equals(other.get());
   }
 
   virtual std::string ToString() const = 0;

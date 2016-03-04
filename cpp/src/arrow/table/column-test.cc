@@ -24,8 +24,10 @@
 #include "arrow/field.h"
 #include "arrow/schema.h"
 #include "arrow/table/column.h"
+#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/types/integer.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
@@ -41,12 +43,13 @@ class TestColumn : public ::testing::Test {
     pool_ = GetDefaultMemoryPool();
   }
 
-  std::shared_ptr<Array> MakeInt32Array(int32_t length, int32_t null_count = 0) {
+  template <typename ArrayType>
+  std::shared_ptr<Array> MakeArray(int32_t length, int32_t null_count = 0) {
     auto data = std::make_shared<PoolBuffer>(pool_);
     auto nulls = std::make_shared<PoolBuffer>(pool_);
-    data->Resize(400);
-    data->Resize(13);
-    return std::make_shared<Int32Array>(100, data, 10, nulls);
+    data->Resize(length * sizeof(typename ArrayType::value_type));
+    nulls->Resize(util::bytes_for_bits(length));
+    return std::make_shared<ArrayType>(length, data, 10, nulls);
   }
 
  protected:
@@ -58,20 +61,33 @@ class TestColumn : public ::testing::Test {
 
 TEST_F(TestColumn, BasicAPI) {
   ArrayVector arrays;
-
-  arrays.push_back(MakeInt32Array(100));
-  arrays.push_back(MakeInt32Array(100, 10));
-  arrays.push_back(MakeInt32Array(100, 20));
+  arrays.push_back(MakeArray<Int32Array>(100));
+  arrays.push_back(MakeArray<Int32Array>(100, 10));
+  arrays.push_back(MakeArray<Int32Array>(100, 20));
 
   auto field = std::make_shared<Field>("c0", INT32);
   column_.reset(new Column(field, arrays));
 
+  ASSERT_EQ("c0", column_->name());
+  ASSERT_TRUE(column_->type()->Equals(INT32));
   ASSERT_EQ(300, column_->length());
   ASSERT_EQ(30, column_->null_count());
   ASSERT_EQ(3, column_->data()->num_chunks());
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
+  ArrayVector arrays;
+  arrays.push_back(MakeArray<Int32Array>(100));
+  arrays.push_back(MakeArray<Int32Array>(100, 10));
+
+  auto field = std::make_shared<Field>("c0", INT32);
+  column_.reset(new Column(field, arrays));
+
+  ASSERT_OK(column_->ValidateData());
+
+  arrays.push_back(MakeArray<Int16Array>(100, 10));
+  column_.reset(new Column(field, arrays));
+  ASSERT_RAISES(Invalid, column_->ValidateData());
 }
 
 } // namespace arrow

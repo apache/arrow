@@ -81,7 +81,6 @@ class Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
-
 typedef std::shared_ptr<Array> ArrayPtr;
 
 } // namespace arrow

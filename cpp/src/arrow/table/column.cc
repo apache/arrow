@@ -18,8 +18,10 @@
 #include "arrow/table/column.h"
 
 #include <memory>
+#include <sstream>
 
 #include "arrow/field.h"
+#include "arrow/util/status.h"
 
 namespace arrow {
 
@@ -41,5 +43,20 @@ Column::Column(const std::shared_ptr<Field>& field,
     const std::shared_ptr<ChunkedArray>& data) :
     field_(field),
     data_(data) {}
+
+Status Column::ValidateData() {
+  for (int i = 0; i < data_->num_chunks(); ++i) {
+    const std::shared_ptr<DataType>& type = data_->chunk(i)->type();
+    if (!this->type()->Equals(type)) {
+      std::stringstream ss;
+      ss << "In chunk " << i << " expected type "
+         << this->type()->ToString()
+         << " but saw "
+         << type->ToString();
+      return Status::Invalid(ss.str());
+    }
+  }
+  return Status::OK();
+}
 
 } // namespace arrow

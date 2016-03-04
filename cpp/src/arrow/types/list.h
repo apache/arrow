@@ -132,7 +132,7 @@ class ListBuilder : public Int32Builder {
   //
   // If passed, null_bytes is of equal length to values, and any nonzero byte
   // will be considered as a null for that slot
-  Status Append(T* values, int32_t length, uint8_t* null_bytes = nullptr) {
+  Status Append(value_type* values, int32_t length, uint8_t* null_bytes = nullptr) {
     if (length_ + length > capacity_) {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));

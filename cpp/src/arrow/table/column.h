@@ -48,7 +48,9 @@ class ChunkedArray {
     return chunks_.size();
   }
 
-  const std::shared_ptr<Array>& chunk(int i) const;
+  const std::shared_ptr<Array>& chunk(int i) const {
+    return chunks_[i];
+  }
 
  protected:
   ArrayVector chunks_;
