@@ -18,10 +18,14 @@
 #ifndef PYARROW_INIT_H
 #define PYARROW_INIT_H
 
-namespace pyarrow {
+namespace arrow {
+
+namespace py {
 
 void pyarrow_init();
 
-} // namespace pyarrow
+} // namespace py
+
+} // namespace arrow
 
 #endif // PYARROW_INIT_H
