@@ -70,5 +70,4 @@ Status Table::ValidateColumns() const {
   return Status::OK();
 }
 
-
 } // namespace arrow

@@ -31,7 +31,6 @@ class Status;
 // Immutable container of fixed-length columns conforming to a particular schema
 class Table {
  public:
-
   // If columns is zero-length, the table's number of rows is zero
   Table(const std::string& name, const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<Column> >& columns);
