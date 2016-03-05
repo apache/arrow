@@ -15,19 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  builder.h
-  field.h
-  type.h
-  DESTINATION include/arrow)
+# distutils: language = c++
 
-#######################################
-# Unit tests
-#######################################
+from libc.stdint cimport *
+from libcpp cimport bool as c_bool
+from libcpp.string cimport string
+from libcpp.vector cimport vector
 
-set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
+# This must be included for cerr and other things to work
+cdef extern from "<iostream>":
+    pass
 
-ADD_ARROW_TEST(array-test)
+cdef extern from "<memory>" namespace "std" nogil:
+
+    cdef cppclass shared_ptr[T]:
+        T* get()
+        void reset()
+        void reset(T* p)

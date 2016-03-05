@@ -15,19 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  builder.h
-  field.h
-  type.h
-  DESTINATION include/arrow)
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
 
-#######################################
-# Unit tests
-#######################################
-
-set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
-
-ADD_ARROW_TEST(array-test)
+from arrow.compat import frombytes, tobytes
+from arrow.includes.parquet cimport *

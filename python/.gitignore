@@ -1,0 +1,37 @@
+thirdparty/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+Makefile
+cmake_install.cmake
+build/
+Testing/
+
+# Python stuff
+
+# Editor temporary/working/backup files
+*flymake*
+
+# Compiled source
+*.a
+*.dll
+*.o
+*.py[ocd]
+*.so
+.build_cache_dir
+MANIFEST
+
+# Generated sources
+*.c
+*.cpp
+# Python files
+
+# setup.py working directory
+build
+# setup.py dist directory
+dist
+# Egg metadata
+*.egg-info
+# coverage
+.coverage
+coverage.xml

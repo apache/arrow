@@ -15,19 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  builder.h
-  field.h
-  type.h
-  DESTINATION include/arrow)
+# distutils: language = c++
 
-#######################################
-# Unit tests
-#######################################
+from arrow.includes.common cimport *
 
-set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
+cdef extern from "parquet/api/reader.h" namespace "parquet_cpp" nogil:
+    cdef cppclass ColumnReader:
+        pass
 
-ADD_ARROW_TEST(array-test)
+    cdef cppclass BoolReader(ColumnReader):
+        pass
+
+    cdef cppclass Int32Reader(ColumnReader):
+        pass
+
+    cdef cppclass Int64Reader(ColumnReader):
+        pass
+
+    cdef cppclass Int96Reader(ColumnReader):
+        pass
+
+    cdef cppclass FloatReader(ColumnReader):
+        pass
+
+    cdef cppclass DoubleReader(ColumnReader):
+        pass
+
+    cdef cppclass ByteArrayReader(ColumnReader):
+        pass
+
+    cdef cppclass RowGroupReader:
+        pass
+
+    cdef cppclass ParquetFileReader:
+        pass

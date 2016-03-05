@@ -36,6 +36,9 @@ SET_TARGET_PROPERTIES(arrow_table PROPERTIES LINKER_LANGUAGE CXX)
 
 # Headers: top level
 install(FILES
+  column.h
+  schema.h
+  table.h
   DESTINATION include/arrow/table)
 
 ADD_ARROW_TEST(column-test)

@@ -15,19 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  builder.h
-  field.h
-  type.h
-  DESTINATION include/arrow)
+# distutils: language = c++
 
-#######################################
-# Unit tests
-#######################################
+from arrow.includes.common cimport *
 
-set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
-
-ADD_ARROW_TEST(array-test)
+cdef extern from "arrow/api.h" namespace "arrow" nogil:
+    pass
