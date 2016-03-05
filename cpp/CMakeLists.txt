@@ -470,7 +470,6 @@ set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/builder.cc
   src/arrow/field.cc
-  src/arrow/schema.cc
   src/arrow/type.cc
 )
 

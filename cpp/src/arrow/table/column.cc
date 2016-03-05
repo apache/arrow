@@ -40,6 +40,12 @@ Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks) :
 }
 
 Column::Column(const std::shared_ptr<Field>& field,
+    const std::shared_ptr<Array>& data) :
+    field_(field) {
+  data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
+}
+
+Column::Column(const std::shared_ptr<Field>& field,
     const std::shared_ptr<ChunkedArray>& data) :
     field_(field),
     data_(data) {}

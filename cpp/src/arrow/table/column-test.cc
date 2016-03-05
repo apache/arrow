@@ -22,48 +22,29 @@
 #include <vector>
 
 #include "arrow/field.h"
-#include "arrow/schema.h"
 #include "arrow/table/column.h"
+#include "arrow/table/schema.h"
+#include "arrow/table/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/types/integer.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 using std::shared_ptr;
 using std::vector;
 
 namespace arrow {
 
-class TestColumn : public ::testing::Test {
- public:
-  void SetUp() {
-    pool_ = GetDefaultMemoryPool();
-  }
-
-  template <typename ArrayType>
-  std::shared_ptr<Array> MakeArray(int32_t length, int32_t null_count = 0) {
-    auto data = std::make_shared<PoolBuffer>(pool_);
-    auto nulls = std::make_shared<PoolBuffer>(pool_);
-    data->Resize(length * sizeof(typename ArrayType::value_type));
-    nulls->Resize(util::bytes_for_bits(length));
-    return std::make_shared<ArrayType>(length, data, 10, nulls);
-  }
-
+class TestColumn : public TestBase {
  protected:
-  MemoryPool* pool_;
-
   std::shared_ptr<ChunkedArray> data_;
   std::unique_ptr<Column> column_;
 };
 
 TEST_F(TestColumn, BasicAPI) {
   ArrayVector arrays;
-  arrays.push_back(MakeArray<Int32Array>(100));
-  arrays.push_back(MakeArray<Int32Array>(100, 10));
-  arrays.push_back(MakeArray<Int32Array>(100, 20));
+  arrays.push_back(MakePrimitive<Int32Array>(100));
+  arrays.push_back(MakePrimitive<Int32Array>(100, 10));
+  arrays.push_back(MakePrimitive<Int32Array>(100, 20));
 
   auto field = std::make_shared<Field>("c0", INT32);
   column_.reset(new Column(field, arrays));
@@ -77,15 +58,15 @@ TEST_F(TestColumn, BasicAPI) {
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
   ArrayVector arrays;
-  arrays.push_back(MakeArray<Int32Array>(100));
-  arrays.push_back(MakeArray<Int32Array>(100, 10));
+  arrays.push_back(MakePrimitive<Int32Array>(100));
+  arrays.push_back(MakePrimitive<Int32Array>(100, 10));
 
   auto field = std::make_shared<Field>("c0", INT32);
   column_.reset(new Column(field, arrays));
 
   ASSERT_OK(column_->ValidateData());
 
-  arrays.push_back(MakeArray<Int16Array>(100, 10));
+  arrays.push_back(MakePrimitive<Int16Array>(100, 10));
   column_.reset(new Column(field, arrays));
   ASSERT_RAISES(Invalid, column_->ValidateData());
 }
