@@ -30,4 +30,3 @@ install(FILES
 set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)
-ADD_ARROW_TEST(schema-test)

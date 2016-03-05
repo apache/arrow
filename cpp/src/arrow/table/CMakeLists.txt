@@ -21,6 +21,8 @@
 
 set(TABLE_SRCS
   column.cc
+  schema.cc
+  table.cc
 )
 
 set(TABLE_LIBS
@@ -37,3 +39,5 @@ install(FILES
   DESTINATION include/arrow/table)
 
 ADD_ARROW_TEST(column-test)
+ADD_ARROW_TEST(schema-test)
+ADD_ARROW_TEST(table-test)

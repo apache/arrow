@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "arrow/field.h"
-#include "arrow/schema.h"
+#include "arrow/table/schema.h"
 #include "arrow/type.h"
 #include "arrow/types/string.h"
 

@@ -15,44 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/schema.h"
-
+#include <gtest/gtest.h>
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <sstream>
 #include <vector>
 
 #include "arrow/field.h"
+#include "arrow/table/column.h"
+#include "arrow/table/schema.h"
+#include "arrow/table/table.h"
+#include "arrow/test-util.h"
+#include "arrow/type.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
 
 namespace arrow {
 
-Schema::Schema(const std::vector<std::shared_ptr<Field> >& fields) :
-    fields_(fields) {}
-
-bool Schema::Equals(const Schema& other) const {
-  if (this == &other) return true;
-  if (num_fields() != other.num_fields()) {
-    return false;
+class TestBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    pool_ = GetDefaultMemoryPool();
   }
-  for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) {
-      return false;
-    }
+
+  template <typename ArrayType>
+  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+    auto data = std::make_shared<PoolBuffer>(pool_);
+    auto nulls = std::make_shared<PoolBuffer>(pool_);
+    EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
+    EXPECT_OK(nulls->Resize(util::bytes_for_bits(length)));
+    return std::make_shared<ArrayType>(length, data, 10, nulls);
   }
-  return true;
-}
 
-bool Schema::Equals(const std::shared_ptr<Schema>& other) const {
-  return Equals(*other.get());
-}
-
-std::string Schema::ToString() const {
-  std::stringstream buffer;
-
-  for (auto field : fields_) {
-    buffer << field->ToString() << std::endl;
-  }
-  return buffer.str();
-}
+ protected:
+  MemoryPool* pool_;
+};
 
 } // namespace arrow

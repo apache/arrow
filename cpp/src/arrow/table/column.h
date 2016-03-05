@@ -67,6 +67,8 @@ class Column {
   Column(const std::shared_ptr<Field>& field,
       const std::shared_ptr<ChunkedArray>& data);
 
+  Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data);
+
   int64_t length() const {
     return data_->length();
   }
