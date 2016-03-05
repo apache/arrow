@@ -108,6 +108,10 @@ TEST_F(TestTable, InvalidColumns) {
 
   columns_.clear();
 
+  // Wrong number of columns
+  table_.reset(new Table("data", schema_, columns_, length));
+  ASSERT_RAISES(Invalid, table_->ValidateColumns());
+
   columns_ = {
     std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
     std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
