@@ -15,20 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_HELPERS_H
-#define PYARROW_HELPERS_H
+// Functions for converting between CPython built-in data structures and Arrow
+// data structures
 
-#include <arrow/api.h>
+#ifndef PYARROW_ADAPTERS_BUILTIN_H
+#define PYARROW_ADAPTERS_BUILTIN_H
+
+#include <Python.h>
+
 #include <memory>
+
+#include "pyarrow/common.h"
+
+namespace arrow { class Array; }
 
 namespace pyarrow {
 
-using arrow::DataType;
-using arrow::LogicalType;
+class Status;
 
-std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
-    bool nullable);
+Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
 
 } // namespace pyarrow
 
-#endif // PYARROW_HELPERS_H
+#endif // PYARROW_ADAPTERS_BUILTIN_H

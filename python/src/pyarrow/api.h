@@ -18,4 +18,6 @@
 #ifndef PYARROW_API_H
 #define PYARROW_API_H
 
+#include "pyarrow/status.h"
+
 #endif // PYARROW_API_H

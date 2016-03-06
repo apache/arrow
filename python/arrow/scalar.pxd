@@ -15,29 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# distutils: language = c++
-
 from arrow.includes.common cimport *
-from arrow.includes.arrow cimport LogicalType, CDataType
+from arrow.includes.arrow cimport CArray, CListArray
 
-cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef Status Status_OK "Status::OK"()
+from arrow.schema cimport DataType
 
-    cdef cppclass Status:
-        Status()
-
-        c_string ToString()
-
-        c_bool ok()
-        c_bool IsOutOfMemory()
-        c_bool IsKeyError()
-        c_bool IsTypeError()
-        c_bool IsIOError()
-        c_bool IsValueError()
-        c_bool IsNotImplemented()
-        c_bool IsArrowError()
+cdef class ScalarValue:
+    cdef readonly:
+        shared_ptr[CArray] array
+        int index
+        DataType type
 
 
-cdef extern from "pyarrow/helpers.h" namespace "pyarrow" nogil:
-    shared_ptr[CDataType] GetPrimitiveType(LogicalType type, c_bool nullable);
+cdef class Int8Value:
+    pass
+
+
+cdef class ListValue:
+    pass
+
+
+cdef class StringValue:
+    pass
