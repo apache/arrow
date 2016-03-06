@@ -19,22 +19,6 @@
 # arrow_util
 #######################################
 
-set(UTIL_SRCS
-  bit-util.cc
-  buffer.cc
-  memory-pool.cc
-  status.cc
-)
-
-set(UTIL_LIBS
-)
-
-add_library(arrow_util STATIC
-  ${UTIL_SRCS}
-)
-target_link_libraries(arrow_util ${UTIL_LIBS})
-SET_TARGET_PROPERTIES(arrow_util PROPERTIES LINKER_LANGUAGE CXX)
-
 # Headers: top level
 install(FILES
   bit-util.h
@@ -50,7 +34,7 @@ install(FILES
 
 add_library(arrow_test_util)
 target_link_libraries(arrow_test_util
-  arrow_util)
+)
 
 SET_TARGET_PROPERTIES(arrow_test_util PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -64,7 +48,6 @@ add_library(arrow_test_main
 if (APPLE)
   target_link_libraries(arrow_test_main
     gtest
-	arrow_util
 	arrow_test_util
     dl)
   set_target_properties(arrow_test_main
@@ -72,7 +55,6 @@ if (APPLE)
 else()
   target_link_libraries(arrow_test_main
     gtest
-	arrow_util
 	arrow_test_util
     pthread
     dl

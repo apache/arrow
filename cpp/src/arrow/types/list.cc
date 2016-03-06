@@ -24,10 +24,10 @@ namespace arrow {
 
 std::string ListType::ToString() const {
   std::stringstream s;
-  if (this->nullable) {
-    s << "?";
-  }
   s << "list<" << value_type->ToString() << ">";
+  if (!this->nullable) {
+    s << " not null";
+  }
   return s.str();
 }
 

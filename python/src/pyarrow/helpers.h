@@ -15,20 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_NULL_H
-#define ARROW_TYPES_NULL_H
+#ifndef PYARROW_HELPERS_H
+#define PYARROW_HELPERS_H
 
-#include <string>
-#include <vector>
-
-#include "arrow/type.h"
+#include <arrow/api.h>
+#include <memory>
 
 namespace arrow {
 
-struct NullType : public PrimitiveType<NullType> {
-  PRIMITIVE_DECL(NullType, void, NA, 0, "null");
-};
+namespace py {
+
+std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
+    bool nullable);
+
+} // namespace py
 
 } // namespace arrow
 
-#endif // ARROW_TYPES_NULL_H
+#endif // PYARROW_HELPERS_H

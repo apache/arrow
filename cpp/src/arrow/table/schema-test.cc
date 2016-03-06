@@ -97,10 +97,10 @@ TEST_F(TestSchema, ToString) {
   auto schema = std::make_shared<Schema>(fields);
 
   std::string result = schema->ToString();
-  std::string expected = R"(f0 ?int32
-f1 uint8
-f2 ?string
-f3 ?list<?int16>
+  std::string expected = R"(f0 int32
+f1 uint8 not null
+f2 string
+f3 list<int16>
 )";
 
   ASSERT_EQ(expected, result);

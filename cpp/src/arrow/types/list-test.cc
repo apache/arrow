@@ -47,17 +47,18 @@ TEST(TypesTest, TestListType) {
   ASSERT_EQ(list_type.type, LogicalType::LIST);
 
   ASSERT_EQ(list_type.name(), string("list"));
-  ASSERT_EQ(list_type.ToString(), string("?list<?uint8>"));
+  ASSERT_EQ(list_type.ToString(), string("list<uint8>"));
 
   ASSERT_EQ(list_type.value_type->type, vt->type);
   ASSERT_EQ(list_type.value_type->type, vt->type);
 
   std::shared_ptr<DataType> st = std::make_shared<StringType>(false);
   std::shared_ptr<DataType> lt = std::make_shared<ListType>(st, false);
-  ASSERT_EQ(lt->ToString(), string("list<string>"));
+  ASSERT_EQ(lt->ToString(), string("list<string not null> not null"));
 
   ListType lt2(lt, false);
-  ASSERT_EQ(lt2.ToString(), string("list<list<string>>"));
+  ASSERT_EQ(lt2.ToString(),
+      string("list<list<string not null> not null> not null"));
 }
 
 // ----------------------------------------------------------------------

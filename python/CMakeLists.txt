@@ -45,6 +45,12 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
+
 ############################################################
 # Compiler flags
 ############################################################
@@ -389,6 +395,7 @@ add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
 set(PYARROW_SRCS
+  src/pyarrow/helpers.cc
   src/pyarrow/init.cc
 )
 
@@ -410,11 +417,12 @@ endif()
 # Setup and build Cython modules
 ############################################################
 
-foreach(pyx_api_file
-    arrow/config.pyx
-    arrow/parquet.pyx)
-    set_source_files_properties(${pyx_api_file} PROPERTIES CYTHON_API 1)
-endforeach(pyx_api_file)
+# foreach(pyx_api_file
+#     arrow/config.pyx
+#     arrow/parquet.pyx
+# 	arrow/schema.pyx)
+#     set_source_files_properties(${pyx_api_file} PROPERTIES CYTHON_API 1)
+# endforeach(pyx_api_file)
 
 set(USE_RELATIVE_RPATH ON)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
@@ -422,6 +430,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CYTHON_EXTENSIONS
   config
   parquet
+  schema
 )
 
 foreach(module ${CYTHON_EXTENSIONS})

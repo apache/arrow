@@ -84,11 +84,10 @@ struct StringType : public DataType {
   }
 
   virtual std::string ToString() const {
-    std::string result;
-    if (nullable) {
-      result.append("?");
+    std::string result(name());
+    if (!nullable) {
+      result.append(" not null");
     }
-    result.append(name());
     return result;
   }
 };

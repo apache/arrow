@@ -43,6 +43,7 @@ struct ListType : public DataType {
   explicit ListType(const TypePtr& value_type, bool nullable = true)
       : DataType(LogicalType::LIST, nullable),
         value_type(value_type) {}
+  virtual ~ListType() {}
 
   static char const *name() {
     return "list";

@@ -15,25 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/types/json.h"
+#include "pyarrow/helpers.h"
 
-#include <vector>
-
-#include "arrow/type.h"
-#include "arrow/types/string.h"
-#include "arrow/types/union.h"
+#include <arrow/api.h>
 
 namespace arrow {
 
-static const TypePtr Null(new NullType());
-static const TypePtr Int32(new Int32Type());
-static const TypePtr String(new StringType());
-static const TypePtr Double(new DoubleType());
-static const TypePtr Bool(new BooleanType());
+namespace py {
 
-static const std::vector<TypePtr> json_types = {Null, Int32, String,
-                                                Double, Bool};
-TypePtr JSONScalar::dense_type = TypePtr(new DenseUnionType(json_types));
-TypePtr JSONScalar::sparse_type = TypePtr(new SparseUnionType(json_types));
+#define GET_PRIMITIVE_TYPE(NAME, Type)          \
+  case LogicalType::NAME:                       \
+    if (nullable) {                             \
+      return NAME;                              \
+    } else {                                    \
+      return std::make_shared<Type>(nullable);  \
+    }                                           \
+    break;
+
+std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
+    bool nullable) {
+  switch (type) {
+    case LogicalType::NA:
+      return NA;
+    GET_PRIMITIVE_TYPE(UINT8, UInt8Type);
+    GET_PRIMITIVE_TYPE(INT8, Int8Type);
+    GET_PRIMITIVE_TYPE(UINT32, UInt32Type);
+    GET_PRIMITIVE_TYPE(INT32, Int32Type);
+    default:
+      return nullptr;
+  }
+}
+
+} // namespace py
 
 } // namespace arrow

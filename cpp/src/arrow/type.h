@@ -71,49 +71,46 @@ struct LogicalType {
     UINT64 = 7,
     INT64 = 8,
 
-    // A boolean value represented as 1 byte
+    // A boolean value represented as 1 bit
     BOOL = 9,
 
-    // A boolean value represented as 1 bit
-    BIT = 10,
-
     // 4-byte floating point value
-    FLOAT = 11,
+    FLOAT = 10,
 
     // 8-byte floating point value
-    DOUBLE = 12,
+    DOUBLE = 11,
 
     // CHAR(N): fixed-length UTF8 string with length N
-    CHAR = 13,
+    CHAR = 12,
 
     // UTF8 variable-length string as List<Char>
-    STRING = 14,
+    STRING = 13,
 
     // VARCHAR(N): Null-terminated string type embedded in a CHAR(N + 1)
-    VARCHAR = 15,
+    VARCHAR = 14,
 
     // Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY = 16,
+    BINARY = 15,
 
     // By default, int32 days since the UNIX epoch
-    DATE = 17,
+    DATE = 16,
 
     // Exact timestamp encoded with int64 since UNIX epoch
     // Default unit millisecond
-    TIMESTAMP = 18,
+    TIMESTAMP = 17,
 
     // Timestamp as double seconds since the UNIX epoch
-    TIMESTAMP_DOUBLE = 19,
+    TIMESTAMP_DOUBLE = 18,
 
     // Exact time encoded with int64, default unit millisecond
-    TIME = 20,
+    TIME = 19,
 
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
-    DECIMAL = 21,
+    DECIMAL = 20,
 
     // Decimal value encoded as a text string
-    DECIMAL_TEXT = 22,
+    DECIMAL_TEXT = 21,
 
     // A list of some logical data type
     LIST = 30,
@@ -141,7 +138,9 @@ struct DataType {
       type(type),
       nullable(nullable) {}
 
-  virtual bool Equals(const DataType* other) {
+  virtual ~DataType() {}
+
+  bool Equals(const DataType* other) {
     // Call with a pointer so more friendly to subclasses
     return this == other || (this->type == other->type &&
         this->nullable == other->nullable);
@@ -184,11 +183,10 @@ struct PrimitiveType : public DataType {
       : DataType(Derived::type_enum, nullable) {}
 
   virtual std::string ToString() const {
-    std::string result;
-    if (nullable) {
-      result.append("?");
+    std::string result(static_cast<const Derived*>(this)->name());
+    if (!nullable) {
+      result.append(" not null");
     }
-    result.append(static_cast<const Derived*>(this)->name());
     return result;
   }
 };
@@ -204,6 +202,10 @@ struct PrimitiveType : public DataType {
   static const char* name() {                                       \
     return NAME;                                                    \
   }
+
+struct NullType : public PrimitiveType<NullType> {
+  PRIMITIVE_DECL(NullType, void, NA, 0, "null");
+};
 
 struct BooleanType : public PrimitiveType<BooleanType> {
   PRIMITIVE_DECL(BooleanType, uint8_t, BOOL, 1, "bool");
@@ -249,6 +251,7 @@ struct DoubleType : public PrimitiveType<DoubleType> {
   PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
 };
 
+extern const std::shared_ptr<NullType> NA;
 extern const std::shared_ptr<BooleanType> BOOL;
 extern const std::shared_ptr<UInt8Type> UINT8;
 extern const std::shared_ptr<UInt16Type> UINT16;

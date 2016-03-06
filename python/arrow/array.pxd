@@ -15,17 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from arrow.includes.common cimport shared_ptr
+from arrow.includes.arrow cimport CArray
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
-
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+cdef class Array:
+    cdef:
+        shared_ptr[CArray] sp_array
+        CArray* array

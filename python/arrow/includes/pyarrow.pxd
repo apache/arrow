@@ -18,6 +18,10 @@
 # distutils: language = c++
 
 from arrow.includes.common cimport *
+from arrow.includes.arrow cimport LogicalType, CDataType
 
-cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
+cdef extern from "pyarrow/api.h" namespace "arrow::py" nogil:
     pass
+
+cdef extern from "pyarrow/helpers.h" namespace "arrow::py" nogil:
+    shared_ptr[CDataType] GetPrimitiveType(LogicalType type, c_bool nullable);

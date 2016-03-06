@@ -19,6 +19,7 @@
 
 namespace arrow {
 
+const std::shared_ptr<NullType> NA = std::make_shared<NullType>();
 const std::shared_ptr<BooleanType> BOOL = std::make_shared<BooleanType>();
 const std::shared_ptr<UInt8Type> UINT8 = std::make_shared<UInt8Type>();
 const std::shared_ptr<UInt16Type> UINT16 = std::make_shared<UInt16Type>();

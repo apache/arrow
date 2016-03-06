@@ -207,7 +207,7 @@ class build_ext(_build_ext):
             return name + suffix
 
     def get_cmake_cython_names(self):
-        return ['config', 'parquet']
+        return ['config', 'parquet', 'schema']
 
     def get_names(self):
         return self._found_names

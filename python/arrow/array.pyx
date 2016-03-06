@@ -15,17 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+from arrow.compat import frombytes, tobytes
+from arrow.includes.arrow cimport *
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+
+def from_list(list_obj, type=None):
+    """
+    Convert Python list to Arrow array
+    """
+    pass
