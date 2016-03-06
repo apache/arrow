@@ -71,27 +71,6 @@ struct VarcharType : public DataType {
 static const LayoutPtr byte1(new BytesType(1));
 static const LayoutPtr physical_string = LayoutPtr(new ListLayoutType(byte1));
 
-// String is a logical type consisting of a physical list of 1-byte values
-struct StringType : public DataType {
-  explicit StringType(bool nullable = true)
-      : DataType(LogicalType::STRING, nullable) {}
-
-  StringType(const StringType& other)
-      : StringType() {}
-
-  static char const *name() {
-    return "string";
-  }
-
-  virtual std::string ToString() const {
-    std::string result(name());
-    if (!nullable) {
-      result.append(" not null");
-    }
-    return result;
-  }
-};
-
 // TODO: add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:

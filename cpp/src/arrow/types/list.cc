@@ -17,18 +17,6 @@
 
 #include "arrow/types/list.h"
 
-#include <sstream>
-#include <string>
-
 namespace arrow {
-
-std::string ListType::ToString() const {
-  std::stringstream s;
-  s << "list<" << value_type->ToString() << ">";
-  if (!this->nullable) {
-    s << " not null";
-  }
-  return s.str();
-}
 
 } // namespace arrow

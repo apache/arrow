@@ -22,7 +22,6 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/field.h"
 #include "arrow/type.h"
 
 #include "arrow/table/column.h"

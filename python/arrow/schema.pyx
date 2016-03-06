@@ -66,19 +66,63 @@ cdef DataType primitive_type(LogicalType type, bint nullable=True):
 #------------------------------------------------------------
 # Type factory functions
 
+def bool_(c_bool nullable=True):
+    return primitive_type(LogicalType_BOOL, nullable)
+
+def uint8(c_bool nullable=True):
+    return primitive_type(LogicalType_UINT8, nullable)
+
+def int8(c_bool nullable=True):
+    return primitive_type(LogicalType_INT8, nullable)
+
+def uint16(c_bool nullable=True):
+    return primitive_type(LogicalType_UINT16, nullable)
+
+def int16(c_bool nullable=True):
+    return primitive_type(LogicalType_INT16, nullable)
+
 def uint32(c_bool nullable=True):
     return primitive_type(LogicalType_UINT32, nullable)
 
 def int32(c_bool nullable=True):
     return primitive_type(LogicalType_INT32, nullable)
 
-def list(DataType value_type, c_bool nullable=True):
-    cdef DataType out = DataType()
+def uint64(c_bool nullable=True):
+    return primitive_type(LogicalType_UINT64, nullable)
 
-    cdef shared_ptr[CDataType] tp
-    tp.reset(<CDataType*> new CListType(value_type.sp_type, nullable))
-    out.init(tp)
+def int64(c_bool nullable=True):
+    return primitive_type(LogicalType_INT64, nullable)
+
+def float_(c_bool nullable=True):
+    return primitive_type(LogicalType_FLOAT, nullable)
+
+def double(c_bool nullable=True):
+    return primitive_type(LogicalType_DOUBLE, nullable)
+
+def string(c_bool nullable=True):
+    """
+    UTF8 string
+    """
+    return primitive_type(LogicalType_STRING, nullable)
+
+def list_(DataType value_type, c_bool nullable=True):
+    cdef DataType out = DataType()
+    out.init(shared_ptr[CDataType](
+        new CListType(value_type.sp_type, nullable)))
     return out
 
 def struct(fields, c_bool nullable=True):
-    pass
+    """
+
+    """
+    cdef:
+        DataType out = DataType()
+        Field field
+        vector[shared_ptr[CField]] c_fields
+
+    for field in fields:
+        c_fields.push_back(field.sp_field)
+
+    out.init(shared_ptr[CDataType](
+        new CStructType(c_fields, nullable)))
+    return out

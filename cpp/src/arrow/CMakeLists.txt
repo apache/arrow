@@ -20,7 +20,6 @@ install(FILES
   api.h
   array.h
   builder.h
-  field.h
   type.h
   DESTINATION include/arrow)
 

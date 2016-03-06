@@ -433,7 +433,6 @@ set(LIBARROW_LINK_LIBS
 set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/builder.cc
-  src/arrow/field.cc
   src/arrow/type.cc
 
   src/arrow/table/column.cc

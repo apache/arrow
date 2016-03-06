@@ -39,8 +39,16 @@ std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
       return NA;
     GET_PRIMITIVE_TYPE(UINT8, UInt8Type);
     GET_PRIMITIVE_TYPE(INT8, Int8Type);
+    GET_PRIMITIVE_TYPE(UINT16, UInt16Type);
+    GET_PRIMITIVE_TYPE(INT16, Int16Type);
     GET_PRIMITIVE_TYPE(UINT32, UInt32Type);
     GET_PRIMITIVE_TYPE(INT32, Int32Type);
+    GET_PRIMITIVE_TYPE(UINT64, UInt64Type);
+    GET_PRIMITIVE_TYPE(INT64, Int64Type);
+    GET_PRIMITIVE_TYPE(BOOL, BooleanType);
+    GET_PRIMITIVE_TYPE(FLOAT, FloatType);
+    GET_PRIMITIVE_TYPE(DOUBLE, DoubleType);
+    GET_PRIMITIVE_TYPE(STRING, StringType);
     default:
       return nullptr;
   }

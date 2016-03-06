@@ -36,22 +36,6 @@ namespace arrow {
 
 class MemoryPool;
 
-struct ListType : public DataType {
-  // List can contain any other logical value type
-  TypePtr value_type;
-
-  explicit ListType(const TypePtr& value_type, bool nullable = true)
-      : DataType(LogicalType::LIST, nullable),
-        value_type(value_type) {}
-  virtual ~ListType() {}
-
-  static char const *name() {
-    return "list";
-  }
-
-  virtual std::string ToString() const;
-};
-
 class ListArray : public Array {
  public:
   ListArray() : Array(), offset_buf_(nullptr), offsets_(nullptr) {}

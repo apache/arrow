@@ -22,7 +22,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/field.h"
 #include "arrow/type.h"
 
 namespace arrow {

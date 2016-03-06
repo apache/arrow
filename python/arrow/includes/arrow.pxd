@@ -42,7 +42,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         LogicalType type
         c_bool nullable
 
-        string ToString()
+        c_string ToString()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type,
@@ -52,13 +52,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
     cdef cppclass CField" arrow::Field":
-        string name
+        c_string name
         shared_ptr[CDataType] type
 
-        CField(const string& name, const shared_ptr[CDataType]& type)
+        CField(const c_string& name, const shared_ptr[CDataType]& type)
+
+    cdef cppclass CStructType" arrow::StructType"(CDataType):
+        CStructType(const vector[shared_ptr[CField]]& fields,
+                    c_bool nullable)
 
     cdef cppclass CSchema" arrow::Schema":
-        pass
+        CSchema(const shared_ptr[CField]& fields)
 
     cdef cppclass CArray" arrow::Array":
         const shared_ptr[CDataType]& type()

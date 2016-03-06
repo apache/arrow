@@ -19,7 +19,7 @@
 
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool
-from libcpp.string cimport string
+from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
 
 # This must be included for cerr and other things to work
@@ -29,6 +29,8 @@ cdef extern from "<iostream>":
 cdef extern from "<memory>" namespace "std" nogil:
 
     cdef cppclass shared_ptr[T]:
+        shared_ptr()
+        shared_ptr(T*)
         T* get()
         void reset()
         void reset(T* p)

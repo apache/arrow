@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace arrow {
 
@@ -153,10 +154,45 @@ struct DataType {
   virtual std::string ToString() const = 0;
 };
 
-
 typedef std::shared_ptr<LayoutType> LayoutPtr;
 typedef std::shared_ptr<DataType> TypePtr;
 
+// A field is a piece of metadata that includes (for now) a name and a data
+// type
+struct Field {
+  // Field name
+  std::string name;
+
+  // The field's data type
+  TypePtr type;
+
+  Field(const std::string& name, const TypePtr& type) :
+      name(name),
+      type(type) {}
+
+  bool operator==(const Field& other) const {
+    return this->Equals(other);
+  }
+
+  bool operator!=(const Field& other) const {
+    return !this->Equals(other);
+  }
+
+  bool Equals(const Field& other) const {
+    return (this == &other) || (this->name == other.name &&
+        this->type->Equals(other.type.get()));
+  }
+
+  bool Equals(const std::shared_ptr<Field>& other) const {
+    return Equals(*other.get());
+  }
+
+  bool nullable() const {
+    return this->type->nullable;
+  }
+
+  std::string ToString() const;
+};
 
 struct BytesType : public LayoutType {
   int size;
@@ -251,6 +287,63 @@ struct DoubleType : public PrimitiveType<DoubleType> {
   PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
 };
 
+struct ListType : public DataType {
+  // List can contain any other logical value type
+  TypePtr value_type;
+
+  explicit ListType(const TypePtr& value_type, bool nullable = true)
+      : DataType(LogicalType::LIST, nullable),
+        value_type(value_type) {}
+  virtual ~ListType() {}
+
+  static char const *name() {
+    return "list";
+  }
+
+  virtual std::string ToString() const;
+};
+
+// String is a logical type consisting of a physical list of 1-byte values
+struct StringType : public DataType {
+  explicit StringType(bool nullable = true)
+      : DataType(LogicalType::STRING, nullable) {}
+
+  StringType(const StringType& other)
+      : StringType() {}
+
+  static char const *name() {
+    return "string";
+  }
+
+  virtual std::string ToString() const {
+    std::string result(name());
+    if (!nullable) {
+      result.append(" not null");
+    }
+    return result;
+  }
+};
+
+struct StructType : public DataType {
+  std::vector<std::shared_ptr<Field> > fields_;
+
+  explicit StructType(const std::vector<std::shared_ptr<Field> >& fields,
+      bool nullable = true)
+      : DataType(LogicalType::STRUCT, nullable) {
+    fields_ = fields;
+  }
+
+  const std::shared_ptr<Field>& field(int i) const {
+    return fields_[i];
+  }
+
+  int num_children() const {
+    return fields_.size();
+  }
+
+  virtual std::string ToString() const;
+};
+
 extern const std::shared_ptr<NullType> NA;
 extern const std::shared_ptr<BooleanType> BOOL;
 extern const std::shared_ptr<UInt8Type> UINT8;
@@ -263,6 +356,7 @@ extern const std::shared_ptr<Int32Type> INT32;
 extern const std::shared_ptr<Int64Type> INT64;
 extern const std::shared_ptr<FloatType> FLOAT;
 extern const std::shared_ptr<DoubleType> DOUBLE;
+extern const std::shared_ptr<StringType> STRING;
 
 } // namespace arrow
 
