@@ -57,10 +57,16 @@ cdef class Field:
         def __get__(self):
             return frombytes(self.field.name)
 
+cdef dict _type_cache = {}
 
 cdef DataType primitive_type(LogicalType type, bint nullable=True):
+    if (type, nullable) in _type_cache:
+        return _type_cache[type, nullable]
+
     cdef DataType out = DataType()
     out.init(pyarrow.GetPrimitiveType(type, nullable))
+
+    _type_cache[type, nullable] = out
     return out
 
 #------------------------------------------------------------
