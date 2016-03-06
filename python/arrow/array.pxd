@@ -16,9 +16,56 @@
 # under the License.
 
 from arrow.includes.common cimport shared_ptr
-from arrow.includes.arrow cimport CArray
+from arrow.includes.arrow cimport CArray, LogicalType
 
 cdef class Array:
     cdef:
         shared_ptr[CArray] sp_array
         CArray* array
+
+    def __len__(self):
+        return self.array.length()
+
+
+cdef class BooleanArray(Array):
+    pass
+
+
+cdef class NumericArray(Array):
+    pass
+
+
+cdef class Int8Array(NumericArray):
+    pass
+
+
+cdef class UInt8Array(NumericArray):
+    pass
+
+
+cdef class Int16Array(NumericArray):
+    pass
+
+
+cdef class UInt16Array(NumericArray):
+    pass
+
+
+cdef class Int32Array(NumericArray):
+    pass
+
+
+cdef class UInt32Array(NumericArray):
+    pass
+
+
+cdef class Int64Array(NumericArray):
+    pass
+
+
+cdef class UInt64Array(NumericArray):
+    pass
+
+
+cdef class StringArray(NumericArray):
+    pass
