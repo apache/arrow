@@ -39,6 +39,10 @@ cdef class Array:
         return self.array.length()
 
 
+cdef class NullArray(Array):
+    pass
+
+
 cdef class BooleanArray(Array):
     pass
 
@@ -88,6 +92,7 @@ cdef class StringArray(Array):
 
 
 cdef dict _array_classes = {
+    LogicalType_NA: NullArray,
     LogicalType_BOOL: BooleanArray,
     LogicalType_INT64: Int64Array,
     LogicalType_LIST: ListArray,

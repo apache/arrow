@@ -24,6 +24,11 @@ class TestConvertList(unittest.TestCase):
     def test_boolean(self):
         pass
 
+    def test_empty_list(self):
+        arr = arrow.from_list([])
+        assert len(arr) == 0
+        assert arr.type == arrow.null()
+
     def test_integer(self):
         arr = arrow.from_list([1, 2, 3])
         assert len(arr) == 3

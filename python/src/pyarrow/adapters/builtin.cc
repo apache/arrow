@@ -229,6 +229,12 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   int64_t size;
   RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
+  // Handle NA / NullType case
+  if (type->type == LogicalType::NA) {
+    out->reset(new arrow::Array(type, size));
+    return Status::OK();
+  }
+
   std::shared_ptr<SeqConverter> converter = GetConverter(type);
   if (converter == nullptr) {
     std::stringstream ss;
@@ -243,6 +249,8 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   converter->Init(builder);
 
   RETURN_NOT_OK(converter->AppendData(obj));
+
+  *out = builder->Finish();
 
   return Status::OK();
 }

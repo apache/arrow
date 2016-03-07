@@ -22,6 +22,8 @@ from arrow.includes.common cimport *
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum LogicalType" arrow::LogicalType::type":
+        LogicalType_NA" arrow::LogicalType::NA"
+
         LogicalType_BOOL" arrow::LogicalType::BOOL"
 
         LogicalType_UINT8" arrow::LogicalType::UINT8"

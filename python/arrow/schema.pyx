@@ -74,6 +74,9 @@ cdef DataType primitive_type(LogicalType type, bint nullable=True):
 def field(name, type):
     return Field(name, type)
 
+def null():
+    return primitive_type(LogicalType_NA)
+
 def bool_(c_bool nullable=True):
     return primitive_type(LogicalType_BOOL, nullable)
 

@@ -221,6 +221,15 @@ struct PrimitiveType : public DataType {
   std::string ToString() const override;
 };
 
+template <typename Derived>
+inline std::string PrimitiveType<Derived>::ToString() const {
+  std::string result(static_cast<const Derived*>(this)->name());
+  if (!nullable) {
+    result.append(" not null");
+  }
+  return result;
+}
+
 #define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)          \
   typedef C_TYPE c_type;                                            \
   static constexpr LogicalType::type type_enum = LogicalType::ENUM; \

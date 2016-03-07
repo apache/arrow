@@ -30,15 +30,6 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-template <typename Derived>
-inline std::string PrimitiveType<Derived>::ToString() const {
-  std::string result(static_cast<const Derived*>(this)->name());
-  if (!nullable) {
-    result.append(" not null");
-  }
-  return result;
-}
-
 StringType::StringType(bool nullable)
     : DataType(LogicalType::STRING, nullable) {}
 
