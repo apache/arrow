@@ -91,10 +91,9 @@ class ListArray : public Array {
 class ListBuilder : public Int32Builder {
  public:
   ListBuilder(MemoryPool* pool, const TypePtr& type,
-      ArrayBuilder* value_builder)
-      : Int32Builder(pool, type) {
-    value_builder_.reset(value_builder);
-  }
+      std::shared_ptr<ArrayBuilder> value_builder)
+      : Int32Builder(pool, type),
+        value_builder_(value_builder) {}
 
   Status Init(int32_t elements) {
     // One more than requested.
@@ -183,7 +182,7 @@ class ListBuilder : public Int32Builder {
   ArrayBuilder* value_builder() const { return value_builder_.get();}
 
  protected:
-  std::unique_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
 };
 
 

@@ -131,8 +131,7 @@ class StringArray : public ListArray {
 class StringBuilder : public ListBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type) :
-      ListBuilder(pool, type,
-          static_cast<ArrayBuilder*>(new UInt8Builder(pool, value_type_))) {
+      ListBuilder(pool, type, std::make_shared<UInt8Builder>(pool, value_type_)) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 

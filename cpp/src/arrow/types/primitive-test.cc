@@ -37,6 +37,7 @@
 #include "arrow/util/status.h"
 
 using std::string;
+using std::shared_ptr;
 using std::unique_ptr;
 using std::vector;
 
@@ -98,12 +99,12 @@ class TestPrimitiveBuilder : public TestBuilder {
 
     type_ = Attrs::type();
 
-    ArrayBuilder* tmp;
+    std::shared_ptr<ArrayBuilder> tmp;
     ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_.reset(static_cast<BuilderType*>(tmp));
+    builder_ = std::dynamic_pointer_cast<BuilderType>(tmp);
 
     ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_nn_.reset(static_cast<BuilderType*>(tmp));
+    builder_nn_ = std::dynamic_pointer_cast<BuilderType>(tmp);
   }
 
   void RandomData(int N, double pct_null = 0.1) {
@@ -162,8 +163,8 @@ class TestPrimitiveBuilder : public TestBuilder {
  protected:
   TypePtr type_;
   TypePtr type_nn_;
-  unique_ptr<BuilderType> builder_;
-  unique_ptr<BuilderType> builder_nn_;
+  shared_ptr<BuilderType> builder_;
+  shared_ptr<BuilderType> builder_nn_;
 
   vector<T> draws_;
   vector<uint8_t> nulls_;

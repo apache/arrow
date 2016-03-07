@@ -166,10 +166,7 @@ class TestStringBuilder : public TestBuilder {
   void SetUp() {
     TestBuilder::SetUp();
     type_ = TypePtr(new StringType());
-
-    ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_.reset(static_cast<StringBuilder*>(tmp));
+    builder_.reset(new StringBuilder(pool_, type_));
   }
 
   void Done() {
