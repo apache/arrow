@@ -15,17 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+import arrow.schema as schema
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+cdef class NAType(Scalar):
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+    def __cinit__(self):
+        self.type = schema.null()
+
+    def __repr__(self):
+        return 'NA'
+
+NA = NAType()

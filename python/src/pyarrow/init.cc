@@ -17,13 +17,9 @@
 
 #include "pyarrow/init.h"
 
-namespace arrow {
-
-namespace py {
+namespace pyarrow {
 
 void pyarrow_init() {
 }
 
-} // namespace py
-
-} // namespace arrow
+} // namespace pyarrow

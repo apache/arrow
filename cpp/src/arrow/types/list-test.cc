@@ -32,6 +32,7 @@
 #include "arrow/types/test-common.h"
 #include "arrow/util/status.h"
 
+using std::shared_ptr;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -47,17 +48,18 @@ TEST(TypesTest, TestListType) {
   ASSERT_EQ(list_type.type, LogicalType::LIST);
 
   ASSERT_EQ(list_type.name(), string("list"));
-  ASSERT_EQ(list_type.ToString(), string("?list<?uint8>"));
+  ASSERT_EQ(list_type.ToString(), string("list<uint8>"));
 
   ASSERT_EQ(list_type.value_type->type, vt->type);
   ASSERT_EQ(list_type.value_type->type, vt->type);
 
   std::shared_ptr<DataType> st = std::make_shared<StringType>(false);
   std::shared_ptr<DataType> lt = std::make_shared<ListType>(st, false);
-  ASSERT_EQ(lt->ToString(), string("list<string>"));
+  ASSERT_EQ(lt->ToString(), string("list<string not null> not null"));
 
   ListType lt2(lt, false);
-  ASSERT_EQ(lt2.ToString(), string("list<list<string>>"));
+  ASSERT_EQ(lt2.ToString(),
+      string("list<list<string not null> not null> not null"));
 }
 
 // ----------------------------------------------------------------------
@@ -71,23 +73,21 @@ class TestListBuilder : public TestBuilder {
     value_type_ = TypePtr(new Int32Type());
     type_ = TypePtr(new ListType(value_type_));
 
-    ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_.reset(static_cast<ListBuilder*>(tmp));
+    std::shared_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_ = std::dynamic_pointer_cast<ListBuilder>(tmp);
   }
 
   void Done() {
-    Array* out;
-    ASSERT_OK(builder_->ToArray(&out));
-    result_.reset(static_cast<ListArray*>(out));
+    result_ = std::dynamic_pointer_cast<ListArray>(builder_->Finish());
   }
 
  protected:
   TypePtr value_type_;
   TypePtr type_;
 
-  unique_ptr<ListBuilder> builder_;
-  unique_ptr<ListArray> result_;
+  shared_ptr<ListBuilder> builder_;
+  shared_ptr<ListArray> result_;
 };
 
 
@@ -116,7 +116,7 @@ TEST_F(TestListBuilder, TestBasics) {
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_null = {0, 1, 0};
 
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
   int pos = 0;
   for (size_t i = 0; i < lengths.size(); ++i) {

@@ -15,17 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from arrow.includes.pyarrow cimport *
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
-
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+cdef check_status(const Status& status)

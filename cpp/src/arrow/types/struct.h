@@ -18,32 +18,13 @@
 #ifndef ARROW_TYPES_STRUCT_H
 #define ARROW_TYPES_STRUCT_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/field.h"
 #include "arrow/type.h"
 
 namespace arrow {
-
-struct StructType : public DataType {
-  std::vector<Field> fields_;
-
-  explicit StructType(const std::vector<Field>& fields, bool nullable = true)
-      : DataType(LogicalType::STRUCT, nullable) {
-    fields_ = fields;
-  }
-
-  const Field& field(int i) const {
-    return fields_[i];
-  }
-
-  int num_children() const {
-    return fields_.size();
-  }
-
-  virtual std::string ToString() const;
-};
 
 } // namespace arrow
 

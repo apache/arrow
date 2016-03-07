@@ -15,8 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/types/struct.h"
+// Functions for converting between pandas's NumPy-based data representation
+// and Arrow data structures
 
-namespace arrow {
+#ifndef PYARROW_ADAPTERS_PANDAS_H
+#define PYARROW_ADAPTERS_PANDAS_H
 
-} // namespace arrow
+namespace pyarrow {
+
+} // namespace pyarrow
+
+#endif // PYARROW_ADAPTERS_PANDAS_H

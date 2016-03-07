@@ -37,17 +37,16 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-# Enable using a custom GCC toolchain to build Arrow
-if (NOT "$ENV{ARROW_GCC_ROOT}" STREQUAL "")
-  set(GCC_ROOT $ENV{ARROW_GCC_ROOT})
-  set(CMAKE_C_COMPILER ${GCC_ROOT}/bin/gcc)
-  set(CMAKE_CXX_COMPILER ${GCC_ROOT}/bin/g++)
-endif()
-
 if(APPLE)
   # In newer versions of CMake, this is the default setting
   set(CMAKE_MACOSX_RPATH 1)
 endif()
+
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
 
 # ----------------------------------------------------------------------
 # cmake options
@@ -126,38 +125,16 @@ endif ()
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
-# Required to avoid static linking errors with dependencies
-add_definitions(-fPIC)
-
 # Determine compiler version
 include(CompilerInfo)
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  # Clang helpfully provides a few extensions from C++11 such as the 'override'
-  # keyword on methods. This doesn't change behavior, and we selectively enable
-  # it in src/gutil/port.h only on clang. So, we can safely use it, and don't want
-  # to trigger warnings when we do so.
-  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-extensions")
-
   # Using Clang with ccache causes a bunch of spurious warnings that are
   # purportedly fixed in the next version of ccache. See the following for details:
   #
   #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
   #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
-
-  # Only hardcode -fcolor-diagnostics if stderr is opened on a terminal. Otherwise
-  # the color codes show up as noisy artifacts.
-  #
-  # This test is imperfect because 'cmake' and 'make' can be run independently
-  # (with different terminal options), and we're testing during the former.
-  execute_process(COMMAND test -t 2 RESULT_VARIABLE ARROW_IS_TTY)
-  if ((${ARROW_IS_TTY} EQUAL 0) AND (NOT ("$ENV{TERM}" STREQUAL "dumb")))
-    message("Running in a controlling terminal")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
-  else()
-    message("Running without a controlling terminal or in a dumb terminal")
-  endif()
 endif()
 
 # Sanity check linking option.
@@ -277,12 +254,6 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 include_directories(src)
-
-############################################################
-# Visibility
-############################################################
-# For generate_export_header() and add_compiler_export_flags().
-include(GenerateExportHeader)
 
 ############################################################
 # Testing
@@ -456,21 +427,32 @@ endif()
 # Subdirectories
 ############################################################
 
-add_subdirectory(src/arrow)
-add_subdirectory(src/arrow/util)
-add_subdirectory(src/arrow/table)
-add_subdirectory(src/arrow/types)
-
-set(LINK_LIBS
-  arrow_util
-  arrow_table
-  arrow_types)
+set(LIBARROW_LINK_LIBS
+)
 
 set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/builder.cc
-  src/arrow/field.cc
   src/arrow/type.cc
+
+  src/arrow/table/column.cc
+  src/arrow/table/schema.cc
+  src/arrow/table/table.cc
+
+  src/arrow/types/construct.cc
+  src/arrow/types/floating.cc
+  src/arrow/types/integer.cc
+  src/arrow/types/json.cc
+  src/arrow/types/list.cc
+  src/arrow/types/primitive.cc
+  src/arrow/types/string.cc
+  src/arrow/types/struct.cc
+  src/arrow/types/union.cc
+
+  src/arrow/util/bit-util.cc
+  src/arrow/util/buffer.cc
+  src/arrow/util/memory-pool.cc
+  src/arrow/util/status.cc
 )
 
 set(LIBARROW_LINKAGE "SHARED")
@@ -479,8 +461,15 @@ add_library(arrow
   ${LIBARROW_LINKAGE}
   ${ARROW_SRCS}
 )
-target_link_libraries(arrow ${LINK_LIBS})
-set_target_properties(arrow PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(arrow
+  PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+target_link_libraries(arrow ${LIBARROW_LINK_LIBS})
+
+add_subdirectory(src/arrow)
+add_subdirectory(src/arrow/util)
+add_subdirectory(src/arrow/table)
+add_subdirectory(src/arrow/types)
 
 install(TARGETS arrow
   LIBRARY DESTINATION lib

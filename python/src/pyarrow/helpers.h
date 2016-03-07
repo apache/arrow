@@ -15,17 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/field.h"
+#ifndef PYARROW_HELPERS_H
+#define PYARROW_HELPERS_H
 
-#include <sstream>
-#include <string>
+#include <arrow/api.h>
+#include <memory>
 
-namespace arrow {
+namespace pyarrow {
 
-std::string Field::ToString() const {
-  std::stringstream ss;
-  ss << this->name << " " << this->type->ToString();
-  return ss.str();
-}
+using arrow::DataType;
+using arrow::LogicalType;
 
-} // namespace arrow
+std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
+    bool nullable);
+
+} // namespace pyarrow
+
+#endif // PYARROW_HELPERS_H

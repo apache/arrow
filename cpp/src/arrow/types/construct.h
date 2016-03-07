@@ -18,6 +18,8 @@
 #ifndef ARROW_TYPES_CONSTRUCT_H
 #define ARROW_TYPES_CONSTRUCT_H
 
+#include <memory>
+
 #include "arrow/type.h"
 
 namespace arrow {
@@ -26,8 +28,8 @@ class ArrayBuilder;
 class MemoryPool;
 class Status;
 
-Status make_builder(MemoryPool* pool, const TypePtr& type,
-    ArrayBuilder** out);
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    std::shared_ptr<ArrayBuilder>* out);
 
 } // namespace arrow
 

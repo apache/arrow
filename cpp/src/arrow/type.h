@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace arrow {
 
@@ -71,49 +72,46 @@ struct LogicalType {
     UINT64 = 7,
     INT64 = 8,
 
-    // A boolean value represented as 1 byte
+    // A boolean value represented as 1 bit
     BOOL = 9,
 
-    // A boolean value represented as 1 bit
-    BIT = 10,
-
     // 4-byte floating point value
-    FLOAT = 11,
+    FLOAT = 10,
 
     // 8-byte floating point value
-    DOUBLE = 12,
+    DOUBLE = 11,
 
     // CHAR(N): fixed-length UTF8 string with length N
-    CHAR = 13,
+    CHAR = 12,
 
     // UTF8 variable-length string as List<Char>
-    STRING = 14,
+    STRING = 13,
 
     // VARCHAR(N): Null-terminated string type embedded in a CHAR(N + 1)
-    VARCHAR = 15,
+    VARCHAR = 14,
 
     // Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY = 16,
+    BINARY = 15,
 
     // By default, int32 days since the UNIX epoch
-    DATE = 17,
+    DATE = 16,
 
     // Exact timestamp encoded with int64 since UNIX epoch
     // Default unit millisecond
-    TIMESTAMP = 18,
+    TIMESTAMP = 17,
 
     // Timestamp as double seconds since the UNIX epoch
-    TIMESTAMP_DOUBLE = 19,
+    TIMESTAMP_DOUBLE = 18,
 
     // Exact time encoded with int64, default unit millisecond
-    TIME = 20,
+    TIME = 19,
 
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
-    DECIMAL = 21,
+    DECIMAL = 20,
 
     // Decimal value encoded as a text string
-    DECIMAL_TEXT = 22,
+    DECIMAL_TEXT = 21,
 
     // A list of some logical data type
     LIST = 30,
@@ -141,7 +139,9 @@ struct DataType {
       type(type),
       nullable(nullable) {}
 
-  virtual bool Equals(const DataType* other) {
+  virtual ~DataType();
+
+  bool Equals(const DataType* other) {
     // Call with a pointer so more friendly to subclasses
     return this == other || (this->type == other->type &&
         this->nullable == other->nullable);
@@ -154,10 +154,45 @@ struct DataType {
   virtual std::string ToString() const = 0;
 };
 
-
 typedef std::shared_ptr<LayoutType> LayoutPtr;
 typedef std::shared_ptr<DataType> TypePtr;
 
+// A field is a piece of metadata that includes (for now) a name and a data
+// type
+struct Field {
+  // Field name
+  std::string name;
+
+  // The field's data type
+  TypePtr type;
+
+  Field(const std::string& name, const TypePtr& type) :
+      name(name),
+      type(type) {}
+
+  bool operator==(const Field& other) const {
+    return this->Equals(other);
+  }
+
+  bool operator!=(const Field& other) const {
+    return !this->Equals(other);
+  }
+
+  bool Equals(const Field& other) const {
+    return (this == &other) || (this->name == other.name &&
+        this->type->Equals(other.type.get()));
+  }
+
+  bool Equals(const std::shared_ptr<Field>& other) const {
+    return Equals(*other.get());
+  }
+
+  bool nullable() const {
+    return this->type->nullable;
+  }
+
+  std::string ToString() const;
+};
 
 struct BytesType : public LayoutType {
   int size;
@@ -183,15 +218,17 @@ struct PrimitiveType : public DataType {
   explicit PrimitiveType(bool nullable = true)
       : DataType(Derived::type_enum, nullable) {}
 
-  virtual std::string ToString() const {
-    std::string result;
-    if (nullable) {
-      result.append("?");
-    }
-    result.append(static_cast<const Derived*>(this)->name());
-    return result;
-  }
+  std::string ToString() const override;
 };
+
+template <typename Derived>
+inline std::string PrimitiveType<Derived>::ToString() const {
+  std::string result(static_cast<const Derived*>(this)->name());
+  if (!nullable) {
+    result.append(" not null");
+  }
+  return result;
+}
 
 #define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)          \
   typedef C_TYPE c_type;                                            \
@@ -204,6 +241,10 @@ struct PrimitiveType : public DataType {
   static const char* name() {                                       \
     return NAME;                                                    \
   }
+
+struct NullType : public PrimitiveType<NullType> {
+  PRIMITIVE_DECL(NullType, void, NA, 0, "null");
+};
 
 struct BooleanType : public PrimitiveType<BooleanType> {
   PRIMITIVE_DECL(BooleanType, uint8_t, BOOL, 1, "bool");
@@ -249,6 +290,55 @@ struct DoubleType : public PrimitiveType<DoubleType> {
   PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
 };
 
+struct ListType : public DataType {
+  // List can contain any other logical value type
+  TypePtr value_type;
+
+  explicit ListType(const TypePtr& value_type, bool nullable = true)
+      : DataType(LogicalType::LIST, nullable),
+        value_type(value_type) {}
+
+  static char const *name() {
+    return "list";
+  }
+
+  std::string ToString() const override;
+};
+
+// String is a logical type consisting of a physical list of 1-byte values
+struct StringType : public DataType {
+  explicit StringType(bool nullable = true);
+
+  StringType(const StringType& other);
+
+  static char const *name() {
+    return "string";
+  }
+
+  std::string ToString() const override;
+};
+
+struct StructType : public DataType {
+  std::vector<std::shared_ptr<Field> > fields_;
+
+  explicit StructType(const std::vector<std::shared_ptr<Field> >& fields,
+      bool nullable = true)
+      : DataType(LogicalType::STRUCT, nullable) {
+    fields_ = fields;
+  }
+
+  const std::shared_ptr<Field>& field(int i) const {
+    return fields_[i];
+  }
+
+  int num_children() const {
+    return fields_.size();
+  }
+
+  std::string ToString() const override;
+};
+
+extern const std::shared_ptr<NullType> NA;
 extern const std::shared_ptr<BooleanType> BOOL;
 extern const std::shared_ptr<UInt8Type> UINT8;
 extern const std::shared_ptr<UInt16Type> UINT16;
@@ -260,6 +350,7 @@ extern const std::shared_ptr<Int32Type> INT32;
 extern const std::shared_ptr<Int64Type> INT64;
 extern const std::shared_ptr<FloatType> FLOAT;
 extern const std::shared_ptr<DoubleType> DOUBLE;
+extern const std::shared_ptr<StringType> STRING;
 
 } // namespace arrow
 

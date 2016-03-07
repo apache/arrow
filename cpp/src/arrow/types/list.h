@@ -36,21 +36,6 @@ namespace arrow {
 
 class MemoryPool;
 
-struct ListType : public DataType {
-  // List can contain any other logical value type
-  TypePtr value_type;
-
-  explicit ListType(const TypePtr& value_type, bool nullable = true)
-      : DataType(LogicalType::LIST, nullable),
-        value_type(value_type) {}
-
-  static char const *name() {
-    return "list";
-  }
-
-  virtual std::string ToString() const;
-};
-
 class ListArray : public Array {
  public:
   ListArray() : Array(), offset_buf_(nullptr), offsets_(nullptr) {}
@@ -106,10 +91,9 @@ class ListArray : public Array {
 class ListBuilder : public Int32Builder {
  public:
   ListBuilder(MemoryPool* pool, const TypePtr& type,
-      ArrayBuilder* value_builder)
-      : Int32Builder(pool, type) {
-    value_builder_.reset(value_builder);
-  }
+      std::shared_ptr<ArrayBuilder> value_builder)
+      : Int32Builder(pool, type),
+        value_builder_(value_builder) {}
 
   Status Init(int32_t elements) {
     // One more than requested.
@@ -147,30 +131,27 @@ class ListBuilder : public Int32Builder {
     return Status::OK();
   }
 
-  // Initialize an array type instance with the results of this builder
-  // Transfers ownership of all buffers
   template <typename Container>
-  Status Transfer(Container* out) {
-    Array* child_values;
-    RETURN_NOT_OK(value_builder_->ToArray(&child_values));
+  std::shared_ptr<Array> Transfer() {
+    auto result = std::make_shared<Container>();
+
+    std::shared_ptr<Array> items = value_builder_->Finish();
 
     // Add final offset if the length is non-zero
     if (length_) {
-      raw_buffer()[length_] = child_values->length();
+      raw_buffer()[length_] = items->length();
     }
 
-    out->Init(type_, length_, values_, ArrayPtr(child_values),
+    result->Init(type_, length_, values_, items,
         null_count_, nulls_);
     values_ = nulls_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
-    return Status::OK();
+
+    return result;
   }
 
-  virtual Status ToArray(Array** out) {
-    ListArray* result = new ListArray();
-    RETURN_NOT_OK(Transfer(result));
-    *out = static_cast<Array*>(result);
-    return Status::OK();
+  std::shared_ptr<Array> Finish() override {
+    return Transfer<ListArray>();
   }
 
   // Start a new variable-length list slot
@@ -198,10 +179,12 @@ class ListBuilder : public Int32Builder {
     return Append(true);
   }
 
-  ArrayBuilder* value_builder() const { return value_builder_.get();}
+  const std::shared_ptr<ArrayBuilder>& value_builder() const {
+    return value_builder_;
+  }
 
  protected:
-  std::unique_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
 };
 
 

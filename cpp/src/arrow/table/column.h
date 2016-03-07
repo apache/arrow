@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/field.h"
+#include "arrow/type.h"
 
 namespace arrow {
 

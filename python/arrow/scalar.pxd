@@ -15,17 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from arrow.includes.common cimport *
+from arrow.includes.arrow cimport CArray, CListArray
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+from arrow.schema cimport DataType
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+cdef class Scalar:
+    cdef readonly:
+        DataType type
+
+
+cdef class NAType(Scalar):
+    pass
+
+
+cdef class ArrayValue(Scalar):
+    cdef:
+        shared_ptr[CArray] array
+        int index
+
+
+cdef class Int8Value(ArrayValue):
+    pass
+
+
+cdef class ListValue(ArrayValue):
+    pass
+
+
+cdef class StringValue(ArrayValue):
+    pass

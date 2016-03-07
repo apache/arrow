@@ -15,7 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Coarse public API while the library is in development
+
 #ifndef ARROW_API_H
 #define ARROW_API_H
+
+#include "arrow/array.h"
+#include "arrow/builder.h"
+#include "arrow/type.h"
+
+#include "arrow/table/column.h"
+#include "arrow/table/schema.h"
+#include "arrow/table/table.h"
+
+#include "arrow/types/boolean.h"
+#include "arrow/types/construct.h"
+#include "arrow/types/floating.h"
+#include "arrow/types/integer.h"
+#include "arrow/types/list.h"
+#include "arrow/types/string.h"
+#include "arrow/types/struct.h"
+
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
 #endif // ARROW_API_H

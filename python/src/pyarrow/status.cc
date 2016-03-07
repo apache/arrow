@@ -10,11 +10,13 @@
 // non-const method, all threads accessing the same Status must use
 // external synchronization.
 
-#include "arrow/util/status.h"
+#include "pyarrow/status.h"
 
 #include <assert.h>
+#include <cstdint>
+#include <cstring>
 
-namespace arrow {
+namespace pyarrow {
 
 Status::Status(StatusCode code, const std::string& msg, int16_t posix_code) {
   assert(code != StatusCode::OK);
@@ -51,11 +53,23 @@ std::string Status::CodeAsString() const {
     case StatusCode::KeyError:
       type = "Key error";
       break;
-    case StatusCode::Invalid:
-      type = "Invalid";
+    case StatusCode::TypeError:
+      type = "Value error";
+      break;
+    case StatusCode::ValueError:
+      type = "Value error";
+      break;
+    case StatusCode::IOError:
+      type = "IO error";
       break;
     case StatusCode::NotImplemented:
-      type = "NotImplemented";
+      type = "Not implemented";
+      break;
+    case StatusCode::ArrowError:
+      type = "Arrow C++ error";
+      break;
+    case StatusCode::UnknownError:
+      type = "Unknown error";
       break;
   }
   return std::string(type);
@@ -75,4 +89,4 @@ std::string Status::ToString() const {
   return result;
 }
 
-} // namespace arrow
+} // namespace pyarrow

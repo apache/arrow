@@ -24,7 +24,8 @@ namespace arrow {
 
 typedef PrimitiveArrayImpl<BooleanType> BooleanArray;
 
-// typedef PrimitiveBuilder<BooleanType, BooleanArray> BooleanBuilder;
+class BooleanBuilder : public ArrayBuilder {
+};
 
 } // namespace arrow
 

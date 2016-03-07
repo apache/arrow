@@ -32,13 +32,13 @@ class ArrayBuilder;
 // Initially looked at doing this with vtables, but shared pointers makes it
 // difficult
 
-#define BUILDER_CASE(ENUM, BuilderType)                                 \
-    case LogicalType::ENUM:                                             \
-      *out = static_cast<ArrayBuilder*>(new BuilderType(pool, type));   \
+#define BUILDER_CASE(ENUM, BuilderType)         \
+    case LogicalType::ENUM:                     \
+      out->reset(new BuilderType(pool, type));  \
       return Status::OK();
 
-Status make_builder(MemoryPool* pool, const TypePtr& type,
-    ArrayBuilder** out) {
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    std::shared_ptr<ArrayBuilder>* out) {
   switch (type->type) {
     BUILDER_CASE(UINT8, UInt8Builder);
     BUILDER_CASE(INT8, Int8Builder);
@@ -58,13 +58,12 @@ Status make_builder(MemoryPool* pool, const TypePtr& type,
 
     case LogicalType::LIST:
       {
-        ListType* list_type = static_cast<ListType*>(type.get());
-        ArrayBuilder* value_builder;
-        RETURN_NOT_OK(make_builder(pool, list_type->value_type, &value_builder));
+        std::shared_ptr<ArrayBuilder> value_builder;
 
-        // The ListBuilder takes ownership of the value_builder
-        ListBuilder* builder = new ListBuilder(pool, type, value_builder);
-        *out = static_cast<ArrayBuilder*>(builder);
+        const std::shared_ptr<DataType>& value_type = static_cast<ListType*>(
+            type.get())->value_type;
+        RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+        out->reset(new ListBuilder(pool, type, value_builder));
         return Status::OK();
       }
     // BUILDER_CASE(CHAR, CharBuilder);

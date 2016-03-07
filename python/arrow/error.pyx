@@ -15,17 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from arrow.includes.common cimport c_string
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+from arrow.compat import frombytes
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+class ArrowException(Exception):
+    pass
+
+cdef check_status(const Status& status):
+    if status.ok():
+        return
+
+    cdef c_string c_message = status.ToString()
+    raise ArrowException(frombytes(c_message))

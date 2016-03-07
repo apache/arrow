@@ -124,7 +124,10 @@ class build_ext(_build_ext):
                              static_lib_option, source]
 
             self.spawn(cmake_command)
-            self.spawn(['make'])
+            args = ['make']
+            if 'PYARROW_PARALLEL' in os.environ:
+                args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+            self.spawn(args)
         else:
             import shlex
             cmake_generator = 'Visual Studio 14 2015'
@@ -207,7 +210,7 @@ class build_ext(_build_ext):
             return name + suffix
 
     def get_cmake_cython_names(self):
-        return ['config', 'parquet']
+        return ['array', 'config', 'error', 'parquet', 'scalar', 'schema']
 
     def get_names(self):
         return self._found_names

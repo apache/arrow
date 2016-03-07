@@ -17,15 +17,16 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/field.h"
 #include "arrow/type.h"
 #include "arrow/types/integer.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
 
+using std::shared_ptr;
 using std::string;
 using std::vector;
 
@@ -33,23 +34,23 @@ namespace arrow {
 
 TEST(TestStructType, Basics) {
   TypePtr f0_type = TypePtr(new Int32Type());
-  Field f0("f0", f0_type);
+  auto f0 = std::make_shared<Field>("f0", f0_type);
 
   TypePtr f1_type = TypePtr(new StringType());
-  Field f1("f1", f1_type);
+  auto f1 = std::make_shared<Field>("f1", f1_type);
 
   TypePtr f2_type = TypePtr(new UInt8Type());
-  Field f2("f2", f2_type);
+  auto f2 = std::make_shared<Field>("f2", f2_type);
 
-  vector<Field> fields = {f0, f1, f2};
+  vector<shared_ptr<Field> > fields = {f0, f1, f2};
 
   StructType struct_type(fields);
 
-  ASSERT_TRUE(struct_type.field(0).Equals(f0));
-  ASSERT_TRUE(struct_type.field(1).Equals(f1));
-  ASSERT_TRUE(struct_type.field(2).Equals(f2));
+  ASSERT_TRUE(struct_type.field(0)->Equals(f0));
+  ASSERT_TRUE(struct_type.field(1)->Equals(f1));
+  ASSERT_TRUE(struct_type.field(2)->Equals(f2));
 
-  ASSERT_EQ(struct_type.ToString(), "?struct<f0: ?int32, f1: ?string, f2: ?uint8>");
+  ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
   // TODO: out of bounds for field(...)
 }

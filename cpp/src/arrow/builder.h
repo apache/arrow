@@ -32,7 +32,7 @@ class Array;
 class MemoryPool;
 class PoolBuffer;
 
-static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 8;
+static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
 
 // Base class for all data array builders
 class ArrayBuilder {
@@ -78,12 +78,16 @@ class ArrayBuilder {
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data
-  virtual Status ToArray(Array** out) = 0;
+  virtual std::shared_ptr<Array> Finish() = 0;
+
+  const std::shared_ptr<DataType>& type() const {
+    return type_;
+  }
 
  protected:
   MemoryPool* pool_;
 
-  TypePtr type_;
+  std::shared_ptr<DataType> type_;
 
   // When nulls are first appended to the builder, the null bitmap is allocated
   std::shared_ptr<PoolBuffer> nulls_;

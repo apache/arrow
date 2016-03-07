@@ -71,28 +71,6 @@ struct VarcharType : public DataType {
 static const LayoutPtr byte1(new BytesType(1));
 static const LayoutPtr physical_string = LayoutPtr(new ListLayoutType(byte1));
 
-// String is a logical type consisting of a physical list of 1-byte values
-struct StringType : public DataType {
-  explicit StringType(bool nullable = true)
-      : DataType(LogicalType::STRING, nullable) {}
-
-  StringType(const StringType& other)
-      : StringType() {}
-
-  static char const *name() {
-    return "string";
-  }
-
-  virtual std::string ToString() const {
-    std::string result;
-    if (nullable) {
-      result.append("?");
-    }
-    result.append(name());
-    return result;
-  }
-};
-
 // TODO: add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:
@@ -153,26 +131,23 @@ class StringArray : public ListArray {
 class StringBuilder : public ListBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type) :
-      ListBuilder(pool, type,
-          static_cast<ArrayBuilder*>(new UInt8Builder(pool, value_type_))) {
+      ListBuilder(pool, type, std::make_shared<UInt8Builder>(pool, value_type_)) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
   Status Append(const std::string& value) {
-    RETURN_NOT_OK(ListBuilder::Append());
-    return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value.c_str()),
-        value.size());
+    return Append(value.c_str(), value.size());
   }
 
-  Status Append(const uint8_t* value, int32_t length);
+  Status Append(const char* value, int32_t length) {
+    RETURN_NOT_OK(ListBuilder::Append());
+    return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
   Status Append(const std::vector<std::string>& values,
                 uint8_t* null_bytes);
 
-  virtual Status ToArray(Array** out) {
-    StringArray* result = new StringArray();
-    RETURN_NOT_OK(ListBuilder::Transfer(result));
-    *out = static_cast<Array*>(result);
-    return Status::OK();
+  std::shared_ptr<Array> Finish() override {
+    return ListBuilder::Transfer<StringArray>();
   }
 
  protected:

@@ -20,9 +20,9 @@
 #include <memory>
 #include <sstream>
 
-#include "arrow/field.h"
 #include "arrow/table/column.h"
 #include "arrow/table/schema.h"
+#include "arrow/type.h"
 #include "arrow/util/status.h"
 
 namespace arrow {

@@ -19,31 +19,11 @@
 # arrow_types
 #######################################
 
-set(TYPES_SRCS
-  construct.cc
-  floating.cc
-  integer.cc
-  json.cc
-  list.cc
-  primitive.cc
-  string.cc
-  struct.cc
-  union.cc
-)
-
-set(TYPES_LIBS
-)
-
-add_library(arrow_types STATIC
-  ${TYPES_SRCS}
-)
-target_link_libraries(arrow_types ${TYPES_LIBS})
-SET_TARGET_PROPERTIES(arrow_types PROPERTIES LINKER_LANGUAGE CXX)
-
 # Headers: top level
 install(FILES
   boolean.h
   collection.h
+  construct.h
   datetime.h
   decimal.h
   floating.h

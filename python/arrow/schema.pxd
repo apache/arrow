@@ -15,17 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from arrow.includes.common cimport shared_ptr
+from arrow.includes.arrow cimport CDataType, CField, CSchema
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+cdef class DataType:
+    cdef:
+        shared_ptr[CDataType] sp_type
+        CDataType* type
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
+    cdef init(self, const shared_ptr[CDataType]& type)
+
+cdef class Field:
+    cdef:
+        shared_ptr[CField] sp_field
+        CField* field
+
+    cdef readonly:
+        DataType type
+
+cdef class Schema:
+    cdef:
+        shared_ptr[CSchema] sp_schema
+        CSchema* schema

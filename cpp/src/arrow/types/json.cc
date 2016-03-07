@@ -19,10 +19,7 @@
 
 #include <vector>
 
-#include "arrow/types/boolean.h"
-#include "arrow/types/integer.h"
-#include "arrow/types/floating.h"
-#include "arrow/types/null.h"
+#include "arrow/type.h"
 #include "arrow/types/string.h"
 #include "arrow/types/union.h"
 

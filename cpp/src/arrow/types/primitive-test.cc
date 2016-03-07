@@ -37,6 +37,7 @@
 #include "arrow/util/status.h"
 
 using std::string;
+using std::shared_ptr;
 using std::unique_ptr;
 using std::vector;
 
@@ -98,12 +99,12 @@ class TestPrimitiveBuilder : public TestBuilder {
 
     type_ = Attrs::type();
 
-    ArrayBuilder* tmp;
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_.reset(static_cast<BuilderType*>(tmp));
+    std::shared_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_ = std::dynamic_pointer_cast<BuilderType>(tmp);
 
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
-    builder_nn_.reset(static_cast<BuilderType*>(tmp));
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_nn_ = std::dynamic_pointer_cast<BuilderType>(tmp);
   }
 
   void RandomData(int N, double pct_null = 0.1) {
@@ -112,7 +113,6 @@ class TestPrimitiveBuilder : public TestBuilder {
   }
 
   void CheckNullable() {
-    ArrayType result;
     ArrayType expected;
     int size = builder_->length();
 
@@ -125,7 +125,9 @@ class TestPrimitiveBuilder : public TestBuilder {
     int32_t ex_null_count = null_count(nulls_);
 
     expected.Init(size, ex_data, ex_null_count, ex_nulls);
-    ASSERT_OK(builder_->Transfer(&result));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
+        builder_->Finish());
 
     // Builder is now reset
     ASSERT_EQ(0, builder_->length());
@@ -133,12 +135,11 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
-    ASSERT_TRUE(result.Equals(expected));
-    ASSERT_EQ(ex_null_count, result.null_count());
+    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_EQ(ex_null_count, result->null_count());
   }
 
   void CheckNonNullable() {
-    ArrayType result;
     ArrayType expected;
     int size = builder_nn_->length();
 
@@ -146,22 +147,24 @@ class TestPrimitiveBuilder : public TestBuilder {
         size * sizeof(T));
 
     expected.Init(size, ex_data);
-    ASSERT_OK(builder_nn_->Transfer(&result));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
+        builder_nn_->Finish());
 
     // Builder is now reset
     ASSERT_EQ(0, builder_nn_->length());
     ASSERT_EQ(0, builder_nn_->capacity());
     ASSERT_EQ(nullptr, builder_nn_->buffer());
 
-    ASSERT_TRUE(result.Equals(expected));
-    ASSERT_EQ(0, result.null_count());
+    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_EQ(0, result->null_count());
   }
 
  protected:
   TypePtr type_;
   TypePtr type_nn_;
-  unique_ptr<BuilderType> builder_;
-  unique_ptr<BuilderType> builder_nn_;
+  shared_ptr<BuilderType> builder_;
+  shared_ptr<BuilderType> builder_nn_;
 
   vector<T> draws_;
   vector<uint8_t> nulls_;
@@ -225,15 +228,36 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
-  Array* result;
-  ASSERT_OK(this->builder_->ToArray(&result));
-  unique_ptr<Array> holder(result);
+  auto result = this->builder_->Finish();
 
   for (int i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i));
   }
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
+  DECL_T();
+
+  int size = 10000;
+
+  vector<T>& draws = this->draws_;
+  vector<uint8_t>& nulls = this->nulls_;
+
+  int64_t memory_before = this->pool_->bytes_allocated();
+
+  this->RandomData(size);
+
+  int i;
+  for (i = 0; i < size; ++i) {
+    ASSERT_OK(this->builder_->Append(draws[i], nulls[i] > 0));
+  }
+
+  do {
+    std::shared_ptr<Array> result = this->builder_->Finish();
+  } while (false);
+
+  ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
+}
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
@@ -331,11 +355,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
-  int n = 100;
-  ASSERT_OK(this->builder_->Reserve(n));
+  ASSERT_OK(this->builder_->Reserve(10));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_EQ(MIN_BUILDER_CAPACITY, this->builder_->capacity());
 
+  ASSERT_OK(this->builder_->Reserve(90));
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_OK(this->builder_->Reserve(MIN_BUILDER_CAPACITY));
 

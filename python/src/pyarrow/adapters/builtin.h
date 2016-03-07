@@ -15,20 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_NULL_H
-#define ARROW_TYPES_NULL_H
+// Functions for converting between CPython built-in data structures and Arrow
+// data structures
 
-#include <string>
-#include <vector>
+#ifndef PYARROW_ADAPTERS_BUILTIN_H
+#define PYARROW_ADAPTERS_BUILTIN_H
 
-#include "arrow/type.h"
+#include <Python.h>
 
-namespace arrow {
+#include <memory>
 
-struct NullType : public PrimitiveType<NullType> {
-  PRIMITIVE_DECL(NullType, void, NA, 0, "null");
-};
+#include "pyarrow/common.h"
 
-} // namespace arrow
+namespace arrow { class Array; }
 
-#endif // ARROW_TYPES_NULL_H
+namespace pyarrow {
+
+class Status;
+
+Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
+
+} // namespace pyarrow
+
+#endif // PYARROW_ADAPTERS_BUILTIN_H
