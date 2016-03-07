@@ -63,13 +63,6 @@ class TestConvertList(unittest.TestCase):
         assert arr.null_count == 1
         assert arr.type == arrow.string()
 
-    def test_list_of_int(self):
-        data = [[1, 2, 3], [], None, [1, 2]]
-        arr = arrow.from_pylist(data)
-        # assert len(arr) == 4
-        # assert arr.null_count == 1
-        assert arr.type == arrow.list_(arrow.int64())
-
     def test_mixed_nesting_levels(self):
         arrow.from_pylist([1, 2, None])
         arrow.from_pylist([[1], [2], None])
@@ -83,3 +76,10 @@ class TestConvertList(unittest.TestCase):
 
         with self.assertRaises(arrow.ArrowException):
             arrow.from_pylist([[1], [2], [None, [1]]])
+
+    def test_list_of_int(self):
+        data = [[1, 2, 3], [], None, [1, 2]]
+        arr = arrow.from_pylist(data)
+        assert len(arr) == 4
+        assert arr.null_count == 1
+        assert arr.type == arrow.list_(arrow.int64())

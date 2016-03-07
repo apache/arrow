@@ -116,7 +116,7 @@ TEST_F(TestListBuilder, TestBasics) {
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_null = {0, 1, 0};
 
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
   int pos = 0;
   for (size_t i = 0; i < lengths.size(); ++i) {

@@ -179,7 +179,9 @@ class ListBuilder : public Int32Builder {
     return Append(true);
   }
 
-  ArrayBuilder* value_builder() const { return value_builder_.get();}
+  const std::shared_ptr<ArrayBuilder>& value_builder() const {
+    return value_builder_;
+  }
 
  protected:
   std::shared_ptr<ArrayBuilder> value_builder_;

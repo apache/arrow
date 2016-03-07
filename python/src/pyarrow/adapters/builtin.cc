@@ -228,7 +228,7 @@ class SeqConverter {
     return Status::OK();
   }
 
-  virtual Status AppendData(PyObject* seq, int64_t size) = 0;
+  virtual Status AppendData(PyObject* seq) = 0;
 
  protected:
   std::shared_ptr<ArrayBuilder> builder_;
@@ -249,15 +249,16 @@ class TypedConverter : public SeqConverter {
 
 class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* seq) override {
     return Status::OK();
   }
 };
 
 class Int64Converter : public TypedConverter<arrow::Int64Builder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* seq) override {
     int64_t val;
+    Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
@@ -274,8 +275,9 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
 
 class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* seq) override {
     int64_t val;
+    Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
@@ -292,12 +294,13 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
 
 class StringConverter : public TypedConverter<arrow::StringBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* seq) override {
     PyObject* item;
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
     int32_t length;
+    Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);
       OwnedRef holder(item);
@@ -327,7 +330,17 @@ class ListConverter : public TypedConverter<arrow::ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* seq) override {
+    Py_ssize_t size = PySequence_Size(seq);
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(seq, i));
+      if (item.obj() == Py_None) {
+        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        typed_builder_->Append();
+        PY_RETURN_NOT_OK(value_converter_->AppendData(item.obj()));
+      }
+    }
     return Status::OK();
   }
  protected:
@@ -357,7 +370,14 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
 Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   builder_ = builder;
   typed_builder_ = static_cast<arrow::ListBuilder*>(builder.get());
-  value_converter_ = GetConverter(builder->type());
+
+  value_converter_ = GetConverter(static_cast<arrow::ListType*>(
+          builder->type().get())->value_type);
+  if (value_converter_ == nullptr) {
+    return Status::NotImplemented("value type not implemented");
+  }
+
+  value_converter_->Init(typed_builder_->value_builder());
   return Status::OK();
 }
 
@@ -385,7 +405,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   RETURN_ARROW_NOT_OK(arrow::MakeBuilder(GetMemoryPool(), type, &builder));
   converter->Init(builder);
 
-  PY_RETURN_NOT_OK(converter->AppendData(obj, size));
+  PY_RETURN_NOT_OK(converter->AppendData(obj));
 
   *out = builder->Finish();
 
