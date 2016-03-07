@@ -21,5 +21,5 @@ from arrow.array import Array, from_list
 from arrow.schema import (bool_, int8, int16, int32, int64,
                           uint8, uint16, uint32, uint64,
                           float_, double, string,
-                          list_, struct,
+                          list_, struct, field,
                           DataType, Field, Schema)

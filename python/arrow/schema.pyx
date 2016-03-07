@@ -49,8 +49,7 @@ cdef class Field:
         self.field = self.sp_field.get()
 
     def __repr__(self):
-        return 'Field({0}, type={1})'.format(self.name,
-                                             self.type._type_repr())
+        return 'Field({0!r}, type={1})'.format(self.name, str(self.type))
 
     property name:
 
@@ -71,6 +70,9 @@ cdef DataType primitive_type(LogicalType type, bint nullable=True):
 
 #------------------------------------------------------------
 # Type factory functions
+
+def field(name, type):
+    return Field(name, type)
 
 def bool_(c_bool nullable=True):
     return primitive_type(LogicalType_BOOL, nullable)
