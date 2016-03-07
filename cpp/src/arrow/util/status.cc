@@ -35,4 +35,44 @@ const char* Status::CopyState(const char* state) {
   return result;
 }
 
+std::string Status::CodeAsString() const {
+  if (state_ == NULL) {
+    return "OK";
+  }
+
+  const char* type;
+  switch (code()) {
+    case StatusCode::OK:
+      type = "OK";
+      break;
+    case StatusCode::OutOfMemory:
+      type = "Out of memory";
+      break;
+    case StatusCode::KeyError:
+      type = "Key error";
+      break;
+    case StatusCode::Invalid:
+      type = "Invalid";
+      break;
+    case StatusCode::NotImplemented:
+      type = "NotImplemented";
+      break;
+  }
+  return std::string(type);
+}
+
+std::string Status::ToString() const {
+  std::string result(CodeAsString());
+  if (state_ == NULL) {
+    return result;
+  }
+
+  result.append(": ");
+
+  uint32_t length;
+  memcpy(&length, state_, sizeof(length));
+  result.append(reinterpret_cast<const char*>(state_ + 7), length);
+  return result;
+}
+
 } // namespace arrow

@@ -30,6 +30,11 @@ cdef class Array:
     cdef init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
 
+    property null_count:
+
+        def __get__(self):
+            return self.sp_array.get().null_count()
+
     def __len__(self):
         return self.array.length()
 
