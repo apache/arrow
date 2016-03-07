@@ -37,6 +37,13 @@ namespace pyarrow {
     return Status::UnknownError(message);               \
   }
 
+#define RETURN_ARROW_NOT_OK(s) do {             \
+    arrow::Status _s = (s);                     \
+    if (!_s.ok()) {                             \
+      return Status::ArrowError(s.ToString());  \
+    }                                           \
+  } while (0);
+
 class OwnedRef {
  public:
   OwnedRef(PyObject* obj) :

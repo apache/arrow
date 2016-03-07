@@ -80,10 +80,14 @@ class ArrayBuilder {
   // ownership of the data
   virtual std::shared_ptr<Array> Finish() = 0;
 
+  const std::shared_ptr<DataType>& type() const {
+    return type_;
+  }
+
  protected:
   MemoryPool* pool_;
 
-  TypePtr type_;
+  std::shared_ptr<DataType> type_;
 
   // When nulls are first appended to the builder, the null bitmap is allocated
   std::shared_ptr<PoolBuffer> nulls_;

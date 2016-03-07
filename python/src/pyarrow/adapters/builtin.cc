@@ -16,6 +16,7 @@
 // under the License.
 
 #include <Python.h>
+#include <sstream>
 
 #include "pyarrow/adapters/builtin.h"
 
@@ -23,10 +24,11 @@
 
 #include "pyarrow/status.h"
 
-namespace pyarrow {
-
+using arrow::ArrayBuilder;
 using arrow::DataType;
 using arrow::LogicalType;
+
+namespace pyarrow {
 
 static inline bool IsPyInteger(PyObject* obj) {
 #if PYARROW_IS_PY2
@@ -132,80 +134,93 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
 // Marshal Python sequence (list, tuple, etc.) to Arrow array
 class SeqConverter {
  public:
-  SeqConverter();
+  virtual Status Init(const std::shared_ptr<ArrayBuilder>& builder) {
+    builder_ = builder;
+    return Status::OK();
+  }
 
   virtual Status AppendData(PyObject* seq) = 0;
 
- private:
-  // Borrowed reference for now
-  PyObject* obj_;
+ protected:
+  std::shared_ptr<ArrayBuilder> builder_;
 };
 
-class BooleanConverter : SeqConverter {
+template <typename BuilderType>
+class TypedConverter : public SeqConverter {
  public:
+  Status Init(const std::shared_ptr<ArrayBuilder>& builder) override {
+    builder_ = builder;
+    typed_builder_ = static_cast<BuilderType*>(builder.get());
+    return Status::OK();
+  }
 
+ protected:
+  BuilderType* typed_builder_;
+};
+
+class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
+ public:
   Status AppendData(PyObject* obj) override {
     return Status::OK();
   }
 };
 
-template <typename T>
-class IntegerConverter : SeqConverter {
+class Int64Converter : public TypedConverter<arrow::Int64Builder> {
  public:
-
   Status AppendData(PyObject* obj) override {
     return Status::OK();
   }
 };
 
-template <typename T>
-class FloatingConverter : SeqConverter {
+class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
-
   Status AppendData(PyObject* obj) override {
     return Status::OK();
   }
 };
 
-class StringConverter : SeqConverter {
+class StringConverter : public TypedConverter<arrow::StringBuilder> {
  public:
+  Status AppendData(PyObject* obj) override {
+    return Status::OK();
+  }
+};
+
+class ListConverter : public TypedConverter<arrow::ListBuilder> {
+ public:
+  Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
   Status AppendData(PyObject* obj) override {
     return Status::OK();
   }
-
- private:
-  arrow::StringBuilder builder_;
+ protected:
+  std::shared_ptr<SeqConverter> value_converter_;
 };
 
-class ListConverter : SeqConverter {
- public:
-
-  Status AppendData(PyObject* obj) override {
-    return Status::OK();
-  }
-
- private:
-  arrow::ListBuilder builder_;
-};
-
-Status GetConverter(const std::shared_ptr<DataType>& type,
-    std::shared_ptr<SeqConverter>* out) {
+// Dynamic constructor for sequence converters
+std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
   switch (type->type) {
     case LogicalType::BOOL:
-      break;
+      return std::make_shared<BoolConverter>();
     case LogicalType::INT64:
-      break;
+      return std::make_shared<Int64Converter>();
     case LogicalType::DOUBLE:
-      break;
+      return std::make_shared<DoubleConverter>();
     case LogicalType::STRING:
-      break;
+      return std::make_shared<StringConverter>();
     case LogicalType::LIST:
+      return std::make_shared<ListConverter>();
     case LogicalType::STRUCT:
     default:
-      return Status::NotImplemented("No type converter implemetned");
+      return nullptr;
       break;
   }
+}
+
+Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
+  builder_ = builder;
+  typed_builder_ = static_cast<arrow::ListBuilder*>(builder.get());
+  value_converter_ = GetConverter(builder->type());
   return Status::OK();
 }
 
@@ -214,8 +229,19 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   int64_t size;
   RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
-  std::shared_ptr<SeqConverter> converter;
-  RETURN_NOT_OK(GetConverter(type, &converter));
+  std::shared_ptr<SeqConverter> converter = GetConverter(type);
+  if (converter == nullptr) {
+    std::stringstream ss;
+    ss << "No type converter implemented for "
+       << type->ToString();
+    return Status::NotImplemented(ss.str());
+  }
+
+  // Give the sequence converter an array builder
+  std::shared_ptr<ArrayBuilder> builder;
+  RETURN_ARROW_NOT_OK(arrow::MakeBuilder(GetMemoryPool(), type, &builder));
+  converter->Init(builder);
+
   RETURN_NOT_OK(converter->AppendData(obj));
 
   return Status::OK();

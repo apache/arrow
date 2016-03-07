@@ -23,6 +23,7 @@
 install(FILES
   boolean.h
   collection.h
+  construct.h
   datetime.h
   decimal.h
   floating.h

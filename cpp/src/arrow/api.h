@@ -29,6 +29,7 @@
 #include "arrow/table/table.h"
 
 #include "arrow/types/boolean.h"
+#include "arrow/types/construct.h"
 #include "arrow/types/floating.h"
 #include "arrow/types/integer.h"
 #include "arrow/types/list.h"

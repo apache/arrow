@@ -74,7 +74,7 @@ class TestListBuilder : public TestBuilder {
     type_ = TypePtr(new ListType(value_type_));
 
     std::shared_ptr<ArrayBuilder> tmp;
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
     builder_ = std::dynamic_pointer_cast<ListBuilder>(tmp);
   }
 

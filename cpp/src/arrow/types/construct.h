@@ -28,7 +28,7 @@ class ArrayBuilder;
 class MemoryPool;
 class Status;
 
-Status make_builder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out);
 
 } // namespace arrow

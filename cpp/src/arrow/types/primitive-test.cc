@@ -100,10 +100,10 @@ class TestPrimitiveBuilder : public TestBuilder {
     type_ = Attrs::type();
 
     std::shared_ptr<ArrayBuilder> tmp;
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
     builder_ = std::dynamic_pointer_cast<BuilderType>(tmp);
 
-    ASSERT_OK(make_builder(pool_, type_, &tmp));
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
     builder_nn_ = std::dynamic_pointer_cast<BuilderType>(tmp);
   }
 

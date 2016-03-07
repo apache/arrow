@@ -37,7 +37,7 @@ class ArrayBuilder;
       out->reset(new BuilderType(pool, type));  \
       return Status::OK();
 
-Status make_builder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out) {
   switch (type->type) {
     BUILDER_CASE(UINT8, UInt8Builder);
@@ -62,7 +62,7 @@ Status make_builder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
         const std::shared_ptr<DataType>& value_type = static_cast<ListType*>(
             type.get())->value_type;
-        RETURN_NOT_OK(make_builder(pool, value_type, &value_builder));
+        RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
         out->reset(new ListBuilder(pool, type, value_builder));
         return Status::OK();
       }
