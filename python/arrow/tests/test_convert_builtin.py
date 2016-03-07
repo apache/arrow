@@ -42,6 +42,13 @@ class TestConvertList(unittest.TestCase):
         assert arr.null_count == 2
         assert arr.type == arrow.int64()
 
+    def test_garbage_collection(self):
+        import gc
+        bytes_before = arrow.total_allocated_bytes()
+        arrow.from_list([1, None, 3, None])
+        gc.collect()
+        assert arrow.total_allocated_bytes() == bytes_before
+
     def test_double(self):
         pass
 

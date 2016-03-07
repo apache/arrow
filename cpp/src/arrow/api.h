@@ -36,4 +36,7 @@
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
 
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
+
 #endif // ARROW_API_H

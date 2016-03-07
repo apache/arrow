@@ -235,6 +235,29 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   }
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
+  DECL_T();
+
+  int size = 10000;
+
+  vector<T>& draws = this->draws_;
+  vector<uint8_t>& nulls = this->nulls_;
+
+  int64_t memory_before = this->pool_->bytes_allocated();
+
+  this->RandomData(size);
+
+  int i;
+  for (i = 0; i < size; ++i) {
+    ASSERT_OK(this->builder_->Append(draws[i], nulls[i] > 0));
+  }
+
+  do {
+    std::shared_ptr<Array> result = this->builder_->Finish();
+  } while (false);
+
+  ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
+}
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
@@ -332,11 +355,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
-  int n = 100;
-  ASSERT_OK(this->builder_->Reserve(n));
+  ASSERT_OK(this->builder_->Reserve(10));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_EQ(MIN_BUILDER_CAPACITY, this->builder_->capacity());
 
+  ASSERT_OK(this->builder_->Reserve(90));
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_OK(this->builder_->Reserve(MIN_BUILDER_CAPACITY));
 

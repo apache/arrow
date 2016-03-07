@@ -39,6 +39,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   Buffer(const uint8_t* data, int64_t size) :
       data_(data),
       size_(size) {}
+  virtual ~Buffer();
 
   // An offset into data that is owned by another buffer, but we want to be
   // able to retain a valid pointer to it even after other shared_ptr's to the
@@ -136,6 +137,7 @@ class ResizableBuffer : public MutableBuffer {
 class PoolBuffer : public ResizableBuffer {
  public:
   explicit PoolBuffer(MemoryPool* pool = nullptr);
+  virtual ~PoolBuffer();
 
   virtual Status Resize(int64_t new_size);
   virtual Status Reserve(int64_t new_capacity);

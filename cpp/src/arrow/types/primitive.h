@@ -64,6 +64,8 @@ class PrimitiveArrayImpl : public PrimitiveArray {
 
   PrimitiveArrayImpl() : PrimitiveArray() {}
 
+  virtual ~PrimitiveArrayImpl() {}
+
   PrimitiveArrayImpl(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr) {

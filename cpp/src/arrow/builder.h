@@ -32,7 +32,7 @@ class Array;
 class MemoryPool;
 class PoolBuffer;
 
-static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 8;
+static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
 
 // Base class for all data array builders
 class ArrayBuilder {

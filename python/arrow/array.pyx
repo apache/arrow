@@ -25,6 +25,12 @@ cimport arrow.includes.pyarrow as pyarrow
 from arrow.compat import frombytes, tobytes
 from arrow.error cimport check_status
 
+
+def total_allocated_bytes():
+    cdef MemoryPool* pool = pyarrow.GetMemoryPool()
+    return pool.bytes_allocated()
+
+
 cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):

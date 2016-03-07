@@ -51,6 +51,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
 
+    cdef cppclass MemoryPool" arrow::MemoryPool":
+        int64_t bytes_allocated()
+
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type,
                   c_bool nullable)

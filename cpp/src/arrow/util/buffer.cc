@@ -31,6 +31,8 @@ Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
   parent_ = parent;
 }
 
+Buffer::~Buffer() {}
+
 std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }
@@ -41,6 +43,12 @@ PoolBuffer::PoolBuffer(MemoryPool* pool) :
     pool = GetDefaultMemoryPool();
   }
   pool_ = pool;
+}
+
+PoolBuffer::~PoolBuffer() {
+  if (mutable_data_ != nullptr) {
+    pool_->Free(mutable_data_, capacity_);
+  }
 }
 
 Status PoolBuffer::Reserve(int64_t new_capacity) {
