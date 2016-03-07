@@ -139,7 +139,7 @@ struct DataType {
       type(type),
       nullable(nullable) {}
 
-  virtual ~DataType() {}
+  virtual ~DataType();
 
   bool Equals(const DataType* other) {
     // Call with a pointer so more friendly to subclasses
@@ -218,13 +218,7 @@ struct PrimitiveType : public DataType {
   explicit PrimitiveType(bool nullable = true)
       : DataType(Derived::type_enum, nullable) {}
 
-  virtual std::string ToString() const {
-    std::string result(static_cast<const Derived*>(this)->name());
-    if (!nullable) {
-      result.append(" not null");
-    }
-    return result;
-  }
+  std::string ToString() const override;
 };
 
 #define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)          \
@@ -294,34 +288,25 @@ struct ListType : public DataType {
   explicit ListType(const TypePtr& value_type, bool nullable = true)
       : DataType(LogicalType::LIST, nullable),
         value_type(value_type) {}
-  virtual ~ListType() {}
 
   static char const *name() {
     return "list";
   }
 
-  virtual std::string ToString() const;
+  std::string ToString() const override;
 };
 
 // String is a logical type consisting of a physical list of 1-byte values
 struct StringType : public DataType {
-  explicit StringType(bool nullable = true)
-      : DataType(LogicalType::STRING, nullable) {}
+  explicit StringType(bool nullable = true);
 
-  StringType(const StringType& other)
-      : StringType() {}
+  StringType(const StringType& other);
 
   static char const *name() {
     return "string";
   }
 
-  virtual std::string ToString() const {
-    std::string result(name());
-    if (!nullable) {
-      result.append(" not null");
-    }
-    return result;
-  }
+  std::string ToString() const override;
 };
 
 struct StructType : public DataType {
@@ -341,7 +326,7 @@ struct StructType : public DataType {
     return fields_.size();
   }
 
-  virtual std::string ToString() const;
+  std::string ToString() const override;
 };
 
 extern const std::shared_ptr<NullType> NA;

@@ -35,11 +35,11 @@ cdef class DataType:
         self.sp_type = type
         self.type = type.get()
 
-    def __repr__(self):
-        return 'DataType({0})'.format(self._type_repr())
-
-    def _type_repr(self):
+    def __str__(self):
         return frombytes(self.type.ToString())
+
+    def __repr__(self):
+        return 'DataType({0})'.format(str(self))
 
 cdef class Field:
 
