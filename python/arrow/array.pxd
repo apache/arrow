@@ -21,10 +21,8 @@ from arrow.includes.arrow cimport CArray, LogicalType
 cdef class Array:
     cdef:
         shared_ptr[CArray] sp_array
-        CArray* array
 
-    def __len__(self):
-        return self.array.length()
+    cdef init(self, const shared_ptr[CArray]& sp_array)
 
 
 cdef class BooleanArray(Array):
@@ -67,5 +65,9 @@ cdef class UInt64Array(NumericArray):
     pass
 
 
-cdef class StringArray(NumericArray):
+cdef class ListArray(Array):
+    pass
+
+
+cdef class StringArray(Array):
     pass

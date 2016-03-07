@@ -425,6 +425,7 @@ set(USE_RELATIVE_RPATH ON)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 set(CYTHON_EXTENSIONS
+  array
   config
   error
   parquet

@@ -26,6 +26,7 @@ namespace pyarrow {
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION < 2
 
+// TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR()                             \
   if (PyErr_Occurred()) {                               \
     PyObject *exc_type, *exc_value, *traceback;         \

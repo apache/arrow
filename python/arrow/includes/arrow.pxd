@@ -38,6 +38,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         LogicalType_STRING" arrow::LogicalType::STRING"
 
+        LogicalType_LIST" arrow::LogicalType::LIST"
+        LogicalType_STRUCT" arrow::LogicalType::STRUCT"
+
     cdef cppclass CDataType" arrow::DataType":
         LogicalType type
         c_bool nullable
