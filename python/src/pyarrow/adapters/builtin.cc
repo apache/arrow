@@ -46,9 +46,10 @@ static inline bool IsPyBaseString(PyObject* obj) {
 #endif
 }
 
-class ScalarTypeInfer {
+class ScalarVisitor {
  public:
-  ScalarTypeInfer() :
+  ScalarVisitor() :
+      total_count_(0),
       none_count_(0),
       bool_count_(0),
       int_count_(0),
@@ -56,6 +57,7 @@ class ScalarTypeInfer {
       string_count_(0) {}
 
   void Visit(PyObject* obj) {
+    ++total_count_;
     if (obj == Py_None) {
       ++none_count_;
     } else if (PyFloat_Check(obj)) {
@@ -85,7 +87,12 @@ class ScalarTypeInfer {
     }
   }
 
+  int64_t total_count() const {
+    return total_count_;
+  }
+
  private:
+  int64_t total_count_;
   int64_t none_count_;
   int64_t bool_count_;
   int64_t int_count_;
@@ -94,6 +101,100 @@ class ScalarTypeInfer {
 
   // Place to accumulate errors
   // std::vector<Status> errors_;
+};
+
+static constexpr int MAX_NESTING_LEVELS = 32;
+
+class SeqVisitor {
+ public:
+  SeqVisitor() :
+      max_nesting_level_(0) {
+    memset(nesting_histogram_, 0, MAX_NESTING_LEVELS * sizeof(int));
+  }
+
+  Status Visit(PyObject* obj, int level=0) {
+    Py_ssize_t size = PySequence_Size(obj);
+
+    if (level > max_nesting_level_) {
+      max_nesting_level_ = level;
+    }
+
+    for (int64_t i = 0; i < size; ++i) {
+      // TODO(wesm): Error checking?
+      // TODO(wesm): Specialize for PyList_GET_ITEM?
+      OwnedRef item_ref(PySequence_GetItem(obj, i));
+      PyObject* item = item_ref.obj();
+
+      if (PyList_Check(item)) {
+        PY_RETURN_NOT_OK(Visit(item, level + 1));
+      } else if (PyDict_Check(item)) {
+        return Status::NotImplemented("No type inference for dicts");
+      } else {
+        // We permit nulls at any level of nesting
+        if (item == Py_None) {
+          // TODO
+        } else {
+          ++nesting_histogram_[level];
+          scalars_.Visit(item);
+        }
+      }
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<DataType> GetType() {
+    if (scalars_.total_count() == 0) {
+      if (max_nesting_level_ == 0) {
+        return arrow::NA;
+      } else {
+        return nullptr;
+      }
+    } else {
+      std::shared_ptr<DataType> result = scalars_.GetType();
+      for (int i = 0; i < max_nesting_level_; ++i) {
+        result = std::make_shared<arrow::ListType>(result);
+      }
+      return result;
+    }
+  }
+
+  Status Validate() const {
+    if (scalars_.total_count() > 0) {
+      if (num_nesting_levels() > 1) {
+        return Status::ValueError("Mixed nesting levels not supported");
+      } else if (max_observed_level() < max_nesting_level_) {
+        return Status::ValueError("Mixed nesting levels not supported");
+      }
+    }
+    return Status::OK();
+  }
+
+  int max_observed_level() const {
+    int result = 0;
+    for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
+      if (nesting_histogram_[i] > 0) {
+        result = i;
+      }
+    }
+    return result;
+  }
+
+  int num_nesting_levels() const {
+    int result = 0;
+    for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
+      if (nesting_histogram_[i] > 0) {
+        ++result;
+      }
+    }
+    return result;
+  }
+
+ private:
+  ScalarVisitor scalars_;
+
+  // Track observed
+  int max_nesting_level_;
+  int nesting_histogram_[MAX_NESTING_LEVELS];
 };
 
 // Non-exhaustive type inference
@@ -111,23 +212,11 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
     *out_type = arrow::NA;
   }
 
-  ScalarTypeInfer inferer;
+  SeqVisitor seq_visitor;
+  PY_RETURN_NOT_OK(seq_visitor.Visit(obj));
+  PY_RETURN_NOT_OK(seq_visitor.Validate());
 
-  for (int64_t i = 0; i < *size; ++i) {
-    // TODO(wesm): Error checking?
-    // TODO(wesm): Specialize for PyList_GET_ITEM?
-    OwnedRef item_ref(PySequence_GetItem(obj, i));
-    PyObject* item = item_ref.obj();
-
-    if (PyList_Check(item) || PyDict_Check(item)) {
-      // TODO(wesm): inferring types for collections
-      return Status::NotImplemented("No type inference for collections");
-    } else {
-      inferer.Visit(item);
-    }
-  }
-
-  *out_type = inferer.GetType();
+  *out_type = seq_visitor.GetType();
   return Status::OK();
 }
 
@@ -238,7 +327,7 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
 Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
-  RETURN_NOT_OK(InferArrowType(obj, &size, &type));
+  PY_RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
   // Handle NA / NullType case
   if (type->type == LogicalType::NA) {
@@ -259,7 +348,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   RETURN_ARROW_NOT_OK(arrow::MakeBuilder(GetMemoryPool(), type, &builder));
   converter->Init(builder);
 
-  RETURN_NOT_OK(converter->AppendData(obj, size));
+  PY_RETURN_NOT_OK(converter->AppendData(obj, size));
 
   *out = builder->Finish();
 

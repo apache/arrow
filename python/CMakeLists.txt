@@ -429,6 +429,7 @@ set(CYTHON_EXTENSIONS
   config
   error
   parquet
+  scalar
   schema
 )
 

@@ -18,16 +18,23 @@
 from arrow.includes.common cimport shared_ptr
 from arrow.includes.arrow cimport CArray, LogicalType
 
+from arrow.scalar import NA
+
 from arrow.schema cimport DataType
+
+cdef extern from "Python.h":
+    int PySlice_Check(object)
 
 cdef class Array:
     cdef:
         shared_ptr[CArray] sp_array
+        CArray* ap
 
     cdef readonly:
         DataType type
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
+    cdef _getitem(self, int i)
 
 
 cdef class BooleanArray(Array):

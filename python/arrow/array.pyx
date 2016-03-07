@@ -25,6 +25,7 @@ cimport arrow.includes.pyarrow as pyarrow
 from arrow.compat import frombytes, tobytes
 from arrow.error cimport check_status
 
+from arrow.scalar import NA
 
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
@@ -35,6 +36,7 @@ cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
+        self.ap = sp_array.get()
         self.type = DataType()
         self.type.init(self.sp_array.get().type())
 
@@ -45,6 +47,42 @@ cdef class Array:
 
     def __len__(self):
         return self.sp_array.get().length()
+
+    def isnull(self):
+        raise NotImplemented
+
+    def __getitem__(self, key):
+        cdef:
+            Py_ssize_t n = len(self)
+
+        if PySlice_Check(key):
+            start = key.start or 0
+            while start < 0:
+                start += n
+
+            stop = key.stop if key.stop is not None else n
+            while stop < 0:
+                stop += n
+
+            step = key.step or 1
+            if step != 1:
+                raise NotImplementedError
+            else:
+                return self.slice(start, stop)
+
+        while key < 0:
+            key += len(self)
+
+        if self.ap.IsNull(key):
+            return NA
+        else:
+            return self._getitem(key)
+
+    cdef _getitem(self, int i):
+        raise NotImplementedError
+
+    def slice(self, start, end):
+        pass
 
 
 cdef class NullArray(Array):
@@ -121,7 +159,7 @@ cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
-def from_list(object list_obj, type=None):
+def from_pylist(object list_obj, type=None):
     """
     Convert Python list to Arrow array
     """

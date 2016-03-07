@@ -20,20 +20,28 @@ from arrow.includes.arrow cimport CArray, CListArray
 
 from arrow.schema cimport DataType
 
-cdef class ScalarValue:
+cdef class Scalar:
     cdef readonly:
-        shared_ptr[CArray] array
-        int index
         DataType type
 
 
-cdef class Int8Value:
+cdef class NAType(Scalar):
     pass
 
 
-cdef class ListValue:
+cdef class ArrayValue(Scalar):
+    cdef:
+        shared_ptr[CArray] array
+        int index
+
+
+cdef class Int8Value(ArrayValue):
     pass
 
 
-cdef class StringValue:
+cdef class ListValue(ArrayValue):
+    pass
+
+
+cdef class StringValue(ArrayValue):
     pass

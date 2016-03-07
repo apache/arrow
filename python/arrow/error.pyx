@@ -17,6 +17,8 @@
 
 from arrow.includes.common cimport c_string
 
+from arrow.compat import frombytes
+
 class ArrowException(Exception):
     pass
 
@@ -25,4 +27,4 @@ cdef check_status(const Status& status):
         return
 
     cdef c_string c_message = status.ToString()
-    return ArrowException(c_message)
+    raise ArrowException(frombytes(c_message))

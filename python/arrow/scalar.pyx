@@ -15,20 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+import arrow.schema as schema
 
-from arrow.array import (Array, from_pylist, total_allocated_bytes,
-                         BooleanArray, NumericArray,
-                         Int8Array, UInt8Array,
-                         ListArray, StringArray)
+cdef class NAType(Scalar):
 
-from arrow.error import ArrowException
+    def __cinit__(self):
+        self.type = schema.null()
 
-from arrow.scalar import ArrayValue, NA, Scalar
+    def __repr__(self):
+        return 'NA'
 
-from arrow.schema import (null, bool_,
-                          int8, int16, int32, int64,
-                          uint8, uint16, uint32, uint64,
-                          float_, double, string,
-                          list_, struct, field,
-                          DataType, Field, Schema)
+NA = NAType()

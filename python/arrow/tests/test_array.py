@@ -15,20 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+from arrow.compat import unittest
+import arrow
 
-from arrow.array import (Array, from_pylist, total_allocated_bytes,
-                         BooleanArray, NumericArray,
-                         Int8Array, UInt8Array,
-                         ListArray, StringArray)
 
-from arrow.error import ArrowException
+class TestArrayAPI(unittest.TestCase):
 
-from arrow.scalar import ArrayValue, NA, Scalar
-
-from arrow.schema import (null, bool_,
-                          int8, int16, int32, int64,
-                          uint8, uint16, uint32, uint64,
-                          float_, double, string,
-                          list_, struct, field,
-                          DataType, Field, Schema)
+    def test_getitem_NA(self):
+        arr = arrow.from_pylist([1, None, 2])
+        assert arr[1] is arrow.NA
