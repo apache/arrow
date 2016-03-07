@@ -198,7 +198,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   }
 
   /**
-   * An abstracting that is used to write into this vector instance.
+   * An abstraction that is used to write into this vector instance.
    */
   interface Mutator {
     /**
