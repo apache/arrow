@@ -124,7 +124,10 @@ class build_ext(_build_ext):
                              static_lib_option, source]
 
             self.spawn(cmake_command)
-            self.spawn(['make'])
+            args = ['make']
+            if 'PYARROW_PARALLEL' in os.environ:
+                args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+            self.spawn(args)
         else:
             import shlex
             cmake_generator = 'Visual Studio 14 2015'

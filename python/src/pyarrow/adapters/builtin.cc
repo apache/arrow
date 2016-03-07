@@ -123,7 +123,7 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
       // TODO(wesm): inferring types for collections
       return Status::NotImplemented("No type inference for collections");
     } else {
-      inferer.Visit(obj);
+      inferer.Visit(item);
     }
   }
 
@@ -139,7 +139,7 @@ class SeqConverter {
     return Status::OK();
   }
 
-  virtual Status AppendData(PyObject* seq) = 0;
+  virtual Status AppendData(PyObject* seq, int64_t size) = 0;
 
  protected:
   std::shared_ptr<ArrayBuilder> builder_;
@@ -160,28 +160,39 @@ class TypedConverter : public SeqConverter {
 
 class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
  public:
-  Status AppendData(PyObject* obj) override {
+  Status AppendData(PyObject* seq, int64_t size) override {
     return Status::OK();
   }
 };
 
 class Int64Converter : public TypedConverter<arrow::Int64Builder> {
  public:
-  Status AppendData(PyObject* obj) override {
+  Status AppendData(PyObject* obj, int64_t size) override {
+    int64_t val;
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(obj, i));
+      if (item.obj() == Py_None) {
+        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        val = PyLong_AsLongLong(item.obj());
+        RETURN_IF_PYERROR();
+        RETURN_ARROW_NOT_OK(typed_builder_->Append(val));
+      }
+    }
     return Status::OK();
   }
 };
 
 class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
-  Status AppendData(PyObject* obj) override {
+  Status AppendData(PyObject* seq, int64_t size) override {
     return Status::OK();
   }
 };
 
 class StringConverter : public TypedConverter<arrow::StringBuilder> {
  public:
-  Status AppendData(PyObject* obj) override {
+  Status AppendData(PyObject* seq, int64_t size) override {
     return Status::OK();
   }
 };
@@ -190,7 +201,7 @@ class ListConverter : public TypedConverter<arrow::ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  Status AppendData(PyObject* obj) override {
+  Status AppendData(PyObject* seq, int64_t size) override {
     return Status::OK();
   }
  protected:
@@ -231,7 +242,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
 
   // Handle NA / NullType case
   if (type->type == LogicalType::NA) {
-    out->reset(new arrow::Array(type, size));
+    out->reset(new arrow::Array(type, size, size));
     return Status::OK();
   }
 
@@ -248,7 +259,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   RETURN_ARROW_NOT_OK(arrow::MakeBuilder(GetMemoryPool(), type, &builder));
   converter->Init(builder);
 
-  RETURN_NOT_OK(converter->AppendData(obj));
+  RETURN_NOT_OK(converter->AppendData(obj, size));
 
   *out = builder->Finish();
 

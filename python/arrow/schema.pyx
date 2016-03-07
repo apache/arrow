@@ -26,6 +26,8 @@ from arrow.compat import frombytes, tobytes
 from arrow.includes.arrow cimport *
 cimport arrow.includes.pyarrow as pyarrow
 
+cimport cpython
+
 cdef class DataType:
 
     def __cinit__(self):
@@ -40,6 +42,15 @@ cdef class DataType:
 
     def __repr__(self):
         return 'DataType({0})'.format(str(self))
+
+    def __richcmp__(DataType self, DataType other, int op):
+        if op == cpython.Py_EQ:
+            return self.type.Equals(other.type)
+        elif op == cpython.Py_NE:
+            return not self.type.Equals(other.type)
+        else:
+            raise TypeError('Invalid comparison')
+
 
 cdef class Field:
 

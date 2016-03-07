@@ -47,6 +47,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         LogicalType type
         c_bool nullable
 
+        c_bool Equals(const CDataType* other)
+
         c_string ToString()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):

@@ -29,6 +29,8 @@ cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
+        self.type = DataType()
+        self.type.init(self.sp_array.get().type())
 
     property null_count:
 
@@ -36,7 +38,7 @@ cdef class Array:
             return self.sp_array.get().null_count()
 
     def __len__(self):
-        return self.array.length()
+        return self.sp_array.get().length()
 
 
 cdef class NullArray(Array):

@@ -18,9 +18,14 @@
 from arrow.includes.common cimport shared_ptr
 from arrow.includes.arrow cimport CArray, LogicalType
 
+from arrow.schema cimport DataType
+
 cdef class Array:
     cdef:
         shared_ptr[CArray] sp_array
+
+    cdef readonly:
+        DataType type
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
 

@@ -26,18 +26,6 @@ namespace pyarrow {
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION < 2
 
-// TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR()                             \
-  if (PyErr_Occurred()) {                               \
-    PyObject *exc_type, *exc_value, *traceback;         \
-    PyErr_Fetch(&exc_type, &exc_value, &traceback);     \
-    std::string message(PyString_AsString(exc_value));  \
-    Py_DECREF(exc_type);                                \
-    Py_DECREF(exc_value);                               \
-    Py_DECREF(traceback);                               \
-    return Status::UnknownError(message);               \
-  }
-
 #define RETURN_ARROW_NOT_OK(s) do {             \
     arrow::Status _s = (s);                     \
     if (!_s.ok()) {                             \
@@ -47,11 +35,20 @@ namespace pyarrow {
 
 class OwnedRef {
  public:
+  OwnedRef() : obj_(nullptr) {}
+
   OwnedRef(PyObject* obj) :
       obj_(obj) {}
 
   ~OwnedRef() {
     Py_XDECREF(obj_);
+  }
+
+  void reset(PyObject* obj) {
+    if (obj_ != nullptr) {
+      Py_XDECREF(obj_);
+    }
+    obj_ = obj;
   }
 
   PyObject* obj() const{
@@ -61,6 +58,35 @@ class OwnedRef {
  private:
   PyObject* obj_;
 };
+
+struct PyObjectStringify {
+  OwnedRef tmp_obj;
+  const char* bytes;
+
+  PyObjectStringify(PyObject* obj) {
+    PyObject* bytes_obj;
+    if (PyUnicode_Check(obj)) {
+      bytes_obj = PyUnicode_AsUTF8String(obj);
+      tmp_obj.reset(bytes_obj);
+    } else {
+      bytes_obj = obj;
+    }
+    bytes = PyBytes_AsString(bytes_obj);
+  }
+};
+
+// TODO(wesm): We can just let errors pass through. To be explored later
+#define RETURN_IF_PYERROR()                         \
+  if (PyErr_Occurred()) {                           \
+    PyObject *exc_type, *exc_value, *traceback;     \
+    PyErr_Fetch(&exc_type, &exc_value, &traceback); \
+    PyObjectStringify stringified(exc_value);       \
+    std::string message(stringified.bytes);         \
+    Py_DECREF(exc_type);                            \
+    Py_DECREF(exc_value);                           \
+    Py_DECREF(traceback);                           \
+    return Status::UnknownError(message);           \
+  }
 
 arrow::MemoryPool* GetMemoryPool();
 

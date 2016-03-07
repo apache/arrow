@@ -27,11 +27,19 @@ class TestConvertList(unittest.TestCase):
     def test_empty_list(self):
         arr = arrow.from_list([])
         assert len(arr) == 0
+        assert arr.null_count == 0
+        assert arr.type == arrow.null()
+
+    def test_all_none(self):
+        arr = arrow.from_list([None, None])
+        assert len(arr) == 2
+        assert arr.null_count == 2
         assert arr.type == arrow.null()
 
     def test_integer(self):
-        arr = arrow.from_list([1, 2, 3])
-        assert len(arr) == 3
+        arr = arrow.from_list([1, None, 3, None])
+        assert len(arr) == 4
+        assert arr.null_count == 2
         assert arr.type == arrow.int64()
 
     def test_double(self):
