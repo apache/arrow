@@ -112,7 +112,6 @@ class TestPrimitiveBuilder : public TestBuilder {
   }
 
   void CheckNullable() {
-    ArrayType result;
     ArrayType expected;
     int size = builder_->length();
 
@@ -125,7 +124,9 @@ class TestPrimitiveBuilder : public TestBuilder {
     int32_t ex_null_count = null_count(nulls_);
 
     expected.Init(size, ex_data, ex_null_count, ex_nulls);
-    ASSERT_OK(builder_->Transfer(&result));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
+        builder_->Finish());
 
     // Builder is now reset
     ASSERT_EQ(0, builder_->length());
@@ -133,12 +134,11 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
-    ASSERT_TRUE(result.Equals(expected));
-    ASSERT_EQ(ex_null_count, result.null_count());
+    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_EQ(ex_null_count, result->null_count());
   }
 
   void CheckNonNullable() {
-    ArrayType result;
     ArrayType expected;
     int size = builder_nn_->length();
 
@@ -146,15 +146,17 @@ class TestPrimitiveBuilder : public TestBuilder {
         size * sizeof(T));
 
     expected.Init(size, ex_data);
-    ASSERT_OK(builder_nn_->Transfer(&result));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
+        builder_nn_->Finish());
 
     // Builder is now reset
     ASSERT_EQ(0, builder_nn_->length());
     ASSERT_EQ(0, builder_nn_->capacity());
     ASSERT_EQ(nullptr, builder_nn_->buffer());
 
-    ASSERT_TRUE(result.Equals(expected));
-    ASSERT_EQ(0, result.null_count());
+    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_EQ(0, result->null_count());
   }
 
  protected:
@@ -225,9 +227,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
-  Array* result;
-  ASSERT_OK(this->builder_->ToArray(&result));
-  unique_ptr<Array> holder(result);
+  auto result = this->builder_->Finish();
 
   for (int i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i));

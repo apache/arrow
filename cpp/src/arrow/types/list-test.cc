@@ -32,6 +32,7 @@
 #include "arrow/types/test-common.h"
 #include "arrow/util/status.h"
 
+using std::shared_ptr;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -78,9 +79,7 @@ class TestListBuilder : public TestBuilder {
   }
 
   void Done() {
-    Array* out;
-    ASSERT_OK(builder_->ToArray(&out));
-    result_.reset(static_cast<ListArray*>(out));
+    result_ = std::dynamic_pointer_cast<ListArray>(builder_->Finish());
   }
 
  protected:
@@ -88,7 +87,7 @@ class TestListBuilder : public TestBuilder {
   TypePtr type_;
 
   unique_ptr<ListBuilder> builder_;
-  unique_ptr<ListArray> result_;
+  shared_ptr<ListArray> result_;
 };
 
 

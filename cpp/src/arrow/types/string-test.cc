@@ -173,16 +173,14 @@ class TestStringBuilder : public TestBuilder {
   }
 
   void Done() {
-    Array* out;
-    ASSERT_OK(builder_->ToArray(&out));
-    result_.reset(static_cast<StringArray*>(out));
+    result_ = std::dynamic_pointer_cast<StringArray>(builder_->Finish());
   }
 
  protected:
   TypePtr type_;
 
   std::unique_ptr<StringBuilder> builder_;
-  std::unique_ptr<StringArray> result_;
+  std::shared_ptr<StringArray> result_;
 };
 
 TEST_F(TestStringBuilder, TestScalarAppend) {

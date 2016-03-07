@@ -146,11 +146,8 @@ class StringBuilder : public ListBuilder {
   Status Append(const std::vector<std::string>& values,
                 uint8_t* null_bytes);
 
-  virtual Status ToArray(Array** out) {
-    StringArray* result = new StringArray();
-    RETURN_NOT_OK(ListBuilder::Transfer(result));
-    *out = static_cast<Array*>(result);
-    return Status::OK();
+  std::shared_ptr<Array> Finish() override {
+    return ListBuilder::Transfer<StringArray>();
   }
 
  protected:

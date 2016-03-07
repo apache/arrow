@@ -78,7 +78,7 @@ class ArrayBuilder {
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data
-  virtual Status ToArray(Array** out) = 0;
+  virtual std::shared_ptr<Array> Finish() = 0;
 
  protected:
   MemoryPool* pool_;

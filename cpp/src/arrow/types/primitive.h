@@ -197,24 +197,12 @@ class PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  // Initialize an array type instance with the results of this builder
-  // Transfers ownership of all buffers
-  Status Transfer(PrimitiveArray* out) {
-    out->Init(type_, length_, values_, null_count_, nulls_);
+  std::shared_ptr<Array> Finish() override {
+    std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>();
+    result->PrimitiveArray::Init(type_, length_, values_, null_count_, nulls_);
     values_ = nulls_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
-    return Status::OK();
-  }
-
-  Status Transfer(ArrayType* out) {
-    return Transfer(static_cast<PrimitiveArray*>(out));
-  }
-
-  virtual Status ToArray(Array** out) {
-    ArrayType* result = new ArrayType();
-    RETURN_NOT_OK(Transfer(result));
-    *out = static_cast<Array*>(result);
-    return Status::OK();
+    return result;
   }
 
   value_type* raw_buffer() {

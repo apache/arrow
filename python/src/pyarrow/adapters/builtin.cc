@@ -69,14 +69,12 @@ class ScalarTypeInfer {
 
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
-
     if (float_count_) {
       return arrow::DOUBLE;
     } else if (int_count_) {
       // TODO(wesm): tighter type later
       return arrow::INT64;
     } else if (bool_count_) {
-      // TODO(wesm): tighter type later
       return arrow::BOOL;
     } else if (string_count_) {
       return arrow::STRING;
