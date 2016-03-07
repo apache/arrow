@@ -63,7 +63,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Allocates new buffers. ValueVector implements logic to determine how much to allocate.
-   * @return Returns true if allocation was succesful.
+   * @return Returns true if allocation was successful.
    */
   boolean allocateNewSafe();
 
@@ -71,7 +71,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Set the initial record capacity
-   * @param numRecords
+   * @param numRecords the initial record capacity.
    */
   void setInitialCapacity(int numRecords);
 
@@ -87,7 +87,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void close();
 
   /**
-   * Release the underlying DrillBuf and reset the ValueVector to empty.
+   * Release the underlying ArrowBuf and reset the ValueVector to empty.
    */
   void clear();
 
@@ -198,7 +198,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   }
 
   /**
-   * An abstractiong that is used to write into this vector instance.
+   * An abstraction that is used to write into this vector instance.
    */
   interface Mutator {
     /**
