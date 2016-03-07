@@ -21,5 +21,19 @@ import arrow
 
 class TestConvertList(unittest.TestCase):
 
-    def test_list_convert(self):
+    def test_boolean(self):
+        pass
+
+    def test_integer(self):
+        arr = arrow.from_list([1, 2, 3])
+        assert len(arr) == 3
+        assert arr.type == arrow.int64()
+
+    def test_double(self):
+        pass
+
+    def test_string(self):
+        pass
+
+    def test_list_of_int(self):
         pass

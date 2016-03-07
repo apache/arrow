@@ -95,9 +95,15 @@ cdef dict _array_classes = {
 }
 
 cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
-    cdef LogicalType type = sp_array.get().type().get().type
+    if sp_array.get() == NULL:
+        raise ValueError('Array was NULL')
 
-    cdef Array arr = _array_classes[type]()
+    cdef CDataType* data_type = sp_array.get().type().get()
+
+    if data_type == NULL:
+        raise ValueError('Array data type was NULL')
+
+    cdef Array arr = _array_classes[data_type.type]()
     arr.init(sp_array)
     return arr
 
