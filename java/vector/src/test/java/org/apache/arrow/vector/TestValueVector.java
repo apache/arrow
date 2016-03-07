@@ -24,10 +24,13 @@ import static org.junit.Assert.assertTrue;
 import java.nio.charset.Charset;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.RepeatedListVector;
 import org.apache.arrow.vector.complex.RepeatedMapVector;
 import org.apache.arrow.vector.types.MaterializedField;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.BasicTypeHelper;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.holders.BitHolder;
@@ -518,4 +521,21 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testListVectorShouldNotThrowOversizedAllocationException() throws Exception {
+    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH,
+            Types.optional(MinorType.LIST));
+    ListVector vector = new ListVector(field, allocator, null);
+    ListVector vectorFrom = new ListVector(field, allocator, null);
+    vectorFrom.allocateNew();
+
+    for (int i = 0; i < 10000; i++) {
+      vector.allocateNew();
+      vector.copyFromSafe(0, 0, vectorFrom);
+      vector.clear();
+    }
+
+    vectorFrom.clear();
+    vector.clear();
+  }
 }
