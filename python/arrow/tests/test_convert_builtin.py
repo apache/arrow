@@ -50,10 +50,18 @@ class TestConvertList(unittest.TestCase):
         assert arrow.total_allocated_bytes() == bytes_before
 
     def test_double(self):
-        pass
+        data = [1.5, 1, None, 2.5, None, None]
+        arr = arrow.from_pylist(data)
+        assert len(arr) == 6
+        assert arr.null_count == 3
+        assert arr.type == arrow.double()
 
     def test_string(self):
-        pass
+        data = ['foo', b'bar', None, 'arrow']
+        arr = arrow.from_pylist(data)
+        assert len(arr) == 4
+        assert arr.null_count == 1
+        assert arr.type == arrow.string()
 
     def test_list_of_int(self):
         data = [[1, 2, 3], [], None, [1, 2]]

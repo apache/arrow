@@ -136,12 +136,13 @@ class StringBuilder : public ListBuilder {
   }
 
   Status Append(const std::string& value) {
-    RETURN_NOT_OK(ListBuilder::Append());
-    return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value.c_str()),
-        value.size());
+    return Append(value.c_str(), value.size());
   }
 
-  Status Append(const uint8_t* value, int32_t length);
+  Status Append(const char* value, int32_t length) {
+    RETURN_NOT_OK(ListBuilder::Append());
+    return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
   Status Append(const std::vector<std::string>& values,
                 uint8_t* null_bytes);
 

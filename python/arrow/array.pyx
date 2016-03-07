@@ -129,6 +129,14 @@ cdef class UInt64Array(NumericArray):
     pass
 
 
+cdef class FloatArray(NumericArray):
+    pass
+
+
+cdef class DoubleArray(NumericArray):
+    pass
+
+
 cdef class ListArray(Array):
     pass
 
@@ -141,6 +149,7 @@ cdef dict _array_classes = {
     LogicalType_NA: NullArray,
     LogicalType_BOOL: BooleanArray,
     LogicalType_INT64: Int64Array,
+    LogicalType_DOUBLE: DoubleArray,
     LogicalType_LIST: ListArray,
     LogicalType_STRING: StringArray,
 }

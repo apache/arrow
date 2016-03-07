@@ -256,10 +256,10 @@ class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
 
 class Int64Converter : public TypedConverter<arrow::Int64Builder> {
  public:
-  Status AppendData(PyObject* obj, int64_t size) override {
+  Status AppendData(PyObject* seq, int64_t size) override {
     int64_t val;
     for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(obj, i));
+      OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
         RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
       } else {
@@ -275,6 +275,17 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
 class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
   Status AppendData(PyObject* seq, int64_t size) override {
+    int64_t val;
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(seq, i));
+      if (item.obj() == Py_None) {
+        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+      } else {
+        val = PyFloat_AsDouble(item.obj());
+        RETURN_IF_PYERROR();
+        RETURN_ARROW_NOT_OK(typed_builder_->Append(val));
+      }
+    }
     return Status::OK();
   }
 };
@@ -282,6 +293,32 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
 class StringConverter : public TypedConverter<arrow::StringBuilder> {
  public:
   Status AppendData(PyObject* seq, int64_t size) override {
+    PyObject* item;
+    PyObject* bytes_obj;
+    OwnedRef tmp;
+    const char* bytes;
+    int32_t length;
+    for (int64_t i = 0; i < size; ++i) {
+      item = PySequence_GetItem(seq, i);
+      OwnedRef holder(item);
+
+      if (item == Py_None) {
+        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+        continue;
+      } else if (PyUnicode_Check(item)) {
+        tmp.reset(PyUnicode_AsUTF8String(item));
+        RETURN_IF_PYERROR();
+        bytes_obj = tmp.obj();
+      } else if (PyBytes_Check(item)) {
+        bytes_obj = item;
+      } else {
+        return Status::TypeError("Non-string value encountered");
+      }
+      // No error checking
+      length = PyBytes_GET_SIZE(bytes_obj);
+      bytes = PyBytes_AS_STRING(bytes_obj);
+      RETURN_ARROW_NOT_OK(typed_builder_->Append(bytes, length));
+    }
     return Status::OK();
   }
 };
