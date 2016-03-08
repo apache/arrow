@@ -85,6 +85,14 @@ cdef DataType primitive_type(LogicalType type, bint nullable=True):
 def field(name, type):
     return Field(name, type)
 
+cdef set PRIMITIVE_TYPES = set([
+    LogicalType_NA, LogicalType_BOOL,
+    LogicalType_UINT8, LogicalType_INT8,
+    LogicalType_UINT16, LogicalType_INT16,
+    LogicalType_UINT32, LogicalType_INT32,
+    LogicalType_UINT64, LogicalType_INT64,
+    LogicalType_FLOAT, LogicalType_DOUBLE])
+
 def null():
     return primitive_type(LogicalType_NA)
 
@@ -147,4 +155,10 @@ def struct(fields, c_bool nullable=True):
 
     out.init(shared_ptr[CDataType](
         new CStructType(c_fields, nullable)))
+    return out
+
+
+cdef DataType box_data_type(const shared_ptr[CDataType]& type):
+    cdef DataType out = DataType()
+    out.init(type)
     return out

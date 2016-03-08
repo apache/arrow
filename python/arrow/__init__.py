@@ -24,7 +24,11 @@ from arrow.array import (Array, from_pylist, total_allocated_bytes,
 
 from arrow.error import ArrowException
 
-from arrow.scalar import ArrayValue, NA, Scalar
+from arrow.scalar import (ArrayValue, Scalar, NA, NAType,
+                          BooleanValue,
+                          Int8Value, Int16Value, Int32Value, Int64Value,
+                          UInt8Value, UInt16Value, UInt32Value, UInt64Value,
+                          FloatValue, DoubleValue, ListValue, StringValue)
 
 from arrow.schema import (null, bool_,
                           int8, int16, int32, int64,

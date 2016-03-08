@@ -25,6 +25,7 @@ cimport arrow.includes.pyarrow as pyarrow
 from arrow.compat import frombytes, tobytes
 from arrow.error cimport check_status
 
+cimport arrow.scalar as scalar
 from arrow.scalar import NA
 
 def total_allocated_bytes():
@@ -73,13 +74,7 @@ cdef class Array:
         while key < 0:
             key += len(self)
 
-        if self.ap.IsNull(key):
-            return NA
-        else:
-            return self._getitem(key)
-
-    cdef _getitem(self, int i):
-        raise NotImplementedError
+        return scalar.box_arrow_scalar(self.type, self.sp_array, key)
 
     def slice(self, start, end):
         pass
@@ -168,12 +163,16 @@ cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
-def from_pylist(object list_obj, type=None):
+def from_pylist(object list_obj, DataType type=None):
     """
     Convert Python list to Arrow array
     """
     cdef:
         shared_ptr[CArray] sp_array
 
-    check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
+    if type is None:
+        check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
+    else:
+        raise NotImplementedError
+
     return box_arrow_array(sp_array)

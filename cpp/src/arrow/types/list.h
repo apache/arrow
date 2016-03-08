@@ -63,7 +63,11 @@ class ListArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const ArrayPtr& values() const {return values_;}
+  const std::shared_ptr<Array>& values() const {return values_;}
+
+  const std::shared_ptr<DataType>& value_type() const {
+    return values_->type();
+  }
 
   const int32_t* offsets() const { return offsets_;}
 
