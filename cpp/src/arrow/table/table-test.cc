@@ -34,6 +34,10 @@ using std::vector;
 
 namespace arrow {
 
+const auto INT16 = std::make_shared<Int16Type>();
+const auto UINT8 = std::make_shared<UInt8Type>();
+const auto INT32 = std::make_shared<Int32Type>();
+
 class TestTable : public TestBase {
  public:
   void MakeExample1(int length) {

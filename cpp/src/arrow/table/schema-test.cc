@@ -29,6 +29,8 @@ using std::vector;
 
 namespace arrow {
 
+const auto INT32 = std::make_shared<Int32Type>();
+
 TEST(TestField, Basics) {
   shared_ptr<DataType> ftype = INT32;
   shared_ptr<DataType> ftype_nn = std::make_shared<Int32Type>(false);

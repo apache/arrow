@@ -338,20 +338,6 @@ struct StructType : public DataType {
   std::string ToString() const override;
 };
 
-extern const std::shared_ptr<NullType> NA;
-extern const std::shared_ptr<BooleanType> BOOL;
-extern const std::shared_ptr<UInt8Type> UINT8;
-extern const std::shared_ptr<UInt16Type> UINT16;
-extern const std::shared_ptr<UInt32Type> UINT32;
-extern const std::shared_ptr<UInt64Type> UINT64;
-extern const std::shared_ptr<Int8Type> INT8;
-extern const std::shared_ptr<Int16Type> INT16;
-extern const std::shared_ptr<Int32Type> INT32;
-extern const std::shared_ptr<Int64Type> INT64;
-extern const std::shared_ptr<FloatType> FLOAT;
-extern const std::shared_ptr<DoubleType> DOUBLE;
-extern const std::shared_ptr<StringType> STRING;
-
 } // namespace arrow
 
 #endif  // ARROW_TYPE_H

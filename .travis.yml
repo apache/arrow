@@ -8,7 +8,9 @@ addons:
     packages:
     - gcc-4.9   # Needed for C++11
     - g++-4.9   # Needed for C++11
+    - gdb
     - gcov
+    - ccache
     - cmake
     - valgrind
 
@@ -17,11 +19,32 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
+    before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
+    - export CC="gcc-4.9"
+    - export CXX="g++-4.9"
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - compiler: clang
     language: cpp
     os: osx
     addons:
+    before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+
+before_install:
+- ulimit -c unlimited -S
+- export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
+- export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
+- export LD_LIBRARY_PATH=$ARROW_CPP_INSTALL/lib:$LD_LIBRARY_PATH
+
+after_script:
+- rm -rf $CPP_BUILD_DIR
+
+after_failure:
+- COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
+- if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi

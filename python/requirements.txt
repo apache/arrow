@@ -1,0 +1,4 @@
+pytest
+numpy>=1.7.0
+pandas>=0.12.0
+six

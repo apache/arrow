@@ -25,6 +25,8 @@
 
 #include <memory>
 
+#include <arrow/type.h>
+
 #include "pyarrow/common.h"
 
 namespace arrow { class Array; }

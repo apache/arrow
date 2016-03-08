@@ -404,7 +404,6 @@ set(PYARROW_SRCS
 )
 
 set(LINK_LIBS
-  pyarrow_util
   arrow
 )
 
@@ -428,7 +427,6 @@ set(CYTHON_EXTENSIONS
   array
   config
   error
-  parquet
   scalar
   schema
 )

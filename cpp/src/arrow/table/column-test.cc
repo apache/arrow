@@ -33,6 +33,8 @@ using std::vector;
 
 namespace arrow {
 
+const auto INT32 = std::make_shared<Int32Type>();
+
 class TestColumn : public TestBase {
  protected:
   std::shared_ptr<ChunkedArray> data_;

@@ -16,22 +16,6 @@
 # under the License.
 
 #######################################
-# pyarrow_util
-#######################################
-
-set(UTIL_SRCS
-)
-
-set(UTIL_LIBS
-)
-
-add_library(pyarrow_util STATIC
-  ${UTIL_SRCS}
-)
-target_link_libraries(pyarrow_util ${UTIL_LIBS})
-SET_TARGET_PROPERTIES(pyarrow_util PROPERTIES LINKER_LANGUAGE CXX)
-
-#######################################
 # pyarrow_test_main
 #######################################
 
@@ -40,7 +24,7 @@ add_library(pyarrow_test_main
 
 if (APPLE)
   target_link_libraries(pyarrow_test_main
-    gmock
+    gtest
     dl)
   set_target_properties(pyarrow_test_main
         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
