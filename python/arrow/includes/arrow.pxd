@@ -84,13 +84,23 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsNull(int i)
 
     cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
-        pass
+        uint8_t Value(int i)
 
     cdef cppclass CInt8Array" arrow::Int8Array"(CArray):
-        pass
+        int8_t Value(int i)
+
+    cdef cppclass CUInt64Array" arrow::UInt64Array"(CArray):
+        uint64_t Value(int i)
+
+    cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
+        int64_t Value(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
-        pass
+        const int32_t* offsets()
+        int32_t offset(int i)
+        int32_t value_length(int i)
+        const shared_ptr[CArray]& values()
+        const shared_ptr[CDataType]& value_type()
 
     cdef cppclass CStringArray" arrow::StringArray"(CListArray):
-        pass
+        c_string GetString(int i)

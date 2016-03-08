@@ -16,7 +16,7 @@
 # under the License.
 
 from arrow.includes.common cimport *
-from arrow.includes.arrow cimport CArray, CListArray
+from arrow.includes.arrow cimport *
 
 from arrow.schema cimport DataType
 
@@ -31,17 +31,36 @@ cdef class NAType(Scalar):
 
 cdef class ArrayValue(Scalar):
     cdef:
-        shared_ptr[CArray] array
+        shared_ptr[CArray] sp_array
         int index
+
+    cdef void init(self, DataType type,
+                   const shared_ptr[CArray]& sp_array, int index)
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
 
 
 cdef class Int8Value(ArrayValue):
     pass
 
 
-cdef class ListValue(ArrayValue):
+cdef class Int64Value(ArrayValue):
     pass
+
+
+cdef class ListValue(ArrayValue):
+    cdef readonly:
+        DataType value_type
+
+    cdef:
+        CListArray* ap
+
+    cdef _getitem(self, int i)
 
 
 cdef class StringValue(ArrayValue):
     pass
+
+cdef object box_arrow_scalar(DataType type,
+                             const shared_ptr[CArray]& sp_array,
+                             int index)

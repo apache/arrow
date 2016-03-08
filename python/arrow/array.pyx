@@ -25,6 +25,7 @@ cimport arrow.includes.pyarrow as pyarrow
 from arrow.compat import frombytes, tobytes
 from arrow.error cimport check_status
 
+cimport arrow.scalar as scalar
 from arrow.scalar import NA
 
 def total_allocated_bytes():
@@ -79,7 +80,7 @@ cdef class Array:
             return self._getitem(key)
 
     cdef _getitem(self, int i):
-        raise NotImplementedError
+        return scalar.box_arrow_scalar(self.type, self.sp_array, i)
 
     def slice(self, start, end):
         pass

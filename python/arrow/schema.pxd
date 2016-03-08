@@ -37,3 +37,5 @@ cdef class Schema:
     cdef:
         shared_ptr[CSchema] sp_schema
         CSchema* schema
+
+cdef DataType box_data_type(const shared_ptr[CDataType]& type)
