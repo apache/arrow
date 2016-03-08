@@ -17,6 +17,7 @@
 
 from arrow.compat import unittest
 import arrow
+import arrow.formatting as fmt
 
 
 class TestArrayAPI(unittest.TestCase):
@@ -24,3 +25,39 @@ class TestArrayAPI(unittest.TestCase):
     def test_getitem_NA(self):
         arr = arrow.from_pylist([1, None, 2])
         assert arr[1] is arrow.NA
+
+    def test_list_format(self):
+        arr = arrow.from_pylist([[1], None, [2, 3]])
+        result = fmt.array_format(arr)
+        expected = """\
+[
+  [1],
+  NA,
+  [2,
+   3]
+]"""
+        assert result == expected
+
+    def test_string_format(self):
+        arr = arrow.from_pylist(['foo', None, 'bar'])
+        result = fmt.array_format(arr)
+        expected = """\
+[
+  'foo',
+  NA,
+  'bar'
+]"""
+        assert result == expected
+
+    def test_long_array_format(self):
+        arr = arrow.from_pylist(range(100))
+        result = fmt.array_format(arr, window=2)
+        expected = """\
+[
+  0,
+  1,
+  ...
+  98,
+  99
+]"""
+        assert result == expected

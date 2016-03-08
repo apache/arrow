@@ -46,6 +46,17 @@ cdef class Array:
         def __get__(self):
             return self.sp_array.get().null_count()
 
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self.getitem(i)
+        raise StopIteration
+
+    def __repr__(self):
+        from arrow.formatting import array_format
+        type_format = object.__repr__(self)
+        values = array_format(self, window=10)
+        return '{0}\n{1}'.format(type_format, values)
+
     def __len__(self):
         return self.sp_array.get().length()
 
@@ -74,7 +85,10 @@ cdef class Array:
         while key < 0:
             key += len(self)
 
-        return scalar.box_arrow_scalar(self.type, self.sp_array, key)
+        return self.getitem(key)
+
+    cdef getitem(self, int i):
+        return scalar.box_arrow_scalar(self.type, self.sp_array, i)
 
     def slice(self, start, end):
         pass

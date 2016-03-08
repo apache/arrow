@@ -55,7 +55,7 @@ cdef class ListValue(ArrayValue):
     cdef:
         CListArray* ap
 
-    cdef _getitem(self, int i)
+    cdef getitem(self, int i)
 
 
 cdef class StringValue(ArrayValue):
