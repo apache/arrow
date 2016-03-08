@@ -89,11 +89,29 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CInt8Array" arrow::Int8Array"(CArray):
         int8_t Value(int i)
 
+    cdef cppclass CUInt16Array" arrow::UInt16Array"(CArray):
+        uint16_t Value(int i)
+
+    cdef cppclass CInt16Array" arrow::Int16Array"(CArray):
+        int16_t Value(int i)
+
+    cdef cppclass CUInt32Array" arrow::UInt32Array"(CArray):
+        uint32_t Value(int i)
+
+    cdef cppclass CInt32Array" arrow::Int32Array"(CArray):
+        int32_t Value(int i)
+
     cdef cppclass CUInt64Array" arrow::UInt64Array"(CArray):
         uint64_t Value(int i)
 
     cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
         int64_t Value(int i)
+
+    cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
+        float Value(int i)
+
+    cdef cppclass CDoubleArray" arrow::DoubleArray"(CArray):
+        double Value(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         const int32_t* offsets()

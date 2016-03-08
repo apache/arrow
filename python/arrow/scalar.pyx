@@ -20,9 +20,15 @@ from arrow.schema cimport DataType, box_data_type
 from arrow.compat import frombytes
 import arrow.schema as schema
 
+NA = None
+
 cdef class NAType(Scalar):
 
     def __cinit__(self):
+        global NA
+        if NA is not None:
+            raise Exception('Cannot create multiple NAType instances')
+
         self.type = schema.null()
 
     def __repr__(self):
@@ -51,10 +57,77 @@ cdef class ArrayValue(Scalar):
             return Scalar.__repr__(self)
 
 
+cdef class BooleanValue(ArrayValue):
+    pass
+
+
+cdef class Int8Value(ArrayValue):
+
+    def as_py(self):
+        cdef CInt8Array* ap = <CInt8Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class UInt8Value(ArrayValue):
+
+    def as_py(self):
+        cdef CUInt8Array* ap = <CUInt8Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class Int16Value(ArrayValue):
+
+    def as_py(self):
+        cdef CInt16Array* ap = <CInt16Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class UInt16Value(ArrayValue):
+
+    def as_py(self):
+        cdef CUInt16Array* ap = <CUInt16Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class Int32Value(ArrayValue):
+
+    def as_py(self):
+        cdef CInt32Array* ap = <CInt32Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class UInt32Value(ArrayValue):
+
+    def as_py(self):
+        cdef CUInt32Array* ap = <CUInt32Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
 cdef class Int64Value(ArrayValue):
 
     def as_py(self):
         cdef CInt64Array* ap = <CInt64Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class UInt64Value(ArrayValue):
+
+    def as_py(self):
+        cdef CUInt64Array* ap = <CUInt64Array*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class FloatValue(ArrayValue):
+
+    def as_py(self):
+        cdef CFloatArray* ap = <CFloatArray*> self.sp_array.get()
+        return ap.Value(self.index)
+
+
+cdef class DoubleValue(ArrayValue):
+
+    def as_py(self):
+        cdef CDoubleArray* ap = <CDoubleArray*> self.sp_array.get()
         return ap.Value(self.index)
 
 
@@ -94,7 +167,16 @@ cdef class ListValue(ArrayValue):
 
 
 cdef dict _scalar_classes = {
+    LogicalType_UINT8: Int8Value,
+    LogicalType_UINT16: Int16Value,
+    LogicalType_UINT32: Int32Value,
+    LogicalType_UINT64: Int64Value,
+    LogicalType_INT8: Int8Value,
+    LogicalType_INT16: Int16Value,
+    LogicalType_INT32: Int32Value,
     LogicalType_INT64: Int64Value,
+    LogicalType_FLOAT: FloatValue,
+    LogicalType_DOUBLE: DoubleValue,
     LogicalType_LIST: ListValue,
     LogicalType_STRING: StringValue
 }
@@ -102,6 +184,10 @@ cdef dict _scalar_classes = {
 cdef object box_arrow_scalar(DataType type,
                              const shared_ptr[CArray]& sp_array,
                              int index):
-    cdef ArrayValue val = _scalar_classes[type.type.type]()
-    val.init(type, sp_array, index)
-    return val
+    cdef ArrayValue val
+    if sp_array.get().IsNull(index):
+        return NA
+    else:
+        val = _scalar_classes[type.type.type]()
+        val.init(type, sp_array, index)
+        return val

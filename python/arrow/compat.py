@@ -54,6 +54,9 @@ if PY2:
     range = xrange
     long = long
 
+    def u(s):
+        return unicode(s, "unicode_escape")
+
     def tobytes(o):
         if isinstance(o, unicode):
             return o.encode('utf8')
@@ -72,6 +75,9 @@ else:
         return list(x.values())
     from decimal import Decimal
     range = range
+
+    def u(s):
+        return s
 
     def tobytes(o):
         if isinstance(o, str):

@@ -276,7 +276,7 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
 class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
-    int64_t val;
+    double val;
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
