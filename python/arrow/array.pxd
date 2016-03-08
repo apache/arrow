@@ -34,6 +34,7 @@ cdef class Array:
         DataType type
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
+    cdef getitem(self, int i)
 
 
 cdef class BooleanArray(Array):

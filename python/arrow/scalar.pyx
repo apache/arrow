@@ -144,14 +144,19 @@ cdef class ListValue(ArrayValue):
         return self.ap.value_length(self.index)
 
     def __getitem__(self, i):
-        return self._getitem(i)
+        return self.getitem(i)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self.getitem(i)
+        raise StopIteration
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = <CListArray*> sp_array.get()
         self.value_type = box_data_type(self.ap.value_type())
 
-    cdef _getitem(self, int i):
+    cdef getitem(self, int i):
         cdef int j = self.ap.offset(self.index) + i
         return box_arrow_scalar(self.value_type, self.ap.values(), j)
 
@@ -161,7 +166,7 @@ cdef class ListValue(ArrayValue):
             list result = []
 
         for j in range(len(self)):
-            result.append(self._getitem(j).as_py())
+            result.append(self.getitem(j).as_py())
 
         return result
 
