@@ -13,7 +13,7 @@ Building pyarrow requires:
 * A C++11 compiler
 
   * Linux: gcc >= 4.8 or clang >= 3.5
-  * OS X: XCode 6 or higher
+  * OS X: XCode 6.4 or higher preferred
 
 * [cmake][1]
 
@@ -59,17 +59,17 @@ make
 make install
 ```
 
-#### Build the `pyarrow` library
+#### Install `pyarrow`
 
 ```bash
 cd arrow/python
 
-python setup.py build_ext --inplace
+python setup.py install
 ```
 
-This library is not set up to install yet (see for example,
-https://issues.apache.org/jira/browse/ARROW-53) until some issues are sorted
-out, but you can try out the library by importing from this directory:
+> On XCode 6 and prior there are some known OS X `@rpath` issues. If you are
+> unable to import pyarrow, upgrading XCode may be the solution.
+
 
 ```python
 In [1]: import pyarrow
@@ -83,7 +83,5 @@ Out[2]:
   3
 ]
 ```
-
-#### Mac OS X-specific stuff
 
 [1]: https://cmake.org/
