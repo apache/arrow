@@ -420,10 +420,11 @@ set(LINK_LIBS
   arrow
 )
 
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 add_library(pyarrow SHARED
   ${PYARROW_SRCS})
 target_link_libraries(pyarrow ${LINK_LIBS})
-set_target_properties(pyarrow PROPERTIES LINKER_LANGUAGE CXX)
 
 if(APPLE)
   set_target_properties(pyarrow PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
@@ -473,7 +474,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     endwhile(${i} GREATER 0)
 
     # for inplace development for now
-    # set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
+    #set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})

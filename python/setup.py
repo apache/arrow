@@ -233,8 +233,8 @@ setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
     version=VERSION,
+    zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx']},
-
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
 
