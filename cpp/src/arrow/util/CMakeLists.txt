@@ -39,14 +39,12 @@ if (ARROW_BUILD_TESTS)
   if (APPLE)
 	target_link_libraries(arrow_test_main
       gtest
-	  arrow_test_util
       dl)
 	set_target_properties(arrow_test_main
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
   else()
 	target_link_libraries(arrow_test_main
       gtest
-	  arrow_test_util
       pthread
       dl
 	  )

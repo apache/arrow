@@ -333,7 +333,7 @@ if (PYARROW_BUILD_TESTS)
   find_package(GTest REQUIRED)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gtest
-	STATIC_LIB ${GTEST_STATIC_LIB})
+    STATIC_LIB ${GTEST_STATIC_LIB})
 endif()
 
 ## Arrow
@@ -400,6 +400,10 @@ endif (UNIX)
 # Subdirectories
 ############################################################
 
+if (UNIX)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
@@ -428,9 +432,6 @@ endif()
 ############################################################
 # Setup and build Cython modules
 ############################################################
-
-set(USE_RELATIVE_RPATH ON)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 set(CYTHON_EXTENSIONS
   array
@@ -472,7 +473,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     endwhile(${i} GREATER 0)
 
     # for inplace development for now
-    set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
+    # set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})
