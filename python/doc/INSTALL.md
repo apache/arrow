@@ -1,0 +1,61 @@
+## Installing Apache Arrow for Python from source
+
+First, clone the git repository:
+
+```bash
+git clone https://github.com/apache/arrow.git arrow
+```
+
+#### System requirements
+
+Building Python's Arrow library requires:
+
+* A C++11 compiler
+
+  * Linux: gcc >= 4.8 or clang >= 3.5
+  * OS X: XCode 6 or higher
+
+#### Python requirements
+
+You will need Python 2.7, 3.4, or 3.5 installed. Earlier releases are not being
+targeted.
+
+The build requires NumPy, Cython, and a few other Python dependencies:
+
+```bash
+pip install cython
+cd arrow/python
+pip install -r requirements.txt
+```
+
+#### Installing Arrow C++ library
+
+First, you should choose an installation location for Arrow C++. In the future
+using the default system install location will work, but for now we are being
+explicit:
+
+```bash
+export ARROW_HOME=$HOME/local
+```
+
+Now, we build Arrow:
+
+```bash
+cd arrow/cpp
+
+mkdir dev-build
+cd dev-build
+
+cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
+
+make
+
+# Use sudo here if $ARROW_HOME requires it
+make install
+```
+
+#### Mac OS X-specific instructions
+
+
+
+#### Linux-specific instructions

@@ -339,10 +339,13 @@ endfunction()
 if ("$ENV{GTEST_HOME}" STREQUAL "")
   set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
 endif()
-find_package(GTest REQUIRED)
-include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(gtest
-  STATIC_LIB ${GTEST_STATIC_LIB})
+
+if(ARROW_BUILD_TESTS)
+  find_package(GTest REQUIRED)
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+	STATIC_LIB ${GTEST_STATIC_LIB})
+endif()
 
 ## Google PerfTools
 ##
