@@ -22,6 +22,7 @@
 
 #include <arrow/api.h>
 
+#include "pyarrow/helpers.h"
 #include "pyarrow/status.h"
 
 using arrow::ArrayBuilder;
@@ -74,16 +75,16 @@ class ScalarVisitor {
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
     if (float_count_) {
-      return arrow::DOUBLE;
+      return DOUBLE;
     } else if (int_count_) {
       // TODO(wesm): tighter type later
-      return arrow::INT64;
+      return INT64;
     } else if (bool_count_) {
-      return arrow::BOOL;
+      return BOOL;
     } else if (string_count_) {
-      return arrow::STRING;
+      return STRING;
     } else {
-      return arrow::NA;
+      return NA;
     }
   }
 
@@ -145,7 +146,7 @@ class SeqVisitor {
   std::shared_ptr<DataType> GetType() {
     if (scalars_.total_count() == 0) {
       if (max_nesting_level_ == 0) {
-        return arrow::NA;
+        return NA;
       } else {
         return nullptr;
       }
@@ -209,7 +210,7 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
 
   // For 0-length sequences, refuse to guess
   if (*size == 0) {
-    *out_type = arrow::NA;
+    *out_type = NA;
   }
 
   SeqVisitor seq_visitor;
@@ -217,6 +218,11 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
   PY_RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
+
+  if (*out_type == nullptr) {
+    return Status::TypeError("Unable to determine data type");
+  }
+
   return Status::OK();
 }
 
