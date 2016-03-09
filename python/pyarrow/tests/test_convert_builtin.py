@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.compat import unittest
-import arrow
+from pyarrow.compat import unittest
+import pyarrow
 
 
 class TestConvertList(unittest.TestCase):
@@ -25,61 +25,61 @@ class TestConvertList(unittest.TestCase):
         pass
 
     def test_empty_list(self):
-        arr = arrow.from_pylist([])
+        arr = pyarrow.from_pylist([])
         assert len(arr) == 0
         assert arr.null_count == 0
-        assert arr.type == arrow.null()
+        assert arr.type == pyarrow.null()
 
     def test_all_none(self):
-        arr = arrow.from_pylist([None, None])
+        arr = pyarrow.from_pylist([None, None])
         assert len(arr) == 2
         assert arr.null_count == 2
-        assert arr.type == arrow.null()
+        assert arr.type == pyarrow.null()
 
     def test_integer(self):
-        arr = arrow.from_pylist([1, None, 3, None])
+        arr = pyarrow.from_pylist([1, None, 3, None])
         assert len(arr) == 4
         assert arr.null_count == 2
-        assert arr.type == arrow.int64()
+        assert arr.type == pyarrow.int64()
 
     def test_garbage_collection(self):
         import gc
-        bytes_before = arrow.total_allocated_bytes()
-        arrow.from_pylist([1, None, 3, None])
+        bytes_before = pyarrow.total_allocated_bytes()
+        pyarrow.from_pylist([1, None, 3, None])
         gc.collect()
-        assert arrow.total_allocated_bytes() == bytes_before
+        assert pyarrow.total_allocated_bytes() == bytes_before
 
     def test_double(self):
         data = [1.5, 1, None, 2.5, None, None]
-        arr = arrow.from_pylist(data)
+        arr = pyarrow.from_pylist(data)
         assert len(arr) == 6
         assert arr.null_count == 3
-        assert arr.type == arrow.double()
+        assert arr.type == pyarrow.double()
 
     def test_string(self):
         data = ['foo', b'bar', None, 'arrow']
-        arr = arrow.from_pylist(data)
+        arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == arrow.string()
+        assert arr.type == pyarrow.string()
 
     def test_mixed_nesting_levels(self):
-        arrow.from_pylist([1, 2, None])
-        arrow.from_pylist([[1], [2], None])
-        arrow.from_pylist([[1], [2], [None]])
+        pyarrow.from_pylist([1, 2, None])
+        pyarrow.from_pylist([[1], [2], None])
+        pyarrow.from_pylist([[1], [2], [None]])
 
-        with self.assertRaises(arrow.ArrowException):
-            arrow.from_pylist([1, 2, [1]])
+        with self.assertRaises(pyarrow.ArrowException):
+            pyarrow.from_pylist([1, 2, [1]])
 
-        with self.assertRaises(arrow.ArrowException):
-            arrow.from_pylist([1, 2, []])
+        with self.assertRaises(pyarrow.ArrowException):
+            pyarrow.from_pylist([1, 2, []])
 
-        with self.assertRaises(arrow.ArrowException):
-            arrow.from_pylist([[1], [2], [None, [1]]])
+        with self.assertRaises(pyarrow.ArrowException):
+            pyarrow.from_pylist([[1], [2], [None, [1]]])
 
     def test_list_of_int(self):
         data = [[1, 2, 3], [], None, [1, 2]]
-        arr = arrow.from_pylist(data)
+        arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == arrow.list_(arrow.int64())
+        assert arr.type == pyarrow.list_(pyarrow.int64())

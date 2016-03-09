@@ -15,9 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
+from pyarrow.includes.common cimport shared_ptr
+from pyarrow.includes.libarrow cimport CDataType, CField, CSchema
 
-from arrow.compat import frombytes, tobytes
-from arrow.includes.parquet cimport *
+cdef class DataType:
+    cdef:
+        shared_ptr[CDataType] sp_type
+        CDataType* type
+
+    cdef init(self, const shared_ptr[CDataType]& type)
+
+cdef class Field:
+    cdef:
+        shared_ptr[CField] sp_field
+        CField* field
+
+    cdef readonly:
+        DataType type
+
+cdef class Schema:
+    cdef:
+        shared_ptr[CSchema] sp_schema
+        CSchema* schema
+
+cdef DataType box_data_type(const shared_ptr[CDataType]& type)

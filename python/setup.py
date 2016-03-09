@@ -27,7 +27,7 @@ import Cython
 import sys
 
 import pkg_resources
-from setuptools import setup
+from setuptools import setup, Extension
 
 import os
 
@@ -40,10 +40,12 @@ from distutils import sysconfig
 is_64_bit = sys.maxsize > 2**32
 
 # Check if this is a debug build of Python.
-if hasattr(sys, 'gettotalrefcount'):
-    build_type = 'Debug'
-else:
-    build_type = 'Release'
+# if hasattr(sys, 'gettotalrefcount'):
+#     build_type = 'Debug'
+# else:
+#     build_type = 'Release'
+
+build_type = 'Debug'
 
 if Cython.__version__ < '0.19.1':
     raise Exception('Please upgrade to Cython 0.19.1 or newer')
@@ -51,7 +53,7 @@ if Cython.__version__ < '0.19.1':
 MAJOR = 0
 MINOR = 1
 MICRO = 0
-VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
+VERSION = '%d.%d.%ddev' % (MAJOR, MINOR, MICRO)
 
 
 class clean(_clean):
@@ -69,6 +71,9 @@ class build_ext(_build_ext):
 
     def build_extensions(self):
         numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+
+        self.extensions = [ext for ext in self.extensions
+                           if ext.name != '__dummy__']
 
         for ext in self.extensions:
             if (hasattr(ext, 'include_dirs') and
@@ -98,6 +103,7 @@ class build_ext(_build_ext):
 
         # The staging directory for the module being built
         build_temp = pjoin(os.getcwd(), self.build_temp)
+        build_lib = os.path.join(os.getcwd(), self.build_lib)
 
         # Change to the build directory
         saved_cwd = os.getcwd()
@@ -124,7 +130,7 @@ class build_ext(_build_ext):
                              static_lib_option, source]
 
             self.spawn(cmake_command)
-            args = ['make']
+            args = ['make', 'VERBOSE=1']
             if 'PYARROW_PARALLEL' in os.environ:
                 args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
             self.spawn(args)
@@ -150,21 +156,19 @@ class build_ext(_build_ext):
         if self.inplace:
             # a bit hacky
             build_lib = saved_cwd
-        else:
-            build_lib = pjoin(os.getcwd(), self.build_lib)
 
         # Move the built libpyarrow library to the place expected by the Python
         # build
         if sys.platform != 'win32':
             name, = glob.glob('libpyarrow.*')
             try:
-                os.makedirs(pjoin(build_lib, 'arrow'))
+                os.makedirs(pjoin(build_lib, 'pyarrow'))
             except OSError:
                 pass
-            shutil.move(name, pjoin(build_lib, 'arrow', name))
+            shutil.move(name, pjoin(build_lib, 'pyarrow', name))
         else:
             shutil.move(pjoin(build_type, 'pyarrow.dll'),
-                        pjoin(build_lib, 'arrow', 'pyarrow.dll'))
+                        pjoin(build_lib, 'pyarrow', 'pyarrow.dll'))
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
@@ -192,7 +196,7 @@ class build_ext(_build_ext):
     def _get_cmake_ext_path(self, name):
         # Get the package directory from build_py
         build_py = self.get_finalized_command('build_py')
-        package_dir = build_py.get_package_dir('arrow')
+        package_dir = build_py.get_package_dir('pyarrow')
         # This is the name of the arrow C-extension
         suffix = sysconfig.get_config_var('EXT_SUFFIX')
         if suffix is None:
@@ -217,23 +221,23 @@ class build_ext(_build_ext):
 
     def get_outputs(self):
         # Just the C extensions
-        cmake_exts = [self._get_cmake_ext_path(name)
-                      for name in self.get_names()]
-        regular_exts = _build_ext.get_outputs(self)
-        return regular_exts + cmake_exts
+        # regular_exts = _build_ext.get_outputs(self)
+        return [self._get_cmake_ext_path(name)
+                for name in self.get_names()]
 
-
-extensions = []
 
 DESC = """\
 Python library for Apache Arrow"""
 
 setup(
-    name="arrow",
-    packages=['arrow', 'arrow.tests'],
+    name="pyarrow",
+    packages=['pyarrow', 'pyarrow.tests'],
     version=VERSION,
-    package_data={'arrow': ['*.pxd', '*.pyx']},
-    ext_modules=extensions,
+    zip_safe=False,
+    package_data={'pyarrow': ['*.pxd', '*.pyx']},
+    # Dummy extension to trigger build_ext
+    ext_modules=[Extension('__dummy__', sources=[])],
+
     cmdclass={
         'clean': clean,
         'build_ext': build_ext
@@ -243,5 +247,5 @@ setup(
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
     maintainer_email="dev@arrow.apache.org",
-    test_suite="arrow.tests"
+    test_suite="pyarrow.tests"
 )

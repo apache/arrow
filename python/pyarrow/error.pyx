@@ -15,37 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# distutils: language = c++
+from pyarrow.includes.common cimport c_string
+from pyarrow.compat import frombytes
 
-from arrow.includes.common cimport *
+class ArrowException(Exception):
+    pass
 
-cdef extern from "parquet/api/reader.h" namespace "parquet_cpp" nogil:
-    cdef cppclass ColumnReader:
-        pass
+cdef check_status(const Status& status):
+    if status.ok():
+        return
 
-    cdef cppclass BoolReader(ColumnReader):
-        pass
-
-    cdef cppclass Int32Reader(ColumnReader):
-        pass
-
-    cdef cppclass Int64Reader(ColumnReader):
-        pass
-
-    cdef cppclass Int96Reader(ColumnReader):
-        pass
-
-    cdef cppclass FloatReader(ColumnReader):
-        pass
-
-    cdef cppclass DoubleReader(ColumnReader):
-        pass
-
-    cdef cppclass ByteArrayReader(ColumnReader):
-        pass
-
-    cdef cppclass RowGroupReader:
-        pass
-
-    cdef cppclass ParquetFileReader:
-        pass
+    cdef c_string c_message = status.ToString()
+    raise ArrowException(frombytes(c_message))

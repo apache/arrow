@@ -37,11 +37,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-if(APPLE)
-  # In newer versions of CMake, this is the default setting
-  set(CMAKE_MACOSX_RPATH 1)
-endif()
-
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -339,10 +334,13 @@ endfunction()
 if ("$ENV{GTEST_HOME}" STREQUAL "")
   set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
 endif()
-find_package(GTest REQUIRED)
-include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(gtest
-  STATIC_LIB ${GTEST_STATIC_LIB})
+
+if(ARROW_BUILD_TESTS)
+  find_package(GTest REQUIRED)
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+    STATIC_LIB ${GTEST_STATIC_LIB})
+endif()
 
 ## Google PerfTools
 ##
@@ -366,7 +364,7 @@ ADD_THIRDPARTY_LIB(gtest
 ############################################################
 # Linker setup
 ############################################################
-set(ARROW_MIN_TEST_LIBS arrow arrow_test_main arrow_test_util ${ARROW_BASE_LIBS})
+set(ARROW_MIN_TEST_LIBS arrow arrow_test_main ${ARROW_BASE_LIBS})
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ############################################################
@@ -461,9 +459,18 @@ add_library(arrow
   ${LIBARROW_LINKAGE}
   ${ARROW_SRCS}
 )
+
+if (APPLE)
+  set_target_properties(arrow
+    PROPERTIES
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_NAME_DIR "@rpath")
+endif()
+
 set_target_properties(arrow
   PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+)
 target_link_libraries(arrow ${LIBARROW_LINK_LIBS})
 
 add_subdirectory(src/arrow)

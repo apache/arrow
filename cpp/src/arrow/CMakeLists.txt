@@ -27,6 +27,6 @@ install(FILES
 # Unit tests
 #######################################
 
-set(ARROW_TEST_LINK_LIBS arrow_test_util ${ARROW_MIN_TEST_LIBS})
+set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)

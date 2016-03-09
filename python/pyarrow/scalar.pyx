@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.schema cimport DataType, box_data_type
+from pyarrow.schema cimport DataType, box_data_type
 
-from arrow.compat import frombytes
-import arrow.schema as schema
+from pyarrow.compat import frombytes
+import pyarrow.schema as schema
 
 NA = None
 

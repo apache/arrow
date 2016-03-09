@@ -27,7 +27,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - compiler: clang
-    language: cpp
+    language: objective-c
+    osx_image: xcode6.4
     os: osx
     addons:
     before_script:
@@ -40,7 +41,6 @@ before_install:
 - ulimit -c unlimited -S
 - export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 - export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
-- export LD_LIBRARY_PATH=$ARROW_CPP_INSTALL/lib:$LD_LIBRARY_PATH
 
 after_script:
 - rm -rf $CPP_BUILD_DIR

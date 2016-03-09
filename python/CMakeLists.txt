@@ -45,6 +45,13 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
+# Top level cmake dir
+if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  option(PYARROW_BUILD_TESTS
+    "Build the PyArrow C++ googletest unit tests"
+    OFF)
+endif()
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -322,10 +329,12 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
 endfunction()
 
 ## GMock
-find_package(GTest REQUIRED)
-include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(gtest
-  STATIC_LIB ${GTEST_STATIC_LIB})
+if (PYARROW_BUILD_TESTS)
+  find_package(GTest REQUIRED)
+  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+    STATIC_LIB ${GTEST_STATIC_LIB})
+endif()
 
 ## Arrow
 find_package(Arrow REQUIRED)
@@ -391,6 +400,10 @@ endif (UNIX)
 # Subdirectories
 ############################################################
 
+if (UNIX)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
@@ -407,10 +420,11 @@ set(LINK_LIBS
   arrow
 )
 
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 add_library(pyarrow SHARED
   ${PYARROW_SRCS})
 target_link_libraries(pyarrow ${LINK_LIBS})
-set_target_properties(pyarrow PROPERTIES LINKER_LANGUAGE CXX)
 
 if(APPLE)
   set_target_properties(pyarrow PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
@@ -419,9 +433,6 @@ endif()
 ############################################################
 # Setup and build Cython modules
 ############################################################
-
-set(USE_RELATIVE_RPATH ON)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 set(CYTHON_EXTENSIONS
   array
@@ -437,7 +448,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     list(REMOVE_AT directories -1)
 
     string(REPLACE "." "/" module_root "${module}")
-    set(module_SRC arrow/${module_root}.pyx)
+    set(module_SRC pyarrow/${module_root}.pyx)
     set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX 1)
 
     cython_add_module(${module_name}
@@ -463,7 +474,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     endwhile(${i} GREATER 0)
 
     # for inplace development for now
-    set(module_install_rpath "${CMAKE_SOURCE_DIR}/arrow/")
+    #set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})

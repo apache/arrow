@@ -17,7 +17,7 @@
 
 # distutils: language = c++
 
-from arrow.includes.common cimport *
+from pyarrow.includes.common cimport *
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
