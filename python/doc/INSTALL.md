@@ -17,8 +17,11 @@ Building Python's Arrow library requires:
 
 #### Python requirements
 
-You will need Python 2.7, 3.4, or 3.5 installed. Earlier releases are not being
-targeted.
+You will need Python (CPython) 2.7, 3.4, or 3.5 installed. Earlier releases and
+are not being targeted.
+
+> This library targets CPython only due to an emphasis on interoperability with
+> pandas and NumPy, which are only available for CPython.
 
 The build requires NumPy, Cython, and a few other Python dependencies:
 
