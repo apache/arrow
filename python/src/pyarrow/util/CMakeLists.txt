@@ -19,19 +19,21 @@
 # pyarrow_test_main
 #######################################
 
-add_library(pyarrow_test_main
-  test_main.cc)
+if (PYARROW_BUILD_TESTS)
+  add_library(pyarrow_test_main
+	test_main.cc)
 
-if (APPLE)
-  target_link_libraries(pyarrow_test_main
-    gtest
-    dl)
-  set_target_properties(pyarrow_test_main
-        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-else()
-  target_link_libraries(pyarrow_test_main
-    gtest
-    pthread
-    dl
-  )
+  if (APPLE)
+	target_link_libraries(pyarrow_test_main
+      gtest
+      dl)
+	set_target_properties(pyarrow_test_main
+      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  else()
+	target_link_libraries(pyarrow_test_main
+      gtest
+      pthread
+      dl
+	  )
+  endif()
 endif()

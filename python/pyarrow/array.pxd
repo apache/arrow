@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.includes.common cimport shared_ptr
-from arrow.includes.arrow cimport CArray, LogicalType
+from pyarrow.includes.common cimport shared_ptr
+from pyarrow.includes.libarrow cimport CArray, LogicalType
 
-from arrow.scalar import NA
+from pyarrow.scalar import NA
 
-from arrow.schema cimport DataType
+from pyarrow.schema cimport DataType
 
 cdef extern from "Python.h":
     int PySlice_Check(object)

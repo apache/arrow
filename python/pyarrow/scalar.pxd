@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.includes.common cimport *
-from arrow.includes.arrow cimport *
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
 
-from arrow.schema cimport DataType
+from pyarrow.schema cimport DataType
 
 cdef class Scalar:
     cdef readonly:

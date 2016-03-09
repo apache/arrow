@@ -15,27 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.includes.common cimport shared_ptr
-from arrow.includes.arrow cimport CDataType, CField, CSchema
+# distutils: language = c++
 
-cdef class DataType:
-    cdef:
-        shared_ptr[CDataType] sp_type
-        CDataType* type
+from pyarrow.includes.common cimport *
 
-    cdef init(self, const shared_ptr[CDataType]& type)
+cdef extern from "parquet/api/reader.h" namespace "parquet_cpp" nogil:
+    cdef cppclass ColumnReader:
+        pass
 
-cdef class Field:
-    cdef:
-        shared_ptr[CField] sp_field
-        CField* field
+    cdef cppclass BoolReader(ColumnReader):
+        pass
 
-    cdef readonly:
-        DataType type
+    cdef cppclass Int32Reader(ColumnReader):
+        pass
 
-cdef class Schema:
-    cdef:
-        shared_ptr[CSchema] sp_schema
-        CSchema* schema
+    cdef cppclass Int64Reader(ColumnReader):
+        pass
 
-cdef DataType box_data_type(const shared_ptr[CDataType]& type)
+    cdef cppclass Int96Reader(ColumnReader):
+        pass
+
+    cdef cppclass FloatReader(ColumnReader):
+        pass
+
+    cdef cppclass DoubleReader(ColumnReader):
+        pass
+
+    cdef cppclass ByteArrayReader(ColumnReader):
+        pass
+
+    cdef cppclass RowGroupReader:
+        pass
+
+    cdef cppclass ParquetFileReader:
+        pass

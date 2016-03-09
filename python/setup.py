@@ -40,10 +40,12 @@ from distutils import sysconfig
 is_64_bit = sys.maxsize > 2**32
 
 # Check if this is a debug build of Python.
-if hasattr(sys, 'gettotalrefcount'):
-    build_type = 'Debug'
-else:
-    build_type = 'Release'
+# if hasattr(sys, 'gettotalrefcount'):
+#     build_type = 'Debug'
+# else:
+#     build_type = 'Release'
+
+build_type = 'Debug'
 
 if Cython.__version__ < '0.19.1':
     raise Exception('Please upgrade to Cython 0.19.1 or newer')
@@ -158,13 +160,13 @@ class build_ext(_build_ext):
         if sys.platform != 'win32':
             name, = glob.glob('libpyarrow.*')
             try:
-                os.makedirs(pjoin(build_lib, 'arrow'))
+                os.makedirs(pjoin(build_lib, 'pyarrow'))
             except OSError:
                 pass
-            shutil.move(name, pjoin(build_lib, 'arrow', name))
+            shutil.move(name, pjoin(build_lib, 'pyarrow', name))
         else:
             shutil.move(pjoin(build_type, 'pyarrow.dll'),
-                        pjoin(build_lib, 'arrow', 'pyarrow.dll'))
+                        pjoin(build_lib, 'pyarrow', 'pyarrow.dll'))
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
@@ -192,7 +194,7 @@ class build_ext(_build_ext):
     def _get_cmake_ext_path(self, name):
         # Get the package directory from build_py
         build_py = self.get_finalized_command('build_py')
-        package_dir = build_py.get_package_dir('arrow')
+        package_dir = build_py.get_package_dir('pyarrow')
         # This is the name of the arrow C-extension
         suffix = sysconfig.get_config_var('EXT_SUFFIX')
         if suffix is None:
@@ -229,10 +231,10 @@ DESC = """\
 Python library for Apache Arrow"""
 
 setup(
-    name="arrow",
-    packages=['arrow', 'arrow.tests'],
+    name="pyarrow",
+    packages=['pyarrow', 'pyarrow.tests'],
     version=VERSION,
-    package_data={'arrow': ['*.pxd', '*.pyx']},
+    package_data={'pyarrow': ['*.pxd', '*.pyx']},
     ext_modules=extensions,
     cmdclass={
         'clean': clean,
@@ -243,5 +245,5 @@ setup(
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
     maintainer_email="dev@arrow.apache.org",
-    test_suite="arrow.tests"
+    test_suite="pyarrow.tests"
 )

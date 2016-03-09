@@ -17,7 +17,7 @@
 
 # Pretty-printing and other formatting utilities for Arrow data structures
 
-import arrow.scalar as scalar
+import pyarrow.scalar as scalar
 
 
 def array_format(arr, window=None):

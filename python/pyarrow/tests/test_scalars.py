@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from arrow.compat import unittest, u
-import arrow
+from pyarrow.compat import unittest, u
+import pyarrow as arrow
 
 
 class TestScalars(unittest.TestCase):

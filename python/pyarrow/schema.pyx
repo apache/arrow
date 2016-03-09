@@ -22,9 +22,9 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from arrow.compat import frombytes, tobytes
-from arrow.includes.arrow cimport *
-cimport arrow.includes.pyarrow as pyarrow
+from pyarrow.compat import frombytes, tobytes
+from pyarrow.includes.libarrow cimport *
+cimport pyarrow.includes.pyarrow as pyarrow
 
 cimport cpython
 

@@ -19,14 +19,14 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from arrow.includes.arrow cimport *
-cimport arrow.includes.pyarrow as pyarrow
+from pyarrow.includes.libarrow cimport *
+cimport pyarrow.includes.pyarrow as pyarrow
 
-from arrow.compat import frombytes, tobytes
-from arrow.error cimport check_status
+from pyarrow.compat import frombytes, tobytes
+from pyarrow.error cimport check_status
 
-cimport arrow.scalar as scalar
-from arrow.scalar import NA
+cimport pyarrow.scalar as scalar
+from pyarrow.scalar import NA
 
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
@@ -52,7 +52,7 @@ cdef class Array:
         raise StopIteration
 
     def __repr__(self):
-        from arrow.formatting import array_format
+        from pyarrow.formatting import array_format
         type_format = object.__repr__(self)
         values = array_format(self, window=10)
         return '{0}\n{1}'.format(type_format, values)

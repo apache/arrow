@@ -1,6 +1,6 @@
-## Installing Apache Arrow for Python from source
+## Installing pyarrow (Apache Arrow Python library)
 
-First, clone the git repository:
+First, clone the master git repository:
 
 ```bash
 git clone https://github.com/apache/arrow.git arrow
@@ -8,12 +8,14 @@ git clone https://github.com/apache/arrow.git arrow
 
 #### System requirements
 
-Building Python's Arrow library requires:
+Building pyarrow requires:
 
 * A C++11 compiler
 
   * Linux: gcc >= 4.8 or clang >= 3.5
   * OS X: XCode 6 or higher
+
+* [cmake][1]
 
 #### Python requirements
 
@@ -57,8 +59,14 @@ make
 make install
 ```
 
-#### Mac OS X-specific instructions
+#### Build and install `pyarrow` library
 
+```bash
+cd arrow/python
 
+python setup.py install
+```
 
-#### Linux-specific instructions
+#### Mac OS X-specific stuff
+
+[1]: https://cmake.org/
