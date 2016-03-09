@@ -48,7 +48,7 @@ export ARROW_HOME=$ARROW_CPP_INSTALL
 
 python setup.py build_ext --inplace
 
-py.test -vv -r sxX arrow
+py.test -vv -r sxX pyarrow
 
 # if [ $TRAVIS_OS_NAME == "linux" ]; then
 #   valgrind --tool=memcheck py.test -vv -r sxX arrow

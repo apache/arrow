@@ -1,4 +1,4 @@
-## Installing pyarrow (Apache Arrow Python library)
+## Building pyarrow (Apache Arrow Python library)
 
 First, clone the master git repository:
 
@@ -59,12 +59,29 @@ make
 make install
 ```
 
-#### Build and install `pyarrow` library
+#### Build the `pyarrow` library
 
 ```bash
 cd arrow/python
 
-python setup.py install
+python setup.py build_ext --inplace
+```
+
+This library is not set up to install yet (see for example,
+https://issues.apache.org/jira/browse/ARROW-53) until some issues are sorted
+out, but you can try out the library by importing from this directory:
+
+```python
+In [1]: import pyarrow
+
+In [2]: pyarrow.from_pylist([1,2,3])
+Out[2]:
+<pyarrow.array.Int64Array object at 0x7f899f3e60e8>
+[
+  1,
+  2,
+  3
+]
 ```
 
 #### Mac OS X-specific stuff
