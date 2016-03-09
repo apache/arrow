@@ -464,6 +464,15 @@ add_library(arrow
   ${LIBARROW_LINKAGE}
   ${ARROW_SRCS}
 )
+
+if (APPLE)
+  set_target_properties(arrow
+    PROPERTIES
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_NAME_DIR "@rpath"
+    )
+endif()
+
 set_target_properties(arrow
   PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
