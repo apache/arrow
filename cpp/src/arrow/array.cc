@@ -28,11 +28,6 @@ namespace arrow {
 
 Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& nulls) {
-  Init(type, length, null_count, nulls);
-}
-
-void Array::Init(const TypePtr& type, int32_t length, int32_t null_count,
-    const std::shared_ptr<Buffer>& nulls) {
   type_ = type;
   length_ = length;
   null_count_ = null_count;
@@ -40,6 +35,25 @@ void Array::Init(const TypePtr& type, int32_t length, int32_t null_count,
   if (nulls_) {
     null_bits_ = nulls_->data();
   }
+}
+
+bool Array::Equals(const Array& other) const {
+  if (this == &other) return true;
+  if (length_ != other.length_ || null_count_ != other.null_count_ ||
+      type_enum() != other.type_enum()) {
+    return false;
+  }
+  if (null_count_ > 0) {
+    return nulls_->Equals(*other.nulls_, util::bytes_for_bits(length_));
+  } else {
+    return true;
+  }
+}
+
+bool Array::Equals(const std::shared_ptr<Array>& arr) const {
+  if (arr.get() == nullptr) return false;
+  if (this == arr.get()) return true;
+  return Equals(*static_cast<const Array*>(arr.get()));
 }
 
 } // namespace arrow

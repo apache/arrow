@@ -51,7 +51,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_PARQUET
     "Build the Parquet adapter and link to libparquet"
     OFF)
-
+  option(ARROW_TEST_MEMCHECK
+	"Run the test suite using valgrind --tool=memcheck"
+	OFF)
   option(ARROW_BUILD_TESTS
     "Build the Arrow googletest unit tests"
     ON)
@@ -59,6 +61,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BUILD_BENCHMARKS
     "Build the Arrow micro benchmarks"
     OFF)
+
+  option(ARROW_IPC
+    "Build the Arrow IPC extensions"
+    ON)
 
 endif()
 
@@ -260,17 +266,17 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 include_directories(src)
 
 ############################################################
-# Benchmarking 
+# Benchmarking
 ############################################################
 # Add a new micro benchmark, with or without an executable that should be built.
 # If benchmarks are enabled then they will be run along side unit tests with ctest.
-# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests, 
+# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests,
 # respectively.
 #
 # REL_BENCHMARK_NAME is the name of the benchmark app. It may be a single component
 # (e.g. monotime-benchmark) or contain additional components (e.g.
 # net/net_util-benchmark). Either way, the last component must be a globally
-# unique name.  
+# unique name.
 
 # The benchmark will registered as unit test with ctest with a label
 # of 'benchmark'.
@@ -281,7 +287,7 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     return()
   endif()
   get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-   
+
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
@@ -294,7 +300,7 @@ function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
     set(NO_COLOR "")
   endif()
-  
+
   add_test(${BENCHMARK_NAME}
     ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
   set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
@@ -345,9 +351,18 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
   endif()
 
-  add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
+  if (ARROW_TEST_MEMCHECK)
+	SET_PROPERTY(TARGET ${TEST_NAME}
+	  APPEND_STRING PROPERTY
+	  COMPILE_FLAGS " -DARROW_VALGRIND")
+	add_test(${TEST_NAME}
+	  valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ${TEST_PATH})
+  else()
+	add_test(${TEST_NAME}
+      ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
+  endif()
   set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
+
   if(ARGN)
     set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
   endif()
@@ -403,7 +418,7 @@ if ("$ENV{GTEST_HOME}" STREQUAL "")
   set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
 endif()
 
-## Google Benchmark 
+## Google Benchmark
 if ("$ENV{GBENCHMARK_HOME}" STREQUAL "")
   set(GBENCHMARK_HOME ${THIRDPARTY_DIR}/installed)
 endif()
@@ -487,23 +502,9 @@ if (UNIX)
   add_custom_target(lint ${BUILD_SUPPORT_DIR}/cpplint.py
   --verbose=2
   --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h`)
+  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references
+    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h | sed -e '/_generated/g'`)
 endif (UNIX)
-
-#----------------------------------------------------------------------
-# Parquet adapter
-
-if(ARROW_PARQUET)
-  find_package(Parquet REQUIRED)
-  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(parquet
-    STATIC_LIB ${PARQUET_STATIC_LIB}
-    SHARED_LIB ${PARQUET_SHARED_LIB})
-
-  add_subdirectory(src/arrow/parquet)
-  list(APPEND LINK_LIBS arrow_parquet parquet)
-endif()
 
 ############################################################
 # Subdirectories
@@ -515,15 +516,18 @@ set(LIBARROW_LINK_LIBS
 set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/builder.cc
+  src/arrow/column.cc
+  src/arrow/schema.cc
+  src/arrow/table.cc
   src/arrow/type.cc
 
-  src/arrow/table/column.cc
-  src/arrow/table/schema.cc
-  src/arrow/table/table.cc
+  # IPC / Shared memory library; to be turned into an optional component
+  src/arrow/ipc/adapter.cc
+  src/arrow/ipc/memory.cc
+  src/arrow/ipc/metadata.cc
+  src/arrow/ipc/metadata-internal.cc
 
   src/arrow/types/construct.cc
-  src/arrow/types/floating.cc
-  src/arrow/types/integer.cc
   src/arrow/types/json.cc
   src/arrow/types/list.cc
   src/arrow/types/primitive.cc
@@ -559,9 +563,39 @@ target_link_libraries(arrow ${LIBARROW_LINK_LIBS})
 
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/util)
-add_subdirectory(src/arrow/table)
 add_subdirectory(src/arrow/types)
 
 install(TARGETS arrow
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
+
+#----------------------------------------------------------------------
+# Parquet adapter library
+
+if(ARROW_PARQUET)
+  find_package(Parquet REQUIRED)
+  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(parquet
+    STATIC_LIB ${PARQUET_STATIC_LIB}
+    SHARED_LIB ${PARQUET_SHARED_LIB})
+
+  add_subdirectory(src/arrow/parquet)
+  list(APPEND LINK_LIBS arrow_parquet parquet)
+endif()
+
+#----------------------------------------------------------------------
+# IPC library
+
+## Flatbuffers
+if(ARROW_IPC)
+  find_package(Flatbuffers REQUIRED)
+  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
+  message(STATUS "Flatbuffers static library: ${FLATBUFFERS_STATIC_LIB}")
+  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
+  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
+  add_library(flatbuffers STATIC IMPORTED)
+  set_target_properties(flatbuffers PROPERTIES
+	IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
+
+  add_subdirectory(src/arrow/ipc)
+endif()

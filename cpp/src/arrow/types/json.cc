@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "arrow/type.h"
-#include "arrow/types/string.h"
 #include "arrow/types/union.h"
 
 namespace arrow {

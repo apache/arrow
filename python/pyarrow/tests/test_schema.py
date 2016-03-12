@@ -18,6 +18,8 @@
 from pyarrow.compat import unittest
 import pyarrow as arrow
 
+A = arrow
+
 
 class TestTypes(unittest.TestCase):
 
@@ -28,15 +30,12 @@ class TestTypes(unittest.TestCase):
         for name in dtypes:
             factory = getattr(arrow, name)
             t = factory()
-            t_required = factory(False)
-
             assert str(t) == name
-            assert str(t_required) == '{0} not null'.format(name)
 
     def test_list(self):
         value_type = arrow.int32()
         list_type = arrow.list_(value_type)
-        assert str(list_type) == 'list<int32>'
+        assert str(list_type) == 'list<item: int32>'
 
     def test_string(self):
         t = arrow.string()
@@ -47,5 +46,26 @@ class TestTypes(unittest.TestCase):
         f = arrow.field('foo', t)
 
         assert f.name == 'foo'
+        assert f.nullable
         assert f.type is t
         assert repr(f) == "Field('foo', type=string)"
+
+        f = arrow.field('foo', t, False)
+        assert not f.nullable
+
+    def test_schema(self):
+        fields = [
+            A.field('foo', A.int32()),
+            A.field('bar', A.string()),
+            A.field('baz', A.list_(A.int8()))
+        ]
+        sch = A.schema(fields)
+
+        assert len(sch) == 3
+        assert sch[0].name == 'foo'
+        assert sch[0].type == fields[0].type
+
+        assert repr(sch) == """\
+foo: int32
+bar: string
+baz: list<item: int8>"""

@@ -40,7 +40,7 @@ std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
 PoolBuffer::PoolBuffer(MemoryPool* pool) :
     ResizableBuffer(nullptr, 0) {
   if (pool == nullptr) {
-    pool = GetDefaultMemoryPool();
+    pool = default_memory_pool();
   }
   pool_ = pool;
 }

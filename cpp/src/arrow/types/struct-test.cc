@@ -15,16 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "gtest/gtest.h"
+
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
 
 using std::shared_ptr;
 using std::string;
@@ -42,13 +39,13 @@ TEST(TestStructType, Basics) {
   TypePtr f2_type = TypePtr(new UInt8Type());
   auto f2 = std::make_shared<Field>("f2", f2_type);
 
-  vector<shared_ptr<Field> > fields = {f0, f1, f2};
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
 
   StructType struct_type(fields);
 
-  ASSERT_TRUE(struct_type.field(0)->Equals(f0));
-  ASSERT_TRUE(struct_type.field(1)->Equals(f1));
-  ASSERT_TRUE(struct_type.field(2)->Equals(f2));
+  ASSERT_TRUE(struct_type.child(0)->Equals(f0));
+  ASSERT_TRUE(struct_type.child(1)->Equals(f1));
+  ASSERT_TRUE(struct_type.child(2)->Equals(f2));
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 

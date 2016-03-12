@@ -15,20 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdlib>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "gtest/gtest.h"
+
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/types/construct.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/list.h"
-#include "arrow/types/string.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/test-common.h"
 #include "arrow/util/status.h"
 
@@ -39,27 +40,24 @@ using std::vector;
 
 namespace arrow {
 
-class ArrayBuilder;
-
 TEST(TypesTest, TestListType) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 
   ListType list_type(vt);
-  ASSERT_EQ(list_type.type, LogicalType::LIST);
+  ASSERT_EQ(list_type.type, Type::LIST);
 
   ASSERT_EQ(list_type.name(), string("list"));
-  ASSERT_EQ(list_type.ToString(), string("list<uint8>"));
+  ASSERT_EQ(list_type.ToString(), string("list<item: uint8>"));
 
-  ASSERT_EQ(list_type.value_type->type, vt->type);
-  ASSERT_EQ(list_type.value_type->type, vt->type);
+  ASSERT_EQ(list_type.value_type()->type, vt->type);
+  ASSERT_EQ(list_type.value_type()->type, vt->type);
 
-  std::shared_ptr<DataType> st = std::make_shared<StringType>(false);
-  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st, false);
-  ASSERT_EQ(lt->ToString(), string("list<string not null> not null"));
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st);
+  ASSERT_EQ(lt->ToString(), string("list<item: string>"));
 
-  ListType lt2(lt, false);
-  ASSERT_EQ(lt2.ToString(),
-      string("list<list<string not null> not null> not null"));
+  ListType lt2(lt);
+  ASSERT_EQ(lt2.ToString(), string("list<item: list<item: string>>"));
 }
 
 // ----------------------------------------------------------------------

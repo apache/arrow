@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.common cimport shared_ptr
+from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CDataType, CField, CSchema
 
 cdef class DataType:
@@ -33,9 +33,13 @@ cdef class Field:
     cdef readonly:
         DataType type
 
+    cdef init(self, const shared_ptr[CField]& field)
+
 cdef class Schema:
     cdef:
         shared_ptr[CSchema] sp_schema
         CSchema* schema
+
+    cdef init(self, const vector[shared_ptr[CField]]& fields)
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type)

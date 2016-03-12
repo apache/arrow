@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <string>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -38,18 +37,16 @@ class MemoryPool;
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray() : Array(), data_(nullptr), raw_data_(nullptr) {}
-
-  virtual ~PrimitiveArray() {}
-
-  void Init(const TypePtr& type, int32_t length,
+  PrimitiveArray(const TypePtr& type, int32_t length,
       const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
+  virtual ~PrimitiveArray() {}
 
   const std::shared_ptr<Buffer>& data() const { return data_;}
 
   bool Equals(const PrimitiveArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
   std::shared_ptr<Buffer> data_;
@@ -62,22 +59,19 @@ class PrimitiveArrayImpl : public PrimitiveArray {
  public:
   typedef typename TypeClass::c_type value_type;
 
-  PrimitiveArrayImpl() : PrimitiveArray() {}
-
-  virtual ~PrimitiveArrayImpl() {}
+  PrimitiveArrayImpl(const TypePtr& type, int32_t length,
+      const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& nulls = nullptr) :
+      PrimitiveArray(type, length, data, null_count, nulls) {}
 
   PrimitiveArrayImpl(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    Init(length, data, null_count, nulls);
-  }
+      const std::shared_ptr<Buffer>& nulls = nullptr) :
+      PrimitiveArray(std::make_shared<TypeClass>(), length, data,
+          null_count, nulls) {}
 
-  void Init(int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    TypePtr type(new TypeClass());
-    PrimitiveArray::Init(type, length, data, null_count, nulls);
-  }
+  virtual ~PrimitiveArrayImpl() {}
 
   bool Equals(const PrimitiveArrayImpl& other) const {
     return PrimitiveArray::Equals(*static_cast<const PrimitiveArray*>(&other));
@@ -202,8 +196,9 @@ class PrimitiveBuilder : public ArrayBuilder {
   }
 
   std::shared_ptr<Array> Finish() override {
-    std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>();
-    result->PrimitiveArray::Init(type_, length_, values_, null_count_, nulls_);
+    std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>(
+        type_, length_, values_, null_count_, nulls_);
+
     values_ = nulls_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
     return result;
@@ -221,6 +216,38 @@ class PrimitiveBuilder : public ArrayBuilder {
   std::shared_ptr<PoolBuffer> values_;
   int elsize_;
 };
+
+// Array containers
+
+typedef PrimitiveArrayImpl<UInt8Type> UInt8Array;
+typedef PrimitiveArrayImpl<Int8Type> Int8Array;
+
+typedef PrimitiveArrayImpl<UInt16Type> UInt16Array;
+typedef PrimitiveArrayImpl<Int16Type> Int16Array;
+
+typedef PrimitiveArrayImpl<UInt32Type> UInt32Array;
+typedef PrimitiveArrayImpl<Int32Type> Int32Array;
+
+typedef PrimitiveArrayImpl<UInt64Type> UInt64Array;
+typedef PrimitiveArrayImpl<Int64Type> Int64Array;
+
+typedef PrimitiveArrayImpl<FloatType> FloatArray;
+typedef PrimitiveArrayImpl<DoubleType> DoubleArray;
+
+// Builders
+
+typedef PrimitiveBuilder<UInt8Type, UInt8Array> UInt8Builder;
+typedef PrimitiveBuilder<UInt16Type, UInt16Array> UInt16Builder;
+typedef PrimitiveBuilder<UInt32Type, UInt32Array> UInt32Builder;
+typedef PrimitiveBuilder<UInt64Type, UInt64Array> UInt64Builder;
+
+typedef PrimitiveBuilder<Int8Type, Int8Array> Int8Builder;
+typedef PrimitiveBuilder<Int16Type, Int16Array> Int16Builder;
+typedef PrimitiveBuilder<Int32Type, Int32Array> Int32Builder;
+typedef PrimitiveBuilder<Int64Type, Int64Array> Int64Builder;
+
+typedef PrimitiveBuilder<FloatType, FloatArray> FloatBuilder;
+typedef PrimitiveBuilder<DoubleType, DoubleArray> DoubleBuilder;
 
 } // namespace arrow
 

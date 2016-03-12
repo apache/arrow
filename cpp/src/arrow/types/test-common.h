@@ -18,10 +18,11 @@
 #ifndef ARROW_TYPES_TEST_COMMON_H
 #define ARROW_TYPES_TEST_COMMON_H
 
-#include <gtest/gtest.h>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "gtest/gtest.h"
 
 #include "arrow/test-util.h"
 #include "arrow/type.h"
@@ -34,7 +35,7 @@ namespace arrow {
 class TestBuilder : public ::testing::Test {
  public:
   void SetUp() {
-    pool_ = GetDefaultMemoryPool();
+    pool_ = default_memory_pool();
     type_ = TypePtr(new UInt8Type());
     builder_.reset(new UInt8Builder(pool_, type_));
     builder_nn_.reset(new UInt8Builder(pool_, type_));

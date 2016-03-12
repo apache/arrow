@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include "arrow/util/bit-util.h"
+
+#include "gtest/gtest.h"
 
 namespace arrow {
 

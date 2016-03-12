@@ -54,6 +54,9 @@ std::string Status::CodeAsString() const {
     case StatusCode::Invalid:
       type = "Invalid";
       break;
+    case StatusCode::IOError:
+      type = "IOError";
+      break;
     case StatusCode::NotImplemented:
       type = "NotImplemented";
       break;

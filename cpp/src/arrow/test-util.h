@@ -18,26 +18,39 @@
 #ifndef ARROW_TEST_UTIL_H_
 #define ARROW_TEST_UTIL_H_
 
-#include <gtest/gtest.h>
+#include <cstdint>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
+#include "gtest/gtest.h"
+
+#include "arrow/type.h"
+#include "arrow/column.h"
+#include "arrow/schema.h"
+#include "arrow/table.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
 #include "arrow/util/random.h"
 #include "arrow/util/status.h"
 
 #define ASSERT_RAISES(ENUM, expr)               \
   do {                                          \
     Status s = (expr);                          \
-    ASSERT_TRUE(s.Is##ENUM());                  \
+    if (!s.Is##ENUM()) {                        \
+      FAIL() << s.ToString();                   \
+    }                                           \
   } while (0)
 
 
 #define ASSERT_OK(expr)                         \
   do {                                          \
     Status s = (expr);                          \
-    ASSERT_TRUE(s.ok());                        \
+    if (!s.ok()) {                              \
+        FAIL() << s.ToString();                 \
+    }                                           \
   } while (0)
 
 
@@ -49,6 +62,27 @@
 
 
 namespace arrow {
+
+class TestBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    pool_ = default_memory_pool();
+  }
+
+  template <typename ArrayType>
+  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+    auto data = std::make_shared<PoolBuffer>(pool_);
+    auto nulls = std::make_shared<PoolBuffer>(pool_);
+    EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
+    EXPECT_OK(nulls->Resize(util::bytes_for_bits(length)));
+    return std::make_shared<ArrayType>(length, data, 10, nulls);
+  }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+namespace test {
 
 template <typename T>
 void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
@@ -84,6 +118,33 @@ void random_nulls(int64_t n, double pct_null, std::vector<bool>* nulls) {
   }
 }
 
+static inline void random_bytes(int n, uint32_t seed, uint8_t* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen) & 0xFF;
+  }
+}
+
+template <typename T>
+void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<T> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+static inline int bitmap_popcount(const uint8_t* data, int length) {
+  int count = 0;
+  for (int i = 0; i < length; ++i) {
+    // TODO: accelerate this
+    if (util::get_bit(data, i)) ++count;
+  }
+  return count;
+}
+
 static inline int null_count(const std::vector<uint8_t>& nulls) {
   int result = 0;
   for (size_t i = 0; i < nulls.size(); ++i) {
@@ -102,6 +163,7 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(uint8_t* bytes, int length) {
   return out;
 }
 
+} // namespace test
 } // namespace arrow
 
 #endif // ARROW_TEST_UTIL_H_

@@ -15,19 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TABLE_COLUMN_H
-#define ARROW_TABLE_COLUMN_H
+#ifndef ARROW_COLUMN_H
+#define ARROW_COLUMN_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/type.h"
 
 namespace arrow {
 
-typedef std::vector<std::shared_ptr<Array> > ArrayVector;
+class Array;
+class Status;
+
+typedef std::vector<std::shared_ptr<Array>> ArrayVector;
 
 // A data structure managing a list of primitive Arrow arrays logically as one
 // large array
@@ -102,4 +105,4 @@ class Column {
 
 } // namespace arrow
 
-#endif  // ARROW_TABLE_COLUMN_H
+#endif  // ARROW_COLUMN_H

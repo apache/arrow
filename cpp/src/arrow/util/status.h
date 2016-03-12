@@ -63,6 +63,7 @@ enum class StatusCode: char {
   OutOfMemory = 1,
   KeyError = 2,
   Invalid = 3,
+  IOError = 4,
 
   NotImplemented = 10,
 };
@@ -97,12 +98,17 @@ class Status {
     return Status(StatusCode::Invalid, msg, -1);
   }
 
+  static Status IOError(const std::string& msg) {
+    return Status(StatusCode::IOError, msg, -1);
+  }
+
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
   bool IsOutOfMemory() const { return code() == StatusCode::OutOfMemory; }
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
+  bool IsIOError() const { return code() == StatusCode::IOError; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

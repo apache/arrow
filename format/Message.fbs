@@ -1,0 +1,183 @@
+namespace apache.arrow.flatbuf;
+
+/// ----------------------------------------------------------------------
+/// Logical types and their metadata (if any)
+///
+/// These are stored in the flatbuffer in the Type union below
+
+/// A Tuple in the flatbuffer metadata is the same as an Arrow Struct
+/// (according to the physical memory layout). We used Tuple here as Struct is
+/// a reserved word in Flatbuffers
+table Tuple {
+}
+
+table List {
+}
+
+enum UnionMode:int { Sparse, Dense }
+
+table Union {
+  mode: UnionMode;
+}
+
+table Bit {
+}
+
+table Int {
+  bitWidth: int; // 1 to 64
+  is_signed: bool;
+}
+
+enum Precision:int {SINGLE, DOUBLE}
+
+table FloatingPoint {
+  precision: Precision;
+}
+
+table Utf8 {
+}
+
+table Binary {
+}
+
+table Bool {
+}
+
+table Decimal {
+  precision: int;
+  scale: int;
+}
+
+table Timestamp {
+  timezone: string;
+}
+
+table JSONScalar {
+  dense:bool=true;
+}
+
+/// ----------------------------------------------------------------------
+/// Top-level Type value, enabling extensible type-specific metadata. We can
+/// add new logical types to Type without breaking backwards compatibility
+
+union Type {
+  Int,
+  Bit,
+  FloatingPoint,
+  Binary,
+  Utf8,
+  Bool,
+  Decimal,
+  Timestamp,
+  List,
+  Tuple,
+  Union,
+  JSONScalar
+}
+
+/// ----------------------------------------------------------------------
+/// A field represents a named column in a record / row batch or child of a
+/// nested type.
+///
+/// - children is only for nested Arrow arrays
+/// - For primitive types, children will have length 0
+/// - nullable should default to true in general
+
+table Field {
+  // Name is not required, in i.e. a List
+  name: string;
+  nullable: bool;
+  type: Type;
+  children: [Field];
+}
+
+/// ----------------------------------------------------------------------
+/// A Schema describes the columns in a row batch
+
+table Schema {
+  fields: [Field];
+}
+
+/// ----------------------------------------------------------------------
+/// Data structures for describing a table row batch (a collection of
+/// equal-length Arrow arrays)
+
+/// A Buffer represents a single contiguous memory segment
+struct Buffer {
+  /// The shared memory page id where this buffer is located. Currently this is
+  /// not used
+  page: int;
+
+  /// The relative offset into the shared memory page where the bytes for this
+  /// buffer starts
+  offset: long;
+
+  /// The absolute length (in bytes) of the memory buffer. The memory is found
+  /// from offset (inclusive) to offset + length (non-inclusive).
+  length: long;
+}
+
+/// Metadata about a field at some level of a nested type tree (but not
+/// its children).
+///
+/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// would have {length: 5, null_count: 2} for its List node, and {length: 6,
+/// null_count: 0} for its Int16 node, as separate FieldNode structs
+struct FieldNode {
+  /// The number of value slots in the Arrow array at this level of a nested
+  /// tree
+  length: int;
+
+  /// The number of observed nulls. Fields with null_count == 0 may choose not
+  /// to write their physical null bitmap out as a materialized buffer, instead
+  /// setting the length of the null buffer to 0.
+  null_count: int;
+}
+
+/// A data header describing the shared memory layout of a "record" or "row"
+/// batch. Some systems call this a "row batch" internally and others a "record
+/// batch".
+table RecordBatch {
+  /// number of records / rows. The arrays in the batch should all have this
+  /// length
+  length: int;
+
+  /// Nodes correspond to the pre-ordered flattened logical schema
+  nodes: [FieldNode];
+
+  /// Buffers correspond to the pre-ordered flattened buffer tree
+  ///
+  /// The number of buffers appended to this list depends on the schema. For
+  /// example, most primitive arrays will have 2 buffers, 1 for the null bitmap
+  /// and 1 for the values. For struct arrays, there will only be a single
+  /// buffer for the null bitmap
+  buffers: [Buffer];
+}
+
+/// ----------------------------------------------------------------------
+/// For sending dictionary encoding information. Any Field can be
+/// dictionary-encoded, but in this case none of its children may be
+/// dictionary-encoded.
+///
+/// TODO(wesm): To be documented in more detail
+
+table DictionaryBatch {
+  id: long;
+  data: RecordBatch;
+}
+
+/// ----------------------------------------------------------------------
+/// The root Message type
+
+/// This union enables us to easily send different message types without
+/// redundant storage, and in the future we can easily add new message types.
+union MessageHeader {
+  Schema, DictionaryBatch, RecordBatch
+}
+
+table Message {
+  header: MessageHeader;
+  bodyLength: long;
+}
+
+root_type Message;

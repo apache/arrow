@@ -19,7 +19,6 @@
 #define ARROW_UTIL_BIT_UTIL_H
 
 #include <cstdint>
-#include <cstdlib>
 #include <memory>
 
 namespace arrow {

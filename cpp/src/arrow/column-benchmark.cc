@@ -19,15 +19,14 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/test-util.h"
-#include "arrow/table/test-common.h"
-#include "arrow/types/integer.h"
+#include "arrow/types/primitive.h"
 #include "arrow/util/memory-pool.h"
 
 namespace arrow {
 namespace {
   template <typename ArrayType>
   std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
-    auto pool = GetDefaultMemoryPool();
+    auto pool = default_memory_pool();
     auto data = std::make_shared<PoolBuffer>(pool);
     auto nulls = std::make_shared<PoolBuffer>(pool);
     data->Resize(length * sizeof(typename ArrayType::value_type));

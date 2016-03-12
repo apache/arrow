@@ -54,94 +54,153 @@ cdef class DataType:
 
 cdef class Field:
 
-    def __cinit__(self, object name, DataType type):
-        self.type = type
-        self.sp_field.reset(new CField(tobytes(name), type.sp_type))
-        self.field = self.sp_field.get()
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[CField]& field):
+        self.sp_field = field
+        self.field = field.get()
+
+    @classmethod
+    def from_py(cls, object name, DataType type, bint nullable=True):
+        cdef Field result = Field()
+        result.type = type
+        result.sp_field.reset(new CField(tobytes(name), type.sp_type,
+                                         nullable))
+        result.field = result.sp_field.get()
+
+        return result
 
     def __repr__(self):
         return 'Field({0!r}, type={1})'.format(self.name, str(self.type))
+
+    property nullable:
+
+        def __get__(self):
+            return self.field.nullable
 
     property name:
 
         def __get__(self):
             return frombytes(self.field.name)
 
+cdef class Schema:
+
+    def __cinit__(self):
+        pass
+
+    def __len__(self):
+        return self.schema.num_fields()
+
+    def __getitem__(self, i):
+        if i < 0 or i >= len(self):
+            raise IndexError("{0} is out of bounds".format(i))
+
+        cdef Field result = Field()
+        result.init(self.schema.field(i))
+        result.type = box_data_type(result.field.type)
+
+        return result
+
+    cdef init(self, const vector[shared_ptr[CField]]& fields):
+        self.schema = new CSchema(fields)
+        self.sp_schema.reset(self.schema)
+
+    @classmethod
+    def from_fields(cls, fields):
+        cdef:
+            Schema result
+            Field field
+            vector[shared_ptr[CField]] c_fields
+
+        c_fields.resize(len(fields))
+
+        for i in range(len(fields)):
+            field = fields[i]
+            c_fields[i] = field.sp_field
+
+        result = Schema()
+        result.init(c_fields)
+
+        return result
+
+    def __repr__(self):
+        return frombytes(self.schema.ToString())
+
 cdef dict _type_cache = {}
 
-cdef DataType primitive_type(LogicalType type, bint nullable=True):
-    if (type, nullable) in _type_cache:
-        return _type_cache[type, nullable]
+cdef DataType primitive_type(Type type):
+    if type in _type_cache:
+        return _type_cache[type]
 
     cdef DataType out = DataType()
-    out.init(pyarrow.GetPrimitiveType(type, nullable))
+    out.init(pyarrow.GetPrimitiveType(type))
 
-    _type_cache[type, nullable] = out
+    _type_cache[type] = out
     return out
 
 #------------------------------------------------------------
 # Type factory functions
 
-def field(name, type):
-    return Field(name, type)
+def field(name, type, bint nullable=True):
+    return Field.from_py(name, type, nullable)
 
 cdef set PRIMITIVE_TYPES = set([
-    LogicalType_NA, LogicalType_BOOL,
-    LogicalType_UINT8, LogicalType_INT8,
-    LogicalType_UINT16, LogicalType_INT16,
-    LogicalType_UINT32, LogicalType_INT32,
-    LogicalType_UINT64, LogicalType_INT64,
-    LogicalType_FLOAT, LogicalType_DOUBLE])
+    Type_NA, Type_BOOL,
+    Type_UINT8, Type_INT8,
+    Type_UINT16, Type_INT16,
+    Type_UINT32, Type_INT32,
+    Type_UINT64, Type_INT64,
+    Type_FLOAT, Type_DOUBLE])
 
 def null():
-    return primitive_type(LogicalType_NA)
+    return primitive_type(Type_NA)
 
-def bool_(c_bool nullable=True):
-    return primitive_type(LogicalType_BOOL, nullable)
+def bool_():
+    return primitive_type(Type_BOOL)
 
-def uint8(c_bool nullable=True):
-    return primitive_type(LogicalType_UINT8, nullable)
+def uint8():
+    return primitive_type(Type_UINT8)
 
-def int8(c_bool nullable=True):
-    return primitive_type(LogicalType_INT8, nullable)
+def int8():
+    return primitive_type(Type_INT8)
 
-def uint16(c_bool nullable=True):
-    return primitive_type(LogicalType_UINT16, nullable)
+def uint16():
+    return primitive_type(Type_UINT16)
 
-def int16(c_bool nullable=True):
-    return primitive_type(LogicalType_INT16, nullable)
+def int16():
+    return primitive_type(Type_INT16)
 
-def uint32(c_bool nullable=True):
-    return primitive_type(LogicalType_UINT32, nullable)
+def uint32():
+    return primitive_type(Type_UINT32)
 
-def int32(c_bool nullable=True):
-    return primitive_type(LogicalType_INT32, nullable)
+def int32():
+    return primitive_type(Type_INT32)
 
-def uint64(c_bool nullable=True):
-    return primitive_type(LogicalType_UINT64, nullable)
+def uint64():
+    return primitive_type(Type_UINT64)
 
-def int64(c_bool nullable=True):
-    return primitive_type(LogicalType_INT64, nullable)
+def int64():
+    return primitive_type(Type_INT64)
 
-def float_(c_bool nullable=True):
-    return primitive_type(LogicalType_FLOAT, nullable)
+def float_():
+    return primitive_type(Type_FLOAT)
 
-def double(c_bool nullable=True):
-    return primitive_type(LogicalType_DOUBLE, nullable)
+def double():
+    return primitive_type(Type_DOUBLE)
 
-def string(c_bool nullable=True):
+def string():
     """
     UTF8 string
     """
-    return primitive_type(LogicalType_STRING, nullable)
+    return primitive_type(Type_STRING)
 
-def list_(DataType value_type, c_bool nullable=True):
+def list_(DataType value_type):
     cdef DataType out = DataType()
-    out.init(shared_ptr[CDataType](
-        new CListType(value_type.sp_type, nullable)))
+    out.init(shared_ptr[CDataType](new CListType(value_type.sp_type)))
     return out
 
-def struct(fields, c_bool nullable=True):
+def struct(fields):
     """
 
     """
@@ -154,9 +213,11 @@ def struct(fields, c_bool nullable=True):
         c_fields.push_back(field.sp_field)
 
     out.init(shared_ptr[CDataType](
-        new CStructType(c_fields, nullable)))
+        new CStructType(c_fields)))
     return out
 
+def schema(fields):
+    return Schema.from_fields(fields)
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):
     cdef DataType out = DataType()

@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/table/column.h"
-#include "arrow/table/schema.h"
-#include "arrow/table/test-common.h"
+#include "gtest/gtest.h"
+
+#include "arrow/column.h"
+#include "arrow/schema.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
+#include "arrow/types/primitive.h"
 
 using std::shared_ptr;
 using std::vector;

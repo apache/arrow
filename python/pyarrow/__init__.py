@@ -35,4 +35,6 @@ from pyarrow.schema import (null, bool_,
                             uint8, uint16, uint32, uint64,
                             float_, double, string,
                             list_, struct, field,
-                            DataType, Field, Schema)
+                            DataType, Field, Schema, schema)
+
+from pyarrow.array import RowBatch

@@ -16,7 +16,7 @@
 # under the License.
 
 from pyarrow.includes.common cimport shared_ptr
-from pyarrow.includes.libarrow cimport CArray, LogicalType
+from pyarrow.includes.libarrow cimport CArray
 
 from pyarrow.scalar import NA
 

@@ -18,8 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CDataType, LogicalType,
-                                        MemoryPool)
+from pyarrow.includes.libarrow cimport CArray, CDataType, Type, MemoryPool
 
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     # We can later add more of the common status factory methods as needed
@@ -39,7 +38,7 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
         c_bool IsNotImplemented()
         c_bool IsArrowError()
 
-    shared_ptr[CDataType] GetPrimitiveType(LogicalType type, c_bool nullable)
+    shared_ptr[CDataType] GetPrimitiveType(Type type)
     Status ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
     MemoryPool* GetMemoryPool()

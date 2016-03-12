@@ -30,8 +30,8 @@ namespace arrow {
 
 class Buffer;
 
-struct DenseUnionType : public CollectionType<LogicalType::DENSE_UNION> {
-  typedef CollectionType<LogicalType::DENSE_UNION> Base;
+struct DenseUnionType : public CollectionType<Type::DENSE_UNION> {
+  typedef CollectionType<Type::DENSE_UNION> Base;
 
   explicit DenseUnionType(const std::vector<TypePtr>& child_types) :
       Base() {
@@ -42,8 +42,8 @@ struct DenseUnionType : public CollectionType<LogicalType::DENSE_UNION> {
 };
 
 
-struct SparseUnionType : public CollectionType<LogicalType::SPARSE_UNION> {
-  typedef CollectionType<LogicalType::SPARSE_UNION> Base;
+struct SparseUnionType : public CollectionType<Type::SPARSE_UNION> {
+  typedef CollectionType<Type::SPARSE_UNION> Base;
 
   explicit SparseUnionType(const std::vector<TypePtr>& child_types) :
       Base() {
@@ -55,28 +55,20 @@ struct SparseUnionType : public CollectionType<LogicalType::SPARSE_UNION> {
 
 
 class UnionArray : public Array {
- public:
-  UnionArray() : Array() {}
-
  protected:
   // The data are types encoded as int16
   Buffer* types_;
-  std::vector<std::shared_ptr<Array> > children_;
+  std::vector<std::shared_ptr<Array>> children_;
 };
 
 
 class DenseUnionArray : public UnionArray {
- public:
-  DenseUnionArray() : UnionArray() {}
-
  protected:
   Buffer* offset_buf_;
 };
 
 
 class SparseUnionArray : public UnionArray {
- public:
-  SparseUnionArray() : UnionArray() {}
 };
 
 } // namespace arrow

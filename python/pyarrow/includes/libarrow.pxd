@@ -21,31 +21,30 @@ from pyarrow.includes.common cimport *
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
-    enum LogicalType" arrow::LogicalType::type":
-        LogicalType_NA" arrow::LogicalType::NA"
+    enum Type" arrow::Type::type":
+        Type_NA" arrow::Type::NA"
 
-        LogicalType_BOOL" arrow::LogicalType::BOOL"
+        Type_BOOL" arrow::Type::BOOL"
 
-        LogicalType_UINT8" arrow::LogicalType::UINT8"
-        LogicalType_INT8" arrow::LogicalType::INT8"
-        LogicalType_UINT16" arrow::LogicalType::UINT16"
-        LogicalType_INT16" arrow::LogicalType::INT16"
-        LogicalType_UINT32" arrow::LogicalType::UINT32"
-        LogicalType_INT32" arrow::LogicalType::INT32"
-        LogicalType_UINT64" arrow::LogicalType::UINT64"
-        LogicalType_INT64" arrow::LogicalType::INT64"
+        Type_UINT8" arrow::Type::UINT8"
+        Type_INT8" arrow::Type::INT8"
+        Type_UINT16" arrow::Type::UINT16"
+        Type_INT16" arrow::Type::INT16"
+        Type_UINT32" arrow::Type::UINT32"
+        Type_INT32" arrow::Type::INT32"
+        Type_UINT64" arrow::Type::UINT64"
+        Type_INT64" arrow::Type::INT64"
 
-        LogicalType_FLOAT" arrow::LogicalType::FLOAT"
-        LogicalType_DOUBLE" arrow::LogicalType::DOUBLE"
+        Type_FLOAT" arrow::Type::FLOAT"
+        Type_DOUBLE" arrow::Type::DOUBLE"
 
-        LogicalType_STRING" arrow::LogicalType::STRING"
+        Type_STRING" arrow::Type::STRING"
 
-        LogicalType_LIST" arrow::LogicalType::LIST"
-        LogicalType_STRUCT" arrow::LogicalType::STRUCT"
+        Type_LIST" arrow::Type::LIST"
+        Type_STRUCT" arrow::Type::STRUCT"
 
     cdef cppclass CDataType" arrow::DataType":
-        LogicalType type
-        c_bool nullable
+        Type type
 
         c_bool Equals(const CDataType* other)
 
@@ -55,8 +54,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t bytes_allocated()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
-        CListType(const shared_ptr[CDataType]& value_type,
-                  c_bool nullable)
+        CListType(const shared_ptr[CDataType]& value_type)
 
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
@@ -65,21 +63,26 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string name
         shared_ptr[CDataType] type
 
-        CField(const c_string& name, const shared_ptr[CDataType]& type)
+        c_bool nullable
+
+        CField(const c_string& name, const shared_ptr[CDataType]& type,
+               c_bool nullable)
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
-        CStructType(const vector[shared_ptr[CField]]& fields,
-                    c_bool nullable)
+        CStructType(const vector[shared_ptr[CField]]& fields)
 
     cdef cppclass CSchema" arrow::Schema":
-        CSchema(const shared_ptr[CField]& fields)
+        CSchema(const vector[shared_ptr[CField]]& fields)
+        const shared_ptr[CField]& field(int i)
+        int num_fields()
+        c_string ToString()
 
     cdef cppclass CArray" arrow::Array":
         const shared_ptr[CDataType]& type()
 
         int32_t length()
         int32_t null_count()
-        LogicalType logical_type()
+        Type type_enum()
 
         c_bool IsNull(int i)
 
@@ -122,3 +125,57 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CStringArray" arrow::StringArray"(CListArray):
         c_string GetString(int i)
+
+
+cdef extern from "arrow/api.h" namespace "arrow" nogil:
+    # We can later add more of the common status factory methods as needed
+    cdef CStatus CStatus_OK "Status::OK"()
+
+    cdef cppclass CStatus "arrow::Status":
+        CStatus()
+
+        c_string ToString()
+
+        c_bool ok()
+        c_bool IsOutOfMemory()
+        c_bool IsKeyError()
+        c_bool IsNotImplemented()
+        c_bool IsInvalid()
+
+    cdef cppclass Buffer:
+        uint8_t* data()
+        int64_t size()
+
+
+cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
+    cdef cppclass SchemaMessage:
+        int num_fields()
+        CStatus GetField(int i, shared_ptr[CField]* out)
+        CStatus GetSchema(shared_ptr[CSchema]* out)
+
+    cdef cppclass FieldMetadata:
+        pass
+
+    cdef cppclass BufferMetadata:
+        pass
+
+    cdef cppclass RecordBatchMessage:
+        pass
+
+    cdef cppclass DictionaryBatchMessage:
+        pass
+
+    enum MessageType" arrow::ipc::Message::Type":
+        MessageType_SCHEMA" arrow::ipc::Message::SCHEMA"
+        MessageType_RECORD_BATCH" arrow::ipc::Message::RECORD_BATCH"
+        MessageType_DICTIONARY_BATCH" arrow::ipc::Message::DICTIONARY_BATCH"
+
+    cdef cppclass Message:
+        CStatus Open(const shared_ptr[Buffer]& buf,
+                     shared_ptr[Message]* out)
+        int64_t body_length()
+        MessageType type()
+
+        shared_ptr[SchemaMessage] GetSchema()
+        shared_ptr[RecordBatchMessage] GetRecordBatch()
+        shared_ptr[DictionaryBatchMessage] GetDictionaryBatch()

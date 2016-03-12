@@ -70,9 +70,9 @@ void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
 
 InternalMemoryPool::~InternalMemoryPool() {}
 
-MemoryPool* GetDefaultMemoryPool() {
-  static InternalMemoryPool default_memory_pool;
-  return &default_memory_pool;
+MemoryPool* default_memory_pool() {
+  static InternalMemoryPool default_memory_pool_;
+  return &default_memory_pool_;
 }
 
 } // namespace arrow
