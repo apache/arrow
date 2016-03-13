@@ -69,6 +69,7 @@ class ParquetFileReader {
  public:
   // Forward declare the PIMPL
   struct Contents {
+    virtual ~Contents() {}
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
 
