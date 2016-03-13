@@ -34,6 +34,8 @@ struct RowGroupStatistics {
   int64_t num_values;
   int64_t null_count;
   int64_t distinct_count;
+  const std::string* min;
+  const std::string* max;
 };
 
 class RowGroupReader {
@@ -41,6 +43,7 @@ class RowGroupReader {
   // Forward declare the PIMPL
   struct Contents {
     virtual int num_columns() const = 0;
+    virtual int64_t num_rows() const = 0;
     virtual RowGroupStatistics GetColumnStats(int i) = 0;
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
   };
@@ -51,6 +54,7 @@ class RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
   int num_columns() const;
+  int64_t num_rows() const;
 
   RowGroupStatistics GetColumnStats(int i) const;
 

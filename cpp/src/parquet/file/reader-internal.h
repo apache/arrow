@@ -76,6 +76,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       metadata_(metadata) {}
 
   virtual int num_columns() const;
+  virtual int64_t num_rows() const;
   virtual std::unique_ptr<PageReader> GetColumnPageReader(int i);
   virtual RowGroupStatistics GetColumnStats(int i);
 

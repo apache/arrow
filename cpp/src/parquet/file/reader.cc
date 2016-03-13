@@ -49,6 +49,10 @@ int RowGroupReader::num_columns() const {
   return contents_->num_columns();
 }
 
+int64_t RowGroupReader::num_rows() const {
+  return contents_->num_rows();
+}
+
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
   // TODO: boundschecking
   const ColumnDescriptor* descr = schema_->Column(i);
@@ -153,9 +157,12 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
 
       stream << "Column " << i << ": "
-             << stats.num_values << " rows, "
+             << group_reader->num_rows() << " rows, "
+             << stats.num_values << " values, "
              << stats.null_count << " null values, "
              << stats.distinct_count << " distinct values, "
+             << *stats.max << " max, "
+             << *stats.min << " min, "
              << std::endl;
     }
 
