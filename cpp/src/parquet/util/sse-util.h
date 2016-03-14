@@ -21,7 +21,9 @@
 #ifndef PARQUET_UTIL_SSE_UTIL_H
 #define PARQUET_UTIL_SSE_UTIL_H
 
+#ifdef PARQUET_USE_SSE
 #include <emmintrin.h>
+#endif
 
 namespace parquet_cpp {
 
@@ -71,6 +73,8 @@ namespace SSEUtil {
   };
 } // namespace SSEUtil
 
+#ifdef PARQUET_USE_SSE
+
 /// Define the SSE 4.2 intrinsics.  The caller must first verify at runtime (or codegen
 /// IR load time) that the processor supports SSE 4.2 before calling these.  These are
 /// defined outside the namespace because the IR w/ SSE 4.2 case needs to use macros.
@@ -80,12 +84,6 @@ namespace SSEUtil {
 /// SSE 4.2 checks and Impala will crash on CPUs that don't support SSE 4.2
 /// (IMPALA-1399/1646).  The compiler intrinsics cannot be used without -msse4.2, so we
 /// define our own implementations of the intrinsics instead.
-
-#if defined(__SSE4_1__) || defined(__POPCNT__)
-/// Impala native code should not be compiled with -msse4.1 or higher until the minimum
-/// CPU requirement is raised to at least the targeted instruction set.
-#error "Do not compile with -msse4.1 or higher."
-#endif
 
 /// The PCMPxSTRy instructions require that the control byte 'mode' be encoded as an
 /// immediate.  So, those need to be always inlined in order to always propagate the
@@ -214,7 +212,36 @@ static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
   return 0;
 }
 
-#endif
+#endif // IR_COMPILE
+
+#else
+
+static inline uint32_t SSE4_crc32_u8(uint32_t crc, uint8_t v) {
+  DCHECK(false) << "SSE support is not enabled";
+  return 0;
+}
+
+static inline uint32_t SSE4_crc32_u16(uint32_t crc, uint16_t v) {
+  DCHECK(false) << "SSE support is not enabled";
+  return 0;
+}
+
+static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
+  DCHECK(false) << "SSE support is not enabled";
+  return 0;
+}
+
+static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+  DCHECK(false) << "SSE support is not enabled";
+  return 0;
+}
+
+static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
+  DCHECK(false) << "SSE support is not enabled";
+  return 0;
+}
+
+#endif // PARQUET_USE_SSE
 
 } // namespace parquet_cpp
 

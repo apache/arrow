@@ -202,11 +202,15 @@ class HashUtil {
   /// Seed values for different steps of the query execution should use different seeds
   /// to prevent accidental key collisions. (See IMPALA-219 for more details).
   static uint32_t Hash(const void* data, int32_t bytes, uint32_t seed) {
+#ifdef PARQUET_USE_SSE
     if (LIKELY(CpuInfo::IsSupported(CpuInfo::SSE4_2))) {
       return CrcHash(data, bytes, seed);
     } else {
       return MurmurHash2_64(data, bytes, seed);
     }
+#else
+    return MurmurHash2_64(data, bytes, seed);
+#endif
   }
 
   /// The magic number (used in hash_combine()) 0x9e3779b9 = 2^32 / (golden ratio).
