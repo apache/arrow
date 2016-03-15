@@ -38,12 +38,12 @@ OwnedMutableBuffer::OwnedMutableBuffer() :
     ResizableBuffer(nullptr, 0) {}
 
 void OwnedMutableBuffer::Resize(int64_t new_size) {
-  size_ = new_size;
   try {
     buffer_owner_.resize(new_size);
   } catch (const std::bad_alloc& e) {
     throw ParquetException("OOM: resize failed");
   }
+  size_ = new_size;
   data_ = buffer_owner_.data();
   mutable_data_ = buffer_owner_.data();
 }

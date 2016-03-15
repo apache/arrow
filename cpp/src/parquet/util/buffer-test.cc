@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <string>
@@ -48,10 +49,22 @@ TEST_F(TestBuffer, Resize) {
 
 TEST_F(TestBuffer, ResizeOOM) {
   // realloc fails, even though there may be no explicit limit
+
+  // Tests that deliberately throw Exceptions foul up valgrind and report
+  // red herring memory leaks
+#ifndef PARQUET_VALGRIND
   OwnedMutableBuffer buf;
   ASSERT_NO_THROW(buf.Resize(100));
   int64_t to_alloc = std::numeric_limits<int64_t>::max();
-  ASSERT_THROW(buf.Resize(to_alloc), ParquetException);
+  try {
+    buf.Resize(to_alloc);
+    FAIL() << "Exception not thrown";
+  } catch (const ParquetException& e) {
+    // pass
+  } catch(const std::exception& e) {
+    FAIL() << "Different exception thrown";
+  }
+#endif
 }
 
 } // namespace parquet_cpp

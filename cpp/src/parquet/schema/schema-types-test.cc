@@ -39,7 +39,7 @@ namespace schema {
 
 class TestPrimitiveNode : public ::testing::Test {
  public:
-  void setUp() {
+  void SetUp() {
     name_ = "name";
     id_ = 5;
   }
