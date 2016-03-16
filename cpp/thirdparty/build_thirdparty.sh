@@ -44,18 +44,21 @@ ln -sf lib "$PREFIX/lib64"
 # use the compiled tools
 export PATH=$PREFIX/bin:$PATH
 
+type cmake >/dev/null 2>&1 || { echo >&2 "cmake not installed.  Aborting."; exit 1; }
+type make >/dev/null 2>&1 || { echo >&2 "make not installed.  Aborting."; exit 1; }
 
 # build googletest
+GOOGLETEST_ERROR="failed for googletest!"
 if [ -n "$F_ALL" -o -n "$F_GTEST" ]; then
   cd $TP_DIR/$GTEST_BASEDIR
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    CXXFLAGS=-fPIC cmake -DCMAKE_CXX_FLAGS="-std=c++11 -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes"
+    CXXFLAGS=-fPIC cmake -DCMAKE_CXX_FLAGS="-std=c++11 -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes" || { echo "cmake $GOOGLETEST_ERROR" ; exit  1; }
   else
-    CXXFLAGS=-fPIC cmake .
+    CXXFLAGS=-fPIC cmake . || { echo "cmake $GOOGLETEST_ERROR"; exit  1; }
   fi
 
-  make VERBOSE=1
+  make VERBOSE=1 || { echo "Make $GOOGLETEST_ERROR" ; exit  1; }
 fi
 
 echo "---------------------"
