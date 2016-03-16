@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SOURCE_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
+SOURCE_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
 
 ./thirdparty/download_thirdparty.sh
 ./thirdparty/build_thirdparty.sh

@@ -3,7 +3,7 @@
 set -x
 set -e
 
-TP_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
+TP_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
 
 source $TP_DIR/versions.sh
 
