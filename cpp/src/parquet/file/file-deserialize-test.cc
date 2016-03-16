@@ -87,7 +87,7 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void ResetStream() {
-    out_stream_.reset(new InMemoryOutputStream());
+    out_stream_.reset(new InMemoryOutputStream);
   }
 
   void EndStream() {
@@ -244,7 +244,8 @@ class TestParquetFileReader : public ::testing::Test {
     std::unique_ptr<BufferReader> reader(new BufferReader(buffer));
     reader_.reset(new ParquetFileReader());
 
-    ASSERT_THROW(reader_->Open(SerializedFile::Open(std::move(reader))),
+    ASSERT_THROW(
+        reader_->Open(SerializedFile::Open(std::move(reader))),
         ParquetException);
   }
 

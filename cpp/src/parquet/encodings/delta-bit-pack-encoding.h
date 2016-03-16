@@ -24,6 +24,7 @@
 
 #include "parquet/encodings/decoder.h"
 #include "parquet/util/bit-stream-utils.inline.h"
+#include "parquet/util/buffer.h"
 
 namespace parquet_cpp {
 
@@ -32,8 +33,10 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  explicit DeltaBitPackDecoder(const ColumnDescriptor* descr)
-      : Decoder<TYPE>(descr, Encoding::DELTA_BINARY_PACKED) {
+  explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
+      MemoryAllocator* allocator = default_allocator())
+      : Decoder<TYPE>(descr, Encoding::DELTA_BINARY_PACKED),
+        delta_bit_widths_(0, allocator) {
     if (TYPE != Type::INT32 && TYPE != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
@@ -61,7 +64,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
       ParquetException::EofException();
     }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
-    delta_bit_widths_.resize(num_mini_blocks_);
+    delta_bit_widths_.Resize(num_mini_blocks_);
 
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
     for (int i = 0; i < num_mini_blocks_; ++i) {
@@ -81,7 +84,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
     for (int i = 0; i < max_values; ++i) {
       if (UNLIKELY(values_current_mini_block_ == 0)) {
         ++mini_block_idx_;
-        if (mini_block_idx_ < delta_bit_widths_.size()) {
+        if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_.size())) {
           delta_bit_width_ = delta_bit_widths_[mini_block_idx_];
           values_current_mini_block_ = values_per_mini_block_;
         } else {
@@ -111,7 +114,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
 
   int32_t min_delta_;
   size_t mini_block_idx_;
-  std::vector<uint8_t> delta_bit_widths_;
+  OwnedMutableBuffer delta_bit_widths_;
   int delta_bit_width_;
 
   int32_t last_value_;

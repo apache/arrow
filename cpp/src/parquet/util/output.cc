@@ -28,20 +28,13 @@ namespace parquet_cpp {
 // ----------------------------------------------------------------------
 // In-memory output stream
 
-static constexpr int64_t IN_MEMORY_DEFAULT_CAPACITY = 1024;
-
-InMemoryOutputStream::InMemoryOutputStream(int64_t initial_capacity) :
-    size_(0),
-    capacity_(initial_capacity) {
+InMemoryOutputStream::InMemoryOutputStream(int64_t initial_capacity,
+    MemoryAllocator* allocator) : size_(0), capacity_(initial_capacity) {
   if (initial_capacity == 0) {
     initial_capacity = IN_MEMORY_DEFAULT_CAPACITY;
   }
-  buffer_.reset(new OwnedMutableBuffer());
-  buffer_->Resize(initial_capacity);
+  buffer_.reset(new OwnedMutableBuffer(initial_capacity, allocator));
 }
-
-InMemoryOutputStream::InMemoryOutputStream() :
-    InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY) {}
 
 uint8_t* InMemoryOutputStream::Head() {
   return buffer_->mutable_data() + size_;

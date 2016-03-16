@@ -22,6 +22,7 @@
 #include <memory>
 
 #include "parquet/util/macros.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet_cpp {
 
@@ -44,12 +45,13 @@ class OutputStream {
   virtual void Write(const uint8_t* data, int64_t length) = 0;
 };
 
+static constexpr int64_t IN_MEMORY_DEFAULT_CAPACITY = 1024;
 
 // An output stream that is an in-memory
 class InMemoryOutputStream : public OutputStream {
  public:
-  InMemoryOutputStream();
-  explicit InMemoryOutputStream(int64_t initial_capacity);
+  explicit InMemoryOutputStream(int64_t initial_capacity = IN_MEMORY_DEFAULT_CAPACITY,
+      MemoryAllocator* allocator = default_allocator());
 
   // Close is currently a no-op with the in-memory stream
   virtual void Close() {}

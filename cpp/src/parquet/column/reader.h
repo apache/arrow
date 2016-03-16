@@ -30,15 +30,17 @@
 #include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet_cpp {
 
 class ColumnReader {
  public:
-  ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>);
+  ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>,
+      MemoryAllocator* allocator = default_allocator());
 
   static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor*,
-      std::unique_ptr<PageReader>);
+      std::unique_ptr<PageReader>, MemoryAllocator* allocator = default_allocator());
 
   // Returns true if there are still values in this column.
   bool HasNext() {
@@ -95,6 +97,8 @@ class ColumnReader {
   // The number of values from the current data page that have been decoded
   // into memory
   int num_decoded_values_;
+
+  MemoryAllocator* allocator_;
 };
 
 // API to read values from a single column. This is the main client facing API.
@@ -104,8 +108,8 @@ class TypedColumnReader : public ColumnReader {
   typedef typename type_traits<TYPE>::value_type T;
 
   TypedColumnReader(const ColumnDescriptor* schema,
-      std::unique_ptr<PageReader> pager) :
-      ColumnReader(schema, std::move(pager)),
+      std::unique_ptr<PageReader> pager, MemoryAllocator* allocator) :
+      ColumnReader(schema, std::move(pager), allocator),
       current_decoder_(NULL) {
   }
 

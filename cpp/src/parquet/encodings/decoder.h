@@ -22,6 +22,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet_cpp {
 
@@ -54,8 +55,7 @@ class Decoder {
   const Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Decoder(const ColumnDescriptor* descr,
-      const Encoding::type& encoding)
+  explicit Decoder(const ColumnDescriptor* descr, const Encoding::type& encoding)
       : descr_(descr), encoding_(encoding), num_values_(0) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY

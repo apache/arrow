@@ -28,6 +28,7 @@
 #include "parquet/exception.h"
 #include "parquet/util/buffer.h"
 #include "parquet/util/input.h"
+#include "parquet/util/mem-allocator.h"
 #include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 
@@ -118,7 +119,6 @@ TYPED_TEST(TestFileReaders, FileDisappeared) {
 
 TYPED_TEST(TestFileReaders, BadSeek) {
   this->source.Open(this->test_path_);
-
   ASSERT_THROW(this->source.Seek(this->filesize_ + 1), ParquetException);
 }
 

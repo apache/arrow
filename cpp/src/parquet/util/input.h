@@ -18,6 +18,8 @@
 #ifndef PARQUET_UTIL_INPUT_H
 #define PARQUET_UTIL_INPUT_H
 
+#include <parquet/util/mem-allocator.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -36,11 +38,10 @@ class RandomAccessSource {
  public:
   virtual ~RandomAccessSource() {}
 
-  virtual int64_t Size() const = 0;
-
   virtual void Close() = 0;
   virtual int64_t Tell() const = 0;
   virtual void Seek(int64_t pos) = 0;
+  int64_t Size() const;
 
   // Returns actual number of bytes read
   virtual int64_t Read(int64_t nbytes, uint8_t* out) = 0;
@@ -55,13 +56,14 @@ class RandomAccessSource {
 
 class LocalFileSource : public RandomAccessSource {
  public:
-  LocalFileSource() : file_(nullptr), is_open_(false) {}
+  explicit LocalFileSource(MemoryAllocator* allocator = default_allocator()) :
+      file_(nullptr), is_open_(false), allocator_(allocator) {}
+
   virtual ~LocalFileSource();
 
   virtual void Open(const std::string& path);
 
   virtual void Close();
-  virtual int64_t Size() const;
   virtual int64_t Tell() const;
   virtual void Seek(int64_t pos);
 
@@ -83,14 +85,13 @@ class LocalFileSource : public RandomAccessSource {
   std::string path_;
   FILE* file_;
   bool is_open_;
+  MemoryAllocator* allocator_;
 };
 
 class MemoryMapSource : public LocalFileSource {
  public:
-  MemoryMapSource() :
-      LocalFileSource(),
-      data_(nullptr),
-      pos_(0) {}
+  explicit MemoryMapSource(MemoryAllocator* allocator = default_allocator()) :
+      LocalFileSource(allocator), data_(nullptr), pos_(0) {}
 
   virtual ~MemoryMapSource();
 
@@ -123,7 +124,6 @@ class BufferReader : public RandomAccessSource {
   virtual void Close() {}
   virtual int64_t Tell() const;
   virtual void Seek(int64_t pos);
-  virtual int64_t Size() const;
 
   virtual int64_t Read(int64_t nbytes, uint8_t* out);
 

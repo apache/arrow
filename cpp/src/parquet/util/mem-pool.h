@@ -29,11 +29,12 @@
 
 #include "parquet/util/logging.h"
 #include "parquet/util/bit-util.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet_cpp {
 
-/// A MemPool maintains a list of memory chunks from which it allocates memory in
-/// response to Allocate() calls;
+/// A MemPool maintains a list of memory chunks from which it allocates memory
+/// in response to Allocate() calls;
 /// Chunks stay around for the lifetime of the mempool or until they are passed on to
 /// another mempool.
 //
@@ -75,7 +76,7 @@ namespace parquet_cpp {
 
 class MemPool {
  public:
-  MemPool();
+  explicit MemPool(MemoryAllocator* allocator = default_allocator());
 
   /// Frees all chunks of memory and subtracts the total allocated bytes
   /// from the registered limits.
@@ -164,6 +165,8 @@ class MemPool {
   int64_t total_reserved_bytes_;
 
   std::vector<ChunkInfo> chunks_;
+
+  MemoryAllocator* allocator_;
 
   /// Find or allocated a chunk with at least min_size spare capacity and update
   /// current_chunk_idx_. Also updates chunks_, chunk_sizes_ and allocated_bytes_

@@ -35,6 +35,10 @@ std::shared_ptr<Buffer> RandomAccessSource::ReadAt(int64_t pos, int64_t nbytes) 
   return Read(nbytes);
 }
 
+int64_t RandomAccessSource::Size() const {
+  return size_;
+}
+
 // ----------------------------------------------------------------------
 // LocalFileSource
 
@@ -86,10 +90,6 @@ void LocalFileSource::Seek(int64_t pos) {
   SeekFile(pos);
 }
 
-int64_t LocalFileSource::Size() const {
-  return size_;
-}
-
 int64_t LocalFileSource::Tell() const {
   int64_t position = ftell(file_);
   if (position < 0) {
@@ -107,7 +107,7 @@ int64_t LocalFileSource::Read(int64_t nbytes, uint8_t* buffer) {
 }
 
 std::shared_ptr<Buffer> LocalFileSource::Read(int64_t nbytes) {
-  auto result = std::make_shared<OwnedMutableBuffer>();
+  auto result = std::make_shared<OwnedMutableBuffer>(0, allocator_);
   result->Resize(nbytes);
 
   int64_t bytes_read = Read(nbytes, result->mutable_data());
@@ -196,10 +196,6 @@ void BufferReader::Seek(int64_t pos) {
     throw ParquetException(ss.str());
   }
   pos_ = pos;
-}
-
-int64_t BufferReader::Size() const {
-  return size_;
 }
 
 int64_t BufferReader::Read(int64_t nbytes, uint8_t* out) {

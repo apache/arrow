@@ -28,6 +28,7 @@ install(FILES
   input.h
   logging.h
   macros.h
+  mem-allocator.h
   mem-pool.h
   output.h
   rle-encoding.h
@@ -39,6 +40,7 @@ add_library(parquet_util STATIC
   buffer.cc
   cpu-info.cc
   input.cc
+  mem-allocator.cc
   mem-pool.cc
   output.cc
 )
@@ -64,5 +66,6 @@ endif()
 ADD_PARQUET_TEST(bit-util-test)
 ADD_PARQUET_TEST(buffer-test)
 ADD_PARQUET_TEST(input-output-test)
+ADD_PARQUET_TEST(mem-allocator-test)
 ADD_PARQUET_TEST(mem-pool-test)
 ADD_PARQUET_TEST(rle-test)

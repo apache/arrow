@@ -151,6 +151,7 @@ class TestEncodingBase : public ::testing::Test {
     if (descr_) {
       type_length_ = descr_->type_length();
     }
+    allocator_ = default_allocator();
   }
 
   void TearDown() {
@@ -182,6 +183,7 @@ class TestEncodingBase : public ::testing::Test {
 
  protected:
   MemPool pool_;
+  MemoryAllocator* allocator_;
 
   int num_values_;
   int type_length_;
@@ -199,6 +201,7 @@ class TestEncodingBase : public ::testing::Test {
 // out an alternative to this class layering at some point
 #define USING_BASE_MEMBERS()                    \
   using TestEncodingBase<Type>::pool_;          \
+  using TestEncodingBase<Type>::allocator_;     \
   using TestEncodingBase<Type>::descr_;         \
   using TestEncodingBase<Type>::num_values_;    \
   using TestEncodingBase<Type>::draws_;         \
@@ -252,7 +255,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    DictEncoder<T> encoder(&pool_, type_length_);
+    DictEncoder<T> encoder(&pool_, allocator_, type_length_);
 
     dict_buffer_ = std::make_shared<OwnedMutableBuffer>();
     auto indices = std::make_shared<OwnedMutableBuffer>();

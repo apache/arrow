@@ -41,9 +41,10 @@ namespace parquet_cpp {
 // RowGroupReader public API
 
 RowGroupReader::RowGroupReader(const SchemaDescriptor* schema,
-    std::unique_ptr<Contents> contents) :
+    std::unique_ptr<Contents> contents, MemoryAllocator* allocator) :
     schema_(schema),
-    contents_(std::move(contents)) {}
+    contents_(std::move(contents)),
+    allocator_(allocator) {}
 
 int RowGroupReader::num_columns() const {
   return contents_->num_columns();
@@ -58,7 +59,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
   const ColumnDescriptor* descr = schema_->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
-  return ColumnReader::Make(descr, std::move(page_reader));
+  return ColumnReader::Make(descr, std::move(page_reader), allocator_);
 }
 
 RowGroupStatistics RowGroupReader::GetColumnStats(int i) const {
@@ -74,16 +75,16 @@ ParquetFileReader::~ParquetFileReader() {
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(const std::string& path,
-    bool memory_map) {
+    bool memory_map, MemoryAllocator* allocator) {
   std::unique_ptr<LocalFileSource> file;
   if (memory_map) {
-    file.reset(new MemoryMapSource());
+    file.reset(new MemoryMapSource(allocator));
   } else {
-    file.reset(new LocalFileSource());
+    file.reset(new LocalFileSource(allocator));
   }
   file->Open(path);
 
-  auto contents = SerializedFile::Open(std::move(file));
+  auto contents = SerializedFile::Open(std::move(file), allocator);
 
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));

@@ -29,11 +29,12 @@
 namespace parquet_cpp {
 
 ColumnReader::ColumnReader(const ColumnDescriptor* descr,
-    std::unique_ptr<PageReader> pager)
+    std::unique_ptr<PageReader> pager, MemoryAllocator* allocator)
   : descr_(descr),
     pager_(std::move(pager)),
     num_buffered_values_(0),
-    num_decoded_values_(0) {}
+    num_decoded_values_(0),
+    allocator_(allocator) {}
 
 template <int TYPE>
 void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
@@ -59,7 +60,7 @@ void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
     // TODO(wesm): investigate whether this all-or-nothing decoding of the
     // dictionary makes sense and whether performance can be improved
 
-    auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_);
+    auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_, allocator_);
     decoder->SetDict(&dictionary);
     decoders_[encoding] = decoder;
   } else {
@@ -196,24 +197,26 @@ int64_t ColumnReader::ReadRepetitionLevels(int64_t batch_size, int16_t* levels) 
 
 std::shared_ptr<ColumnReader> ColumnReader::Make(
     const ColumnDescriptor* descr,
-    std::unique_ptr<PageReader> pager) {
+    std::unique_ptr<PageReader> pager,
+    MemoryAllocator* allocator) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolReader>(descr, std::move(pager));
+      return std::make_shared<BoolReader>(descr, std::move(pager), allocator);
     case Type::INT32:
-      return std::make_shared<Int32Reader>(descr, std::move(pager));
+      return std::make_shared<Int32Reader>(descr, std::move(pager), allocator);
     case Type::INT64:
-      return std::make_shared<Int64Reader>(descr, std::move(pager));
+      return std::make_shared<Int64Reader>(descr, std::move(pager), allocator);
     case Type::INT96:
-      return std::make_shared<Int96Reader>(descr, std::move(pager));
+      return std::make_shared<Int96Reader>(descr, std::move(pager), allocator);
     case Type::FLOAT:
-      return std::make_shared<FloatReader>(descr, std::move(pager));
+      return std::make_shared<FloatReader>(descr, std::move(pager), allocator);
     case Type::DOUBLE:
-      return std::make_shared<DoubleReader>(descr, std::move(pager));
+      return std::make_shared<DoubleReader>(descr, std::move(pager), allocator);
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayReader>(descr, std::move(pager));
+      return std::make_shared<ByteArrayReader>(descr, std::move(pager), allocator);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayReader>(descr, std::move(pager));
+      return std::make_shared<FixedLenByteArrayReader>(descr,
+          std::move(pager), allocator);
     default:
       ParquetException::NYI("type reader not implemented");
   }

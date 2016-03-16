@@ -25,6 +25,7 @@
 #include "parquet/encodings/encoder.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/util/bit-stream-utils.inline.h"
+#include "parquet/util/buffer.h"
 #include "parquet/util/output.h"
 
 namespace parquet_cpp {
@@ -172,8 +173,9 @@ class PlainEncoder : public Encoder<TYPE> {
  public:
   typedef typename type_traits<TYPE>::value_type T;
 
-  explicit PlainEncoder(const ColumnDescriptor* descr) :
-      Encoder<TYPE>(descr, Encoding::PLAIN) {}
+  explicit PlainEncoder(const ColumnDescriptor* descr,
+      MemoryAllocator* allocator = default_allocator()) :
+      Encoder<TYPE>(descr, Encoding::PLAIN, allocator) {}
 
   void Encode(const T* src, int num_values, OutputStream* dst);
 };
@@ -181,12 +183,13 @@ class PlainEncoder : public Encoder<TYPE> {
 template <>
 class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
  public:
-  explicit PlainEncoder(const ColumnDescriptor* descr) :
-      Encoder<Type::BOOLEAN>(descr, Encoding::PLAIN) {}
+  explicit PlainEncoder(const ColumnDescriptor* descr,
+      MemoryAllocator* allocator = default_allocator()) :
+      Encoder<Type::BOOLEAN>(descr, Encoding::PLAIN, allocator) {}
 
   virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
     int bytes_required = BitUtil::Ceil(num_values, 8);
-    std::vector<uint8_t> tmp_buffer(bytes_required);
+    OwnedMutableBuffer tmp_buffer(bytes_required, allocator_);
 
     BitWriter bit_writer(&tmp_buffer[0], bytes_required);
     for (int i = 0; i < num_values; ++i) {
@@ -205,7 +208,7 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
     // Use a temporary buffer for now and copy, because the BitWriter is not
     // aware of OutputStream. Later we can add some kind of Request/Flush API
     // to OutputStream
-    std::vector<uint8_t> tmp_buffer(bytes_required);
+    OwnedMutableBuffer tmp_buffer(bytes_required, allocator_);
 
     BitWriter bit_writer(&tmp_buffer[0], bytes_required);
     for (int i = 0; i < num_values; ++i) {

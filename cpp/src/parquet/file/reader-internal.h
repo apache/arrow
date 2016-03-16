@@ -43,7 +43,7 @@ static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::unique_ptr<InputStream> stream,
-      Compression::type codec);
+      Compression::type codec, MemoryAllocator* allocator = default_allocator());
 
   virtual ~SerializedPageReader() {}
 
@@ -62,7 +62,7 @@ class SerializedPageReader : public PageReader {
 
   // Compression codec to use.
   std::unique_ptr<Codec> decompressor_;
-  std::vector<uint8_t> decompression_buffer_;
+  OwnedMutableBuffer decompression_buffer_;
   // Maximum allowed page size
   uint32_t max_page_header_size_;
 };
@@ -71,9 +71,10 @@ class SerializedPageReader : public PageReader {
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(RandomAccessSource* source,
-      const parquet::RowGroup* metadata) :
+      const parquet::RowGroup* metadata, MemoryAllocator* allocator) :
       source_(source),
-      metadata_(metadata) {}
+      metadata_(metadata),
+      allocator_(allocator) {}
 
   virtual int num_columns() const;
   virtual int64_t num_rows() const;
@@ -83,6 +84,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
  private:
   RandomAccessSource* source_;
   const parquet::RowGroup* metadata_;
+  MemoryAllocator* allocator_;
 };
 
 // An implementation of ParquetFileReader::Contents that deals with the Parquet
@@ -95,7 +97,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   // This class does _not_ take ownership of the data source. You must manage its
   // lifetime separately
   static std::unique_ptr<ParquetFileReader::Contents> Open(
-      std::unique_ptr<RandomAccessSource> source);
+      std::unique_ptr<RandomAccessSource> source,
+      MemoryAllocator* allocator = default_allocator());
   virtual void Close();
   virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i);
   virtual int64_t num_rows() const;
@@ -105,10 +108,12 @@ class SerializedFile : public ParquetFileReader::Contents {
 
  private:
   // This class takes ownership of the provided data source
-  explicit SerializedFile(std::unique_ptr<RandomAccessSource> source);
+  explicit SerializedFile(std::unique_ptr<RandomAccessSource> source,
+      MemoryAllocator* allocator);
 
   std::unique_ptr<RandomAccessSource> source_;
   parquet::FileMetaData metadata_;
+  MemoryAllocator* allocator_;
 
   void ParseMetaData();
 };

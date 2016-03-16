@@ -27,8 +27,10 @@
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/encodings/plain-encoding.h"
+#include "parquet/util/buffer.h"
 #include "parquet/util/cpu-info.h"
 #include "parquet/util/hash-util.h"
+#include "parquet/util/mem-allocator.h"
 #include "parquet/util/mem-pool.h"
 #include "parquet/util/rle-encoding.h"
 
@@ -42,9 +44,10 @@ class DictionaryDecoder : public Decoder<TYPE> {
   // Initializes the dictionary with values from 'dictionary'. The data in
   // dictionary is not guaranteed to persist in memory after this call so the
   // dictionary decoder needs to copy the data out if necessary.
-  explicit DictionaryDecoder(const ColumnDescriptor* descr)
-      : Decoder<TYPE>(descr, Encoding::RLE_DICTIONARY) {
-  }
+  explicit DictionaryDecoder(const ColumnDescriptor* descr,
+      MemoryAllocator* allocator = default_allocator()):
+      Decoder<TYPE>(descr, Encoding::RLE_DICTIONARY), dictionary_(0, allocator),
+      byte_array_data_(0, allocator) {}
 
   // Perform type-specific initiatialization
   void SetDict(Decoder<TYPE>* dictionary);
@@ -77,11 +80,11 @@ class DictionaryDecoder : public Decoder<TYPE> {
   }
 
   // Only one is set.
-  std::vector<T> dictionary_;
+  Vector<T> dictionary_;
 
   // Data that contains the byte array data (byte_array_dictionary_ just has the
   // pointers).
-  std::vector<uint8_t> byte_array_data_;
+  OwnedMutableBuffer byte_array_data_;
 
   RleDecoder idx_decoder_;
 };
@@ -89,7 +92,7 @@ class DictionaryDecoder : public Decoder<TYPE> {
 template <int TYPE>
 inline void DictionaryDecoder<TYPE>::SetDict(Decoder<TYPE>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-  dictionary_.resize(num_dictionary_values);
+  dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 }
 
@@ -103,14 +106,14 @@ template <>
 inline void DictionaryDecoder<Type::BYTE_ARRAY>::SetDict(
     Decoder<Type::BYTE_ARRAY>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-  dictionary_.resize(num_dictionary_values);
+  dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 
   int total_size = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
     total_size += dictionary_[i].len;
   }
-  byte_array_data_.resize(total_size);
+  byte_array_data_.Resize(total_size);
   int offset = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
     memcpy(&byte_array_data_[offset], dictionary_[i].ptr, dictionary_[i].len);
@@ -123,13 +126,13 @@ template <>
 inline void DictionaryDecoder<Type::FIXED_LEN_BYTE_ARRAY>::SetDict(
     Decoder<Type::FIXED_LEN_BYTE_ARRAY>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-  dictionary_.resize(num_dictionary_values);
+  dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 
   int fixed_len = descr_->type_length();
   int total_size = num_dictionary_values*fixed_len;
 
-  byte_array_data_.resize(total_size);
+  byte_array_data_.Resize(total_size);
   int offset = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
     memcpy(&byte_array_data_[offset], dictionary_[i].ptr, fixed_len);
@@ -198,12 +201,14 @@ class DictEncoderBase {
   int dict_encoded_size() { return dict_encoded_size_; }
 
  protected:
-  explicit DictEncoderBase(MemPool* pool) :
+  explicit DictEncoderBase(MemPool* pool, MemoryAllocator* allocator) :
       hash_table_size_(INITIAL_HASH_TABLE_SIZE),
       mod_bitmask_(hash_table_size_ - 1),
-      hash_slots_(hash_table_size_, HASH_SLOT_EMPTY),
+      hash_slots_(0, allocator),
+      allocator_(allocator),
       pool_(pool),
       dict_encoded_size_(0) {
+    hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
     if (!CpuInfo::initialized()) {
       CpuInfo::Init();
     }
@@ -219,7 +224,8 @@ class DictEncoderBase {
   // We use a fixed-size hash table with linear probing
   //
   // These values correspond to the uniques_ array
-  std::vector<hash_slot_t> hash_slots_;
+  Vector<hash_slot_t> hash_slots_;
+  MemoryAllocator* allocator_;
 
   // For ByteArray / FixedLenByteArray data. Not owned
   MemPool* pool_;
@@ -234,9 +240,9 @@ class DictEncoderBase {
 template <typename T>
 class DictEncoder : public DictEncoderBase {
  public:
-  explicit DictEncoder(MemPool* pool = nullptr, int type_length = -1) :
-      DictEncoderBase(pool),
-      type_length_(type_length) { }
+  explicit DictEncoder(MemPool* pool = nullptr,
+      MemoryAllocator* allocator = default_allocator(), int type_length = -1) :
+      DictEncoderBase(pool, allocator), type_length_(type_length) {}
 
   // TODO(wesm): think about how to address the construction semantics in
   // encodings/dictionary-encoding.h
@@ -331,7 +337,8 @@ inline void DictEncoder<T>::Put(const T& v) {
 template <typename T>
 inline void DictEncoder<T>::DoubleTableSize() {
   int new_size = hash_table_size_ * 2;
-  std::vector<hash_slot_t> new_hash_slots(new_size, HASH_SLOT_EMPTY);
+  Vector<hash_slot_t> new_hash_slots(0, allocator_);
+  new_hash_slots.Assign(new_size, HASH_SLOT_EMPTY);
   hash_slot_t index, slot;
   int j;
   for (int i = 0; i < hash_table_size_; ++i) {
@@ -360,7 +367,8 @@ inline void DictEncoder<T>::DoubleTableSize() {
 
   hash_table_size_ = new_size;
   mod_bitmask_ = new_size - 1;
-  new_hash_slots.swap(hash_slots_);
+
+  hash_slots_.Swap(new_hash_slots);
 }
 
 template<typename T>
@@ -376,7 +384,6 @@ inline void DictEncoder<ByteArray>::AddDictKey(const ByteArray& v) {
     throw ParquetException("out of memory");
   }
   memcpy(heap, v.ptr, v.len);
-
   uniques_.push_back(ByteArray(v.len, heap));
   dict_encoded_size_ += v.len + sizeof(uint32_t);
 }

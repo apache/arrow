@@ -48,7 +48,8 @@ class RowGroupReader {
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
   };
 
-  RowGroupReader(const SchemaDescriptor* schema, std::unique_ptr<Contents> contents);
+  RowGroupReader(const SchemaDescriptor* schema,
+      std::unique_ptr<Contents> contents, MemoryAllocator* allocator);
 
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
@@ -66,6 +67,8 @@ class RowGroupReader {
   // This is declared in the .cc file so that we can hide compiled Thrift
   // headers from the public API and also more easily create test fixtures.
   std::unique_ptr<Contents> contents_;
+
+  MemoryAllocator* allocator_;
 };
 
 
@@ -95,7 +98,7 @@ class ParquetFileReader {
 
   // API Convenience to open a serialized Parquet file on disk
   static std::unique_ptr<ParquetFileReader> OpenFile(const std::string& path,
-      bool memory_map = true);
+      bool memory_map = true, MemoryAllocator* allocator = default_allocator());
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

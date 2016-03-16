@@ -48,8 +48,6 @@ TEST_F(TestBuffer, Resize) {
 }
 
 TEST_F(TestBuffer, ResizeOOM) {
-  // realloc fails, even though there may be no explicit limit
-
   // Tests that deliberately throw Exceptions foul up valgrind and report
   // red herring memory leaks
 #ifndef PARQUET_VALGRIND

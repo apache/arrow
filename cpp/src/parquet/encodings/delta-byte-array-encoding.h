@@ -28,10 +28,11 @@ namespace parquet_cpp {
 
 class DeltaByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
  public:
-  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr)
+  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
+      MemoryAllocator* allocator = default_allocator())
       : Decoder<Type::BYTE_ARRAY>(descr, Encoding::DELTA_BYTE_ARRAY),
-      prefix_len_decoder_(nullptr),
-      suffix_decoder_(nullptr) {
+      prefix_len_decoder_(nullptr, allocator),
+      suffix_decoder_(nullptr, allocator) {
   }
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {

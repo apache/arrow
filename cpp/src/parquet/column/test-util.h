@@ -252,7 +252,7 @@ class DictionaryPageBuilder {
         if (TN == Type::FIXED_LEN_BYTE_ARRAY) {
           type_length = d->type_length();
         }
-        encoder_.reset(new DictEncoder<TC>(&pool_, type_length));
+        encoder_.reset(new DictEncoder<TC>(&pool_, default_allocator(), type_length));
   }
 
   ~DictionaryPageBuilder() {
@@ -260,7 +260,6 @@ class DictionaryPageBuilder {
   }
 
   shared_ptr<Buffer> AppendValues(const vector<TC>& values) {
-    shared_ptr<OwnedMutableBuffer> rle_indices = std::make_shared<OwnedMutableBuffer>();
     int num_values = values.size();
     // Dictionary encoding
     for (int i = 0; i < num_values; ++i) {
@@ -268,7 +267,8 @@ class DictionaryPageBuilder {
     }
     num_dict_values_ = encoder_->num_entries();
     have_values_ = true;
-    rle_indices->Resize(sizeof(int) * encoder_->EstimatedDataEncodedSize());
+    shared_ptr<OwnedMutableBuffer> rle_indices = std::make_shared<OwnedMutableBuffer>(
+        sizeof(int) * encoder_->EstimatedDataEncodedSize());
     int actual_bytes = encoder_->WriteIndices(rle_indices->mutable_data(),
         rle_indices->size());
     rle_indices->Resize(actual_bytes);
@@ -277,8 +277,8 @@ class DictionaryPageBuilder {
   }
 
   shared_ptr<Buffer> WriteDict() {
-    shared_ptr<OwnedMutableBuffer> dict_buffer = std::make_shared<OwnedMutableBuffer>();
-    dict_buffer->Resize(encoder_->dict_encoded_size());
+    shared_ptr<OwnedMutableBuffer> dict_buffer = std::make_shared<OwnedMutableBuffer>(
+        encoder_->dict_encoded_size());
     encoder_->WriteDict(dict_buffer->mutable_data());
     return dict_buffer;
   }

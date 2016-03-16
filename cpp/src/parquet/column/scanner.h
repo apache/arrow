@@ -29,6 +29,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet_cpp {
 
@@ -37,10 +38,12 @@ static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 class Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
-      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
+      MemoryAllocator* allocator = default_allocator()) :
       batch_size_(batch_size),
       level_offset_(0),
       levels_buffered_(0),
+      value_buffer_(0, allocator),
       value_offset_(0),
       values_buffered_(0),
       reader_(reader) {
@@ -52,7 +55,8 @@ class Scanner {
   virtual ~Scanner() {}
 
   static std::shared_ptr<Scanner> Make(std::shared_ptr<ColumnReader> col_reader,
-      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE);
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
+      MemoryAllocator* allocator = default_allocator());
 
   virtual void PrintNext(std::ostream& out, int width) = 0;
 
@@ -78,7 +82,7 @@ class Scanner {
   int level_offset_;
   int levels_buffered_;
 
-  std::vector<uint8_t> value_buffer_;
+  OwnedMutableBuffer value_buffer_;
   int value_offset_;
   int64_t values_buffered_;
 
@@ -93,11 +97,12 @@ class TypedScanner : public Scanner {
   typedef typename type_traits<TYPE>::value_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
-      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE) :
-      Scanner(reader, batch_size) {
+      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
+      MemoryAllocator* allocator = default_allocator()) :
+      Scanner(reader, batch_size, allocator) {
     typed_reader_ = static_cast<TypedColumnReader<TYPE>*>(reader.get());
     int value_byte_size = type_traits<TYPE>::value_byte_size;
-    value_buffer_.resize(batch_size_ * value_byte_size);
+    value_buffer_.Resize(batch_size_ * value_byte_size);
     values_ = reinterpret_cast<T*>(&value_buffer_[0]);
   }
 

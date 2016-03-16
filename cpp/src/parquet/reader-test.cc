@@ -28,6 +28,7 @@
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
 #include "parquet/util/input.h"
+#include "parquet/util/mem-allocator.h"
 
 using std::string;
 
@@ -93,7 +94,8 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
+  std::shared_ptr<Int32Scanner> scanner(
+      new Int32Scanner(group->Column(0)));
   int32_t val;
   bool is_null;
   for (int i = 0; i < 8; ++i) {
@@ -110,7 +112,8 @@ TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
+  std::shared_ptr<Int32Scanner> scanner(
+      new Int32Scanner(group->Column(0)));
 
   ASSERT_EQ(128, scanner->batch_size());
   scanner->SetBatchSize(1024);
