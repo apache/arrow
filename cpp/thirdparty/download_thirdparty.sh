@@ -8,6 +8,7 @@ TP_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
 source $TP_DIR/versions.sh
 
 download_extract_and_cleanup() {
+	type curl >/dev/null 2>&1 || { echo >&2 "curl not installed.  Aborting."; exit 1; }
 	filename=$TP_DIR/$(basename "$1")
 	curl -#LC - "$1" -o $filename
 	tar xzf $filename -C $TP_DIR
