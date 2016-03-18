@@ -55,10 +55,19 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BUILD_TESTS
     "Build the Arrow googletest unit tests"
     ON)
+
+  option(ARROW_BUILD_BENCHMARKS
+    "Build the Arrow micro benchmarks"
+    ON)
+
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+endif()
+
+if(NOT ARROW_BUILD_BENCHMARKS)
+  set(NO_BENCHMARKSS 1)
 endif()
 
 
@@ -335,11 +344,25 @@ if ("$ENV{GTEST_HOME}" STREQUAL "")
   set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
 endif()
 
+## Google Benchmark 
+if ("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+  set(GBENCHMARK_HOME ${THIRDPARTY_DIR}/benchmark-1.0.0)
+endif()
+
+
 if(ARROW_BUILD_TESTS)
   find_package(GTest REQUIRED)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gtest
     STATIC_LIB ${GTEST_STATIC_LIB})
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  find_package(GBenchmark REQUIRED)
+  include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(benchmark
+    STATIC_LIB ${GBENCHMARK_STATIC_LIB})
+
 endif()
 
 ## Google PerfTools

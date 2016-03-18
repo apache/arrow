@@ -19,3 +19,9 @@ if [ ! -d ${GTEST_BASEDIR} ]; then
   echo "Fetching gtest"
   download_extract_and_cleanup $GTEST_URL
 fi
+
+echo ${GBENCHMARK_BASEDIR}
+if [ ! -d ${GBENCHMARK_BASEDIR} ]; then
+  echo "Fetching google benchmark"
+  download_extract_and_cleanup $GBENCHMARK_URL
+fi
