@@ -29,14 +29,14 @@ endif()
 
 # Try the parameterized roots, if they exist
 if ( _parquet_roots )
-    find_path( PARQUET_INCLUDE_DIR NAMES parquet/parquet.h
+    find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h
         PATHS ${_parquet_roots} NO_DEFAULT_PATH
         PATH_SUFFIXES "include" )
     find_library( PARQUET_LIBRARIES NAMES parquet
         PATHS ${_parquet_roots} NO_DEFAULT_PATH
         PATH_SUFFIXES "lib" )
 else ()
-    find_path( PARQUET_INCLUDE_DIR NAMES parquet/parquet.h )
+    find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
     find_library( PARQUET_LIBRARIES NAMES parquet )
 endif ()
 
