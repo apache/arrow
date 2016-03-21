@@ -39,6 +39,9 @@ public class PooledByteBufAllocatorL {
 
   private static final int MEMORY_LOGGER_FREQUENCY_SECONDS = 60;
   public final UnsafeDirectLittleEndian empty;
+
+  private static MnemonicUnpooledByteBufAllocator<?> mubballoc = null;
+
   private final AtomicLong hugeBufferSize = new AtomicLong(0);
   private final AtomicLong hugeBufferCount = new AtomicLong(0);
   private final AtomicLong normalBufferSize = new AtomicLong(0);
@@ -48,6 +51,17 @@ public class PooledByteBufAllocatorL {
   public PooledByteBufAllocatorL() {
     allocator = new InnerAllocator();
     empty = new UnsafeDirectLittleEndian(new DuplicatedByteBuf(Unpooled.EMPTY_BUFFER));
+  }
+
+  public static void setUpMnemonicUnpooledByteBufAllocator(MnemonicUnpooledByteBufAllocator<?> mubballocator) {
+    if (null == mubballocator) {
+       throw new RuntimeException("MnemonicUnpooledByteBufAllocator is null for setup");
+    }
+    mubballoc = mubballocator;
+  }
+
+  public static void clearMnemonicUnpooledByteBufAllocator() {
+    mubballoc = null;
   }
 
   public UnsafeDirectLittleEndian allocate(int size) {
@@ -156,9 +170,9 @@ public class PooledByteBufAllocatorL {
 
       if (directArena != null) {
 
-        if (initialCapacity > directArena.chunkSize) {
+	  if (initialCapacity > directArena.chunkSize || null != mubballoc) {
           // This is beyond chunk size so we'll allocate separately.
-          ByteBuf buf = UnpooledByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
+	      ByteBuf buf = null != mubballoc ? mubballoc.directBuffer(initialCapacity, maxCapacity) : UnpooledByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
 
           hugeBufferSize.addAndGet(buf.capacity());
           hugeBufferCount.incrementAndGet();

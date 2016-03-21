@@ -35,9 +35,11 @@
     <dep.netty.version>4.0.49.Final</dep.netty.version>
     <dep.jackson.version>2.7.9</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
+    <dep.mnemonic.version>0.9.0-incubating-SNAPSHOT</dep.mnemonic.version>
     <fbs.version>1.2.0-3f79e055</fbs.version>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
+    <service.dist.dir>${session.executionRootDirectory}/target/service-dist</service.dist.dir>
   </properties>
 
   <scm>
@@ -80,7 +82,13 @@
   </issueManagement>
 
   <build>
-
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.4.0.Final</version>
+      </extension>
+    </extensions>
     <plugins>
       <plugin>
         <groupId>org.apache.rat</groupId>
@@ -272,7 +280,6 @@
           </gitDescribe>
         </configuration>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
@@ -333,6 +340,63 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>2.10</version>
+        <executions>
+          <execution>
+            <id>copy</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.apache.mnemonic</groupId>
+                  <artifactId>mnemonic-nvml-vmem-service</artifactId>
+                  <version>${dep.mnemonic.version}</version>
+                  <classifier>${os.detected.classifier}</classifier>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.apache.mnemonic</groupId>
+                  <artifactId>mnemonic-sys-vmem-service</artifactId>
+                  <version>${dep.mnemonic.version}</version>
+                  <classifier>${os.detected.classifier}</classifier>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.apache.mnemonic</groupId>
+                  <artifactId>mnemonic-nvml-pmem-service</artifactId>
+                  <version>${dep.mnemonic.version}</version>
+                  <classifier>${os.detected.classifier}</classifier>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.apache.mnemonic</groupId>
+                  <artifactId>mnemonic-pmalloc-service</artifactId>
+                  <version>${dep.mnemonic.version}</version>
+                  <classifier>${os.detected.classifier}</classifier>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.apache.mnemonic</groupId>
+                  <artifactId>mnemonic-utilities-service</artifactId>
+                  <version>${dep.mnemonic.version}</version>
+                  <classifier>${os.detected.classifier}</classifier>
+                  <type>jar</type>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${service.dist.dir}</outputDirectory>
+              <overWriteReleases>false</overWriteReleases>
+              <overWriteSnapshots>false</overWriteSnapshots>
+              <overWriteIfNewer>true</overWriteIfNewer>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -374,6 +438,7 @@
             <!-- Note: changing the below configuration might increase the max allocation size for a vector
             which in turn can cause OOM. -->
             <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
+            <argLine>-Djava.ext.dirs=${service.dist.dir}</argLine>
           </configuration>
         </plugin>
         <plugin>
@@ -524,6 +589,11 @@
         <artifactId>slf4j-api</artifactId>
         <version>${dep.slf4j.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.apache.mnemonic</groupId>
+        <artifactId>mnemonic-core</artifactId>
+        <version>${dep.mnemonic.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -588,7 +658,6 @@
       <version>0.9.44</version>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 
   <reporting>
