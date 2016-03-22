@@ -55,10 +55,19 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BUILD_TESTS
     "Build the Arrow googletest unit tests"
     ON)
+
+  option(ARROW_BUILD_BENCHMARKS
+    "Build the Arrow micro benchmarks"
+    OFF)
+
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+endif()
+
+if(NOT ARROW_BUILD_BENCHMARKS)
+  set(NO_BENCHMARKS 1)
 endif()
 
 
@@ -251,15 +260,72 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 include_directories(src)
 
 ############################################################
+# Benchmarking 
+############################################################
+# Add a new micro benchmark, with or without an executable that should be built.
+# If benchmarks are enabled then they will be run along side unit tests with ctest.
+# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests, 
+# respectively.
+#
+# REL_BENCHMARK_NAME is the name of the benchmark app. It may be a single component
+# (e.g. monotime-benchmark) or contain additional components (e.g.
+# net/net_util-benchmark). Either way, the last component must be a globally
+# unique name.  
+
+# The benchmark will registered as unit test with ctest with a label
+# of 'benchmark'.
+#
+# Arguments after the test name will be passed to set_tests_properties().
+function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
+  if(NO_BENCHMARKS)
+    return()
+  endif()
+  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+   
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
+    # This benchmark has a corresponding .cc file, set it up as an executable.
+    set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
+    add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
+    target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
+    add_dependencies(runbenchmark ${BENCHMARK_NAME})
+    set(NO_COLOR "--color_print=false")
+  else()
+    # No executable, just invoke the benchmark (probably a script) directly.
+    set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
+    set(NO_COLOR "")
+  endif()
+  
+  add_test(${BENCHMARK_NAME}
+    ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
+  set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
+  if(ARGN)
+    set_tests_properties(${BENCHMARK_NAME} PROPERTIES ${ARGN})
+  endif()
+endfunction()
+
+# A wrapper for add_dependencies() that is compatible with NO_BENCHMARKS.
+function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
+  if(NO_BENCHMARKS)
+    return()
+  endif()
+  get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+
+  add_dependencies(${BENCHMARK_NAME} ${ARGN})
+endfunction()
+
+
+############################################################
 # Testing
 ############################################################
-
 # Add a new test case, with or without an executable that should be built.
 #
 # REL_TEST_NAME is the name of the test. It may be a single component
 # (e.g. monotime-test) or contain additional components (e.g.
 # net/net_util-test). Either way, the last component must be a globally
 # unique name.
+#
+# The unit test is added with a label of "unittest" to support filtering with
+# ctest.
 #
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
@@ -273,13 +339,15 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
     add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
     target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    add_dependencies(unittest ${TEST_NAME})
   else()
     # No executable, just invoke the test (probably a script) directly.
     set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
   endif()
 
   add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${TEST_PATH})
+    ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
+  set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
   if(ARGN)
     set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
   endif()
@@ -335,11 +403,26 @@ if ("$ENV{GTEST_HOME}" STREQUAL "")
   set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
 endif()
 
+## Google Benchmark 
+if ("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+  set(GBENCHMARK_HOME ${THIRDPARTY_DIR}/installed)
+endif()
+
+
 if(ARROW_BUILD_TESTS)
+  add_custom_target(unittest ctest -L unittest)
   find_package(GTest REQUIRED)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gtest
     STATIC_LIB ${GTEST_STATIC_LIB})
+endif()
+
+if(ARROW_BUILD_BENCHMARKS)
+  add_custom_target(runbenchmark ctest -L benchmark)
+  find_package(GBenchmark REQUIRED)
+  include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(benchmark
+    STATIC_LIB ${GBENCHMARK_STATIC_LIB})
 endif()
 
 ## Google PerfTools
@@ -366,6 +449,7 @@ endif()
 ############################################################
 set(ARROW_MIN_TEST_LIBS arrow arrow_test_main ${ARROW_BASE_LIBS})
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+set(ARROW_BENCHMARK_LINK_LIBS arrow arrow_benchmark_main ${ARROW_BASE_LIBS})
 
 ############################################################
 # "make ctags" target

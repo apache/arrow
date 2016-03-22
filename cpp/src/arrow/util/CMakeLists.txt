@@ -51,6 +51,20 @@ if (ARROW_BUILD_TESTS)
   endif()
 endif()
 
+if (ARROW_BUILD_BENCHMARKS)
+  add_library(arrow_benchmark_main benchmark_main.cc)
+  if (APPLE)
+    target_link_libraries(arrow_benchmark_main
+      benchmark
+    )
+  else()
+	  target_link_libraries(arrow_benchmark_main
+      benchmark 
+      pthread
+	  )
+  endif()
+endif()
+
 ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory-pool-test)

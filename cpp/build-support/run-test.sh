@@ -16,24 +16,23 @@
 # Script which wraps running a test and redirects its output to a
 # test log directory.
 #
-# If KUDU_COMPRESS_TEST_OUTPUT is non-empty, then the logs will be
-# gzip-compressed while they are written.
+# Arguments:
+#    $1 - Base path for logs/artifacts.
+#    $2 - type of test (e.g. test or benchmark)
+#    $3 - path to executable
+#    $ARGN - arguments for executable
 #
-# If KUDU_FLAKY_TEST_ATTEMPTS is non-zero, and the test being run matches
-# one of the lines in the file KUDU_FLAKY_TEST_LIST, then the test will
-# be retried on failure up to the specified number of times. This can be
-# used in the gerrit workflow to prevent annoying false -1s caused by
-# tests that are known to be flaky in master.
-#
-# If KUDU_REPORT_TEST_RESULTS is non-zero, then tests are reported to the
-# central test server.
 
+OUTPUT_ROOT=$1
+shift
 ROOT=$(cd $(dirname $BASH_SOURCE)/..; pwd)
 
-TEST_LOGDIR=$ROOT/build/test-logs
+TEST_LOGDIR=$OUTPUT_ROOT/build/$1-logs
 mkdir -p $TEST_LOGDIR
 
-TEST_DEBUGDIR=$ROOT/build/test-debug
+RUN_TYPE=$1
+shift
+TEST_DEBUGDIR=$OUTPUT_ROOT/build/$RUN_TYPE-debug
 mkdir -p $TEST_DEBUGDIR
 
 TEST_DIRNAME=$(cd $(dirname $1); pwd)
@@ -43,7 +42,7 @@ TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
 TEST_NAME=$(echo $TEST_FILENAME | perl -pe 's/\..+?$//') # Remove path and extension (if any).
 
 # We run each test in its own subdir to avoid core file related races.
-TEST_WORKDIR=$ROOT/build/test-work/$TEST_NAME
+TEST_WORKDIR=$OUTPUT_ROOT/build/test-work/$TEST_NAME
 mkdir -p $TEST_WORKDIR
 pushd $TEST_WORKDIR >/dev/null || exit 1
 rm -f *
@@ -61,55 +60,49 @@ rm -f $LOGFILE $LOGFILE.gz
 
 pipe_cmd=cat
 
-# Configure TSAN (ignored if this isn't a TSAN build).
-#
-# Deadlock detection (new in clang 3.5) is disabled because:
-# 1. The clang 3.5 deadlock detector crashes in some unit tests. It
-#    needs compiler-rt commits c4c3dfd, 9a8efe3, and possibly others.
-# 2. Many unit tests report lock-order-inversion warnings; they should be
-#    fixed before reenabling the detector.
-TSAN_OPTIONS="$TSAN_OPTIONS detect_deadlocks=0"
-TSAN_OPTIONS="$TSAN_OPTIONS suppressions=$ROOT/build-support/tsan-suppressions.txt"
-TSAN_OPTIONS="$TSAN_OPTIONS history_size=7"
-export TSAN_OPTIONS
-
-# Enable leak detection even under LLVM 3.4, where it was disabled by default.
-# This flag only takes effect when running an ASAN build.
-ASAN_OPTIONS="$ASAN_OPTIONS detect_leaks=1"
-export ASAN_OPTIONS
-
-# Set up suppressions for LeakSanitizer
-LSAN_OPTIONS="$LSAN_OPTIONS suppressions=$ROOT/build-support/lsan-suppressions.txt"
-export LSAN_OPTIONS
-
-# Suppressions require symbolization. We'll default to using the symbolizer in
-# thirdparty.
-if [ -z "$ASAN_SYMBOLIZER_PATH" ]; then
-  export ASAN_SYMBOLIZER_PATH=$(find $NATIVE_TOOLCHAIN/llvm-3.7.0/bin -name llvm-symbolizer)
-fi
-
 # Allow for collecting core dumps.
 ARROW_TEST_ULIMIT_CORE=${ARROW_TEST_ULIMIT_CORE:-0}
 ulimit -c $ARROW_TEST_ULIMIT_CORE
 
-# Run the actual test.
-for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
-  if [ $ATTEMPT_NUMBER -lt $TEST_EXECUTION_ATTEMPTS ]; then
-    # If the test fails, the test output may or may not be left behind,
-    # depending on whether the test cleaned up or exited immediately. Either
-    # way we need to clean it up. We do this by comparing the data directory
-    # contents before and after the test runs, and deleting anything new.
-    #
-    # The comm program requires that its two inputs be sorted.
-    TEST_TMPDIR_BEFORE=$(find $TEST_TMPDIR -maxdepth 1 -type d | sort)
+
+function setup_sanitizers() {
+  # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
+
+  # Configure TSAN (ignored if this isn't a TSAN build).
+  #
+  # Deadlock detection (new in clang 3.5) is disabled because:
+  # 1. The clang 3.5 deadlock detector crashes in some unit tests. It
+  #    needs compiler-rt commits c4c3dfd, 9a8efe3, and possibly others.
+  # 2. Many unit tests report lock-order-inversion warnings; they should be
+  #    fixed before reenabling the detector.
+  TSAN_OPTIONS="$TSAN_OPTIONS detect_deadlocks=0"
+  TSAN_OPTIONS="$TSAN_OPTIONS suppressions=$ROOT/build-support/tsan-suppressions.txt"
+  TSAN_OPTIONS="$TSAN_OPTIONS history_size=7"
+  export TSAN_OPTIONS
+  
+  # Enable leak detection even under LLVM 3.4, where it was disabled by default.
+  # This flag only takes effect when running an ASAN build.
+  ASAN_OPTIONS="$ASAN_OPTIONS detect_leaks=1"
+  export ASAN_OPTIONS
+  
+  # Set up suppressions for LeakSanitizer
+  LSAN_OPTIONS="$LSAN_OPTIONS suppressions=$ROOT/build-support/lsan-suppressions.txt"
+  export LSAN_OPTIONS
+  
+  # Suppressions require symbolization. We'll default to using the symbolizer in
+  # thirdparty.
+  if [ -z "$ASAN_SYMBOLIZER_PATH" ]; then
+    export ASAN_SYMBOLIZER_PATH=$(find $NATIVE_TOOLCHAIN/llvm-3.7.0/bin -name llvm-symbolizer)
   fi
+}
+
+function run_test() {
+  # Run gtest style tests with sanitizers if they are setup appropriately.
 
   # gtest won't overwrite old junit test files, resulting in a build failure
   # even when retries are successful.
   rm -f $XMLFILE
 
-  echo "Running $TEST_NAME, redirecting output into $LOGFILE" \
-    "(attempt ${ATTEMPT_NUMBER}/$TEST_EXECUTION_ATTEMPTS)"
   $TEST_EXECUTABLE "$@" 2>&1 \
     | $ROOT/build-support/asan_symbolize.py \
     | c++filt \
@@ -131,6 +124,46 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
     STATUS=1
     rm -f $XMLFILE
   fi
+}
+
+function post_process_tests() {
+  # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
+  # case result to the XML file for the leak report. Otherwise Jenkins won't show
+  # us which tests had LSAN errors.
+  if zgrep --silent "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
+      echo Test had memory leaks. Editing XML
+      perl -p -i -e '
+      if (m#</testsuite>#) {
+        print "<testcase name=\"LeakSanitizer\" status=\"run\" classname=\"LSAN\">\n";
+        print "  <failure message=\"LeakSanitizer failed\" type=\"\">\n";
+        print "    See txt log file for details\n";
+        print "  </failure>\n";
+        print "</testcase>\n";
+      }' $XMLFILE
+  fi
+}
+
+function run_other() {
+  # Generic run function for test like executables that aren't actually gtest
+  $TEST_EXECUTABLE "$@" 2>&1 | $pipe_cmd > $LOGFILE
+  STATUS=$?
+}
+
+if [ $RUN_TYPE = "test" ]; then
+    setup_sanitizers
+fi
+
+# Run the actual test.
+for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
+  if [ $ATTEMPT_NUMBER -lt $TEST_EXECUTION_ATTEMPTS ]; then
+    # If the test fails, the test output may or may not be left behind,
+    # depending on whether the test cleaned up or exited immediately. Either
+    # way we need to clean it up. We do this by comparing the data directory
+    # contents before and after the test runs, and deleting anything new.
+    #
+    # The comm program requires that its two inputs be sorted.
+    TEST_TMPDIR_BEFORE=$(find $TEST_TMPDIR -maxdepth 1 -type d | sort)
+  fi
 
   if [ $ATTEMPT_NUMBER -lt $TEST_EXECUTION_ATTEMPTS ]; then
     # Now delete any new test output.
@@ -150,7 +183,13 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
       fi
     done
   fi
-
+  echo "Running $TEST_NAME, redirecting output into $LOGFILE" \
+    "(attempt ${ATTEMPT_NUMBER}/$TEST_EXECUTION_ATTEMPTS)"
+  if [ $RUN_TYPE = "test" ]; then
+    run_test $*
+  else
+    run_other $*
+  fi
   if [ "$STATUS" -eq "0" ]; then
     break
   elif [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
@@ -159,19 +198,8 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
   fi
 done
 
-# If we have a LeakSanitizer report, and XML reporting is configured, add a new test
-# case result to the XML file for the leak report. Otherwise Jenkins won't show
-# us which tests had LSAN errors.
-if zgrep --silent "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
-    echo Test had memory leaks. Editing XML
-    perl -p -i -e '
-    if (m#</testsuite>#) {
-      print "<testcase name=\"LeakSanitizer\" status=\"run\" classname=\"LSAN\">\n";
-      print "  <failure message=\"LeakSanitizer failed\" type=\"\">\n";
-      print "    See txt log file for details\n";
-      print "  </failure>\n";
-      print "</testcase>\n";
-    }' $XMLFILE
+if [ $RUN_TYPE = "test" ]; then	
+  post_process_tests
 fi
 
 # Capture and compress core file and binary.

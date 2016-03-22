@@ -7,5 +7,6 @@ SOURCE_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
 source thirdparty/versions.sh
 
 export GTEST_HOME=$SOURCE_DIR/thirdparty/$GTEST_BASEDIR
+export GBENCHMARK_HOME=$SOURCE_DIR/thirdparty/installed
 
 echo "Build env initialized"

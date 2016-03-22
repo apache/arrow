@@ -29,3 +29,5 @@ install(FILES
 ADD_ARROW_TEST(column-test)
 ADD_ARROW_TEST(schema-test)
 ADD_ARROW_TEST(table-test)
+
+ADD_ARROW_BENCHMARK(column-benchmark)
