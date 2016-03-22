@@ -39,13 +39,13 @@ class TestArrayAPI(unittest.TestCase):
         assert result == expected
 
     def test_string_format(self):
-        arr = pyarrow.from_pylist(['foo', None, 'bar'])
+        arr = pyarrow.from_pylist(['foo', None, ''])
         result = fmt.array_format(arr)
         expected = """\
 [
   'foo',
   NA,
-  'bar'
+  ''
 ]"""
         assert result == expected
 
