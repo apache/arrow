@@ -55,8 +55,8 @@ if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
   if (APPLE)
     target_link_libraries(arrow_benchmark_main
-        benchmark
-      )
+      benchmark
+    )
   else()
 	  target_link_libraries(arrow_benchmark_main
       benchmark 

@@ -144,7 +144,7 @@ function post_process_tests() {
 }
 
 function run_other() {
-  # Generatic run function for test like executables that aren't actually gtest
+  # Generic run function for test like executables that aren't actually gtest
   $TEST_EXECUTABLE "$@" 2>&1 | $pipe_cmd > $LOGFILE
   STATUS=$?
 }
