@@ -168,7 +168,9 @@ class PrimitiveBuilder : public ArrayBuilder {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
-    memcpy(raw_buffer() + length_, values, length * elsize_);
+    if (length > 0) {
+      memcpy(raw_buffer() + length_, values, length * elsize_);
+    }
 
     if (null_bytes != nullptr) {
       AppendNulls(null_bytes, length);

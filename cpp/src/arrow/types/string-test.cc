@@ -181,7 +181,7 @@ class TestStringBuilder : public TestBuilder {
 };
 
 TEST_F(TestStringBuilder, TestScalarAppend) {
-  std::vector<std::string> strings = {"a", "bb", "", "", "ccc"};
+  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
   std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = strings.size();
