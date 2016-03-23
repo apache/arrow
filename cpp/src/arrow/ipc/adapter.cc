@@ -32,6 +32,7 @@
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -41,6 +42,7 @@ namespace flatbuf = apache::arrow::flatbuf;
 namespace ipc {
 
 static bool IsPrimitive(const DataType* type) {
+  DCHECK(type != nullptr);
   switch (type->type) {
     // NA is null type or "no type", considered primitive for now
     case Type::NA:
