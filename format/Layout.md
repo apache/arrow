@@ -89,16 +89,16 @@ maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
 
 Any relative type can be nullable or non-nullable.
 
-Nullable arrays have a contiguous memory buffer, known as the null bitmask,
-whose length is large enough to have 1 bit for each array slot.
+Nullable arrays have a contiguous memory buffer, known as the validity (or
+null) bitmap, whose length is large enough to have 1 bit for each array slot.
 
 Whether any array slot is valid (non-null) is encoded in the respective bits of
-this bitmask. A 1 (set bit) for index `j` indicates that the value is not null,
-while a 0 (bit not set) indicates that it is null. Bitmasks are to be
+this bitmap. A 1 (set bit) for index `j` indicates that the value is not null,
+while a 0 (bit not set) indicates that it is null. Bitmaps are to be
 initialized to be all unset at allocation time.
 
 ```
-is_valid[j] -> bitmask[j / 8] & (1 << (j % 8))
+is_valid[j] -> bitmap[j / 8] & (1 << (j % 8))
 ```
 
 We use [least-significant bit (LSB) numbering][1] (also known as
@@ -113,10 +113,10 @@ j mod 8   7  6  5  4  3  2  1  0
           0  0  1  0  1  0  1  1
 ```
 
-Physically, non-nullable (NN) arrays do not have a null bitmask.
+Physically, non-nullable (NN) arrays do not have a bitmap.
 
 For nested types, if the top-level nested type is nullable, it has its own
-bitmask regardless of whether the child types are nullable.
+bitmap regardless of whether the child types have any nulls.
 
 ## Primitive value arrays
 
@@ -128,8 +128,8 @@ Internally, the array contains a contiguous memory buffer whose total size is
 equal to the slot width multiplied by the array length. For bit-packed types,
 the size is rounded up to the nearest byte.
 
-The associated null bitmask (for nullable types) is contiguously allocated (as
-described above) but does not need to be adjacent in memory to the values
+The associated validity bitmap (for nullable types) is contiguously allocated
+(as described above) but does not need to be adjacent in memory to the values
 buffer.
 
 (diagram not to scale)
@@ -210,7 +210,7 @@ type. Here is a diagram showing the full physical layout of this struct:
 
 While a struct does not have physical storage for each of its semantic slots
 (i.e. each scalar C-like struct), an entire struct slot can be set to null via
-the bitmask. Whether each of the child field arrays can have null values
+the bitmap. Whether each of the child field arrays can have null values
 depends on whether or not the respective relative type is nullable.
 
 ## Dense union type
