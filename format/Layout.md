@@ -90,11 +90,27 @@ maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
 Any relative type can be nullable or non-nullable.
 
 Nullable arrays have a contiguous memory buffer, known as the null bitmask,
-whose length is large enough to have 1 bit for each array slot. Whether any
-array slot is null is encoded in the respective bits of this bitmask, i.e.:
+whose length is large enough to have 1 bit for each array slot.
+
+Whether any array slot is valid (non-null) is encoded in the respective bits of
+this bitmask. A 1 (set bit) for index `j` indicates that the value is not null,
+while a 0 (bit not set) indicates that it is null. Bitmasks are to be
+initialized to be all unset at allocation time.
 
 ```
-is_null[j] -> bitmask[j / 8] & (1 << (j % 8))
+is_valid[j] -> bitmask[j / 8] & (1 << (j % 8))
+```
+
+We use [least-significant bit (LSB) numbering][1] (also known as
+bit-endianness). This means that within a group of 8 bits, we read
+right-to-left:
+
+```
+values = [0, 1, null, 2, null, 3]
+
+bitmap
+j mod 8   7  6  5  4  3  2  1  0
+          0  0  1  0  1  0  1  1
 ```
 
 Physically, non-nullable (NN) arrays do not have a null bitmask.
@@ -251,3 +267,5 @@ the correct value.
 ## References
 
 Drill docs https://drill.apache.org/docs/value-vectors/
+
+[1]: https://en.wikipedia.org/wiki/Bit_numbering
