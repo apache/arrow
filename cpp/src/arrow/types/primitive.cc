@@ -35,7 +35,7 @@ PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
   raw_data_ = data == nullptr? nullptr : data_->data();
 }
 
-bool PrimitiveArray::Equals(const PrimitiveArray& other) const {
+bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
   if (this == &other) return true;
   if (null_count_ != other.null_count_) {
     return false;
@@ -55,7 +55,7 @@ bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this->type_enum() != arr->type_enum()) {
     return false;
   }
-  return Equals(*static_cast<const PrimitiveArray*>(arr.get()));
+  return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
 
 } // namespace arrow

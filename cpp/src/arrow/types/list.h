@@ -65,7 +65,7 @@ class ListArray : public Array {
   int32_t value_offset(int i) { return offsets_[i];}
   int32_t value_length(int i) { return offsets_[i + 1] - offsets_[i];}
 
-  bool Equals(const ListArray& other) const;
+  bool EqualsExact(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:

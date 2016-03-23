@@ -37,7 +37,7 @@ Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
   }
 }
 
-bool Array::Equals(const Array& other) const {
+bool Array::EqualsExact(const Array& other) const {
   if (this == &other) return true;
   if (length_ != other.length_ || null_count_ != other.null_count_ ||
       type_enum() != other.type_enum()) {
@@ -48,12 +48,6 @@ bool Array::Equals(const Array& other) const {
   } else {
     return true;
   }
-}
-
-bool Array::Equals(const std::shared_ptr<Array>& arr) const {
-  if (arr.get() == nullptr) return false;
-  if (this == arr.get()) return true;
-  return Equals(*static_cast<const Array*>(arr.get()));
 }
 
 } // namespace arrow

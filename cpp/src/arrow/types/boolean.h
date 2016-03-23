@@ -22,7 +22,7 @@
 
 namespace arrow {
 
-typedef PrimitiveArrayImpl<BooleanType> BooleanArray;
+// typedef PrimitiveArrayImpl<BooleanType> BooleanArray;
 
 class BooleanBuilder : public ArrayBuilder {
 };

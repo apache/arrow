@@ -31,8 +31,6 @@
 
 namespace arrow {
 
-static TypePtr int32 = TypePtr(new Int32Type());
-
 class TestArray : public ::testing::Test {
  public:
   void SetUp() {
@@ -76,7 +74,7 @@ TEST_F(TestArray, TestIsNull) {
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(nulls.data(),
       nulls.size());
   std::unique_ptr<Array> arr;
-  arr.reset(new Array(int32, nulls.size(), null_count, null_buf));
+  arr.reset(new Int32Array(nulls.size(), nullptr, null_count, null_buf));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());

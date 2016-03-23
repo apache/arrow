@@ -60,8 +60,8 @@ class Array {
     return nulls_;
   }
 
-  bool Equals(const Array& arr) const;
-  virtual bool Equals(const std::shared_ptr<Array>& arr) const;
+  bool EqualsExact(const Array& arr) const;
+  virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
 
  protected:
   TypePtr type_;

@@ -19,7 +19,7 @@
 
 namespace arrow {
 
-bool ListArray::Equals(const ListArray& other) const {
+bool ListArray::EqualsExact(const ListArray& other) const {
   if (this == &other) return true;
   if (null_count_ != other.null_count_) {
     return false;
@@ -45,7 +45,7 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this->type_enum() != arr->type_enum()) {
     return false;
   }
-  return Equals(*static_cast<const ListArray*>(arr.get()));
+  return EqualsExact(*static_cast<const ListArray*>(arr.get()));
 }
 
 } // namespace arrow

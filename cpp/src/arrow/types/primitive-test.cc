@@ -123,7 +123,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
-    ASSERT_TRUE(result->Equals(*expected.get()));
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(ex_null_count, result->null_count());
   }
 
@@ -143,7 +143,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_nn_->capacity());
     ASSERT_EQ(nullptr, builder_nn_->buffer());
 
-    ASSERT_TRUE(result->Equals(*expected.get()));
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(0, result->null_count());
   }
 
