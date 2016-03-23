@@ -29,8 +29,8 @@ namespace arrow {
 PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length, int value_size,
     const std::shared_ptr<Buffer>& data,
     int32_t null_count,
-    const std::shared_ptr<Buffer>& nulls) :
-    Array(type, length, null_count, nulls) {
+    const std::shared_ptr<Buffer>& null_bitmap) :
+    Array(type, length, null_count, null_bitmap) {
   data_ = data;
   raw_data_ = data == nullptr? nullptr : data_->data();
   value_size_ = value_size;
@@ -43,7 +43,8 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
   }
 
   if (null_count_ > 0) {
-    bool equal_bitmap = nulls_->Equals(*other.nulls_, util::ceil_byte(length_) / 8);
+    bool equal_bitmap = null_bitmap_->Equals(*other.null_bitmap_,
+        util::ceil_byte(length_) / 8);
     if (!equal_bitmap) {
       return false;
     }

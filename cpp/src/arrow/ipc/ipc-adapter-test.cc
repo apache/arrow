@@ -77,14 +77,14 @@ TEST_F(TestWriteRowBatch, IntegerRoundTrip) {
   test::rand_uniform_int(length, 0, 0, std::numeric_limits<int32_t>::max(),
       reinterpret_cast<int32_t*>(data->mutable_data()));
 
-  auto nulls = std::make_shared<PoolBuffer>(pool_);
+  auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
   int null_bytes = util::bytes_for_bits(length);
-  ASSERT_OK(nulls->Resize(null_bytes));
-  test::random_bytes(null_bytes, 0, nulls->mutable_data());
+  ASSERT_OK(null_bitmap->Resize(null_bytes));
+  test::random_bytes(null_bytes, 0, null_bitmap->mutable_data());
 
   auto a0 = std::make_shared<Int32Array>(length, data);
   auto a1 = std::make_shared<Int32Array>(length, data,
-      test::bitmap_popcount(nulls->data(), length), nulls);
+      test::bitmap_popcount(null_bitmap->data(), length), null_bitmap);
 
   RowBatch batch(schema, length, {a0, a1});
 

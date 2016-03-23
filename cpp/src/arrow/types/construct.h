@@ -35,7 +35,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
 Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
     int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& nulls,
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
     std::shared_ptr<Array>* out);
 
 } // namespace arrow

@@ -40,7 +40,7 @@ class PrimitiveArray : public Array {
   PrimitiveArray(const TypePtr& type, int32_t length, int value_size,
       const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr);
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   virtual ~PrimitiveArray() {}
 
   const std::shared_ptr<Buffer>& data() const { return data_;}
@@ -54,35 +54,35 @@ class PrimitiveArray : public Array {
   int value_size_;
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                      \
-class NAME : public PrimitiveArray {                                \
- public:                                                            \
-  using value_type = T;                                             \
-  NAME(const TypePtr& type, int32_t length,                         \
-      const std::shared_ptr<Buffer>& data,                          \
-      int32_t null_count = 0,                                       \
-      const std::shared_ptr<Buffer>& nulls = nullptr) :             \
-      PrimitiveArray(std::make_shared<TypeClass>(), length,         \
-          sizeof(T), data, null_count, nulls) {}                    \
-                                                                    \
-  NAME(int32_t length, const std::shared_ptr<Buffer>& data,         \
-      int32_t null_count = 0,                                       \
-      const std::shared_ptr<Buffer>& nulls = nullptr) :             \
-      PrimitiveArray(std::make_shared<TypeClass>(), length,         \
-          sizeof(T), data, null_count, nulls) {}                    \
-                                                                    \
-  bool EqualsExact(const NAME& other) const {                       \
-    return PrimitiveArray::EqualsExact(                             \
-        *static_cast<const PrimitiveArray*>(&other));               \
-  }                                                                 \
-                                                                    \
-  const T* raw_data() const {                                       \
-    return reinterpret_cast<const T*>(raw_data_);                   \
-  }                                                                 \
-                                                                    \
-  T Value(int i) const {                                            \
-    return raw_data()[i];                                           \
-  }                                                                 \
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                  \
+class NAME : public PrimitiveArray {                            \
+ public:                                                        \
+  using value_type = T;                                         \
+  NAME(const TypePtr& type, int32_t length,                     \
+      const std::shared_ptr<Buffer>& data,                      \
+      int32_t null_count = 0,                                   \
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :   \
+      PrimitiveArray(std::make_shared<TypeClass>(), length,     \
+          sizeof(T), data, null_count, null_bitmap) {}          \
+                                                                \
+  NAME(int32_t length, const std::shared_ptr<Buffer>& data,     \
+      int32_t null_count = 0,                                   \
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :   \
+      PrimitiveArray(std::make_shared<TypeClass>(), length,     \
+          sizeof(T), data, null_count, null_bitmap) {}          \
+                                                                \
+  bool EqualsExact(const NAME& other) const {                   \
+    return PrimitiveArray::EqualsExact(                         \
+        *static_cast<const PrimitiveArray*>(&other));           \
+  }                                                             \
+                                                                \
+  const T* raw_data() const {                                   \
+    return reinterpret_cast<const T*>(raw_data_);               \
+  }                                                             \
+                                                                \
+  T Value(int i) const {                                        \
+    return raw_data()[i];                                       \
+  }                                                             \
 };
 
 NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type, uint8_t);
@@ -149,17 +149,17 @@ class PrimitiveBuilder : public ArrayBuilder {
       // If the capacity was not already a multiple of 2, do so here
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
-    util::set_bit(valid_bitmap_, length_);
+    util::set_bit(null_bitmap_data_, length_);
     raw_buffer()[length_++] = val;
     return Status::OK();
   }
 
   // Vector append
   //
-  // If passed, null_bytes is of equal length to values, and any nonzero byte
+  // If passed, valid_bytes is of equal length to values, and any zero byte
   // will be considered as a null for that slot
   Status Append(const value_type* values, int32_t length,
-      const uint8_t* null_bytes = nullptr) {
+      const uint8_t* valid_bytes = nullptr) {
     if (length_ + length > capacity_) {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
@@ -168,11 +168,11 @@ class PrimitiveBuilder : public ArrayBuilder {
       memcpy(raw_buffer() + length_, values, length * elsize_);
     }
 
-    if (null_bytes != nullptr) {
-      AppendNulls(null_bytes, length);
+    if (valid_bytes != nullptr) {
+      AppendNulls(valid_bytes, length);
     } else {
       for (int i = 0; i < length; ++i) {
-        util::set_bit(valid_bitmap_, length_ + i);
+        util::set_bit(null_bitmap_data_, length_ + i);
       }
     }
 
@@ -180,14 +180,14 @@ class PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  // Write nulls as uint8_t* into pre-allocated memory
-  void AppendNulls(const uint8_t* null_bytes, int32_t length) {
-    // If null_bytes is all not null, then none of the values are null
+  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  void AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    // If valid_bytes is all not null, then none of the values are null
     for (int i = 0; i < length; ++i) {
-      if (null_bytes[i] == 0) {
+      if (valid_bytes[i] == 0) {
         ++null_count_;
       } else {
-        util::set_bit(valid_bitmap_, length_ + i);
+        util::set_bit(null_bitmap_data_, length_ + i);
       }
     }
   }
@@ -204,9 +204,9 @@ class PrimitiveBuilder : public ArrayBuilder {
 
   std::shared_ptr<Array> Finish() override {
     std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>(
-        type_, length_, values_, null_count_, nulls_);
+        type_, length_, values_, null_count_, null_bitmap_);
 
-    values_ = nulls_ = nullptr;
+    values_ = null_bitmap_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
     return result;
   }

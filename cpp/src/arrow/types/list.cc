@@ -27,13 +27,13 @@ bool ListArray::EqualsExact(const ListArray& other) const {
 
   bool equal_offsets = offset_buf_->Equals(*other.offset_buf_,
       length_ + 1);
-  bool equal_nulls = true;
+  bool equal_null_bitmap = true;
   if (null_count_ > 0) {
-    equal_nulls = nulls_->Equals(*other.nulls_,
+    equal_null_bitmap = null_bitmap_->Equals(*other.null_bitmap_,
         util::bytes_for_bits(length_));
   }
 
-  if (!(equal_offsets && equal_nulls)) {
+  if (!(equal_offsets && equal_null_bitmap)) {
     return false;
   }
 
