@@ -19,4 +19,33 @@
 
 namespace arrow {
 
+bool ListArray::EqualsExact(const ListArray& other) const {
+  if (this == &other) return true;
+  if (null_count_ != other.null_count_) {
+    return false;
+  }
+
+  bool equal_offsets = offset_buf_->Equals(*other.offset_buf_,
+      length_ + 1);
+  bool equal_nulls = true;
+  if (null_count_ > 0) {
+    equal_nulls = nulls_->Equals(*other.nulls_,
+        util::bytes_for_bits(length_));
+  }
+
+  if (!(equal_offsets && equal_nulls)) {
+    return false;
+  }
+
+  return values()->Equals(other.values());
+}
+
+bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) return true;
+  if (this->type_enum() != arr->type_enum()) {
+    return false;
+  }
+  return EqualsExact(*static_cast<const ListArray*>(arr.get()));
+}
+
 } // namespace arrow

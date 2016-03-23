@@ -24,45 +24,37 @@ namespace arrow {
 
 std::string Field::ToString() const {
   std::stringstream ss;
-  ss << this->name << " " << this->type->ToString();
+  ss << this->name << ": " << this->type->ToString();
+  if (!this->nullable) {
+    ss << " not null";
+  }
   return ss.str();
 }
 
 DataType::~DataType() {}
 
-StringType::StringType(bool nullable)
-    : DataType(LogicalType::STRING, nullable) {}
-
-StringType::StringType(const StringType& other)
-    : StringType(other.nullable) {}
+StringType::StringType() : DataType(Type::STRING) {}
 
 std::string StringType::ToString() const {
   std::string result(name());
-  if (!nullable) {
-    result.append(" not null");
-  }
   return result;
 }
 
 std::string ListType::ToString() const {
   std::stringstream s;
-  s << "list<" << value_type->ToString() << ">";
-  if (!this->nullable) {
-    s << " not null";
-  }
+  s << "list<" << value_field()->ToString() << ">";
   return s.str();
 }
 
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
-  for (size_t i = 0; i < fields_.size(); ++i) {
+  for (int i = 0; i < this->num_children(); ++i) {
     if (i > 0) s << ", ";
-    const std::shared_ptr<Field>& field = fields_[i];
+    const std::shared_ptr<Field>& field = this->child(i);
     s << field->name << ": " << field->type->ToString();
   }
   s << ">";
-  if (!nullable) s << " not null";
   return s.str();
 }
 

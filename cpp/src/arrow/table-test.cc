@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/table/column.h"
-#include "arrow/table/schema.h"
-#include "arrow/table/table.h"
-#include "arrow/table/test-common.h"
+#include "gtest/gtest.h"
+
+#include "arrow/column.h"
+#include "arrow/schema.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
+#include "arrow/types/primitive.h"
+#include "arrow/util/status.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -45,7 +45,7 @@ class TestTable : public TestBase {
     auto f1 = std::make_shared<Field>("f1", UINT8);
     auto f2 = std::make_shared<Field>("f2", INT16);
 
-    vector<shared_ptr<Field> > fields = {f0, f1, f2};
+    vector<shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
     columns_ = {
@@ -58,7 +58,7 @@ class TestTable : public TestBase {
  protected:
   std::unique_ptr<Table> table_;
   shared_ptr<Schema> schema_;
-  vector<std::shared_ptr<Column> > columns_;
+  vector<std::shared_ptr<Column>> columns_;
 };
 
 TEST_F(TestTable, EmptySchema) {

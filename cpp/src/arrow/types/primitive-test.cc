@@ -15,21 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
+#include "gtest/gtest.h"
+
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/boolean.h"
 #include "arrow/types/construct.h"
-#include "arrow/types/floating.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/test-common.h"
 #include "arrow/util/bit-util.h"
@@ -43,23 +39,17 @@ using std::vector;
 
 namespace arrow {
 
-TEST(TypesTest, TestBytesType) {
-  BytesType t1(3);
-
-  ASSERT_EQ(t1.type, LayoutEnum::BYTE);
-  ASSERT_EQ(t1.size, 3);
-}
-
+class Array;
 
 #define PRIMITIVE_TEST(KLASS, ENUM, NAME)       \
   TEST(TypesTest, TestPrimitive_##ENUM) {       \
     KLASS tp;                                   \
                                                 \
-    ASSERT_EQ(tp.type, LogicalType::ENUM);      \
+    ASSERT_EQ(tp.type, Type::ENUM);             \
     ASSERT_EQ(tp.name(), string(NAME));         \
                                                 \
     KLASS tp_copy = tp;                         \
-    ASSERT_EQ(tp_copy.type, LogicalType::ENUM); \
+    ASSERT_EQ(tp_copy.type, Type::ENUM);        \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
@@ -109,22 +99,20 @@ class TestPrimitiveBuilder : public TestBuilder {
 
   void RandomData(int N, double pct_null = 0.1) {
     Attrs::draw(N, &draws_);
-    random_nulls(N, pct_null, &nulls_);
+    test::random_nulls(N, pct_null, &nulls_);
   }
 
   void CheckNullable() {
-    ArrayType expected;
     int size = builder_->length();
 
     auto ex_data = std::make_shared<Buffer>(
         reinterpret_cast<uint8_t*>(draws_.data()),
         size * sizeof(T));
 
-    auto ex_nulls = bytes_to_null_buffer(nulls_.data(), size);
+    auto ex_nulls = test::bytes_to_null_buffer(nulls_.data(), size);
+    int32_t ex_null_count = test::null_count(nulls_);
 
-    int32_t ex_null_count = null_count(nulls_);
-
-    expected.Init(size, ex_data, ex_null_count, ex_nulls);
+    auto expected = std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_nulls);
 
     std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
         builder_->Finish());
@@ -135,18 +123,17 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
-    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(ex_null_count, result->null_count());
   }
 
   void CheckNonNullable() {
-    ArrayType expected;
     int size = builder_nn_->length();
 
     auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
         size * sizeof(T));
 
-    expected.Init(size, ex_data);
+    auto expected = std::make_shared<ArrayType>(size, ex_data);
 
     std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
         builder_nn_->Finish());
@@ -156,7 +143,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_nn_->capacity());
     ASSERT_EQ(nullptr, builder_nn_->buffer());
 
-    ASSERT_TRUE(result->Equals(expected));
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(0, result->null_count());
   }
 
@@ -183,8 +170,8 @@ class TestPrimitiveBuilder : public TestBuilder {
 #define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
   struct P##CapType {                               \
     PTYPE_DECL(CapType, c_type);                    \
-    static void draw(int N, vector<T>* draws) {  \
-      randint<T>(N, LOWER, UPPER, draws);           \
+    static void draw(int N, vector<T>* draws) {     \
+      test::randint<T>(N, LOWER, UPPER, draws);     \
     }                                               \
   }
 

@@ -25,25 +25,21 @@
 
 #include "arrow/array.h"
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
-class ArrayBuilder;
 class Buffer;
 class MemoryPool;
 
 struct CharType : public DataType {
   int size;
 
-  BytesType physical_type;
-
-  explicit CharType(int size, bool nullable = true)
-      : DataType(LogicalType::CHAR, nullable),
-        size(size),
-        physical_type(BytesType(size)) {}
+  explicit CharType(int size)
+      : DataType(Type::CHAR),
+        size(size) {}
 
   CharType(const CharType& other)
       : CharType(other.size) {}
@@ -56,54 +52,36 @@ struct CharType : public DataType {
 struct VarcharType : public DataType {
   int size;
 
-  BytesType physical_type;
-
-  explicit VarcharType(int size, bool nullable = true)
-      : DataType(LogicalType::VARCHAR, nullable),
-        size(size),
-        physical_type(BytesType(size + 1)) {}
+  explicit VarcharType(int size)
+      : DataType(Type::VARCHAR),
+        size(size) {}
   VarcharType(const VarcharType& other)
       : VarcharType(other.size) {}
 
   virtual std::string ToString() const;
 };
 
-static const LayoutPtr byte1(new BytesType(1));
-static const LayoutPtr physical_string = LayoutPtr(new ListLayoutType(byte1));
-
 // TODO: add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:
-  StringArray() : ListArray(), bytes_(nullptr), raw_bytes_(nullptr) {}
-
-  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    Init(length, offsets, values, null_count, nulls);
-  }
-
-  void Init(const TypePtr& type, int32_t length,
+  StringArray(const TypePtr& type, int32_t length,
       const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    ListArray::Init(type, length, offsets, values, null_count, nulls);
-
-    // TODO: type validation for values array
-
+      const std::shared_ptr<Buffer>& nulls = nullptr) :
+      ListArray(type, length, offsets, values, null_count, nulls) {
     // For convenience
     bytes_ = static_cast<UInt8Array*>(values.get());
     raw_bytes_ = bytes_->raw_data();
   }
 
-  void Init(int32_t length, const std::shared_ptr<Buffer>& offsets,
+  StringArray(int32_t length,
+      const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    TypePtr type(new StringType());
-    Init(type, length, offsets, values, null_count, nulls);
-  }
+      const std::shared_ptr<Buffer>& nulls = nullptr) :
+      StringArray(std::make_shared<StringType>(), length, offsets, values,
+          null_count, nulls) {}
 
   // Compute the pointer t
   const uint8_t* GetValue(int i, int32_t* out_length) const {
@@ -125,9 +103,6 @@ class StringArray : public ListArray {
 };
 
 // Array builder
-
-
-
 class StringBuilder : public ListBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type) :

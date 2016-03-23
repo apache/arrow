@@ -40,19 +40,10 @@ class Buffer;
 // explicitly increment its reference count
 class Array {
  public:
-  Array() :
-      null_count_(0),
-      length_(0),
-      nulls_(nullptr),
-      null_bits_(nullptr) {}
-
   Array(const TypePtr& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
 
   virtual ~Array() {}
-
-  void Init(const TypePtr& type, int32_t length, int32_t null_count,
-      const std::shared_ptr<Buffer>& nulls);
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
@@ -63,11 +54,14 @@ class Array {
   int32_t null_count() const { return null_count_;}
 
   const std::shared_ptr<DataType>& type() const { return type_;}
-  LogicalType::type logical_type() const { return type_->type;}
+  Type::type type_enum() const { return type_->type;}
 
   const std::shared_ptr<Buffer>& nulls() const {
     return nulls_;
   }
+
+  bool EqualsExact(const Array& arr) const;
+  virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
 
  protected:
   TypePtr type_;
@@ -78,7 +72,20 @@ class Array {
   const uint8_t* null_bits_;
 
  private:
+  Array() {}
   DISALLOW_COPY_AND_ASSIGN(Array);
+};
+
+// Degenerate null type Array
+class NullArray : public Array {
+ public:
+  NullArray(const std::shared_ptr<DataType>& type, int32_t length) :
+      Array(type, length, length, nullptr) {}
+
+  explicit NullArray(int32_t length) :
+      NullArray(std::make_shared<NullType>(), length) {}
+
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
 };
 
 typedef std::shared_ptr<Array> ArrayPtr;

@@ -25,3 +25,8 @@ if [ ! -d ${GBENCHMARK_BASEDIR} ]; then
   echo "Fetching google benchmark"
   download_extract_and_cleanup $GBENCHMARK_URL
 fi
+
+if [ ! -d ${FLATBUFFERS_BASEDIR} ]; then
+  echo "Fetching flatbuffers"
+  download_extract_and_cleanup $FLATBUFFERS_URL
+fi

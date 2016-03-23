@@ -17,6 +17,7 @@ else
     case $arg in
       "gtest")      F_GTEST=1 ;;
       "gbenchmark")      F_GBENCHMARK=1 ;;
+      "flatbuffers")      F_FLATBUFFERS=1 ;;
       *)            echo "Unknown module: $arg"; exit 1 ;;
     esac
   done
@@ -78,6 +79,14 @@ if [ -n "$F_ALL" -o -n "$F_GBENCHMARK" ]; then
   make VERBOSE=1 install || { echo "make $GBENCHMARK_ERROR" ; exit 1; }
 fi
 
+FLATBUFFERS_ERROR="failed for flatbuffers"
+if [ -n "$F_ALL" -o -n "$F_FLATBUFFERS" ]; then
+  cd $TP_DIR/$FLATBUFFERS_BASEDIR
+
+  CXXFLAGS=-fPIC cmake -DCMAKE_INSTALL_PREFIX:PATH=$PREFIX -DFLATBUFFERS_BUILD_TESTS=OFF . || { echo "cmake $FLATBUFFERS_ERROR" ; exit 1; }
+  make -j$PARALLEL
+  make install
+fi
 
 echo "---------------------"
 echo "Thirdparty dependencies built and installed into $PREFIX successfully"

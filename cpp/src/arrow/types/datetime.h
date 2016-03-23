@@ -31,8 +31,8 @@ struct DateType : public DataType {
 
   Unit unit;
 
-  explicit DateType(Unit unit = Unit::DAY, bool nullable = true)
-      : DataType(LogicalType::DATE, nullable),
+  explicit DateType(Unit unit = Unit::DAY)
+      : DataType(Type::DATE),
         unit(unit) {}
 
   DateType(const DateType& other)
@@ -41,10 +41,6 @@ struct DateType : public DataType {
   static char const *name() {
     return "date";
   }
-
-  // virtual std::string ToString() {
-  //   return name();
-  // }
 };
 
 
@@ -58,8 +54,8 @@ struct TimestampType : public DataType {
 
   Unit unit;
 
-  explicit TimestampType(Unit unit = Unit::MILLI, bool nullable = true)
-      : DataType(LogicalType::TIMESTAMP, nullable),
+  explicit TimestampType(Unit unit = Unit::MILLI)
+      : DataType(Type::TIMESTAMP),
         unit(unit) {}
 
   TimestampType(const TimestampType& other)
@@ -68,10 +64,6 @@ struct TimestampType : public DataType {
   static char const *name() {
     return "timestamp";
   }
-
-  // virtual std::string ToString() {
-  //   return name();
-  // }
 };
 
 } // namespace arrow

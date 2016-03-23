@@ -21,12 +21,10 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <string>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
@@ -38,28 +36,18 @@ class MemoryPool;
 
 class ListArray : public Array {
  public:
-  ListArray() : Array(), offset_buf_(nullptr), offsets_(nullptr) {}
-
   ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
       const ArrayPtr& values,
       int32_t null_count = 0,
-      std::shared_ptr<Buffer> nulls = nullptr) {
-    Init(type, length, offsets, values, null_count, nulls);
-  }
-
-  virtual ~ListArray() {}
-
-  void Init(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
-      std::shared_ptr<Buffer> nulls = nullptr) {
+      std::shared_ptr<Buffer> nulls = nullptr) :
+      Array(type, length, null_count, nulls) {
     offset_buf_ = offsets;
     offsets_ = offsets == nullptr? nullptr :
       reinterpret_cast<const int32_t*>(offset_buf_->data());
-
     values_ = values;
-    Array::Init(type, length, null_count, nulls);
   }
+
+  virtual ~ListArray() {}
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
@@ -76,6 +64,9 @@ class ListArray : public Array {
   // Neither of these functions will perform boundschecking
   int32_t value_offset(int i) { return offsets_[i];}
   int32_t value_length(int i) { return offsets_[i + 1] - offsets_[i];}
+
+  bool EqualsExact(const ListArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
   std::shared_ptr<Buffer> offset_buf_;
@@ -137,8 +128,6 @@ class ListBuilder : public Int32Builder {
 
   template <typename Container>
   std::shared_ptr<Array> Transfer() {
-    auto result = std::make_shared<Container>();
-
     std::shared_ptr<Array> items = value_builder_->Finish();
 
     // Add final offset if the length is non-zero
@@ -146,8 +135,9 @@ class ListBuilder : public Int32Builder {
       raw_buffer()[length_] = items->length();
     }
 
-    result->Init(type_, length_, values_, items,
+    auto result = std::make_shared<Container>(type_, length_, values_, items,
         null_count_, nulls_);
+
     values_ = nulls_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
 

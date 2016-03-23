@@ -15,21 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "gtest/gtest.h"
+
 #include "arrow/array.h"
-#include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/construct.h"
-#include "arrow/types/integer.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/test-common.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 
@@ -38,14 +37,14 @@ class Buffer;
 TEST(TypesTest, TestCharType) {
   CharType t1(5);
 
-  ASSERT_EQ(t1.type, LogicalType::CHAR);
+  ASSERT_EQ(t1.type, Type::CHAR);
   ASSERT_EQ(t1.size, 5);
 
   ASSERT_EQ(t1.ToString(), std::string("char(5)"));
 
   // Test copy constructor
   CharType t2 = t1;
-  ASSERT_EQ(t2.type, LogicalType::CHAR);
+  ASSERT_EQ(t2.type, Type::CHAR);
   ASSERT_EQ(t2.size, 5);
 }
 
@@ -53,22 +52,20 @@ TEST(TypesTest, TestCharType) {
 TEST(TypesTest, TestVarcharType) {
   VarcharType t1(5);
 
-  ASSERT_EQ(t1.type, LogicalType::VARCHAR);
+  ASSERT_EQ(t1.type, Type::VARCHAR);
   ASSERT_EQ(t1.size, 5);
-  ASSERT_EQ(t1.physical_type.size, 6);
 
   ASSERT_EQ(t1.ToString(), std::string("varchar(5)"));
 
   // Test copy constructor
   VarcharType t2 = t1;
-  ASSERT_EQ(t2.type, LogicalType::VARCHAR);
+  ASSERT_EQ(t2.type, Type::VARCHAR);
   ASSERT_EQ(t2.size, 5);
-  ASSERT_EQ(t2.physical_type.size, 6);
 }
 
 TEST(TypesTest, TestStringType) {
   StringType str;
-  ASSERT_EQ(str.type, LogicalType::STRING);
+  ASSERT_EQ(str.type, Type::STRING);
   ASSERT_EQ(str.name(), std::string("string"));
 }
 
@@ -90,15 +87,16 @@ class TestStringContainer : public ::testing::Test  {
     length_ = offsets_.size() - 1;
     int nchars = chars_.size();
 
-    value_buf_ = to_buffer(chars_);
+    value_buf_ = test::to_buffer(chars_);
     values_ = ArrayPtr(new UInt8Array(nchars, value_buf_));
 
-    offsets_buf_ = to_buffer(offsets_);
+    offsets_buf_ = test::to_buffer(offsets_);
 
-    nulls_buf_ = bytes_to_null_buffer(nulls_.data(), nulls_.size());
-    null_count_ = null_count(nulls_);
+    nulls_buf_ = test::bytes_to_null_buffer(nulls_.data(), nulls_.size());
+    null_count_ = test::null_count(nulls_);
 
-    strings_.Init(length_, offsets_buf_, values_, null_count_, nulls_buf_);
+    strings_ = std::make_shared<StringArray>(length_, offsets_buf_, values_,
+        null_count_, nulls_buf_);
   }
 
  protected:
@@ -116,28 +114,28 @@ class TestStringContainer : public ::testing::Test  {
   int length_;
 
   ArrayPtr values_;
-  StringArray strings_;
+  std::shared_ptr<StringArray> strings_;
 };
 
 
 TEST_F(TestStringContainer, TestArrayBasics) {
-  ASSERT_EQ(length_, strings_.length());
-  ASSERT_EQ(1, strings_.null_count());
+  ASSERT_EQ(length_, strings_->length());
+  ASSERT_EQ(1, strings_->null_count());
 }
 
 TEST_F(TestStringContainer, TestType) {
-  TypePtr type = strings_.type();
+  TypePtr type = strings_->type();
 
-  ASSERT_EQ(LogicalType::STRING, type->type);
-  ASSERT_EQ(LogicalType::STRING, strings_.logical_type());
+  ASSERT_EQ(Type::STRING, type->type);
+  ASSERT_EQ(Type::STRING, strings_->type_enum());
 }
 
 
 TEST_F(TestStringContainer, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
-    ASSERT_EQ(pos, strings_.value_offset(i));
-    ASSERT_EQ(expected_[i].size(), strings_.value_length(i));
+    ASSERT_EQ(pos, strings_->value_offset(i));
+    ASSERT_EQ(expected_[i].size(), strings_->value_length(i));
     pos += expected_[i].size();
   }
 }
@@ -151,9 +149,9 @@ TEST_F(TestStringContainer, TestDestructor) {
 TEST_F(TestStringContainer, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     if (nulls_[i]) {
-      ASSERT_TRUE(strings_.IsNull(i));
+      ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      ASSERT_EQ(expected_[i], strings_.GetString(i));
+      ASSERT_EQ(expected_[i], strings_->GetString(i));
     }
   }
 }
@@ -199,7 +197,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   Done();
 
   ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps * null_count(is_null), result_->null_count());
+  ASSERT_EQ(reps * test::null_count(is_null), result_->null_count());
   ASSERT_EQ(reps * 6, result_->values()->length());
 
   int32_t length;

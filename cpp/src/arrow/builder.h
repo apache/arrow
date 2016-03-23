@@ -99,7 +99,7 @@ class ArrayBuilder {
   int32_t capacity_;
 
   // Child value array builders. These are owned by this class
-  std::vector<std::unique_ptr<ArrayBuilder> > children_;
+  std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

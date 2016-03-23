@@ -172,18 +172,18 @@ cdef class ListValue(ArrayValue):
 
 
 cdef dict _scalar_classes = {
-    LogicalType_UINT8: Int8Value,
-    LogicalType_UINT16: Int16Value,
-    LogicalType_UINT32: Int32Value,
-    LogicalType_UINT64: Int64Value,
-    LogicalType_INT8: Int8Value,
-    LogicalType_INT16: Int16Value,
-    LogicalType_INT32: Int32Value,
-    LogicalType_INT64: Int64Value,
-    LogicalType_FLOAT: FloatValue,
-    LogicalType_DOUBLE: DoubleValue,
-    LogicalType_LIST: ListValue,
-    LogicalType_STRING: StringValue
+    Type_UINT8: Int8Value,
+    Type_UINT16: Int16Value,
+    Type_UINT32: Int32Value,
+    Type_UINT64: Int64Value,
+    Type_INT8: Int8Value,
+    Type_INT16: Int16Value,
+    Type_INT32: Int32Value,
+    Type_INT64: Int64Value,
+    Type_FLOAT: FloatValue,
+    Type_DOUBLE: DoubleValue,
+    Type_LIST: ListValue,
+    Type_STRING: StringValue
 }
 
 cdef object box_arrow_scalar(DataType type,

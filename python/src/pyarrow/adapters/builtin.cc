@@ -27,7 +27,7 @@
 
 using arrow::ArrayBuilder;
 using arrow::DataType;
-using arrow::LogicalType;
+using arrow::Type;
 
 namespace pyarrow {
 
@@ -356,17 +356,17 @@ class ListConverter : public TypedConverter<arrow::ListBuilder> {
 // Dynamic constructor for sequence converters
 std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
   switch (type->type) {
-    case LogicalType::BOOL:
+    case Type::BOOL:
       return std::make_shared<BoolConverter>();
-    case LogicalType::INT64:
+    case Type::INT64:
       return std::make_shared<Int64Converter>();
-    case LogicalType::DOUBLE:
+    case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
-    case LogicalType::STRING:
+    case Type::STRING:
       return std::make_shared<StringConverter>();
-    case LogicalType::LIST:
+    case Type::LIST:
       return std::make_shared<ListConverter>();
-    case LogicalType::STRUCT:
+    case Type::STRUCT:
     default:
       return nullptr;
       break;
@@ -378,7 +378,7 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   typed_builder_ = static_cast<arrow::ListBuilder*>(builder.get());
 
   value_converter_ = GetConverter(static_cast<arrow::ListType*>(
-          builder->type().get())->value_type);
+          builder->type().get())->value_type());
   if (value_converter_ == nullptr) {
     return Status::NotImplemented("value type not implemented");
   }
@@ -393,8 +393,8 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   PY_RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
   // Handle NA / NullType case
-  if (type->type == LogicalType::NA) {
-    out->reset(new arrow::Array(type, size, size));
+  if (type->type == Type::NA) {
+    out->reset(new arrow::NullArray(type, size));
     return Status::OK();
   }
 

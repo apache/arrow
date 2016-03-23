@@ -15,41 +15,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_SCHEMA_H
-#define ARROW_SCHEMA_H
+#ifndef ARROW_IPC_TEST_COMMON_H
+#define ARROW_IPC_TEST_COMMON_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/type.h"
-
 namespace arrow {
+namespace ipc {
 
-class Schema {
+class MemoryMapFixture {
  public:
-  explicit Schema(const std::vector<std::shared_ptr<Field> >& fields);
-
-  // Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other) const;
-  bool Equals(const std::shared_ptr<Schema>& other) const;
-
-  // Return the ith schema element. Does not boundscheck
-  const std::shared_ptr<Field>& field(int i) const {
-    return fields_[i];
+  void TearDown() {
+    for (auto path : tmp_files_) {
+      std::remove(path.c_str());
+    }
   }
 
-  // Render a string representation of the schema suitable for debugging
-  std::string ToString() const;
-
-  int num_fields() const {
-    return fields_.size();
+  void CreateFile(const std::string path, int64_t size) {
+    FILE* file = fopen(path.c_str(), "w");
+    if (file != nullptr) {
+      tmp_files_.push_back(path);
+    }
+    ftruncate(fileno(file), size);
+    fclose(file);
   }
 
  private:
-  std::vector<std::shared_ptr<Field> > fields_;
+  std::vector<std::string> tmp_files_;
 };
 
+} // namespace ipc
 } // namespace arrow
 
-#endif  // ARROW_FIELD_H
+#endif // ARROW_IPC_TEST_COMMON_H

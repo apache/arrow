@@ -24,7 +24,7 @@
 namespace pyarrow {
 
 using arrow::DataType;
-using arrow::LogicalType;
+using arrow::Type;
 
 extern const std::shared_ptr<arrow::NullType> NA;
 extern const std::shared_ptr<arrow::BooleanType> BOOL;
@@ -40,8 +40,7 @@ extern const std::shared_ptr<arrow::FloatType> FLOAT;
 extern const std::shared_ptr<arrow::DoubleType> DOUBLE;
 extern const std::shared_ptr<arrow::StringType> STRING;
 
-std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
-    bool nullable);
+std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
 } // namespace pyarrow
 

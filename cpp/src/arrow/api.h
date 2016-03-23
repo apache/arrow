@@ -22,20 +22,19 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/column.h"
+#include "arrow/schema.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
-
-#include "arrow/table/column.h"
-#include "arrow/table/schema.h"
-#include "arrow/table/table.h"
 
 #include "arrow/types/boolean.h"
 #include "arrow/types/construct.h"
-#include "arrow/types/floating.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
 
+#include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 

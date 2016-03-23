@@ -18,62 +18,34 @@
 #ifndef ARROW_TYPE_H
 #define ARROW_TYPE_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace arrow {
 
-// Physical data type that describes the memory layout of values. See details
-// for each type
-enum class LayoutEnum: char {
-  // A physical type consisting of some non-negative number of bytes
-  BYTE = 0,
-
-  // A physical type consisting of some non-negative number of bits
-  BIT = 1,
-
-  // A parametric variable-length value type. Full specification requires a
-  // child logical type
-  LIST = 2,
-
-  // A collection of multiple equal-length child arrays. Parametric type taking
-  // 1 or more child logical types
-  STRUCT = 3,
-
-  // An array with heterogeneous value types. Parametric types taking 1 or more
-  // child logical types
-  DENSE_UNION = 4,
-  SPARSE_UNION = 5
-};
-
-
-struct LayoutType {
-  LayoutEnum type;
-  explicit LayoutType(LayoutEnum type) : type(type) {}
-};
-
 // Data types in this library are all *logical*. They can be expressed as
 // either a primitive physical type (bytes or bits of some fixed size), a
 // nested type consisting of other data types, or another data type (e.g. a
 // timestamp encoded as an int64)
-struct LogicalType {
+struct Type {
   enum type {
     // A degenerate NULL type represented as 0 bytes/bits
     NA = 0,
 
-    // Little-endian integer types
-    UINT8 = 1,
-    INT8 = 2,
-    UINT16 = 3,
-    INT16 = 4,
-    UINT32 = 5,
-    INT32 = 6,
-    UINT64 = 7,
-    INT64 = 8,
-
     // A boolean value represented as 1 bit
-    BOOL = 9,
+    BOOL = 1,
+
+    // Little-endian integer types
+    UINT8 = 2,
+    INT8 = 3,
+    UINT16 = 4,
+    INT16 = 5,
+    UINT32 = 6,
+    INT32 = 7,
+    UINT64 = 8,
+    INT64 = 9,
 
     // 4-byte floating point value
     FLOAT = 10,
@@ -131,30 +103,38 @@ struct LogicalType {
   };
 };
 
-struct DataType {
-  LogicalType::type type;
-  bool nullable;
+struct Field;
 
-  explicit DataType(LogicalType::type type, bool nullable = true) :
-      type(type),
-      nullable(nullable) {}
+struct DataType {
+  Type::type type;
+
+  std::vector<std::shared_ptr<Field>> children_;
+
+  explicit DataType(Type::type type) :
+      type(type) {}
 
   virtual ~DataType();
 
   bool Equals(const DataType* other) {
     // Call with a pointer so more friendly to subclasses
-    return this == other || (this->type == other->type &&
-        this->nullable == other->nullable);
+    return this == other || (this->type == other->type);
   }
 
   bool Equals(const std::shared_ptr<DataType>& other) {
     return Equals(other.get());
   }
 
+  const std::shared_ptr<Field>& child(int i) const {
+    return children_[i];
+  }
+
+  int num_children() const {
+    return children_.size();
+  }
+
   virtual std::string ToString() const = 0;
 };
 
-typedef std::shared_ptr<LayoutType> LayoutPtr;
 typedef std::shared_ptr<DataType> TypePtr;
 
 // A field is a piece of metadata that includes (for now) a name and a data
@@ -166,9 +146,13 @@ struct Field {
   // The field's data type
   TypePtr type;
 
-  Field(const std::string& name, const TypePtr& type) :
+  // Fields can be nullable
+  bool nullable;
+
+  Field(const std::string& name, const TypePtr& type, bool nullable = true) :
       name(name),
-      type(type) {}
+      type(type),
+      nullable(nullable) {}
 
   bool operator==(const Field& other) const {
     return this->Equals(other);
@@ -180,6 +164,7 @@ struct Field {
 
   bool Equals(const Field& other) const {
     return (this == &other) || (this->name == other.name &&
+        this->nullable == other.nullable &&
         this->type->Equals(other.type.get()));
   }
 
@@ -187,36 +172,12 @@ struct Field {
     return Equals(*other.get());
   }
 
-  bool nullable() const {
-    return this->type->nullable;
-  }
-
   std::string ToString() const;
-};
-
-struct BytesType : public LayoutType {
-  int size;
-
-  explicit BytesType(int size)
-      : LayoutType(LayoutEnum::BYTE),
-        size(size) {}
-
-  BytesType(const BytesType& other)
-      : BytesType(other.size) {}
-};
-
-struct ListLayoutType : public LayoutType {
-  LayoutPtr value_type;
-
-  explicit ListLayoutType(const LayoutPtr& value_type)
-      : LayoutType(LayoutEnum::BYTE),
-        value_type(value_type) {}
 };
 
 template <typename Derived>
 struct PrimitiveType : public DataType {
-  explicit PrimitiveType(bool nullable = true)
-      : DataType(Derived::type_enum, nullable) {}
+  PrimitiveType() : DataType(Derived::type_enum) {}
 
   std::string ToString() const override;
 };
@@ -224,22 +185,19 @@ struct PrimitiveType : public DataType {
 template <typename Derived>
 inline std::string PrimitiveType<Derived>::ToString() const {
   std::string result(static_cast<const Derived*>(this)->name());
-  if (!nullable) {
-    result.append(" not null");
-  }
   return result;
 }
 
-#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)          \
-  typedef C_TYPE c_type;                                            \
-  static constexpr LogicalType::type type_enum = LogicalType::ENUM; \
-  static constexpr int size = SIZE;                                 \
-                                                                    \
-  explicit TYPENAME(bool nullable = true)                           \
-      : PrimitiveType<TYPENAME>(nullable) {}                        \
-                                                                    \
-  static const char* name() {                                       \
-    return NAME;                                                    \
+#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)  \
+  typedef C_TYPE c_type;                                    \
+  static constexpr Type::type type_enum = Type::ENUM;       \
+  static constexpr int size = SIZE;                         \
+                                                            \
+  TYPENAME()                                                \
+      : PrimitiveType<TYPENAME>() {}                        \
+                                                            \
+  static const char* name() {                               \
+    return NAME;                                            \
   }
 
 struct NullType : public PrimitiveType<NullType> {
@@ -292,11 +250,23 @@ struct DoubleType : public PrimitiveType<DoubleType> {
 
 struct ListType : public DataType {
   // List can contain any other logical value type
-  TypePtr value_type;
+  explicit ListType(const std::shared_ptr<DataType>& value_type)
+      : DataType(Type::LIST) {
+    children_ = {std::make_shared<Field>("item", value_type)};
+  }
 
-  explicit ListType(const TypePtr& value_type, bool nullable = true)
-      : DataType(LogicalType::LIST, nullable),
-        value_type(value_type) {}
+  explicit ListType(const std::shared_ptr<Field>& value_field)
+      : DataType(Type::LIST) {
+    children_ = {value_field};
+  }
+
+  const std::shared_ptr<Field>& value_field() const {
+    return children_[0];
+  }
+
+  const std::shared_ptr<DataType>& value_type() const {
+    return children_[0]->type;
+  }
 
   static char const *name() {
     return "list";
@@ -307,9 +277,7 @@ struct ListType : public DataType {
 
 // String is a logical type consisting of a physical list of 1-byte values
 struct StringType : public DataType {
-  explicit StringType(bool nullable = true);
-
-  StringType(const StringType& other);
+  StringType();
 
   static char const *name() {
     return "string";
@@ -319,20 +287,9 @@ struct StringType : public DataType {
 };
 
 struct StructType : public DataType {
-  std::vector<std::shared_ptr<Field> > fields_;
-
-  explicit StructType(const std::vector<std::shared_ptr<Field> >& fields,
-      bool nullable = true)
-      : DataType(LogicalType::STRUCT, nullable) {
-    fields_ = fields;
-  }
-
-  const std::shared_ptr<Field>& field(int i) const {
-    return fields_[i];
-  }
-
-  int num_children() const {
-    return fields_.size();
+  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
+      : DataType(Type::STRUCT) {
+    children_ = fields;
   }
 
   std::string ToString() const override;

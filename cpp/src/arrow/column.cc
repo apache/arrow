@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/table/column.h"
+#include "arrow/column.h"
 
 #include <memory>
 #include <sstream>
 
+#include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/util/status.h"
 
@@ -28,6 +29,7 @@ namespace arrow {
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) :
     chunks_(chunks) {
   length_ = 0;
+  null_count_ = 0;
   for (const std::shared_ptr<Array>& chunk : chunks) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();

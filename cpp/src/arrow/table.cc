@@ -15,20 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/table/table.h"
+#include "arrow/table.h"
 
+#include <cstdlib>
 #include <memory>
 #include <sstream>
 
-#include "arrow/table/column.h"
-#include "arrow/table/schema.h"
-#include "arrow/type.h"
+#include "arrow/column.h"
+#include "arrow/schema.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
+RowBatch::RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+    const std::vector<std::shared_ptr<Array>>& columns) :
+    schema_(schema),
+    num_rows_(num_rows),
+    columns_(columns) {}
+
+const std::string& RowBatch::column_name(int i) const {
+  return schema_->field(i)->name;
+}
+
 Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-    const std::vector<std::shared_ptr<Column> >& columns) :
+    const std::vector<std::shared_ptr<Column>>& columns) :
     name_(name),
     schema_(schema),
     columns_(columns) {
@@ -40,7 +50,7 @@ Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
 }
 
 Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-    const std::vector<std::shared_ptr<Column> >& columns, int64_t num_rows) :
+    const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows) :
     name_(name),
     schema_(schema),
     columns_(columns),
@@ -51,16 +61,19 @@ Status Table::ValidateColumns() const {
     return Status::Invalid("Number of columns did not match schema");
   }
 
-  if (columns_.size() == 0) {
-    return Status::OK();
-  }
-
   // Make sure columns are all the same length
   for (size_t i = 0; i < columns_.size(); ++i) {
     const Column* col = columns_[i].get();
+    if (col == nullptr) {
+      std::stringstream ss;
+      ss << "Column " << i << " named " << col->name()
+         << " was null";
+      return Status::Invalid(ss.str());
+    }
     if (col->length() != num_rows_) {
       std::stringstream ss;
-      ss << "Column " << i << " expected length "
+      ss << "Column " << i << " named " << col->name()
+         << " expected length "
          << num_rows_
          << " but got length "
          << col->length();

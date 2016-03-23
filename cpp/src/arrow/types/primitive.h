@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <string>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -38,64 +37,57 @@ class MemoryPool;
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray() : Array(), data_(nullptr), raw_data_(nullptr) {}
-
-  virtual ~PrimitiveArray() {}
-
-  void Init(const TypePtr& type, int32_t length,
+  PrimitiveArray(const TypePtr& type, int32_t length,
       const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
+  virtual ~PrimitiveArray() {}
 
   const std::shared_ptr<Buffer>& data() const { return data_;}
 
-  bool Equals(const PrimitiveArray& other) const;
+  bool EqualsExact(const PrimitiveArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
   std::shared_ptr<Buffer> data_;
   const uint8_t* raw_data_;
 };
 
-
-template <typename TypeClass>
-class PrimitiveArrayImpl : public PrimitiveArray {
- public:
-  typedef typename TypeClass::c_type value_type;
-
-  PrimitiveArrayImpl() : PrimitiveArray() {}
-
-  virtual ~PrimitiveArrayImpl() {}
-
-  PrimitiveArrayImpl(int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    Init(length, data, null_count, nulls);
-  }
-
-  void Init(int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr) {
-    TypePtr type(new TypeClass());
-    PrimitiveArray::Init(type, length, data, null_count, nulls);
-  }
-
-  bool Equals(const PrimitiveArrayImpl& other) const {
-    return PrimitiveArray::Equals(*static_cast<const PrimitiveArray*>(&other));
-  }
-
-  const value_type* raw_data() const {
-    return reinterpret_cast<const value_type*>(raw_data_);
-  }
-
-  value_type Value(int i) const {
-    return raw_data()[i];
-  }
-
-  TypeClass* exact_type() const {
-    return static_cast<TypeClass*>(type_);
-  }
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                      \
+class NAME : public PrimitiveArray {                                \
+ public:                                                            \
+  using value_type = T;                                             \
+  using PrimitiveArray::PrimitiveArray;                             \
+  NAME(int32_t length, const std::shared_ptr<Buffer>& data,         \
+      int32_t null_count = 0,                                       \
+      const std::shared_ptr<Buffer>& nulls = nullptr) :             \
+      PrimitiveArray(std::make_shared<TypeClass>(), length, data,   \
+          null_count, nulls) {}                                     \
+                                                                    \
+  bool EqualsExact(const NAME& other) const {                       \
+    return PrimitiveArray::EqualsExact(                             \
+        *static_cast<const PrimitiveArray*>(&other));               \
+  }                                                                 \
+                                                                    \
+  const T* raw_data() const {                                       \
+    return reinterpret_cast<const T*>(raw_data_);                   \
+  }                                                                 \
+                                                                    \
+  T Value(int i) const {                                            \
+    return raw_data()[i];                                           \
+  }                                                                 \
 };
 
+NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type, uint8_t);
+NUMERIC_ARRAY_DECL(Int8Array, Int8Type, int8_t);
+NUMERIC_ARRAY_DECL(UInt16Array, UInt16Type, uint16_t);
+NUMERIC_ARRAY_DECL(Int16Array, Int16Type, int16_t);
+NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type, uint32_t);
+NUMERIC_ARRAY_DECL(Int32Array, Int32Type, int32_t);
+NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type, uint64_t);
+NUMERIC_ARRAY_DECL(Int64Array, Int64Type, int64_t);
+NUMERIC_ARRAY_DECL(FloatArray, FloatType, float);
+NUMERIC_ARRAY_DECL(DoubleArray, DoubleType, double);
 
 template <typename Type, typename ArrayType>
 class PrimitiveBuilder : public ArrayBuilder {
@@ -202,8 +194,9 @@ class PrimitiveBuilder : public ArrayBuilder {
   }
 
   std::shared_ptr<Array> Finish() override {
-    std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>();
-    result->PrimitiveArray::Init(type_, length_, values_, null_count_, nulls_);
+    std::shared_ptr<ArrayType> result = std::make_shared<ArrayType>(
+        type_, length_, values_, null_count_, nulls_);
+
     values_ = nulls_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
     return result;
@@ -221,6 +214,21 @@ class PrimitiveBuilder : public ArrayBuilder {
   std::shared_ptr<PoolBuffer> values_;
   int elsize_;
 };
+
+// Builders
+
+typedef PrimitiveBuilder<UInt8Type, UInt8Array> UInt8Builder;
+typedef PrimitiveBuilder<UInt16Type, UInt16Array> UInt16Builder;
+typedef PrimitiveBuilder<UInt32Type, UInt32Array> UInt32Builder;
+typedef PrimitiveBuilder<UInt64Type, UInt64Array> UInt64Builder;
+
+typedef PrimitiveBuilder<Int8Type, Int8Array> Int8Builder;
+typedef PrimitiveBuilder<Int16Type, Int16Array> Int16Builder;
+typedef PrimitiveBuilder<Int32Type, Int32Array> Int32Builder;
+typedef PrimitiveBuilder<Int64Type, Int64Array> Int64Builder;
+
+typedef PrimitiveBuilder<FloatType, FloatArray> FloatBuilder;
+typedef PrimitiveBuilder<DoubleType, DoubleArray> DoubleBuilder;
 
 } // namespace arrow
 

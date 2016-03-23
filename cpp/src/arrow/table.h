@@ -15,28 +15,74 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TABLE_TABLE_H
-#define ARROW_TABLE_TABLE_H
+#ifndef ARROW_TABLE_H
+#define ARROW_TABLE_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace arrow {
 
+class Array;
 class Column;
 class Schema;
 class Status;
+
+// A row batch is a simpler and more rigid table data structure intended for
+// use primarily in shared memory IPC. It contains a schema (metadata) and a
+// corresponding vector of equal-length Arrow arrays
+class RowBatch {
+ public:
+  // num_rows is a parameter to allow for row batches of a particular size not
+  // having any materialized columns. Each array should have the same length as
+  // num_rows
+  RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+      const std::vector<std::shared_ptr<Array>>& columns);
+
+  // @returns: the table's schema
+  const std::shared_ptr<Schema>& schema() const {
+    return schema_;
+  }
+
+  // @returns: the i-th column
+  // Note: Does not boundscheck
+  const std::shared_ptr<Array>& column(int i) const {
+    return columns_[i];
+  }
+
+  const std::string& column_name(int i) const;
+
+  // @returns: the number of columns in the table
+  int num_columns() const {
+    return columns_.size();
+  }
+
+  // @returns: the number of rows (the corresponding length of each column)
+  int64_t num_rows() const {
+    return num_rows_;
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  int num_rows_;
+  std::vector<std::shared_ptr<Array>> columns_;
+};
 
 // Immutable container of fixed-length columns conforming to a particular schema
 class Table {
  public:
   // If columns is zero-length, the table's number of rows is zero
   Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column> >& columns);
+      const std::vector<std::shared_ptr<Column>>& columns);
 
+  // num_rows is a parameter to allow for tables of a particular size not
+  // having any materialized columns. Each column should therefore have the
+  // same length as num_rows -- you can validate this using
+  // Table::ValidateColumns
   Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column> >& columns, int64_t num_rows);
+      const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
 
   // @returns: the table's name, if any (may be length 0)
   const std::string& name() const {
@@ -72,11 +118,11 @@ class Table {
   std::string name_;
 
   std::shared_ptr<Schema> schema_;
-  std::vector<std::shared_ptr<Column> > columns_;
+  std::vector<std::shared_ptr<Column>> columns_;
 
   int64_t num_rows_;
 };
 
 } // namespace arrow
 
-#endif  // ARROW_TABLE_TABLE_H
+#endif  // ARROW_TABLE_H

@@ -15,30 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <vector>
 
+#include "gtest/gtest.h"
+
 #include "arrow/array.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/integer.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
-
-static TypePtr int32 = TypePtr(new Int32Type());
 
 class TestArray : public ::testing::Test {
  public:
   void SetUp() {
-    pool_ = GetDefaultMemoryPool();
+    pool_ = default_memory_pool();
   }
 
  protected:
@@ -75,10 +71,10 @@ TEST_F(TestArray, TestIsNull) {
     if (x > 0) ++null_count;
   }
 
-  std::shared_ptr<Buffer> null_buf = bytes_to_null_buffer(nulls.data(),
+  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(nulls.data(),
       nulls.size());
   std::unique_ptr<Array> arr;
-  arr.reset(new Array(int32, nulls.size(), null_count, null_buf));
+  arr.reset(new Int32Array(nulls.size(), nullptr, null_count, null_buf));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());

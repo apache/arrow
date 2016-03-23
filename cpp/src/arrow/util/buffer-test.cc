@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <limits>
 #include <string>
+
+#include "gtest/gtest.h"
 
 #include "arrow/test-util.h"
 #include "arrow/util/buffer.h"

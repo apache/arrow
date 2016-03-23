@@ -28,6 +28,9 @@ from pyarrow.error cimport check_status
 cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
+from pyarrow.schema cimport Schema
+import pyarrow.schema as schema
+
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
     return pool.bytes_allocated()
@@ -155,12 +158,12 @@ cdef class StringArray(Array):
 
 
 cdef dict _array_classes = {
-    LogicalType_NA: NullArray,
-    LogicalType_BOOL: BooleanArray,
-    LogicalType_INT64: Int64Array,
-    LogicalType_DOUBLE: DoubleArray,
-    LogicalType_LIST: ListArray,
-    LogicalType_STRING: StringArray,
+    Type_NA: NullArray,
+    Type_BOOL: BooleanArray,
+    Type_INT64: Int64Array,
+    Type_DOUBLE: DoubleArray,
+    Type_LIST: ListArray,
+    Type_STRING: StringArray,
 }
 
 cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
@@ -190,3 +193,35 @@ def from_pylist(object list_obj, DataType type=None):
         raise NotImplementedError
 
     return box_arrow_array(sp_array)
+
+#----------------------------------------------------------------------
+# Table-like data structures
+
+cdef class RowBatch:
+    """
+
+    """
+    cdef readonly:
+        Schema schema
+        int num_rows
+        list arrays
+
+    def __cinit__(self, Schema schema, int num_rows, list arrays):
+        self.schema = schema
+        self.num_rows = num_rows
+        self.arrays = arrays
+
+        if len(self.schema) != len(arrays):
+            raise ValueError('Mismatch number of data arrays and '
+                             'schema fields')
+
+    def __len__(self):
+        return self.num_rows
+
+    property num_columns:
+
+        def __get__(self):
+            return len(self.arrays)
+
+    def __getitem__(self, i):
+        return self.arrays[i]

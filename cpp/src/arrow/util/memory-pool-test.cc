@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <limits>
+
+#include "gtest/gtest.h"
 
 #include "arrow/test-util.h"
 #include "arrow/util/memory-pool.h"
@@ -26,7 +27,7 @@
 namespace arrow {
 
 TEST(DefaultMemoryPool, MemoryTracking) {
-  MemoryPool* pool = GetDefaultMemoryPool();
+  MemoryPool* pool = default_memory_pool();
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
@@ -37,7 +38,7 @@ TEST(DefaultMemoryPool, MemoryTracking) {
 }
 
 TEST(DefaultMemoryPool, OOM) {
-  MemoryPool* pool = GetDefaultMemoryPool();
+  MemoryPool* pool = default_memory_pool();
 
   uint8_t* data;
   int64_t to_alloc = std::numeric_limits<int64_t>::max();

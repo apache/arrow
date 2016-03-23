@@ -37,19 +37,14 @@ const std::shared_ptr<FloatType> FLOAT = std::make_shared<FloatType>();
 const std::shared_ptr<DoubleType> DOUBLE = std::make_shared<DoubleType>();
 const std::shared_ptr<StringType> STRING = std::make_shared<StringType>();
 
-#define GET_PRIMITIVE_TYPE(NAME, Type)          \
-  case LogicalType::NAME:                       \
-    if (nullable) {                             \
-      return NAME;                              \
-    } else {                                    \
-      return std::make_shared<Type>(nullable);  \
-    }                                           \
+#define GET_PRIMITIVE_TYPE(NAME, Class)         \
+  case Type::NAME:                              \
+    return NAME;                                \
     break;
 
-std::shared_ptr<DataType> GetPrimitiveType(LogicalType::type type,
-    bool nullable) {
+std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   switch (type) {
-    case LogicalType::NA:
+    case Type::NA:
       return NA;
     GET_PRIMITIVE_TYPE(UINT8, UInt8Type);
     GET_PRIMITIVE_TYPE(INT8, Int8Type);

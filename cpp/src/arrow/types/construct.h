@@ -18,18 +18,25 @@
 #ifndef ARROW_TYPES_CONSTRUCT_H
 #define ARROW_TYPES_CONSTRUCT_H
 
+#include <cstdint>
 #include <memory>
-
-#include "arrow/type.h"
 
 namespace arrow {
 
+class Array;
 class ArrayBuilder;
+class Buffer;
+struct DataType;
 class MemoryPool;
 class Status;
 
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out);
+
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    int32_t length, const std::shared_ptr<Buffer>& data,
+    int32_t null_count, const std::shared_ptr<Buffer>& nulls,
+    std::shared_ptr<Array>* out);
 
 } // namespace arrow
 

@@ -15,19 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow_table
-#######################################
+from pyarrow.compat import unittest
+import pyarrow as arrow
 
-# Headers: top level
-install(FILES
-  column.h
-  schema.h
-  table.h
-  DESTINATION include/arrow/table)
+A = arrow
 
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
 
-ADD_ARROW_BENCHMARK(column-benchmark)
+class TestRowBatch(unittest.TestCase):
+
+    def test_basics(self):
+        data = [
+            A.from_pylist(range(5)),
+            A.from_pylist([-10, -5, 0, 5, 10])
+        ]
+        num_rows = 5
+
+        descr = A.schema([A.field('c0', data[0].type),
+                          A.field('c1', data[1].type)])
+
+        batch = A.RowBatch(descr, num_rows, data)
+
+        assert len(batch) == num_rows
+        assert batch.num_rows == num_rows
+        assert batch.num_columns == len(data)

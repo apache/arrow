@@ -19,24 +19,26 @@
 
 #include <memory>
 
-#include "arrow/types/floating.h"
-#include "arrow/types/integer.h"
+#include "arrow/type.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
 #include "arrow/types/string.h"
+#include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
 class ArrayBuilder;
 
-// Initially looked at doing this with vtables, but shared pointers makes it
-// difficult
-
 #define BUILDER_CASE(ENUM, BuilderType)         \
-    case LogicalType::ENUM:                     \
+    case Type::ENUM:                            \
       out->reset(new BuilderType(pool, type));  \
       return Status::OK();
 
+// Initially looked at doing this with vtables, but shared pointers makes it
+// difficult
+//
+// TODO(wesm): come up with a less monolithic strategy
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out) {
   switch (type->type) {
@@ -56,30 +58,41 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     BUILDER_CASE(STRING, StringBuilder);
 
-    case LogicalType::LIST:
+    case Type::LIST:
       {
         std::shared_ptr<ArrayBuilder> value_builder;
 
         const std::shared_ptr<DataType>& value_type = static_cast<ListType*>(
-            type.get())->value_type;
+            type.get())->value_type();
         RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
         out->reset(new ListBuilder(pool, type, value_builder));
         return Status::OK();
       }
-    // BUILDER_CASE(CHAR, CharBuilder);
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+}
 
-    // BUILDER_CASE(VARCHAR, VarcharBuilder);
-    // BUILDER_CASE(BINARY, BinaryBuilder);
+#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                      \
+    case Type::ENUM:                                                    \
+      out->reset(new ArrayType(type, length, data, null_count, nulls)); \
+      return Status::OK();
 
-    // BUILDER_CASE(DATE, DateBuilder);
-    // BUILDER_CASE(TIMESTAMP, TimestampBuilder);
-    // BUILDER_CASE(TIME, TimeBuilder);
-
-    // BUILDER_CASE(LIST, ListBuilder);
-    // BUILDER_CASE(STRUCT, StructBuilder);
-    // BUILDER_CASE(DENSE_UNION, DenseUnionBuilder);
-    // BUILDER_CASE(SPARSE_UNION, SparseUnionBuilder);
-
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    int32_t length, const std::shared_ptr<Buffer>& data,
+    int32_t null_count, const std::shared_ptr<Buffer>& nulls,
+    std::shared_ptr<Array>* out) {
+  switch (type->type) {
+    MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(INT8, Int8Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(UINT16, UInt16Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(INT16, Int16Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(UINT32, UInt32Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(INT32, Int32Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(UINT64, UInt64Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(INT64, Int64Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(FLOAT, FloatArray);
+    MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
     default:
       return Status::NotImplemented(type->ToString());
   }

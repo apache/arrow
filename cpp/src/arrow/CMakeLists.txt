@@ -19,7 +19,10 @@
 install(FILES
   api.h
   array.h
+  column.h
   builder.h
+  schema.h
+  table.h
   type.h
   DESTINATION include/arrow)
 
@@ -30,3 +33,8 @@ install(FILES
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(column-test)
+ADD_ARROW_TEST(schema-test)
+ADD_ARROW_TEST(table-test)
+
+ADD_ARROW_BENCHMARK(column-benchmark)

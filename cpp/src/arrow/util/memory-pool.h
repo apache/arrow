@@ -34,7 +34,7 @@ class MemoryPool {
   virtual int64_t bytes_allocated() const = 0;
 };
 
-MemoryPool* GetDefaultMemoryPool();
+MemoryPool* default_memory_pool();
 
 } // namespace arrow
 

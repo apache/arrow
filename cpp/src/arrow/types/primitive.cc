@@ -26,16 +26,16 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-void PrimitiveArray::Init(const TypePtr& type, int32_t length,
+PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& data,
     int32_t null_count,
-    const std::shared_ptr<Buffer>& nulls) {
-  Array::Init(type, length, null_count, nulls);
+    const std::shared_ptr<Buffer>& nulls) :
+    Array(type, length, null_count, nulls) {
   data_ = data;
   raw_data_ = data == nullptr? nullptr : data_->data();
 }
 
-bool PrimitiveArray::Equals(const PrimitiveArray& other) const {
+bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
   if (this == &other) return true;
   if (null_count_ != other.null_count_) {
     return false;
@@ -48,6 +48,14 @@ bool PrimitiveArray::Equals(const PrimitiveArray& other) const {
   } else {
     return equal_data;
   }
+}
+
+bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) return true;
+  if (this->type_enum() != arr->type_enum()) {
+    return false;
+  }
+  return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
 
 } // namespace arrow
