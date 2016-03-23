@@ -79,7 +79,8 @@ Base requirements
 Any array has a known and fixed length, stored as a 32-bit signed integer, so a
 maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
 
-* Enhance compatibility with Java and client languages which may have varying quality of support for unsigned integers.
+* Enhance compatibility with Java and client languages which may have varying
+  quality of support for unsigned integers.
 * To encourage developers to compose smaller arrays (each of which contains
   contiguous memory in its leaf nodes) to create larger array structures
   possibly exceeding 2^31 - 1 elements, as opposed to allocating very large
@@ -90,7 +91,8 @@ maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
 Any relative type can be nullable or non-nullable.
 
 Nullable arrays have a contiguous memory buffer, known as the null (or
-validity) bitmap, whose length is large enough to have 1 bit for each array
+validity) bitmap, whose length is a multiple of 8 bytes (to avoid
+word-alignment concerns) and large enough to have at least 1 bit for each array
 slot.
 
 Whether any array slot is valid (non-null) is encoded in the respective bits of
