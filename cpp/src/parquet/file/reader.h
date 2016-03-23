@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
+#include <list>
 #include <string>
 
 #include "parquet/column/page.h"
@@ -119,7 +120,8 @@ class ParquetFileReader {
     return schema_->Column(i);
   }
 
-  void DebugPrint(std::ostream& stream, bool print_values = true);
+  void DebugPrint(std::ostream& stream, std::list<int> selected_columns,
+      bool print_values = true);
 
  private:
   // PIMPL idiom

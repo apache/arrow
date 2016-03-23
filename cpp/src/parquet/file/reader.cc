@@ -133,11 +133,24 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 // the fixed initial size is just for an example
 #define COL_WIDTH "20"
 
-void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
+void ParquetFileReader::DebugPrint(std::ostream& stream,
+    std::list<int> selected_columns, bool print_values) {
   stream << "File statistics:\n";
-  stream << "Total rows: " << this->num_rows() << "\n";
+  stream << "Total rows: " << num_rows() << "\n";
 
-  for (int i = 0; i < num_columns(); ++i) {
+  if (selected_columns.size() == 0) {
+    for (int i = 0; i < num_columns(); i++) {
+      selected_columns.push_back(i);
+    }
+  } else {
+    for (auto i : selected_columns) {
+      if (i < 0 || i >= num_columns()) {
+        throw ParquetException("Selected column is out of range");
+      }
+    }
+  }
+
+  for (auto i : selected_columns) {
     const ColumnDescriptor* descr = schema_->Column(i);
     stream << "Column " << i << ": "
            << descr->name()
@@ -152,9 +165,7 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
     auto group_reader = RowGroup(r);
 
     // Print column metadata
-    int num_columns = group_reader->num_columns();
-
-    for (int i = 0; i < num_columns; ++i) {
+    for (auto i : selected_columns) {
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
 
       stream << "Column " << i << ": "
@@ -174,9 +185,10 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
     static constexpr int bufsize = 25;
     char buffer[bufsize];
 
-    // Create readers for all columns and print contents
-    vector<std::shared_ptr<Scanner> > scanners(num_columns, NULL);
-    for (int i = 0; i < num_columns; ++i) {
+    // Create readers for selected columns and print contents
+    vector<std::shared_ptr<Scanner> > scanners(selected_columns.size(), NULL);
+    int j = 0;
+    for (auto i : selected_columns) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
 
       std::stringstream ss;
@@ -188,17 +200,17 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
 
       // This is OK in this method as long as the RowGroupReader does not get
       // deleted
-      scanners[i] = Scanner::Make(col_reader);
+      scanners[j++] = Scanner::Make(col_reader);
     }
     stream << "\n";
 
     bool hasRow;
     do {
       hasRow = false;
-      for (int i = 0; i < num_columns; ++i) {
-        if (scanners[i]->HasNext()) {
+      for (auto scanner : scanners) {
+        if (scanner->HasNext()) {
           hasRow = true;
-          scanners[i]->PrintNext(stream, 17);
+          scanner->PrintNext(stream, 17);
         }
       }
       stream << "\n";

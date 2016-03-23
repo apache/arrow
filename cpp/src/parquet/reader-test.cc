@@ -124,11 +124,36 @@ TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
 TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::stringstream ss;
 
-  // Automatically parses metadata
-  reader_->DebugPrint(ss);
+  std::list<int> columns;
+  reader_->DebugPrint(ss, columns);
 
   std::string result = ss.str();
   ASSERT_GT(result.size(), 0);
+}
+
+TEST_F(TestAllTypesPlain, ColumnSelection) {
+  std::stringstream ss;
+
+  std::list<int> columns;
+  columns.push_back(5);
+  columns.push_back(0);
+  columns.push_back(10);
+  reader_->DebugPrint(ss, columns);
+
+  std::string result = ss.str();
+  ASSERT_GT(result.size(), 0);
+}
+
+TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
+  std::stringstream ss;
+
+  std::list<int> columns;
+  columns.push_back(100);
+  ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
+
+  columns.clear();
+  columns.push_back(-1);
+  ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
 }
 
 
