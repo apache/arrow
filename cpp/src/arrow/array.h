@@ -76,6 +76,18 @@ class Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
+// Degenerate null type Array
+class NullArray : public Array {
+ public:
+  NullArray(const std::shared_ptr<DataType>& type, int32_t length) :
+      Array(type, length, length, nullptr) {}
+
+  explicit NullArray(int32_t length) :
+      NullArray(std::make_shared<NullType>(), length) {}
+
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
+};
+
 typedef std::shared_ptr<Array> ArrayPtr;
 
 } // namespace arrow

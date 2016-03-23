@@ -50,4 +50,12 @@ bool Array::EqualsExact(const Array& other) const {
   }
 }
 
+bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) return true;
+  if (Type::NA != arr->type_enum()) {
+    return false;
+  }
+  return arr->length() == length_;
+}
+
 } // namespace arrow

@@ -394,7 +394,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
 
   // Handle NA / NullType case
   if (type->type == Type::NA) {
-    out->reset(new arrow::Array(type, size, size));
+    out->reset(new arrow::NullArray(type, size));
     return Status::OK();
   }
 
