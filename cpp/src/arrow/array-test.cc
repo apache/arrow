@@ -68,7 +68,7 @@ TEST_F(TestArray, TestIsNull) {
                                 1, 0, 0, 1};
   int32_t null_count = 0;
   for (uint8_t x : nulls) {
-    if (x > 0) ++null_count;
+    if (x == 0) ++null_count;
   }
 
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(nulls.data(),
@@ -82,7 +82,7 @@ TEST_F(TestArray, TestIsNull) {
   ASSERT_TRUE(arr->nulls()->Equals(*null_buf.get()));
 
   for (size_t i = 0; i < nulls.size(); ++i) {
-    ASSERT_EQ(static_cast<bool>(nulls[i]), arr->IsNull(i));
+    EXPECT_EQ(static_cast<bool>(nulls[i]), !arr->IsNull(i)) << i;
   }
 }
 

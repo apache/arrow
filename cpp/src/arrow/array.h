@@ -47,7 +47,7 @@ class Array {
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
-    return null_count_ > 0 && util::get_bit(null_bits_, i);
+    return null_count_ > 0 && util::bit_not_set(valid_bitmap_, i);
   }
 
   int32_t length() const { return length_;}
@@ -69,7 +69,7 @@ class Array {
   int32_t length_;
 
   std::shared_ptr<Buffer> nulls_;
-  const uint8_t* null_bits_;
+  const uint8_t* valid_bitmap_;
 
  private:
   Array() {}

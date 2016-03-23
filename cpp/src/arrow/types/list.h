@@ -159,15 +159,12 @@ class ListBuilder : public Int32Builder {
     }
     if (is_null) {
       ++null_count_;
-      util::set_bit(null_bits_, length_);
+    } else {
+      util::set_bit(valid_bitmap_, length_);
     }
     raw_buffer()[length_++] = value_builder_->length();
     return Status::OK();
   }
-
-  // Status Append(int32_t* offsets, int length, uint8_t* null_bytes) {
-  //   return Int32Builder::Append(offsets, length, null_bytes);
-  // }
 
   Status AppendNull() {
     return Append(true);

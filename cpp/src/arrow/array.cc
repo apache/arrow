@@ -33,7 +33,7 @@ Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
   null_count_ = null_count;
   nulls_ = nulls;
   if (nulls_) {
-    null_bits_ = nulls_->data();
+    valid_bitmap_ = nulls_->data();
   }
 }
 

@@ -30,8 +30,8 @@ Status ArrayBuilder::Init(int32_t capacity) {
   int32_t to_alloc = util::ceil_byte(capacity) / 8;
   nulls_ = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(nulls_->Resize(to_alloc));
-  null_bits_ = nulls_->mutable_data();
-  memset(null_bits_, 0, to_alloc);
+  valid_bitmap_ = nulls_->mutable_data();
+  memset(valid_bitmap_, 0, to_alloc);
   return Status::OK();
 }
 
@@ -39,9 +39,9 @@ Status ArrayBuilder::Resize(int32_t new_bits) {
   int32_t new_bytes = util::ceil_byte(new_bits) / 8;
   int32_t old_bytes = nulls_->size();
   RETURN_NOT_OK(nulls_->Resize(new_bytes));
-  null_bits_ = nulls_->mutable_data();
+  valid_bitmap_ = nulls_->mutable_data();
   if (old_bytes < new_bytes) {
-    memset(null_bits_ + old_bytes, 0, new_bytes - old_bytes);
+    memset(valid_bitmap_ + old_bytes, 0, new_bytes - old_bytes);
   }
   return Status::OK();
 }

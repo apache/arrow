@@ -37,7 +37,7 @@ class MemoryPool;
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray(const TypePtr& type, int32_t length,
+  PrimitiveArray(const TypePtr& type, int32_t length, int value_size,
       const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
       const std::shared_ptr<Buffer>& nulls = nullptr);
@@ -51,18 +51,25 @@ class PrimitiveArray : public Array {
  protected:
   std::shared_ptr<Buffer> data_;
   const uint8_t* raw_data_;
+  int value_size_;
 };
 
 #define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                      \
 class NAME : public PrimitiveArray {                                \
  public:                                                            \
   using value_type = T;                                             \
-  using PrimitiveArray::PrimitiveArray;                             \
+  NAME(const TypePtr& type, int32_t length,                         \
+      const std::shared_ptr<Buffer>& data,                          \
+      int32_t null_count = 0,                                       \
+      const std::shared_ptr<Buffer>& nulls = nullptr) :             \
+      PrimitiveArray(std::make_shared<TypeClass>(), length,         \
+          sizeof(T), data, null_count, nulls) {}                    \
+                                                                    \
   NAME(int32_t length, const std::shared_ptr<Buffer>& data,         \
       int32_t null_count = 0,                                       \
       const std::shared_ptr<Buffer>& nulls = nullptr) :             \
-      PrimitiveArray(std::make_shared<TypeClass>(), length, data,   \
-          null_count, nulls) {}                                     \
+      PrimitiveArray(std::make_shared<TypeClass>(), length,         \
+          sizeof(T), data, null_count, nulls) {}                    \
                                                                     \
   bool EqualsExact(const NAME& other) const {                       \
     return PrimitiveArray::EqualsExact(                             \
@@ -137,15 +144,12 @@ class PrimitiveBuilder : public ArrayBuilder {
   }
 
   // Scalar append
-  Status Append(value_type val, bool is_null = false) {
+  Status Append(value_type val) {
     if (length_ == capacity_) {
       // If the capacity was not already a multiple of 2, do so here
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
-    if (is_null) {
-      ++null_count_;
-      util::set_bit(null_bits_, length_);
-    }
+    util::set_bit(valid_bitmap_, length_);
     raw_buffer()[length_++] = val;
     return Status::OK();
   }
@@ -166,6 +170,10 @@ class PrimitiveBuilder : public ArrayBuilder {
 
     if (null_bytes != nullptr) {
       AppendNulls(null_bytes, length);
+    } else {
+      for (int i = 0; i < length; ++i) {
+        util::set_bit(valid_bitmap_, length_ + i);
+      }
     }
 
     length_ += length;
@@ -176,9 +184,10 @@ class PrimitiveBuilder : public ArrayBuilder {
   void AppendNulls(const uint8_t* null_bytes, int32_t length) {
     // If null_bytes is all not null, then none of the values are null
     for (int i = 0; i < length; ++i) {
-      if (static_cast<bool>(null_bytes[i])) {
+      if (null_bytes[i] == 0) {
         ++null_count_;
-        util::set_bit(null_bits_, length_ + i);
+      } else {
+        util::set_bit(valid_bitmap_, length_ + i);
       }
     }
   }
@@ -189,7 +198,7 @@ class PrimitiveBuilder : public ArrayBuilder {
       RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
     }
     ++null_count_;
-    util::set_bit(null_bits_, length_++);
+    ++length_;
     return Status::OK();
   }
 

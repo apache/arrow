@@ -77,7 +77,7 @@ class TestStringContainer : public ::testing::Test  {
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
     offsets_ = {0, 1, 1, 1, 3, 6};
-    nulls_ = {0, 0, 1, 0, 0};
+    nulls_ = {1, 1, 0, 1, 1};
     expected_ = {"a", "", "", "bb", "ccc"};
 
     MakeArray();
@@ -148,7 +148,7 @@ TEST_F(TestStringContainer, TestDestructor) {
 
 TEST_F(TestStringContainer, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
-    if (nulls_[i]) {
+    if (nulls_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
       ASSERT_EQ(expected_[i], strings_->GetString(i));
@@ -197,7 +197,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   Done();
 
   ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps * test::null_count(is_null), result_->null_count());
+  ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->values()->length());
 
   int32_t length;

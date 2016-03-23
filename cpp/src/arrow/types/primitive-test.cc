@@ -123,8 +123,8 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->null_count());
     ASSERT_EQ(nullptr, builder_->buffer());
 
-    ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(ex_null_count, result->null_count());
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
   }
 
   void CheckNonNullable() {
@@ -210,7 +210,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
-  int size = 10000;
+  int size = 1000;
   for (int i = 0; i < size; ++i) {
     ASSERT_OK(this->builder_->AppendNull());
   }
@@ -218,14 +218,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   auto result = this->builder_->Finish();
 
   for (int i = 0; i < size; ++i) {
-    ASSERT_TRUE(result->IsNull(i));
+    ASSERT_TRUE(result->IsNull(i)) << i;
   }
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   DECL_T();
 
-  int size = 10000;
+  int size = 1000;
 
   vector<T>& draws = this->draws_;
   vector<uint8_t>& nulls = this->nulls_;
@@ -236,7 +236,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 
   int i;
   for (i = 0; i < size; ++i) {
-    ASSERT_OK(this->builder_->Append(draws[i], nulls[i] > 0));
+    if (nulls[i] > 0) {
+      ASSERT_OK(this->builder_->Append(draws[i]));
+    } else {
+      ASSERT_OK(this->builder_->AppendNull());
+    }
   }
 
   do {
@@ -249,7 +253,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 
-  int size = 10000;
+  const int size = 10000;
 
   vector<T>& draws = this->draws_;
   vector<uint8_t>& nulls = this->nulls_;
@@ -259,7 +263,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   int i;
   // Append the first 1000
   for (i = 0; i < 1000; ++i) {
-    ASSERT_OK(this->builder_->Append(draws[i], nulls[i] > 0));
+    if (nulls[i] > 0) {
+      ASSERT_OK(this->builder_->Append(draws[i]));
+    } else {
+      ASSERT_OK(this->builder_->AppendNull());
+    }
     ASSERT_OK(this->builder_nn_->Append(draws[i]));
   }
 
@@ -271,7 +279,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 
   // Append the next 9000
   for (i = 1000; i < size; ++i) {
-    ASSERT_OK(this->builder_->Append(draws[i], nulls[i] > 0));
+    if (nulls[i] > 0) {
+      ASSERT_OK(this->builder_->Append(draws[i]));
+    } else {
+      ASSERT_OK(this->builder_->AppendNull());
+    }
     ASSERT_OK(this->builder_nn_->Append(draws[i]));
   }
 

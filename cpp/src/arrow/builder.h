@@ -42,7 +42,7 @@ class ArrayBuilder {
       type_(type),
       nulls_(nullptr),
       null_count_(0),
-      null_bits_(nullptr),
+      valid_bitmap_(nullptr),
       length_(0),
       capacity_(0) {}
 
@@ -92,7 +92,7 @@ class ArrayBuilder {
   // When nulls are first appended to the builder, the null bitmap is allocated
   std::shared_ptr<PoolBuffer> nulls_;
   int32_t null_count_;
-  uint8_t* null_bits_;
+  uint8_t* valid_bitmap_;
 
   // Array length, so far. Also, the index of the next element to be added
   int32_t length_;

@@ -107,7 +107,12 @@ std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
 void random_nulls(int64_t n, double pct_null, std::vector<uint8_t>* nulls) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    nulls->push_back(static_cast<uint8_t>(rng.NextDoubleFraction() > pct_null));
+    if (rng.NextDoubleFraction() > pct_null) {
+      nulls->push_back(1);
+    } else {
+      // null
+      nulls->push_back(0);
+    }
   }
 }
 
@@ -148,7 +153,7 @@ static inline int bitmap_popcount(const uint8_t* data, int length) {
 static inline int null_count(const std::vector<uint8_t>& nulls) {
   int result = 0;
   for (size_t i = 0; i < nulls.size(); ++i) {
-    if (nulls[i] > 0) {
+    if (nulls[i] == 0) {
       ++result;
     }
   }
