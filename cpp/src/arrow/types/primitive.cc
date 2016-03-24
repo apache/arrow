@@ -26,13 +26,14 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
+PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length, int value_size,
     const std::shared_ptr<Buffer>& data,
     int32_t null_count,
-    const std::shared_ptr<Buffer>& nulls) :
-    Array(type, length, null_count, nulls) {
+    const std::shared_ptr<Buffer>& null_bitmap) :
+    Array(type, length, null_count, null_bitmap) {
   data_ = data;
   raw_data_ = data == nullptr? nullptr : data_->data();
+  value_size_ = value_size;
 }
 
 bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
@@ -41,12 +42,26 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     return false;
   }
 
-  bool equal_data = data_->Equals(*other.data_, length_);
   if (null_count_ > 0) {
-    return equal_data &&
-      nulls_->Equals(*other.nulls_, util::ceil_byte(length_) / 8);
+    bool equal_bitmap = null_bitmap_->Equals(*other.null_bitmap_,
+        util::ceil_byte(length_) / 8);
+    if (!equal_bitmap) {
+      return false;
+    }
+
+    const uint8_t* this_data = raw_data_;
+    const uint8_t* other_data = other.raw_data_;
+
+    for (int i = 0; i < length_; ++i) {
+      if (!IsNull(i) && memcmp(this_data, other_data, value_size_)) {
+        return false;
+      }
+      this_data += value_size_;
+      other_data += value_size_;
+    }
+    return true;
   } else {
-    return equal_data;
+    return data_->Equals(*other.data_, length_);
   }
 }
 

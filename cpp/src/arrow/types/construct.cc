@@ -75,12 +75,12 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                      \
     case Type::ENUM:                                                    \
-      out->reset(new ArrayType(type, length, data, null_count, nulls)); \
+      out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
       return Status::OK();
 
 Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
     int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& nulls,
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
     std::shared_ptr<Array>* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);

@@ -77,7 +77,7 @@ class TestStringContainer : public ::testing::Test  {
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
     offsets_ = {0, 1, 1, 1, 3, 6};
-    nulls_ = {0, 0, 1, 0, 0};
+    valid_bytes_ = {1, 1, 0, 1, 1};
     expected_ = {"a", "", "", "bb", "ccc"};
 
     MakeArray();
@@ -92,23 +92,23 @@ class TestStringContainer : public ::testing::Test  {
 
     offsets_buf_ = test::to_buffer(offsets_);
 
-    nulls_buf_ = test::bytes_to_null_buffer(nulls_.data(), nulls_.size());
-    null_count_ = test::null_count(nulls_);
+    null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_.data(), valid_bytes_.size());
+    null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(length_, offsets_buf_, values_,
-        null_count_, nulls_buf_);
+        null_count_, null_bitmap_);
   }
 
  protected:
   std::vector<int32_t> offsets_;
   std::vector<char> chars_;
-  std::vector<uint8_t> nulls_;
+  std::vector<uint8_t> valid_bytes_;
 
   std::vector<std::string> expected_;
 
   std::shared_ptr<Buffer> value_buf_;
   std::shared_ptr<Buffer> offsets_buf_;
-  std::shared_ptr<Buffer> nulls_buf_;
+  std::shared_ptr<Buffer> null_bitmap_;
 
   int null_count_;
   int length_;
@@ -143,12 +143,12 @@ TEST_F(TestStringContainer, TestListFunctions) {
 
 TEST_F(TestStringContainer, TestDestructor) {
   auto arr = std::make_shared<StringArray>(length_, offsets_buf_, values_,
-      null_count_, nulls_buf_);
+      null_count_, null_bitmap_);
 }
 
 TEST_F(TestStringContainer, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
-    if (nulls_[i]) {
+    if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
       ASSERT_EQ(expected_[i], strings_->GetString(i));
@@ -197,7 +197,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   Done();
 
   ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps * test::null_count(is_null), result_->null_count());
+  ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->values()->length());
 
   int32_t length;

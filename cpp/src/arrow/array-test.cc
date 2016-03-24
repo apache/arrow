@@ -44,9 +44,9 @@ class TestArray : public ::testing::Test {
 
 TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<PoolBuffer>(pool_);
-  auto nulls = std::make_shared<PoolBuffer>(pool_);
+  auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
 
-  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, 10, nulls));
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, 10, null_bitmap));
   ASSERT_EQ(10, arr->null_count());
 
   std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
@@ -61,28 +61,28 @@ TEST_F(TestArray, TestLength) {
 }
 
 TEST_F(TestArray, TestIsNull) {
-  std::vector<uint8_t> nulls = {1, 0, 1, 1, 0, 1, 0, 0,
-                                1, 0, 1, 1, 0, 1, 0, 0,
-                                1, 0, 1, 1, 0, 1, 0, 0,
-                                1, 0, 1, 1, 0, 1, 0, 0,
-                                1, 0, 0, 1};
+  std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 0, 1};
   int32_t null_count = 0;
-  for (uint8_t x : nulls) {
-    if (x > 0) ++null_count;
+  for (uint8_t x : null_bitmap) {
+    if (x == 0) ++null_count;
   }
 
-  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(nulls.data(),
-      nulls.size());
+  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap.data(),
+      null_bitmap.size());
   std::unique_ptr<Array> arr;
-  arr.reset(new Int32Array(nulls.size(), nullptr, null_count, null_buf));
+  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_count, null_buf));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());
 
-  ASSERT_TRUE(arr->nulls()->Equals(*null_buf.get()));
+  ASSERT_TRUE(arr->null_bitmap()->Equals(*null_buf.get()));
 
-  for (size_t i = 0; i < nulls.size(); ++i) {
-    ASSERT_EQ(static_cast<bool>(nulls[i]), arr->IsNull(i));
+  for (size_t i = 0; i < null_bitmap.size(); ++i) {
+    EXPECT_EQ(static_cast<bool>(null_bitmap[i]), !arr->IsNull(i)) << i;
   }
 }
 

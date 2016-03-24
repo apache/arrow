@@ -40,9 +40,9 @@ class ArrayBuilder {
   explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type) :
       pool_(pool),
       type_(type),
-      nulls_(nullptr),
+      null_bitmap_(nullptr),
       null_count_(0),
-      null_bits_(nullptr),
+      null_bitmap_data_(nullptr),
       length_(0),
       capacity_(0) {}
 
@@ -66,7 +66,7 @@ class ArrayBuilder {
   // initialized independently
   Status Init(int32_t capacity);
 
-  // Resizes the nulls array
+  // Resizes the null_bitmap array
   Status Resize(int32_t new_bits);
 
   // For cases where raw data was memcpy'd into the internal buffers, allows us
@@ -74,7 +74,7 @@ class ArrayBuilder {
   // this function responsibly.
   Status Advance(int32_t elements);
 
-  const std::shared_ptr<PoolBuffer>& nulls() const { return nulls_;}
+  const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_;}
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data
@@ -89,10 +89,10 @@ class ArrayBuilder {
 
   std::shared_ptr<DataType> type_;
 
-  // When nulls are first appended to the builder, the null bitmap is allocated
-  std::shared_ptr<PoolBuffer> nulls_;
+  // When null_bitmap are first appended to the builder, the null bitmap is allocated
+  std::shared_ptr<PoolBuffer> null_bitmap_;
   int32_t null_count_;
-  uint8_t* null_bits_;
+  uint8_t* null_bitmap_data_;
 
   // Array length, so far. Also, the index of the next element to be added
   int32_t length_;

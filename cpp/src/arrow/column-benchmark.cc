@@ -28,10 +28,10 @@ namespace {
   std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
     auto pool = default_memory_pool();
     auto data = std::make_shared<PoolBuffer>(pool);
-    auto nulls = std::make_shared<PoolBuffer>(pool);
+    auto null_bitmap = std::make_shared<PoolBuffer>(pool);
     data->Resize(length * sizeof(typename ArrayType::value_type));
-    nulls->Resize(util::bytes_for_bits(length));
-    return std::make_shared<ArrayType>(length, data, 10, nulls);
+    null_bitmap->Resize(util::bytes_for_bits(length));
+    return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
   }
 }  // anonymous namespace
 

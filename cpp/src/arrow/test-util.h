@@ -72,10 +72,10 @@ class TestBase : public ::testing::Test {
   template <typename ArrayType>
   std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
     auto data = std::make_shared<PoolBuffer>(pool_);
-    auto nulls = std::make_shared<PoolBuffer>(pool_);
+    auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
-    EXPECT_OK(nulls->Resize(util::bytes_for_bits(length)));
-    return std::make_shared<ArrayType>(length, data, 10, nulls);
+    EXPECT_OK(null_bitmap->Resize(util::bytes_for_bits(length)));
+    return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
   }
 
  protected:
@@ -104,17 +104,22 @@ std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
       values.size() * sizeof(T));
 }
 
-void random_nulls(int64_t n, double pct_null, std::vector<uint8_t>* nulls) {
+void random_null_bitmap(int64_t n, double pct_null, std::vector<uint8_t>* null_bitmap) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    nulls->push_back(static_cast<uint8_t>(rng.NextDoubleFraction() > pct_null));
+    if (rng.NextDoubleFraction() > pct_null) {
+      null_bitmap->push_back(1);
+    } else {
+      // null
+      null_bitmap->push_back(0);
+    }
   }
 }
 
-void random_nulls(int64_t n, double pct_null, std::vector<bool>* nulls) {
+void random_null_bitmap(int64_t n, double pct_null, std::vector<bool>* null_bitmap) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    nulls->push_back(rng.NextDoubleFraction() > pct_null);
+    null_bitmap->push_back(rng.NextDoubleFraction() > pct_null);
   }
 }
 
@@ -145,10 +150,10 @@ static inline int bitmap_popcount(const uint8_t* data, int length) {
   return count;
 }
 
-static inline int null_count(const std::vector<uint8_t>& nulls) {
+static inline int null_count(const std::vector<uint8_t>& valid_bytes) {
   int result = 0;
-  for (size_t i = 0; i < nulls.size(); ++i) {
-    if (nulls[i] > 0) {
+  for (size_t i = 0; i < valid_bytes.size(); ++i) {
+    if (valid_bytes[i] == 0) {
       ++result;
     }
   }

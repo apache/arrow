@@ -39,8 +39,8 @@ class ListArray : public Array {
   ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
       const ArrayPtr& values,
       int32_t null_count = 0,
-      std::shared_ptr<Buffer> nulls = nullptr) :
-      Array(type, length, null_count, nulls) {
+      std::shared_ptr<Buffer> null_bitmap = nullptr) :
+      Array(type, length, null_count, null_bitmap) {
     offset_buf_ = offsets;
     offsets_ = offsets == nullptr? nullptr :
       reinterpret_cast<const int32_t*>(offset_buf_->data());
@@ -109,17 +109,17 @@ class ListBuilder : public Int32Builder {
 
   // Vector append
   //
-  // If passed, null_bytes is of equal length to values, and any nonzero byte
+  // If passed, valid_bytes is of equal length to values, and any zero byte
   // will be considered as a null for that slot
-  Status Append(value_type* values, int32_t length, uint8_t* null_bytes = nullptr) {
+  Status Append(value_type* values, int32_t length, uint8_t* valid_bytes = nullptr) {
     if (length_ + length > capacity_) {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
     memcpy(raw_buffer() + length_, values, length * elsize_);
 
-    if (null_bytes != nullptr) {
-      AppendNulls(null_bytes, length);
+    if (valid_bytes != nullptr) {
+      AppendNulls(valid_bytes, length);
     }
 
     length_ += length;
@@ -136,9 +136,9 @@ class ListBuilder : public Int32Builder {
     }
 
     auto result = std::make_shared<Container>(type_, length_, values_, items,
-        null_count_, nulls_);
+        null_count_, null_bitmap_);
 
-    values_ = nulls_ = nullptr;
+    values_ = null_bitmap_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
 
     return result;
@@ -159,15 +159,12 @@ class ListBuilder : public Int32Builder {
     }
     if (is_null) {
       ++null_count_;
-      util::set_bit(null_bits_, length_);
+    } else {
+      util::set_bit(null_bitmap_data_, length_);
     }
     raw_buffer()[length_++] = value_builder_->length();
     return Status::OK();
   }
-
-  // Status Append(int32_t* offsets, int length, uint8_t* null_bytes) {
-  //   return Int32Builder::Append(offsets, length, null_bytes);
-  // }
 
   Status AppendNull() {
     return Append(true);

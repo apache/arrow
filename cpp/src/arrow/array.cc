@@ -27,13 +27,13 @@ namespace arrow {
 // Base array class
 
 Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
-    const std::shared_ptr<Buffer>& nulls) {
+    const std::shared_ptr<Buffer>& null_bitmap) {
   type_ = type;
   length_ = length;
   null_count_ = null_count;
-  nulls_ = nulls;
-  if (nulls_) {
-    null_bits_ = nulls_->data();
+  null_bitmap_ = null_bitmap;
+  if (null_bitmap_) {
+    null_bitmap_data_ = null_bitmap_->data();
   }
 }
 
@@ -44,7 +44,7 @@ bool Array::EqualsExact(const Array& other) const {
     return false;
   }
   if (null_count_ > 0) {
-    return nulls_->Equals(*other.nulls_, util::bytes_for_bits(length_));
+    return null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
   } else {
     return true;
   }

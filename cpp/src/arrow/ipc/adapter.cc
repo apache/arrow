@@ -75,7 +75,7 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
         flatbuf::FieldNode(prim_arr->length(), prim_arr->null_count()));
 
     if (prim_arr->null_count() > 0) {
-      buffers->push_back(prim_arr->nulls());
+      buffers->push_back(prim_arr->null_bitmap());
     } else {
       // Push a dummy zero-length buffer, not to be copied
       buffers->push_back(std::make_shared<Buffer>(nullptr, 0));
@@ -230,13 +230,13 @@ class RowBatchReader::Impl {
     FieldMetadata field_meta = metadata_->field(field_index_++);
 
     if (IsPrimitive(type.get())) {
-      std::shared_ptr<Buffer> nulls;
+      std::shared_ptr<Buffer> null_bitmap;
       std::shared_ptr<Buffer> data;
       if (field_meta.null_count == 0) {
-        nulls = nullptr;
+        null_bitmap = nullptr;
         ++buffer_index_;
       } else {
-        RETURN_NOT_OK(GetBuffer(buffer_index_++, &nulls));
+        RETURN_NOT_OK(GetBuffer(buffer_index_++, &null_bitmap));
       }
       if (field_meta.length > 0) {
         RETURN_NOT_OK(GetBuffer(buffer_index_++, &data));
@@ -244,7 +244,7 @@ class RowBatchReader::Impl {
         data.reset(new Buffer(nullptr, 0));
       }
       return MakePrimitiveArray(type, field_meta.length, data,
-          field_meta.null_count, nulls, out);
+          field_meta.null_count, null_bitmap, out);
     } else {
       return Status::NotImplemented("Non-primitive types not complete yet");
     }

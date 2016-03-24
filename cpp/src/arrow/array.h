@@ -32,8 +32,8 @@ class Buffer;
 // Immutable data array with some logical type and some length. Any memory is
 // owned by the respective Buffer instance (or its parents).
 //
-// The base class is only required to have a nulls buffer if the null count is
-// greater than 0
+// The base class is only required to have a null bitmap buffer if the null
+// count is greater than 0
 //
 // Any buffers used to initialize the array have their references "stolen". If
 // you wish to use the buffer beyond the lifetime of the array, you need to
@@ -41,13 +41,13 @@ class Buffer;
 class Array {
  public:
   Array(const TypePtr& type, int32_t length, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& nulls = nullptr);
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   virtual ~Array() {}
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
-    return null_count_ > 0 && util::get_bit(null_bits_, i);
+    return null_count_ > 0 && util::bit_not_set(null_bitmap_data_, i);
   }
 
   int32_t length() const { return length_;}
@@ -56,8 +56,8 @@ class Array {
   const std::shared_ptr<DataType>& type() const { return type_;}
   Type::type type_enum() const { return type_->type;}
 
-  const std::shared_ptr<Buffer>& nulls() const {
-    return nulls_;
+  const std::shared_ptr<Buffer>& null_bitmap() const {
+    return null_bitmap_;
   }
 
   bool EqualsExact(const Array& arr) const;
@@ -68,8 +68,8 @@ class Array {
   int32_t null_count_;
   int32_t length_;
 
-  std::shared_ptr<Buffer> nulls_;
-  const uint8_t* null_bits_;
+  std::shared_ptr<Buffer> null_bitmap_;
+  const uint8_t* null_bitmap_data_;
 
  private:
   Array() {}
