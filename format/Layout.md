@@ -42,7 +42,7 @@ Base requirements
 * Capable of representing fully-materialized and decoded / decompressed Parquet
   data
 * All leaf nodes (primitive value arrays) use contiguous memory regions
-* Each relative type can be nullable or non-nullable
+* Any relative type can be have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
   be built.
@@ -56,7 +56,7 @@ Base requirements
 * To describe relative types (physical value types and a preliminary set of
   nested types) sufficient for an unambiguous implementation
 * Memory layout and random access patterns for each relative type
-* Null representation for nullable types
+* Null value representation
 
 ## Non-goals (for this document
 
@@ -79,28 +79,55 @@ Base requirements
 Any array has a known and fixed length, stored as a 32-bit signed integer, so a
 maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
 
-* Enhance compatibility with Java and client languages which may have varying quality of support for unsigned integers.
+* Enhance compatibility with Java and client languages which may have varying
+  quality of support for unsigned integers.
 * To encourage developers to compose smaller arrays (each of which contains
   contiguous memory in its leaf nodes) to create larger array structures
   possibly exceeding 2^31 - 1 elements, as opposed to allocating very large
   contiguous memory blocks.
 
-## Nullable and non-nullable arrays
+## Null count
 
-Any relative type can be nullable or non-nullable.
+The number of null value slots is a property of the physical array and
+considered part of the data structure. The null count is stored as a 32-bit
+signed integer, as it may be as large as the array length.
 
-Nullable arrays have a contiguous memory buffer, known as the null bitmask,
-whose length is large enough to have 1 bit for each array slot. Whether any
-array slot is null is encoded in the respective bits of this bitmask, i.e.:
+## Null bitmaps
+
+Any relative type can have null value slots, whether primitive or nested type.
+
+An array with nulls must have a contiguous memory buffer, known as the null (or
+validity) bitmap, whose length is a multiple of 8 bytes (to avoid
+word-alignment concerns) and large enough to have at least 1 bit for each array
+slot.
+
+Whether any array slot is valid (non-null) is encoded in the respective bits of
+this bitmap. A 1 (set bit) for index `j` indicates that the value is not null,
+while a 0 (bit not set) indicates that it is null. Bitmaps are to be
+initialized to be all unset at allocation time.
 
 ```
-is_null[j] -> bitmask[j / 8] & (1 << (j % 8))
+is_valid[j] -> bitmap[j / 8] & (1 << (j % 8))
 ```
 
-Physically, non-nullable (NN) arrays do not have a null bitmask.
+We use [least-significant bit (LSB) numbering][1] (also known as
+bit-endianness). This means that within a group of 8 bits, we read
+right-to-left:
 
-For nested types, if the top-level nested type is nullable, it has its own
-bitmask regardless of whether the child types are nullable.
+```
+values = [0, 1, null, 2, null, 3]
+
+bitmap
+j mod 8   7  6  5  4  3  2  1  0
+          0  0  1  0  1  0  1  1
+```
+
+Arrays having a 0 null count may choose to not allocate the null
+bitmap. Implementations may choose to always allocate one anyway as a matter of
+convenience, but this should be noted when memory is being shared.
+
+Nested type arrays have their own null bitmap and null count regardless of
+the null count and null bits of their child arrays.
 
 ## Primitive value arrays
 
@@ -112,9 +139,8 @@ Internally, the array contains a contiguous memory buffer whose total size is
 equal to the slot width multiplied by the array length. For bit-packed types,
 the size is rounded up to the nearest byte.
 
-The associated null bitmask (for nullable types) is contiguously allocated (as
-described above) but does not need to be adjacent in memory to the values
-buffer.
+The associated null bitmap is contiguously allocated (as described above) but
+does not need to be adjacent in memory to the values buffer.
 
 (diagram not to scale)
 
@@ -180,22 +206,22 @@ For example, the struct (field names shown here as strings for illustration
 purposes)
 
 ```
-Struct [nullable] <
-  name: String (= List<char>) [nullable],
-  age: Int32 [not-nullable]
+Struct <
+  name: String (= List<char>),
+  age: Int32
 >
 ```
 
-has two child arrays, one List<char> array (layout as above) and one
-non-nullable 4-byte physical value array having Int32 (not-null) logical
-type. Here is a diagram showing the full physical layout of this struct:
+has two child arrays, one List<char> array (layout as above) and one 4-byte
+physical value array having Int32 logical type. Here is a diagram showing the
+full physical layout of this struct:
 
 <img src="diagrams/layout-list-of-struct.png" width="400"/>
 
 While a struct does not have physical storage for each of its semantic slots
 (i.e. each scalar C-like struct), an entire struct slot can be set to null via
-the bitmask. Whether each of the child field arrays can have null values
-depends on whether or not the respective relative type is nullable.
+the null bitmap. Any of the child field arrays can have null values according
+to their respective independent null bitmaps.
 
 ## Dense union type
 
@@ -233,8 +259,7 @@ Here is a diagram of an example dense union:
 
 A sparse union has the same structure as a dense union, with the omission of
 the offsets array. In this case, the child arrays are each equal in length to
-the length of the union. This is analogous to a large struct in which all
-fields are nullable.
+the length of the union.
 
 While a sparse union may use significantly more space compared with a dense
 union, it has some advantages that may be desirable in certain use cases:
@@ -251,3 +276,5 @@ the correct value.
 ## References
 
 Drill docs https://drill.apache.org/docs/value-vectors/
+
+[1]: https://en.wikipedia.org/wiki/Bit_numbering
