@@ -80,7 +80,11 @@ template <typename T>
 Status PrimitiveBuilder<T>::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
   data_ = std::make_shared<PoolBuffer>(pool_);
-  RETURN_NOT_OK(data_->Resize(type_traits<T>::bytes_required(capacity)));
+
+  int64_t nbytes = type_traits<T>::bytes_required(capacity);
+  RETURN_NOT_OK(data_->Resize(nbytes));
+  memset(data_->mutable_data(), 0, nbytes);
+
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
 }
@@ -96,8 +100,13 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
     RETURN_NOT_OK(Init(capacity));
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-    RETURN_NOT_OK(data_->Resize(type_traits<T>::bytes_required(capacity)));
+
+    int64_t old_bytes = data_->size();
+    int64_t new_bytes = type_traits<T>::bytes_required(capacity);
+    RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
+
+    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
   }
   capacity_ = capacity;
   return Status::OK();
@@ -167,6 +176,11 @@ template class NumericBuilder<Int64Type>;
 template class NumericBuilder<FloatType>;
 template class NumericBuilder<DoubleType>;
 
+BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
+    int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap) :
+    PrimitiveArray(std::make_shared<BooleanType>(), length,
+        data, null_count, null_bitmap) {}
 
 bool BooleanArray::EqualsExact(const BooleanArray& other) const {
   if (this == &other) return true;
@@ -207,11 +221,11 @@ Status BooleanBuilder::Append(const uint8_t* values, int32_t length,
     const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
-  if (length > 0) {
-    for (int i = 0; i < length; ++i) {
-      if (values[i] > 0) {
-        util::set_bit(raw_data_, length_ + i);
-      }
+  for (int i = 0; i < length; ++i) {
+    if (values[i] > 0) {
+      util::set_bit(raw_data_, length_ + i);
+    } else {
+      util::clear_bit(raw_data_, length_ + i);
     }
   }
 
@@ -222,7 +236,6 @@ Status BooleanBuilder::Append(const uint8_t* values, int32_t length,
       util::set_bit(null_bitmap_data_, length_ + i);
     }
   }
-
   length_ += length;
   return Status::OK();
 }

@@ -27,6 +27,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -273,9 +274,7 @@ class BooleanArray : public PrimitiveArray {
 
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :
-      PrimitiveArray(std::make_shared<BooleanType>(), length,
-          data, null_count, null_bitmap) {}
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -312,8 +311,14 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
     util::set_bit(null_bitmap_data_, length_);
     if (val) {
       util::set_bit(raw_data_, length_);
+    } else {
+      util::clear_bit(raw_data_, length_);
     }
     ++length_;
+  }
+
+  void Append(uint8_t val) {
+    Append(static_cast<bool>(val));
   }
 
   // Vector append
