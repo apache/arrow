@@ -20,10 +20,10 @@ matrix:
     language: cpp
     os: linux
     before_script:
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - compiler: clang
