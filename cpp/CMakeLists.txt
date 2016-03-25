@@ -528,6 +528,7 @@ set(ARROW_SRCS
   src/arrow/ipc/metadata-internal.cc
 
   src/arrow/types/construct.cc
+  src/arrow/types/decimal.cc
   src/arrow/types/json.cc
   src/arrow/types/list.cc
   src/arrow/types/primitive.cc
