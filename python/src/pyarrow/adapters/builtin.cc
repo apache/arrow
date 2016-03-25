@@ -258,7 +258,6 @@ class TypedConverter : public SeqConverter {
 class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
-    int64_t val;
     Py_ssize_t size = PySequence_Size(seq);
     RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {

@@ -121,9 +121,18 @@ class PrimitiveBuilder : public ArrayBuilder {
     return data_;
   }
 
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(const value_type* values, int32_t length,
+      const uint8_t* valid_bytes = nullptr);
+
   // Ensure that builder can accommodate an additional number of
   // elements. Resizes if the current capacity is not sufficient
   Status Reserve(int32_t elements);
+
+  std::shared_ptr<Array> Finish() override;
 
  protected:
   std::shared_ptr<PoolBuffer> data_;
@@ -134,15 +143,15 @@ class PrimitiveBuilder : public ArrayBuilder {
   // Increase the capacity of the builder to accommodate at least the indicated
   // number of elements
   Status Resize(int32_t capacity);
-
-  std::shared_ptr<Array> Finish() override;
 };
 
-template <typename Type>
-class NumericBuilder : public PrimitiveBuilder<Type> {
+template <typename T>
+class NumericBuilder : public PrimitiveBuilder<T> {
  public:
-  using typename PrimitiveBuilder<Type>::value_type;
-  using PrimitiveBuilder<Type>::PrimitiveBuilder;
+  using typename PrimitiveBuilder<T>::value_type;
+  using PrimitiveBuilder<T>::PrimitiveBuilder;
+
+  using PrimitiveBuilder<T>::Append;
 
   // Scalar append. Does not capacity-check; make sure to call Reserve beforehand
   void Append(value_type val) {
@@ -150,19 +159,13 @@ class NumericBuilder : public PrimitiveBuilder<Type> {
     raw_data_[length_++] = val;
   }
 
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
-  Status Append(const value_type* values, int32_t length,
-      const uint8_t* valid_bytes = nullptr);
-
-  std::shared_ptr<Array> Finish() override;
-
  protected:
-  using PrimitiveBuilder<Type>::length_;
-  using PrimitiveBuilder<Type>::null_bitmap_data_;
-  using PrimitiveBuilder<Type>::raw_data_;
+  using PrimitiveBuilder<T>::length_;
+  using PrimitiveBuilder<T>::null_bitmap_data_;
+  using PrimitiveBuilder<T>::raw_data_;
+
+  using PrimitiveBuilder<T>::Init;
+  using PrimitiveBuilder<T>::Resize;
 };
 
 template <>
@@ -306,7 +309,7 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
 
   virtual ~BooleanBuilder() {}
 
-  std::shared_ptr<Array> Finish() override;
+  using PrimitiveBuilder<BooleanType>::Append;
 
   // Scalar append
   void Append(bool val) {
@@ -322,16 +325,6 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
   void Append(uint8_t val) {
     Append(static_cast<bool>(val));
   }
-
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
-  Status Append(const uint8_t* values, int32_t length,
-      const uint8_t* valid_bytes = nullptr);
-
-  Status Append(const std::vector<uint8_t>& values,
-      const uint8_t* valid_bytes = nullptr);
 };
 
 } // namespace arrow

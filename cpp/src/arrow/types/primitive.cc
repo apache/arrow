@@ -122,12 +122,7 @@ Status PrimitiveBuilder<T>::Reserve(int32_t elements) {
 }
 
 template <typename T>
-std::shared_ptr<Array> NumericBuilder<T>::Finish() {
-  return PrimitiveBuilder<T>::Finish();
-}
-
-template <typename T>
-Status NumericBuilder<T>::Append(const value_type* values, int32_t length,
+Status PrimitiveBuilder<T>::Append(const value_type* values, int32_t length,
     const uint8_t* valid_bytes) {
   RETURN_NOT_OK(PrimitiveBuilder<T>::Reserve(length));
 
@@ -170,16 +165,41 @@ std::shared_ptr<Array> PrimitiveBuilder<T>::Finish() {
   return result;
 }
 
-template class NumericBuilder<UInt8Type>;
-template class NumericBuilder<UInt16Type>;
-template class NumericBuilder<UInt32Type>;
-template class NumericBuilder<UInt64Type>;
-template class NumericBuilder<Int8Type>;
-template class NumericBuilder<Int16Type>;
-template class NumericBuilder<Int32Type>;
-template class NumericBuilder<Int64Type>;
-template class NumericBuilder<FloatType>;
-template class NumericBuilder<DoubleType>;
+template <>
+Status PrimitiveBuilder<BooleanType>::Append(const uint8_t* values, int32_t length,
+    const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+
+  for (int i = 0; i < length; ++i) {
+    if (values[i] > 0) {
+      util::set_bit(raw_data_, length_ + i);
+    } else {
+      util::clear_bit(raw_data_, length_ + i);
+    }
+  }
+
+  if (valid_bytes != nullptr) {
+    PrimitiveBuilder<BooleanType>::AppendNulls(valid_bytes, length);
+  } else {
+    for (int i = 0; i < length; ++i) {
+      util::set_bit(null_bitmap_data_, length_ + i);
+    }
+  }
+  length_ += length;
+  return Status::OK();
+}
+
+template class PrimitiveBuilder<UInt8Type>;
+template class PrimitiveBuilder<UInt16Type>;
+template class PrimitiveBuilder<UInt32Type>;
+template class PrimitiveBuilder<UInt64Type>;
+template class PrimitiveBuilder<Int8Type>;
+template class PrimitiveBuilder<Int16Type>;
+template class PrimitiveBuilder<Int32Type>;
+template class PrimitiveBuilder<Int64Type>;
+template class PrimitiveBuilder<FloatType>;
+template class PrimitiveBuilder<DoubleType>;
+template class PrimitiveBuilder<BooleanType>;
 
 BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
     int32_t null_count,
@@ -220,33 +240,6 @@ bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
     return false;
   }
   return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
-}
-
-Status BooleanBuilder::Append(const uint8_t* values, int32_t length,
-    const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(Reserve(length));
-
-  for (int i = 0; i < length; ++i) {
-    if (values[i] > 0) {
-      util::set_bit(raw_data_, length_ + i);
-    } else {
-      util::clear_bit(raw_data_, length_ + i);
-    }
-  }
-
-  if (valid_bytes != nullptr) {
-    PrimitiveBuilder<BooleanType>::AppendNulls(valid_bytes, length);
-  } else {
-    for (int i = 0; i < length; ++i) {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
-  length_ += length;
-  return Status::OK();
-}
-
-std::shared_ptr<Array> BooleanBuilder::Finish() {
-  return PrimitiveBuilder<BooleanType>::Finish();
 }
 
 } // namespace arrow
