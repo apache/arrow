@@ -69,6 +69,8 @@ class ArrayBuilder {
   // Resizes the null_bitmap array
   Status Resize(int32_t new_bits);
 
+  Status Reserve(int32_t extra_bits);
+
   // For cases where raw data was memcpy'd into the internal buffers, allows us
   // to advance the length of the builder. It is your responsibility to use
   // this function responsibly.

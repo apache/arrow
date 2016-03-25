@@ -122,6 +122,11 @@ Status PrimitiveBuilder<T>::Reserve(int32_t elements) {
 }
 
 template <typename T>
+std::shared_ptr<Array> NumericBuilder<T>::Finish() {
+  return PrimitiveBuilder<T>::Finish();
+}
+
+template <typename T>
 Status NumericBuilder<T>::Append(const value_type* values, int32_t length,
     const uint8_t* valid_bytes) {
   RETURN_NOT_OK(PrimitiveBuilder<T>::Reserve(length));

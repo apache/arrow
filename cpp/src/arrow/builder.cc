@@ -54,5 +54,12 @@ Status ArrayBuilder::Advance(int32_t elements) {
   return Status::OK();
 }
 
+Status ArrayBuilder::Reserve(int32_t elements) {
+  if (length_ + elements > capacity_) {
+    int32_t new_capacity = util::next_power2(length_ + elements);
+    return Resize(new_capacity);
+  }
+  return Status::OK();
+}
 
 } // namespace arrow

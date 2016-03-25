@@ -69,11 +69,11 @@ PRIMITIVE_TEST(BooleanType, BOOL, "bool");
 // ----------------------------------------------------------------------
 // Primitive type tests
 
-TEST_F(TestBuilder, TestResize) {
+TEST_F(TestBuilder, TestReserve) {
   builder_->Init(10);
   ASSERT_EQ(2, builder_->null_bitmap()->size());
 
-  builder_->Resize(30);
+  builder_->Reserve(30);
   ASSERT_EQ(4, builder_->null_bitmap()->size());
 }
 
@@ -260,9 +260,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();
 
   int n = 1000;
-  ASSERT_OK(this->builder_->Init(n));
-  ASSERT_EQ(n, this->builder_->capacity());
-  ASSERT_EQ(type_traits<Type>::bytes_required(n),
+  ASSERT_OK(this->builder_->Reserve(n));
+  ASSERT_EQ(util::next_power2(n), this->builder_->capacity());
+  ASSERT_EQ(util::next_power2(type_traits<Type>::bytes_required(n)),
       this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
@@ -404,13 +404,15 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
   int n = 1000;
-  ASSERT_OK(this->builder_->Init(n));
+  ASSERT_OK(this->builder_->Reserve(n));
 
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_EQ(100, this->builder_->length());
 
   ASSERT_OK(this->builder_->Advance(900));
-  ASSERT_RAISES(Invalid, this->builder_->Advance(1));
+
+  int too_many = this->builder_->capacity() - 1000 + 1;
+  ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
@@ -418,7 +420,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
 
   int cap = MIN_BUILDER_CAPACITY * 2;
 
-  ASSERT_OK(this->builder_->Resize(cap));
+  ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
 
   ASSERT_EQ(type_traits<Type>::bytes_required(cap), this->builder_->data()->size());

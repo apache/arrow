@@ -102,18 +102,6 @@ class PrimitiveBuilder : public ArrayBuilder {
 
   virtual ~PrimitiveBuilder() {}
 
-  Status Init(int32_t capacity);
-
-  // Increase the capacity of the builder to accommodate at least the indicated
-  // number of elements
-  Status Resize(int32_t capacity);
-
-  // Ensure that builder can accommodate an additional number of
-  // elements. Resizes if the current capacity is not sufficient
-  Status Reserve(int32_t elements);
-
-  std::shared_ptr<Array> Finish() override;
-
   using ArrayBuilder::Advance;
 
   // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
@@ -133,9 +121,21 @@ class PrimitiveBuilder : public ArrayBuilder {
     return data_;
   }
 
+  // Ensure that builder can accommodate an additional number of
+  // elements. Resizes if the current capacity is not sufficient
+  Status Reserve(int32_t elements);
+
  protected:
   std::shared_ptr<PoolBuffer> data_;
   value_type* raw_data_;
+
+  Status Init(int32_t capacity);
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity);
+
+  std::shared_ptr<Array> Finish() override;
 };
 
 template <typename Type>
@@ -156,6 +156,8 @@ class NumericBuilder : public PrimitiveBuilder<Type> {
   // will be considered as a null for that slot
   Status Append(const value_type* values, int32_t length,
       const uint8_t* valid_bytes = nullptr);
+
+  std::shared_ptr<Array> Finish() override;
 
  protected:
   using PrimitiveBuilder<Type>::length_;
