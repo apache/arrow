@@ -84,7 +84,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   typedef typename Attrs::BuilderType BuilderType;
   typedef typename Attrs::T T;
 
-  void SetUp() {
+  virtual void SetUp() {
     TestBuilder::SetUp();
 
     type_ = Attrs::type();
@@ -99,7 +99,9 @@ class TestPrimitiveBuilder : public TestBuilder {
 
   void RandomData(int N, double pct_null = 0.1) {
     Attrs::draw(N, &draws_);
-    test::random_null_bitmap(N, pct_null, &valid_bytes_);
+
+    valid_bytes_.resize(N);
+    test::random_null_bitmap(N, pct_null, valid_bytes_.data());
   }
 
   void CheckNullable() {
@@ -109,7 +111,7 @@ class TestPrimitiveBuilder : public TestBuilder {
         reinterpret_cast<uint8_t*>(draws_.data()),
         size * sizeof(T));
 
-    auto ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_.data(), size);
+    auto ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);
     int32_t ex_null_count = test::null_count(valid_bytes_);
 
     auto expected = std::make_shared<ArrayType>(size, ex_data, ex_null_count,
@@ -122,7 +124,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder_->length());
     ASSERT_EQ(0, builder_->capacity());
     ASSERT_EQ(0, builder_->null_count());
-    ASSERT_EQ(nullptr, builder_->buffer());
+    ASSERT_EQ(nullptr, builder_->data());
 
     ASSERT_EQ(ex_null_count, result->null_count());
     ASSERT_TRUE(result->EqualsExact(*expected.get()));
@@ -142,7 +144,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     // Builder is now reset
     ASSERT_EQ(0, builder_nn_->length());
     ASSERT_EQ(0, builder_nn_->capacity());
-    ASSERT_EQ(nullptr, builder_nn_->buffer());
+    ASSERT_EQ(nullptr, builder_nn_->data());
 
     ASSERT_TRUE(result->EqualsExact(*expected.get()));
     ASSERT_EQ(0, result->null_count());
@@ -150,7 +152,6 @@ class TestPrimitiveBuilder : public TestBuilder {
 
  protected:
   TypePtr type_;
-  TypePtr type_nn_;
   shared_ptr<BuilderType> builder_;
   shared_ptr<BuilderType> builder_nn_;
 
@@ -176,6 +177,14 @@ class TestPrimitiveBuilder : public TestBuilder {
     }                                               \
   }
 
+#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)      \
+  struct P##CapType {                                   \
+    PTYPE_DECL(CapType, c_type);                        \
+    static void draw(int N, vector<T>* draws) {         \
+      test::random_real<T>(N, 0, LOWER, UPPER, draws);  \
+    }                                                   \
+  }
+
 PINT_DECL(UInt8, uint8_t, 0, UINT8_MAX);
 PINT_DECL(UInt16, uint16_t, 0, UINT16_MAX);
 PINT_DECL(UInt32, uint32_t, 0, UINT32_MAX);
@@ -186,8 +195,12 @@ PINT_DECL(Int16, int16_t, INT16_MIN, INT16_MAX);
 PINT_DECL(Int32, int32_t, INT32_MIN, INT32_MAX);
 PINT_DECL(Int64, int64_t, INT64_MIN, INT64_MAX);
 
+PFLOAT_DECL(Float, float, -1000, 1000);
+PFLOAT_DECL(Double, double, -1000, 1000);
+
 typedef ::testing::Types<PUInt8, PUInt16, PUInt32, PUInt64,
-                         PInt8, PInt16, PInt32, PInt64> Primitives;
+                         PInt8, PInt16, PInt32, PInt64,
+                         PFloat, PDouble> Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
@@ -204,7 +217,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   int n = 1000;
   ASSERT_OK(this->builder_->Init(n));
   ASSERT_EQ(n, this->builder_->capacity());
-  ASSERT_EQ(n * sizeof(T), this->builder_->buffer()->size());
+  ASSERT_EQ(n * sizeof(T), this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
   ASSERT_EQ(0, this->builder_->num_children());
@@ -235,12 +248,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 
   this->RandomData(size);
 
+  this->builder_->Reserve(size);
+
   int i;
   for (i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {
-      ASSERT_OK(this->builder_->Append(draws[i]));
+      this->builder_->Append(draws[i]);
     } else {
-      ASSERT_OK(this->builder_->AppendNull());
+      this->builder_->AppendNull();
     }
   }
 
@@ -261,15 +276,18 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 
   this->RandomData(size);
 
+  this->builder_->Reserve(1000);
+  this->builder_nn_->Reserve(1000);
+
   int i;
   // Append the first 1000
   for (i = 0; i < 1000; ++i) {
     if (valid_bytes[i] > 0) {
-      ASSERT_OK(this->builder_->Append(draws[i]));
+      this->builder_->Append(draws[i]);
     } else {
-      ASSERT_OK(this->builder_->AppendNull());
+      this->builder_->AppendNull();
     }
-    ASSERT_OK(this->builder_nn_->Append(draws[i]));
+    this->builder_nn_->Append(draws[i]);
   }
 
   ASSERT_EQ(1000, this->builder_->length());
@@ -278,14 +296,17 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   ASSERT_EQ(1000, this->builder_nn_->length());
   ASSERT_EQ(1024, this->builder_nn_->capacity());
 
+  this->builder_->Reserve(size - 1000);
+  this->builder_nn_->Reserve(size - 1000);
+
   // Append the next 9000
   for (i = 1000; i < size; ++i) {
     if (valid_bytes[i] > 0) {
-      ASSERT_OK(this->builder_->Append(draws[i]));
+      this->builder_->Append(draws[i]);
     } else {
-      ASSERT_OK(this->builder_->AppendNull());
+      this->builder_->AppendNull();
     }
-    ASSERT_OK(this->builder_nn_->Append(draws[i]));
+    this->builder_nn_->Append(draws[i]);
   }
 
   ASSERT_EQ(size, this->builder_->length());
@@ -350,7 +371,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   ASSERT_OK(this->builder_->Resize(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
 
-  ASSERT_EQ(cap * sizeof(T), this->builder_->buffer()->size());
+  ASSERT_EQ(cap * sizeof(T), this->builder_->data()->size());
   ASSERT_EQ(util::ceil_byte(cap) / 8, this->builder_->null_bitmap()->size());
 }
 
@@ -366,5 +387,73 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_EQ(util::next_power2(MIN_BUILDER_CAPACITY + 100),
       this->builder_->capacity());
 }
+
+// ----------------------------------------------------------------------
+// Boolean tests
+
+struct PBoolean {
+  PTYPE_DECL(Boolean, bool);
+};
+
+class TestBooleanBuilder : public TestPrimitiveBuilder<PBoolean> {
+ public:
+
+  void RandomData(int N, double pct_null = 0.1) {
+    draws_.resize(N);
+    valid_bytes_.resize(N);
+
+    test::random_null_bitmap(N, 0.5, draws_.data());
+    test::random_null_bitmap(N, pct_null, valid_bytes_.data());
+  }
+
+  void CheckNullable() {
+    int size = builder_->length();
+
+    auto ex_data = test::bytes_to_null_buffer(draws_);
+    auto ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);
+    int32_t ex_null_count = test::null_count(valid_bytes_);
+
+    auto expected = std::make_shared<ArrayType>(size, ex_data, ex_null_count,
+        ex_null_bitmap);
+
+    std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(
+        builder_->Finish());
+
+    // Builder is now reset
+    ASSERT_EQ(0, builder_->length());
+    ASSERT_EQ(0, builder_->capacity());
+    ASSERT_EQ(0, builder_->null_count());
+    ASSERT_EQ(nullptr, builder_->data());
+
+    ASSERT_EQ(ex_null_count, result->null_count());
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
+  }
+
+  void CheckNonNullable() {
+    int size = builder_nn_->length();
+
+    auto ex_data = test::bytes_to_null_buffer(draws_);
+    auto expected = std::make_shared<ArrayType>(size, ex_data);
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
+        builder_nn_->Finish());
+
+    // Builder is now reset
+    ASSERT_EQ(0, builder_nn_->length());
+    ASSERT_EQ(0, builder_nn_->capacity());
+    ASSERT_EQ(nullptr, builder_nn_->data());
+
+    ASSERT_TRUE(result->EqualsExact(*expected.get()));
+    ASSERT_EQ(0, result->null_count());
+  }
+
+ protected:
+  TypePtr type_;
+  shared_ptr<BooleanBuilder> builder_;
+  shared_ptr<BooleanBuilder> builder_nn_;
+
+  vector<uint8_t> draws_;
+  vector<uint8_t> valid_bytes_;
+};
 
 } // namespace arrow

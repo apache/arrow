@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace arrow {
 
@@ -66,8 +67,8 @@ static inline int64_t next_power2(int64_t n) {
   return n;
 }
 
-void bytes_to_bits(uint8_t* bytes, int length, uint8_t* bits);
-Status bytes_to_bits(uint8_t*, int, std::shared_ptr<Buffer>*);
+void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
+Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 } // namespace util
 

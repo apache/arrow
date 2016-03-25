@@ -51,7 +51,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(UINT64, UInt64Builder);
     BUILDER_CASE(INT64, Int64Builder);
 
-    // BUILDER_CASE(BOOL, BooleanBuilder);
+    BUILDER_CASE(BOOL, BooleanBuilder);
 
     BUILDER_CASE(FLOAT, FloatBuilder);
     BUILDER_CASE(DOUBLE, DoubleBuilder);
@@ -83,6 +83,7 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
     std::shared_ptr<Array>* out) {
   switch (type->type) {
+    MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);
     MAKE_PRIMITIVE_ARRAY_CASE(INT8, Int8Array);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT16, UInt16Array);

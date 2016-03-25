@@ -27,7 +27,6 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 
-#include "arrow/types/boolean.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"

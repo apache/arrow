@@ -21,7 +21,6 @@
 
 # Headers: top level
 install(FILES
-  boolean.h
   collection.h
   construct.h
   datetime.h
