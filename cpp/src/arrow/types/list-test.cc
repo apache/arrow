@@ -116,11 +116,14 @@ TEST_F(TestListBuilder, TestBasics) {
 
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
+  EXPECT_OK(builder_->Reserve(lengths.size()));
+  EXPECT_OK(vb->Reserve(values.size()));
+
   int pos = 0;
   for (size_t i = 0; i < lengths.size(); ++i) {
     ASSERT_OK(builder_->Append(is_null[i] > 0));
     for (int j = 0; j < lengths[i]; ++j) {
-      ASSERT_OK(vb->Append(values[pos++]));
+      vb->Append(values[pos++]);
     }
   }
 

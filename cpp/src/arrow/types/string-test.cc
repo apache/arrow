@@ -92,7 +92,7 @@ class TestStringContainer : public ::testing::Test  {
 
     offsets_buf_ = test::to_buffer(offsets_);
 
-    null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_.data(), valid_bytes_.size());
+    null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(length_, offsets_buf_, values_,

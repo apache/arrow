@@ -16,67 +16,74 @@
 # under the License.
 
 from pyarrow.compat import unittest, u
-import pyarrow as arrow
+import pyarrow as A
 
 
 class TestScalars(unittest.TestCase):
 
     def test_null_singleton(self):
         with self.assertRaises(Exception):
-            arrow.NAType()
+            A.NAType()
 
     def test_bool(self):
-        pass
-
-    def test_int64(self):
-        arr = arrow.from_pylist([1, 2, None])
+        arr = A.from_pylist([True, None, False, None])
 
         v = arr[0]
-        assert isinstance(v, arrow.Int64Value)
+        assert isinstance(v, A.BooleanValue)
+        assert repr(v) == "True"
+        assert v.as_py() == True
+
+        assert arr[1] is A.NA
+
+    def test_int64(self):
+        arr = A.from_pylist([1, 2, None])
+
+        v = arr[0]
+        assert isinstance(v, A.Int64Value)
         assert repr(v) == "1"
         assert v.as_py() == 1
 
-        assert arr[2] is arrow.NA
+        assert arr[2] is A.NA
 
     def test_double(self):
-        arr = arrow.from_pylist([1.5, None, 3])
+        arr = A.from_pylist([1.5, None, 3])
 
         v = arr[0]
-        assert isinstance(v, arrow.DoubleValue)
+        assert isinstance(v, A.DoubleValue)
         assert repr(v) == "1.5"
         assert v.as_py() == 1.5
 
-        assert arr[1] is arrow.NA
+        assert arr[1] is A.NA
 
         v = arr[2]
         assert v.as_py() == 3.0
 
     def test_string(self):
-        arr = arrow.from_pylist(['foo', None, u('bar')])
+        arr = A.from_pylist(['foo', None, u('bar')])
 
         v = arr[0]
-        assert isinstance(v, arrow.StringValue)
+        assert isinstance(v, A.StringValue)
         assert repr(v) == "'foo'"
         assert v.as_py() == 'foo'
 
-        assert arr[1] is arrow.NA
+        assert arr[1] is A.NA
 
         v = arr[2].as_py()
         assert v == 'bar'
         assert isinstance(v, str)
 
     def test_list(self):
-        arr = arrow.from_pylist([['foo', None], None, ['bar'], []])
+        arr = A.from_pylist([['foo', None], None, ['bar'], []])
 
         v = arr[0]
         assert len(v) == 2
-        assert isinstance(v, arrow.ListValue)
+        assert isinstance(v, A.ListValue)
         assert repr(v) == "['foo', None]"
         assert v.as_py() == ['foo', None]
         assert v[0].as_py() == 'foo'
-        assert v[1] is arrow.NA
+        assert v[1] is A.NA
 
-        assert arr[1] is arrow.NA
+        assert arr[1] is A.NA
 
         v = arr[3]
         assert len(v) == 0

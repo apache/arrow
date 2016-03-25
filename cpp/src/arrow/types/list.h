@@ -116,7 +116,8 @@ class ListBuilder : public Int32Builder {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
-    memcpy(raw_buffer() + length_, values, length * elsize_);
+    memcpy(raw_data_ + length_, values,
+        type_traits<Int32Type>::bytes_required(length));
 
     if (valid_bytes != nullptr) {
       AppendNulls(valid_bytes, length);
@@ -132,13 +133,13 @@ class ListBuilder : public Int32Builder {
 
     // Add final offset if the length is non-zero
     if (length_) {
-      raw_buffer()[length_] = items->length();
+      raw_data_[length_] = items->length();
     }
 
-    auto result = std::make_shared<Container>(type_, length_, values_, items,
+    auto result = std::make_shared<Container>(type_, length_, data_, items,
         null_count_, null_bitmap_);
 
-    values_ = null_bitmap_ = nullptr;
+    data_ = null_bitmap_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
 
     return result;
@@ -162,7 +163,7 @@ class ListBuilder : public Int32Builder {
     } else {
       util::set_bit(null_bitmap_data_, length_);
     }
-    raw_buffer()[length_++] = value_builder_->length();
+    raw_data_[length_++] = value_builder_->length();
     return Status::OK();
   }
 

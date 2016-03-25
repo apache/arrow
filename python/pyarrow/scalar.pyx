@@ -58,7 +58,10 @@ cdef class ArrayValue(Scalar):
 
 
 cdef class BooleanValue(ArrayValue):
-    pass
+
+    def as_py(self):
+        cdef CBooleanArray* ap = <CBooleanArray*> self.sp_array.get()
+        return ap.Value(self.index)
 
 
 cdef class Int8Value(ArrayValue):
@@ -172,6 +175,7 @@ cdef class ListValue(ArrayValue):
 
 
 cdef dict _scalar_classes = {
+    Type_BOOL: BooleanValue,
     Type_UINT8: Int8Value,
     Type_UINT16: Int16Value,
     Type_UINT32: Int32Value,

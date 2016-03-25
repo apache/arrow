@@ -23,6 +23,7 @@
 install(FILES
   bit-util.h
   buffer.h
+  logging.h
   macros.h
   memory-pool.h
   status.h
@@ -59,7 +60,7 @@ if (ARROW_BUILD_BENCHMARKS)
     )
   else()
 	  target_link_libraries(arrow_benchmark_main
-      benchmark 
+      benchmark
       pthread
 	  )
   endif()

@@ -99,27 +99,26 @@ void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
 
 
 template <typename T>
+void random_real(int n, uint32_t seed, T min_value, T max_value,
+    std::vector<T>* out) {
+  std::mt19937 gen(seed);
+  std::uniform_real_distribution<T> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out->push_back(d(gen));
+  }
+}
+
+
+template <typename T>
 std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
   return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(values.data()),
       values.size() * sizeof(T));
 }
 
-void random_null_bitmap(int64_t n, double pct_null, std::vector<uint8_t>* null_bitmap) {
+void random_null_bitmap(int64_t n, double pct_null, uint8_t* null_bitmap) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    if (rng.NextDoubleFraction() > pct_null) {
-      null_bitmap->push_back(1);
-    } else {
-      // null
-      null_bitmap->push_back(0);
-    }
-  }
-}
-
-void random_null_bitmap(int64_t n, double pct_null, std::vector<bool>* null_bitmap) {
-  Random rng(random_seed());
-  for (int i = 0; i < n; ++i) {
-    null_bitmap->push_back(rng.NextDoubleFraction() > pct_null);
+    null_bitmap[i] = rng.NextDoubleFraction() > pct_null;
   }
 }
 
@@ -160,11 +159,11 @@ static inline int null_count(const std::vector<uint8_t>& valid_bytes) {
   return result;
 }
 
-std::shared_ptr<Buffer> bytes_to_null_buffer(uint8_t* bytes, int length) {
+std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) {
   std::shared_ptr<Buffer> out;
 
   // TODO(wesm): error checking
-  util::bytes_to_bits(bytes, length, &out);
+  util::bytes_to_bits(bytes, &out);
   return out;
 }
 

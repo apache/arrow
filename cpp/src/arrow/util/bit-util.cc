@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <vector>
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
@@ -23,25 +24,24 @@
 
 namespace arrow {
 
-void util::bytes_to_bits(uint8_t* bytes, int length, uint8_t* bits) {
-  for (int i = 0; i < length; ++i) {
-    if (static_cast<bool>(bytes[i])) {
+void util::bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (bytes[i] > 0) {
       set_bit(bits, i);
     }
   }
 }
 
-Status util::bytes_to_bits(uint8_t* bytes, int length,
+Status util::bytes_to_bits(const std::vector<uint8_t>& bytes,
     std::shared_ptr<Buffer>* out) {
-  int bit_length = ceil_byte(length) / 8;
+  int bit_length = util::bytes_for_bits(bytes.size());
 
   auto buffer = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(buffer->Resize(bit_length));
   memset(buffer->mutable_data(), 0, bit_length);
-  bytes_to_bits(bytes, length, buffer->mutable_data());
+  bytes_to_bits(bytes, buffer->mutable_data());
 
   *out = buffer;
-
   return Status::OK();
 }
 

@@ -71,8 +71,7 @@ TEST_F(TestArray, TestIsNull) {
     if (x == 0) ++null_count;
   }
 
-  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap.data(),
-      null_bitmap.size());
+  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap);
   std::unique_ptr<Array> arr;
   arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_count, null_buf));
 
@@ -82,7 +81,7 @@ TEST_F(TestArray, TestIsNull) {
   ASSERT_TRUE(arr->null_bitmap()->Equals(*null_buf.get()));
 
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
-    EXPECT_EQ(static_cast<bool>(null_bitmap[i]), !arr->IsNull(i)) << i;
+    EXPECT_EQ(null_bitmap[i], !arr->IsNull(i)) << i;
   }
 }
 

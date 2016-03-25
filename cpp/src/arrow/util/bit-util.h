@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace arrow {
 
@@ -43,15 +44,19 @@ static inline int64_t ceil_2bytes(int64_t size) {
 static constexpr uint8_t BITMASK[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 static inline bool get_bit(const uint8_t* bits, int i) {
-  return bits[i / 8] & BITMASK[i % 8];
+  return static_cast<bool>(bits[i / 8] & BITMASK[i % 8]);
 }
 
 static inline bool bit_not_set(const uint8_t* bits, int i) {
   return (bits[i / 8] & BITMASK[i % 8]) == 0;
 }
 
+static inline void clear_bit(uint8_t* bits, int i) {
+  bits[i / 8] &= ~BITMASK[i % 8];
+}
+
 static inline void set_bit(uint8_t* bits, int i) {
-  bits[i / 8] |= 1 << (i % 8);
+  bits[i / 8] |= BITMASK[i % 8];
 }
 
 static inline int64_t next_power2(int64_t n) {
@@ -66,8 +71,8 @@ static inline int64_t next_power2(int64_t n) {
   return n;
 }
 
-void bytes_to_bits(uint8_t* bytes, int length, uint8_t* bits);
-Status bytes_to_bits(uint8_t*, int, std::shared_ptr<Buffer>*);
+void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
+Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 } // namespace util
 

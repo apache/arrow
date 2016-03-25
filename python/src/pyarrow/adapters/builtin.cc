@@ -61,6 +61,8 @@ class ScalarVisitor {
     ++total_count_;
     if (obj == Py_None) {
       ++none_count_;
+    } else if (PyBool_Check(obj)) {
+      ++bool_count_;
     } else if (PyFloat_Check(obj)) {
       ++float_count_;
     } else if (IsPyInteger(obj)) {
@@ -256,6 +258,20 @@ class TypedConverter : public SeqConverter {
 class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
+    Py_ssize_t size = PySequence_Size(seq);
+    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(seq, i));
+      if (item.obj() == Py_None) {
+        typed_builder_->AppendNull();
+      } else {
+        if (item.obj() == Py_True) {
+          typed_builder_->Append(true);
+        } else {
+          typed_builder_->Append(false);
+        }
+      }
+    }
     return Status::OK();
   }
 };
@@ -265,14 +281,15 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
   Status AppendData(PyObject* seq) override {
     int64_t val;
     Py_ssize_t size = PySequence_Size(seq);
+    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
-        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+        typed_builder_->AppendNull();
       } else {
         val = PyLong_AsLongLong(item.obj());
         RETURN_IF_PYERROR();
-        RETURN_ARROW_NOT_OK(typed_builder_->Append(val));
+        typed_builder_->Append(val);
       }
     }
     return Status::OK();
@@ -284,14 +301,15 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
   Status AppendData(PyObject* seq) override {
     double val;
     Py_ssize_t size = PySequence_Size(seq);
+    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
-        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+        typed_builder_->AppendNull();
       } else {
         val = PyFloat_AsDouble(item.obj());
         RETURN_IF_PYERROR();
-        RETURN_ARROW_NOT_OK(typed_builder_->Append(val));
+        typed_builder_->Append(val);
       }
     }
     return Status::OK();

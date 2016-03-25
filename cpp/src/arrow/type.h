@@ -132,6 +132,10 @@ struct DataType {
     return children_.size();
   }
 
+  virtual int value_size() const {
+    return -1;
+  }
+
   virtual std::string ToString() const = 0;
 };
 
@@ -191,10 +195,13 @@ inline std::string PrimitiveType<Derived>::ToString() const {
 #define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)  \
   typedef C_TYPE c_type;                                    \
   static constexpr Type::type type_enum = Type::ENUM;       \
-  static constexpr int size = SIZE;                         \
                                                             \
   TYPENAME()                                                \
       : PrimitiveType<TYPENAME>() {}                        \
+                                                            \
+  virtual int value_size() const {                          \
+    return SIZE;                                            \
+  }                                                         \
                                                             \
   static const char* name() {                               \
     return NAME;                                            \
@@ -294,6 +301,12 @@ struct StructType : public DataType {
 
   std::string ToString() const override;
 };
+
+// These will be defined elsewhere
+template <typename T>
+struct type_traits {
+};
+
 
 } // namespace arrow
 
