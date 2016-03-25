@@ -86,6 +86,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool IsNull(int i)
 
+    cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
+        c_bool Value(int i)
+
     cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
         uint8_t Value(int i)
 

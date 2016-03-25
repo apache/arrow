@@ -22,7 +22,10 @@ import pyarrow
 class TestConvertList(unittest.TestCase):
 
     def test_boolean(self):
-        pass
+        arr = pyarrow.from_pylist([True, None, False, None])
+        assert len(arr) == 4
+        assert arr.null_count == 2
+        assert arr.type == pyarrow.bool_()
 
     def test_empty_list(self):
         arr = pyarrow.from_pylist([])
