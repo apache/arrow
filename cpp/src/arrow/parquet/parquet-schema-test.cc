@@ -15,12 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
+#include <vector>
+
 #include "gtest/gtest.h"
 
-#include "arrow/parquet/schema.h"
-
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 #include "arrow/util/status.h"
+
+#include "arrow/parquet/schema.h"
 
 namespace arrow {
 
@@ -28,54 +32,86 @@ namespace parquet {
 
 using parquet_cpp::Repetition;
 using parquet_cpp::schema::NodePtr;
+using parquet_cpp::schema::GroupNode;
 using parquet_cpp::schema::PrimitiveNode;
 
-TEST(TestNodeConversion, Primitive) {
+const auto BOOL = std::make_shared<BooleanType>();
+const auto UINT8 = std::make_shared<UInt8Type>();
+const auto INT32 = std::make_shared<Int32Type>();
+const auto INT64 = std::make_shared<Int64Type>();
+const auto FLOAT = std::make_shared<FloatType>();
+const auto DOUBLE = std::make_shared<DoubleType>();
+const auto UTF8 = std::make_shared<StringType>();
+const auto BINARY = std::make_shared<ListType>(
+    std::make_shared<Field>("", UINT8));
+
+class TestConvertParquetSchema : public ::testing::Test {
+ public:
+  virtual void SetUp() {}
+
+  void CheckFlatSchema(const std::vector<NodePtr>& nodes,
+      const std::shared_ptr<Schema>& expected_schema) {
+    NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+
+    parquet_cpp::SchemaDescriptor descr;
+    descr.Init(schema);
+
+    std::shared_ptr<Schema> result_schema;
+    ASSERT_OK(FromParquetSchema(&descr, &result_schema));
+
+    ASSERT_EQ(expected_schema->num_fields(), result_schema->num_fields());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+      auto lhs = result_schema->field(i);
+      auto rhs = expected_schema->field(i);
+      EXPECT_TRUE(lhs->Equals(rhs))
+        << i << " " << lhs->ToString() << " != " << rhs->ToString();
+    }
+  }
+};
+
+TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
   std::shared_ptr<Field> field;
 
-  NodePtr node = PrimitiveNode::Make("boolean", Repetition::REQUIRED,
-      parquet_cpp::Type::BOOLEAN);
+  parquet_fields.push_back(
+      PrimitiveNode::Make("boolean", Repetition::REQUIRED, parquet_cpp::Type::BOOLEAN));
+  arrow_fields.push_back(std::make_shared<Field>("boolean", BOOL, false));
 
-  ASSERT_OK(NodeToField(node, &field));
-  ASSERT_EQ(field->name, "boolean");
-  ASSERT_TRUE(field->type->Equals(std::make_shared<BooleanType>()));
-  ASSERT_FALSE(field->nullable);
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int32", Repetition::REQUIRED, parquet_cpp::Type::INT32));
+  arrow_fields.push_back(std::make_shared<Field>("int32", INT32, false));
 
-  node = PrimitiveNode::Make("int32", Repetition::REQUIRED, parquet_cpp::Type::INT32);
-  ASSERT_OK(NodeToField(node, &field));
-  ASSERT_EQ(field->name, "int32");
-  ASSERT_TRUE(field->type->Equals(std::make_shared<Int32Type>()));
-  ASSERT_FALSE(field->nullable);
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int64", Repetition::REQUIRED, parquet_cpp::Type::INT64));
+  arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
 
-  node = PrimitiveNode::Make("int64", Repetition::REQUIRED, parquet_cpp::Type::INT64);
-  ASSERT_OK(NodeToField(node, &field));
-  ASSERT_EQ(field->name, "int64");
-  ASSERT_TRUE(field->type->Equals(std::make_shared<Int64Type>()));
-  ASSERT_FALSE(field->nullable);
+  parquet_fields.push_back(
+      PrimitiveNode::Make("float", Repetition::OPTIONAL, parquet_cpp::Type::FLOAT));
+  arrow_fields.push_back(std::make_shared<Field>("float", FLOAT));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("double", Repetition::OPTIONAL, parquet_cpp::Type::DOUBLE));
+  arrow_fields.push_back(std::make_shared<Field>("double", DOUBLE));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("binary", Repetition::OPTIONAL,
+          parquet_cpp::Type::BYTE_ARRAY));
+  arrow_fields.push_back(std::make_shared<Field>("binary", BINARY));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("string", Repetition::OPTIONAL,
+          parquet_cpp::Type::BYTE_ARRAY,
+          parquet_cpp::LogicalType::UTF8));
+  arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
+
+  auto arrow_schema = std::make_shared<Schema>(arrow_fields);
+  CheckFlatSchema(parquet_fields, arrow_schema);
 
   // case parquet_cpp::Type::INT96:
   // TODO: Implement!
   // node = PrimitiveNode::Make("int96", Repetition::REQUIRED, parquet_cpp::Type::INT96);
-  // field = NodeToField(node);
-  // TODO: Assertions
-
-  // case parquet_cpp::Type::FLOAT:
-  node = PrimitiveNode::Make("float", Repetition::REQUIRED, parquet_cpp::Type::FLOAT);
-  ASSERT_OK(NodeToField(node, &field));
-  ASSERT_EQ(field->name, "float");
-  ASSERT_TRUE(field->type->Equals(std::make_shared<FloatType>()));
-  ASSERT_FALSE(field->nullable);
-
-  // case parquet_cpp::Type::DOUBLE:
-  node = PrimitiveNode::Make("double", Repetition::REQUIRED, parquet_cpp::Type::DOUBLE);
-  ASSERT_OK(NodeToField(node, &field));
-  ASSERT_EQ(field->name, "double");
-  ASSERT_TRUE(field->type->Equals(std::make_shared<DoubleType>()));
-  ASSERT_FALSE(field->nullable);
-
-  // TODO: Implement!
-  // node = PrimitiveNode::Make("byte_array", Repetition::REQUIRED,
-  //    parquet_cpp::Type::BYTE_ARRAY);
   // field = NodeToField(node);
   // TODO: Assertions
 
@@ -86,43 +122,7 @@ TEST(TestNodeConversion, Primitive) {
   // TODO: Assertions
 }
 
-const auto UINT8 = std::make_shared<UInt8Type>();
-
-TEST(TestNodeConversion, Int96Timestamp) {
-}
-
-TEST(TestNodeConversion, ByteArray) {
-  std::shared_ptr<Field> field;
-
-  NodePtr node = PrimitiveNode::Make("field0", Repetition::OPTIONAL,
-      parquet_cpp::Type::BYTE_ARRAY);
-  ASSERT_OK(NodeToField(node, &field));
-
-  std::shared_ptr<DataType> ex_type = std::make_shared<ListType>(
-    std::make_shared<Field>("", UINT8));
-
-  ASSERT_EQ(field->name, "field0");
-  ASSERT_TRUE(field->type->Equals(ex_type));
-  ASSERT_TRUE(field->nullable);
-
-  node = PrimitiveNode::Make("field1", Repetition::OPTIONAL,
-      parquet_cpp::Type::BYTE_ARRAY,
-      parquet_cpp::LogicalType::UTF8);
-  ASSERT_OK(NodeToField(node, &field));
-  ex_type = std::make_shared<StringType>();
-
-  ASSERT_EQ(field->name, "field1");
-  ASSERT_TRUE(field->type->Equals(ex_type));
-  ASSERT_TRUE(field->nullable);
-}
-
-TEST(TestNodeConversion, FixedLenByteArray) {
-}
-
-TEST(TestNodeConversion, Logical) {
-}
-
-TEST(TestSchemaConversion, Basics) {
+TEST(TestNodeConversion, DateAndTime) {
 }
 
 } // namespace parquet
