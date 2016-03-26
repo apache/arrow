@@ -19,15 +19,15 @@
 # arrow_parquet : Arrow <-> Parquet adapter
 
 set(PARQUET_SRCS
-    schema.cc
+  schema.cc
 )
 
 set(PARQUET_LIBS
-    arrow
-    ${PARQUET_SHARED_LIB}
+  arrow
+  ${PARQUET_SHARED_LIB}
 )
 
-add_library(arrow_parquet STATIC
+add_library(arrow_parquet SHARED
   ${PARQUET_SRCS}
 )
 target_link_libraries(arrow_parquet ${PARQUET_LIBS})

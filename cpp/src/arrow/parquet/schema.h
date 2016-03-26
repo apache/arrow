@@ -18,20 +18,24 @@
 #ifndef ARROW_PARQUET_SCHEMA_H
 #define ARROW_PARQUET_SCHEMA_H
 
-#include <arrow/schema.h>
-#include <arrow/type.h>
-#include <parquet/schema/descriptor.h>
-#include <parquet/schema/types.h>
-
 #include <memory>
+
+#include "parquet/api/schema.h"
+
+#include "arrow/schema.h"
+#include "arrow/type.h"
 
 namespace arrow {
 
+class Status;
+
 namespace parquet {
 
-std::shared_ptr<Field> NodeToField(const parquet_cpp::schema::NodePtr& node);
-std::shared_ptr<Schema> FromParquetSchema(
-    const parquet_cpp::SchemaDescriptor* parquet_schema);
+Status NodeToField(const parquet_cpp::schema::NodePtr& node,
+    std::shared_ptr<Field>* out);
+
+Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
+    std::shared_ptr<Schema>* out);
 
 } // namespace parquet
 

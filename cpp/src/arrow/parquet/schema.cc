@@ -15,9 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/parquet/schema.h"
+
 #include <vector>
 
-#include "arrow/parquet/schema.h"
+#include "parquet/api/schema.h"
+
+#include "arrow/util/status.h"
 #include "arrow/types/decimal.h"
 
 using parquet_cpp::schema::Node;
@@ -25,65 +29,95 @@ using parquet_cpp::schema::NodePtr;
 using parquet_cpp::schema::GroupNode;
 using parquet_cpp::schema::PrimitiveNode;
 
+using parquet_cpp::LogicalType;
+
 namespace arrow {
 
 namespace parquet {
 
+const auto BOOL = std::make_shared<BooleanType>();
+const auto UINT8 = std::make_shared<UInt8Type>();
+const auto INT32 = std::make_shared<Int32Type>();
+const auto INT64 = std::make_shared<Int64Type>();
+const auto FLOAT = std::make_shared<FloatType>();
+const auto DOUBLE = std::make_shared<DoubleType>();
+const auto UTF8 = std::make_shared<StringType>();
+const auto BINARY = std::make_shared<ListType>(
+    std::make_shared<Field>("", UINT8));
 
 TypePtr MakeDecimalType(const PrimitiveNode* node) {
   int precision = node->decimal_metadata().precision;
   int scale = node->decimal_metadata().scale;
-  return TypePtr(new DecimalType(precision, scale));
+  return std::make_shared<DecimalType>(precision, scale);
+}
+
+static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
+  switch (node->logical_type()) {
+    case LogicalType::UTF8:
+      *out = UTF8;
+      break;
+    default:
+      // BINARY
+      *out = BINARY;
+      break;
+  }
+  return Status::OK();
+}
+
+static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
+  switch (node->logical_type()) {
+    case LogicalType::DECIMAL:
+      *out = MakeDecimalType(node);
+      break;
+    default:
+      return Status::NotImplemented("unhandled type");
+      break;
+  }
+
+  return Status::OK();
 }
 
 // TODO: Logical Type Handling
-std::shared_ptr<Field> NodeToField(const NodePtr& node) {
+Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
   TypePtr type;
 
   if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
-    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<std::shared_ptr<Field>> fields(group->field_count());
     for (int i = 0; i < group->field_count(); i++) {
-      fields.push_back(NodeToField(group->field(i)));
+      RETURN_NOT_OK(NodeToField(group->field(i), &fields[i]));
     }
-    type = TypePtr(new StructType(fields));
+    type = std::make_shared<StructType>(fields);
   } else {
     // Primitive (leaf) node
     const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(node.get());
 
     switch (primitive->physical_type()) {
       case parquet_cpp::Type::BOOLEAN:
-        type = TypePtr(new BooleanType());
+        type = BOOL;
         break;
       case parquet_cpp::Type::INT32:
-        type = TypePtr(new Int32Type());
+        type = INT32;
         break;
       case parquet_cpp::Type::INT64:
-        type = TypePtr(new Int64Type());
+        type = INT64;
         break;
       case parquet_cpp::Type::INT96:
         // TODO: Do we have that type in Arrow?
         // type = TypePtr(new Int96Type());
-        break;
+        return Status::NotImplemented("int96");
       case parquet_cpp::Type::FLOAT:
-        type = TypePtr(new FloatType());
+        type = FLOAT;
         break;
       case parquet_cpp::Type::DOUBLE:
-        type = TypePtr(new DoubleType());
+        type = DOUBLE;
         break;
       case parquet_cpp::Type::BYTE_ARRAY:
         // TODO: Do we have that type in Arrow?
-        // type = TypePtr(new Int96Type());
+        RETURN_NOT_OK(FromByteArray(primitive, &type));
         break;
       case parquet_cpp::Type::FIXED_LEN_BYTE_ARRAY:
-        switch (primitive->logical_type()) {
-          case parquet_cpp::LogicalType::DECIMAL:
-            type = MakeDecimalType(primitive);
-            break;
-          default:
-              // TODO: Do we have that type in Arrow?
-            break;
-        }
+        RETURN_NOT_OK(FromFLBA(primitive, &type));
         break;
     }
   }
@@ -92,21 +126,25 @@ std::shared_ptr<Field> NodeToField(const NodePtr& node) {
     type = TypePtr(new ListType(type));
   }
 
-  return std::shared_ptr<Field>(new Field(node->name(), type, !node->is_required()));
+  *out = std::make_shared<Field>(node->name(), type, !node->is_required());
+
+  return Status::OK();
 }
 
-std::shared_ptr<Schema> FromParquetSchema(
-    const parquet_cpp::SchemaDescriptor* parquet_schema) {
+Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
+    std::shared_ptr<Schema>* out) {
   std::vector<std::shared_ptr<Field>> fields;
   const GroupNode* schema_node = static_cast<const GroupNode*>(
       parquet_schema->schema().get());
 
   // TODO: What to with the head node?
+  fields.resize(schema_node->field_count());
   for (int i = 0; i < schema_node->field_count(); i++) {
-    fields.push_back(NodeToField(schema_node->field(i)));
+    RETURN_NOT_OK(NodeToField(schema_node->field(i), &fields[i]));
   }
 
-  return std::shared_ptr<Schema>(new Schema(fields));
+  *out = std::make_shared<Schema>(fields);
+  return Status::OK();
 }
 
 } // namespace parquet
