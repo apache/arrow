@@ -19,9 +19,12 @@
 # arrow_parquet : Arrow <-> Parquet adapter
 
 set(PARQUET_SRCS
+    schema.cc
 )
 
 set(PARQUET_LIBS
+    arrow
+    ${PARQUET_SHARED_LIB}
 )
 
 add_library(arrow_parquet STATIC
@@ -29,6 +32,9 @@ add_library(arrow_parquet STATIC
 )
 target_link_libraries(arrow_parquet ${PARQUET_LIBS})
 SET_TARGET_PROPERTIES(arrow_parquet PROPERTIES LINKER_LANGUAGE CXX)
+
+ADD_ARROW_TEST(parquet-schema-test)
+ARROW_TEST_LINK_LIBRARIES(parquet-schema-test arrow_parquet)
 
 # Headers: top level
 install(FILES
