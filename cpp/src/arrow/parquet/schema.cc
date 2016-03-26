@@ -66,6 +66,9 @@ static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
 
 static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
+    case LogicalType::NONE:
+      *out = BINARY;
+      break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
       break;
@@ -77,9 +80,37 @@ static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
   return Status::OK();
 }
 
+static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
+  switch (node->logical_type()) {
+    case LogicalType::NONE:
+      *out = INT32;
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical type for int32");
+      break;
+  }
+  return Status::OK();
+}
+
+static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
+  switch (node->logical_type()) {
+    case LogicalType::NONE:
+      *out = INT64;
+      break;
+    default:
+      return Status::NotImplemented("Unhandled logical type for int64");
+      break;
+  }
+  return Status::OK();
+}
+
 // TODO: Logical Type Handling
 Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
-  TypePtr type;
+  std::shared_ptr<DataType> type;
+
+  if (node->is_repeated()) {
+    return Status::NotImplemented("No support yet for repeated node types");
+  }
 
   if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
@@ -97,10 +128,10 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
         type = BOOL;
         break;
       case parquet_cpp::Type::INT32:
-        type = INT32;
+        RETURN_NOT_OK(FromInt32(primitive, &type));
         break;
       case parquet_cpp::Type::INT64:
-        type = INT64;
+        RETURN_NOT_OK(FromInt64(primitive, &type));
         break;
       case parquet_cpp::Type::INT96:
         // TODO: Do we have that type in Arrow?
@@ -122,23 +153,18 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
     }
   }
 
-  if (node->is_repeated()) {
-    type = TypePtr(new ListType(type));
-  }
-
   *out = std::make_shared<Field>(node->name(), type, !node->is_required());
-
   return Status::OK();
 }
 
 Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
     std::shared_ptr<Schema>* out) {
-  std::vector<std::shared_ptr<Field>> fields;
+  // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
+  // from the root Parquet node
   const GroupNode* schema_node = static_cast<const GroupNode*>(
       parquet_schema->schema().get());
 
-  // TODO: What to with the head node?
-  fields.resize(schema_node->field_count());
+  std::vector<std::shared_ptr<Field>> fields(schema_node->field_count());
   for (int i = 0; i < schema_node->field_count(); i++) {
     RETURN_NOT_OK(NodeToField(schema_node->field(i), &fields[i]));
   }

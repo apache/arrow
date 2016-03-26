@@ -49,31 +49,30 @@ class TestConvertParquetSchema : public ::testing::Test {
  public:
   virtual void SetUp() {}
 
-  void CheckFlatSchema(const std::vector<NodePtr>& nodes,
-      const std::shared_ptr<Schema>& expected_schema) {
-    NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
-
-    parquet_cpp::SchemaDescriptor descr;
-    descr.Init(schema);
-
-    std::shared_ptr<Schema> result_schema;
-    ASSERT_OK(FromParquetSchema(&descr, &result_schema));
-
-    ASSERT_EQ(expected_schema->num_fields(), result_schema->num_fields());
-    for (size_t i = 0; i < nodes.size(); ++i) {
-      auto lhs = result_schema->field(i);
+  void CheckFlatSchema(const std::shared_ptr<Schema>& expected_schema) {
+    ASSERT_EQ(expected_schema->num_fields(), result_schema_->num_fields());
+    for (int i = 0; i < expected_schema->num_fields(); ++i) {
+      auto lhs = result_schema_->field(i);
       auto rhs = expected_schema->field(i);
       EXPECT_TRUE(lhs->Equals(rhs))
         << i << " " << lhs->ToString() << " != " << rhs->ToString();
     }
   }
+
+  Status ConvertSchema(const std::vector<NodePtr>& nodes) {
+    NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+    descr_.Init(schema);
+    return FromParquetSchema(&descr_, &result_schema_);
+  }
+
+ protected:
+  parquet_cpp::SchemaDescriptor descr_;
+  std::shared_ptr<Schema> result_schema_;
 };
 
 TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
-
-  std::shared_ptr<Field> field;
 
   parquet_fields.push_back(
       PrimitiveNode::Make("boolean", Repetition::REQUIRED, parquet_cpp::Type::BOOLEAN));
@@ -106,20 +105,38 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
           parquet_cpp::LogicalType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
 
+  parquet_fields.push_back(
+      PrimitiveNode::Make("flba-binary", Repetition::OPTIONAL,
+          parquet_cpp::Type::FIXED_LEN_BYTE_ARRAY,
+          parquet_cpp::LogicalType::NONE, 12));
+  arrow_fields.push_back(std::make_shared<Field>("flba-binary", BINARY));
+
   auto arrow_schema = std::make_shared<Schema>(arrow_fields);
-  CheckFlatSchema(parquet_fields, arrow_schema);
+  ASSERT_OK(ConvertSchema(parquet_fields));
 
-  // case parquet_cpp::Type::INT96:
-  // TODO: Implement!
-  // node = PrimitiveNode::Make("int96", Repetition::REQUIRED, parquet_cpp::Type::INT96);
-  // field = NodeToField(node);
-  // TODO: Assertions
+  CheckFlatSchema(arrow_schema);
+}
 
-  // TODO: Implement!
-  // node = PrimitiveNode::Make("fixed_len_byte_array", Repetition::REQUIRED,
-  //    parquet_cpp::Type::FIXED_LEN_BYTE_ARRAY);
-  // field = NodeToField(node);
-  // TODO: Assertions
+TEST_F(TestConvertParquetSchema, UnsupportedThings) {
+  std::vector<NodePtr> unsupported_nodes;
+
+  unsupported_nodes.push_back(
+      PrimitiveNode::Make("int96", Repetition::REQUIRED, parquet_cpp::Type::INT96));
+
+  unsupported_nodes.push_back(
+      GroupNode::Make("repeated-group", Repetition::REPEATED, {}));
+
+  unsupported_nodes.push_back(
+      PrimitiveNode::Make("int32", Repetition::OPTIONAL,
+          parquet_cpp::Type::INT32, parquet_cpp::LogicalType::DATE));
+
+  unsupported_nodes.push_back(
+      PrimitiveNode::Make("int64", Repetition::OPTIONAL,
+          parquet_cpp::Type::INT64, parquet_cpp::LogicalType::TIMESTAMP_MILLIS));
+
+  for (const NodePtr& node : unsupported_nodes) {
+    ASSERT_RAISES(NotImplemented, ConvertSchema({node}));
+  }
 }
 
 TEST(TestNodeConversion, DateAndTime) {

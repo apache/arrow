@@ -109,6 +109,7 @@ class Status {
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
   bool IsIOError() const { return code() == StatusCode::IOError; }
+  bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
