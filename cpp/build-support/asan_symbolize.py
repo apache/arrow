@@ -64,7 +64,7 @@ class LLVMSymbolizer(Symbolizer):
            '--functions=true',
            '--inlining=true']
     if DEBUG:
-      print ' '.join(cmd)
+      print(' '.join(cmd))
     return subprocess.Popen(cmd, stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
 
@@ -76,8 +76,9 @@ class LLVMSymbolizer(Symbolizer):
     try:
       symbolizer_input = '%s %s' % (binary, offset)
       if DEBUG:
-        print symbolizer_input
-      print >> self.pipe.stdin, symbolizer_input
+        print(symbolizer_input)
+      self.pipe.stdin.write(symbolizer_input)
+      self.pipe.stdin.write('\n')
       while True:
         function_name = self.pipe.stdout.readline().rstrip()
         if not function_name:
@@ -113,7 +114,7 @@ class Addr2LineSymbolizer(Symbolizer):
   def open_addr2line(self):
     cmd = ['addr2line', '-f', '-e', self.binary]
     if DEBUG:
-      print ' '.join(cmd)
+      print(' '.join(cmd))
     return subprocess.Popen(cmd,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -122,7 +123,8 @@ class Addr2LineSymbolizer(Symbolizer):
     if self.binary != binary:
       return None
     try:
-      print >> self.pipe.stdin, offset
+      self.pipe.stdin.write(offset)
+      self.pipe.stdin.write('\n')
       function_name = self.pipe.stdout.readline().rstrip()
       file_name = self.pipe.stdout.readline().rstrip()
     except Exception:
@@ -145,11 +147,12 @@ class DarwinSymbolizer(Symbolizer):
     self.pipe = None
 
   def write_addr_to_pipe(self, offset):
-    print >> self.pipe.stdin, '0x%x' % int(offset, 16)
+    self.pipe.stdin.write('0x%x' % int(offset, 16))
+    self.pipe.stdin.write('\n')
 
   def open_atos(self):
     if DEBUG:
-      print 'atos -o %s -arch %s' % (self.binary, self.arch)
+      print('atos -o %s -arch %s' % (self.binary, self.arch))
     cmdline = ['atos', '-o', self.binary, '-arch', self.arch]
     self.pipe = subprocess.Popen(cmdline,
                                  stdin=subprocess.PIPE,
@@ -168,7 +171,7 @@ class DarwinSymbolizer(Symbolizer):
     #   foo(type1, type2) (in object.name) (filename.cc:80)
     match = re.match('^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)
     if DEBUG:
-      print 'atos_line: ', atos_line
+      print('atos_line: {0}'.format(atos_line))
     if match:
       function_name = match.group(1)
       function_name = re.sub('\(.*?\)', '', function_name)
@@ -282,7 +285,7 @@ class BreakpadSymbolizer(Symbolizer):
       function_name, file_name, line_no = res
       result = ['%s in %s %s:%d' % (
           addr, function_name, file_name, line_no)]
-      print result
+      print(result)
       return result
     else:
       return None
@@ -318,15 +321,20 @@ class SymbolizationLoop(object):
 
   def print_symbolized_lines(self, symbolized_lines):
     if not symbolized_lines:
-      print self.current_line
+      print(self.current_line)
     else:
       for symbolized_frame in symbolized_lines:
-        print '    #' + str(self.frame_no) + ' ' + symbolized_frame.rstrip()
+        print('    #' + str(self.frame_no) + ' ' + symbolized_frame.rstrip())
         self.frame_no += 1
 
   def process_stdin(self):
     self.frame_no = 0
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
+    if sys.version_info[0] == 2:
+      sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+    else:
+      # Unbuffered output is not supported in Python 3
+      sys.stdout = os.fdopen(sys.stdout.fileno(), 'w')
 
     while True:
       line = sys.stdin.readline()
@@ -337,10 +345,10 @@ class SymbolizationLoop(object):
           '^( *#([0-9]+) *)(0x[0-9a-f]+) *\((.*)\+(0x[0-9a-f]+)\)')
       match = re.match(stack_trace_line_format, line)
       if not match:
-        print self.current_line
+        print(self.current_line)
         continue
       if DEBUG:
-        print line
+        print(line)
       _, frameno_str, addr, binary, offset = match.groups()
       if frameno_str == '0':
         # Assume that frame #0 is the first frame of new stack trace.
