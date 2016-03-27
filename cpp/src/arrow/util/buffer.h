@@ -152,7 +152,7 @@ static constexpr int64_t MIN_BUFFER_CAPACITY = 1024;
 
 class BufferBuilder {
  public:
-  BufferBuilder(MemoryPool* pool) :
+  explicit BufferBuilder(MemoryPool* pool) :
       pool_(pool),
       capacity_(0),
       size_(0) {}
