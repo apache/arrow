@@ -35,3 +35,6 @@ dist
 # coverage
 .coverage
 coverage.xml
+
+# benchmark working dir
+.asv
