@@ -15,11 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/init.h"
+#ifndef PYARROW_CONFIG_H
+#define PYARROW_CONFIG_H
+
+#include <Python.h>
+
+#include <numpy/numpyconfig.h>
+
+#ifdef NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#else
+#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
+#define NPY_ARRAY_ALIGNED NPY_ALIGNED
+#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
+#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
+#endif
+
+#if PY_MAJOR_VERSION >= 3
+  #define PyString_Check PyUnicode_Check
+#endif
+
+#include <numpy/arrayobject.h>
+
+#if PY_MAJOR_VERSION >= 3
+  #define PyString_Check PyUnicode_Check
+#endif
 
 namespace pyarrow {
 
-void pyarrow_init() {
-}
+extern PyObject* numpy_nan;
+
+void pyarrow_init();
+
+void pyarrow_set_numpy_nan(PyObject* obj);
 
 } // namespace pyarrow
+
+#endif // PYARROW_CONFIG_H

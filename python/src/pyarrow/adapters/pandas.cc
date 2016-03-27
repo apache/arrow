@@ -25,23 +25,11 @@
 #include <sstream>
 #include <string>
 
-#include <numpy/numpyconfig.h>
-
-#ifdef NPY_1_7_API_VERSION
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#else
-#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
-#define NPY_ARRAY_ALIGNED NPY_ALIGNED
-#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
-#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
-#endif
-
-#include <numpy/arrayobject.h>
-
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
 
 #include "pyarrow/common.h"
+#include "pyarrow/config.h"
 #include "pyarrow/status.h"
 
 namespace pyarrow {
@@ -307,15 +295,13 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-PyObject* numpy_nan = nullptr;
-
 static inline bool PyObject_is_null(const PyObject* obj) {
   return obj == Py_None || obj == numpy_nan;
 }
 
 static inline bool PyObject_is_string(const PyObject* obj) {
 #if PY_MAJOR_VERSION >= 3
-  return PyString_Check(obj) || PyBytes_Check(obj);
+  return PyUnicode_Check(obj) || PyBytes_Check(obj);
 #else
   return PyString_Check(obj) || PyUnicode_Check(obj);
 #endif

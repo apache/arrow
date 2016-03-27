@@ -412,8 +412,8 @@ add_subdirectory(src/pyarrow/util)
 
 set(PYARROW_SRCS
   src/pyarrow/common.cc
+  src/pyarrow/config.cc
   src/pyarrow/helpers.cc
-  src/pyarrow/init.cc
   src/pyarrow/status.cc
 
   src/pyarrow/adapters/builtin.cc
