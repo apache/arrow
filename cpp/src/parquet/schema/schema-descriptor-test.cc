@@ -106,7 +106,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   // optional group bag          1    0
   //   repeated group records    2    1
   //     required int64 item1    2    1
-  //     optional boolean item1  3    1
+  //     optional boolean item2  3    1
   //     repeated int32 item3    3    2
   int16_t ex_max_def_levels[6] = {0, 1, 1, 2, 3, 3};
   int16_t ex_max_rep_levels[6] = {0, 0, 1, 1, 1, 2};
@@ -116,6 +116,13 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
     EXPECT_EQ(ex_max_def_levels[i], col->max_definition_level()) << i;
     EXPECT_EQ(ex_max_rep_levels[i], col->max_repetition_level()) << i;
   }
+
+  ASSERT_EQ(descr_.Column(0)->path()->ToDotString(), "a");
+  ASSERT_EQ(descr_.Column(1)->path()->ToDotString(), "b");
+  ASSERT_EQ(descr_.Column(2)->path()->ToDotString(), "c");
+  ASSERT_EQ(descr_.Column(3)->path()->ToDotString(), "bag.records.item1");
+  ASSERT_EQ(descr_.Column(4)->path()->ToDotString(), "bag.records.item2");
+  ASSERT_EQ(descr_.Column(5)->path()->ToDotString(), "bag.records.item3");
 
   // Init clears the leaves
   descr_.Init(schema);

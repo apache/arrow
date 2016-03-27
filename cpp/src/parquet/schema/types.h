@@ -78,6 +78,23 @@ struct DecimalMetadata {
   int32_t precision;
 };
 
+class ColumnPath {
+ public:
+  ColumnPath() : path_() {}
+  explicit ColumnPath(const std::vector<std::string>& path) : path_(path) {}
+  explicit ColumnPath(std::vector<std::string>&& path) : path_(path) {}
+
+  static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
+
+  std::shared_ptr<ColumnPath> extend(const std::string& node_name) const;
+  std::string ToDotString() const;
+
+ protected:
+  std::vector<std::string> path_;
+};
+
+class GroupNode;
+
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
 class Node {
@@ -95,7 +112,8 @@ class Node {
       name_(name),
       repetition_(repetition),
       logical_type_(logical_type),
-      id_(id) {}
+      id_(id),
+      parent_(nullptr) {}
 
   virtual ~Node() {}
 
@@ -141,6 +159,10 @@ class Node {
     return id_;
   }
 
+  const Node* parent() const {
+    return parent_;
+  }
+
   // Node::Visitor abstract class for walking schemas with the visitor pattern
   class Visitor {
    public:
@@ -152,13 +174,18 @@ class Node {
   virtual void Visit(Visitor* visitor) = 0;
 
  protected:
+  friend class GroupNode;
+
   Node::type type_;
   std::string name_;
   Repetition::type repetition_;
   LogicalType::type logical_type_;
   int id_;
+  // Nodes should not be shared, they have a single parent.
+  const Node* parent_;
 
   bool EqualsInternal(const Node* other) const;
+  void SetParent(const Node* p_parent);
 };
 
 // Save our breath all over the place with these typedefs
@@ -259,7 +286,11 @@ class GroupNode : public Node {
       LogicalType::type logical_type = LogicalType::NONE,
       int id = -1) :
       Node(Node::GROUP, name, repetition, logical_type, id),
-      fields_(fields) {}
+      fields_(fields) {
+      for (NodePtr& field : fields_) {
+        field->SetParent(this);
+      }
+    }
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;

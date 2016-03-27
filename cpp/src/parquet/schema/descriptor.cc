@@ -21,6 +21,8 @@
 
 namespace parquet_cpp {
 
+using schema::ColumnPath;
+using schema::Node;
 using schema::NodePtr;
 using schema::PrimitiveNode;
 using schema::GroupNode;
@@ -94,6 +96,21 @@ int ColumnDescriptor::type_precision() const {
 
 int ColumnDescriptor::type_length() const {
   return primitive_node_->type_length();
+}
+
+const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
+  // Build the path in reverse order as we traverse the nodes to the top
+  std::vector<std::string> rpath_;
+  const Node* node = primitive_node_;
+  // The schema node is not part of the ColumnPath
+  while (node->parent()) {
+    rpath_.push_back(node->name());
+    node = node->parent();
+  }
+
+  // Build ColumnPath in correct order
+  std::vector<std::string> path_(rpath_.crbegin(), rpath_.crend());
+  return std::make_shared<ColumnPath>(std::move(path_));
 }
 
 } // namespace parquet_cpp

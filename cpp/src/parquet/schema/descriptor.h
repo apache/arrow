@@ -39,7 +39,8 @@ class SchemaDescriptor;
 class ColumnDescriptor {
  public:
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
-      int16_t max_repetition_level, const SchemaDescriptor* schema_descr = nullptr);
+      int16_t max_repetition_level,
+      const SchemaDescriptor* schema_descr = nullptr);
 
   int16_t max_definition_level() const {
     return max_definition_level_;
@@ -60,6 +61,8 @@ class ColumnDescriptor {
   const std::string& name() const {
     return primitive_node_->name();
   }
+
+  const std::shared_ptr<schema::ColumnPath> path() const;
 
   int type_length() const;
 

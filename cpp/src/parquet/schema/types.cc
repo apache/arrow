@@ -17,6 +17,7 @@
 
 #include "parquet/schema/types.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "parquet/exception.h"
@@ -28,6 +29,40 @@ namespace parquet_cpp {
 namespace schema {
 
 // ----------------------------------------------------------------------
+// ColumnPath
+
+std::shared_ptr<ColumnPath> ColumnPath::FromDotString(const std::string& dotstring) {
+  std::stringstream ss(dotstring);
+  std::string item;
+  std::vector<std::string> path;
+  while (std::getline(ss, item, '.')) {
+    path.push_back(item);
+  }
+  return std::shared_ptr<ColumnPath>(new ColumnPath(std::move(path)));
+}
+
+std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) const {
+  std::vector<std::string> path;
+  path.reserve(path_.size() + 1);
+  path.resize(path_.size() + 1);
+  std::copy(path_.cbegin(), path_.cend(), path.begin());
+  path[path_.size()] = node_name;
+
+  return std::shared_ptr<ColumnPath>(new ColumnPath(std::move(path)));
+}
+
+std::string ColumnPath::ToDotString() const {
+  std::stringstream ss;
+  for (auto it = path_.cbegin(); it != path_.cend(); ++it) {
+    if (it != path_.cbegin()) {
+      ss << ".";
+    }
+    ss << *it;
+  }
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
 // Base node
 
 bool Node::EqualsInternal(const Node* other) const {
@@ -35,6 +70,10 @@ bool Node::EqualsInternal(const Node* other) const {
     name_ == other->name_ &&
     repetition_ == other->repetition_ &&
     logical_type_ == other->logical_type_;
+}
+
+void Node::SetParent(const Node* parent) {
+    parent_ = parent;
 }
 
 // ----------------------------------------------------------------------

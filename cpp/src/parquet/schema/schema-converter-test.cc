@@ -62,6 +62,23 @@ class TestSchemaConverter : public ::testing::Test {
   std::unique_ptr<Node> node_;
 };
 
+bool check_for_parent_consistency(const GroupNode* node) {
+  // Each node should have the group as parent
+  for (int i = 0; i < node->field_count(); i++) {
+    const NodePtr& field = node->field(i);
+    if (field->parent() != node) {
+      return false;
+    }
+    if (field->is_group()) {
+      const GroupNode* group = static_cast<GroupNode*>(field.get());
+      if (!check_for_parent_consistency(group)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 TEST_F(TestSchemaConverter, NestedExample) {
   SchemaElement elt;
   std::vector<SchemaElement> elements;
@@ -96,6 +113,10 @@ TEST_F(TestSchemaConverter, NestedExample) {
   NodePtr schema = GroupNode::Make(name_, Repetition::REPEATED, fields);
 
   ASSERT_TRUE(schema->Equals(group_));
+
+  // Check that the parent relationship in each node is consitent
+  ASSERT_EQ(group_->parent(), nullptr);
+  ASSERT_TRUE(check_for_parent_consistency(group_));
 }
 
 TEST_F(TestSchemaConverter, InvalidRoot) {
