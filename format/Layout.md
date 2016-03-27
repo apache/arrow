@@ -58,7 +58,7 @@ Base requirements
 * Memory layout and random access patterns for each relative type
 * Null value representation
 
-## Non-goals (for this document
+## Non-goals (for this document)
 
 * To enumerate or specify logical types that can be implemented as primitive
   (fixed-width) value types. For example: signed and unsigned integers,

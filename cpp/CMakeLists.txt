@@ -378,6 +378,16 @@ function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
   add_dependencies(${TEST_NAME} ${ARGN})
 endfunction()
 
+# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
+function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
+  if(NO_TESTS)
+    return()
+  endif()
+  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+
+  target_link_libraries(${TEST_NAME} ${ARGN})
+endfunction()
+
 enable_testing()
 
 ############################################################
@@ -528,6 +538,7 @@ set(ARROW_SRCS
   src/arrow/ipc/metadata-internal.cc
 
   src/arrow/types/construct.cc
+  src/arrow/types/decimal.cc
   src/arrow/types/json.cc
   src/arrow/types/list.cc
   src/arrow/types/primitive.cc

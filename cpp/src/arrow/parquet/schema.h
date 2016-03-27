@@ -15,29 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_DECIMAL_H
-#define ARROW_TYPES_DECIMAL_H
+#ifndef ARROW_PARQUET_SCHEMA_H
+#define ARROW_PARQUET_SCHEMA_H
 
-#include <string>
+#include <memory>
 
+#include "parquet/api/schema.h"
+
+#include "arrow/schema.h"
 #include "arrow/type.h"
 
 namespace arrow {
 
-struct DecimalType : public DataType {
-  explicit DecimalType(int precision_, int scale_)
-      : DataType(Type::DECIMAL), precision(precision_),
-        scale(scale_) { }
-  int precision;
-  int scale;
+class Status;
 
-  static char const *name() {
-    return "decimal";
-  }
+namespace parquet {
 
-  std::string ToString() const override;
-};
+Status NodeToField(const parquet_cpp::schema::NodePtr& node,
+    std::shared_ptr<Field>* out);
+
+Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
+    std::shared_ptr<Schema>* out);
+
+} // namespace parquet
 
 } // namespace arrow
 
-#endif // ARROW_TYPES_DECIMAL_H
+#endif
