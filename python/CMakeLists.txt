@@ -220,9 +220,12 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 ## Python and libraries
 find_package(PythonLibsNew REQUIRED)
+find_package(NumPy REQUIRED)
 include(UseCython)
 
 include_directories(SYSTEM
+  ${NUMPY_INCLUDE_DIRS}
+  ${PYTHON_INCLUDE_DIRS}
   src)
 
 ############################################################
@@ -414,6 +417,7 @@ set(PYARROW_SRCS
   src/pyarrow/status.cc
 
   src/pyarrow/adapters/builtin.cc
+  src/pyarrow/adapters/pandas.cc
 )
 
 set(LINK_LIBS

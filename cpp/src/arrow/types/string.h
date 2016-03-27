@@ -79,9 +79,7 @@ class StringArray : public ListArray {
       const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values,
       int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :
-      StringArray(std::make_shared<StringType>(), length, offsets, values,
-          null_count, null_bitmap) {}
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   // Compute the pointer t
   const uint8_t* GetValue(int i, int32_t* out_length) const {

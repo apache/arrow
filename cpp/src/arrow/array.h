@@ -60,6 +60,10 @@ class Array {
     return null_bitmap_;
   }
 
+  const uint8_t* null_bitmap_data() const {
+    return null_bitmap_data_;
+  }
+
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
 
