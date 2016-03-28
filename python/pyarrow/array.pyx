@@ -67,7 +67,10 @@ cdef class Array:
         return '{0}\n{1}'.format(type_format, values)
 
     def __len__(self):
-        return self.sp_array.get().length()
+        if self.sp_array.get():
+            return self.sp_array.get().length()
+        else:
+            return 0
 
     def isnull(self):
         raise NotImplemented
