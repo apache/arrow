@@ -22,6 +22,10 @@ import pyarrow.formatting as fmt
 
 class TestArrayAPI(unittest.TestCase):
 
+    def test_repr_on_pre_init_array(self):
+        arr = pyarrow.array.Array()
+        assert len(repr(arr)) > 0
+
     def test_getitem_NA(self):
         arr = pyarrow.from_pylist([1, None, 2])
         assert arr[1] is pyarrow.NA
