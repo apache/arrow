@@ -22,6 +22,7 @@
 
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/types/decimal.h"
 #include "arrow/util/status.h"
 
 #include "arrow/parquet/schema.h"
@@ -46,6 +47,7 @@ const auto DOUBLE = std::make_shared<DoubleType>();
 const auto UTF8 = std::make_shared<StringType>();
 const auto BINARY = std::make_shared<ListType>(
     std::make_shared<Field>("", UINT8));
+const auto DECIMAL_8_4 = std::make_shared<DecimalType>(8, 4);
 
 class TestConvertParquetSchema : public ::testing::Test {
  public:
@@ -112,6 +114,40 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
           ParquetType::FIXED_LEN_BYTE_ARRAY,
           LogicalType::NONE, 12));
   arrow_fields.push_back(std::make_shared<Field>("flba-binary", BINARY));
+
+  auto arrow_schema = std::make_shared<Schema>(arrow_fields);
+  ASSERT_OK(ConvertSchema(parquet_fields));
+
+  CheckFlatSchema(arrow_schema);
+}
+
+TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("flba-decimal", Repetition::OPTIONAL,
+          ParquetType::FIXED_LEN_BYTE_ARRAY,
+          LogicalType::DECIMAL, 4, 8, 4));
+  arrow_fields.push_back(std::make_shared<Field>("flba-decimal", DECIMAL_8_4));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("binary-decimal", Repetition::OPTIONAL,
+          ParquetType::BYTE_ARRAY,
+          LogicalType::DECIMAL, -1, 8, 4));
+  arrow_fields.push_back(std::make_shared<Field>("binary-decimal", DECIMAL_8_4));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int32-decimal", Repetition::OPTIONAL,
+          ParquetType::INT32,
+          LogicalType::DECIMAL, -1, 8, 4));
+  arrow_fields.push_back(std::make_shared<Field>("int32-decimal", DECIMAL_8_4));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int64-decimal", Repetition::OPTIONAL,
+          ParquetType::INT64,
+          LogicalType::DECIMAL, -1, 8, 4));
+  arrow_fields.push_back(std::make_shared<Field>("int64-decimal", DECIMAL_8_4));
 
   auto arrow_schema = std::make_shared<Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
