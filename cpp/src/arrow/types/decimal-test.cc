@@ -21,8 +21,6 @@
 
 namespace arrow {
 
-class Buffer;
-
 TEST(TypesTest, TestDecimalType) {
   DecimalType t1(8, 4);
 
