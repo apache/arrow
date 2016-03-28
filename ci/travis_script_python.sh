@@ -48,17 +48,11 @@ python_version_tests() {
 
   python setup.py build_ext --inplace
 
-  py.test -vv -r sxX pyarrow
+  python -m pytest -vv -r sxX pyarrow
 }
 
 # run tests for python 2.7 and 3.5
 python_version_tests 2.7
 python_version_tests 3.5
-
-# if [ $TRAVIS_OS_NAME == "linux" ]; then
-#   valgrind --tool=memcheck py.test -vv -r sxX arrow
-# else
-#   py.test -vv -r sxX arrow
-# fi
 
 popd
