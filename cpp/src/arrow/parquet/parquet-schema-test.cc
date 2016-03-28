@@ -127,26 +127,26 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
 
   parquet_fields.push_back(
       PrimitiveNode::Make("flba-decimal", Repetition::OPTIONAL,
-          parquet_cpp::Type::FIXED_LEN_BYTE_ARRAY,
-          parquet_cpp::LogicalType::DECIMAL, 4, 8, 4));
+          ParquetType::FIXED_LEN_BYTE_ARRAY,
+          LogicalType::DECIMAL, 4, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("flba-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("binary-decimal", Repetition::OPTIONAL,
-          parquet_cpp::Type::BYTE_ARRAY,
-          parquet_cpp::LogicalType::DECIMAL, -1, 8, 4));
+          ParquetType::BYTE_ARRAY,
+          LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("binary-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("int32-decimal", Repetition::OPTIONAL,
-          parquet_cpp::Type::INT32,
-          parquet_cpp::LogicalType::DECIMAL, -1, 8, 4));
+          ParquetType::INT32,
+          LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int32-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("int64-decimal", Repetition::OPTIONAL,
-          parquet_cpp::Type::INT64,
-          parquet_cpp::LogicalType::DECIMAL, -1, 8, 4));
+          ParquetType::INT64,
+          LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int64-decimal", DECIMAL_8_4));
 
   auto arrow_schema = std::make_shared<Schema>(arrow_fields);
