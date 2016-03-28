@@ -27,7 +27,7 @@
 
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace test {
 
@@ -192,6 +192,6 @@ void random_byte_array(int n, uint32_t seed, uint8_t *buf,
 }
 
 } // namespace test
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_TEST_COMMON_H

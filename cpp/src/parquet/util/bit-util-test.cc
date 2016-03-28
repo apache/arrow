@@ -30,7 +30,7 @@
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/cpu-info.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 static void ensure_cpu_info_initialized() {
   if (!CpuInfo::initialized()) {
@@ -189,4 +189,4 @@ TEST(BitStreamUtil, ZigZag) {
   TestZigZag(-std::numeric_limits<int32_t>::max());
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

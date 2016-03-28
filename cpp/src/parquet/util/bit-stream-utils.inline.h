@@ -22,7 +22,7 @@
 
 #include "parquet/util/bit-stream-utils.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
   // TODO: revisit this limit if necessary (can be raised to 64 by fixing some edge cases)
@@ -165,6 +165,6 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   return true;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_BIT_STREAM_UTILS_INLINE_H

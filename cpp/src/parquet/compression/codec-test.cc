@@ -26,7 +26,7 @@
 using std::string;
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 template <typename T>
 void CheckCodecRoundtrip(const vector<uint8_t>& data) {
@@ -83,4 +83,4 @@ TEST(TestCompressors, GZip) {
   CheckCodec<GZipCodec>();
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

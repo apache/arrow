@@ -22,7 +22,7 @@
 
 #include "parquet/column/reader.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
     int64_t batch_size, MemoryAllocator* allocator) {
@@ -51,4 +51,4 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
   return std::shared_ptr<Scanner>(nullptr);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

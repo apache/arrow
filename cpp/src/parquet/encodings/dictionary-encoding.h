@@ -34,7 +34,7 @@
 #include "parquet/util/mem-pool.h"
 #include "parquet/util/rle-encoding.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 template <int TYPE>
 class DictionaryDecoder : public Decoder<TYPE> {
@@ -441,6 +441,6 @@ inline int DictEncoderBase::WriteIndices(uint8_t* buffer, int buffer_len) {
   return 1 + encoder.len();
 }
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

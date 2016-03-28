@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <cstdint>
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// Utility class to build an in-memory buffer.
 class BufferBuilder {
@@ -56,6 +56,6 @@ class BufferBuilder {
   int size_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_BUFFER_BUILDER_H

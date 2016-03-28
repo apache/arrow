@@ -31,7 +31,7 @@
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 
@@ -243,6 +243,6 @@ typedef TypedScanner<Type::DOUBLE> DoubleScanner;
 typedef TypedScanner<Type::BYTE_ARRAY> ByteArrayScanner;
 typedef TypedScanner<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayScanner;
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_COLUMN_SCANNER_H

@@ -32,7 +32,7 @@
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class ColumnReader {
  public:
@@ -216,6 +216,6 @@ typedef TypedColumnReader<Type::DOUBLE> DoubleReader;
 typedef TypedColumnReader<Type::BYTE_ARRAY> ByteArrayReader;
 typedef TypedColumnReader<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_COLUMN_READER_H

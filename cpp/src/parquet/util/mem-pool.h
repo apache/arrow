@@ -31,7 +31,7 @@
 #include "parquet/util/bit-util.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// A MemPool maintains a list of memory chunks from which it allocates memory
 /// in response to Allocate() calls;
@@ -206,6 +206,6 @@ class MemPool {
   }
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_MEM_POOL_H

@@ -19,7 +19,7 @@
 
 #include "parquet/exception.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 using schema::ColumnPath;
 using schema::Node;
@@ -113,4 +113,4 @@ const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
   return std::make_shared<ColumnPath>(std::move(path_));
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

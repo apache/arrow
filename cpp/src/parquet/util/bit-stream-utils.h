@@ -28,7 +28,7 @@
 #include "parquet/util/logging.h"
 #include "parquet/util/bit-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// Utility class to write bit/byte streams.  This class can write data to either be
 /// bit packed or byte aligned (and a single stream that has a mix of both).
@@ -162,6 +162,6 @@ class BitReader {
   int bit_offset_;        // Offset in buffered_values_
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_BIT_STREAM_UTILS_H

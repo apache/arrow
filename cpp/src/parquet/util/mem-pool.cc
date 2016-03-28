@@ -29,7 +29,7 @@
 
 #include "parquet/util/bit-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 const int MemPool::INITIAL_CHUNK_SIZE;
 const int MemPool::MAX_CHUNK_SIZE;
@@ -232,4 +232,4 @@ bool MemPool::CheckIntegrity(bool current_chunk_empty) {
   return true;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

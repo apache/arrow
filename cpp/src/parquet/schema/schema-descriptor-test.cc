@@ -31,7 +31,7 @@
 using std::string;
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -131,4 +131,4 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet

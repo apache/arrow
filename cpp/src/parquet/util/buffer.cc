@@ -23,7 +23,7 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
     int64_t size) {
@@ -122,4 +122,4 @@ template class Vector<Int96>;
 template class Vector<ByteArray>;
 template class Vector<FixedLenByteArray>;
 
-} // namespace parquet_cpp
+} // namespace parquet

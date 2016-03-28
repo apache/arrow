@@ -27,16 +27,16 @@
 #include "parquet/schema/types.h"
 #include "parquet/thrift/parquet_types.h"
 
-using parquet::ConvertedType;
-using parquet::FieldRepetitionType;
-using parquet::SchemaElement;
+using parquet::format::ConvertedType;
+using parquet::format::FieldRepetitionType;
+using parquet::format::SchemaElement;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
 static inline SchemaElement NewPrimitive(const std::string& name,
-    FieldRepetitionType::type repetition, parquet::Type::type type) {
+    FieldRepetitionType::type repetition, format::Type::type type) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
@@ -58,6 +58,6 @@ static inline SchemaElement NewGroup(const std::string& name,
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_COLUMN_TEST_UTIL_H

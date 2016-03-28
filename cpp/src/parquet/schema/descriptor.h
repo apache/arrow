@@ -27,7 +27,7 @@
 #include "parquet/schema/types.h"
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class SchemaDescriptor;
 
@@ -138,6 +138,6 @@ class SchemaDescriptor {
   std::unordered_map<int, schema::NodePtr> leaf_to_base_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_SCHEMA_DESCRIPTOR_H

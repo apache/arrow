@@ -26,7 +26,7 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class Codec {
  public:
@@ -121,6 +121,6 @@ class GZipCodec : public Codec {
   bool decompressor_initialized_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

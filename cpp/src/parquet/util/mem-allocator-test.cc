@@ -20,7 +20,7 @@
 #include "parquet/exception.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 TEST(TestAllocator, AllocateFree) {
   TrackingAllocator allocator;
@@ -64,4 +64,4 @@ TEST(TestAllocator, TotalMax) {
   ASSERT_EQ(110, allocator.MaxMemory());
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

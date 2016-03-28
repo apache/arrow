@@ -35,7 +35,7 @@
 using std::string;
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // RowGroupReader public API
@@ -223,4 +223,4 @@ void ParquetFileReader::DebugPrint(std::ostream& stream,
   }
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

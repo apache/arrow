@@ -23,7 +23,7 @@
 #include "parquet/exception.h"
 #include "parquet/util/buffer.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // In-memory output stream
@@ -64,4 +64,4 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
   return result;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

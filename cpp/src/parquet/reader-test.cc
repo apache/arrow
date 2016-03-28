@@ -32,7 +32,7 @@
 
 using std::string;
 
-namespace parquet_cpp {
+namespace parquet {
 
 const char* data_dir = std::getenv("PARQUET_TEST_DATA");
 
@@ -187,4 +187,4 @@ TEST_F(TestLocalFileSource, FileClosedOnDestruction) {
 }
 
 
-} // namespace parquet_cpp
+} // namespace parquet

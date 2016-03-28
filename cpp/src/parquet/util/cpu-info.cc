@@ -44,7 +44,7 @@ using boost::algorithm::trim;
 using std::max;
 using std::string;
 
-namespace parquet_cpp {
+namespace parquet {
 
 bool CpuInfo::initialized_ = false;
 int64_t CpuInfo::hardware_flags_ = 0;
@@ -167,4 +167,4 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   }
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

@@ -29,7 +29,7 @@
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -318,6 +318,6 @@ PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY);
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_SCHEMA_TYPES_H

@@ -27,7 +27,7 @@
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/bit-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
 /// are sufficiently long, RLE is used, otherwise, the values are just bit-packed
@@ -441,6 +441,6 @@ inline void RleEncoder::Clear() {
   bit_writer_.Clear();
 }
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_RLE_ENCODING_H

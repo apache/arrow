@@ -21,7 +21,7 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 std::unique_ptr<Codec> Codec::Create(Compression::type codec_type) {
   std::unique_ptr<Codec> result;
@@ -44,4 +44,4 @@ std::unique_ptr<Codec> Codec::Create(Compression::type codec_type) {
   return result;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

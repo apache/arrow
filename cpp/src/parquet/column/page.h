@@ -29,14 +29,14 @@
 #include "parquet/types.h"
 #include "parquet/util/buffer.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // TODO: Parallel processing is not yet safe because of memory-ownership
 // semantics (the PageReader may or may not own the memory referenced by a
 // page)
 //
 // TODO(wesm): In the future Parquet implementations may store the crc code
-// in parquet::PageHeader. parquet-mr currently does not, so we also skip it
+// in format::PageHeader. parquet-mr currently does not, so we also skip it
 // here, both on the read and write path
 class Page {
  public:
@@ -168,7 +168,7 @@ class DataPageV2 : public Page {
   int32_t repetition_levels_byte_length_;
   bool is_compressed_;
 
-  // TODO(wesm): parquet::DataPageHeaderV2.statistics
+  // TODO(wesm): format::DataPageHeaderV2.statistics
 };
 
 
@@ -210,6 +210,6 @@ class PageReader {
   virtual std::shared_ptr<Page> NextPage() = 0;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_COLUMN_PAGE_H

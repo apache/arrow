@@ -27,7 +27,7 @@
 #include "parquet/column/page.h"
 #include "parquet/schema/descriptor.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class ColumnReader;
 class RandomAccessSource;
@@ -139,6 +139,6 @@ class ParquetFileReader {
 };
 
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_FILE_READER_H

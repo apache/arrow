@@ -29,7 +29,7 @@
 #include "parquet/types.h"
 #include "parquet/util/input.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // 16 MB is the default maximum page header size
 static constexpr uint32_t DEFAULT_MAX_PAGE_HEADER_SIZE = 16 * 1024 * 1024;
@@ -38,7 +38,7 @@ static constexpr uint32_t DEFAULT_MAX_PAGE_HEADER_SIZE = 16 * 1024 * 1024;
 static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
-// by a serialized Thrift parquet::PageHeader indicating the type of each page
+// by a serialized Thrift format::PageHeader indicating the type of each page
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
@@ -57,7 +57,7 @@ class SerializedPageReader : public PageReader {
  private:
   std::unique_ptr<InputStream> stream_;
 
-  parquet::PageHeader current_page_header_;
+  format::PageHeader current_page_header_;
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
@@ -71,7 +71,7 @@ class SerializedPageReader : public PageReader {
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(RandomAccessSource* source,
-      const parquet::RowGroup* metadata, MemoryAllocator* allocator) :
+      const format::RowGroup* metadata, MemoryAllocator* allocator) :
       source_(source),
       metadata_(metadata),
       allocator_(allocator) {}
@@ -83,7 +83,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
  private:
   RandomAccessSource* source_;
-  const parquet::RowGroup* metadata_;
+  const format::RowGroup* metadata_;
   MemoryAllocator* allocator_;
 };
 
@@ -112,12 +112,12 @@ class SerializedFile : public ParquetFileReader::Contents {
       MemoryAllocator* allocator);
 
   std::unique_ptr<RandomAccessSource> source_;
-  parquet::FileMetaData metadata_;
+  format::FileMetaData metadata_;
   MemoryAllocator* allocator_;
 
   void ParseMetaData();
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_FILE_READER_INTERNAL_H

@@ -27,7 +27,7 @@
 #include "parquet/util/logging.h"
 #include "parquet/util/sse-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// Utility class to compute hash values.
 class HashUtil {
@@ -246,6 +246,6 @@ class HashUtil {
   }
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_HASH_UTIL_H

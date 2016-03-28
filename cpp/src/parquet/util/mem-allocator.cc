@@ -21,7 +21,7 @@
 
 #include "parquet/exception.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 MemoryAllocator::~MemoryAllocator() {}
 
@@ -58,4 +58,4 @@ MemoryAllocator* default_allocator() {
   return &default_allocator;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

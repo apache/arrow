@@ -26,7 +26,7 @@
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 ColumnReader::ColumnReader(const ColumnDescriptor* descr,
     std::unique_ptr<PageReader> pager, MemoryAllocator* allocator)
@@ -224,4 +224,4 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(
   return std::shared_ptr<ColumnReader>(nullptr);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

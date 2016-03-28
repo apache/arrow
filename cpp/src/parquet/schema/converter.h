@@ -28,9 +28,9 @@
 #include <memory>
 #include <vector>
 
-namespace parquet { class SchemaElement;}
+namespace parquet {
 
-namespace parquet_cpp {
+namespace format { class SchemaElement;}
 
 class SchemaDescriptor;
 
@@ -43,11 +43,11 @@ class Node;
 // Conversion from Parquet Thrift metadata
 
 std::shared_ptr<SchemaDescriptor> FromParquet(
-    const std::vector<parquet::SchemaElement>& schema);
+    const std::vector<format::SchemaElement>& schema);
 
 class FlatSchemaConverter {
  public:
-  FlatSchemaConverter(const parquet::SchemaElement* elements, int length) :
+  FlatSchemaConverter(const format::SchemaElement* elements, int length) :
       elements_(elements),
       length_(length),
       pos_(0),
@@ -56,7 +56,7 @@ class FlatSchemaConverter {
   std::unique_ptr<Node> Convert();
 
  private:
-  const parquet::SchemaElement* elements_;
+  const format::SchemaElement* elements_;
   int length_;
   int pos_;
   int current_id_;
@@ -65,7 +65,7 @@ class FlatSchemaConverter {
     return current_id_++;
   }
 
-  const parquet::SchemaElement& Next();
+  const format::SchemaElement& Next();
 
   std::unique_ptr<Node> NextNode();
 };
@@ -73,20 +73,20 @@ class FlatSchemaConverter {
 // ----------------------------------------------------------------------
 // Conversion to Parquet Thrift metadata
 
-void ToParquet(const GroupNode* schema, std::vector<parquet::SchemaElement>* out);
+void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
-// Converts nested parquet_cpp schema back to a flat vector of Thrift structs
+// Converts nested parquet schema back to a flat vector of Thrift structs
 class SchemaFlattener {
  public:
-  SchemaFlattener(const GroupNode* schema, std::vector<parquet::SchemaElement>* out);
+  SchemaFlattener(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
  private:
   const GroupNode* root_;
-  std::vector<parquet::SchemaElement>* schema_;
+  std::vector<format::SchemaElement>* schema_;
 };
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_SCHEMA_CONVERTER_H

@@ -27,7 +27,7 @@
 #include "parquet/util/macros.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // Buffer classes
@@ -164,6 +164,6 @@ class Vector {
   DISALLOW_COPY_AND_ASSIGN(Vector);
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_BUFFER_H

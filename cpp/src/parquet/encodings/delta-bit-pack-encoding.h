@@ -26,7 +26,7 @@
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/buffer.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 template <int TYPE>
 class DeltaBitPackDecoder : public Decoder<TYPE> {
@@ -119,6 +119,6 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
 
   int32_t last_value_;
 };
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

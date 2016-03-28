@@ -24,7 +24,7 @@
 #include "parquet/encodings/delta-length-byte-array-encoding.h"
 #include "parquet/encodings/delta-bit-pack-encoding.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class DeltaByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
  public:
@@ -77,6 +77,6 @@ class DeltaByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
   ByteArray last_value_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

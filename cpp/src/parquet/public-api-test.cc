@@ -21,7 +21,7 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #ifdef _THRIFT_THRIFT_H_
@@ -29,4 +29,4 @@ TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #endif
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

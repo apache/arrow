@@ -25,7 +25,7 @@
 #include "parquet/exception.h"
 #include "parquet/util/buffer.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // RandomAccessSource
@@ -233,4 +233,4 @@ void InMemoryInputStream::Advance(int64_t num_bytes) {
   offset_ += num_bytes;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

@@ -25,7 +25,7 @@
 #include "parquet/types.h"
 #include "parquet/util/rle-encoding.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class LevelEncoder {
  public:
@@ -165,5 +165,5 @@ class LevelDecoder {
   std::unique_ptr<BitReader> bit_packed_decoder_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 #endif // PARQUET_COLUMN_LEVELS_H

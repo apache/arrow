@@ -28,7 +28,7 @@
 
 using std::string;
 
-namespace parquet_cpp {
+namespace parquet {
 
 class TestBuffer : public ::testing::Test {
 };
@@ -65,4 +65,4 @@ TEST_F(TestBuffer, ResizeOOM) {
 #endif
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

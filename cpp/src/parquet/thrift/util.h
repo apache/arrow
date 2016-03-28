@@ -22,29 +22,29 @@
 #include "parquet/util/logging.h"
 #include "parquet/util/output.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
-// Convert Thrift enums to / from parquet_cpp enums
+// Convert Thrift enums to / from parquet enums
 
-static inline Type::type FromThrift(parquet::Type::type type) {
+static inline Type::type FromThrift(format::Type::type type) {
   return static_cast<Type::type>(type);
 }
 
-static inline LogicalType::type FromThrift(parquet::ConvertedType::type type) {
+static inline LogicalType::type FromThrift(format::ConvertedType::type type) {
   // item 0 is NONE
   return static_cast<LogicalType::type>(static_cast<int>(type) + 1);
 }
 
-static inline Repetition::type FromThrift(parquet::FieldRepetitionType::type type) {
+static inline Repetition::type FromThrift(format::FieldRepetitionType::type type) {
   return static_cast<Repetition::type>(type);
 }
 
-static inline Encoding::type FromThrift(parquet::Encoding::type type) {
+static inline Encoding::type FromThrift(format::Encoding::type type) {
   return static_cast<Encoding::type>(type);
 }
 
-static inline Compression::type FromThrift(parquet::CompressionCodec::type type) {
+static inline Compression::type FromThrift(format::CompressionCodec::type type) {
   return static_cast<Compression::type>(type);
 }
 
@@ -100,6 +100,6 @@ inline void SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
   out->Write(out_buffer, out_length);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_THRIFT_UTIL_H

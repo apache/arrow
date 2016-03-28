@@ -34,7 +34,7 @@
 
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 const int MAX_WIDTH = 32;
 
@@ -437,4 +437,4 @@ TEST(BitRle, Overflow) {
   }
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

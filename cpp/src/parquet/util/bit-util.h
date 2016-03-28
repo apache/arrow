@@ -32,7 +32,7 @@
 #include "parquet/util/cpu-info.h"
 #include "parquet/util/sse-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // TODO(wesm): The source from Impala was depending on boost::make_unsigned
 //
@@ -323,6 +323,6 @@ class BitUtil {
   }
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_BIT_UTIL_H

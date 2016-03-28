@@ -28,7 +28,7 @@
 using std::string;
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -69,4 +69,4 @@ TEST(TestSchemaPrinter, Examples) {
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet

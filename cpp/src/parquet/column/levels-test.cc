@@ -26,7 +26,7 @@
 
 using std::string;
 
-namespace parquet_cpp {
+namespace parquet {
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor,
     int max_level, std::vector<int16_t>& input_levels) {
@@ -188,4 +188,4 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
   }
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

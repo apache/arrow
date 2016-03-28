@@ -21,7 +21,7 @@
 #include "parquet/compression/codec.h"
 #include "parquet/exception.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 void Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
       int64_t output_len, uint8_t* output_buffer) {
@@ -42,4 +42,4 @@ int64_t Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
       reinterpret_cast<char*>(output_buffer), input_len);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

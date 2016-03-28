@@ -36,7 +36,7 @@ using std::string;
 using std::vector;
 using std::shared_ptr;
 
-namespace parquet_cpp {
+namespace parquet {
 
 using schema::NodePtr;
 
@@ -272,4 +272,4 @@ TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
 }
 
 } // namespace test
-} // namespace parquet_cpp
+} // namespace parquet

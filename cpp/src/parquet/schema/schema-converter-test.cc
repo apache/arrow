@@ -32,11 +32,11 @@
 using std::string;
 using std::vector;
 
-using parquet::ConvertedType;
-using parquet::FieldRepetitionType;
-using parquet::SchemaElement;
+using parquet::format::ConvertedType;
+using parquet::format::FieldRepetitionType;
+using parquet::format::SchemaElement;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -46,10 +46,10 @@ namespace schema {
 class TestSchemaConverter : public ::testing::Test {
  public:
   void setUp() {
-    name_ = "parquet_cpp_schema";
+    name_ = "parquet_schema";
   }
 
-  void Convert(const parquet::SchemaElement* elements, int length) {
+  void Convert(const parquet::format::SchemaElement* elements, int length) {
     FlatSchemaConverter converter(elements, length);
     node_ = converter.Convert();
     ASSERT_TRUE(node_->is_group());
@@ -86,7 +86,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   // A primitive one
   elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED,
-          parquet::Type::INT32));
+          format::Type::INT32));
 
   // A group
   elements.push_back(NewGroup("bag", FieldRepetitionType::OPTIONAL, 1));
@@ -96,7 +96,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elt.__set_converted_type(ConvertedType::LIST);
   elements.push_back(elt);
   elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL,
-          parquet::Type::INT64));
+          format::Type::INT64));
 
   Convert(&elements[0], elements.size());
 
@@ -127,7 +127,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
 
   SchemaElement elements[2];
   elements[0] = NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED,
-      parquet::Type::INT32);
+      format::Type::INT32);
   ASSERT_THROW(Convert(elements, 2), ParquetException);
 
   // While the Parquet spec indicates that the root group should have REPEATED
@@ -136,7 +136,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // practicality matter.
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::REQUIRED, 1);
   elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED,
-      parquet::Type::INT32);
+      format::Type::INT32);
   Convert(elements, 2);
 
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::OPTIONAL, 1);
@@ -156,4 +156,4 @@ TEST_F(TestSchemaConverter, NotEnoughChildren) {
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet

@@ -21,7 +21,7 @@
 #include "parquet/util/logging.h"
 #include "parquet/util/bit-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class MemoryAllocator {
  public:
@@ -55,6 +55,6 @@ class TrackingAllocator: public MemoryAllocator {
   int64_t max_memory_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_MEMORY_POOL_H

@@ -22,9 +22,9 @@
 #include "parquet/schema/types.h"
 #include "parquet/thrift/parquet_types.h"
 
-using parquet::SchemaElement;
+using parquet::format::SchemaElement;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -65,9 +65,9 @@ std::unique_ptr<Node> FlatSchemaConverter::NextNode() {
   }
 }
 
-const parquet::SchemaElement& FlatSchemaConverter::Next() {
+const format::SchemaElement& FlatSchemaConverter::Next() {
   if (pos_ == length_) {
-    throw ParquetException("Malformed schema: not enough parquet::SchemaElement values");
+    throw ParquetException("Malformed schema: not enough SchemaElement values");
   }
   return elements_[pos_++];
 }
@@ -85,4 +85,4 @@ std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& 
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet

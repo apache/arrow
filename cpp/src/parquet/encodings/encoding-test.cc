@@ -35,7 +35,7 @@
 using std::string;
 using std::vector;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace test {
 
@@ -311,4 +311,4 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 
 } // namespace test
 
-} // namespace parquet_cpp
+} // namespace parquet

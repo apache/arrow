@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace parquet_cpp {
+namespace parquet {
 
 class Buffer;
 
@@ -183,6 +183,6 @@ class InMemoryInputStream : public InputStream {
   int64_t offset_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_INPUT_H

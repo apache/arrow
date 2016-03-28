@@ -35,7 +35,7 @@
 #include "parquet/util/buffer.h"
 #include "parquet/util/input.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
@@ -107,8 +107,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     auto page_buffer = std::make_shared<Buffer>(buffer, uncompressed_len);
 
-    if (current_page_header_.type == parquet::PageType::DICTIONARY_PAGE) {
-      const parquet::DictionaryPageHeader& dict_header =
+    if (current_page_header_.type == format::PageType::DICTIONARY_PAGE) {
+      const format::DictionaryPageHeader& dict_header =
         current_page_header_.dictionary_page_header;
 
       bool is_sorted = dict_header.__isset.is_sorted? dict_header.is_sorted : false;
@@ -116,8 +116,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       return std::make_shared<DictionaryPage>(page_buffer,
           dict_header.num_values, FromThrift(dict_header.encoding),
           is_sorted);
-    } else if (current_page_header_.type == parquet::PageType::DATA_PAGE) {
-      const parquet::DataPageHeader& header = current_page_header_.data_page_header;
+    } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
+      const format::DataPageHeader& header = current_page_header_.data_page_header;
 
       auto page = std::make_shared<DataPage>(page_buffer,
           header.num_values,
@@ -126,7 +126,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           FromThrift(header.repetition_level_encoding));
 
       if (header.__isset.statistics) {
-        const parquet::Statistics stats = header.statistics;
+        const format::Statistics stats = header.statistics;
         if (stats.__isset.max) {
           page->max_ = stats.max;
         }
@@ -135,8 +135,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         }
       }
       return page;
-    } else if (current_page_header_.type == parquet::PageType::DATA_PAGE_V2) {
-      const parquet::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
+    } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
+      const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed? header.is_compressed : false;
       return std::make_shared<DataPageV2>(page_buffer,
           header.num_values, header.num_nulls, header.num_rows,
@@ -165,7 +165,7 @@ int SerializedRowGroup::num_columns() const {
 
 std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
   // Read column chunk from the file
-  const parquet::ColumnChunk& col = metadata_->columns[i];
+  const format::ColumnChunk& col = metadata_->columns[i];
 
   int64_t col_start = col.meta_data.data_page_offset;
   if (col.meta_data.__isset.dictionary_page_offset &&
@@ -186,7 +186,7 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
 }
 
 RowGroupStatistics SerializedRowGroup::GetColumnStats(int i) {
-  const parquet::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
 
   RowGroupStatistics result;
   result.num_values = meta_data.num_values;
@@ -286,4 +286,4 @@ void SerializedFile::ParseMetaData() {
   schema_.Init(converter.Convert());
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

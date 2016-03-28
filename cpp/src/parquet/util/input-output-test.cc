@@ -32,7 +32,7 @@
 #include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 TEST(TestInMemoryOutputStream, Basics) {
   std::unique_ptr<InMemoryOutputStream> stream(new InMemoryOutputStream(8));
@@ -122,4 +122,4 @@ TYPED_TEST(TestFileReaders, BadSeek) {
   ASSERT_THROW(this->source.Seek(this->filesize_ + 1), ParquetException);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

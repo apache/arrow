@@ -24,11 +24,11 @@
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class ColumnDescriptor;
 
-// The Decoder template is parameterized on parquet_cpp::Type::type
+// The Decoder template is parameterized on parquet::Type::type
 template <int TYPE>
 class Decoder {
  public:
@@ -65,6 +65,6 @@ class Decoder {
   int num_values_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_ENCODINGS_DECODER_H

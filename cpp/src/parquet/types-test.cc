@@ -21,7 +21,7 @@
 
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 TEST(TestTypeToString, PhysicalTypes) {
   ASSERT_STREQ("BOOLEAN", type_to_string(Type::BOOLEAN).c_str());
@@ -79,4 +79,4 @@ TEST(TestLogicalTypeToString, LogicalTypes) {
 }
 
 
-} // namespace parquet_cpp
+} // namespace parquet

@@ -22,7 +22,7 @@
 #include <sstream>
 #include <string>
 
-namespace parquet_cpp {
+namespace parquet {
 
 class ParquetException : public std::exception {
  public:
@@ -44,6 +44,6 @@ class ParquetException : public std::exception {
   std::string msg_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_EXCEPTION_H

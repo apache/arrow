@@ -20,7 +20,7 @@
 
 #include <iostream>
 
-namespace parquet_cpp {
+namespace parquet {
 
 // Stubbed versions of macros defined in glog/logging.h, intended for
 // environments where glog headers aren't available.
@@ -34,7 +34,7 @@ namespace parquet_cpp {
 #define PARQUET_ERROR 2
 #define PARQUET_FATAL 3
 
-#define PARQUET_LOG_INTERNAL(level) parquet_cpp::internal::CerrLog(level)
+#define PARQUET_LOG_INTERNAL(level) parquet::internal::CerrLog(level)
 #define PARQUET_LOG(level) PARQUET_LOG_INTERNAL(PARQUET_##level)
 
 #define PARQUET_CHECK(condition) \
@@ -43,13 +43,13 @@ namespace parquet_cpp {
 #ifdef NDEBUG
 #define PARQUET_DFATAL PARQUET_WARNING
 
-#define DCHECK(condition) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_EQ(val1, val2) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_NE(val1, val2) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_LE(val1, val2) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_LT(val1, val2) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_GE(val1, val2) while (false) parquet_cpp::internal::NullLog()
-#define DCHECK_GT(val1, val2) while (false) parquet_cpp::internal::NullLog()
+#define DCHECK(condition) while (false) parquet::internal::NullLog()
+#define DCHECK_EQ(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK_NE(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK_LE(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK_LT(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK_GE(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK_GT(val1, val2) while (false) parquet::internal::NullLog()
 
 #else
 #define PARQUET_DFATAL PARQUET_FATAL
@@ -104,6 +104,6 @@ class CerrLog {
 
 } // namespace internal
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_LOGGING_H

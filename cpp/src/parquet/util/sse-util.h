@@ -25,7 +25,7 @@
 #include <emmintrin.h>
 #endif
 
-namespace parquet_cpp {
+namespace parquet {
 
 
 /// This class contains constants useful for text processing with SSE4.2 intrinsics.
@@ -243,6 +243,6 @@ static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
 
 #endif // PARQUET_USE_SSE
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif //  PARQUET_UTIL_SSE_UTIL_H

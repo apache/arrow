@@ -26,7 +26,7 @@
 
 #include "parquet/util/logging.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
 /// ask for the sizes of the caches and what hardware features are supported.
@@ -107,6 +107,6 @@ class CpuInfo {
   static std::string model_name_; // NOLINT
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_CPU_INFO_H

@@ -25,7 +25,7 @@
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/delta-bit-pack-encoding.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class DeltaLengthByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
  public:
@@ -66,6 +66,6 @@ class DeltaLengthByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
   int len_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

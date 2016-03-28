@@ -22,7 +22,7 @@
 #include "parquet/compression/codec.h"
 #include "parquet/exception.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // These are magic numbers from zlib.h.  Not clear why they are not defined
 // there.
@@ -187,4 +187,4 @@ int64_t GZipCodec::Compress(int64_t input_length, const uint8_t* input,
   return output_length - stream_.avail_out;
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

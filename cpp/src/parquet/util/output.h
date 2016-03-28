@@ -24,7 +24,7 @@
 #include "parquet/util/macros.h"
 #include "parquet/util/mem-allocator.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class Buffer;
 class ResizableBuffer;
@@ -74,6 +74,6 @@ class InMemoryOutputStream : public OutputStream {
   DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_UTIL_OUTPUT_H

@@ -28,7 +28,7 @@
 #include "parquet/util/buffer.h"
 #include "parquet/util/output.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // Encoding::PLAIN decoder implementation
@@ -245,6 +245,6 @@ inline void PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
     dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
   }
 }
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

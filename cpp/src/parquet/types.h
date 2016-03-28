@@ -26,7 +26,7 @@
 
 #include "parquet/util/compiler-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // ----------------------------------------------------------------------
 // Metadata enums to match Thrift metadata
@@ -383,6 +383,6 @@ static inline std::string logical_type_to_string(LogicalType::type t) {
       break;
   }
 }
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_TYPES_H

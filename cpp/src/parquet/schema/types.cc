@@ -24,7 +24,7 @@
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/thrift/util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -244,7 +244,7 @@ struct NodeParams {
   LogicalType::type logical_type;
 };
 
-static inline NodeParams GetNodeParams(const parquet::SchemaElement* element) {
+static inline NodeParams GetNodeParams(const format::SchemaElement* element) {
   NodeParams params(element->name);
 
   params.repetition = FromThrift(element->repetition_type);
@@ -258,8 +258,8 @@ static inline NodeParams GetNodeParams(const parquet::SchemaElement* element) {
 
 std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int node_id,
     const NodeVector& fields) {
-  const parquet::SchemaElement* element =
-    static_cast<const parquet::SchemaElement*>(opaque_element);
+  const format::SchemaElement* element =
+    static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
   return std::unique_ptr<Node>(new GroupNode(params.name, params.repetition, fields,
           params.logical_type, node_id));
@@ -267,8 +267,8 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int nod
 
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
     int node_id) {
-  const parquet::SchemaElement* element =
-    static_cast<const parquet::SchemaElement*>(opaque_element);
+  const format::SchemaElement* element =
+    static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
 
   std::unique_ptr<PrimitiveNode> result = std::unique_ptr<PrimitiveNode>(
@@ -282,4 +282,4 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet

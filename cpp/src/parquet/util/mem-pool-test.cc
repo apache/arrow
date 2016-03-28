@@ -26,7 +26,7 @@
 #include "parquet/util/mem-pool.h"
 #include "parquet/util/bit-util.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 // Utility class to call private functions on MemPool.
 class MemPoolTest {
@@ -244,4 +244,4 @@ TEST(MemPoolTest, FragmentationOverhead) {
   p.FreeAll();
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

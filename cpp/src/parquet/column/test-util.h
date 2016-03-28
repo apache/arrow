@@ -40,7 +40,7 @@
 using std::vector;
 using std::shared_ptr;
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace test {
 
@@ -457,6 +457,6 @@ static int MakePages(const ColumnDescriptor *d, int num_pages, int levels_per_pa
 
 } // namespace test
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_COLUMN_TEST_UTIL_H

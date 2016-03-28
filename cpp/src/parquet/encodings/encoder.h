@@ -23,7 +23,7 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 class ColumnDescriptor;
 class OutputStream;
@@ -52,6 +52,6 @@ class Encoder {
   MemoryAllocator* allocator_;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_ENCODINGS_ENCODER_H

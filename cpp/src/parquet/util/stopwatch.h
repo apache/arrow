@@ -24,7 +24,7 @@
 #include <iostream>
 #include <ctime>
 
-namespace parquet_cpp {
+namespace parquet {
 
 class StopWatch {
  public:
@@ -48,6 +48,6 @@ class StopWatch {
   struct timeval  start_time;
 };
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif

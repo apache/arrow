@@ -37,13 +37,13 @@
 #include "parquet/util/output.h"
 #include "parquet/util/test-common.h"
 
-namespace parquet_cpp {
+namespace parquet {
 
 
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
 static inline void AddDummyStats(int stat_size,
-    parquet::DataPageHeader& data_page) {
+    format::DataPageHeader& data_page) {
 
   std::vector<uint8_t> stat_bytes(stat_size);
   // Some non-zero value
@@ -56,9 +56,9 @@ static inline void AddDummyStats(int stat_size,
 class TestPageSerde : public ::testing::Test {
  public:
   void SetUp() {
-    data_page_header_.encoding = parquet::Encoding::PLAIN;
-    data_page_header_.definition_level_encoding = parquet::Encoding::RLE;
-    data_page_header_.repetition_level_encoding = parquet::Encoding::RLE;
+    data_page_header_.encoding = format::Encoding::PLAIN;
+    data_page_header_.definition_level_encoding = format::Encoding::RLE;
+    data_page_header_.repetition_level_encoding = format::Encoding::RLE;
 
     ResetStream();
   }
@@ -80,7 +80,7 @@ class TestPageSerde : public ::testing::Test {
     page_header_.__set_data_page_header(data_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
-    page_header_.type = parquet::PageType::DATA_PAGE;
+    page_header_.type = format::PageType::DATA_PAGE;
 
     ASSERT_NO_THROW(SerializeThriftMsg(&page_header_, max_serialized_len,
           out_stream_.get()));
@@ -99,11 +99,11 @@ class TestPageSerde : public ::testing::Test {
   std::shared_ptr<Buffer> out_buffer_;
 
   std::unique_ptr<SerializedPageReader> page_reader_;
-  parquet::PageHeader page_header_;
-  parquet::DataPageHeader data_page_header_;
+  format::PageHeader page_header_;
+  format::DataPageHeader data_page_header_;
 };
 
-void CheckDataPageHeader(const parquet::DataPageHeader expected,
+void CheckDataPageHeader(const format::DataPageHeader expected,
     const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
@@ -126,7 +126,7 @@ void CheckDataPageHeader(const parquet::DataPageHeader expected,
 }
 
 TEST_F(TestPageSerde, DataPage) {
-  parquet::PageHeader out_page_header;
+  format::PageHeader out_page_header;
 
   int stats_size = 512;
   AddDummyStats(stats_size, data_page_header_);
@@ -291,4 +291,4 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
   AssertInvalidFileThrows(buffer);
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

@@ -22,7 +22,7 @@
 
 #include <ostream>
 
-namespace parquet_cpp {
+namespace parquet {
 
 namespace schema {
 
@@ -33,6 +33,6 @@ void PrintSchema(const Node* schema, std::ostream& stream,
 
 } // namespace schema
 
-} // namespace parquet_cpp
+} // namespace parquet
 
 #endif // PARQUET_SCHEMA_PRINTER_H
