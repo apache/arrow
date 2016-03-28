@@ -31,10 +31,10 @@ class Status;
 
 namespace parquet {
 
-Status NodeToField(const parquet_cpp::schema::NodePtr& node,
+Status NodeToField(const ::parquet::schema::NodePtr& node,
     std::shared_ptr<Field>* out);
 
-Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
+Status FromParquetSchema(const ::parquet::SchemaDescriptor* parquet_schema,
     std::shared_ptr<Schema>* out);
 
 } // namespace parquet

@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
-cdef extern from "parquet/api/reader.h" namespace "parquet_cpp" nogil:
+cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
         pass
 

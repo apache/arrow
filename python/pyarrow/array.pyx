@@ -359,7 +359,4 @@ cdef class Table:
             names.append(frombytes(col.get().name()))
             data.append(<object> arr)
 
-            # One ref count too many
-            Py_XDECREF(arr)
-
         return pd.DataFrame(dict(zip(names, data)), columns=names)
