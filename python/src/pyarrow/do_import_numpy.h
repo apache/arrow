@@ -15,25 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_CONFIG_H
-#define PYARROW_CONFIG_H
+// Trick borrowed from dynd-python for initializing the NumPy array API
 
-#include <Python.h>
-
-#include "pyarrow/numpy_interop.h"
-
-#if PY_MAJOR_VERSION >= 3
-  #define PyString_Check PyUnicode_Check
-#endif
-
-namespace pyarrow {
-
-extern PyObject* numpy_nan;
-
-void pyarrow_init();
-
-void pyarrow_set_numpy_nan(PyObject* obj);
-
-} // namespace pyarrow
-
-#endif // PYARROW_CONFIG_H
+// Trigger the array import (inversion of NO_IMPORT_ARRAY)
+#define NUMPY_IMPORT_ARRAY

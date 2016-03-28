@@ -22,6 +22,8 @@
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
+import pyarrow.config
+
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.error cimport check_status
 
@@ -193,6 +195,34 @@ def from_pylist(object list_obj, DataType type=None):
         raise NotImplementedError
 
     return box_arrow_array(sp_array)
+
+
+def from_pandas_series(object series, object mask=None):
+    cdef:
+        shared_ptr[CArray] out
+
+    series_values = series_as_ndarray(series)
+
+    if mask is None:
+        check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
+                                           series_values, &out))
+    else:
+        mask = series_as_ndarray(mask)
+        check_status(pyarrow.PandasMaskedToArrow(
+            pyarrow.GetMemoryPool(), series_values, mask, &out))
+
+    return box_arrow_array(out)
+
+
+cdef object series_as_ndarray(object obj):
+    import pandas as pd
+
+    if isinstance(obj, pd.Series):
+        result = obj.values
+    else:
+        result = obj
+
+    return result
 
 #----------------------------------------------------------------------
 # Table-like data structures

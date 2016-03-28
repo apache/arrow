@@ -19,6 +19,8 @@
 
 #include <Python.h>
 
+#include "pyarrow/numpy_interop.h"
+
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -346,25 +348,6 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
   return Status::TypeError("Unable to infer type of object array, were all null");
 }
 
-class NumPyBuffer : public arrow::Buffer {
- public:
-  NumPyBuffer(PyArrayObject* arr) :
-      Buffer(nullptr, 0) {
-    arr_ = arr;
-    Py_INCREF(arr);
-
-    data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
-    size_ = PyArray_SIZE(arr_);
-  }
-
-  virtual ~NumPyBuffer() {
-    Py_XDECREF(arr_);
-  }
-
- private:
-  PyArrayObject* arr_;
-};
-
 template <int TYPE>
 inline Status ArrowSerializer<TYPE>::ConvertData() {
   // TODO(wesm): strided arrays
@@ -416,7 +399,7 @@ inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
     }                                                           \
     break;
 
-Status pandas_masked_to_primitive(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     std::shared_ptr<Array>* out) {
   PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
   PyArrayObject* mask = nullptr;
@@ -451,9 +434,9 @@ Status pandas_masked_to_primitive(arrow::MemoryPool* pool, PyObject* ao, PyObjec
   return Status::OK();
 }
 
-Status pandas_to_primitive(arrow::MemoryPool* pool, PyObject* ao,
+Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
     std::shared_ptr<Array>* out) {
-  return pandas_masked_to_primitive(pool, ao, nullptr, out);
+  return PandasMaskedToArrow(pool, ao, nullptr, out);
 }
 
 // ----------------------------------------------------------------------
@@ -539,27 +522,34 @@ class ArrowDeserializer {
   ArrowDeserializer(const std::shared_ptr<Array>& arr) :
       arr_(arr) {}
 
-  PyObject* Convert() {
-    ConvertValues<TYPE>();
-    return reinterpret_cast<PyObject*>(out_);
+  Status Convert(PyObject** out) {
+    RETURN_NOT_OK(ConvertValues<TYPE>());
+    *out = reinterpret_cast<PyObject*>(out_);
+    return Status::OK();
+  }
+
+  Status AllocateOutput(int type) {
+    npy_intp dims[1] = {arr_->length()};
+    out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNew(1, dims, type));
+
+    if (out_ == NULL) {
+      // Error occurred, trust that SimpleNew set the error state
+      return Status::OK();
+    }
+
+    return Status::OK();
   }
 
   template <int T2>
-  inline typename std::enable_if<arrow_traits<T2>::is_floating, void>::type
+  inline typename std::enable_if<
+    arrow_traits<T2>::is_floating, Status>::type
   ConvertValues() {
     typedef typename arrow_traits<T2>::T T;
 
     arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
         arr_.get());
 
-    npy_intp dims[1] = {arr_->length()};
-    out_ = reinterpret_cast<PyArrayObject*>(
-        PyArray_SimpleNew(1, dims, arrow_traits<T2>::npy_type));
-
-    if (out_ == NULL) {
-      // Error occurred, trust that SimpleNew set the error state
-      return;
-    }
+    RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
 
     if (arr_->null_count() > 0) {
       T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_));
@@ -571,11 +561,14 @@ class ArrowDeserializer {
       memcpy(PyArray_DATA(out_), prim_arr->data()->data(),
           arr_->length() * arr_->type()->value_size());
     }
+
+    return Status::OK();
   }
 
   // Integer specialization
   template <int T2>
-  inline typename std::enable_if<arrow_traits<T2>::is_integer, void>::type
+  inline typename std::enable_if<
+    arrow_traits<T2>::is_integer, Status>::type
   ConvertValues() {
     typedef typename arrow_traits<T2>::T T;
 
@@ -584,10 +577,8 @@ class ArrowDeserializer {
 
     const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
-    npy_intp dims[1] = {arr_->length()};
     if (arr_->null_count() > 0) {
-      out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNew(1, dims, NPY_FLOAT64));
-      if (out_ == NULL)  return;
+      RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
 
       // Upcast to double, set NaN as appropriate
       double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_));
@@ -595,26 +586,25 @@ class ArrowDeserializer {
         out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
       }
     } else {
-      out_ = reinterpret_cast<PyArrayObject*>(
-          PyArray_SimpleNew(1, dims, arrow_traits<TYPE>::npy_type));
-      if (out_ == NULL)  return;
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
+
       memcpy(PyArray_DATA(out_), in_values,
           arr_->length() * arr_->type()->value_size());
     }
+
+    return Status::OK();
   }
 
   // Boolean specialization
   template <int T2>
-  inline typename std::enable_if<arrow_traits<T2>::is_boolean, void>::type
+  inline typename std::enable_if<
+    arrow_traits<T2>::is_boolean, Status>::type
   ConvertValues() {
-    npy_intp dims[1] = {arr_->length()};
-
     arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr_.get());
 
     if (arr_->null_count() > 0) {
-      out_ = reinterpret_cast<PyArrayObject*>(
-          PyArray_SimpleNew(1, dims, NPY_OBJECT));
-      if (out_ == NULL)  return;
+      RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+
       PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
       for (int64_t i = 0; i < arr_->length(); ++i) {
         if (bool_arr->IsNull(i)) {
@@ -631,25 +621,24 @@ class ArrowDeserializer {
         }
       }
     } else {
-      out_ = reinterpret_cast<PyArrayObject*>(
-          PyArray_SimpleNew(1, dims, arrow_traits<TYPE>::npy_type));
-      if (out_ == NULL)  return;
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
 
       uint8_t* out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_));
       for (int64_t i = 0; i < arr_->length(); ++i) {
         out_values[i] = static_cast<uint8_t>(bool_arr->Value(i));
       }
     }
+
+    return Status::OK();
   }
 
   // UTF8
   template <int T2>
-  inline typename std::enable_if<T2 == arrow::Type::STRING, void>::type
+  inline typename std::enable_if<
+    T2 == arrow::Type::STRING, Status>::type
   ConvertValues() {
-    npy_intp dims[1] = {arr_->length()};
-    out_ = reinterpret_cast<PyArrayObject*>(
-        PyArray_SimpleNew(1, dims, NPY_OBJECT));
-    if (out_ == NULL)  return;
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+
     PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
 
     arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr_.get());
@@ -663,17 +652,23 @@ class ArrowDeserializer {
           out_values[i] = Py_None;
         } else {
           data = string_arr->GetValue(i, &length);
+
           out_values[i] = make_pystring(data, length);
-          if (out_values[i] == nullptr) return;
+          if (out_values[i] == nullptr) {
+            return Status::OK();
+          }
         }
       }
     } else {
       for (int64_t i = 0; i < arr_->length(); ++i) {
         data = string_arr->GetValue(i, &length);
         out_values[i] = make_pystring(data, length);
-        if (out_values[i] == nullptr) return;
+        if (out_values[i] == nullptr) {
+          return Status::OK();
+        }
       }
     }
+    return Status::OK();
   }
  private:
   std::shared_ptr<Array> arr_;
@@ -684,11 +679,11 @@ class ArrowDeserializer {
   case arrow::Type::TYPE:                                   \
     {                                                       \
       ArrowDeserializer<arrow::Type::TYPE> converter(arr);  \
-      return converter.Convert();                           \
+      return converter.Convert(out);                        \
     }                                                       \
     break;
 
-PyObject* primitive_to_pandas(const std::shared_ptr<Array>& arr) {
+Status ArrowToPandas(const std::shared_ptr<Array>& arr, PyObject** out) {
   switch(arr->type_enum()) {
     FROM_ARROW_CASE(BOOL);
     FROM_ARROW_CASE(INT8);
@@ -703,11 +698,9 @@ PyObject* primitive_to_pandas(const std::shared_ptr<Array>& arr) {
     FROM_ARROW_CASE(DOUBLE);
     FROM_ARROW_CASE(STRING);
     default:
-      break;
+      return Status::NotImplemented("Arrow type reading not implemented");
   }
-  PyErr_SetString(PyExc_NotImplementedError,
-      "Arrow type reading not implemented");
-  return NULL;
+  return Status::OK();
 }
 
 } // namespace pyarrow

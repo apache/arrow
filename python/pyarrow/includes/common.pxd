@@ -22,6 +22,8 @@ from libcpp cimport bool as c_bool
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
 
+from cpython cimport PyObject
+
 # This must be included for cerr and other things to work
 cdef extern from "<iostream>":
     pass

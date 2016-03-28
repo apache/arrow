@@ -21,7 +21,27 @@
 #ifndef PYARROW_ADAPTERS_PANDAS_H
 #define PYARROW_ADAPTERS_PANDAS_H
 
+#include <Python.h>
+
+#include <memory>
+
+namespace arrow {
+
+class Array;
+
+} // namespace arrow
+
 namespace pyarrow {
+
+class Status;
+
+Status ArrowToPandas(const std::shared_ptr<arrow::Array>& arr, PyObject** out);
+
+Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+    std::shared_ptr<arrow::Array>* out);
+
+Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
+    std::shared_ptr<arrow::Array>* out);
 
 } // namespace pyarrow
 

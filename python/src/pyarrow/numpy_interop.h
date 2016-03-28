@@ -15,25 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_CONFIG_H
-#define PYARROW_CONFIG_H
+#ifndef PYARROW_NUMPY_INTEROP_H
+#define PYARROW_NUMPY_INTEROP_H
 
 #include <Python.h>
 
-#include "pyarrow/numpy_interop.h"
+#include <numpy/numpyconfig.h>
 
-#if PY_MAJOR_VERSION >= 3
-  #define PyString_Check PyUnicode_Check
+// Don't use the deprecated Numpy functions
+#ifdef NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#else
+#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
+#define NPY_ARRAY_ALIGNED NPY_ALIGNED
+#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
+#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
 #endif
+
+// This is required to be able to access the NumPy C API properly in C++ files
+// other than this main one
+#define PY_ARRAY_UNIQUE_SYMBOL pyarrow_ARRAY_API
+#ifndef NUMPY_IMPORT_ARRAY
+#define NO_IMPORT_ARRAY
+#endif
+
+#include <numpy/arrayobject.h>
+#include <numpy/ufuncobject.h>
 
 namespace pyarrow {
 
-extern PyObject* numpy_nan;
+inline int import_numpy() {
+#ifdef NUMPY_IMPORT_ARRAY
+  import_array1(-1);
+  import_umath1(-1);
+#endif
 
-void pyarrow_init();
-
-void pyarrow_set_numpy_nan(PyObject* obj);
+  return 0;
+}
 
 } // namespace pyarrow
 
-#endif // PYARROW_CONFIG_H
+#endif // PYARROW_NUMPY_INTEROP_H
