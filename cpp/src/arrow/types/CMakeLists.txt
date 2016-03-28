@@ -34,6 +34,7 @@ install(FILES
   DESTINATION include/arrow/types)
 
 
+ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(list-test)
 ADD_ARROW_TEST(primitive-test)
 ADD_ARROW_TEST(string-test)
