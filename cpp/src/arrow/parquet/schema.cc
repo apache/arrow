@@ -57,6 +57,9 @@ static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::UTF8:
       *out = UTF8;
       break;
+    case LogicalType::DECIMAL:
+      *out = MakeDecimalType(node);
+      break;
     default:
       // BINARY
       *out = BINARY;
@@ -86,6 +89,9 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::NONE:
       *out = INT32;
       break;
+    case LogicalType::DECIMAL:
+      *out = MakeDecimalType(node);
+      break;
     default:
       return Status::NotImplemented("Unhandled logical type for int32");
       break;
@@ -97,6 +103,9 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
       *out = INT64;
+      break;
+    case LogicalType::DECIMAL:
+      *out = MakeDecimalType(node);
       break;
     default:
       return Status::NotImplemented("Unhandled logical type for int64");
