@@ -22,9 +22,15 @@ from libcpp cimport bool as c_bool
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
 
+from cpython cimport PyObject
+cimport cpython
+
 # This must be included for cerr and other things to work
 cdef extern from "<iostream>":
     pass
+
+cdef extern from "<Python.h>":
+    void Py_XDECREF(PyObject* o)
 
 cdef extern from "<memory>" namespace "std" nogil:
 

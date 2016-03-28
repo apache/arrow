@@ -17,7 +17,11 @@
 
 # flake8: noqa
 
-from pyarrow.array import (Array, from_pylist, total_allocated_bytes,
+import pyarrow.config
+
+from pyarrow.array import (Array,
+                           from_pandas_series, from_pylist,
+                           total_allocated_bytes,
                            BooleanArray, NumericArray,
                            Int8Array, UInt8Array,
                            ListArray, StringArray)
@@ -37,4 +41,4 @@ from pyarrow.schema import (null, bool_,
                             list_, struct, field,
                             DataType, Field, Schema, schema)
 
-from pyarrow.array import RowBatch
+from pyarrow.array import RowBatch, Table, from_pandas_dataframe

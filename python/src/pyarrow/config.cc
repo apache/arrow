@@ -15,11 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/init.h"
+#include <Python.h>
+
+#include "pyarrow/config.h"
 
 namespace pyarrow {
 
 void pyarrow_init() {
+}
+
+PyObject* numpy_nan = nullptr;
+
+void pyarrow_set_numpy_nan(PyObject* obj) {
+  Py_INCREF(obj);
+  numpy_nan = obj;
 }
 
 } // namespace pyarrow

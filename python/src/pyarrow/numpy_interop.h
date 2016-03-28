@@ -15,35 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between pandas's NumPy-based data representation
-// and Arrow data structures
-
-#ifndef PYARROW_ADAPTERS_PANDAS_H
-#define PYARROW_ADAPTERS_PANDAS_H
+#ifndef PYARROW_NUMPY_INTEROP_H
+#define PYARROW_NUMPY_INTEROP_H
 
 #include <Python.h>
 
-#include <memory>
+#include <numpy/numpyconfig.h>
 
-namespace arrow {
+// Don't use the deprecated Numpy functions
+#ifdef NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#else
+#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
+#define NPY_ARRAY_ALIGNED NPY_ALIGNED
+#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
+#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
+#endif
 
-class Array;
-class Column;
+// This is required to be able to access the NumPy C API properly in C++ files
+// other than this main one
+#define PY_ARRAY_UNIQUE_SYMBOL pyarrow_ARRAY_API
+#ifndef NUMPY_IMPORT_ARRAY
+#define NO_IMPORT_ARRAY
+#endif
 
-} // namespace arrow
+#include <numpy/arrayobject.h>
+#include <numpy/ufuncobject.h>
 
 namespace pyarrow {
 
-class Status;
+inline int import_numpy() {
+#ifdef NUMPY_IMPORT_ARRAY
+  import_array1(-1);
+  import_umath1(-1);
+#endif
 
-Status ArrowToPandas(const std::shared_ptr<arrow::Column>& col, PyObject** out);
-
-Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
-    std::shared_ptr<arrow::Array>* out);
-
-Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
-    std::shared_ptr<arrow::Array>* out);
+  return 0;
+}
 
 } // namespace pyarrow
 
-#endif // PYARROW_ADAPTERS_PANDAS_H
+#endif // PYARROW_NUMPY_INTEROP_H

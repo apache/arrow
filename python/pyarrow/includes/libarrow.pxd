@@ -20,6 +20,25 @@
 from pyarrow.includes.common cimport *
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
+    # We can later add more of the common status factory methods as needed
+    cdef CStatus CStatus_OK "Status::OK"()
+
+    cdef cppclass CStatus "arrow::Status":
+        CStatus()
+
+        c_string ToString()
+
+        c_bool ok()
+        c_bool IsOutOfMemory()
+        c_bool IsKeyError()
+        c_bool IsNotImplemented()
+        c_bool IsInvalid()
+
+    cdef cppclass Buffer:
+        uint8_t* data()
+        int64_t size()
+
+cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum Type" arrow::Type::type":
         Type_NA" arrow::Type::NA"
@@ -129,25 +148,30 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStringArray" arrow::StringArray"(CListArray):
         c_string GetString(int i)
 
+    cdef cppclass CChunkedArray" arrow::ChunkedArray":
+        pass
 
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef CStatus CStatus_OK "Status::OK"()
+    cdef cppclass CColumn" arrow::Column":
+        CColumn(const shared_ptr[CField]& field,
+                const shared_ptr[CArray]& data)
 
-    cdef cppclass CStatus "arrow::Status":
-        CStatus()
+        int64_t length()
+        int64_t null_count()
+        const c_string& name()
+        const shared_ptr[CDataType]& type()
+        const shared_ptr[CChunkedArray]& data()
 
-        c_string ToString()
+    cdef cppclass CTable" arrow::Table":
+        CTable(const c_string& name, const shared_ptr[CSchema]& schema,
+               const vector[shared_ptr[CColumn]]& columns)
 
-        c_bool ok()
-        c_bool IsOutOfMemory()
-        c_bool IsKeyError()
-        c_bool IsNotImplemented()
-        c_bool IsInvalid()
+        int num_columns()
+        int num_rows()
 
-    cdef cppclass Buffer:
-        uint8_t* data()
-        int64_t size()
+        const c_string& name()
+
+        const shared_ptr[CSchema]& schema()
+        const shared_ptr[CColumn]& column(int i)
 
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:

@@ -15,35 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between pandas's NumPy-based data representation
-// and Arrow data structures
+// Trick borrowed from dynd-python for initializing the NumPy array API
 
-#ifndef PYARROW_ADAPTERS_PANDAS_H
-#define PYARROW_ADAPTERS_PANDAS_H
-
-#include <Python.h>
-
-#include <memory>
-
-namespace arrow {
-
-class Array;
-class Column;
-
-} // namespace arrow
-
-namespace pyarrow {
-
-class Status;
-
-Status ArrowToPandas(const std::shared_ptr<arrow::Column>& col, PyObject** out);
-
-Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
-    std::shared_ptr<arrow::Array>* out);
-
-Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
-    std::shared_ptr<arrow::Array>* out);
-
-} // namespace pyarrow
-
-#endif // PYARROW_ADAPTERS_PANDAS_H
+// Trigger the array import (inversion of NO_IMPORT_ARRAY)
+#define NUMPY_IMPORT_ARRAY

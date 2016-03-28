@@ -34,13 +34,10 @@ class Buffer;
 //
 // The base class is only required to have a null bitmap buffer if the null
 // count is greater than 0
-//
-// Any buffers used to initialize the array have their references "stolen". If
-// you wish to use the buffer beyond the lifetime of the array, you need to
-// explicitly increment its reference count
 class Array {
  public:
-  Array(const TypePtr& type, int32_t length, int32_t null_count = 0,
+  Array(const std::shared_ptr<DataType>& type, int32_t length,
+      int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   virtual ~Array() {}
@@ -60,11 +57,15 @@ class Array {
     return null_bitmap_;
   }
 
+  const uint8_t* null_bitmap_data() const {
+    return null_bitmap_data_;
+  }
+
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
 
  protected:
-  TypePtr type_;
+  std::shared_ptr<DataType> type_;
   int32_t null_count_;
   int32_t length_;
 

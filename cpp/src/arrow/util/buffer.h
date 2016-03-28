@@ -18,11 +18,13 @@
 #ifndef ARROW_UTIL_BUFFER_H
 #define ARROW_UTIL_BUFFER_H
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/status.h"
 
 namespace arrow {
 
@@ -144,6 +146,46 @@ class PoolBuffer : public ResizableBuffer {
 
  private:
   MemoryPool* pool_;
+};
+
+static constexpr int64_t MIN_BUFFER_CAPACITY = 1024;
+
+class BufferBuilder {
+ public:
+  explicit BufferBuilder(MemoryPool* pool) :
+      pool_(pool),
+      capacity_(0),
+      size_(0) {}
+
+  Status Append(const uint8_t* data, int length) {
+    if (capacity_ < length + size_) {
+      if (capacity_ == 0) {
+        buffer_ = std::make_shared<PoolBuffer>(pool_);
+      }
+      capacity_ = std::max(MIN_BUFFER_CAPACITY, capacity_);
+      while (capacity_ < length + size_) {
+        capacity_ *= 2;
+      }
+      RETURN_NOT_OK(buffer_->Resize(capacity_));
+      data_ = buffer_->mutable_data();
+    }
+    memcpy(data_ + size_, data, length);
+    size_ += length;
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> Finish() {
+    auto result = buffer_;
+    buffer_ = nullptr;
+    return result;
+  }
+
+ private:
+  std::shared_ptr<PoolBuffer> buffer_;
+  MemoryPool* pool_;
+  uint8_t* data_;
+  int64_t capacity_;
+  int64_t size_;
 };
 
 } // namespace arrow

@@ -20,7 +20,17 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/type.h"
+
 namespace arrow {
+
+const std::shared_ptr<DataType> STRING(new StringType());
+
+StringArray::StringArray(int32_t length,
+    const std::shared_ptr<Buffer>& offsets,
+    const ArrayPtr& values, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap) :
+    StringArray(STRING, length, offsets, values, null_count, null_bitmap) {}
 
 std::string CharType::ToString() const {
   std::stringstream s;

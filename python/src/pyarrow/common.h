@@ -18,7 +18,9 @@
 #ifndef PYARROW_COMMON_H
 #define PYARROW_COMMON_H
 
-#include <Python.h>
+#include "pyarrow/config.h"
+
+#include "arrow/util/buffer.h"
 
 namespace arrow { class MemoryPool; }
 
@@ -89,6 +91,25 @@ struct PyObjectStringify {
   }
 
 arrow::MemoryPool* GetMemoryPool();
+
+class NumPyBuffer : public arrow::Buffer {
+ public:
+  NumPyBuffer(PyArrayObject* arr) :
+      Buffer(nullptr, 0) {
+    arr_ = arr;
+    Py_INCREF(arr);
+
+    data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+    size_ = PyArray_SIZE(arr_);
+  }
+
+  virtual ~NumPyBuffer() {
+    Py_XDECREF(arr_);
+  }
+
+ private:
+  PyArrayObject* arr_;
+};
 
 } // namespace pyarrow
 

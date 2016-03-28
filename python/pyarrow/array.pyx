@@ -22,6 +22,8 @@
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
+import pyarrow.config
+
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.error cimport check_status
 
@@ -43,6 +45,10 @@ cdef class Array:
         self.ap = sp_array.get()
         self.type = DataType()
         self.type.init(self.sp_array.get().type())
+
+    @staticmethod
+    def from_pandas(obj, mask=None):
+        return from_pandas_series(obj, mask)
 
     property null_count:
 
@@ -160,7 +166,15 @@ cdef class StringArray(Array):
 cdef dict _array_classes = {
     Type_NA: NullArray,
     Type_BOOL: BooleanArray,
+    Type_UINT8: UInt8Array,
+    Type_UINT16: UInt16Array,
+    Type_UINT32: UInt32Array,
+    Type_UINT64: UInt64Array,
+    Type_INT8: Int8Array,
+    Type_INT16: Int16Array,
+    Type_INT32: Int32Array,
     Type_INT64: Int64Array,
+    Type_FLOAT: FloatArray,
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,
     Type_STRING: StringArray,
@@ -194,6 +208,49 @@ def from_pylist(object list_obj, DataType type=None):
 
     return box_arrow_array(sp_array)
 
+
+def from_pandas_series(object series, object mask=None):
+    cdef:
+        shared_ptr[CArray] out
+
+    series_values = series_as_ndarray(series)
+
+    if mask is None:
+        check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
+                                           series_values, &out))
+    else:
+        mask = series_as_ndarray(mask)
+        check_status(pyarrow.PandasMaskedToArrow(
+            pyarrow.GetMemoryPool(), series_values, mask, &out))
+
+    return box_arrow_array(out)
+
+
+def from_pandas_dataframe(object df, name=None):
+    cdef:
+        list names = []
+        list arrays = []
+
+    for name in df.columns:
+        col = df[name]
+        arr = from_pandas_series(col)
+
+        names.append(name)
+        arrays.append(arr)
+
+    return Table.from_arrays(names, arrays, name=name)
+
+
+cdef object series_as_ndarray(object obj):
+    import pandas as pd
+
+    if isinstance(obj, pd.Series):
+        result = obj.values
+    else:
+        result = obj
+
+    return result
+
 #----------------------------------------------------------------------
 # Table-like data structures
 
@@ -225,3 +282,81 @@ cdef class RowBatch:
 
     def __getitem__(self, i):
         return self.arrays[i]
+
+
+cdef class Table:
+    '''
+    Do not call this class's constructor directly.
+    '''
+    cdef:
+        shared_ptr[CTable] sp_table
+        CTable* table
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[CTable]& table):
+        self.sp_table = table
+        self.table = table.get()
+
+    @staticmethod
+    def from_pandas(df, name=None):
+        pass
+
+    @staticmethod
+    def from_arrays(names, arrays, name=None):
+        cdef:
+            Array arr
+            Table result
+            c_string c_name
+            vector[shared_ptr[CField]] fields
+            vector[shared_ptr[CColumn]] columns
+            shared_ptr[CSchema] schema
+            shared_ptr[CTable] table
+
+        cdef int K = len(arrays)
+
+        fields.resize(K)
+        columns.resize(K)
+        for i in range(K):
+            arr = arrays[i]
+            c_name = tobytes(names[i])
+
+            fields[i].reset(new CField(c_name, arr.type.sp_type, True))
+            columns[i].reset(new CColumn(fields[i], arr.sp_array))
+
+        if name is None:
+            c_name = ''
+        else:
+            c_name = tobytes(name)
+
+        schema.reset(new CSchema(fields))
+        table.reset(new CTable(c_name, schema, columns))
+
+        result = Table()
+        result.init(table)
+
+        return result
+
+    def to_pandas(self):
+        """
+        Convert the arrow::Table to a pandas DataFrame
+        """
+        cdef:
+            PyObject* arr
+            shared_ptr[CColumn] col
+
+        import pandas as pd
+
+        names = []
+        data = []
+        for i in range(self.table.num_columns()):
+            col = self.table.column(i)
+            check_status(pyarrow.ArrowToPandas(col, &arr))
+            names.append(frombytes(col.get().name()))
+            data.append(<object> arr)
+
+            # One ref count too many
+            Py_XDECREF(arr)
+
+        return pd.DataFrame(dict(zip(names, data)), columns=names)

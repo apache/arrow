@@ -15,13 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_INIT_H
-#define PYARROW_INIT_H
+#ifndef PYARROW_CONFIG_H
+#define PYARROW_CONFIG_H
+
+#include <Python.h>
+
+#include "pyarrow/numpy_interop.h"
+
+#if PY_MAJOR_VERSION >= 3
+  #define PyString_Check PyUnicode_Check
+#endif
 
 namespace pyarrow {
 
+extern PyObject* numpy_nan;
+
 void pyarrow_init();
+
+void pyarrow_set_numpy_nan(PyObject* obj);
 
 } // namespace pyarrow
 
-#endif // PYARROW_INIT_H
+#endif // PYARROW_CONFIG_H
