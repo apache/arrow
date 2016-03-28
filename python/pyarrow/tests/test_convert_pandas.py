@@ -68,12 +68,13 @@ class TestPandasConversion(unittest.TestCase):
 
             values[null_mask] = np.nan
 
-            expected_cols.append((name, values))
+            expected_cols.append(values)
 
         ex_frame = pd.DataFrame(dict(zip(dtypes, expected_cols)),
                                 columns=dtypes)
 
-        result = A.Table.from_arrays(dtypes, arrays)
+        table = A.Table.from_arrays(dtypes, arrays)
+        result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
 
     def test_integer_no_nulls(self):
@@ -116,7 +117,8 @@ class TestPandasConversion(unittest.TestCase):
         ex_frame = pd.DataFrame(dict(zip(int_dtypes, expected_cols)),
                                 columns=int_dtypes)
 
-        result = A.Table.from_arrays(int_dtypes, arrays)
+        table = A.Table.from_arrays(int_dtypes, arrays)
+        result = table.to_pandas()
 
         tm.assert_frame_equal(result, ex_frame)
 
@@ -143,7 +145,9 @@ class TestPandasConversion(unittest.TestCase):
 
         ex_frame = pd.DataFrame({'bools': expected})
 
-        result = A.Table.from_arrays(['bools'], [arr])
+        table = A.Table.from_arrays(['bools'], [arr])
+        result = table.to_pandas()
+
         tm.assert_frame_equal(result, ex_frame)
 
     def test_boolean_object_nulls(self):

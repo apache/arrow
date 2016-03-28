@@ -37,6 +37,7 @@
 namespace pyarrow {
 
 using arrow::Array;
+using arrow::Column;
 namespace util = arrow::util;
 
 // ----------------------------------------------------------------------
@@ -519,17 +520,24 @@ static inline PyObject* make_pystring(const uint8_t* data, int32_t length) {
 template <int TYPE>
 class ArrowDeserializer {
  public:
-  ArrowDeserializer(const std::shared_ptr<Array>& arr) :
-      arr_(arr) {}
+  ArrowDeserializer(const std::shared_ptr<Column>& col) :
+      col_(col) {}
 
   Status Convert(PyObject** out) {
-    RETURN_NOT_OK(ConvertValues<TYPE>());
+    const std::shared_ptr<arrow::ChunkedArray> data = col_->data();
+    if (data->num_chunks() > 1) {
+      return Status::NotImplemented("Chunked column conversion NYI");
+    }
+
+    auto chunk = data->chunk(0);
+
+    RETURN_NOT_OK(ConvertValues<TYPE>(chunk));
     *out = reinterpret_cast<PyObject*>(out_);
     return Status::OK();
   }
 
   Status AllocateOutput(int type) {
-    npy_intp dims[1] = {arr_->length()};
+    npy_intp dims[1] = {col_->length()};
     out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNew(1, dims, type));
 
     if (out_ == NULL) {
@@ -543,23 +551,23 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_floating, Status>::type
-  ConvertValues() {
+  ConvertValues(const std::shared_ptr<Array>& arr) {
     typedef typename arrow_traits<T2>::T T;
 
     arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-        arr_.get());
+        arr.get());
 
     RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
 
-    if (arr_->null_count() > 0) {
+    if (arr->null_count() > 0) {
       T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_));
       const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
-      for (int64_t i = 0; i < arr_->length(); ++i) {
-        out_values[i] = arr_->IsNull(i) ? NAN : in_values[i];
+      for (int64_t i = 0; i < arr->length(); ++i) {
+        out_values[i] = arr->IsNull(i) ? NAN : in_values[i];
       }
     } else {
       memcpy(PyArray_DATA(out_), prim_arr->data()->data(),
-          arr_->length() * arr_->type()->value_size());
+          arr->length() * arr->type()->value_size());
     }
 
     return Status::OK();
@@ -569,27 +577,27 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_integer, Status>::type
-  ConvertValues() {
+  ConvertValues(const std::shared_ptr<Array>& arr) {
     typedef typename arrow_traits<T2>::T T;
 
     arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-        arr_.get());
+        arr.get());
 
     const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
-    if (arr_->null_count() > 0) {
+    if (arr->null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
 
       // Upcast to double, set NaN as appropriate
       double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_));
-      for (int i = 0; i < arr_->length(); ++i) {
+      for (int i = 0; i < arr->length(); ++i) {
         out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
       }
     } else {
       RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
 
       memcpy(PyArray_DATA(out_), in_values,
-          arr_->length() * arr_->type()->value_size());
+          arr->length() * arr->type()->value_size());
     }
 
     return Status::OK();
@@ -599,14 +607,14 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_boolean, Status>::type
-  ConvertValues() {
-    arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr_.get());
+  ConvertValues(const std::shared_ptr<Array>& arr) {
+    arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
 
-    if (arr_->null_count() > 0) {
+    if (arr->null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
 
       PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
-      for (int64_t i = 0; i < arr_->length(); ++i) {
+      for (int64_t i = 0; i < arr->length(); ++i) {
         if (bool_arr->IsNull(i)) {
           Py_INCREF(Py_None);
           out_values[i] = Py_None;
@@ -624,7 +632,7 @@ class ArrowDeserializer {
       RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
 
       uint8_t* out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_));
-      for (int64_t i = 0; i < arr_->length(); ++i) {
+      for (int64_t i = 0; i < arr->length(); ++i) {
         out_values[i] = static_cast<uint8_t>(bool_arr->Value(i));
       }
     }
@@ -636,17 +644,17 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     T2 == arrow::Type::STRING, Status>::type
-  ConvertValues() {
+  ConvertValues(const std::shared_ptr<Array>& arr) {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
 
     PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
 
-    arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr_.get());
+    arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr.get());
 
     const uint8_t* data;
     int32_t length;
-    if (arr_->null_count() > 0) {
-      for (int64_t i = 0; i < arr_->length(); ++i) {
+    if (arr->null_count() > 0) {
+      for (int64_t i = 0; i < arr->length(); ++i) {
         if (string_arr->IsNull(i)) {
           Py_INCREF(Py_None);
           out_values[i] = Py_None;
@@ -660,7 +668,7 @@ class ArrowDeserializer {
         }
       }
     } else {
-      for (int64_t i = 0; i < arr_->length(); ++i) {
+      for (int64_t i = 0; i < arr->length(); ++i) {
         data = string_arr->GetValue(i, &length);
         out_values[i] = make_pystring(data, length);
         if (out_values[i] == nullptr) {
@@ -671,20 +679,20 @@ class ArrowDeserializer {
     return Status::OK();
   }
  private:
-  std::shared_ptr<Array> arr_;
+  std::shared_ptr<Column> col_;
   PyArrayObject* out_;
 };
 
 #define FROM_ARROW_CASE(TYPE)                               \
   case arrow::Type::TYPE:                                   \
     {                                                       \
-      ArrowDeserializer<arrow::Type::TYPE> converter(arr);  \
+      ArrowDeserializer<arrow::Type::TYPE> converter(col);  \
       return converter.Convert(out);                        \
     }                                                       \
     break;
 
-Status ArrowToPandas(const std::shared_ptr<Array>& arr, PyObject** out) {
-  switch(arr->type_enum()) {
+Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject** out) {
+  switch(col->type()->type) {
     FROM_ARROW_CASE(BOOL);
     FROM_ARROW_CASE(INT8);
     FROM_ARROW_CASE(INT16);

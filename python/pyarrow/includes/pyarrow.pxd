@@ -18,7 +18,8 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport CArray, CDataType, Type, MemoryPool
+from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType,
+                                        Type, MemoryPool)
 
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     # We can later add more of the common status factory methods as needed
@@ -45,7 +46,6 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     Status PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
                                shared_ptr[CArray]* out)
 
-    Status ArrowToPandas(const shared_ptr[CArray]& arr,
-                         PyObject** out)
+    Status ArrowToPandas(const shared_ptr[CColumn]& arr, PyObject** out)
 
     MemoryPool* GetMemoryPool()

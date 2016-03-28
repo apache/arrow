@@ -42,12 +42,12 @@ Detailed unit test logs will be placed in the build directory under `build/test-
 
 ### Building/Running benchmarks
 
-Follow the directions for simple build except run cmake 
+Follow the directions for simple build except run cmake
 with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
 
     cmake -DARROW_BUILD_BENCHMARKS=ON ..
 
-and instead of make unittest run either `make; ctest` to run both unit tests 
+and instead of make unittest run either `make; ctest` to run both unit tests
 and benchmarks or `make runbenchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
@@ -60,4 +60,4 @@ variables
 
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
-
+* Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)

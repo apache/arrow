@@ -28,6 +28,7 @@
 namespace arrow {
 
 class Array;
+class Column;
 
 } // namespace arrow
 
@@ -35,7 +36,7 @@ namespace pyarrow {
 
 class Status;
 
-Status ArrowToPandas(const std::shared_ptr<arrow::Array>& arr, PyObject** out);
+Status ArrowToPandas(const std::shared_ptr<arrow::Column>& col, PyObject** out);
 
 Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     std::shared_ptr<arrow::Array>* out);
