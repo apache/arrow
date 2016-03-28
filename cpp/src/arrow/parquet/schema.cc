@@ -24,12 +24,13 @@
 #include "arrow/util/status.h"
 #include "arrow/types/decimal.h"
 
-using parquet_cpp::schema::Node;
-using parquet_cpp::schema::NodePtr;
-using parquet_cpp::schema::GroupNode;
-using parquet_cpp::schema::PrimitiveNode;
+using parquet::schema::Node;
+using parquet::schema::NodePtr;
+using parquet::schema::GroupNode;
+using parquet::schema::PrimitiveNode;
 
-using parquet_cpp::LogicalType;
+using ParquetType = parquet::Type;
+using parquet::LogicalType;
 
 namespace arrow {
 
@@ -124,30 +125,30 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
     const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(node.get());
 
     switch (primitive->physical_type()) {
-      case parquet_cpp::Type::BOOLEAN:
+      case ParquetType::BOOLEAN:
         type = BOOL;
         break;
-      case parquet_cpp::Type::INT32:
+      case ParquetType::INT32:
         RETURN_NOT_OK(FromInt32(primitive, &type));
         break;
-      case parquet_cpp::Type::INT64:
+      case ParquetType::INT64:
         RETURN_NOT_OK(FromInt64(primitive, &type));
         break;
-      case parquet_cpp::Type::INT96:
+      case ParquetType::INT96:
         // TODO: Do we have that type in Arrow?
         // type = TypePtr(new Int96Type());
         return Status::NotImplemented("int96");
-      case parquet_cpp::Type::FLOAT:
+      case ParquetType::FLOAT:
         type = FLOAT;
         break;
-      case parquet_cpp::Type::DOUBLE:
+      case ParquetType::DOUBLE:
         type = DOUBLE;
         break;
-      case parquet_cpp::Type::BYTE_ARRAY:
+      case ParquetType::BYTE_ARRAY:
         // TODO: Do we have that type in Arrow?
         RETURN_NOT_OK(FromByteArray(primitive, &type));
         break;
-      case parquet_cpp::Type::FIXED_LEN_BYTE_ARRAY:
+      case ParquetType::FIXED_LEN_BYTE_ARRAY:
         RETURN_NOT_OK(FromFLBA(primitive, &type));
         break;
     }
@@ -157,7 +158,7 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
   return Status::OK();
 }
 
-Status FromParquetSchema(const parquet_cpp::SchemaDescriptor* parquet_schema,
+Status FromParquetSchema(const ::parquet::SchemaDescriptor* parquet_schema,
     std::shared_ptr<Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
   // from the root Parquet node
