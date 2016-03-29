@@ -66,6 +66,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
+  option(ARROW_SSE3
+    "Build Arrow with SSE3"
+    ON)
+
+  option(ARROW_ALTIVEC
+    "Build Arrow with Altivec"
+    ON)
+
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
@@ -81,9 +89,25 @@ endif()
 # Compiler flags
 ############################################################
 
+# Check if the target architecture and compiler supports some special
+# instruction sets that would boost performance.
+include(CheckCXXCompilerFlag)
+# x86/amd64 compiler flags
+CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+# power compiler flags
+CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
+
 # compiler flags that are common across debug/release builds
 #  - Wall: Enable all warnings.
-set(CXX_COMMON_FLAGS "-std=c++11 -msse3 -Wall")
+set(CXX_COMMON_FLAGS "-std=c++11 -Wall")
+
+# Only enable additional instruction sets if they are supported
+if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse3")
+endif()
+if (CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
+endif()
 
 if (APPLE)
   # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
