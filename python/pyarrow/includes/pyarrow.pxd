@@ -46,6 +46,6 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     Status PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
                                shared_ptr[CArray]* out)
 
-    Status ArrowToPandas(const shared_ptr[CColumn]& arr, PyObject** out)
+    Status ArrowToPandas(const shared_ptr[CColumn]& arr, PyObject** out, object py_ref)
 
     MemoryPool* GetMemoryPool()
