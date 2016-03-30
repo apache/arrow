@@ -34,19 +34,34 @@ class PyListConversions(object):
         A.from_pylist(self.data)
 
 
-class PandasConversions(object):
-    param_names = ('size', 'dtype')
-    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'str'))
-
+class PandasConversionsBase(object):
     def setup(self, n, dtype):
-        self.data = pd.DataFrame({'column': pd.Series(np.arange(n).astype(dtype))})
-        self.arrow_data = A.from_pandas_dataframe(self.data)
+        if dtype == 'float64_nans':
+            arr = np.arange(n).astype('float64')
+            arr[arr % 10 == 0] = np.nan
+        else:
+            arr = np.arange(n).astype(dtype)
+        self.data = pd.DataFrame({'column': arr})
+
+
+class PandasConversionsToArrow(PandasConversionsBase):
+    param_names = ('size', 'dtype')
+    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
 
     def time_from_series(self, n, dtype):
         A.from_pandas_dataframe(self.data)
 
     def peakmem_from_series(self, n, dtype):
         A.from_pandas_dataframe(self.data)
+
+
+class PandasConversionsFromArrow(PandasConversionsBase):
+    param_names = ('size', 'dtype')
+    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
+
+    def setup(self, n, dtype):
+        super(PandasConversionsFromArrow, self).setup(n, dtype)
+        self.arrow_data = A.from_pandas_dataframe(self.data)
 
     def time_to_series(self, n, dtype):
         self.arrow_data.to_pandas()
