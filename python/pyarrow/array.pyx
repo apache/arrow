@@ -287,6 +287,66 @@ cdef class RowBatch:
         return self.arrays[i]
 
 
+cdef class Column:
+    '''
+    Do not call this class's constructor directly.
+    '''
+    cdef:
+        shared_ptr[CColumn] sp_column
+        CColumn* column
+
+    def __cinit__(self):
+        self.column = NULL
+
+    cdef init(self, const shared_ptr[CColumn]& column):
+        self.sp_column = column
+        self.column = column.get()
+
+    def to_pandas(self):
+        """
+        Convert the arrow::Column to a pandas Series
+        """
+        cdef:
+            PyObject* arr
+
+        import pandas as pd
+
+        check_status(pyarrow.ArrowToPandas(self.sp_column, &arr))
+        return pd.Series(<object>arr, name=self.name())
+
+    def _check_nullptr(self):
+        if self.column == NULL:
+            raise ReferenceError("Column object references a NULL pointer."
+                    "Not initialized.")
+
+    def __len__(self):
+        self._check_nullptr()
+        return self.column.length()
+
+    def length(self):
+        self._check_nullptr()
+        return self.column.length()
+
+    property shape:
+
+        def __get__(self):
+            self._check_nullptr()
+            return (self.length(),)
+
+    def null_count(self):
+        self._check_nullptr()
+        return self.column.null_count()
+
+    def name(self):
+        return frombytes(self.column.name())
+
+    def type(self):
+        raise NotImplementedError("Type information not yet implemented")
+
+    def data(self):
+        raise NotImplementedError("No python wrapper for ChunkedArray yet")
+
+
 cdef class Table:
     '''
     Do not call this class's constructor directly.
@@ -296,11 +356,16 @@ cdef class Table:
         CTable* table
 
     def __cinit__(self):
-        pass
+        self.table = NULL
 
     cdef init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
         self.table = table.get()
+
+    def _check_nullptr(self):
+        if self.table == NULL:
+            raise ReferenceError("Table object references a NULL pointer."
+                    "Not initialized.")
 
     @staticmethod
     def from_pandas(df, name=None):
@@ -360,3 +425,35 @@ cdef class Table:
             data.append(<object> arr)
 
         return pd.DataFrame(dict(zip(names, data)), columns=names)
+
+    def name(self):
+        self._check_nullptr()
+        return frombytes(self.table.name())
+
+    def schema(self):
+        raise NotImplementedError()
+
+    def column(self, index_or_name):
+        self._check_nullptr()
+        index = index_or_name
+        # TODO(uwe): Implement retrevial by name
+        cdef Column column = Column()
+        column.init(self.table.column(index))
+        return column
+
+    def columns(self):
+        for i in range(self.num_columns()):
+            yield self.column(i)
+
+    def num_columns(self):
+        self._check_nullptr()
+        return self.table.num_columns()
+
+    def num_rows(self):
+        self._check_nullptr()
+        return self.table.num_rows()
+
+    property shape:
+
+        def __get__(self):
+            return (self.num_rows(), self.num_columns())
