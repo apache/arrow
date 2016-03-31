@@ -71,7 +71,7 @@ cdef class ChunkedArray:
 
 
     def iterchunks(self):
-        for i in range(self.length()):
+        for i in range(self.num_chunks):
             yield self.chunk(i)
 
 
@@ -125,7 +125,7 @@ cdef class Column:
             return self.column.null_count()
 
     property name:
-    
+
         def __get__(self):
             return frombytes(self.column.name())
 
@@ -219,7 +219,7 @@ cdef class Table:
         return pd.DataFrame(dict(zip(names, data)), columns=names)
 
     property name:
-        
+
         def __get__(self):
             self._check_nullptr()
             return frombytes(self.table.name())
@@ -234,7 +234,7 @@ cdef class Table:
         cdef Column column = Column()
         column.init(self.table.column(index))
         return column
-    
+
     def __getitem__(self, i):
         return self.column(i)
 
