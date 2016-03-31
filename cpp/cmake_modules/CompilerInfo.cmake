@@ -31,7 +31,7 @@ elseif("${COMPILER_VERSION_FULL}" MATCHES ".*based on LLVM.*")
 
 # clang on Mac OS X, XCode 7. No version replacement is done
 # because Apple no longer advertises the upstream LLVM version.
-elseif("${COMPILER_VERSION_FULL}" MATCHES "clang-700\\..*")
+elseif("${COMPILER_VERSION_FULL}" MATCHES "clang-70[0-9]\\..*")
   set(COMPILER_FAMILY "clang")
 
 # gcc
