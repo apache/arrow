@@ -50,10 +50,15 @@ class TestTable(unittest.TestCase):
             A.from_pylist([-10, -5, 0, 5, 10])
         ]
         table = A.Table.from_arrays(('a', 'b'), data, 'table_name')
-        assert table.name() == 'table_name'
-        assert table.num_rows() == 5
-        assert table.num_columns() == 2
+        assert table.name == 'table_name'
+        assert len(table) == 5
+        assert table.num_rows == 5
+        assert table.num_columns == 2
         assert table.shape == (5, 2)
+
+        for col in table.itercolumns():
+            for chunk in col.data.iterchunks():
+                assert chunk is not None
 
     def test_pandas(self):
         data = [

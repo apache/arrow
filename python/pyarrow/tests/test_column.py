@@ -31,7 +31,7 @@ class TestColumn(unittest.TestCase):
         ]
         table = A.Table.from_arrays(('a'), data, 'table_name')
         column = table.column(0)
-        assert column.name() == 'a'
+        assert column.name == 'a'
         assert column.length() == 5
         assert len(column) == 5
         assert column.shape == (5,)

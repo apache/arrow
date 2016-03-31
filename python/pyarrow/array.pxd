@@ -36,6 +36,8 @@ cdef class Array:
     cdef init(self, const shared_ptr[CArray]& sp_array)
     cdef getitem(self, int i)
 
+cdef object box_arrow_array(const shared_ptr[CArray]& sp_array)
+
 
 cdef class BooleanArray(Array):
     pass
