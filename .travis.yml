@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: precise 
 addons:
   apt:
     sources:

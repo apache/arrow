@@ -9,7 +9,7 @@ pushd $CPP_BUILD_DIR
 make lint
 if [ $TRAVIS_OS_NAME == "linux" ]; then
   make check-format
-  make clang-tidy
+  make check-clang-tidy
 fi
 
 ctest -L unittest
