@@ -149,7 +149,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string GetString(int i)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
-        pass
+        int64_t length()
+        int64_t null_count()
+        int num_chunks()
+        const shared_ptr[CArray]& chunk(int i)
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,

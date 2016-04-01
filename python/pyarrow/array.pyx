@@ -33,6 +33,8 @@ from pyarrow.scalar import NA
 from pyarrow.schema cimport Schema
 import pyarrow.schema as schema
 
+from pyarrow.table cimport Table
+
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
     return pool.bytes_allocated()
@@ -287,76 +289,3 @@ cdef class RowBatch:
         return self.arrays[i]
 
 
-cdef class Table:
-    '''
-    Do not call this class's constructor directly.
-    '''
-    cdef:
-        shared_ptr[CTable] sp_table
-        CTable* table
-
-    def __cinit__(self):
-        pass
-
-    cdef init(self, const shared_ptr[CTable]& table):
-        self.sp_table = table
-        self.table = table.get()
-
-    @staticmethod
-    def from_pandas(df, name=None):
-        pass
-
-    @staticmethod
-    def from_arrays(names, arrays, name=None):
-        cdef:
-            Array arr
-            Table result
-            c_string c_name
-            vector[shared_ptr[CField]] fields
-            vector[shared_ptr[CColumn]] columns
-            shared_ptr[CSchema] schema
-            shared_ptr[CTable] table
-
-        cdef int K = len(arrays)
-
-        fields.resize(K)
-        columns.resize(K)
-        for i in range(K):
-            arr = arrays[i]
-            c_name = tobytes(names[i])
-
-            fields[i].reset(new CField(c_name, arr.type.sp_type, True))
-            columns[i].reset(new CColumn(fields[i], arr.sp_array))
-
-        if name is None:
-            c_name = ''
-        else:
-            c_name = tobytes(name)
-
-        schema.reset(new CSchema(fields))
-        table.reset(new CTable(c_name, schema, columns))
-
-        result = Table()
-        result.init(table)
-
-        return result
-
-    def to_pandas(self):
-        """
-        Convert the arrow::Table to a pandas DataFrame
-        """
-        cdef:
-            PyObject* arr
-            shared_ptr[CColumn] col
-
-        import pandas as pd
-
-        names = []
-        data = []
-        for i in range(self.table.num_columns()):
-            col = self.table.column(i)
-            check_status(pyarrow.ArrowToPandas(col, &arr))
-            names.append(frombytes(col.get().name()))
-            data.append(<object> arr)
-
-        return pd.DataFrame(dict(zip(names, data)), columns=names)

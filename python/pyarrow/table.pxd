@@ -15,33 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport CDataType, CField, CSchema
+from pyarrow.includes.common cimport shared_ptr
+from pyarrow.includes.libarrow cimport CChunkedArray, CColumn, CTable
 
-cdef class DataType:
+
+cdef class ChunkedArray:
     cdef:
-        shared_ptr[CDataType] sp_type
-        CDataType* type
+        shared_ptr[CChunkedArray] sp_chunked_array
+        CChunkedArray* chunked_array
 
-    cdef init(self, const shared_ptr[CDataType]& type)
+    cdef init(self, const shared_ptr[CChunkedArray]& chunked_array)
+    cdef _check_nullptr(self)
 
-cdef class Field:
+
+cdef class Column:
     cdef:
-        shared_ptr[CField] sp_field
-        CField* field
+        shared_ptr[CColumn] sp_column
+        CColumn* column
 
-    cdef readonly:
-        DataType type
+    cdef init(self, const shared_ptr[CColumn]& column)
+    cdef _check_nullptr(self)
 
-    cdef init(self, const shared_ptr[CField]& field)
 
-cdef class Schema:
+cdef class Table:
     cdef:
-        shared_ptr[CSchema] sp_schema
-        CSchema* schema
-
-    cdef init(self, const vector[shared_ptr[CField]]& fields)
-    cdef init_schema(self, const shared_ptr[CSchema]& schema)
-
-cdef DataType box_data_type(const shared_ptr[CDataType]& type)
-cdef Schema box_schema(const shared_ptr[CSchema]& schema)
+        shared_ptr[CTable] sp_table
+        CTable* table
+    
+    cdef init(self, const shared_ptr[CTable]& table)
+    cdef _check_nullptr(self)

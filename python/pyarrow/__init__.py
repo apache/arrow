@@ -41,4 +41,6 @@ from pyarrow.schema import (null, bool_,
                             list_, struct, field,
                             DataType, Field, Schema, schema)
 
-from pyarrow.array import RowBatch, Table, from_pandas_dataframe
+from pyarrow.array import RowBatch, from_pandas_dataframe
+
+from pyarrow.table import Column, Table

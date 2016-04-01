@@ -444,6 +444,7 @@ set(CYTHON_EXTENSIONS
   error
   scalar
   schema
+  table
 )
 
 foreach(module ${CYTHON_EXTENSIONS})

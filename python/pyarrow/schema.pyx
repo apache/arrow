@@ -106,6 +106,10 @@ cdef class Schema:
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
 
+    cdef init_schema(self, const shared_ptr[CSchema]& schema):
+        self.schema = schema.get()
+        self.sp_schema = schema
+
     @classmethod
     def from_fields(cls, fields):
         cdef:
@@ -222,4 +226,9 @@ def schema(fields):
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):
     cdef DataType out = DataType()
     out.init(type)
+    return out
+
+cdef Schema box_schema(const shared_ptr[CSchema]& type):
+    cdef Schema out = Schema()
+    out.init_schema(type)
     return out
