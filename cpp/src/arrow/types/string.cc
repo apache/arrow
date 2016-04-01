@@ -28,16 +28,16 @@ const std::shared_ptr<DataType> STRING(new StringType());
 
 StringArray::StringArray(int32_t length,
     const std::shared_ptr<Buffer>& offsets,
-    const ArrayPtr& values, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap) :
-    StringArray(STRING, length, offsets, values, null_count, null_bitmap) {}
+    const ArrayPtr& values,
+    int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : StringArray(STRING, length, offsets, values, null_count, null_bitmap) {}
 
 std::string CharType::ToString() const {
   std::stringstream s;
   s << "char(" << size << ")";
   return s.str();
 }
-
 
 std::string VarcharType::ToString() const {
   std::stringstream s;
@@ -47,4 +47,4 @@ std::string VarcharType::ToString() const {
 
 TypePtr StringBuilder::value_type_ = TypePtr(new UInt8Type());
 
-} // namespace arrow
+}  // namespace arrow

@@ -45,4 +45,4 @@ TEST(DefaultMemoryPool, OOM) {
   ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
 }
 
-} // namespace arrow
+}  // namespace arrow

@@ -31,15 +31,11 @@ struct CollectionType : public DataType {
 
   CollectionType() : DataType(T) {}
 
-  const TypePtr& child(int i) const {
-    return child_types_[i];
-  }
+  const TypePtr& child(int i) const { return child_types_[i]; }
 
-  int num_children() const {
-    return child_types_.size();
-  }
+  int num_children() const { return child_types_.size(); }
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_TYPES_COLLECTION_H
+#endif  // ARROW_TYPES_COLLECTION_H

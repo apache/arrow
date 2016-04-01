@@ -35,13 +35,10 @@ namespace ipc {
 
 class TestMemoryMappedSource : public ::testing::Test, public MemoryMapFixture {
  public:
-  void TearDown() {
-    MemoryMapFixture::TearDown();
-  }
+  void TearDown() { MemoryMapFixture::TearDown(); }
 };
 
-TEST_F(TestMemoryMappedSource, InvalidUsages) {
-}
+TEST_F(TestMemoryMappedSource, InvalidUsages) {}
 
 TEST_F(TestMemoryMappedSource, WriteRead) {
   const int64_t buffer_size = 1024;
@@ -74,9 +71,9 @@ TEST_F(TestMemoryMappedSource, InvalidFile) {
   std::string non_existent_path = "invalid-file-name-asfd";
 
   std::shared_ptr<MemoryMappedSource> result;
-  ASSERT_RAISES(IOError, MemoryMappedSource::Open(non_existent_path,
-          MemorySource::READ_ONLY, &result));
+  ASSERT_RAISES(IOError,
+      MemoryMappedSource::Open(non_existent_path, MemorySource::READ_ONLY, &result));
 }
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow

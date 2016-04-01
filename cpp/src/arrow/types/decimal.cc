@@ -28,5 +28,4 @@ std::string DecimalType::ToString() const {
   return s.str();
 }
 
-} // namespace arrow
-
+}  // namespace arrow

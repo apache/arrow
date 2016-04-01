@@ -24,8 +24,7 @@
 
 namespace arrow {
 
-Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
-    int64_t size) {
+Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size) {
   data_ = parent->data() + offset;
   size_ = size;
   parent_ = parent;
@@ -37,18 +36,13 @@ std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }
 
-PoolBuffer::PoolBuffer(MemoryPool* pool) :
-    ResizableBuffer(nullptr, 0) {
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
+PoolBuffer::PoolBuffer(MemoryPool* pool) : ResizableBuffer(nullptr, 0) {
+  if (pool == nullptr) { pool = default_memory_pool(); }
   pool_ = pool;
 }
 
 PoolBuffer::~PoolBuffer() {
-  if (mutable_data_ != nullptr) {
-    pool_->Free(mutable_data_, capacity_);
-  }
+  if (mutable_data_ != nullptr) { pool_->Free(mutable_data_, capacity_); }
 }
 
 Status PoolBuffer::Reserve(int64_t new_capacity) {
@@ -74,4 +68,4 @@ Status PoolBuffer::Resize(int64_t new_size) {
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace arrow

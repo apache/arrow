@@ -25,9 +25,7 @@ namespace arrow {
 std::string Field::ToString() const {
   std::stringstream ss;
   ss << this->name << ": " << this->type->ToString();
-  if (!this->nullable) {
-    ss << " not null";
-  }
+  if (!this->nullable) { ss << " not null"; }
   return ss.str();
 }
 
@@ -58,4 +56,4 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
-} // namespace arrow
+}  // namespace arrow

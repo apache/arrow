@@ -86,8 +86,8 @@ TEST_F(TestSchema, ToString) {
   auto f0 = std::make_shared<Field>("f0", INT32);
   auto f1 = std::make_shared<Field>("f1", std::make_shared<UInt8Type>(), false);
   auto f2 = std::make_shared<Field>("f2", std::make_shared<StringType>());
-  auto f3 = std::make_shared<Field>("f3",
-      std::make_shared<ListType>(std::make_shared<Int16Type>()));
+  auto f3 = std::make_shared<Field>(
+      "f3", std::make_shared<ListType>(std::make_shared<Int16Type>()));
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
   auto schema = std::make_shared<Schema>(fields);
@@ -101,4 +101,4 @@ f3: list<item: int16>)";
   ASSERT_EQ(expected, result);
 }
 
-} // namespace arrow
+}  // namespace arrow

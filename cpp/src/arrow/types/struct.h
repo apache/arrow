@@ -24,8 +24,6 @@
 
 #include "arrow/type.h"
 
-namespace arrow {
+namespace arrow {}  // namespace arrow
 
-} // namespace arrow
-
-#endif // ARROW_TYPES_STRUCT_H
+#endif  // ARROW_TYPES_STRUCT_H

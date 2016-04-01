@@ -28,11 +28,9 @@ struct JSONScalar : public DataType {
   static TypePtr dense_type;
   static TypePtr sparse_type;
 
-  explicit JSONScalar(bool dense = true)
-      : DataType(Type::JSON_SCALAR),
-        dense(dense) {}
+  explicit JSONScalar(bool dense = true) : DataType(Type::JSON_SCALAR), dense(dense) {}
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_TYPES_JSON_H
+#endif  // ARROW_TYPES_JSON_H

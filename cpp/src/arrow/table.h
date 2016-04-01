@@ -38,31 +38,24 @@ class RowBatch {
   // num_rows is a parameter to allow for row batches of a particular size not
   // having any materialized columns. Each array should have the same length as
   // num_rows
-  RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+  RowBatch(const std::shared_ptr<Schema>& schema,
+      int num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const {
-    return schema_;
-  }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   // @returns: the i-th column
   // Note: Does not boundscheck
-  const std::shared_ptr<Array>& column(int i) const {
-    return columns_[i];
-  }
+  const std::shared_ptr<Array>& column(int i) const { return columns_[i]; }
 
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
-  int num_columns() const {
-    return columns_.size();
-  }
+  int num_columns() const { return columns_.size(); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int64_t num_rows() const {
-    return num_rows_;
-  }
+  int64_t num_rows() const { return num_rows_; }
 
  private:
   std::shared_ptr<Schema> schema_;
@@ -74,41 +67,34 @@ class RowBatch {
 class Table {
  public:
   // If columns is zero-length, the table's number of rows is zero
-  Table(const std::string& name, const std::shared_ptr<Schema>& schema,
+  Table(const std::string& name,
+      const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<Column>>& columns);
 
   // num_rows is a parameter to allow for tables of a particular size not
   // having any materialized columns. Each column should therefore have the
   // same length as num_rows -- you can validate this using
   // Table::ValidateColumns
-  Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
+  Table(const std::string& name,
+      const std::shared_ptr<Schema>& schema,
+      const std::vector<std::shared_ptr<Column>>& columns,
+      int64_t num_rows);
 
   // @returns: the table's name, if any (may be length 0)
-  const std::string& name() const {
-    return name_;
-  }
+  const std::string& name() const { return name_; }
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const {
-    return schema_;
-  }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   // Note: Does not boundscheck
   // @returns: the i-th column
-  const std::shared_ptr<Column>& column(int i) const {
-    return columns_[i];
-  }
+  const std::shared_ptr<Column>& column(int i) const { return columns_[i]; }
 
   // @returns: the number of columns in the table
-  int num_columns() const {
-    return columns_.size();
-  }
+  int num_columns() const { return columns_.size(); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int64_t num_rows() const {
-    return num_rows_;
-  }
+  int64_t num_rows() const { return num_rows_; }
 
   // After construction, perform any checks to validate the input arguments
   Status ValidateColumns() const;
@@ -123,6 +109,6 @@ class Table {
   int64_t num_rows_;
 };
 
-}      // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_TABLE_H

@@ -26,15 +26,15 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
+Array::Array(const TypePtr& type,
+    int32_t length,
+    int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap) {
   type_ = type;
   length_ = length;
   null_count_ = null_count;
   null_bitmap_ = null_bitmap;
-  if (null_bitmap_) {
-    null_bitmap_data_ = null_bitmap_->data();
-  }
+  if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
 }
 
 bool Array::EqualsExact(const Array& other) const {
@@ -45,16 +45,14 @@ bool Array::EqualsExact(const Array& other) const {
   }
   if (null_count_ > 0) {
     return null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
-  } 
+  }
   return true;
 }
 
 bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
-  if (Type::NA != arr->type_enum()) {
-    return false;
-  }
+  if (Type::NA != arr->type_enum()) { return false; }
   return arr->length() == length_;
 }
 
-} // namespace arrow
+}  // namespace arrow

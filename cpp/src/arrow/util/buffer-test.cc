@@ -29,8 +29,7 @@ using std::string;
 
 namespace arrow {
 
-class TestBuffer : public ::testing::Test {
-};
+class TestBuffer : public ::testing::Test {};
 
 TEST_F(TestBuffer, Resize) {
   PoolBuffer buf;
@@ -54,4 +53,4 @@ TEST_F(TestBuffer, ResizeOOM) {
   ASSERT_RAISES(OutOfMemory, buf.Resize(to_alloc));
 }
 
-} // namespace arrow
+}  // namespace arrow

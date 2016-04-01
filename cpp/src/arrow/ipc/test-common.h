@@ -36,9 +36,7 @@ class MemoryMapFixture {
 
   void CreateFile(const std::string path, int64_t size) {
     FILE* file = fopen(path.c_str(), "w");
-    if (file != nullptr) {
-      tmp_files_.push_back(path);
-    }
+    if (file != nullptr) { tmp_files_.push_back(path); }
     ftruncate(fileno(file), size);
     fclose(file);
   }
@@ -47,7 +45,7 @@ class MemoryMapFixture {
   std::vector<std::string> tmp_files_;
 };
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow
 
-#endif // ARROW_IPC_TEST_COMMON_H
+#endif  // ARROW_IPC_TEST_COMMON_H

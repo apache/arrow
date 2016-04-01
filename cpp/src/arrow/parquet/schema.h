@@ -31,14 +31,13 @@ class Status;
 
 namespace parquet {
 
-Status NodeToField(const ::parquet::schema::NodePtr& node,
-    std::shared_ptr<Field>* out);
+Status NodeToField(const ::parquet::schema::NodePtr& node, std::shared_ptr<Field>* out);
 
-Status FromParquetSchema(const ::parquet::SchemaDescriptor* parquet_schema,
-    std::shared_ptr<Schema>* out);
+Status FromParquetSchema(
+    const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out);
 
-} // namespace parquet
+}  // namespace parquet
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif

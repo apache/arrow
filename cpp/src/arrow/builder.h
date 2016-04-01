@@ -37,30 +37,26 @@ static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
 // Base class for all data array builders
 class ArrayBuilder {
  public:
-  explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type) :
-      pool_(pool),
-      type_(type),
-      null_bitmap_(nullptr),
-      null_count_(0),
-      null_bitmap_data_(nullptr),
-      length_(0),
-      capacity_(0) {}
+  explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
+      : pool_(pool),
+        type_(type),
+        null_bitmap_(nullptr),
+        null_count_(0),
+        null_bitmap_data_(nullptr),
+        length_(0),
+        capacity_(0) {}
 
   virtual ~ArrayBuilder() {}
 
   // For nested types. Since the objects are owned by this class instance, we
   // skip shared pointers and just return a raw pointer
-  ArrayBuilder* child(int i) {
-    return children_[i].get();
-  }
+  ArrayBuilder* child(int i) { return children_[i].get(); }
 
-  int num_children() const {
-    return children_.size();
-  }
+  int num_children() const { return children_.size(); }
 
-  int32_t length() const { return length_;}
-  int32_t null_count() const { return null_count_;}
-  int32_t capacity() const { return capacity_;}
+  int32_t length() const { return length_; }
+  int32_t null_count() const { return null_count_; }
+  int32_t capacity() const { return capacity_; }
 
   // Allocates requires memory at this level, but children need to be
   // initialized independently
@@ -76,15 +72,13 @@ class ArrayBuilder {
   // this function responsibly.
   Status Advance(int32_t elements);
 
-  const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_;}
+  const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_; }
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data
   virtual std::shared_ptr<Array> Finish() = 0;
 
-  const std::shared_ptr<DataType>& type() const {
-    return type_;
-  }
+  const std::shared_ptr<DataType>& type() const { return type_; }
 
  protected:
   MemoryPool* pool_;
@@ -107,6 +101,6 @@ class ArrayBuilder {
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_BUILDER_H_
+#endif  // ARROW_BUILDER_H_

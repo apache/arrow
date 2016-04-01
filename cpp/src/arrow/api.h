@@ -37,4 +37,4 @@
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
-#endif // ARROW_API_H
+#endif  // ARROW_API_H

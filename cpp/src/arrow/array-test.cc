@@ -33,14 +33,11 @@ namespace arrow {
 
 class TestArray : public ::testing::Test {
  public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-  }
+  void SetUp() { pool_ = default_memory_pool(); }
 
  protected:
   MemoryPool* pool_;
 };
-
 
 TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<PoolBuffer>(pool_);
@@ -52,7 +49,6 @@ TEST_F(TestArray, TestNullCount) {
   std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
   ASSERT_EQ(0, arr_no_nulls->null_count());
 }
-
 
 TEST_F(TestArray, TestLength) {
   auto data = std::make_shared<PoolBuffer>(pool_);
@@ -87,8 +83,6 @@ TEST_F(TestArray, TestIsNull) {
   }
 }
 
+TEST_F(TestArray, TestCopy) {}
 
-TEST_F(TestArray, TestCopy) {
-}
-
-} // namespace arrow
+}  // namespace arrow

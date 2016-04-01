@@ -52,4 +52,4 @@ TEST(TestStructType, Basics) {
   // TODO(wesm): out of bounds for field(...)
 }
 
-} // namespace arrow
+}  // namespace arrow

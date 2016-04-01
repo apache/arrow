@@ -27,21 +27,19 @@
 
 namespace arrow {
 
-RowBatch::RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
-    const std::vector<std::shared_ptr<Array>>& columns) :
-    schema_(schema),
-    num_rows_(num_rows),
-    columns_(columns) {}
+RowBatch::RowBatch(const std::shared_ptr<Schema>& schema,
+    int num_rows,
+    const std::vector<std::shared_ptr<Array>>& columns)
+    : schema_(schema), num_rows_(num_rows), columns_(columns) {}
 
 const std::string& RowBatch::column_name(int i) const {
   return schema_->field(i)->name;
 }
 
-Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-    const std::vector<std::shared_ptr<Column>>& columns) :
-    name_(name),
-    schema_(schema),
-    columns_(columns) {
+Table::Table(const std::string& name,
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<std::shared_ptr<Column>>& columns)
+    : name_(name), schema_(schema), columns_(columns) {
   if (columns.size() == 0) {
     num_rows_ = 0;
   } else {
@@ -49,12 +47,11 @@ Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
   }
 }
 
-Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
-    const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows) :
-    name_(name),
-    schema_(schema),
-    columns_(columns),
-    num_rows_(num_rows) {}
+Table::Table(const std::string& name,
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<std::shared_ptr<Column>>& columns,
+    int64_t num_rows)
+    : name_(name), schema_(schema), columns_(columns), num_rows_(num_rows) {}
 
 Status Table::ValidateColumns() const {
   if (num_columns() != schema_->num_fields()) {
@@ -71,15 +68,12 @@ Status Table::ValidateColumns() const {
     }
     if (col->length() != num_rows_) {
       std::stringstream ss;
-      ss << "Column " << i << " named " << col->name()
-         << " expected length "
-         << num_rows_
-         << " but got length "
-         << col->length();
+      ss << "Column " << i << " named " << col->name() << " expected length "
+         << num_rows_ << " but got length " << col->length();
       return Status::Invalid(ss.str());
     }
   }
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace arrow

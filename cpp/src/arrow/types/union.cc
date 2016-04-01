@@ -41,10 +41,8 @@ std::string DenseUnionType::ToString() const {
   return format_union(child_types_);
 }
 
-
 std::string SparseUnionType::ToString() const {
   return format_union(child_types_);
 }
 
-
-} // namespace arrow
+}  // namespace arrow

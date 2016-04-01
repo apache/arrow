@@ -75,4 +75,4 @@ MemoryPool* default_memory_pool() {
   return &default_memory_pool_;
 }
 
-} // namespace arrow
+}  // namespace arrow

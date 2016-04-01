@@ -26,8 +26,7 @@
 
 namespace arrow {
 
-ChunkedArray::ChunkedArray(const ArrayVector& chunks) :
-    chunks_(chunks) {
+ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   length_ = 0;
   null_count_ = 0;
   for (const std::shared_ptr<Array>& chunk : chunks) {
@@ -36,35 +35,31 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) :
   }
 }
 
-Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks) :
-    field_(field) {
+Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
+    : field_(field) {
   data_ = std::make_shared<ChunkedArray>(chunks);
 }
 
-Column::Column(const std::shared_ptr<Field>& field,
-    const std::shared_ptr<Array>& data) :
-    field_(field) {
+Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data)
+    : field_(field) {
   data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
 }
 
-Column::Column(const std::shared_ptr<Field>& field,
-    const std::shared_ptr<ChunkedArray>& data) :
-    field_(field),
-    data_(data) {}
+Column::Column(
+    const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data)
+    : field_(field), data_(data) {}
 
 Status Column::ValidateData() {
   for (int i = 0; i < data_->num_chunks(); ++i) {
     const std::shared_ptr<DataType>& type = data_->chunk(i)->type();
     if (!this->type()->Equals(type)) {
       std::stringstream ss;
-      ss << "In chunk " << i << " expected type "
-         << this->type()->ToString()
-         << " but saw "
-         << type->ToString();
+      ss << "In chunk " << i << " expected type " << this->type()->ToString()
+         << " but saw " << type->ToString();
       return Status::Invalid(ss.str());
     }
   }
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace arrow

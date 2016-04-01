@@ -26,14 +26,12 @@ namespace arrow {
 
 void util::bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] > 0) {
-      set_bit(bits, i);
-    }
+    if (bytes[i] > 0) { set_bit(bits, i); }
   }
 }
 
-Status util::bytes_to_bits(const std::vector<uint8_t>& bytes,
-    std::shared_ptr<Buffer>* out) {
+Status util::bytes_to_bits(
+    const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
   int bit_length = util::bytes_for_bits(bytes.size());
 
   auto buffer = std::make_shared<PoolBuffer>();
@@ -45,4 +43,4 @@ Status util::bytes_to_bits(const std::vector<uint8_t>& bytes,
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace arrow

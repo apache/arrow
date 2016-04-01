@@ -74,8 +74,8 @@ static inline int64_t next_power2(int64_t n) {
 void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
 Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
-} // namespace util
+}  // namespace util
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_UTIL_BIT_UTIL_H
+#endif  // ARROW_UTIL_BIT_UTIL_H
