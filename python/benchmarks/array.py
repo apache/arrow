@@ -15,22 +15,67 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow
+import numpy as np
+import pandas as pd
+import pyarrow as A
 
-class Conversions(object):
+
+class PyListConversions(object):
+    param_names = ('size',)
     params = (1, 10 ** 5, 10 ** 6, 10 ** 7)
 
+    def setup(self, n):
+        self.data = list(range(n))
+
     def time_from_pylist(self, n):
-        pyarrow.from_pylist(list(range(n)))
+        A.from_pylist(self.data)
 
     def peakmem_from_pylist(self, n):
-        pyarrow.from_pylist(list(range(n)))
+        A.from_pylist(self.data)
+
+
+class PandasConversionsBase(object):
+    def setup(self, n, dtype):
+        if dtype == 'float64_nans':
+            arr = np.arange(n).astype('float64')
+            arr[arr % 10 == 0] = np.nan
+        else:
+            arr = np.arange(n).astype(dtype)
+        self.data = pd.DataFrame({'column': arr})
+
+
+class PandasConversionsToArrow(PandasConversionsBase):
+    param_names = ('size', 'dtype')
+    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
+
+    def time_from_series(self, n, dtype):
+        A.from_pandas_dataframe(self.data)
+
+    def peakmem_from_series(self, n, dtype):
+        A.from_pandas_dataframe(self.data)
+
+
+class PandasConversionsFromArrow(PandasConversionsBase):
+    param_names = ('size', 'dtype')
+    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
+
+    def setup(self, n, dtype):
+        super(PandasConversionsFromArrow, self).setup(n, dtype)
+        self.arrow_data = A.from_pandas_dataframe(self.data)
+
+    def time_to_series(self, n, dtype):
+        self.arrow_data.to_pandas()
+
+    def peakmem_to_series(self, n, dtype):
+        self.arrow_data.to_pandas()
+
 
 class ScalarAccess(object):
+    param_names = ('size',)
     params = (1, 10 ** 5, 10 ** 6, 10 ** 7)
 
     def setUp(self, n):
-        self._array = pyarrow.from_pylist(list(range(n)))
+        self._array = A.from_pylist(list(range(n)))
 
     def time_as_py(self, n):
         for i in range(n):
