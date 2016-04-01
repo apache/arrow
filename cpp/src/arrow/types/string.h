@@ -57,11 +57,8 @@ struct VarcharType : public DataType {
 // TODO(wesm): add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:
-  StringArray(const TypePtr& type,
-      int32_t length,
-      const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
+  StringArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : ListArray(type, length, offsets, values, null_count, null_bitmap) {
     // For convenience
@@ -69,10 +66,8 @@ class StringArray : public ListArray {
     raw_bytes_ = bytes_->raw_data();
   }
 
-  StringArray(int32_t length,
-      const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
+  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   // Compute the pointer t
@@ -102,9 +97,7 @@ class StringBuilder : public ListBuilder {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
-  Status Append(const std::string& value) {
-    return Append(value.c_str(), value.size());
-  }
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
 
   Status Append(const char* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());

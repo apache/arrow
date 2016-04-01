@@ -102,14 +102,12 @@ class MemorySource {
 // A memory source that uses memory-mapped files for memory interactions
 class MemoryMappedSource : public MemorySource {
  public:
-  static Status Open(const std::string& path,
-      AccessMode access_mode,
+  static Status Open(const std::string& path, AccessMode access_mode,
       std::shared_ptr<MemoryMappedSource>* out);
 
   Status Close() override;
 
-  Status ReadAt(
-      int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status Write(int64_t position, const uint8_t* data, int64_t nbytes) override;
 

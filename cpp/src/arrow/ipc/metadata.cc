@@ -170,8 +170,7 @@ class RecordBatchMessage::Impl {
 };
 
 std::shared_ptr<RecordBatchMessage> Message::GetRecordBatch() {
-  return std::make_shared<RecordBatchMessage>(
-      this->shared_from_this(), impl_->header());
+  return std::make_shared<RecordBatchMessage>(this->shared_from_this(), impl_->header());
 }
 
 RecordBatchMessage::RecordBatchMessage(

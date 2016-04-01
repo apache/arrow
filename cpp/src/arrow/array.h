@@ -36,9 +36,7 @@ class Buffer;
 // count is greater than 0
 class Array {
  public:
-  Array(const std::shared_ptr<DataType>& type,
-      int32_t length,
-      int32_t null_count = 0,
+  Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   virtual ~Array() {}
@@ -80,8 +78,7 @@ class NullArray : public Array {
   NullArray(const std::shared_ptr<DataType>& type, int32_t length)
       : Array(type, length, length, nullptr) {}
 
-  explicit NullArray(int32_t length)
-      : NullArray(std::make_shared<NullType>(), length) {}
+  explicit NullArray(int32_t length) : NullArray(std::make_shared<NullType>(), length) {}
 
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 };

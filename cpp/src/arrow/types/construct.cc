@@ -39,8 +39,7 @@ class ArrayBuilder;
 // difficult
 //
 // TODO(wesm): come up with a less monolithic strategy
-Status MakeBuilder(MemoryPool* pool,
-    const std::shared_ptr<DataType>& type,
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out) {
   switch (type->type) {
     BUILDER_CASE(UINT8, UInt8Builder);
@@ -78,12 +77,9 @@ Status MakeBuilder(MemoryPool* pool,
     out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
     return Status::OK();
 
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-    int32_t length,
-    const std::shared_ptr<Buffer>& data,
-    int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap,
-    std::shared_ptr<Array>* out) {
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);

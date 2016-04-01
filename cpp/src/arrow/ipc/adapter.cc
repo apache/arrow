@@ -66,8 +66,7 @@ static bool IsPrimitive(const DataType* type) {
 // ----------------------------------------------------------------------
 // Row batch write path
 
-Status VisitArray(const Array* arr,
-    std::vector<flatbuf::FieldNode>* field_nodes,
+Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes,
     std::vector<std::shared_ptr<Buffer>>* buffers) {
   if (IsPrimitive(arr->type().get())) {
     const PrimitiveArray* prim_arr = static_cast<const PrimitiveArray*>(arr);
@@ -174,10 +173,8 @@ class RowBatchWriter {
   std::vector<std::shared_ptr<Buffer>> buffers_;
 };
 
-Status WriteRowBatch(MemorySource* dst,
-    const RowBatch* batch,
-    int64_t position,
-    int64_t* header_offset) {
+Status WriteRowBatch(
+    MemorySource* dst, const RowBatch* batch, int64_t position, int64_t* header_offset) {
   RowBatchWriter serializer(batch);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, position, header_offset);

@@ -26,9 +26,7 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const TypePtr& type,
-    int32_t length,
-    int32_t null_count,
+Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap) {
   type_ = type;
   length_ = length;

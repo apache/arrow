@@ -59,8 +59,7 @@ class ChunkedArray {
 class Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
-  Column(
-      const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data);
+  Column(const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data);
 
   Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data);
 

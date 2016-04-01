@@ -153,8 +153,8 @@ TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   unsupported_nodes.push_back(PrimitiveNode::Make(
       "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));
 
-  unsupported_nodes.push_back(PrimitiveNode::Make("int64", Repetition::OPTIONAL,
-      ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
+  unsupported_nodes.push_back(PrimitiveNode::Make(
+      "int64", Repetition::OPTIONAL, ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
 
   for (const NodePtr& node : unsupported_nodes) {
     ASSERT_RAISES(NotImplemented, ConvertSchema({node}));

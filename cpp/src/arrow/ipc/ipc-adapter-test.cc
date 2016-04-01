@@ -99,8 +99,8 @@ TEST_F(TestWriteRowBatch, IntegerRoundTrip) {
   EXPECT_EQ(batch.num_rows(), batch_result->num_rows());
 
   for (int i = 0; i < batch.num_columns(); ++i) {
-    EXPECT_TRUE(batch.column(i)->Equals(batch_result->column(i)))
-        << i << batch.column_name(i);
+    EXPECT_TRUE(batch.column(i)->Equals(batch_result->column(i))) << i
+                                                                  << batch.column_name(i);
   }
 }
 

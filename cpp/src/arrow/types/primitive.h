@@ -37,11 +37,8 @@ class MemoryPool;
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray(const TypePtr& type,
-      int32_t length,
-      const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  PrimitiveArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   virtual ~PrimitiveArray() {}
 
   const std::shared_ptr<Buffer>& data() const { return data_; }
@@ -60,9 +57,7 @@ class PrimitiveArray : public Array {
     using value_type = T;                                                              \
     using PrimitiveArray::PrimitiveArray;                                              \
                                                                                        \
-    NAME(int32_t length,                                                               \
-        const std::shared_ptr<Buffer>& data,                                           \
-        int32_t null_count = 0,                                                        \
+    NAME(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,  \
         const std::shared_ptr<Buffer>& null_bitmap = nullptr)                          \
         : PrimitiveArray(                                                              \
               std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {} \
@@ -249,17 +244,13 @@ class BooleanArray : public PrimitiveArray {
  public:
   using PrimitiveArray::PrimitiveArray;
 
-  BooleanArray(int32_t length,
-      const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
-  const uint8_t* raw_data() const {
-    return reinterpret_cast<const uint8_t*>(raw_data_);
-  }
+  const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
   bool Value(int i) const { return util::get_bit(raw_data(), i); }
 };

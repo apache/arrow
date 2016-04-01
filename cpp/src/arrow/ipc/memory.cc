@@ -101,8 +101,7 @@ class MemoryMappedSource::Impl {
 MemoryMappedSource::MemoryMappedSource(AccessMode access_mode)
     : MemorySource(access_mode) {}
 
-Status MemoryMappedSource::Open(const std::string& path,
-    AccessMode access_mode,
+Status MemoryMappedSource::Open(const std::string& path, AccessMode access_mode,
     std::shared_ptr<MemoryMappedSource>* out) {
   std::shared_ptr<MemoryMappedSource> result(new MemoryMappedSource(access_mode));
 
@@ -133,8 +132,7 @@ Status MemoryMappedSource::ReadAt(
   return Status::OK();
 }
 
-Status MemoryMappedSource::Write(
-    int64_t position, const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t nbytes) {
   if (position < 0 || position >= impl_->size()) {
     return Status::Invalid("position is out of bounds");
   }

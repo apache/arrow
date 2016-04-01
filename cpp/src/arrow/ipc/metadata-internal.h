@@ -42,8 +42,7 @@ class MessageBuilder {
  public:
   Status SetSchema(const Schema* schema);
 
-  Status SetRecordBatch(int32_t length,
-      int64_t body_length,
+  Status SetRecordBatch(int32_t length, int64_t body_length,
       const std::vector<flatbuf::FieldNode>& nodes,
       const std::vector<flatbuf::Buffer>& buffers);
 
@@ -58,11 +57,9 @@ class MessageBuilder {
   flatbuffers::FlatBufferBuilder fbb_;
 };
 
-Status WriteDataHeader(int32_t length,
-    int64_t body_length,
+Status WriteDataHeader(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
-    const std::vector<flatbuf::Buffer>& buffers,
-    std::shared_ptr<Buffer>* out);
+    const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 
 }  // namespace ipc
 }  // namespace arrow

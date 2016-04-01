@@ -36,16 +36,13 @@ class MemoryPool;
 
 class ListArray : public Array {
  public:
-  ListArray(const TypePtr& type,
-      int32_t length,
-      std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
+  ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
       std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
     offset_buf_ = offsets;
-    offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
-                                                  offset_buf_->data());
+    offsets_ = offsets == nullptr ? nullptr
+                                  : reinterpret_cast<const int32_t*>(offset_buf_->data());
     values_ = values;
   }
 
@@ -84,9 +81,8 @@ class ListArray : public Array {
 // have been appended to the child array)
 class ListBuilder : public Int32Builder {
  public:
-  ListBuilder(MemoryPool* pool,
-      const TypePtr& type,
-      std::shared_ptr<ArrayBuilder> value_builder)
+  ListBuilder(
+      MemoryPool* pool, const TypePtr& type, std::shared_ptr<ArrayBuilder> value_builder)
       : Int32Builder(pool, type), value_builder_(value_builder) {}
 
   Status Init(int32_t elements) {

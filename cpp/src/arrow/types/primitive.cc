@@ -27,10 +27,8 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-PrimitiveArray::PrimitiveArray(const TypePtr& type,
-    int32_t length,
-    const std::shared_ptr<Buffer>& data,
-    int32_t null_count,
+PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap) {
   data_ = data;
@@ -191,10 +189,8 @@ template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
 template class PrimitiveBuilder<BooleanType>;
 
-BooleanArray::BooleanArray(int32_t length,
-    const std::shared_ptr<Buffer>& data,
-    int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
+BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
     : PrimitiveArray(
           std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
 

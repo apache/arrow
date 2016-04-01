@@ -91,10 +91,8 @@ static Status FloatFromFlatuffer(
   return Status::OK();
 }
 
-static Status TypeFromFlatbuffer(flatbuf::Type type,
-    const void* type_data,
-    const std::vector<std::shared_ptr<Field>>& children,
-    std::shared_ptr<DataType>* out) {
+static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
+    const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
   switch (type) {
     case flatbuf::Type_NONE:
       return Status::Invalid("Type metadata cannot be none");
@@ -141,10 +139,8 @@ static Offset FloatToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
   return flatbuf::CreateFloatingPoint(fbb, precision).Union();
 }
 
-static Status ListToFlatbuffer(FBB& fbb,
-    const std::shared_ptr<DataType>& type,
-    std::vector<FieldOffset>* out_children,
-    Offset* offset) {
+static Status ListToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* out_children, Offset* offset) {
   FieldOffset field;
   RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(0), &field));
   out_children->push_back(field);
@@ -152,10 +148,8 @@ static Status ListToFlatbuffer(FBB& fbb,
   return Status::OK();
 }
 
-static Status StructToFlatbuffer(FBB& fbb,
-    const std::shared_ptr<DataType>& type,
-    std::vector<FieldOffset>* out_children,
-    Offset* offset) {
+static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* out_children, Offset* offset) {
   FieldOffset field;
   for (int i = 0; i < type->num_children(); ++i) {
     RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(i), &field));
@@ -170,11 +164,8 @@ static Status StructToFlatbuffer(FBB& fbb,
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
-static Status TypeToFlatbuffer(FBB& fbb,
-    const std::shared_ptr<DataType>& type,
-    std::vector<FieldOffset>* children,
-    flatbuf::Type* out_type,
-    Offset* offset) {
+static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* children, flatbuf::Type* out_type, Offset* offset) {
   switch (type->type) {
     case Type::BOOL:
       *out_type = flatbuf::Type_Bool;
@@ -270,8 +261,7 @@ Status MessageBuilder::SetSchema(const Schema* schema) {
   return Status::OK();
 }
 
-Status MessageBuilder::SetRecordBatch(int32_t length,
-    int64_t body_length,
+Status MessageBuilder::SetRecordBatch(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers) {
   header_type_ = flatbuf::MessageHeader_RecordBatch;
@@ -283,11 +273,9 @@ Status MessageBuilder::SetRecordBatch(int32_t length,
   return Status::OK();
 }
 
-Status WriteDataHeader(int32_t length,
-    int64_t body_length,
+Status WriteDataHeader(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
-    const std::vector<flatbuf::Buffer>& buffers,
-    std::shared_ptr<Buffer>* out) {
+    const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
   MessageBuilder message;
   RETURN_NOT_OK(message.SetRecordBatch(length, body_length, nodes, buffers));
   RETURN_NOT_OK(message.Finish());

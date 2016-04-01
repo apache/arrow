@@ -157,9 +157,7 @@ struct Field {
                this->type->Equals(other.type.get()));
   }
 
-  bool Equals(const std::shared_ptr<Field>& other) const {
-    return Equals(*other.get());
-  }
+  bool Equals(const std::shared_ptr<Field>& other) const { return Equals(*other.get()); }
 
   std::string ToString() const;
 };
@@ -237,8 +235,7 @@ struct DoubleType : public PrimitiveType<DoubleType> {
 
 struct ListType : public DataType {
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : DataType(Type::LIST) {
+  explicit ListType(const std::shared_ptr<DataType>& value_type) : DataType(Type::LIST) {
     children_ = {std::make_shared<Field>("item", value_type)};
   }
 
