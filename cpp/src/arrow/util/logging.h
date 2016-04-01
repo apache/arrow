@@ -19,6 +19,7 @@
 #define ARROW_UTIL_LOGGING_H
 
 #include <iostream>
+#include <cstdlib>
 
 namespace arrow {
 
@@ -34,11 +35,12 @@ namespace arrow {
 #define ARROW_ERROR 2
 #define ARROW_FATAL 3
 
+
 #define ARROW_LOG_INTERNAL(level) arrow::internal::CerrLog(level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
 
 #define ARROW_CHECK(condition) \
-  (condition) ? 0 : ARROW_LOG(FATAL) << "Check failed: " #condition " "
+  (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) << __FILE__ << __LINE__ << "Check failed: " #condition " "
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ARROW_WARNING
@@ -81,12 +83,12 @@ class CerrLog {
       has_logged_(false) {
   }
 
-  ~CerrLog() {
+  virtual ~CerrLog() {
     if (has_logged_) {
       std::cerr << std::endl;
     }
     if (severity_ == ARROW_FATAL) {
-      exit(1);
+      std::exit(1);
     }
   }
 
@@ -97,10 +99,27 @@ class CerrLog {
     return *this;
   }
 
- private:
+ protected:
   const int severity_;
   bool has_logged_;
 };
+
+// Clang-tidy isn't smart enough to determine that DCHECK using CerrLog doesn't
+// return so we create a new class to give it a hint.  
+class FatalLog : public CerrLog {
+ public:
+  FatalLog(int /* severity */) // NOLINT(runtime/explicit)
+    : CerrLog(ARROW_FATAL) {
+  }
+
+  [[noreturn]] ~FatalLog() { 
+    if (has_logged_) {
+      std::cerr << std::endl;
+    }
+    std::exit(1);
+  }
+};
+
 
 } // namespace internal
 

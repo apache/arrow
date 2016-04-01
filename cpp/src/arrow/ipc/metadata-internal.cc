@@ -56,7 +56,8 @@ static Status IntFromFlatbuffer(const flatbuf::Int* int_data,
     std::shared_ptr<DataType>* out) {
   if (int_data->bitWidth() % 8 != 0) {
     return Status::NotImplemented("Integers not in cstdint are not implemented");
-  } else if (int_data->bitWidth() > 64) {
+  } 
+  if (int_data->bitWidth() > 64) {
     return Status::NotImplemented("Integers with more than 64 bits not implemented");
   }
 
@@ -206,6 +207,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_Tuple;
       return StructToFlatbuffer(fbb, type, children, offset);
     default:
+      *out_type = flatbuf::Type_NONE; // Make clang-tidy happy
       std::stringstream ss;
       ss << "Unable to convert type: " << type->ToString()
          << std::endl;

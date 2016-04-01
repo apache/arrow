@@ -66,8 +66,7 @@ Status Table::ValidateColumns() const {
     const Column* col = columns_[i].get();
     if (col == nullptr) {
       std::stringstream ss;
-      ss << "Column " << i << " named " << col->name()
-         << " was null";
+      ss << "Column " << i << " was null";
       return Status::Invalid(ss.str());
     }
     if (col->length() != num_rows_) {

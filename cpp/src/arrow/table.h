@@ -123,6 +123,6 @@ class Table {
   int64_t num_rows_;
 };
 
-} // namespace arrow
+}      // namespace arrow
 
 #endif  // ARROW_TABLE_H

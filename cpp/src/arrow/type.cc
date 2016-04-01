@@ -50,7 +50,7 @@ std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
   for (int i = 0; i < this->num_children(); ++i) {
-    if (i > 0) s << ", ";
+    if (i > 0) { s << ", "; }
     const std::shared_ptr<Field>& field = this->child(i);
     s << field->name << ": " << field->type->ToString();
   }

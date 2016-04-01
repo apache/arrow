@@ -245,9 +245,9 @@ class RowBatchReader::Impl {
       }
       return MakePrimitiveArray(type, field_meta.length, data,
           field_meta.null_count, null_bitmap, out);
-    } else {
-      return Status::NotImplemented("Non-primitive types not complete yet");
-    }
+    }    
+    return Status::NotImplemented("Non-primitive types not complete yet");
+    
   }
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {

@@ -61,7 +61,7 @@ struct VarcharType : public DataType {
   virtual std::string ToString() const;
 };
 
-// TODO: add a BinaryArray layer in between
+// TODO(wesm): add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:
   StringArray(const TypePtr& type, int32_t length,

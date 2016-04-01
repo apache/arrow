@@ -61,14 +61,16 @@ TEST_F(TestArray, TestLength) {
 }
 
 TEST_F(TestArray, TestIsNull) {
+  // clang-format off
   std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 0, 1};
+  // clang-format on
   int32_t null_count = 0;
   for (uint8_t x : null_bitmap) {
-    if (x == 0) ++null_count;
+    if (x == 0) { ++null_count; }
   }
 
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap);

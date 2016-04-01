@@ -30,7 +30,8 @@ Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) :
     fields_(fields) {}
 
 bool Schema::Equals(const Schema& other) const {
-  if (this == &other) return true;
+  if (this == &other) { return true; }
+
   if (num_fields() != other.num_fields()) {
     return false;
   }

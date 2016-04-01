@@ -20,7 +20,7 @@
 namespace arrow {
 
 bool ListArray::EqualsExact(const ListArray& other) const {
-  if (this == &other) return true;
+  if (this == &other) { return true; }
   if (null_count_ != other.null_count_) {
     return false;
   }
@@ -41,7 +41,7 @@ bool ListArray::EqualsExact(const ListArray& other) const {
 }
 
 bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) return true;
+  if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) {
     return false;
   }

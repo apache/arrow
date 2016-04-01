@@ -30,7 +30,7 @@ static inline std::string format_union(const std::vector<TypePtr>& child_types) 
   std::stringstream s;
   s << "union<";
   for (size_t i = 0; i < child_types.size(); ++i) {
-    if (i) s << ", ";
+    if (i) { s << ", "; }
     s << child_types[i]->ToString();
   }
   s << ">";

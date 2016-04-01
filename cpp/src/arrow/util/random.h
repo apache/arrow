@@ -118,7 +118,7 @@ class Random {
 
 
 uint32_t random_seed() {
-  // TODO: use system time to get a reasonably random seed
+  // TODO(wesm): use system time to get a reasonably random seed
   return 0;
 }
 

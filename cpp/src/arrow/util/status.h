@@ -22,7 +22,7 @@
 // Return the given status if it is not OK.
 #define ARROW_RETURN_NOT_OK(s) do {           \
     ::arrow::Status _s = (s);                 \
-    if (!_s.ok()) return _s;                    \
+    if (!_s.ok()) { return _s; }               \
   } while (0);
 
 // Return the given status if it is not OK, but first clone it and
@@ -55,7 +55,7 @@ namespace arrow {
 
 #define RETURN_NOT_OK(s) do {                   \
     Status _s = (s);                            \
-    if (!_s.ok()) return _s;                    \
+    if (!_s.ok()) { return _s; }                \
   } while (0);
 
 enum class StatusCode: char {

@@ -28,9 +28,10 @@
 #include "arrow/type.h"
 #include "arrow/util/memory-pool.h"
 
-using std::unique_ptr;
 
 namespace arrow {
+
+using std::unique_ptr;
 
 class TestBuilder : public ::testing::Test {
  public:

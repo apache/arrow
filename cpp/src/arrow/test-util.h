@@ -143,8 +143,8 @@ void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
 static inline int bitmap_popcount(const uint8_t* data, int length) {
   int count = 0;
   for (int i = 0; i < length; ++i) {
-    // TODO: accelerate this
-    if (util::get_bit(data, i)) ++count;
+    // TODO(wesm): accelerate this
+    if (util::get_bit(data, i)) { ++count; }
   }
   return count;
 }

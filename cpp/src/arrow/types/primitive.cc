@@ -37,7 +37,7 @@ PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
 }
 
 bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
-  if (this == &other) return true;
+  if (this == &other) { return true; }
   if (null_count_ != other.null_count_) {
     return false;
   }
@@ -69,7 +69,7 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
 }
 
 bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) return true;
+  if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) {
     return false;
   }
