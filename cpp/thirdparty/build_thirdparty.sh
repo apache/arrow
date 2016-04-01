@@ -84,8 +84,8 @@ if [ -n "$F_ALL" -o -n "$F_FLATBUFFERS" ]; then
   cd $TP_DIR/$FLATBUFFERS_BASEDIR
 
   CXXFLAGS=-fPIC cmake -DCMAKE_INSTALL_PREFIX:PATH=$PREFIX -DFLATBUFFERS_BUILD_TESTS=OFF . || { echo "cmake $FLATBUFFERS_ERROR" ; exit 1; }
-  make -j$PARALLEL
-  make install
+  make VERBOSE=1 -j$PARALLEL || { echo "make $FLATBUFFERS_ERROR" ; exit 1; }
+  make install || { echo "install $FLATBUFFERS_ERROR" ; exit 1; }
 fi
 
 echo "---------------------"
