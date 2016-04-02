@@ -110,8 +110,7 @@ struct DataType {
 
   std::vector<std::shared_ptr<Field>> children_;
 
-  explicit DataType(Type::type type) :
-      type(type) {}
+  explicit DataType(Type::type type) : type(type) {}
 
   virtual ~DataType();
 
@@ -120,21 +119,13 @@ struct DataType {
     return this == other || (this->type == other->type);
   }
 
-  bool Equals(const std::shared_ptr<DataType>& other) {
-    return Equals(other.get());
-  }
+  bool Equals(const std::shared_ptr<DataType>& other) { return Equals(other.get()); }
 
-  const std::shared_ptr<Field>& child(int i) const {
-    return children_[i];
-  }
+  const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
 
-  int num_children() const {
-    return children_.size();
-  }
+  int num_children() const { return children_.size(); }
 
-  virtual int value_size() const {
-    return -1;
-  }
+  virtual int value_size() const { return -1; }
 
   virtual std::string ToString() const = 0;
 };
@@ -153,28 +144,20 @@ struct Field {
   // Fields can be nullable
   bool nullable;
 
-  Field(const std::string& name, const TypePtr& type, bool nullable = true) :
-      name(name),
-      type(type),
-      nullable(nullable) {}
+  Field(const std::string& name, const TypePtr& type, bool nullable = true)
+      : name(name), type(type), nullable(nullable) {}
 
-  bool operator==(const Field& other) const {
-    return this->Equals(other);
-  }
+  bool operator==(const Field& other) const { return this->Equals(other); }
 
-  bool operator!=(const Field& other) const {
-    return !this->Equals(other);
-  }
+  bool operator!=(const Field& other) const { return !this->Equals(other); }
 
   bool Equals(const Field& other) const {
-    return (this == &other) || (this->name == other.name &&
-        this->nullable == other.nullable &&
-        this->type->Equals(other.type.get()));
+    return (this == &other) ||
+           (this->name == other.name && this->nullable == other.nullable &&
+               this->type->Equals(other.type.get()));
   }
 
-  bool Equals(const std::shared_ptr<Field>& other) const {
-    return Equals(*other.get());
-  }
+  bool Equals(const std::shared_ptr<Field>& other) const { return Equals(*other.get()); }
 
   std::string ToString() const;
 };
@@ -192,20 +175,15 @@ inline std::string PrimitiveType<Derived>::ToString() const {
   return result;
 }
 
-#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME)  \
-  typedef C_TYPE c_type;                                    \
-  static constexpr Type::type type_enum = Type::ENUM;       \
-                                                            \
-  TYPENAME()                                                \
-      : PrimitiveType<TYPENAME>() {}                        \
-                                                            \
-  virtual int value_size() const {                          \
-    return SIZE;                                            \
-  }                                                         \
-                                                            \
-  static const char* name() {                               \
-    return NAME;                                            \
-  }
+#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME) \
+  typedef C_TYPE c_type;                                   \
+  static constexpr Type::type type_enum = Type::ENUM;      \
+                                                           \
+  TYPENAME() : PrimitiveType<TYPENAME>() {}                \
+                                                           \
+  virtual int value_size() const { return SIZE; }          \
+                                                           \
+  static const char* name() { return NAME; }
 
 struct NullType : public PrimitiveType<NullType> {
   PRIMITIVE_DECL(NullType, void, NA, 0, "null");
@@ -257,27 +235,19 @@ struct DoubleType : public PrimitiveType<DoubleType> {
 
 struct ListType : public DataType {
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : DataType(Type::LIST) {
+  explicit ListType(const std::shared_ptr<DataType>& value_type) : DataType(Type::LIST) {
     children_ = {std::make_shared<Field>("item", value_type)};
   }
 
-  explicit ListType(const std::shared_ptr<Field>& value_field)
-      : DataType(Type::LIST) {
+  explicit ListType(const std::shared_ptr<Field>& value_field) : DataType(Type::LIST) {
     children_ = {value_field};
   }
 
-  const std::shared_ptr<Field>& value_field() const {
-    return children_[0];
-  }
+  const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
-  const std::shared_ptr<DataType>& value_type() const {
-    return children_[0]->type;
-  }
+  const std::shared_ptr<DataType>& value_type() const { return children_[0]->type; }
 
-  static char const *name() {
-    return "list";
-  }
+  static char const* name() { return "list"; }
 
   std::string ToString() const override;
 };
@@ -286,9 +256,7 @@ struct ListType : public DataType {
 struct StringType : public DataType {
   StringType();
 
-  static char const *name() {
-    return "string";
-  }
+  static char const* name() { return "string"; }
 
   std::string ToString() const override;
 };
@@ -304,10 +272,8 @@ struct StructType : public DataType {
 
 // These will be defined elsewhere
 template <typename T>
-struct type_traits {
-};
+struct type_traits {};
 
-
-} // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_TYPE_H

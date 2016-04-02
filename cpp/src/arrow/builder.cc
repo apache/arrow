@@ -62,4 +62,4 @@ Status ArrayBuilder::Reserve(int32_t elements) {
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace arrow

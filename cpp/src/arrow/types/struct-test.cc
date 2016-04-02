@@ -49,7 +49,7 @@ TEST(TestStructType, Basics) {
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
-  // TODO: out of bounds for field(...)
+  // TODO(wesm): out of bounds for field(...)
 }
 
-} // namespace arrow
+}  // namespace arrow

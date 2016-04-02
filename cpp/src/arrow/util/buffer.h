@@ -38,9 +38,7 @@ class Status;
 // class instance
 class Buffer : public std::enable_shared_from_this<Buffer> {
  public:
-  Buffer(const uint8_t* data, int64_t size) :
-      data_(data),
-      size_(size) {}
+  Buffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
   virtual ~Buffer();
 
   // An offset into data that is owned by another buffer, but we want to be
@@ -48,40 +46,28 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   // parent buffer have been destroyed
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
 
-  std::shared_ptr<Buffer> get_shared_ptr() {
-    return shared_from_this();
-  }
+  std::shared_ptr<Buffer> get_shared_ptr() { return shared_from_this(); }
 
   // Return true if both buffers are the same size and contain the same bytes
   // up to the number of compared bytes
   bool Equals(const Buffer& other, int64_t nbytes) const {
-    return this == &other ||
-      (size_ >= nbytes && other.size_ >= nbytes &&
-          !memcmp(data_, other.data_, nbytes));
+    return this == &other || (size_ >= nbytes && other.size_ >= nbytes &&
+                                 !memcmp(data_, other.data_, nbytes));
   }
 
   bool Equals(const Buffer& other) const {
-    return this == &other ||
-      (size_ == other.size_ && !memcmp(data_, other.data_, size_));
+    return this == &other || (size_ == other.size_ && !memcmp(data_, other.data_, size_));
   }
 
-  const uint8_t* data() const {
-    return data_;
-  }
+  const uint8_t* data() const { return data_; }
 
-  int64_t size() const {
-    return size_;
-  }
+  int64_t size() const { return size_; }
 
   // Returns true if this Buffer is referencing memory (possibly) owned by some
   // other buffer
-  bool is_shared() const {
-    return static_cast<bool>(parent_);
-  }
+  bool is_shared() const { return static_cast<bool>(parent_); }
 
-  const std::shared_ptr<Buffer> parent() const {
-    return parent_;
-  }
+  const std::shared_ptr<Buffer> parent() const { return parent_; }
 
  protected:
   const uint8_t* data_;
@@ -97,22 +83,17 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
 // A Buffer whose contents can be mutated. May or may not own its data.
 class MutableBuffer : public Buffer {
  public:
-  MutableBuffer(uint8_t* data, int64_t size) :
-      Buffer(data, size) {
+  MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
     mutable_data_ = data;
   }
 
-  uint8_t* mutable_data() {
-    return mutable_data_;
-  }
+  uint8_t* mutable_data() { return mutable_data_; }
 
   // Get a read-only view of this buffer
   std::shared_ptr<Buffer> GetImmutableView();
 
  protected:
-  MutableBuffer() :
-      Buffer(nullptr, 0),
-      mutable_data_(nullptr) {}
+  MutableBuffer() : Buffer(nullptr, 0), mutable_data_(nullptr) {}
 
   uint8_t* mutable_data_;
 };
@@ -128,9 +109,8 @@ class ResizableBuffer : public MutableBuffer {
   virtual Status Reserve(int64_t new_capacity) = 0;
 
  protected:
-  ResizableBuffer(uint8_t* data, int64_t size) :
-      MutableBuffer(data, size),
-      capacity_(size) {}
+  ResizableBuffer(uint8_t* data, int64_t size)
+      : MutableBuffer(data, size), capacity_(size) {}
 
   int64_t capacity_;
 };
@@ -152,16 +132,11 @@ static constexpr int64_t MIN_BUFFER_CAPACITY = 1024;
 
 class BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool) :
-      pool_(pool),
-      capacity_(0),
-      size_(0) {}
+  explicit BufferBuilder(MemoryPool* pool) : pool_(pool), capacity_(0), size_(0) {}
 
   Status Append(const uint8_t* data, int length) {
     if (capacity_ < length + size_) {
-      if (capacity_ == 0) {
-        buffer_ = std::make_shared<PoolBuffer>(pool_);
-      }
+      if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
       capacity_ = std::max(MIN_BUFFER_CAPACITY, capacity_);
       while (capacity_ < length + size_) {
         capacity_ *= 2;
@@ -188,6 +163,6 @@ class BufferBuilder {
   int64_t size_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_UTIL_BUFFER_H
+#endif  // ARROW_UTIL_BUFFER_H

@@ -37,48 +37,37 @@ class MemoryPool;
 struct CharType : public DataType {
   int size;
 
-  explicit CharType(int size)
-      : DataType(Type::CHAR),
-        size(size) {}
+  explicit CharType(int size) : DataType(Type::CHAR), size(size) {}
 
-  CharType(const CharType& other)
-      : CharType(other.size) {}
+  CharType(const CharType& other) : CharType(other.size) {}
 
   virtual std::string ToString() const;
 };
-
 
 // Variable-length, null-terminated strings, up to a certain length
 struct VarcharType : public DataType {
   int size;
 
-  explicit VarcharType(int size)
-      : DataType(Type::VARCHAR),
-        size(size) {}
-  VarcharType(const VarcharType& other)
-      : VarcharType(other.size) {}
+  explicit VarcharType(int size) : DataType(Type::VARCHAR), size(size) {}
+  VarcharType(const VarcharType& other) : VarcharType(other.size) {}
 
   virtual std::string ToString() const;
 };
 
-// TODO: add a BinaryArray layer in between
+// TODO(wesm): add a BinaryArray layer in between
 class StringArray : public ListArray {
  public:
-  StringArray(const TypePtr& type, int32_t length,
-      const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :
-      ListArray(type, length, offsets, values, null_count, null_bitmap) {
+  StringArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+      : ListArray(type, length, offsets, values, null_count, null_bitmap) {
     // For convenience
     bytes_ = static_cast<UInt8Array*>(values.get());
     raw_bytes_ = bytes_->raw_data();
   }
 
-  StringArray(int32_t length,
-      const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
+  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   // Compute the pointer t
@@ -103,21 +92,18 @@ class StringArray : public ListArray {
 // Array builder
 class StringBuilder : public ListBuilder {
  public:
-  explicit StringBuilder(MemoryPool* pool, const TypePtr& type) :
-      ListBuilder(pool, type, std::make_shared<UInt8Builder>(pool, value_type_)) {
+  explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
+      : ListBuilder(pool, type, std::make_shared<UInt8Builder>(pool, value_type_)) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
-  Status Append(const std::string& value) {
-    return Append(value.c_str(), value.size());
-  }
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
 
   Status Append(const char* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());
     return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value), length);
   }
-  Status Append(const std::vector<std::string>& values,
-                uint8_t* null_bytes);
+  Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
 
   std::shared_ptr<Array> Finish() override {
     return ListBuilder::Transfer<StringArray>();
@@ -130,6 +116,6 @@ class StringBuilder : public ListBuilder {
   static TypePtr value_type_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_TYPES_STRING_H
+#endif  // ARROW_TYPES_STRING_H

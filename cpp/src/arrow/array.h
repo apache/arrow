@@ -36,8 +36,7 @@ class Buffer;
 // count is greater than 0
 class Array {
  public:
-  Array(const std::shared_ptr<DataType>& type, int32_t length,
-      int32_t null_count = 0,
+  Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   virtual ~Array() {}
@@ -47,19 +46,15 @@ class Array {
     return null_count_ > 0 && util::bit_not_set(null_bitmap_data_, i);
   }
 
-  int32_t length() const { return length_;}
-  int32_t null_count() const { return null_count_;}
+  int32_t length() const { return length_; }
+  int32_t null_count() const { return null_count_; }
 
-  const std::shared_ptr<DataType>& type() const { return type_;}
-  Type::type type_enum() const { return type_->type;}
+  const std::shared_ptr<DataType>& type() const { return type_; }
+  Type::type type_enum() const { return type_->type; }
 
-  const std::shared_ptr<Buffer>& null_bitmap() const {
-    return null_bitmap_;
-  }
+  const std::shared_ptr<Buffer>& null_bitmap() const { return null_bitmap_; }
 
-  const uint8_t* null_bitmap_data() const {
-    return null_bitmap_data_;
-  }
+  const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
@@ -80,17 +75,16 @@ class Array {
 // Degenerate null type Array
 class NullArray : public Array {
  public:
-  NullArray(const std::shared_ptr<DataType>& type, int32_t length) :
-      Array(type, length, length, nullptr) {}
+  NullArray(const std::shared_ptr<DataType>& type, int32_t length)
+      : Array(type, length, length, nullptr) {}
 
-  explicit NullArray(int32_t length) :
-      NullArray(std::make_shared<NullType>(), length) {}
+  explicit NullArray(int32_t length) : NullArray(std::make_shared<NullType>(), length) {}
 
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 };
 
 typedef std::shared_ptr<Array> ArrayPtr;
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif

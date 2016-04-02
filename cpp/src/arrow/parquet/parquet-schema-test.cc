@@ -45,8 +45,7 @@ const auto INT64 = std::make_shared<Int64Type>();
 const auto FLOAT = std::make_shared<FloatType>();
 const auto DOUBLE = std::make_shared<DoubleType>();
 const auto UTF8 = std::make_shared<StringType>();
-const auto BINARY = std::make_shared<ListType>(
-    std::make_shared<Field>("", UINT8));
+const auto BINARY = std::make_shared<ListType>(std::make_shared<Field>("", UINT8));
 const auto DECIMAL_8_4 = std::make_shared<DecimalType>(8, 4);
 
 class TestConvertParquetSchema : public ::testing::Test {
@@ -58,8 +57,8 @@ class TestConvertParquetSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema->num_fields(); ++i) {
       auto lhs = result_schema_->field(i);
       auto rhs = expected_schema->field(i);
-      EXPECT_TRUE(lhs->Equals(rhs))
-        << i << " " << lhs->ToString() << " != " << rhs->ToString();
+      EXPECT_TRUE(lhs->Equals(rhs)) << i << " " << lhs->ToString()
+                                    << " != " << rhs->ToString();
     }
   }
 
@@ -99,20 +98,15 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   arrow_fields.push_back(std::make_shared<Field>("double", DOUBLE));
 
   parquet_fields.push_back(
-      PrimitiveNode::Make("binary", Repetition::OPTIONAL,
-          ParquetType::BYTE_ARRAY));
+      PrimitiveNode::Make("binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY));
   arrow_fields.push_back(std::make_shared<Field>("binary", BINARY));
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("string", Repetition::OPTIONAL,
-          ParquetType::BYTE_ARRAY,
-          LogicalType::UTF8));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("flba-binary", Repetition::OPTIONAL,
-          ParquetType::FIXED_LEN_BYTE_ARRAY,
-          LogicalType::NONE, 12));
+  parquet_fields.push_back(PrimitiveNode::Make("flba-binary", Repetition::OPTIONAL,
+      ParquetType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, 12));
   arrow_fields.push_back(std::make_shared<Field>("flba-binary", BINARY));
 
   auto arrow_schema = std::make_shared<Schema>(arrow_fields);
@@ -125,28 +119,20 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("flba-decimal", Repetition::OPTIONAL,
-          ParquetType::FIXED_LEN_BYTE_ARRAY,
-          LogicalType::DECIMAL, 4, 8, 4));
+  parquet_fields.push_back(PrimitiveNode::Make("flba-decimal", Repetition::OPTIONAL,
+      ParquetType::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 4, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("flba-decimal", DECIMAL_8_4));
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("binary-decimal", Repetition::OPTIONAL,
-          ParquetType::BYTE_ARRAY,
-          LogicalType::DECIMAL, -1, 8, 4));
+  parquet_fields.push_back(PrimitiveNode::Make("binary-decimal", Repetition::OPTIONAL,
+      ParquetType::BYTE_ARRAY, LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("binary-decimal", DECIMAL_8_4));
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("int32-decimal", Repetition::OPTIONAL,
-          ParquetType::INT32,
-          LogicalType::DECIMAL, -1, 8, 4));
+  parquet_fields.push_back(PrimitiveNode::Make("int32-decimal", Repetition::OPTIONAL,
+      ParquetType::INT32, LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int32-decimal", DECIMAL_8_4));
 
-  parquet_fields.push_back(
-      PrimitiveNode::Make("int64-decimal", Repetition::OPTIONAL,
-          ParquetType::INT64,
-          LogicalType::DECIMAL, -1, 8, 4));
+  parquet_fields.push_back(PrimitiveNode::Make("int64-decimal", Repetition::OPTIONAL,
+      ParquetType::INT64, LogicalType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int64-decimal", DECIMAL_8_4));
 
   auto arrow_schema = std::make_shared<Schema>(arrow_fields);
@@ -164,22 +150,19 @@ TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   unsupported_nodes.push_back(
       GroupNode::Make("repeated-group", Repetition::REPEATED, {}));
 
-  unsupported_nodes.push_back(
-      PrimitiveNode::Make("int32", Repetition::OPTIONAL,
-          ParquetType::INT32, LogicalType::DATE));
+  unsupported_nodes.push_back(PrimitiveNode::Make(
+      "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));
 
-  unsupported_nodes.push_back(
-      PrimitiveNode::Make("int64", Repetition::OPTIONAL,
-          ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
+  unsupported_nodes.push_back(PrimitiveNode::Make(
+      "int64", Repetition::OPTIONAL, ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
 
   for (const NodePtr& node : unsupported_nodes) {
     ASSERT_RAISES(NotImplemented, ConvertSchema({node}));
   }
 }
 
-TEST(TestNodeConversion, DateAndTime) {
-}
+TEST(TestNodeConversion, DateAndTime) {}
 
-} // namespace parquet
+}  // namespace parquet
 
-} // namespace arrow
+}  // namespace arrow

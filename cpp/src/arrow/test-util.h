@@ -36,38 +36,29 @@
 #include "arrow/util/random.h"
 #include "arrow/util/status.h"
 
-#define ASSERT_RAISES(ENUM, expr)               \
-  do {                                          \
-    Status s = (expr);                          \
-    if (!s.Is##ENUM()) {                        \
-      FAIL() << s.ToString();                   \
-    }                                           \
+#define ASSERT_RAISES(ENUM, expr)                  \
+  do {                                             \
+    Status s = (expr);                             \
+    if (!s.Is##ENUM()) { FAIL() << s.ToString(); } \
   } while (0)
 
-
-#define ASSERT_OK(expr)                         \
-  do {                                          \
-    Status s = (expr);                          \
-    if (!s.ok()) {                              \
-        FAIL() << s.ToString();                 \
-    }                                           \
+#define ASSERT_OK(expr)                      \
+  do {                                       \
+    Status s = (expr);                       \
+    if (!s.ok()) { FAIL() << s.ToString(); } \
   } while (0)
 
-
-#define EXPECT_OK(expr)                         \
-  do {                                          \
-    Status s = (expr);                          \
-    EXPECT_TRUE(s.ok());                        \
+#define EXPECT_OK(expr)  \
+  do {                   \
+    Status s = (expr);   \
+    EXPECT_TRUE(s.ok()); \
   } while (0)
-
 
 namespace arrow {
 
 class TestBase : public ::testing::Test {
  public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-  }
+  void SetUp() { pool_ = default_memory_pool(); }
 
   template <typename ArrayType>
   std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
@@ -97,10 +88,8 @@ void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
   }
 }
 
-
 template <typename T>
-void random_real(int n, uint32_t seed, T min_value, T max_value,
-    std::vector<T>* out) {
+void random_real(int n, uint32_t seed, T min_value, T max_value, std::vector<T>* out) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -108,11 +97,10 @@ void random_real(int n, uint32_t seed, T min_value, T max_value,
   }
 }
 
-
 template <typename T>
 std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
-  return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(values.data()),
-      values.size() * sizeof(T));
+  return std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T));
 }
 
 void random_null_bitmap(int64_t n, double pct_null, uint8_t* null_bitmap) {
@@ -143,8 +131,8 @@ void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
 static inline int bitmap_popcount(const uint8_t* data, int length) {
   int count = 0;
   for (int i = 0; i < length; ++i) {
-    // TODO: accelerate this
-    if (util::get_bit(data, i)) ++count;
+    // TODO(wesm): accelerate this
+    if (util::get_bit(data, i)) { ++count; }
   }
   return count;
 }
@@ -152,9 +140,7 @@ static inline int bitmap_popcount(const uint8_t* data, int length) {
 static inline int null_count(const std::vector<uint8_t>& valid_bytes) {
   int result = 0;
   for (size_t i = 0; i < valid_bytes.size(); ++i) {
-    if (valid_bytes[i] == 0) {
-      ++result;
-    }
+    if (valid_bytes[i] == 0) { ++result; }
   }
   return result;
 }
@@ -167,7 +153,7 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   return out;
 }
 
-} // namespace test
-} // namespace arrow
+}  // namespace test
+}  // namespace arrow
 
-#endif // ARROW_TEST_UTIL_H_
+#endif  // ARROW_TEST_UTIL_H_

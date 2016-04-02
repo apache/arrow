@@ -36,8 +36,7 @@ class Status;
 
 namespace ipc {
 
-Status FieldFromFlatbuffer(const flatbuf::Field* field,
-    std::shared_ptr<Field>* out);
+Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
 
 class MessageBuilder {
  public:
@@ -60,10 +59,9 @@ class MessageBuilder {
 
 Status WriteDataHeader(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
-    const std::vector<flatbuf::Buffer>& buffers,
-    std::shared_ptr<Buffer>* out);
+    const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow
 
-#endif // ARROW_IPC_METADATA_INTERNAL_H
+#endif  // ARROW_IPC_METADATA_INTERNAL_H

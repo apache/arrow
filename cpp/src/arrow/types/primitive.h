@@ -34,17 +34,14 @@ namespace arrow {
 
 class MemoryPool;
 
-
 // Base class for fixed-size logical types
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray(const TypePtr& type, int32_t length,
-      const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  PrimitiveArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   virtual ~PrimitiveArray() {}
 
-  const std::shared_ptr<Buffer>& data() const { return data_;}
+  const std::shared_ptr<Buffer>& data() const { return data_; }
 
   bool EqualsExact(const PrimitiveArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -54,31 +51,25 @@ class PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                  \
-class NAME : public PrimitiveArray {                            \
- public:                                                        \
-  using value_type = T;                                         \
-  using PrimitiveArray::PrimitiveArray;                         \
-                                                                \
-  NAME(int32_t length, const std::shared_ptr<Buffer>& data,     \
-      int32_t null_count = 0,                                   \
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr) :   \
-      PrimitiveArray(std::make_shared<TypeClass>(), length,     \
-          data, null_count, null_bitmap) {}                     \
-                                                                \
-  bool EqualsExact(const NAME& other) const {                   \
-    return PrimitiveArray::EqualsExact(                         \
-        *static_cast<const PrimitiveArray*>(&other));           \
-  }                                                             \
-                                                                \
-  const T* raw_data() const {                                   \
-    return reinterpret_cast<const T*>(raw_data_);               \
-  }                                                             \
-                                                                \
-  T Value(int i) const {                                        \
-    return raw_data()[i];                                       \
-  }                                                             \
-};
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                                         \
+  class NAME : public PrimitiveArray {                                                 \
+   public:                                                                             \
+    using value_type = T;                                                              \
+    using PrimitiveArray::PrimitiveArray;                                              \
+                                                                                       \
+    NAME(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,  \
+        const std::shared_ptr<Buffer>& null_bitmap = nullptr)                          \
+        : PrimitiveArray(                                                              \
+              std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {} \
+                                                                                       \
+    bool EqualsExact(const NAME& other) const {                                        \
+      return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
+    }                                                                                  \
+                                                                                       \
+    const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }        \
+                                                                                       \
+    T Value(int i) const { return raw_data()[i]; }                                     \
+  };
 
 NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type, uint8_t);
 NUMERIC_ARRAY_DECL(Int8Array, Int8Type, int8_t);
@@ -96,9 +87,8 @@ class PrimitiveBuilder : public ArrayBuilder {
  public:
   typedef typename Type::c_type value_type;
 
-  explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type) :
-      ArrayBuilder(pool, type),
-      data_(nullptr) {}
+  explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
+      : ArrayBuilder(pool, type), data_(nullptr) {}
 
   virtual ~PrimitiveBuilder() {}
 
@@ -117,16 +107,14 @@ class PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  std::shared_ptr<Buffer> data() const {
-    return data_;
-  }
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   // Vector append
   //
   // If passed, valid_bytes is of equal length to values, and any zero byte
   // will be considered as a null for that slot
-  Status Append(const value_type* values, int32_t length,
-      const uint8_t* valid_bytes = nullptr);
+  Status Append(
+      const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
   // Ensure that builder can accommodate an additional number of
   // elements. Resizes if the current capacity is not sufficient
@@ -172,89 +160,69 @@ template <>
 struct type_traits<UInt8Type> {
   typedef UInt8Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements;
-  }
+  static inline int bytes_required(int elements) { return elements; }
 };
 
 template <>
 struct type_traits<Int8Type> {
   typedef Int8Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements;
-  }
+  static inline int bytes_required(int elements) { return elements; }
 };
 
 template <>
 struct type_traits<UInt16Type> {
   typedef UInt16Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(uint16_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
 };
 
 template <>
 struct type_traits<Int16Type> {
   typedef Int16Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(int16_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(int16_t); }
 };
 
 template <>
 struct type_traits<UInt32Type> {
   typedef UInt32Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(uint32_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(uint32_t); }
 };
 
 template <>
 struct type_traits<Int32Type> {
   typedef Int32Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(int32_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(int32_t); }
 };
 
 template <>
 struct type_traits<UInt64Type> {
   typedef UInt64Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(uint64_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(uint64_t); }
 };
 
 template <>
 struct type_traits<Int64Type> {
   typedef Int64Array ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(int64_t);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
 };
 template <>
 struct type_traits<FloatType> {
   typedef FloatArray ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(float);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(float); }
 };
 
 template <>
 struct type_traits<DoubleType> {
   typedef DoubleArray ArrayType;
 
-  static inline int bytes_required(int elements) {
-    return elements * sizeof(double);
-  }
+  static inline int bytes_required(int elements) { return elements * sizeof(double); }
 };
 
 // Builders
@@ -272,25 +240,19 @@ typedef NumericBuilder<Int64Type> Int64Builder;
 typedef NumericBuilder<FloatType> FloatBuilder;
 typedef NumericBuilder<DoubleType> DoubleBuilder;
 
-
 class BooleanArray : public PrimitiveArray {
  public:
   using PrimitiveArray::PrimitiveArray;
 
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
-  const uint8_t* raw_data() const {
-    return reinterpret_cast<const uint8_t*>(raw_data_);
-  }
+  const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
-  bool Value(int i) const {
-    return util::get_bit(raw_data(), i);
-  }
+  bool Value(int i) const { return util::get_bit(raw_data(), i); }
 };
 
 template <>
@@ -304,8 +266,8 @@ struct type_traits<BooleanType> {
 
 class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
  public:
-  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type) :
-      PrimitiveBuilder<BooleanType>(pool, type) {}
+  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
+      : PrimitiveBuilder<BooleanType>(pool, type) {}
 
   virtual ~BooleanBuilder() {}
 
@@ -322,11 +284,9 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
     ++length_;
   }
 
-  void Append(uint8_t val) {
-    Append(static_cast<bool>(val));
-  }
+  void Append(uint8_t val) { Append(static_cast<bool>(val)); }
 };
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_TYPES_PRIMITIVE_H

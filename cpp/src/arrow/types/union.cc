@@ -30,7 +30,7 @@ static inline std::string format_union(const std::vector<TypePtr>& child_types) 
   std::stringstream s;
   s << "union<";
   for (size_t i = 0; i < child_types.size(); ++i) {
-    if (i) s << ", ";
+    if (i) { s << ", "; }
     s << child_types[i]->ToString();
   }
   s << ">";
@@ -41,10 +41,8 @@ std::string DenseUnionType::ToString() const {
   return format_union(child_types_);
 }
 
-
 std::string SparseUnionType::ToString() const {
   return format_union(child_types_);
 }
 
-
-} // namespace arrow
+}  // namespace arrow

@@ -28,9 +28,9 @@
 #include "arrow/type.h"
 #include "arrow/util/memory-pool.h"
 
-using std::unique_ptr;
-
 namespace arrow {
+
+using std::unique_ptr;
 
 class TestBuilder : public ::testing::Test {
  public:
@@ -40,6 +40,7 @@ class TestBuilder : public ::testing::Test {
     builder_.reset(new UInt8Builder(pool_, type_));
     builder_nn_.reset(new UInt8Builder(pool_, type_));
   }
+
  protected:
   MemoryPool* pool_;
 
@@ -48,6 +49,6 @@ class TestBuilder : public ::testing::Test {
   unique_ptr<ArrayBuilder> builder_nn_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_TYPES_TEST_COMMON_H
+#endif  // ARROW_TYPES_TEST_COMMON_H

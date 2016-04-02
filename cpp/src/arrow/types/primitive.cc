@@ -28,26 +28,21 @@ namespace arrow {
 // Primitive array base
 
 PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
-    const std::shared_ptr<Buffer>& data,
-    int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap) :
-    Array(type, length, null_count, null_bitmap) {
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : Array(type, length, null_count, null_bitmap) {
   data_ = data;
-  raw_data_ = data == nullptr? nullptr : data_->data();
+  raw_data_ = data == nullptr ? nullptr : data_->data();
 }
 
 bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
-  if (this == &other) return true;
-  if (null_count_ != other.null_count_) {
-    return false;
-  }
+  if (this == &other) { return true; }
+  if (null_count_ != other.null_count_) { return false; }
 
   if (null_count_ > 0) {
-    bool equal_bitmap = null_bitmap_->Equals(*other.null_bitmap_,
-        util::ceil_byte(length_) / 8);
-    if (!equal_bitmap) {
-      return false;
-    }
+    bool equal_bitmap =
+        null_bitmap_->Equals(*other.null_bitmap_, util::ceil_byte(length_) / 8);
+    if (!equal_bitmap) { return false; }
 
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
@@ -56,9 +51,7 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     DCHECK_GT(value_size, 0);
 
     for (int i = 0; i < length_; ++i) {
-      if (!IsNull(i) && memcmp(this_data, other_data, value_size)) {
-        return false;
-      }
+      if (!IsNull(i) && memcmp(this_data, other_data, value_size)) { return false; }
       this_data += value_size;
       other_data += value_size;
     }
@@ -69,10 +62,8 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
 }
 
 bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) return true;
-  if (this->type_enum() != arr->type_enum()) {
-    return false;
-  }
+  if (this == arr.get()) { return true; }
+  if (this->type_enum() != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
 
@@ -92,9 +83,7 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
 template <typename T>
 Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
   // XXX: Set floor size for now
-  if (capacity < MIN_BUILDER_CAPACITY) {
-    capacity = MIN_BUILDER_CAPACITY;
-  }
+  if (capacity < MIN_BUILDER_CAPACITY) { capacity = MIN_BUILDER_CAPACITY; }
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(Init(capacity));
@@ -122,8 +111,8 @@ Status PrimitiveBuilder<T>::Reserve(int32_t elements) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(const value_type* values, int32_t length,
-    const uint8_t* valid_bytes) {
+Status PrimitiveBuilder<T>::Append(
+    const value_type* values, int32_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(PrimitiveBuilder<T>::Reserve(length));
 
   if (length > 0) {
@@ -156,9 +145,8 @@ void PrimitiveBuilder<T>::AppendNulls(const uint8_t* valid_bytes, int32_t length
 
 template <typename T>
 std::shared_ptr<Array> PrimitiveBuilder<T>::Finish() {
-  std::shared_ptr<Array> result = std::make_shared<
-    typename type_traits<T>::ArrayType>(
-        type_, length_, data_, null_count_, null_bitmap_);
+  std::shared_ptr<Array> result = std::make_shared<typename type_traits<T>::ArrayType>(
+      type_, length_, data_, null_count_, null_bitmap_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -166,8 +154,8 @@ std::shared_ptr<Array> PrimitiveBuilder<T>::Finish() {
 }
 
 template <>
-Status PrimitiveBuilder<BooleanType>::Append(const uint8_t* values, int32_t length,
-    const uint8_t* valid_bytes) {
+Status PrimitiveBuilder<BooleanType>::Append(
+    const uint8_t* values, int32_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   for (int i = 0; i < length; ++i) {
@@ -202,23 +190,18 @@ template class PrimitiveBuilder<DoubleType>;
 template class PrimitiveBuilder<BooleanType>;
 
 BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap) :
-    PrimitiveArray(std::make_shared<BooleanType>(), length,
-        data, null_count, null_bitmap) {}
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
+    : PrimitiveArray(
+          std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
 
 bool BooleanArray::EqualsExact(const BooleanArray& other) const {
   if (this == &other) return true;
-  if (null_count_ != other.null_count_) {
-    return false;
-  }
+  if (null_count_ != other.null_count_) { return false; }
 
   if (null_count_ > 0) {
-    bool equal_bitmap = null_bitmap_->Equals(*other.null_bitmap_,
-        util::bytes_for_bits(length_));
-    if (!equal_bitmap) {
-      return false;
-    }
+    bool equal_bitmap =
+        null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
+    if (!equal_bitmap) { return false; }
 
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
@@ -236,10 +219,8 @@ bool BooleanArray::EqualsExact(const BooleanArray& other) const {
 
 bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) return true;
-  if (Type::BOOL != arr->type_enum()) {
-    return false;
-  }
+  if (Type::BOOL != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
 }
 
-} // namespace arrow
+}  // namespace arrow

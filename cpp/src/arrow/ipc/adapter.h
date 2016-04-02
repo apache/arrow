@@ -52,8 +52,8 @@ class RecordBatchMessage;
 //
 // Finally, the memory offset to the start of the metadata / data header is
 // returned in an out-variable
-Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
-    int64_t* header_offset);
+Status WriteRowBatch(
+    MemorySource* dst, const RowBatch* batch, int64_t position, int64_t* header_offset);
 
 // int64_t GetRowBatchMetadata(const RowBatch* batch);
 
@@ -67,20 +67,20 @@ int64_t GetRowBatchSize(const RowBatch* batch);
 
 class RowBatchReader {
  public:
-  static Status Open(MemorySource* source, int64_t position,
-      std::shared_ptr<RowBatchReader>* out);
+  static Status Open(
+      MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out);
 
   // Reassemble the row batch. A Schema is required to be able to construct the
   // right array containers
-  Status GetRowBatch(const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<RowBatch>* out);
+  Status GetRowBatch(
+      const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out);
 
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow
 
-#endif // ARROW_IPC_MEMORY_H
+#endif  // ARROW_IPC_MEMORY_H

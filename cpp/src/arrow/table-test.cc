@@ -49,10 +49,9 @@ class TestTable : public TestBase {
     schema_ = std::make_shared<Schema>(fields);
 
     columns_ = {
-      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
-      std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
-      std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length))
-    };
+        std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
+        std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
+        std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length))};
   }
 
  protected:
@@ -116,13 +115,12 @@ TEST_F(TestTable, InvalidColumns) {
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
 
   columns_ = {
-    std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
-    std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
-    std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length - 1))
-  };
+      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
+      std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
+      std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length - 1))};
 
   table_.reset(new Table("data", schema_, columns_, length));
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
 }
 
-} // namespace arrow
+}  // namespace arrow

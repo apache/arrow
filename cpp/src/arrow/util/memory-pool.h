@@ -36,6 +36,6 @@ class MemoryPool {
 
 MemoryPool* default_memory_pool();
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_UTIL_MEMORY_POOL_H
+#endif  // ARROW_UTIL_MEMORY_POOL_H

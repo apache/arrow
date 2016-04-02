@@ -30,9 +30,8 @@ static const TypePtr String(new StringType());
 static const TypePtr Double(new DoubleType());
 static const TypePtr Bool(new BooleanType());
 
-static const std::vector<TypePtr> json_types = {Null, Int32, String,
-                                                Double, Bool};
+static const std::vector<TypePtr> json_types = {Null, Int32, String, Double, Bool};
 TypePtr JSONScalar::dense_type = TypePtr(new DenseUnionType(json_types));
 TypePtr JSONScalar::sparse_type = TypePtr(new SparseUnionType(json_types));
 
-} // namespace arrow
+}  // namespace arrow

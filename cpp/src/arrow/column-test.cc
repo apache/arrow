@@ -72,4 +72,4 @@ TEST_F(TestColumn, ChunksInhomogeneous) {
   ASSERT_RAISES(Invalid, column_->ValidateData());
 }
 
-} // namespace arrow
+}  // namespace arrow

@@ -94,8 +94,7 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
 
 class RowBatchWriter {
  public:
-  explicit RowBatchWriter(const RowBatch* batch) :
-      batch_(batch) {}
+  explicit RowBatchWriter(const RowBatch* batch) : batch_(batch) {}
 
   Status AssemblePayload() {
     // Perform depth-first traversal of the row-batch
@@ -138,12 +137,12 @@ class RowBatchWriter {
     // determine the data header size then request a buffer such that you can
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
-    RETURN_NOT_OK(WriteDataHeader(batch_->num_rows(), offset,
-            field_nodes_, buffer_meta_, &data_header));
+    RETURN_NOT_OK(WriteDataHeader(
+        batch_->num_rows(), offset, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end
-    RETURN_NOT_OK(dst->Write(position + offset, data_header->data(),
-            data_header->size()));
+    RETURN_NOT_OK(
+        dst->Write(position + offset, data_header->data(), data_header->size()));
 
     *data_header_offset = position + offset;
     return Status::OK();
@@ -174,8 +173,8 @@ class RowBatchWriter {
   std::vector<std::shared_ptr<Buffer>> buffers_;
 };
 
-Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
-    int64_t* header_offset) {
+Status WriteRowBatch(
+    MemorySource* dst, const RowBatch* batch, int64_t position, int64_t* header_offset) {
   RowBatchWriter serializer(batch);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, position, header_offset);
@@ -187,15 +186,14 @@ static constexpr int64_t INIT_METADATA_SIZE = 4096;
 
 class RowBatchReader::Impl {
  public:
-  Impl(MemorySource* source, const std::shared_ptr<RecordBatchMessage>& metadata) :
-      source_(source),
-      metadata_(metadata) {
+  Impl(MemorySource* source, const std::shared_ptr<RecordBatchMessage>& metadata)
+      : source_(source), metadata_(metadata) {
     num_buffers_ = metadata->num_buffers();
     num_flattened_fields_ = metadata->num_fields();
   }
 
-  Status AssembleBatch(const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<RowBatch>* out) {
+  Status AssembleBatch(
+      const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
     std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
 
     // The field_index and buffer_index are incremented in NextArray based on
@@ -208,8 +206,7 @@ class RowBatchReader::Impl {
       RETURN_NOT_OK(NextArray(field, &arrays[i]));
     }
 
-    *out = std::make_shared<RowBatch>(schema, metadata_->length(),
-        arrays);
+    *out = std::make_shared<RowBatch>(schema, metadata_->length(), arrays);
     return Status::OK();
   }
 
@@ -243,11 +240,10 @@ class RowBatchReader::Impl {
       } else {
         data.reset(new Buffer(nullptr, 0));
       }
-      return MakePrimitiveArray(type, field_meta.length, data,
-          field_meta.null_count, null_bitmap, out);
-    } else {
-      return Status::NotImplemented("Non-primitive types not complete yet");
+      return MakePrimitiveArray(
+          type, field_meta.length, data, field_meta.null_count, null_bitmap, out);
     }
+    return Status::NotImplemented("Non-primitive types not complete yet");
   }
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
@@ -264,8 +260,8 @@ class RowBatchReader::Impl {
   int num_flattened_fields_;
 };
 
-Status RowBatchReader::Open(MemorySource* source, int64_t position,
-    std::shared_ptr<RowBatchReader>* out) {
+Status RowBatchReader::Open(
+    MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(source->ReadAt(position, INIT_METADATA_SIZE, &metadata));
 
@@ -274,8 +270,7 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
   // We may not need to call source->ReadAt again
   if (metadata_size > static_cast<int>(INIT_METADATA_SIZE - sizeof(int32_t))) {
     // We don't have enough data, read the indicated metadata size.
-    RETURN_NOT_OK(source->ReadAt(position + sizeof(int32_t),
-            metadata_size, &metadata));
+    RETURN_NOT_OK(source->ReadAt(position + sizeof(int32_t), metadata_size, &metadata));
   }
 
   // TODO(wesm): buffer slicing here would be better in case ReadAt returns
@@ -297,11 +292,10 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
   return Status::OK();
 }
 
-Status RowBatchReader::GetRowBatch(const std::shared_ptr<Schema>& schema,
-    std::shared_ptr<RowBatch>* out) {
+Status RowBatchReader::GetRowBatch(
+    const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
   return impl_->AssembleBatch(schema, out);
 }
 
-
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow

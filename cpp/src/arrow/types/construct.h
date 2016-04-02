@@ -33,11 +33,10 @@ class Status;
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out);
 
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-    int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
-    std::shared_ptr<Array>* out);
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out);
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_BUILDER_H_
+#endif  // ARROW_BUILDER_H_

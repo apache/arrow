@@ -39,21 +39,13 @@ class ChunkedArray {
   explicit ChunkedArray(const ArrayVector& chunks);
 
   // @returns: the total length of the chunked array; computed on construction
-  int64_t length() const {
-    return length_;
-  }
+  int64_t length() const { return length_; }
 
-  int64_t null_count() const {
-    return null_count_;
-  }
+  int64_t null_count() const { return null_count_; }
 
-  int num_chunks() const {
-    return chunks_.size();
-  }
+  int num_chunks() const { return chunks_.size(); }
 
-  const std::shared_ptr<Array>& chunk(int i) const {
-    return chunks_[i];
-  }
+  const std::shared_ptr<Array>& chunk(int i) const { return chunks_[i]; }
 
  protected:
   ArrayVector chunks_;
@@ -67,33 +59,22 @@ class ChunkedArray {
 class Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
-  Column(const std::shared_ptr<Field>& field,
-      const std::shared_ptr<ChunkedArray>& data);
+  Column(const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data);
 
   Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data);
 
-  int64_t length() const {
-    return data_->length();
-  }
+  int64_t length() const { return data_->length(); }
 
-  int64_t null_count() const {
-    return data_->null_count();
-  }
+  int64_t null_count() const { return data_->null_count(); }
 
   // @returns: the column's name in the passed metadata
-  const std::string& name() const {
-    return field_->name;
-  }
+  const std::string& name() const { return field_->name; }
 
   // @returns: the column's type according to the metadata
-  const std::shared_ptr<DataType>& type() const {
-    return field_->type;
-  }
+  const std::shared_ptr<DataType>& type() const { return field_->type; }
 
   // @returns: the column's data as a chunked logical array
-  const std::shared_ptr<ChunkedArray>& data() const {
-    return data_;
-  }
+  const std::shared_ptr<ChunkedArray>& data() const { return data_; }
   // Verify that the column's array data is consistent with the passed field's
   // metadata
   Status ValidateData();
@@ -103,6 +84,6 @@ class Column {
   std::shared_ptr<ChunkedArray> data_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_COLUMN_H

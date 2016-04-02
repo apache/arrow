@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 #include "benchmark/benchmark.h"
 
 #include "arrow/test-util.h"
@@ -24,19 +23,19 @@
 
 namespace arrow {
 namespace {
-  template <typename ArrayType>
-  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
-    auto pool = default_memory_pool();
-    auto data = std::make_shared<PoolBuffer>(pool);
-    auto null_bitmap = std::make_shared<PoolBuffer>(pool);
-    data->Resize(length * sizeof(typename ArrayType::value_type));
-    null_bitmap->Resize(util::bytes_for_bits(length));
-    return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
-  }
+template <typename ArrayType>
+std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+  auto pool = default_memory_pool();
+  auto data = std::make_shared<PoolBuffer>(pool);
+  auto null_bitmap = std::make_shared<PoolBuffer>(pool);
+  data->Resize(length * sizeof(typename ArrayType::value_type));
+  null_bitmap->Resize(util::bytes_for_bits(length));
+  return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
+}
 }  // anonymous namespace
 
-
-static void BM_BuildInt32ColumnByChunk(benchmark::State& state) { //NOLINT non-const reference
+static void BM_BuildInt32ColumnByChunk(
+    benchmark::State& state) {  // NOLINT non-const reference
   ArrayVector arrays;
   for (int chunk_n = 0; chunk_n < state.range_x(); ++chunk_n) {
     arrays.push_back(MakePrimitive<Int32Array>(100, 10));

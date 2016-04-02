@@ -42,12 +42,8 @@ namespace ipc {
 
 class TestWriteRowBatch : public ::testing::Test, public MemoryMapFixture {
  public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-  }
-  void TearDown() {
-    MemoryMapFixture::TearDown();
-  }
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { MemoryMapFixture::TearDown(); }
 
   void InitMemoryMap(int64_t size) {
     std::string path = "test-write-row-batch";
@@ -83,8 +79,8 @@ TEST_F(TestWriteRowBatch, IntegerRoundTrip) {
   test::random_bytes(null_bytes, 0, null_bitmap->mutable_data());
 
   auto a0 = std::make_shared<Int32Array>(length, data);
-  auto a1 = std::make_shared<Int32Array>(length, data,
-      test::bitmap_popcount(null_bitmap->data(), length), null_bitmap);
+  auto a1 = std::make_shared<Int32Array>(
+      length, data, test::bitmap_popcount(null_bitmap->data(), length), null_bitmap);
 
   RowBatch batch(schema, length, {a0, a1});
 
@@ -103,10 +99,10 @@ TEST_F(TestWriteRowBatch, IntegerRoundTrip) {
   EXPECT_EQ(batch.num_rows(), batch_result->num_rows());
 
   for (int i = 0; i < batch.num_columns(); ++i) {
-    EXPECT_TRUE(batch.column(i)->Equals(batch_result->column(i)))
-      << i << batch.column_name(i);
+    EXPECT_TRUE(batch.column(i)->Equals(batch_result->column(i))) << i
+                                                                  << batch.column_name(i);
   }
 }
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow

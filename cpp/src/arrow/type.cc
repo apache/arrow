@@ -25,9 +25,7 @@ namespace arrow {
 std::string Field::ToString() const {
   std::stringstream ss;
   ss << this->name << ": " << this->type->ToString();
-  if (!this->nullable) {
-    ss << " not null";
-  }
+  if (!this->nullable) { ss << " not null"; }
   return ss.str();
 }
 
@@ -50,7 +48,7 @@ std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
   for (int i = 0; i < this->num_children(); ++i) {
-    if (i > 0) s << ", ";
+    if (i > 0) { s << ", "; }
     const std::shared_ptr<Field>& field = this->child(i);
     s << field->name << ": " << field->type->ToString();
   }
@@ -58,4 +56,4 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
-} // namespace arrow
+}  // namespace arrow

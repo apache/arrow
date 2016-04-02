@@ -52,8 +52,8 @@ class OutputStream {
 // memory map
 class BufferOutputStream : public OutputStream {
  public:
-  explicit BufferOutputStream(const std::shared_ptr<MutableBuffer>& buffer):
-      buffer_(buffer) {}
+  explicit BufferOutputStream(const std::shared_ptr<MutableBuffer>& buffer)
+      : buffer_(buffer) {}
 
   // Implement the OutputStream interface
   Status Close() override;
@@ -72,10 +72,7 @@ class BufferOutputStream : public OutputStream {
 class MemorySource {
  public:
   // Indicates the access permissions of the memory source
-  enum AccessMode {
-    READ_ONLY,
-    READ_WRITE
-  };
+  enum AccessMode { READ_ONLY, READ_WRITE };
 
   virtual ~MemorySource();
 
@@ -83,8 +80,8 @@ class MemorySource {
   // the indicated location
   // @returns: arrow::Status indicating success / failure. The buffer is set
   // into the *out argument
-  virtual Status ReadAt(int64_t position, int64_t nbytes,
-      std::shared_ptr<Buffer>* out) = 0;
+  virtual Status ReadAt(
+      int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 
   virtual Status Close() = 0;
 
@@ -110,8 +107,7 @@ class MemoryMappedSource : public MemorySource {
 
   Status Close() override;
 
-  Status ReadAt(int64_t position, int64_t nbytes,
-      std::shared_ptr<Buffer>* out) override;
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status Write(int64_t position, const uint8_t* data, int64_t nbytes) override;
 
@@ -125,7 +121,7 @@ class MemoryMappedSource : public MemorySource {
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow
 
-#endif // ARROW_IPC_MEMORY_H
+#endif  // ARROW_IPC_MEMORY_H

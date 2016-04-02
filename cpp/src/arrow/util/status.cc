@@ -36,9 +36,7 @@ const char* Status::CopyState(const char* state) {
 }
 
 std::string Status::CodeAsString() const {
-  if (state_ == NULL) {
-    return "OK";
-  }
+  if (state_ == NULL) { return "OK"; }
 
   const char* type;
   switch (code()) {
@@ -66,9 +64,7 @@ std::string Status::CodeAsString() const {
 
 std::string Status::ToString() const {
   std::string result(CodeAsString());
-  if (state_ == NULL) {
-    return result;
-  }
+  if (state_ == NULL) { return result; }
 
   result.append(": ");
 
@@ -78,4 +74,4 @@ std::string Status::ToString() const {
   return result;
 }
 
-} // namespace arrow
+}  // namespace arrow

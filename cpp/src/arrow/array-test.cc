@@ -33,14 +33,11 @@ namespace arrow {
 
 class TestArray : public ::testing::Test {
  public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-  }
+  void SetUp() { pool_ = default_memory_pool(); }
 
  protected:
   MemoryPool* pool_;
 };
-
 
 TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<PoolBuffer>(pool_);
@@ -53,7 +50,6 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(0, arr_no_nulls->null_count());
 }
 
-
 TEST_F(TestArray, TestLength) {
   auto data = std::make_shared<PoolBuffer>(pool_);
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
@@ -61,14 +57,16 @@ TEST_F(TestArray, TestLength) {
 }
 
 TEST_F(TestArray, TestIsNull) {
+  // clang-format off
   std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 0, 1};
+  // clang-format on
   int32_t null_count = 0;
   for (uint8_t x : null_bitmap) {
-    if (x == 0) ++null_count;
+    if (x == 0) { ++null_count; }
   }
 
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap);
@@ -85,8 +83,6 @@ TEST_F(TestArray, TestIsNull) {
   }
 }
 
+TEST_F(TestArray, TestCopy) {}
 
-TEST_F(TestArray, TestCopy) {
-}
-
-} // namespace arrow
+}  // namespace arrow

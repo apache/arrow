@@ -61,3 +61,19 @@ variables
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
+
+## Continuous Integration
+
+Pull requests are run through travis-ci for continuous integration.  You can avoid
+build failures by running the following checks before submitting your pull request:
+
+    make unittest
+    make lint
+    # The next two commands may change your code.  It is recommended you commit
+    # before running them.
+    make clang-tidy # requires clang-tidy is installed
+    make format # requires clang-format is installed
+
+Note that the clang-tidy target may take a while to run.  You might consider
+running clang-tidy separately on the files you have added/changed before
+invoking the make target to reduce iteration time.

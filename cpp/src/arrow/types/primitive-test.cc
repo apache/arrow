@@ -41,15 +41,15 @@ namespace arrow {
 
 class Array;
 
-#define PRIMITIVE_TEST(KLASS, ENUM, NAME)       \
-  TEST(TypesTest, TestPrimitive_##ENUM) {       \
-    KLASS tp;                                   \
-                                                \
-    ASSERT_EQ(tp.type, Type::ENUM);             \
-    ASSERT_EQ(tp.name(), string(NAME));         \
-                                                \
-    KLASS tp_copy = tp;                         \
-    ASSERT_EQ(tp_copy.type, Type::ENUM);        \
+#define PRIMITIVE_TEST(KLASS, ENUM, NAME) \
+  TEST(TypesTest, TestPrimitive_##ENUM) { \
+    KLASS tp;                             \
+                                          \
+    ASSERT_EQ(tp.type, Type::ENUM);       \
+    ASSERT_EQ(tp.name(), string(NAME));   \
+                                          \
+    KLASS tp_copy = tp;                   \
+    ASSERT_EQ(tp_copy.type, Type::ENUM);  \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
@@ -108,8 +108,8 @@ class TestPrimitiveBuilder : public TestBuilder {
   void Check(const std::shared_ptr<BuilderType>& builder, bool nullable) {
     int size = builder->length();
 
-    auto ex_data = std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(draws_.data()),
-        size * sizeof(T));
+    auto ex_data = std::make_shared<Buffer>(
+        reinterpret_cast<uint8_t*>(draws_.data()), size * sizeof(T));
 
     std::shared_ptr<Buffer> ex_null_bitmap;
     int32_t ex_null_count = 0;
@@ -121,10 +121,10 @@ class TestPrimitiveBuilder : public TestBuilder {
       ex_null_bitmap = nullptr;
     }
 
-    auto expected = std::make_shared<ArrayType>(size, ex_data, ex_null_count,
-        ex_null_bitmap);
-    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(
-        builder->Finish());
+    auto expected =
+        std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_null_bitmap);
+    std::shared_ptr<ArrayType> result =
+        std::dynamic_pointer_cast<ArrayType>(builder->Finish());
 
     // Builder is now reset
     ASSERT_EQ(0, builder->length());
@@ -145,30 +145,30 @@ class TestPrimitiveBuilder : public TestBuilder {
   vector<uint8_t> valid_bytes_;
 };
 
-#define PTYPE_DECL(CapType, c_type)                 \
-  typedef CapType##Array ArrayType;                 \
-  typedef CapType##Builder BuilderType;             \
-  typedef CapType##Type Type;                       \
-  typedef c_type T;                                 \
-                                                    \
-  static std::shared_ptr<DataType> type() {         \
-    return std::shared_ptr<DataType>(new Type());   \
+#define PTYPE_DECL(CapType, c_type)               \
+  typedef CapType##Array ArrayType;               \
+  typedef CapType##Builder BuilderType;           \
+  typedef CapType##Type Type;                     \
+  typedef c_type T;                               \
+                                                  \
+  static std::shared_ptr<DataType> type() {       \
+    return std::shared_ptr<DataType>(new Type()); \
   }
 
-#define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
-  struct P##CapType {                               \
-    PTYPE_DECL(CapType, c_type);                    \
-    static void draw(int N, vector<T>* draws) {     \
-      test::randint<T>(N, LOWER, UPPER, draws);     \
-    }                                               \
+#define PINT_DECL(CapType, c_type, LOWER, UPPER) \
+  struct P##CapType {                            \
+    PTYPE_DECL(CapType, c_type);                 \
+    static void draw(int N, vector<T>* draws) {  \
+      test::randint<T>(N, LOWER, UPPER, draws);  \
+    }                                            \
   }
 
-#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)      \
-  struct P##CapType {                                   \
-    PTYPE_DECL(CapType, c_type);                        \
-    static void draw(int N, vector<T>* draws) {         \
-      test::random_real<T>(N, 0, LOWER, UPPER, draws);  \
-    }                                                   \
+#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)     \
+  struct P##CapType {                                  \
+    PTYPE_DECL(CapType, c_type);                       \
+    static void draw(int N, vector<T>* draws) {        \
+      test::random_real<T>(N, 0, LOWER, UPPER, draws); \
+    }                                                  \
   }
 
 PINT_DECL(UInt8, uint8_t, 0, UINT8_MAX);
@@ -214,10 +214,10 @@ void TestPrimitiveBuilder<PBoolean>::Check(
     ex_null_bitmap = nullptr;
   }
 
-  auto expected = std::make_shared<BooleanArray>(size, ex_data, ex_null_count,
-      ex_null_bitmap);
-  std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(
-      builder->Finish());
+  auto expected =
+      std::make_shared<BooleanArray>(size, ex_data, ex_null_count, ex_null_bitmap);
+  std::shared_ptr<BooleanArray> result =
+      std::dynamic_pointer_cast<BooleanArray>(builder->Finish());
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
@@ -230,31 +230,23 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   ASSERT_EQ(expected->length(), result->length());
 
   for (int i = 0; i < result->length(); ++i) {
-    if (nullable) {
-      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
-    }
+    if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
     bool actual = util::get_bit(result->raw_data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
   ASSERT_TRUE(result->EqualsExact(*expected.get()));
 }
 
-typedef ::testing::Types<PBoolean,
-                         PUInt8, PUInt16, PUInt32, PUInt64,
-                         PInt8, PInt16, PInt32, PInt64,
-                         PFloat, PDouble> Primitives;
+typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
+    PInt32, PInt64, PFloat, PDouble> Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
-#define DECL_T()                                \
-  typedef typename TestFixture::T T;
+#define DECL_T() typedef typename TestFixture::T T;
 
-#define DECL_TYPE()                             \
-  typedef typename TestFixture::Type Type;
+#define DECL_TYPE() typedef typename TestFixture::Type Type;
 
-#define DECL_ARRAYTYPE()                                \
-  typedef typename TestFixture::ArrayType ArrayType;
-
+#define DECL_ARRAYTYPE() typedef typename TestFixture::ArrayType ArrayType;
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();
@@ -369,7 +361,6 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->Check(this->builder_nn_, false);
 }
 
-
 TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   DECL_T();
 
@@ -424,8 +415,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   ASSERT_EQ(cap, this->builder_->capacity());
 
   ASSERT_EQ(type_traits<Type>::bytes_required(cap), this->builder_->data()->size());
-  ASSERT_EQ(util::bytes_for_bits(cap),
-      this->builder_->null_bitmap()->size());
+  ASSERT_EQ(util::bytes_for_bits(cap), this->builder_->null_bitmap()->size());
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
@@ -437,8 +427,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_OK(this->builder_->Reserve(MIN_BUILDER_CAPACITY));
 
-  ASSERT_EQ(util::next_power2(MIN_BUILDER_CAPACITY + 100),
-      this->builder_->capacity());
+  ASSERT_EQ(util::next_power2(MIN_BUILDER_CAPACITY + 100), this->builder_->capacity());
 }
 
-} // namespace arrow
+}  // namespace arrow

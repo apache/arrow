@@ -42,27 +42,19 @@ class RowBatch {
       const std::vector<std::shared_ptr<Array>>& columns);
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const {
-    return schema_;
-  }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   // @returns: the i-th column
   // Note: Does not boundscheck
-  const std::shared_ptr<Array>& column(int i) const {
-    return columns_[i];
-  }
+  const std::shared_ptr<Array>& column(int i) const { return columns_[i]; }
 
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
-  int num_columns() const {
-    return columns_.size();
-  }
+  int num_columns() const { return columns_.size(); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int64_t num_rows() const {
-    return num_rows_;
-  }
+  int64_t num_rows() const { return num_rows_; }
 
  private:
   std::shared_ptr<Schema> schema_;
@@ -85,30 +77,20 @@ class Table {
       const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
 
   // @returns: the table's name, if any (may be length 0)
-  const std::string& name() const {
-    return name_;
-  }
+  const std::string& name() const { return name_; }
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const {
-    return schema_;
-  }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   // Note: Does not boundscheck
   // @returns: the i-th column
-  const std::shared_ptr<Column>& column(int i) const {
-    return columns_[i];
-  }
+  const std::shared_ptr<Column>& column(int i) const { return columns_[i]; }
 
   // @returns: the number of columns in the table
-  int num_columns() const {
-    return columns_.size();
-  }
+  int num_columns() const { return columns_.size(); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int64_t num_rows() const {
-    return num_rows_;
-  }
+  int64_t num_rows() const { return num_rows_; }
 
   // After construction, perform any checks to validate the input arguments
   Status ValidateColumns() const;
@@ -123,6 +105,6 @@ class Table {
   int64_t num_rows_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_TABLE_H

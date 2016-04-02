@@ -23,8 +23,6 @@
 
 #include "arrow/type.h"
 
-namespace arrow {
+namespace arrow {}  // namespace arrow
 
-} // namespace arrow
-
-#endif // ARROW_TYPES_BINARY_H
+#endif  // ARROW_TYPES_BINARY_H

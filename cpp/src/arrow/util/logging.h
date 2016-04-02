@@ -19,6 +19,7 @@
 #define ARROW_UTIL_LOGGING_H
 
 #include <iostream>
+#include <cstdlib>
 
 namespace arrow {
 
@@ -37,19 +38,34 @@ namespace arrow {
 #define ARROW_LOG_INTERNAL(level) arrow::internal::CerrLog(level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
 
-#define ARROW_CHECK(condition) \
-  (condition) ? 0 : ARROW_LOG(FATAL) << "Check failed: " #condition " "
+#define ARROW_CHECK(condition)                               \
+  (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) \
+                        << __FILE__ << __LINE__ << "Check failed: " #condition " "
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ARROW_WARNING
 
-#define DCHECK(condition) while (false) arrow::internal::NullLog()
-#define DCHECK_EQ(val1, val2) while (false) arrow::internal::NullLog()
-#define DCHECK_NE(val1, val2) while (false) arrow::internal::NullLog()
-#define DCHECK_LE(val1, val2) while (false) arrow::internal::NullLog()
-#define DCHECK_LT(val1, val2) while (false) arrow::internal::NullLog()
-#define DCHECK_GE(val1, val2) while (false) arrow::internal::NullLog()
-#define DCHECK_GT(val1, val2) while (false) arrow::internal::NullLog()
+#define DCHECK(condition) \
+  while (false)           \
+  arrow::internal::NullLog()
+#define DCHECK_EQ(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
+#define DCHECK_NE(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
+#define DCHECK_LE(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
+#define DCHECK_LT(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
+#define DCHECK_GE(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
+#define DCHECK_GT(val1, val2) \
+  while (false)               \
+  arrow::internal::NullLog()
 
 #else
 #define ARROW_DFATAL ARROW_FATAL
@@ -62,13 +78,13 @@ namespace arrow {
 #define DCHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#endif // NDEBUG
+#endif  // NDEBUG
 
 namespace internal {
 
 class NullLog {
  public:
-  template<class T>
+  template <class T>
   NullLog& operator<<(const T& t) {
     return *this;
   }
@@ -76,34 +92,42 @@ class NullLog {
 
 class CerrLog {
  public:
-  CerrLog(int severity) // NOLINT(runtime/explicit)
-    : severity_(severity),
-      has_logged_(false) {
+  CerrLog(int severity)  // NOLINT(runtime/explicit)
+      : severity_(severity),
+        has_logged_(false) {}
+
+  virtual ~CerrLog() {
+    if (has_logged_) { std::cerr << std::endl; }
+    if (severity_ == ARROW_FATAL) { std::exit(1); }
   }
 
-  ~CerrLog() {
-    if (has_logged_) {
-      std::cerr << std::endl;
-    }
-    if (severity_ == ARROW_FATAL) {
-      exit(1);
-    }
-  }
-
-  template<class T>
+  template <class T>
   CerrLog& operator<<(const T& t) {
     has_logged_ = true;
     std::cerr << t;
     return *this;
   }
 
- private:
+ protected:
   const int severity_;
   bool has_logged_;
 };
 
-} // namespace internal
+// Clang-tidy isn't smart enough to determine that DCHECK using CerrLog doesn't
+// return so we create a new class to give it a hint.
+class FatalLog : public CerrLog {
+ public:
+  FatalLog(int /* severity */)  // NOLINT
+      : CerrLog(ARROW_FATAL) {}
 
-} // namespace arrow
+  [[noreturn]] ~FatalLog() {
+    if (has_logged_) { std::cerr << std::endl; }
+    std::exit(1);
+  }
+};
 
-#endif // ARROW_UTIL_LOGGING_H
+}  // namespace internal
+
+}  // namespace arrow
+
+#endif  // ARROW_UTIL_LOGGING_H

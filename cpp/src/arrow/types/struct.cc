@@ -17,6 +17,4 @@
 
 #include "arrow/types/struct.h"
 
-namespace arrow {
-
-} // namespace arrow
+namespace arrow {}  // namespace arrow

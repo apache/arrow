@@ -86,14 +86,12 @@ TEST_F(TestSchemaMessage, NestedFields) {
   auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
   auto f0 = std::make_shared<Field>("f0", type);
 
-  std::shared_ptr<StructType> type2(new StructType({
-            std::make_shared<Field>("k1", INT32),
-              std::make_shared<Field>("k2", INT32),
-              std::make_shared<Field>("k3", INT32)}));
+  std::shared_ptr<StructType> type2(new StructType({std::make_shared<Field>("k1", INT32),
+      std::make_shared<Field>("k2", INT32), std::make_shared<Field>("k3", INT32)}));
   auto f1 = std::make_shared<Field>("f1", type2);
 
   Schema schema({f0, f1});
   CheckRoundtrip(&schema);
 }
 
-} // namespace arrow
+}  // namespace arrow

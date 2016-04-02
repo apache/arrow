@@ -48,10 +48,8 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out) {
 
 class Message::Impl {
  public:
-  explicit Impl(const std::shared_ptr<Buffer>& buffer,
-      const flatbuf::Message* message) :
-      buffer_(buffer),
-      message_(message) {}
+  explicit Impl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Message* message)
+      : buffer_(buffer), message_(message) {}
 
   Message::Type type() const {
     switch (message_->header_type()) {
@@ -66,13 +64,9 @@ class Message::Impl {
     }
   }
 
-  const void* header() const {
-    return message_->header();
-  }
+  const void* header() const { return message_->header(); }
 
-  int64_t body_length() const {
-    return message_->bodyLength();
-  }
+  int64_t body_length() const { return message_->bodyLength(); }
 
  private:
   // Owns the memory this message accesses
@@ -83,16 +77,12 @@ class Message::Impl {
 
 class SchemaMessage::Impl {
  public:
-  explicit Impl(const void* schema) :
-      schema_(static_cast<const flatbuf::Schema*>(schema)) {}
+  explicit Impl(const void* schema)
+      : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
 
-  const flatbuf::Field* field(int i) const {
-    return schema_->fields()->Get(i);
-  }
+  const flatbuf::Field* field(int i) const { return schema_->fields()->Get(i); }
 
-  int num_fields() const {
-    return schema_->fields()->size();
-  }
+  int num_fields() const { return schema_->fields()->size(); }
 
  private:
   const flatbuf::Schema* schema_;
@@ -100,8 +90,8 @@ class SchemaMessage::Impl {
 
 Message::Message() {}
 
-Status Message::Open(const std::shared_ptr<Buffer>& buffer,
-    std::shared_ptr<Message>* out) {
+Status Message::Open(
+    const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out) {
   std::shared_ptr<Message> result(new Message());
 
   // The buffer is prefixed by its size as int32_t
@@ -128,12 +118,11 @@ std::shared_ptr<Message> Message::get_shared_ptr() {
 }
 
 std::shared_ptr<SchemaMessage> Message::GetSchema() {
-  return std::make_shared<SchemaMessage>(this->shared_from_this(),
-      impl_->header());
+  return std::make_shared<SchemaMessage>(this->shared_from_this(), impl_->header());
 }
 
-SchemaMessage::SchemaMessage(const std::shared_ptr<Message>& message,
-    const void* schema) {
+SchemaMessage::SchemaMessage(
+    const std::shared_ptr<Message>& message, const void* schema) {
   message_ = message;
   impl_.reset(new Impl(schema));
 }
@@ -158,31 +147,21 @@ Status SchemaMessage::GetSchema(std::shared_ptr<Schema>* out) const {
 
 class RecordBatchMessage::Impl {
  public:
-  explicit Impl(const void* batch) :
-      batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
+  explicit Impl(const void* batch)
+      : batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
     nodes_ = batch_->nodes();
     buffers_ = batch_->buffers();
   }
 
-  const flatbuf::FieldNode* field(int i) const {
-    return nodes_->Get(i);
-  }
+  const flatbuf::FieldNode* field(int i) const { return nodes_->Get(i); }
 
-  const flatbuf::Buffer* buffer(int i) const {
-    return buffers_->Get(i);
-  }
+  const flatbuf::Buffer* buffer(int i) const { return buffers_->Get(i); }
 
-  int32_t length() const {
-    return batch_->length();
-  }
+  int32_t length() const { return batch_->length(); }
 
-  int num_buffers() const {
-    return batch_->buffers()->size();
-  }
+  int num_buffers() const { return batch_->buffers()->size(); }
 
-  int num_fields() const {
-    return batch_->nodes()->size();
-  }
+  int num_fields() const { return batch_->nodes()->size(); }
 
  private:
   const flatbuf::RecordBatch* batch_;
@@ -191,12 +170,11 @@ class RecordBatchMessage::Impl {
 };
 
 std::shared_ptr<RecordBatchMessage> Message::GetRecordBatch() {
-  return std::make_shared<RecordBatchMessage>(this->shared_from_this(),
-      impl_->header());
+  return std::make_shared<RecordBatchMessage>(this->shared_from_this(), impl_->header());
 }
 
-RecordBatchMessage::RecordBatchMessage(const std::shared_ptr<Message>& message,
-    const void* batch) {
+RecordBatchMessage::RecordBatchMessage(
+    const std::shared_ptr<Message>& message, const void* batch) {
   message_ = message;
   impl_.reset(new Impl(batch));
 }
@@ -234,5 +212,5 @@ int RecordBatchMessage::num_fields() const {
   return impl_->num_fields();
 }
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow

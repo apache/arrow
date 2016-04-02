@@ -48,7 +48,6 @@ TEST(TypesTest, TestCharType) {
   ASSERT_EQ(t2.size, 5);
 }
 
-
 TEST(TypesTest, TestVarcharType) {
   VarcharType t1(5);
 
@@ -72,7 +71,7 @@ TEST(TypesTest, TestStringType) {
 // ----------------------------------------------------------------------
 // String container
 
-class TestStringContainer : public ::testing::Test  {
+class TestStringContainer : public ::testing::Test {
  public:
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
@@ -95,8 +94,8 @@ class TestStringContainer : public ::testing::Test  {
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);
 
-    strings_ = std::make_shared<StringArray>(length_, offsets_buf_, values_,
-        null_count_, null_bitmap_);
+    strings_ = std::make_shared<StringArray>(
+        length_, offsets_buf_, values_, null_count_, null_bitmap_);
   }
 
  protected:
@@ -117,7 +116,6 @@ class TestStringContainer : public ::testing::Test  {
   std::shared_ptr<StringArray> strings_;
 };
 
-
 TEST_F(TestStringContainer, TestArrayBasics) {
   ASSERT_EQ(length_, strings_->length());
   ASSERT_EQ(1, strings_->null_count());
@@ -130,7 +128,6 @@ TEST_F(TestStringContainer, TestType) {
   ASSERT_EQ(Type::STRING, strings_->type_enum());
 }
 
-
 TEST_F(TestStringContainer, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
@@ -140,10 +137,9 @@ TEST_F(TestStringContainer, TestListFunctions) {
   }
 }
 
-
 TEST_F(TestStringContainer, TestDestructor) {
-  auto arr = std::make_shared<StringArray>(length_, offsets_buf_, values_,
-      null_count_, null_bitmap_);
+  auto arr = std::make_shared<StringArray>(
+      length_, offsets_buf_, values_, null_count_, null_bitmap_);
 }
 
 TEST_F(TestStringContainer, TestGetString) {
@@ -167,9 +163,7 @@ class TestStringBuilder : public TestBuilder {
     builder_.reset(new StringBuilder(pool_, type_));
   }
 
-  void Done() {
-    result_ = std::dynamic_pointer_cast<StringArray>(builder_->Finish());
-  }
+  void Done() { result_ = std::dynamic_pointer_cast<StringArray>(builder_->Finish()); }
 
  protected:
   TypePtr type_;
@@ -222,4 +216,4 @@ TEST_F(TestStringBuilder, TestZeroLength) {
   Done();
 }
 
-} // namespace arrow
+}  // namespace arrow

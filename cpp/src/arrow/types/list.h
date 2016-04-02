@@ -37,13 +37,12 @@ class MemoryPool;
 class ListArray : public Array {
  public:
   ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values,
-      int32_t null_count = 0,
-      std::shared_ptr<Buffer> null_bitmap = nullptr) :
-      Array(type, length, null_count, null_bitmap) {
+      const ArrayPtr& values, int32_t null_count = 0,
+      std::shared_ptr<Buffer> null_bitmap = nullptr)
+      : Array(type, length, null_count, null_bitmap) {
     offset_buf_ = offsets;
-    offsets_ = offsets == nullptr? nullptr :
-      reinterpret_cast<const int32_t*>(offset_buf_->data());
+    offsets_ = offsets == nullptr ? nullptr
+                                  : reinterpret_cast<const int32_t*>(offset_buf_->data());
     values_ = values;
   }
 
@@ -51,19 +50,17 @@ class ListArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const std::shared_ptr<Array>& values() const {return values_;}
+  const std::shared_ptr<Array>& values() const { return values_; }
 
-  const std::shared_ptr<DataType>& value_type() const {
-    return values_->type();
-  }
+  const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
 
-  const int32_t* offsets() const { return offsets_;}
+  const int32_t* offsets() const { return offsets_; }
 
-  int32_t offset(int i) const { return offsets_[i];}
+  int32_t offset(int i) const { return offsets_[i]; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) { return offsets_[i];}
-  int32_t value_length(int i) { return offsets_[i + 1] - offsets_[i];}
+  int32_t value_offset(int i) { return offsets_[i]; }
+  int32_t value_length(int i) { return offsets_[i + 1] - offsets_[i]; }
 
   bool EqualsExact(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -77,7 +74,6 @@ class ListArray : public Array {
 // ----------------------------------------------------------------------
 // Array builder
 
-
 // Builder class for variable-length list array value types
 //
 // To use this class, you must append values to the child array builder and use
@@ -85,10 +81,9 @@ class ListArray : public Array {
 // have been appended to the child array)
 class ListBuilder : public Int32Builder {
  public:
-  ListBuilder(MemoryPool* pool, const TypePtr& type,
-      std::shared_ptr<ArrayBuilder> value_builder)
-      : Int32Builder(pool, type),
-        value_builder_(value_builder) {}
+  ListBuilder(
+      MemoryPool* pool, const TypePtr& type, std::shared_ptr<ArrayBuilder> value_builder)
+      : Int32Builder(pool, type), value_builder_(value_builder) {}
 
   Status Init(int32_t elements) {
     // One more than requested.
@@ -116,12 +111,9 @@ class ListBuilder : public Int32Builder {
       int32_t new_capacity = util::next_power2(length_ + length);
       RETURN_NOT_OK(Resize(new_capacity));
     }
-    memcpy(raw_data_ + length_, values,
-        type_traits<Int32Type>::bytes_required(length));
+    memcpy(raw_data_ + length_, values, type_traits<Int32Type>::bytes_required(length));
 
-    if (valid_bytes != nullptr) {
-      AppendNulls(valid_bytes, length);
-    }
+    if (valid_bytes != nullptr) { AppendNulls(valid_bytes, length); }
 
     length_ += length;
     return Status::OK();
@@ -132,12 +124,10 @@ class ListBuilder : public Int32Builder {
     std::shared_ptr<Array> items = value_builder_->Finish();
 
     // Add final offset if the length is non-zero
-    if (length_) {
-      raw_data_[length_] = items->length();
-    }
+    if (length_) { raw_data_[length_] = items->length(); }
 
-    auto result = std::make_shared<Container>(type_, length_, data_, items,
-        null_count_, null_bitmap_);
+    auto result = std::make_shared<Container>(
+        type_, length_, data_, items, null_count_, null_bitmap_);
 
     data_ = null_bitmap_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
@@ -145,9 +135,7 @@ class ListBuilder : public Int32Builder {
     return result;
   }
 
-  std::shared_ptr<Array> Finish() override {
-    return Transfer<ListArray>();
-  }
+  std::shared_ptr<Array> Finish() override { return Transfer<ListArray>(); }
 
   // Start a new variable-length list slot
   //
@@ -167,19 +155,14 @@ class ListBuilder : public Int32Builder {
     return Status::OK();
   }
 
-  Status AppendNull() {
-    return Append(true);
-  }
+  Status AppendNull() { return Append(true); }
 
-  const std::shared_ptr<ArrayBuilder>& value_builder() const {
-    return value_builder_;
-  }
+  const std::shared_ptr<ArrayBuilder>& value_builder() const { return value_builder_; }
 
  protected:
   std::shared_ptr<ArrayBuilder> value_builder_;
 };
 
+}  // namespace arrow
 
-} // namespace arrow
-
-#endif // ARROW_TYPES_LIST_H
+#endif  // ARROW_TYPES_LIST_H

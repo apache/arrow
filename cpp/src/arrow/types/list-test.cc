@@ -76,9 +76,7 @@ class TestListBuilder : public TestBuilder {
     builder_ = std::dynamic_pointer_cast<ListBuilder>(tmp);
   }
 
-  void Done() {
-    result_ = std::dynamic_pointer_cast<ListArray>(builder_->Finish());
-  }
+  void Done() { result_ = std::dynamic_pointer_cast<ListArray>(builder_->Finish()); }
 
  protected:
   TypePtr value_type_;
@@ -88,9 +86,7 @@ class TestListBuilder : public TestBuilder {
   shared_ptr<ListArray> result_;
 };
 
-
-TEST_F(TestListBuilder, TestResize) {
-}
+TEST_F(TestListBuilder, TestResize) {}
 
 TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
@@ -155,5 +151,4 @@ TEST_F(TestListBuilder, TestZeroLength) {
   Done();
 }
 
-
-} // namespace arrow
+}  // namespace arrow

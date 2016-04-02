@@ -35,21 +35,17 @@ class Schema {
   bool Equals(const std::shared_ptr<Schema>& other) const;
 
   // Return the ith schema element. Does not boundscheck
-  const std::shared_ptr<Field>& field(int i) const {
-    return fields_[i];
-  }
+  const std::shared_ptr<Field>& field(int i) const { return fields_[i]; }
 
   // Render a string representation of the schema suitable for debugging
   std::string ToString() const;
 
-  int num_fields() const {
-    return fields_.size();
-  }
+  int num_fields() const { return fields_.size(); }
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
 #endif  // ARROW_FIELD_H

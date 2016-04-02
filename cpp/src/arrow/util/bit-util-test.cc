@@ -41,4 +41,4 @@ TEST(UtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 62, next_power2((1LL << 62) - 1));
 }
 
-} // namespace arrow
+}  // namespace arrow

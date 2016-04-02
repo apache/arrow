@@ -85,8 +85,7 @@ struct BufferMetadata {
 class RecordBatchMessage {
  public:
   // Accepts an opaque flatbuffer pointer
-  RecordBatchMessage(const std::shared_ptr<Message>& message,
-      const void* batch_meta);
+  RecordBatchMessage(const std::shared_ptr<Message>& message, const void* batch_meta);
 
   FieldMetadata field(int i) const;
   BufferMetadata buffer(int i) const;
@@ -111,15 +110,10 @@ class DictionaryBatchMessage {
 
 class Message : public std::enable_shared_from_this<Message> {
  public:
-  enum Type {
-    NONE,
-    SCHEMA,
-    DICTIONARY_BATCH,
-    RECORD_BATCH
-  };
+  enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
 
-  static Status Open(const std::shared_ptr<Buffer>& buffer,
-    std::shared_ptr<Message>* out);
+  static Status Open(
+      const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out);
 
   std::shared_ptr<Message> get_shared_ptr();
 
@@ -140,7 +134,7 @@ class Message : public std::enable_shared_from_this<Message> {
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace ipc
-} // namespace arrow
+}  // namespace ipc
+}  // namespace arrow
 
-#endif // ARROW_IPC_METADATA_H
+#endif  // ARROW_IPC_METADATA_H

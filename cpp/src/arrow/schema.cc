@@ -26,18 +26,14 @@
 
 namespace arrow {
 
-Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) :
-    fields_(fields) {}
+Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) : fields_(fields) {}
 
 bool Schema::Equals(const Schema& other) const {
-  if (this == &other) return true;
-  if (num_fields() != other.num_fields()) {
-    return false;
-  }
+  if (this == &other) { return true; }
+
+  if (num_fields() != other.num_fields()) { return false; }
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) {
-      return false;
-    }
+    if (!field(i)->Equals(*other.field(i).get())) { return false; }
   }
   return true;
 }
@@ -51,13 +47,11 @@ std::string Schema::ToString() const {
 
   int i = 0;
   for (auto field : fields_) {
-    if (i > 0) {
-      buffer << std::endl;
-    }
+    if (i > 0) { buffer << std::endl; }
     buffer << field->ToString();
     ++i;
   }
   return buffer.str();
 }
 
-} // namespace arrow
+}  // namespace arrow

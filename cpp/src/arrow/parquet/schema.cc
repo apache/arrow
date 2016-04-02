@@ -43,8 +43,7 @@ const auto INT64 = std::make_shared<Int64Type>();
 const auto FLOAT = std::make_shared<FloatType>();
 const auto DOUBLE = std::make_shared<DoubleType>();
 const auto UTF8 = std::make_shared<StringType>();
-const auto BINARY = std::make_shared<ListType>(
-    std::make_shared<Field>("", UINT8));
+const auto BINARY = std::make_shared<ListType>(std::make_shared<Field>("", UINT8));
 
 TypePtr MakeDecimalType(const PrimitiveNode* node) {
   int precision = node->decimal_metadata().precision;
@@ -167,12 +166,12 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
   return Status::OK();
 }
 
-Status FromParquetSchema(const ::parquet::SchemaDescriptor* parquet_schema,
-    std::shared_ptr<Schema>* out) {
+Status FromParquetSchema(
+    const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
   // from the root Parquet node
-  const GroupNode* schema_node = static_cast<const GroupNode*>(
-      parquet_schema->schema().get());
+  const GroupNode* schema_node =
+      static_cast<const GroupNode*>(parquet_schema->schema().get());
 
   std::vector<std::shared_ptr<Field>> fields(schema_node->field_count());
   for (int i = 0; i < schema_node->field_count(); i++) {
@@ -183,6 +182,6 @@ Status FromParquetSchema(const ::parquet::SchemaDescriptor* parquet_schema,
   return Status::OK();
 }
 
-} // namespace parquet
+}  // namespace parquet
 
-} // namespace arrow
+}  // namespace arrow

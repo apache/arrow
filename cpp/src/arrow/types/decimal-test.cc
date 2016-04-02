@@ -37,4 +37,4 @@ TEST(TypesTest, TestDecimalType) {
   ASSERT_EQ(t2.scale, 4);
 }
 
-} // namespace arrow
+}  // namespace arrow

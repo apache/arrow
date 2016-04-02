@@ -32,30 +32,25 @@ Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
   length_ = length;
   null_count_ = null_count;
   null_bitmap_ = null_bitmap;
-  if (null_bitmap_) {
-    null_bitmap_data_ = null_bitmap_->data();
-  }
+  if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
 }
 
 bool Array::EqualsExact(const Array& other) const {
-  if (this == &other) return true;
+  if (this == &other) { return true; }
   if (length_ != other.length_ || null_count_ != other.null_count_ ||
       type_enum() != other.type_enum()) {
     return false;
   }
   if (null_count_ > 0) {
     return null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
-  } else {
-    return true;
   }
+  return true;
 }
 
 bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) return true;
-  if (Type::NA != arr->type_enum()) {
-    return false;
-  }
+  if (this == arr.get()) { return true; }
+  if (Type::NA != arr->type_enum()) { return false; }
   return arr->length() == length_;
 }
 
-} // namespace arrow
+}  // namespace arrow

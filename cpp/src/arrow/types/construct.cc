@@ -30,10 +30,10 @@ namespace arrow {
 
 class ArrayBuilder;
 
-#define BUILDER_CASE(ENUM, BuilderType)         \
-    case Type::ENUM:                            \
-      out->reset(new BuilderType(pool, type));  \
-      return Status::OK();
+#define BUILDER_CASE(ENUM, BuilderType)      \
+  case Type::ENUM:                           \
+    out->reset(new BuilderType(pool, type)); \
+    return Status::OK();
 
 // Initially looked at doing this with vtables, but shared pointers makes it
 // difficult
@@ -58,30 +58,28 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     BUILDER_CASE(STRING, StringBuilder);
 
-    case Type::LIST:
-      {
-        std::shared_ptr<ArrayBuilder> value_builder;
+    case Type::LIST: {
+      std::shared_ptr<ArrayBuilder> value_builder;
 
-        const std::shared_ptr<DataType>& value_type = static_cast<ListType*>(
-            type.get())->value_type();
-        RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
-        out->reset(new ListBuilder(pool, type, value_builder));
-        return Status::OK();
-      }
+      const std::shared_ptr<DataType>& value_type =
+          static_cast<ListType*>(type.get())->value_type();
+      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      out->reset(new ListBuilder(pool, type, value_builder));
+      return Status::OK();
+    }
     default:
       return Status::NotImplemented(type->ToString());
   }
 }
 
-#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                      \
-    case Type::ENUM:                                                    \
-      out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
-      return Status::OK();
+#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
+  case Type::ENUM:                                                          \
+    out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
+    return Status::OK();
 
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-    int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
-    std::shared_ptr<Array>* out) {
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);
@@ -99,4 +97,4 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
   }
 }
 
-} // namespace arrow
+}  // namespace arrow
