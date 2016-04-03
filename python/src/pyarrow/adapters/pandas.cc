@@ -566,7 +566,7 @@ class ArrowDeserializer {
       return Status::OK();
     } else {
       // PyArray_SetBaseObject steals our reference to py_ref_
-      py_ref.reset(nullptr);
+      py_ref.release();
     }
 
     // Arrow data is immutable.
