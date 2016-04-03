@@ -53,6 +53,10 @@ class OwnedRef {
     obj_ = obj;
   }
 
+  void release() {
+    obj_ = nullptr;
+  }
+
   PyObject* obj() const{
     return obj_;
   }

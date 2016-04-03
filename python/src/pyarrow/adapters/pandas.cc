@@ -520,8 +520,8 @@ static inline PyObject* make_pystring(const uint8_t* data, int32_t length) {
 template <int TYPE>
 class ArrowDeserializer {
  public:
-  ArrowDeserializer(const std::shared_ptr<Column>& col) :
-      col_(col) {}
+  ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref) :
+      col_(col), py_ref_(py_ref) {}
 
   Status Convert(PyObject** out) {
     const std::shared_ptr<arrow::ChunkedArray> data = col_->data();
@@ -548,6 +548,33 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
+  Status OutputFromData(int type, void* data) {
+    // Zero-Copy. We can pass the data pointer directly to NumPy.
+    Py_INCREF(py_ref_);
+    OwnedRef py_ref(py_ref);
+    npy_intp dims[1] = {col_->length()};
+    out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNewFromData(1, dims,
+                type, data));
+
+    if (out_ == NULL) {
+      // Error occurred, trust that SimpleNew set the error state
+      return Status::OK();
+    }
+
+    if (PyArray_SetBaseObject(out_, py_ref_) == -1) {
+      // Error occurred, trust that SetBaseObject set the error state
+      return Status::OK();
+    } else {
+      // PyArray_SetBaseObject steals our reference to py_ref_
+      py_ref.release();
+    }
+
+    // Arrow data is immutable.
+    PyArray_CLEARFLAGS(out_, NPY_ARRAY_WRITEABLE);
+
+    return Status::OK();
+  }
+
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_floating, Status>::type
@@ -556,18 +583,20 @@ class ArrowDeserializer {
 
     arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
         arr.get());
-
-    RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
+    const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
     if (arr->null_count() > 0) {
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
+
       T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_));
-      const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
       for (int64_t i = 0; i < arr->length(); ++i) {
         out_values[i] = arr->IsNull(i) ? NAN : in_values[i];
       }
     } else {
-      memcpy(PyArray_DATA(out_), prim_arr->data()->data(),
-          arr->length() * arr->type()->value_size());
+      // Zero-Copy. We can pass the data pointer directly to NumPy.
+      void* data = const_cast<T*>(in_values);
+      int type = arrow_traits<TYPE>::npy_type;
+      RETURN_NOT_OK(OutputFromData(type, data));
     }
 
     return Status::OK();
@@ -594,10 +623,10 @@ class ArrowDeserializer {
         out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
       }
     } else {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
-
-      memcpy(PyArray_DATA(out_), in_values,
-          arr->length() * arr->type()->value_size());
+      // Zero-Copy. We can pass the data pointer directly to NumPy.
+      void* data = const_cast<T*>(in_values);
+      int type = arrow_traits<TYPE>::npy_type;
+      RETURN_NOT_OK(OutputFromData(type, data));
     }
 
     return Status::OK();
@@ -680,18 +709,20 @@ class ArrowDeserializer {
   }
  private:
   std::shared_ptr<Column> col_;
+  PyObject* py_ref_;
   PyArrayObject* out_;
 };
 
-#define FROM_ARROW_CASE(TYPE)                               \
-  case arrow::Type::TYPE:                                   \
-    {                                                       \
-      ArrowDeserializer<arrow::Type::TYPE> converter(col);  \
-      return converter.Convert(out);                        \
-    }                                                       \
+#define FROM_ARROW_CASE(TYPE)                                       \
+  case arrow::Type::TYPE:                                           \
+    {                                                               \
+      ArrowDeserializer<arrow::Type::TYPE> converter(col, py_ref);  \
+      return converter.Convert(out);                                \
+    }                                                               \
     break;
 
-Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject** out) {
+Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+        PyObject** out) {
   switch(col->type()->type) {
     FROM_ARROW_CASE(BOOL);
     FROM_ARROW_CASE(INT8);

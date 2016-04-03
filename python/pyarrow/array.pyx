@@ -288,4 +288,3 @@ cdef class RowBatch:
     def __getitem__(self, i):
         return self.arrays[i]
 
-

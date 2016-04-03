@@ -96,7 +96,7 @@ cdef class Column:
 
         import pandas as pd
 
-        check_status(pyarrow.ArrowToPandas(self.sp_column, &arr))
+        check_status(pyarrow.ArrowToPandas(self.sp_column, self, &arr))
         return pd.Series(<object>arr, name=self.name)
 
     cdef _check_nullptr(self):
@@ -205,6 +205,7 @@ cdef class Table:
         cdef:
             PyObject* arr
             shared_ptr[CColumn] col
+            Column column
 
         import pandas as pd
 
@@ -212,7 +213,8 @@ cdef class Table:
         data = []
         for i in range(self.table.num_columns()):
             col = self.table.column(i)
-            check_status(pyarrow.ArrowToPandas(col, &arr))
+            column = self.column(i)
+            check_status(pyarrow.ArrowToPandas(col, column, &arr))
             names.append(frombytes(col.get().name()))
             data.append(<object> arr)
 
