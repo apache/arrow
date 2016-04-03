@@ -551,20 +551,22 @@ class ArrowDeserializer {
   Status OutputFromData(int type, void* data) {
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     Py_INCREF(py_ref_);
+    OwnedRef py_ref(py_ref);
     npy_intp dims[1] = {col_->length()};
     out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNewFromData(1, dims,
                 type, data));
 
     if (out_ == NULL) {
       // Error occurred, trust that SimpleNew set the error state
-      Py_DECREF(py_ref_);
       return Status::OK();
     }
 
     if (PyArray_SetBaseObject(out_, py_ref_) == -1) {
       // Error occurred, trust that SetBaseObject set the error state
-      Py_DECREF(py_ref_);
       return Status::OK();
+    } else {
+      // PyArray_SetBaseObject steals our reference to py_ref_
+      py_ref.reset(nullptr);
     }
 
     // Arrow data is immutable.
@@ -719,8 +721,10 @@ class ArrowDeserializer {
     }                                                               \
     break;
 
-Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject** out,
-        PyObject* py_ref) {
+Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+        PyObject** out) {
+  std::shared_ptr<OwnedRef> shared_py_ref = std::make_shared<OwnedRef>(py_ref);
+
   switch(col->type()->type) {
     FROM_ARROW_CASE(BOOL);
     FROM_ARROW_CASE(INT8);
@@ -735,10 +739,8 @@ Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject** out,
     FROM_ARROW_CASE(DOUBLE);
     FROM_ARROW_CASE(STRING);
     default:
-      Py_DECREF(py_ref);
       return Status::NotImplemented("Arrow type reading not implemented");
   }
-  Py_DECREF(py_ref);
   return Status::OK();
 }
 
