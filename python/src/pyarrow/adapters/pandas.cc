@@ -723,8 +723,6 @@ class ArrowDeserializer {
 
 Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
         PyObject** out) {
-  std::shared_ptr<OwnedRef> shared_py_ref = std::make_shared<OwnedRef>(py_ref);
-
   switch(col->type()->type) {
     FROM_ARROW_CASE(BOOL);
     FROM_ARROW_CASE(INT8);
