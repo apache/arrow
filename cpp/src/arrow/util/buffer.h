@@ -52,11 +52,13 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   // up to the number of compared bytes
   bool Equals(const Buffer& other, int64_t nbytes) const {
     return this == &other || (size_ >= nbytes && other.size_ >= nbytes &&
-                                 !memcmp(data_, other.data_, nbytes));
+        (data_ == other.data_ || !memcmp(data_, other.data_, nbytes)));
   }
 
   bool Equals(const Buffer& other) const {
-    return this == &other || (size_ == other.size_ && !memcmp(data_, other.data_, size_));
+    return this == &other || 
+		(size_ == other.size_ && (data_ == other.data_ ||
+			!memcmp(data_, other.data_, size_)));
   }
 
   const uint8_t* data() const { return data_; }
