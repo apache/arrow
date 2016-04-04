@@ -56,7 +56,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   }
 
   bool Equals(const Buffer& other) const {
-    return this == &other || 
+    return this == &other ||
 		(size_ == other.size_ && (data_ == other.data_ ||
 			!memcmp(data_, other.data_, size_)));
   }

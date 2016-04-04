@@ -84,7 +84,7 @@ TEST_F(TestBuffer, EqualsWithSameBuffer) {
   ASSERT_TRUE(buffer1.Equals(buffer2));
 
   int64_t nbytes = bufferSize / 2;
-  Buffer buffer3(rawBuffer, nbytes);  
+  Buffer buffer3(rawBuffer, nbytes);
   ASSERT_TRUE(buffer1.Equals(buffer3, nbytes));
   ASSERT_FALSE(buffer1.Equals(buffer3, nbytes + 1));
 }
