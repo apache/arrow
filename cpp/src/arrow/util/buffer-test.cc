@@ -71,6 +71,10 @@ TEST_F(TestBuffer, EqualsWithSameContent) {
   Buffer buffer3(rawBuffer3, bufferSize);
   ASSERT_TRUE(buffer1.Equals(buffer2));
   ASSERT_FALSE(buffer1.Equals(buffer3));
+
+  pool->Free(rawBuffer1, bufferSize);
+  pool->Free(rawBuffer2, bufferSize);
+  pool->Free(rawBuffer3, bufferSize);
 }
 
 TEST_F(TestBuffer, EqualsWithSameBuffer) {
@@ -88,6 +92,8 @@ TEST_F(TestBuffer, EqualsWithSameBuffer) {
   Buffer buffer3(rawBuffer, nbytes);
   ASSERT_TRUE(buffer1.Equals(buffer3, nbytes));
   ASSERT_FALSE(buffer1.Equals(buffer3, nbytes + 1));
+
+  pool->Free(rawBuffer, bufferSize);
 }
 
 }  // namespace arrow
