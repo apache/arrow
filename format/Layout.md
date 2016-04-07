@@ -9,7 +9,7 @@ concepts, here is a small glossary to help disambiguate.
 * Slot or array slot: a single logical value in an array of some particular data type
 * Contiguous memory region: a sequential virtual address space with a given
   length. Any byte can be reached via a single pointer offset less than the
-  region’s length.
+  regions length.
 * Primitive type: a data type that occupies a fixed-size memory slot specified
   in bit width or byte width
 * Nested or parametric type: a data type whose full structure depends on one or
@@ -42,7 +42,7 @@ Base requirements
 * Capable of representing fully-materialized and decoded / decompressed Parquet
   data
 * All leaf nodes (primitive value arrays) use contiguous memory regions
-* Any relative type can be have null slots
+* Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
   be built.
@@ -69,7 +69,7 @@ Base requirements
 * To define a selection or masking vector construct
 * Implementation-specific details
 * Details of a user or developer C/C++/Java API.
-* Any “table” structure composed of named arrays each having their own type or
+* Any "table" structure composed of named arrays each having their own type or
   any other structure that composes arrays.
 * Any memory management or reference counting subsystem
 * To enumerate or specify types of encodings or compression support
@@ -175,18 +175,18 @@ slot_length = offsets[j + 1] - offsets[j]  // (for 0 <= j < length)
 The first value in the offsets array is 0, and the last element is the length
 of the values array.
 
-Let’s consider an example, the type `List<Char>`, where Char is a 1-byte
+Let's consider an example, the type `List<Char>`, where Char is a 1-byte
 logical type.
 
 For an array of length 3 with respective values:
 
-[[‘j’, ‘o’, ‘e’], null, [‘m’, ‘a’, ‘r’, ‘k’]]
+[['j', 'o', 'e'], null, ['m', 'a', 'r', 'k']]
 
 We have the following offsets and values arrays
 
 <img src="diagrams/layout-list.png" width="400"/>
 
-Let’s consider an array of a nested type, `List<List<byte>>`
+Let's consider an array of a nested type, `List<List<byte>>`
 
 <img src="diagrams/layout-list-of-list.png" width="400"/>
 
@@ -248,8 +248,8 @@ Alternate proposal (TBD): the types and offset values may be packed into an
 int48 with 2 bytes for the type and 4 bytes for the offset.
 
 Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (Union<s1: Struct1, s2:
-Struct2, s3: Struct3, …>)
+union-of-structs with non-overlapping-fields use case (`Union<s1: Struct1, s2:
+Struct2, s3: Struct3, ...>`)
 
 Here is a diagram of an example dense union:
 
@@ -266,12 +266,15 @@ union, it has some advantages that may be desirable in certain use cases:
 
 <img src="diagrams/layout-sparse-union.png" width="400"/>
 
-More amenable to vectorized expression evaluation in some use cases.
-Equal-length arrays can be interpreted as a union by only defining the types array
+* A sparse union is more amenable to vectorized expression evaluation in some use cases.
+* Equal-length arrays can be interpreted as a union by only defining the types array.
 
 Note that nested types in a sparse union must be internally consistent
 (e.g. see the List in the diagram), i.e. random access at any index j yields
 the correct value.
+In other words, the array for the nested type must be valid if it is
+reinterpreted as a non-nested array.
+
 
 ## References
 
