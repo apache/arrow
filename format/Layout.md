@@ -74,7 +74,7 @@ Base requirements
 * Any memory management or reference counting subsystem
 * To enumerate or specify types of encodings or compression support
 
-## Byte Order (Endianess)
+## Byte Order (Endianness)
 
 The Arrow format is little endian.
 
@@ -167,7 +167,6 @@ Would look like:
   |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
   |------------|-------------|-------------|-------------|-------------|
   | 1          | 2           | unspecified | 4           | 8           |
-
 ```
 
 ### Example Layout: Non-null int32 Array
@@ -199,8 +198,8 @@ or with the bitmap elided:
   |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 |
   |------------|-------------|-------------|-------------|-------------|
   | 1          | 2           | 3           | 4           | 8           |
-
 ```
+
 ## List type
 
 List is a nested type in which each array slot contains a variable-size
@@ -280,7 +279,7 @@ will be be represented as follows:
   * Null bitmap buffer: Not required
   * Value Buffer (offsets into the Values array):
 
-    | Bytes 0-3  | Bytes 3-6  | Bytes 7-10 | Bytes 10-13 |
+    | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
     |------------|------------|------------|-------------|
     | 0          |  2         |  6         |  7          |
 
@@ -388,8 +387,14 @@ While a struct does not have physical storage for each of its semantic slots
 (i.e. each scalar C-like struct), an entire struct slot can be set to null via
 the null bitmap. Any of the child field arrays can have null values according
 to their respective independent null bitmaps.
-In the example above, the child arrays have a valid entries for the null struct
-but are 'hidden' from the consumer by the parent array's null bitmap.
+This implies that for a particular struct slot the null bitmap for the struct
+array might indicate a null slot when one or more of its child arrays has a
+non-null value in their corresponding slot.  When reading the struct array the
+parent null bitmap is authoritative.
+This is illustrated in the example above, the child arrays have valid entries
+for the null struct but are 'hidden' from the consumer by the parent array's
+null bitmap.  However, when treated independently corresponding
+values of the children array will be non-null.
 
 ## Dense union type
 
@@ -405,23 +410,65 @@ cases. This first, the dense union, represents a mixed-type array with 6 bytes
 of overhead for each value. Its physical layout is as follows:
 
 * One child array for each relative type
-* Types array: An array of unsigned integers, enumerated from 0 corresponding
+* Types buffer: A buffer of unsigned integers, enumerated from 0 corresponding
   to each type, with the smallest byte width capable of representing the number
   of types in the union.
-* Offsets array: An array of signed int32 values indicating the relative offset
+* Offsets buffer: A buffer of signed int32 values indicating the relative offset
   into the respective child array for the type in a given slot. The respective
   offsets for each child value array must be in order / increasing.
-
-Alternate proposal (TBD): the types and offset values may be packed into an
-int48 with 2 bytes for the type and 4 bytes for the offset.
 
 Critically, the dense union allows for minimal overhead in the ubiquitous
 union-of-structs with non-overlapping-fields use case (`Union<s1: Struct1, s2:
 Struct2, s3: Struct3, ...>`)
 
-Here is a diagram of an example dense union:
+### Example Layout: Dense union
 
-<img src="diagrams/layout-dense-union.png" width="400"/>
+An example layout for logical union of:
+`Union<f: float, i: int32>` having the values:
+[{f=1.2}, null, {f=3.4}, {i=5}]
+
+```
+* Length: 4, Null count: 1
+* Null bitmap buffer:
+  |Byte 0 (validity bitmap) | Bytes 1-7             |
+  |-------------------------|-----------------------|
+  |00001101                 | 0 (padding)           |
+
+* Types buffer:
+
+  |Byte 0-1 | Byte 2-3    | Byte 4-5 | Byte 6-7 |
+  |---------|-------------|----------|----------|
+  | 0       | unspecified | 0        | 1        |
+
+
+* Offset buffer:
+
+  |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 |
+  |---------|-------------|-----------|------------|
+  | 0       | unspecified | 1         | 0          |
+
+* Children arrays:
+  * Field-0 array (f: float):
+    * Length: 2, nulls: 0
+    * Null bitmap buffer: Not required
+
+    * Value Buffer:
+
+      | Bytes 0-7 |
+      |-----------|
+      | 1.2, 3.4  |
+
+
+  * Field-1 array (f: float):
+    * Length: 1, nulls: 0
+    * Null bitmap buffer: Not required
+
+    * Value Buffer:
+
+      | Bytes 0-3 |
+      |-----------|
+      | 5         |
+```
 
 ## Sparse union type
 
@@ -432,17 +479,92 @@ the length of the union.
 While a sparse union may use significantly more space compared with a dense
 union, it has some advantages that may be desirable in certain use cases:
 
-<img src="diagrams/layout-sparse-union.png" width="400"/>
-
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
+### Example layout: `SparseUnion<u0: Int32, u1: Float, u2: List<Char>>`
+
+For the union array:
+
+[{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, 'mark']
+
+will have the following layout:
+```
+* Length: 6, Null count: 0
+* Null bitmap buffer: Not required
+
+* Types buffer:
+
+ | Bytes 0-1  | Bytes 2-3   | Bytes 4-5   | Bytes 6-7   | Bytes 8-9   | Bytes 11-12  |
+ |------------|-------------|-------------|-------------|-------------|--------------|
+ | 0          | 1           | 2           | 1           | 0           | 2            |
+
+* Children arrays:
+
+  * u0 (Int32):
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |-------------------------|-----------------------|
+      |00010001                 | 0 (padding)           |
+
+    * Value buffer:
+
+      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
+      |------------|-------------|-------------|-------------|-------------|--------------|
+      | 1          | unspecified | unspecified | unspecified | 4           |  unspecified |
+
+  * u1 (float):
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |-------------------------|-----------------------|
+      |00001010                 | 0 (padding)           |
+
+    * Value buffer:
+
+      |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
+      |-------------|-------------|-------------|-------------|-------------|--------------|
+      | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified |
+
+  * u2 (`List<char>`)
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 0-7             |
+      |--------------------------|-----------------------|
+      | 00100100                 | 0 (padding)           |
+
+    * Offsets array (int32 array)
+      * Length: 7, Null count: 0
+      * Null bitmap buffer: Not required
+      * Value Buffer (offsets into the Values array):
+
+        | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
+        |------------|-------------|-------------|-------------|-------------|-------------|-------------|
+        | 0          | 0           | 0           | 3           | 3           | 3           | 7           |
+
+    * Values array (char array):
+      * Length: 7,  Null count: 0
+      * Null bitmap buffer: Not required
+
+        | Bytes 0-7  |
+        |------------|
+        | joemark    |
+```
+
 Note that nested types in a sparse union must be internally consistent
-(e.g. see the List in the diagram), i.e. random access at any index j yields
-the correct value.
+(e.g. see the List in the diagram), i.e. random access at any index j
+on any child array will not cause an error.
 In other words, the array for the nested type must be valid if it is
 reinterpreted as a non-nested array.
 
+Similar to structs, a particular child array may have a non-null slot
+even if the null bitmap of the parent union array indicates the slot is
+null.  Additionally, a child array may have a non-null slot even if
+the the types array indicates that a slot contains a different type at the index.
 
 ## References
 
