@@ -177,7 +177,7 @@ Would look like:
 * Length: 5, Null count: 0
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 1-7 (padding)   |
+  | Byte 0 (validity bitmap) | Bytes 1-7             |
   |--------------------------|-----------------------|
   | 00011111                 | 0 (padding)           |
 
@@ -243,7 +243,7 @@ will have the following representation:
 * Length: 4, Null count: 1
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 0-7             |
+  | Byte 0 (validity bitmap) | Bytes 1-7             |
   |--------------------------|-----------------------|
   | 00001101                 | 0 (padding)           |
 
@@ -484,7 +484,7 @@ will have the following layout:
 
 * Types buffer:
 
- | Bytes 0-1  | Bytes 2-3   | Bytes 4-5   | Bytes 6-7   | Bytes 8-9   | Bytes 11-12  |
+ | Bytes 0-1  | Bytes 2-3   | Bytes 4-5   | Bytes 6-7   | Bytes 8-9   | Bytes 10-11  |
  |------------|-------------|-------------|-------------|-------------|--------------|
  | 0          | 1           | 2           | 1           | 0           | 2            |
 
@@ -522,7 +522,7 @@ will have the following layout:
     * Length: 6, Null count: 4
     * Null bitmap buffer:
 
-      | Byte 0 (validity bitmap) | Bytes 0-7             |
+      | Byte 0 (validity bitmap) | Bytes 1-7             |
       |--------------------------|-----------------------|
       | 00100100                 | 0 (padding)           |
 
