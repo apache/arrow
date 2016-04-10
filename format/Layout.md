@@ -249,9 +249,9 @@ will have the following representation:
 
 * Offsets buffer (int32)
 
-    | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
-    |------------|-------------|-------------|-------------|-------------|
-    | 0          | 3           | 3           | 7           | 7           |
+  | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
+  |------------|-------------|-------------|-------------|-------------|
+  | 0          | 3           | 3           | 7           | 7           |
 
 * Values array (char array):
   * Length: 7,  Null count: 0
@@ -273,9 +273,9 @@ will be be represented as follows:
 * Null bitmap buffer: Not required
 * Offsets buffer (int32)
 
-    | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
-    |------------|------------|------------|-------------|
-    | 0          |  2         |  6         |  7          |
+  | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
+  |------------|------------|------------|-------------|
+  | 0          |  2         |  6         |  7          |
 
 * Values array (`List<byte>`)
   * Length: 6, Null count: 1
@@ -287,9 +287,9 @@ will be be represented as follows:
 
   * Offsets buffer (int32)
 
-      | Bytes 0-28           |
-      |----------------------|
-      | 0, 2, 4, 7, 7, 8, 10 |
+    | Bytes 0-28           |
+    |----------------------|
+    | 0, 2, 4, 7, 7, 8, 10 |
 
   * Values array (bytes):
     * Length: 10, Null count: 0
@@ -346,13 +346,11 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
       |--------------------------|-----------------------|
       | 00011101                 | 0 (padding)           |
 
-    * Offsets array:
-       * Length: 5, Null count: 0
-       * Null bitmap buffer: Not required
+    * Offsets buffer:
 
-         | byte 0-19      |
-         |----------------|
-         | 0, 3, 3, 6, 10 |
+      | byte 0-19      |
+      |----------------|
+      | 0, 3, 3, 6, 10 |
 
      * Values array:
         * Length: 10, Null count: 0
