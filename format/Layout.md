@@ -212,7 +212,7 @@ A list type is specified like `List<T>`, where `T` is any relative type
 A list-array is represented by the combination of the following:
 
 * A values array, a child array of type T. T may also be a nested type.
-* An offsets array containing 32-bit signed integers with length equal to the
+* An offsets buffer containing 32-bit signed integers with length equal to the
   length of the top-level array plus one. Note that this limits the size of the
   values array to 2^31 -1.
 
@@ -247,10 +247,7 @@ will have the following representation:
   |--------------------------|-----------------------|
   | 00001101                 | 0 (padding)           |
 
-* Offsets array (int32 array)
-  * Length: 5, Null count: 0
-  * Null bitmap buffer: Not required
-  * Value Buffer (offsets into the Values array):
+* Offsets buffer (int32)
 
     | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
     |------------|-------------|-------------|-------------|-------------|
@@ -274,10 +271,7 @@ will be be represented as follows:
 * Length 3
 * Nulls count: 0
 * Null bitmap buffer: Not required
-* Offsets array (int32 array)
-  * Length: 4, Null count: 0
-  * Null bitmap buffer: Not required
-  * Value Buffer (offsets into the Values array):
+* Offsets buffer (int32)
 
     | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
     |------------|------------|------------|-------------|
@@ -291,9 +285,7 @@ will be be represented as follows:
     |--------------------------|-------------|
     | 00110111                 | 0 (padding) |
 
-  * Offsets array (int32 array)
-    * Length 7, Null count: 0
-    * Null bitmap buffer: Not required
+  * Offsets buffer (int32)
 
       | Bytes 0-28           |
       |----------------------|
@@ -440,7 +432,6 @@ An example layout for logical union of:
   |---------|-------------|----------|----------|
   | 0       | unspecified | 0        | 1        |
 
-
 * Offset buffer:
 
   |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 |
@@ -537,10 +528,7 @@ will have the following layout:
       |--------------------------|-----------------------|
       | 00100100                 | 0 (padding)           |
 
-    * Offsets array (int32 array)
-      * Length: 7, Null count: 0
-      * Null bitmap buffer: Not required
-      * Value Buffer (offsets into the Values array):
+    * Offsets buffer (int32)
 
         | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
         |------------|-------------|-------------|-------------|-------------|-------------|-------------|
