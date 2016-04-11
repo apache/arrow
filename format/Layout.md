@@ -348,7 +348,7 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 
     * Offsets buffer:
 
-      | byte 0-19      |
+      | Bytes 0-19     |
       |----------------|
       | 0, 3, 3, 6, 10 |
 
@@ -358,7 +358,7 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 
         * Value buffer:
 
-          | byte 0-9       |
+          | Bytes 0-9      |
           |----------------|
           | joebobmark     |
 
@@ -367,7 +367,7 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
     * Null bitmap buffer: Not required
     * Value Buffer:
 
-      | byte 0-15      |
+      | Bytes 0-15     |
       |----------------|
       | 1, 2, 3, 4     |
 
@@ -528,9 +528,9 @@ will have the following layout:
 
     * Offsets buffer (int32)
 
-        | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
-        |------------|-------------|-------------|-------------|-------------|-------------|-------------|
-        | 0          | 0           | 0           | 3           | 3           | 3           | 7           |
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
+      |------------|-------------|-------------|-------------|-------------|-------------|-------------|
+      | 0          | 0           | 0           | 3           | 3           | 3           | 7           |
 
     * Values array (char array):
       * Length: 7,  Null count: 0
