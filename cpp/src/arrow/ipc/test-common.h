@@ -18,6 +18,7 @@
 #ifndef ARROW_IPC_TEST_COMMON_H
 #define ARROW_IPC_TEST_COMMON_H
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>

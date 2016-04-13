@@ -19,6 +19,7 @@
 #define ARROW_TEST_UTIL_H_
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>

@@ -15,14 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include <memory>
-#include <numeric>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -83,7 +79,7 @@ class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
 
 TEST_P(TestWriteRowBatch, RoundTrip) {
   std::shared_ptr<RowBatch> batch;
-  ASSERT_OK((*GetParam())(&batch));
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy complains about gtest
   std::shared_ptr<RowBatch> batch_result;
   ASSERT_OK(RoundTripHelper(*batch, 1 << 16, &batch_result));
 
