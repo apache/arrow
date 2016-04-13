@@ -49,7 +49,7 @@ class ArrayBuilder {
         length_(0),
         capacity_(0) {}
 
-  virtual ~ArrayBuilder() {}
+  virtual ~ArrayBuilder() = default;
 
   // For nested types. Since the objects are owned by this class instance, we
   // skip shared pointers and just return a raw pointer

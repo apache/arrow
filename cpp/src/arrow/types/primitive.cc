@@ -63,6 +63,7 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
 
 bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }

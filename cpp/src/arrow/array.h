@@ -40,7 +40,7 @@ class Array {
   Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
-  virtual ~Array() {}
+  virtual ~Array() = default;
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {

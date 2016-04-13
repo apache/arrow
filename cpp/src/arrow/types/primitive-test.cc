@@ -102,7 +102,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     Attrs::draw(N, &draws_);
 
     valid_bytes_.resize(N);
-    test::random_null_bitmap(N, pct_null, valid_bytes_.data());
+    test::random_null_bytes(N, pct_null, valid_bytes_.data());
   }
 
   void Check(const std::shared_ptr<BuilderType>& builder, bool nullable) {
@@ -193,8 +193,8 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int N, double pct_null) {
   draws_.resize(N);
   valid_bytes_.resize(N);
 
-  test::random_null_bitmap(N, 0.5, draws_.data());
-  test::random_null_bitmap(N, pct_null, valid_bytes_.data());
+  test::random_null_bytes(N, 0.5, draws_.data());
+  test::random_null_bytes(N, pct_null, valid_bytes_.data());
 }
 
 template <>

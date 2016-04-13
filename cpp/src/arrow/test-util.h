@@ -103,10 +103,12 @@ std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
       reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T));
 }
 
-void random_null_bitmap(int64_t n, double pct_null, uint8_t* null_bitmap) {
+// Sets approximately pct_null of the first n bytes in null_bytes to zero
+// and the rest to non-zero (true) values.
+void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    null_bitmap[i] = rng.NextDoubleFraction() > pct_null;
+    null_bytes[i] = rng.NextDoubleFraction() > pct_null;
   }
 }
 
@@ -121,6 +123,7 @@ static inline void random_bytes(int n, uint32_t seed, uint8_t* out) {
 
 template <typename T>
 void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
+  DCHECK(out);
   std::mt19937 gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {

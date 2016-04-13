@@ -110,7 +110,6 @@ class StringBuilder : public ListBuilder {
   }
 
  protected:
-  std::shared_ptr<ListBuilder> list_builder_;
   UInt8Builder* byte_builder_;
 
   static TypePtr value_type_;
