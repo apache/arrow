@@ -89,11 +89,11 @@ class StringArray : public ListArray {
   const uint8_t* raw_bytes_;
 };
 
-// Array builder
+// String builder
 class StringBuilder : public ListBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
-      : ListBuilder(pool, type, std::make_shared<UInt8Builder>(pool, value_type_)) {
+      : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, value_type_), type) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
