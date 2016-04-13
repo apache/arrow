@@ -31,14 +31,15 @@ class TestArrayAPI(unittest.TestCase):
         assert arr[1] is pyarrow.NA
 
     def test_list_format(self):
-        arr = pyarrow.from_pylist([[1], None, [2, 3]])
+        arr = pyarrow.from_pylist([[1], None, [2, 3, None]])
         result = fmt.array_format(arr)
         expected = """\
 [
   [1],
   NA,
   [2,
-   3]
+   3,
+   NA]
 ]"""
         assert result == expected
 
