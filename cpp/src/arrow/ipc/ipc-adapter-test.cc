@@ -79,7 +79,7 @@ class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
 
 TEST_P(TestWriteRowBatch, RoundTrip) {
   std::shared_ptr<RowBatch> batch;
-  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy complains about gtest
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
   std::shared_ptr<RowBatch> batch_result;
   ASSERT_OK(RoundTripHelper(*batch, 1 << 16, &batch_result));
 
