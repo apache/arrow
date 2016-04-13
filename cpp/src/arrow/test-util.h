@@ -32,6 +32,7 @@
 #include "arrow/table.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/random.h"
 #include "arrow/util/status.h"
@@ -168,6 +169,26 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   // TODO(wesm): error checking
   util::bytes_to_bits(bytes, &out);
   return out;
+}
+
+Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
+    std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
+  DCHECK(pool);
+  auto data = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(data->Resize(length * sizeof(int32_t)));
+  test::rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
+      reinterpret_cast<int32_t*>(data->mutable_data()));
+  *pool_buffer = data;
+  return Status::OK();
+}
+
+Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
+    std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
+  auto bytes = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(bytes->Resize(length));
+  test::random_bytes(length, seed, bytes->mutable_data());
+  *pool_buffer = bytes;
+  return Status::OK();
 }
 
 }  // namespace test
