@@ -132,11 +132,25 @@ void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
 }
 
 static inline int bitmap_popcount(const uint8_t* data, int length) {
+  // book keeping
+  constexpr int pop_len = sizeof(uint64_t);
+  const uint64_t* i64_data = reinterpret_cast<const uint64_t*>(data);
+  const int fast_counts = length / pop_len;
+  const uint64_t* end = i64_data + fast_counts;
+
   int count = 0;
-  for (int i = 0; i < length; ++i) {
-    // TODO(wesm): accelerate this
+  // popcount as much as possible with the widest possible count
+  for (auto iter = i64_data; iter < end; ++iter) {
+    count += __builtin_popcountll(*iter);
+  }
+
+  // Account for left over bytes (in theory we could fall back to smaller
+  // versions of popcount but the code complexity is likely not worth it)
+  const int loop_tail_index = fast_counts * pop_len;
+  for (int i = loop_tail_index; i < length; ++i) {
     if (util::get_bit(data, i)) { ++count; }
   }
+
   return count;
 }
 
