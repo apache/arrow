@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <sstream>
 #include <vector>
 
 #include "arrow/array.h"
@@ -31,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/list.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
@@ -63,32 +65,56 @@ static bool IsPrimitive(const DataType* type) {
   }
 }
 
+static bool IsListType(const DataType* type) {
+  DCHECK(type != nullptr);
+  switch (type->type) {
+    // TODO(emkornfield) grouping like this are used in a few places in the
+    // code consider using pattern like:
+    // http://stackoverflow.com/questions/26784685/c-macro-for-calling-function-based-on-enum-type
+    //
+    // TODO(emkornfield) Fix type systems so these are all considered lists and
+    // the types behave the same way?
+    // case Type::BINARY:
+    // case Type::CHAR:
+    case Type::LIST:
+      // see todo on common types
+      // case Type::STRING:
+      // case Type::VARCHAR:
+      return true;
+    default:
+      return false;
+  }
+}
+
 // ----------------------------------------------------------------------
 // Row batch write path
 
 Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes,
     std::vector<std::shared_ptr<Buffer>>* buffers) {
-  if (IsPrimitive(arr->type().get())) {
+  DCHECK(arr);
+  DCHECK(field_nodes);
+  // push back all common elements
+  field_nodes->push_back(flatbuf::FieldNode(arr->length(), arr->null_count()));
+  if (arr->null_count() > 0) {
+    buffers->push_back(arr->null_bitmap());
+  } else {
+    // Push a dummy zero-length buffer, not to be copied
+    buffers->push_back(std::make_shared<Buffer>(nullptr, 0));
+  }
+
+  const auto arr_type = arr->type().get();
+  if (IsPrimitive(arr_type)) {
     const PrimitiveArray* prim_arr = static_cast<const PrimitiveArray*>(arr);
-
-    field_nodes->push_back(
-        flatbuf::FieldNode(prim_arr->length(), prim_arr->null_count()));
-
-    if (prim_arr->null_count() > 0) {
-      buffers->push_back(prim_arr->null_bitmap());
-    } else {
-      // Push a dummy zero-length buffer, not to be copied
-      buffers->push_back(std::make_shared<Buffer>(nullptr, 0));
-    }
     buffers->push_back(prim_arr->data());
-  } else if (arr->type_enum() == Type::LIST) {
-    // TODO(wesm)
-    return Status::NotImplemented("List type");
+  } else if (IsListType(arr_type)) {
+    const ListArray* list_arr = static_cast<const ListArray*>(arr);
+    buffers->push_back(list_arr->offset_buffer());
+    // TODO(emkornfield) limit recursion depth
+    RETURN_NOT_OK(VisitArray(list_arr->values().get(), field_nodes, buffers));
   } else if (arr->type_enum() == Type::STRUCT) {
     // TODO(wesm)
     return Status::NotImplemented("Struct type");
   }
-
   return Status::OK();
 }
 
@@ -214,7 +240,7 @@ class RowBatchReader::Impl {
   // Traverse the flattened record batch metadata and reassemble the
   // corresponding array containers
   Status NextArray(const Field* field, std::shared_ptr<Array>* out) {
-    const std::shared_ptr<DataType>& type = field->type;
+    const TypePtr& type = field->type;
 
     // pop off a field
     if (field_index_ >= num_flattened_fields_) {
@@ -226,15 +252,17 @@ class RowBatchReader::Impl {
     // we can skip that buffer without reading from shared memory
     FieldMetadata field_meta = metadata_->field(field_index_++);
 
+    // extract null_bitmap which is common to all arrays
+    std::shared_ptr<Buffer> null_bitmap;
+    if (field_meta.null_count == 0) {
+      null_bitmap = nullptr;
+      ++buffer_index_;
+    } else {
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &null_bitmap));
+    }
+
     if (IsPrimitive(type.get())) {
-      std::shared_ptr<Buffer> null_bitmap;
       std::shared_ptr<Buffer> data;
-      if (field_meta.null_count == 0) {
-        null_bitmap = nullptr;
-        ++buffer_index_;
-      } else {
-        RETURN_NOT_OK(GetBuffer(buffer_index_++, &null_bitmap));
-      }
       if (field_meta.length > 0) {
         RETURN_NOT_OK(GetBuffer(buffer_index_++, &data));
       } else {
@@ -242,6 +270,26 @@ class RowBatchReader::Impl {
       }
       return MakePrimitiveArray(
           type, field_meta.length, data, field_meta.null_count, null_bitmap, out);
+    }
+    if (IsListType(type.get())) {
+      std::shared_ptr<Buffer> offsets;
+      if (field_meta.length > 0) {
+        RETURN_NOT_OK(GetBuffer(buffer_index_++, &offsets));
+      } else {
+        offsets.reset(new Buffer(nullptr, 0));
+      }
+      const int num_children = type->num_children();
+      if (num_children != 1) {
+        std::stringstream ss;
+        ss << "Field: " << field->ToString()
+           << " has wrong number of children:" << num_children;
+        return Status::Invalid(ss.str());
+      }
+      std::shared_ptr<Array> values_array;
+      // TODO(emkornfield): limit recursion depth?
+      RETURN_NOT_OK(NextArray(type->child(0).get(), &values_array));
+      return MakeListArray(type, field_meta.length, offsets, values_array,
+          field_meta.null_count, null_bitmap, out);
     }
     return Status::NotImplemented("Non-primitive types not complete yet");
   }
