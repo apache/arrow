@@ -119,28 +119,10 @@ Status PrimitiveBuilder<T>::Append(
     memcpy(raw_data_ + length_, values, type_traits<T>::bytes_required(length));
   }
 
-  if (valid_bytes != nullptr) {
-    PrimitiveBuilder<T>::AppendNulls(valid_bytes, length);
-  } else {
-    for (int i = 0; i < length; ++i) {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
 
-  length_ += length;
   return Status::OK();
-}
-
-template <typename T>
-void PrimitiveBuilder<T>::AppendNulls(const uint8_t* valid_bytes, int32_t length) {
-  // If valid_bytes is all not null, then none of the values are null
-  for (int i = 0; i < length; ++i) {
-    if (valid_bytes[i] == 0) {
-      ++null_count_;
-    } else {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
 }
 
 template <typename T>
@@ -166,14 +148,8 @@ Status PrimitiveBuilder<BooleanType>::Append(
     }
   }
 
-  if (valid_bytes != nullptr) {
-    PrimitiveBuilder<BooleanType>::AppendNulls(valid_bytes, length);
-  } else {
-    for (int i = 0; i < length; ++i) {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
-  length_ += length;
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
 }
 
