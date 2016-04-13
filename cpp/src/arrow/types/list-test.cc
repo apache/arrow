@@ -94,6 +94,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
 
   Done();
 
+  ASSERT_OK(result_->Validate());
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
@@ -105,6 +106,30 @@ TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_EQ(0, values->length());
 }
 
+void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
+    const vector<uint8_t>& is_null) {
+  ASSERT_OK(result->Validate());
+  ASSERT_EQ(1, result->null_count());
+  ASSERT_EQ(0, result->values()->null_count());
+
+  ASSERT_EQ(3, result->length());
+  vector<int32_t> ex_offsets = {0, 3, 3, 7};
+  for (size_t i = 0; i < ex_offsets.size(); ++i) {
+    ASSERT_EQ(ex_offsets[i], result->offset(i));
+  }
+
+  for (int i = 0; i < result->length(); ++i) {
+    ASSERT_EQ(static_cast<bool>(is_null[i]), result->IsNull(i));
+  }
+
+  ASSERT_EQ(7, result->values()->length());
+  Int32Array* varr = static_cast<Int32Array*>(result->values().get());
+
+  for (size_t i = 0; i < values.size(); ++i) {
+    ASSERT_EQ(values[i], varr->Value(i));
+  }
+}
+
 TEST_F(TestListBuilder, TestBasics) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
@@ -112,8 +137,8 @@ TEST_F(TestListBuilder, TestBasics) {
 
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
-  EXPECT_OK(builder_->Reserve(lengths.size()));
-  EXPECT_OK(vb->Reserve(values.size()));
+  ASSERT_OK(builder_->Reserve(lengths.size()));
+  ASSERT_OK(vb->Reserve(values.size()));
 
   int pos = 0;
   for (size_t i = 0; i < lengths.size(); ++i) {
@@ -124,31 +149,51 @@ TEST_F(TestListBuilder, TestBasics) {
   }
 
   Done();
+  ValidateBasicListArray(result_.get(), values, is_null);
+}
 
-  ASSERT_EQ(1, result_->null_count());
-  ASSERT_EQ(0, result_->values()->null_count());
+TEST_F(TestListBuilder, BulkAppend) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int> lengths = {3, 0, 4};
+  vector<uint8_t> is_null = {0, 1, 0};
+  vector<uint8_t> is_valid = {1, 0, 1};
+  vector<int32_t> offsets = {0, 3, 3};
 
-  ASSERT_EQ(3, result_->length());
-  vector<int32_t> ex_offsets = {0, 3, 3, 7};
-  for (size_t i = 0; i < ex_offsets.size(); ++i) {
-    ASSERT_EQ(ex_offsets[i], result_->offset(i));
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
+  ASSERT_OK(vb->Reserve(values.size()));
+
+  builder_->Append(offsets.data(), offsets.size(), is_valid.data());
+  for (int32_t value : values) {
+    vb->Append(value);
+  }
+  Done();
+  ValidateBasicListArray(result_.get(), values, is_null);
+}
+
+TEST_F(TestListBuilder, BulkAppendInvalid) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int> lengths = {3, 0, 4};
+  vector<uint8_t> is_null = {0, 1, 0};
+  vector<uint8_t> is_valid = {1, 0, 1};
+  vector<int32_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
+
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
+  ASSERT_OK(vb->Reserve(values.size()));
+
+  builder_->Append(offsets.data(), offsets.size(), is_valid.data());
+  builder_->Append(offsets.data(), offsets.size(), is_valid.data());
+  for (int32_t value : values) {
+    vb->Append(value);
   }
 
-  for (int i = 0; i < result_->length(); ++i) {
-    ASSERT_EQ(static_cast<bool>(is_null[i]), result_->IsNull(i));
-  }
-
-  ASSERT_EQ(7, result_->values()->length());
-  Int32Array* varr = static_cast<Int32Array*>(result_->values().get());
-
-  for (size_t i = 0; i < values.size(); ++i) {
-    ASSERT_EQ(values[i], varr->Value(i));
-  }
+  Done();
+  ASSERT_RAISES(Invalid, result_->Validate());
 }
 
 TEST_F(TestListBuilder, TestZeroLength) {
   // All buffers are null
   Done();
+  ASSERT_OK(result_->Validate());
 }
 
 }  // namespace arrow

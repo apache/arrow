@@ -28,6 +28,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -46,11 +47,16 @@ class ListArray : public Array {
     values_ = values;
   }
 
-  virtual ~ListArray() {}
+  Status Validate() const override;
+
+  virtual ~ListArray() = default;
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   const std::shared_ptr<Array>& values() const { return values_; }
+  const std::shared_ptr<Buffer> offset_buffer() const {
+    return std::static_pointer_cast<Buffer>(offset_buf_);
+  }
 
   const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
 
