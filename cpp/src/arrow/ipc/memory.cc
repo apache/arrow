@@ -144,5 +144,29 @@ Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t 
   return Status::OK();
 }
 
+MockMemorySource::MockMemorySource(int64_t size) : size_(size) {}
+
+Status MockMemorySource::Close() {
+  return Status::OK();
+}
+
+Status MockMemorySource::ReadAt(
+    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  return Status::OK();
+}
+
+Status MockMemorySource::Write(int64_t position, const uint8_t* data, int64_t nbytes) {
+  pos_ = position + nbytes;
+  return Status::OK();
+}
+
+int64_t MockMemorySource::Size() const {
+  return size_;
+}
+
+int64_t MockMemorySource::Position() const {
+  return pos_;
+}
+
 }  // namespace ipc
 }  // namespace arrow

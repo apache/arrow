@@ -91,12 +91,20 @@ TEST_F(TestWriteRowBatch, IntegerRoundTrip) {
   int64_t header_location;
   ASSERT_OK(WriteRowBatch(mmap_.get(), &batch, 0, &header_location));
 
+  MockMemorySource mock_source(1 << 16);
+  int64_t mock_header_location;
+  ASSERT_OK(WriteRowBatch(&mock_source, &batch, 0, &mock_header_location));
+
   std::shared_ptr<RowBatchReader> result;
   ASSERT_OK(RowBatchReader::Open(mmap_.get(), header_location, &result));
 
   std::shared_ptr<RowBatch> batch_result;
   ASSERT_OK(result->GetRowBatch(schema, &batch_result));
   EXPECT_EQ(batch.num_rows(), batch_result->num_rows());
+
+  int64_t size;
+  ASSERT_OK(GetRowBatchSize(batch_result.get(), &size));
+  EXPECT_EQ(mock_source.Position(), size);
 
   for (int i = 0; i < batch.num_columns(); ++i) {
     EXPECT_TRUE(batch.column(i)->Equals(batch_result->column(i))) << i
