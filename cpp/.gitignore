@@ -5,7 +5,7 @@ CTestTestfile.cmake
 Makefile
 cmake_install.cmake
 build/
-dev-build/
+*-build/
 Testing/
 
 #########################################
