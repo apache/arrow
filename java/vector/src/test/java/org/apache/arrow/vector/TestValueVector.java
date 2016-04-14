@@ -535,7 +535,7 @@ public class TestValueVector {
       vector.clear();
     }
 
-    vectorFrom.close();
-    vector.close();
+    vectorFrom.clear();
+    vector.clear();
   }
 }
