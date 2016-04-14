@@ -36,6 +36,8 @@ dist
 # coverage
 .coverage
 coverage.xml
+# cache
+.cache
 
 # benchmark working dir
 .asv
