@@ -85,16 +85,16 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     state = State.SINGLE;
     vector = v;
     type = v.getField().getType().getMinorType();
-    Class writerClass = BasicTypeHelper
+    Class<?> writerClass = BasicTypeHelper
         .getWriterImpl(v.getField().getType().getMinorType(), v.getField().getDataMode());
     if (writerClass.equals(SingleListWriter.class)) {
       writerClass = UnionListWriter.class;
     }
-    Class vectorClass = BasicTypeHelper.getValueVectorClass(v.getField().getType().getMinorType(), v.getField()
+    Class<?> vectorClass = BasicTypeHelper.getValueVectorClass(v.getField().getType().getMinorType(), v.getField()
         .getDataMode());
     try {
-      Constructor constructor = null;
-      for (Constructor c : writerClass.getConstructors()) {
+      Constructor<?> constructor = null;
+      for (Constructor<?> c : writerClass.getConstructors()) {
         if (c.getParameterTypes().length == 3) {
           constructor = c;
         }

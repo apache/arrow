@@ -46,7 +46,7 @@ public class JsonStringHashMap<K, V> extends LinkedHashMap<K, V> {
     if (!(obj instanceof Map)) {
       return false;
     }
-    Map other = (Map) obj;
+    Map<?, ?> other = (Map<?, ?>) obj;
     if (this.size() != other.size()) {
       return false;
     }

@@ -42,7 +42,7 @@ public class JsonStringArrayList<E> extends ArrayList<E> {
     if (!(obj instanceof List)) {
       return false;
     }
-    List other = (List) obj;
+    List<?> other = (List<?>) obj;
     return this.size() == other.size() && this.containsAll(other);
   }
 

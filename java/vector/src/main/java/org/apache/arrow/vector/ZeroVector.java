@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import io.netty.buffer.ArrowBuf;
 
+import java.util.Collections;
 import java.util.Iterator;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -109,8 +110,8 @@ public class ZeroVector implements ValueVector {
 //  }
 
   @Override
-  public Iterator iterator() {
-    return Iterators.emptyIterator();
+  public Iterator<ValueVector> iterator() {
+    return Collections.emptyIterator();
   }
 
   @Override
