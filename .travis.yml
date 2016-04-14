@@ -12,7 +12,6 @@ addons:
     - gcc-4.9   # Needed for C++11
     - g++-4.9   # Needed for C++11
     - gdb
-    - gcov
     - ccache
     - cmake
     - valgrind
@@ -60,6 +59,11 @@ matrix:
     before_install:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_conda_build.sh
+  - language: java
+    os: linux
+    jdk: oraclejdk7
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
 
 before_install:
 - ulimit -c unlimited -S
