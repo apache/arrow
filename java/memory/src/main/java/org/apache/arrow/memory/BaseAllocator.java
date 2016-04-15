@@ -99,6 +99,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
+  @Override
   public void assertOpen() {
     if (AssertionUtil.ASSERT_ENABLED) {
       if (isClosed) {
@@ -287,6 +288,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       }
     }
 
+    @Override
     public boolean add(final int nBytes) {
       assertOpen();
 
@@ -308,6 +310,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return true;
     }
 
+    @Override
     public ArrowBuf allocateBuffer() {
       assertOpen();
 
@@ -319,14 +322,17 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return arrowBuf;
     }
 
+    @Override
     public int getSize() {
       return nBytes;
     }
 
+    @Override
     public boolean isUsed() {
       return used;
     }
 
+    @Override
     public boolean isClosed() {
       return closed;
     }
@@ -364,6 +370,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       closed = true;
     }
 
+    @Override
     public boolean reserve(int nBytes) {
       assertOpen();
 
@@ -509,6 +516,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
+  @Override
   public String toString() {
     final Verbosity verbosity = logger.isTraceEnabled() ? Verbosity.LOG_WITH_STACKTRACE
         : Verbosity.BASIC;
@@ -523,6 +531,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *
    * @return A Verbose string of current allocator state.
    */
+  @Override
   public String toVerboseString() {
     final StringBuilder sb = new StringBuilder();
     print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
@@ -575,13 +584,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *           when any problems are found
    */
   private void verifyAllocator(final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
+    // The remaining tests can only be performed if we're in debug mode.
+    if (!DEBUG) {
+      return;
+    }
+
     synchronized (DEBUG_LOCK) {
-
-      // The remaining tests can only be performed if we're in debug mode.
-      if (!DEBUG) {
-        return;
-      }
-
       final long allocated = getAllocatedMemory();
 
       // verify my direct descendants
