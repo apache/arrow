@@ -18,6 +18,7 @@ Testing/
 *.o
 *.py[ocd]
 *.so
+*.dylib
 .build_cache_dir
 MANIFEST
 
@@ -35,6 +36,8 @@ dist
 # coverage
 .coverage
 coverage.xml
+# cache
+.cache
 
 # benchmark working dir
 .asv
