@@ -76,4 +76,11 @@ build failures by running the following checks before submitting your pull reque
 
 Note that the clang-tidy target may take a while to run.  You might consider
 running clang-tidy separately on the files you have added/changed before
-invoking the make target to reduce iteration time.
+invoking the make target to reduce iteration time.  Also, it might generate warnings
+that aren't valid.  To avoid these you can use add a line comment `// NOLINT`. If  
+NOLINT doesn't suppress the warnings, you add the file in question to 
+the .clang-tidy-ignore file.  This will allow `make check-clang-tidy` to pass in 
+travis-CI (but still surface the potential warnings in `make clang-tidy`).   Ideally,
+both of these options would be used rarely.  Current known uses-cases whent hey are required:
+
+*  Parameterized tests in google test.
