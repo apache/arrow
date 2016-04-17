@@ -38,7 +38,7 @@ Status ArrayBuilder::AppendToBitmap(bool is_null) {
 }
 
 Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
-  Reserve(length);
+  RETURN_NOT_OK(Reserve(length));
 
   UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
