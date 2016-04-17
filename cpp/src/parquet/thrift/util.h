@@ -48,6 +48,28 @@ static inline Compression::type FromThrift(format::CompressionCodec::type type) 
   return static_cast<Compression::type>(type);
 }
 
+static inline format::Type::type ToThrift(Type::type type) {
+  return static_cast<format::Type::type>(type);
+}
+
+static inline format::ConvertedType::type ToThrift(LogicalType::type type) {
+  // item 0 is NONE
+  DCHECK_NE(type, LogicalType::NONE);
+  return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
+}
+
+static inline format::FieldRepetitionType::type ToThrift(Repetition::type type) {
+  return static_cast<format::FieldRepetitionType::type>(type);
+}
+
+static inline format::Encoding::type ToThrift(Encoding::type type) {
+  return static_cast<format::Encoding::type>(type);
+}
+
+static inline format::CompressionCodec::type ToThrift(Compression::type type) {
+  return static_cast<format::CompressionCodec::type>(type);
+}
+
 // ----------------------------------------------------------------------
 // Thrift struct serialization / deserialization utilities
 
