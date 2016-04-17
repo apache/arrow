@@ -112,24 +112,16 @@ class ListBuilder : public ArrayBuilder {
         offset_builder_(pool),
         values_(values) {}
 
-  Status Init(int32_t elements) {
+  Status Init(int32_t elements) override {
     RETURN_NOT_OK(ArrayBuilder::Init(elements));
     // one more then requested for offsets
-    return offset_builder_.Resize(elements + 1);
+    return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
   }
 
-  Status Resize(int32_t capacity) {
-    // +1 because we Need space for the end offset
+  Status Resize(int32_t capacity) override {
+    // one more then requested for offsets
     RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
     return ArrayBuilder::Resize(capacity);
-  }
-
-  Status Reserve(int32_t elements) {
-    if (length_ + elements > capacity_) {
-      int32_t new_capacity = util::next_power2(length_ + elements);
-      return Resize(new_capacity);
-    }
-    return Status::OK();
   }
 
   // Vector append

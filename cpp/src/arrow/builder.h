@@ -69,14 +69,19 @@ class ArrayBuilder {
   // Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int32_t length);
 
-  // Allocates requires memory at this level, but children need to be
-  // initialized independently
-  Status Init(int32_t capacity);
+  // Allocates initial capacity requirements for the builder.  In most
+  // cases subclasses should override and call there parent classes
+  // method as well.
+  virtual Status Init(int32_t capacity);
 
-  // Resizes the null_bitmap array
-  Status Resize(int32_t new_bits);
+  // Resizes the null_bitmap array.  In most
+  // cases subclasses should override and call there parent classes
+  // method as well.
+  virtual Status Resize(int32_t new_bits);
 
-  Status Reserve(int32_t extra_bits);
+  // Ensures there is enough space for adding the number of elements by checking
+  // capacity and calling Resize if necessary.
+  Status Reserve(int32_t elements);
 
   // For cases where raw data was memcpy'd into the internal buffers, allows us
   // to advance the length of the builder. It is your responsibility to use

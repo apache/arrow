@@ -50,7 +50,7 @@ Status ListArray::Validate() const {
   }
   if (offset_buf_->size() / sizeof(int32_t) < length_) {
     std::stringstream ss;
-    ss << "offset buffer size: " << offset_buf_->size()
+    ss << "offset buffer size (bytes): " << offset_buf_->size()
        << " isn't large enough for length: " << length_;
     return Status::Invalid(ss.str());
   }

@@ -114,17 +114,13 @@ class PrimitiveBuilder : public ArrayBuilder {
   Status Append(
       const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
-  // Ensure that builder can accommodate an additional number of
-  // elements. Resizes if the current capacity is not sufficient
-  Status Reserve(int32_t elements);
-
   std::shared_ptr<Array> Finish() override;
 
-  Status Init(int32_t capacity);
+  Status Init(int32_t capacity) override;
 
   // Increase the capacity of the builder to accommodate at least the indicated
   // number of elements
-  Status Resize(int32_t capacity);
+  Status Resize(int32_t capacity) override;
 
  protected:
   std::shared_ptr<PoolBuffer> data_;
@@ -143,7 +139,7 @@ class NumericBuilder : public PrimitiveBuilder<T> {
 
   // Scalar append.
   void Append(value_type val) {
-    PrimitiveBuilder<T>::Reserve(1);
+    ArrayBuilder::Reserve(1);
     UnsafeAppend(val);
   }
 

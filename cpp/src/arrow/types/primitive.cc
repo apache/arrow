@@ -103,18 +103,9 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Reserve(int32_t elements) {
-  if (length_ + elements > capacity_) {
-    int32_t new_capacity = util::next_power2(length_ + elements);
-    return Resize(new_capacity);
-  }
-  return Status::OK();
-}
-
-template <typename T>
 Status PrimitiveBuilder<T>::Append(
     const value_type* values, int32_t length, const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(PrimitiveBuilder<T>::Reserve(length));
+  RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
     memcpy(raw_data_ + length_, values, type_traits<T>::bytes_required(length));
