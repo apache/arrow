@@ -107,7 +107,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
 }
 
 void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
-    const vector<uint8_t>& is_null) {
+    const vector<uint8_t>& is_valid) {
   ASSERT_OK(result->Validate());
   ASSERT_EQ(1, result->null_count());
   ASSERT_EQ(0, result->values()->null_count());
@@ -119,7 +119,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   }
 
   for (int i = 0; i < result->length(); ++i) {
-    ASSERT_EQ(static_cast<bool>(is_null[i]), result->IsNull(i));
+    ASSERT_EQ(!static_cast<bool>(is_valid[i]), result->IsNull(i));
   }
 
   ASSERT_EQ(7, result->values()->length());
@@ -133,7 +133,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
 TEST_F(TestListBuilder, TestBasics) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_null = {0, 1, 0};
+  vector<uint8_t> is_valid = {1, 0, 1};
 
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
@@ -142,20 +142,19 @@ TEST_F(TestListBuilder, TestBasics) {
 
   int pos = 0;
   for (size_t i = 0; i < lengths.size(); ++i) {
-    ASSERT_OK(builder_->Append(is_null[i] > 0));
+    ASSERT_OK(builder_->Append(is_valid[i] > 0));
     for (int j = 0; j < lengths[i]; ++j) {
       vb->Append(values[pos++]);
     }
   }
 
   Done();
-  ValidateBasicListArray(result_.get(), values, is_null);
+  ValidateBasicListArray(result_.get(), values, is_valid);
 }
 
 TEST_F(TestListBuilder, BulkAppend) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_null = {0, 1, 0};
   vector<uint8_t> is_valid = {1, 0, 1};
   vector<int32_t> offsets = {0, 3, 3};
 
@@ -167,7 +166,7 @@ TEST_F(TestListBuilder, BulkAppend) {
     vb->Append(value);
   }
   Done();
-  ValidateBasicListArray(result_.get(), values, is_null);
+  ValidateBasicListArray(result_.get(), values, is_valid);
 }
 
 TEST_F(TestListBuilder, BulkAppendInvalid) {

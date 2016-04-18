@@ -62,7 +62,7 @@ class ArrayBuilder {
   int32_t capacity() const { return capacity_; }
 
   // Append to null bitmap
-  Status AppendToBitmap(bool is_null);
+  Status AppendToBitmap(bool is_valid);
   // Vector append. Treat each zero byte as a null.   If valid_bytes is null
   // assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int32_t length);
@@ -118,7 +118,7 @@ class ArrayBuilder {
   //
 
   // Append to null bitmap.
-  void UnsafeAppendToBitmap(bool is_null);
+  void UnsafeAppendToBitmap(bool is_valid);
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length);

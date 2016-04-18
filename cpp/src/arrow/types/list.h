@@ -162,14 +162,14 @@ class ListBuilder : public ArrayBuilder {
   //
   // This function should be called before beginning to append elements to the
   // value builder
-  Status Append(bool is_null = false) {
+  Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(is_null);
+    UnsafeAppendToBitmap(is_valid);
     RETURN_NOT_OK(offset_builder_.Append<int32_t>(value_builder_->length()));
     return Status::OK();
   }
 
-  Status AppendNull() { return Append(true); }
+  Status AppendNull() { return Append(false); }
 
   const std::shared_ptr<ArrayBuilder>& value_builder() const {
     DCHECK(!values_) << "Using value builder is pointless when values_ is set";

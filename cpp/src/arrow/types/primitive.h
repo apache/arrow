@@ -101,7 +101,7 @@ class PrimitiveBuilder : public ArrayBuilder {
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(true);
+    UnsafeAppendToBitmap(false);
     return Status::OK();
   }
 

@@ -25,7 +25,7 @@
 
 namespace arrow {
 
-Status ArrayBuilder::AppendToBitmap(bool is_null) {
+Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
     // If the capacity was not already a multiple of 2, do so here
     // TODO(emkornfield) doubling isn't great default allocation practice
@@ -33,7 +33,7 @@ Status ArrayBuilder::AppendToBitmap(bool is_null) {
     // fo discussion
     RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
   }
-  UnsafeAppendToBitmap(is_null);
+  UnsafeAppendToBitmap(is_valid);
   return Status::OK();
 }
 
@@ -89,11 +89,11 @@ Status ArrayBuilder::SetNotNull(int32_t length) {
   return Status::OK();
 }
 
-void ArrayBuilder::UnsafeAppendToBitmap(bool is_null) {
-  if (is_null) {
-    ++null_count_;
-  } else {
+void ArrayBuilder::UnsafeAppendToBitmap(bool is_valid) {
+  if (is_valid) {
     util::set_bit(null_bitmap_data_, length_);
+  } else {
+    ++null_count_;
   }
   ++length_;
 }
@@ -105,7 +105,7 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t leng
   }
   for (int32_t i = 0; i < length; ++i) {
     // TODO(emkornfield) Optimize for large values of length?
-    AppendToBitmap(valid_bytes[i] == 0);
+    AppendToBitmap(valid_bytes[i] > 0);
   }
 }
 
