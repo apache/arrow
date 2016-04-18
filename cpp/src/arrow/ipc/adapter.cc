@@ -206,7 +206,7 @@ class RowBatchWriter {
 
 Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
     int64_t* header_offset, int max_recursion_depth) {
-  DCHECK(max_recursion_depth > 0);
+  DCHECK_GT(max_recursion_depth, 0);
   RowBatchWriter serializer(batch, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, position, header_offset);

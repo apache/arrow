@@ -19,10 +19,11 @@
 
 #include <cstdint>
 #include <cstring>
-#include <flatbuffers/flatbuffers.h>
 #include <memory>
 #include <sstream>
 #include <string>
+
+#include "flatbuffers/flatbuffers.h"
 
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/schema.h"

@@ -19,9 +19,10 @@
 #define ARROW_IPC_METADATA_INTERNAL_H
 
 #include <cstdint>
-#include <flatbuffers/flatbuffers.h>
 #include <memory>
 #include <vector>
+
+#include "flatbuffers/flatbuffers.h"
 
 #include "arrow/ipc/Message_generated.h"
 
