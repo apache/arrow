@@ -139,8 +139,12 @@ class RowBatchWriter {
     int64_t offset = 0;
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
-      int64_t size = buffer->size();
+      int64_t size = 0;
 
+      // The buffer might be null if we are handling zero row lengths.
+      if (buffer) {
+        size = buffer->size();
+      }
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
       // future. Use page=0 for now
@@ -150,7 +154,7 @@ class RowBatchWriter {
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
       buffer_meta_.push_back(flatbuf::Buffer(0, position + offset, size));
-
+      
       if (size > 0) {
         RETURN_NOT_OK(dst->Write(position + offset, buffer->data(), size));
         offset += size;
@@ -264,7 +268,6 @@ class RowBatchReader::Impl {
     // extract null_bitmap which is common to all arrays
     std::shared_ptr<Buffer> null_bitmap;
     if (field_meta.null_count == 0) {
-      null_bitmap = nullptr;
       ++buffer_index_;
     } else {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &null_bitmap));
@@ -275,18 +278,16 @@ class RowBatchReader::Impl {
       if (field_meta.length > 0) {
         RETURN_NOT_OK(GetBuffer(buffer_index_++, &data));
       } else {
+        buffer_index_++;
         data.reset(new Buffer(nullptr, 0));
       }
       return MakePrimitiveArray(
           type, field_meta.length, data, field_meta.null_count, null_bitmap, out);
     }
+
     if (IsListType(type.get())) {
       std::shared_ptr<Buffer> offsets;
-      if (field_meta.length > 0) {
-        RETURN_NOT_OK(GetBuffer(buffer_index_++, &offsets));
-      } else {
-        offsets.reset(new Buffer(nullptr, 0));
-      }
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &offsets));
       const int num_children = type->num_children();
       if (num_children != 1) {
         std::stringstream ss;

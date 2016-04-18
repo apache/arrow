@@ -79,10 +79,10 @@ Status MakeRandomInt32Array(
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-    MemoryPool* pool, std::shared_ptr<Array>* array) {
+    bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* array) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
-  const double null_percent = 0.1;
+  const double null_percent = include_nulls ? 0.1 : 0;
   test::random_null_bytes(num_lists, null_percent, valid_lists.data());
 
   // Create list offsets
@@ -92,19 +92,20 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   std::vector<int32_t> offsets(
       num_lists + 1, 0);  // +1 so we can shift for nulls. See partial sum below.
   const int seed = child_array->length();
-  test::rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
-  // make sure sizes are consistent with null
-  std::transform(list_sizes.begin(), list_sizes.end(), valid_lists.begin(),
-      list_sizes.begin(),
-      [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
-  std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
+  if (num_lists > 0) {
+    test::rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
+    // make sure sizes are consistent with null
+    std::transform(list_sizes.begin(), list_sizes.end(), valid_lists.begin(),
+        list_sizes.begin(),
+        [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
+    std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
-  // Force invariants
-  const int child_length = child_array->length();
-  offsets[0] = 0;
-  std::replace_if(offsets.begin(), offsets.end(),
-      [child_length](int32_t offset) { return offset > child_length; }, child_length);
-
+    // Force invariants
+    const int child_length = child_array->length();
+    offsets[0] = 0;
+    std::replace_if(offsets.begin(), offsets.end(),
+        [child_length](int32_t offset) { return offset > child_length; }, child_length);
+  }
   ListBuilder builder(pool, child_array);
   RETURN_NOT_OK(builder.Append(offsets.data(), num_lists, valid_lists.data()));
   *array = builder.Finish();

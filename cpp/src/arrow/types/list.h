@@ -142,8 +142,7 @@ class ListBuilder : public ArrayBuilder {
     std::shared_ptr<Array> items = values_;
     if (!items) { items = value_builder_->Finish(); }
 
-    // Add final offset if the length is non-zero
-    if (length_) { offset_builder_.UnsafeAppend<int32_t>(items->length()); }
+    offset_builder_.Append<int32_t>(items->length());
 
     const auto offsets_buffer = offset_builder_.Finish();
     auto result = std::make_shared<Container>(
