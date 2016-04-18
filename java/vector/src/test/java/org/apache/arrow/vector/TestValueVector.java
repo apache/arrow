@@ -23,16 +23,12 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
 
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.RepeatedListVector;
 import org.apache.arrow.vector.complex.RepeatedMapVector;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.util.BasicTypeHelper;
-import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.holders.BitHolder;
 import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -44,10 +40,16 @@ import org.apache.arrow.vector.holders.RepeatedIntHolder;
 import org.apache.arrow.vector.holders.RepeatedVarBinaryHolder;
 import org.apache.arrow.vector.holders.UInt4Holder;
 import org.apache.arrow.vector.holders.VarCharHolder;
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.types.MaterializedField;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.util.BasicTypeHelper;
+import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExternalResource;
 
 
 public class TestValueVector {
@@ -56,6 +58,28 @@ public class TestValueVector {
   private final static String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
+
+  // Rule to adjust MAX_ALLOCATION_SIZE and restore it back after the tests
+  @Rule
+  public final ExternalResource rule = new ExternalResource() {
+    private final String systemValue = System.getProperty(BaseValueVector.MAX_ALLOCATION_SIZE_PROPERTY);
+    private final String testValue = Long.toString(32*1024*1024);
+
+    @Override
+    protected void before() throws Throwable {
+      System.setProperty(BaseValueVector.MAX_ALLOCATION_SIZE_PROPERTY, testValue);
+    }
+
+    @Override
+    protected void after() {
+      if (systemValue != null) {
+        System.setProperty(BaseValueVector.MAX_ALLOCATION_SIZE_PROPERTY, systemValue);
+      }
+      else {
+        System.clearProperty(BaseValueVector.MAX_ALLOCATION_SIZE_PROPERTY);
+      }
+    }
+  };
 
   @Before
   public void init() {
