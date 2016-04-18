@@ -17,8 +17,8 @@
 
 #include "arrow/ipc/metadata.h"
 
-#include <flatbuffers/flatbuffers.h>
 #include <cstdint>
+#include <flatbuffers/flatbuffers.h>
 #include <memory>
 #include <vector>
 

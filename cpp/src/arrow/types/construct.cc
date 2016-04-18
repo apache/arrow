@@ -20,8 +20,8 @@
 #include <memory>
 
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"

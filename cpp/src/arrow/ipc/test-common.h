@@ -26,8 +26,8 @@
 
 #include "arrow/array.h"
 #include "arrow/test-util.h"
-#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 
@@ -47,6 +47,12 @@ class MemoryMapFixture {
     if (file != nullptr) { tmp_files_.push_back(path); }
     ftruncate(fileno(file), size);
     fclose(file);
+  }
+
+  Status InitMemoryMap(
+      int64_t size, const std::string& path, std::shared_ptr<MemoryMappedSource>* mmap) {
+    CreateFile(path, size);
+    return MemoryMappedSource::Open(path, MemorySource::READ_WRITE, mmap);
   }
 
  private:

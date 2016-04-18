@@ -27,10 +27,10 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/type.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"

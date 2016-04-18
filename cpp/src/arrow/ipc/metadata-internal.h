@@ -18,8 +18,8 @@
 #ifndef ARROW_IPC_METADATA_INTERNAL_H
 #define ARROW_IPC_METADATA_INTERNAL_H
 
-#include <flatbuffers/flatbuffers.h>
 #include <cstdint>
+#include <flatbuffers/flatbuffers.h>
 #include <memory>
 #include <vector>
 

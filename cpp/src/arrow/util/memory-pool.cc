@@ -18,8 +18,8 @@
 #include "arrow/util/memory-pool.h"
 
 #include <cstdlib>
-#include <sstream>
 #include <mutex>
+#include <sstream>
 
 #include "arrow/util/status.h"
 

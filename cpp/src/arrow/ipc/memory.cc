@@ -17,7 +17,6 @@
 
 #include "arrow/ipc/memory.h"
 
-#include <sys/mman.h>  // For memory-mapping
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
@@ -25,6 +24,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <sys/mman.h>  // For memory-mapping
 
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"

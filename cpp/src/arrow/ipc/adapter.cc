@@ -23,16 +23,16 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/ipc/memory.h"
 #include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/metadata.h"
+#include "arrow/ipc/memory.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/metadata.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/types/construct.h"
-#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
@@ -90,7 +90,8 @@ static bool IsListType(const DataType* type) {
 // Row batch write path
 
 Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes,
-    std::vector<std::shared_ptr<Buffer>>* buffers) {
+    std::vector<std::shared_ptr<Buffer>>* buffers, int max_recursion_depth) {
+  if (max_recursion_depth <= 0) { return Status::Invalid("Max recursion depth reached"); }
   DCHECK(arr);
   DCHECK(field_nodes);
   // push back all common elements
@@ -109,8 +110,8 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   } else if (IsListType(arr_type)) {
     const ListArray* list_arr = static_cast<const ListArray*>(arr);
     buffers->push_back(list_arr->offset_buffer());
-    // TODO(emkornfield) limit recursion depth
-    RETURN_NOT_OK(VisitArray(list_arr->values().get(), field_nodes, buffers));
+    RETURN_NOT_OK(VisitArray(
+        list_arr->values().get(), field_nodes, buffers, max_recursion_depth - 1));
   } else if (arr->type_enum() == Type::STRUCT) {
     // TODO(wesm)
     return Status::NotImplemented("Struct type");
@@ -120,13 +121,14 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
 
 class RowBatchWriter {
  public:
-  explicit RowBatchWriter(const RowBatch* batch) : batch_(batch) {}
+  RowBatchWriter(const RowBatch* batch, int max_recursion_depth)
+      : batch_(batch), max_recursion_depth_(max_recursion_depth) {}
 
   Status AssemblePayload() {
     // Perform depth-first traversal of the row-batch
     for (int i = 0; i < batch_->num_columns(); ++i) {
       const Array* arr = batch_->column(i).get();
-      RETURN_NOT_OK(VisitArray(arr, &field_nodes_, &buffers_));
+      RETURN_NOT_OK(VisitArray(arr, &field_nodes_, &buffers_, max_recursion_depth_));
     }
     return Status::OK();
   }
@@ -197,11 +199,13 @@ class RowBatchWriter {
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
   std::vector<std::shared_ptr<Buffer>> buffers_;
+  int max_recursion_depth_;
 };
 
-Status WriteRowBatch(
-    MemorySource* dst, const RowBatch* batch, int64_t position, int64_t* header_offset) {
-  RowBatchWriter serializer(batch);
+Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
+    int64_t* header_offset, int max_recursion_depth) {
+  DCHECK(max_recursion_depth > 0);
+  RowBatchWriter serializer(batch, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, position, header_offset);
 }
@@ -212,8 +216,9 @@ static constexpr int64_t INIT_METADATA_SIZE = 4096;
 
 class RowBatchReader::Impl {
  public:
-  Impl(MemorySource* source, const std::shared_ptr<RecordBatchMessage>& metadata)
-      : source_(source), metadata_(metadata) {
+  Impl(MemorySource* source, const std::shared_ptr<RecordBatchMessage>& metadata,
+      int max_recursion_depth)
+      : source_(source), metadata_(metadata), max_recursion_depth_(max_recursion_depth) {
     num_buffers_ = metadata->num_buffers();
     num_flattened_fields_ = metadata->num_fields();
   }
@@ -229,7 +234,7 @@ class RowBatchReader::Impl {
     buffer_index_ = 0;
     for (int i = 0; i < schema->num_fields(); ++i) {
       const Field* field = schema->field(i).get();
-      RETURN_NOT_OK(NextArray(field, &arrays[i]));
+      RETURN_NOT_OK(NextArray(field, max_recursion_depth_, &arrays[i]));
     }
 
     *out = std::make_shared<RowBatch>(schema, metadata_->length(), arrays);
@@ -239,8 +244,12 @@ class RowBatchReader::Impl {
  private:
   // Traverse the flattened record batch metadata and reassemble the
   // corresponding array containers
-  Status NextArray(const Field* field, std::shared_ptr<Array>* out) {
+  Status NextArray(
+      const Field* field, int max_recursion_depth, std::shared_ptr<Array>* out) {
     const TypePtr& type = field->type;
+    if (max_recursion_depth <= 0) {
+      return Status::Invalid("Max recursion depth reached");
+    }
 
     // pop off a field
     if (field_index_ >= num_flattened_fields_) {
@@ -286,8 +295,8 @@ class RowBatchReader::Impl {
         return Status::Invalid(ss.str());
       }
       std::shared_ptr<Array> values_array;
-      // TODO(emkornfield): limit recursion depth?
-      RETURN_NOT_OK(NextArray(type->child(0).get(), &values_array));
+      RETURN_NOT_OK(
+          NextArray(type->child(0).get(), max_recursion_depth - 1, &values_array));
       return MakeListArray(type, field_meta.length, offsets, values_array,
           field_meta.null_count, null_bitmap, out);
     }
@@ -304,12 +313,18 @@ class RowBatchReader::Impl {
 
   int field_index_;
   int buffer_index_;
+  int max_recursion_depth_;
   int num_buffers_;
   int num_flattened_fields_;
 };
 
 Status RowBatchReader::Open(
     MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out) {
+  return Open(source, position, kMaxIpcRecursionDepth, out);
+}
+
+Status RowBatchReader::Open(MemorySource* source, int64_t position,
+    int max_recursion_depth, std::shared_ptr<RowBatchReader>* out) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(source->ReadAt(position, INIT_METADATA_SIZE, &metadata));
 
@@ -334,7 +349,7 @@ Status RowBatchReader::Open(
   std::shared_ptr<RecordBatchMessage> batch_meta = message->GetRecordBatch();
 
   std::shared_ptr<RowBatchReader> result(new RowBatchReader());
-  result->impl_.reset(new Impl(source, batch_meta));
+  result->impl_.reset(new Impl(source, batch_meta, max_recursion_depth));
   *out = result;
 
   return Status::OK();

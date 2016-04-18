@@ -52,29 +52,23 @@ class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
   void SetUp() { pool_ = default_memory_pool(); }
   void TearDown() { MemoryMapFixture::TearDown(); }
 
-  Status InitMemoryMap(int64_t size) {
-    std::string path = "test-write-row-batch";
-    MemoryMapFixture::CreateFile(path, size);
-    return MemoryMappedSource::Open(path, MemorySource::READ_WRITE, &mmap_);
-  }
-
   Status RoundTripHelper(const RowBatch& batch, int memory_map_size,
       std::shared_ptr<RowBatch>* batch_result) {
-    InitMemoryMap(memory_map_size);
+    std::string path = "test-write-row-batch";
+    MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
     int64_t header_location;
     RETURN_NOT_OK(WriteRowBatch(mmap_.get(), &batch, 0, &header_location));
 
     std::shared_ptr<RowBatchReader> reader;
     RETURN_NOT_OK(RowBatchReader::Open(mmap_.get(), header_location, &reader));
 
-    // TODO(emkornfield): why does this require a smart pointer for schema?
     RETURN_NOT_OK(reader->GetRowBatch(batch.schema(), batch_result));
     return Status::OK();
   }
 
  protected:
-  MemoryPool* pool_;
   std::shared_ptr<MemoryMappedSource> mmap_;
+  MemoryPool* pool_;
 };
 
 TEST_P(TestWriteRowBatch, RoundTrip) {
@@ -131,8 +125,82 @@ Status MakeListRowBatch(std::shared_ptr<RowBatch>* out) {
   return Status::OK();
 }
 
+Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
+  const int batch_length = 5;
+  TypePtr type = INT32;
+
+  MemoryPool* pool = default_memory_pool();
+  ArrayPtr array;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, true, pool, &array));
+  for (int i = 0; i < 63; ++i) {
+    type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
+    RETURN_NOT_OK(MakeRandomListArray(array, batch_length, pool, &array));
+  }
+
+  auto f0 = std::make_shared<Field>("f0", type);
+  std::shared_ptr<Schema> schema(new Schema({f0}));
+  std::vector<ArrayPtr> arrays = {array};
+  out->reset(new RowBatch(schema, batch_length, arrays));
+  return Status::OK();
+}
+
 INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
-    ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch));
+    ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeDeeplyNestedList));
+
+class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { MemoryMapFixture::TearDown(); }
+
+  Status WriteToMmap(int recursion_level, bool override_level,
+      int64_t* header_out = nullptr, std::shared_ptr<Schema>* schema_out = nullptr) {
+    const int batch_length = 5;
+    TypePtr type = INT32;
+    ArrayPtr array;
+    RETURN_NOT_OK(MakeRandomInt32Array(1000, true, pool_, &array));
+    for (int i = 0; i < recursion_level; ++i) {
+      type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
+      RETURN_NOT_OK(MakeRandomListArray(array, batch_length, pool_, &array));
+    }
+
+    auto f0 = std::make_shared<Field>("f0", type);
+    std::shared_ptr<Schema> schema(new Schema({f0}));
+    if (schema_out != nullptr) { *schema_out = schema; }
+    std::vector<ArrayPtr> arrays = {array};
+    auto batch = std::make_shared<RowBatch>(schema, batch_length, arrays);
+
+    std::string path = "test-write-past-max-recursion";
+    const int memory_map_size = 1 << 16;
+    MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+    int64_t header_location;
+    int64_t* header_out_param = header_out == nullptr ? &header_location : header_out;
+    if (override_level) {
+      return WriteRowBatch(
+          mmap_.get(), batch.get(), 0, header_out_param, recursion_level + 1);
+    } else {
+      return WriteRowBatch(mmap_.get(), batch.get(), 0, header_out_param);
+    }
+  }
+
+ protected:
+  std::shared_ptr<MemoryMappedSource> mmap_;
+  MemoryPool* pool_;
+};
+
+TEST_F(RecursionLimits, WriteLimit) {
+  ASSERT_RAISES(Invalid, WriteToMmap((1 << 8) + 1, false));
+}
+
+TEST_F(RecursionLimits, ReadLimit) {
+  int64_t header_location;
+  std::shared_ptr<Schema> schema;
+  ASSERT_OK(WriteToMmap(64, true, &header_location, &schema));
+
+  std::shared_ptr<RowBatchReader> reader;
+  ASSERT_OK(RowBatchReader::Open(mmap_.get(), header_location, &reader));
+  std::shared_ptr<RowBatch> batch_result;
+  ASSERT_RAISES(Invalid, reader->GetRowBatch(schema, &batch_result));
+}
 
 // TODO(emkornfield) More tests
 // Test primitive and lists with zero elements

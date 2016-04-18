@@ -17,9 +17,9 @@
 
 #include "arrow/ipc/metadata-internal.h"
 
-#include <flatbuffers/flatbuffers.h>
 #include <cstdint>
 #include <cstring>
+#include <flatbuffers/flatbuffers.h>
 #include <memory>
 #include <sstream>
 #include <string>

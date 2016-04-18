@@ -18,8 +18,8 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
-#include <iostream>
 #include <cstdlib>
+#include <iostream>
 
 namespace arrow {
 
@@ -118,9 +118,9 @@ class CerrLog {
 class FatalLog : public CerrLog {
  public:
   FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL) {}
+      : CerrLog(ARROW_FATAL){}
 
-  [[noreturn]] ~FatalLog() {
+            [[noreturn]] ~FatalLog() {
     if (has_logged_) { std::cerr << std::endl; }
     std::exit(1);
   }
