@@ -149,29 +149,13 @@ class RowBatchWriter {
   }
 
   // This must be called after invoking AssemblePayload
-  Status DataHeaderSize(int64_t* size) {
+  Status GetTotalSize(int64_t* size) {
     // emulates the behavior of Write without actually writing
-    int64_t offset = 0;
-    for (size_t i = 0; i < buffers_.size(); ++i) {
-      const Buffer* buffer = buffers_[i].get();
-      offset += buffer->size();
-      buffer_meta_.push_back(flatbuf::Buffer(0, 0, 0));
-    }
-    std::shared_ptr<Buffer> data_header;
-    RETURN_NOT_OK(WriteDataHeader(
-        batch_->num_rows(), offset, field_nodes_, buffer_meta_, &data_header));
-    *size = data_header->size();
+    int64_t data_header_offset;
+    MockMemorySource source(0);
+    RETURN_NOT_OK(Write(&source, 0, &data_header_offset));
+    *size = source.Position();
     return Status::OK();
-  }
-
-  // Total footprint of buffers. This must be called after invoking
-  // AssemblePayload
-  int64_t TotalBytes() {
-    int64_t total = 0;
-    for (const std::shared_ptr<Buffer>& buffer : buffers_) {
-      total += buffer->size();
-    }
-    return total;
   }
 
  private:
@@ -192,8 +176,7 @@ Status WriteRowBatch(
 Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
   RowBatchWriter serializer(batch);
   RETURN_NOT_OK(serializer.AssemblePayload());
-  RETURN_NOT_OK(serializer.DataHeaderSize(size));
-  *size += serializer.TotalBytes();
+  RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }
 

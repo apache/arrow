@@ -144,7 +144,7 @@ Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t 
   return Status::OK();
 }
 
-MockMemorySource::MockMemorySource(int64_t size) : size_(size) {}
+MockMemorySource::MockMemorySource(int64_t size) : size_(size), pos_(0) {}
 
 Status MockMemorySource::Close() {
   return Status::OK();
@@ -156,7 +156,7 @@ Status MockMemorySource::ReadAt(
 }
 
 Status MockMemorySource::Write(int64_t position, const uint8_t* data, int64_t nbytes) {
-  pos_ = position + nbytes;
+  pos_ = std::max(pos_, position + nbytes);
   return Status::OK();
 }
 
