@@ -57,12 +57,14 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     }
     return true;
   } else {
+    if (length_ == 0 && other.length_ == 0) { return true; }
     return data_->Equals(*other.data_, length_);
   }
 }
 
 bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
@@ -102,45 +104,18 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Reserve(int32_t elements) {
-  if (length_ + elements > capacity_) {
-    int32_t new_capacity = util::next_power2(length_ + elements);
-    return Resize(new_capacity);
-  }
-  return Status::OK();
-}
-
-template <typename T>
 Status PrimitiveBuilder<T>::Append(
     const value_type* values, int32_t length, const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(PrimitiveBuilder<T>::Reserve(length));
+  RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
     memcpy(raw_data_ + length_, values, type_traits<T>::bytes_required(length));
   }
 
-  if (valid_bytes != nullptr) {
-    PrimitiveBuilder<T>::AppendNulls(valid_bytes, length);
-  } else {
-    for (int i = 0; i < length; ++i) {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
 
-  length_ += length;
   return Status::OK();
-}
-
-template <typename T>
-void PrimitiveBuilder<T>::AppendNulls(const uint8_t* valid_bytes, int32_t length) {
-  // If valid_bytes is all not null, then none of the values are null
-  for (int i = 0; i < length; ++i) {
-    if (valid_bytes[i] == 0) {
-      ++null_count_;
-    } else {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
 }
 
 template <typename T>
@@ -166,14 +141,8 @@ Status PrimitiveBuilder<BooleanType>::Append(
     }
   }
 
-  if (valid_bytes != nullptr) {
-    PrimitiveBuilder<BooleanType>::AppendNulls(valid_bytes, length);
-  } else {
-    for (int i = 0; i < length; ++i) {
-      util::set_bit(null_bitmap_data_, length_ + i);
-    }
-  }
-  length_ += length;
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
 }
 

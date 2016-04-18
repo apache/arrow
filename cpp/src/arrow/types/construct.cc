@@ -20,8 +20,8 @@
 #include <memory>
 
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
@@ -60,11 +60,10 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
-
       const std::shared_ptr<DataType>& value_type =
           static_cast<ListType*>(type.get())->value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
-      out->reset(new ListBuilder(pool, type, value_builder));
+      out->reset(new ListBuilder(pool, value_builder));
       return Status::OK();
     }
     default:
@@ -75,11 +74,11 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
   case Type::ENUM:                                                          \
     out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
-    return Status::OK();
+    break;
 
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
+Status MakePrimitiveArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
+    const std::shared_ptr<Buffer>& null_bitmap, ArrayPtr* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);
@@ -90,11 +89,43 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     MAKE_PRIMITIVE_ARRAY_CASE(INT32, Int32Array);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT64, UInt64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(INT64, Int64Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, Int64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(FLOAT, FloatArray);
     MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
+    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP_DOUBLE, DoubleArray);
     default:
       return Status::NotImplemented(type->ToString());
   }
+#ifdef NDEBUG
+  return Status::OK();
+#else
+  return (*out)->Validate();
+#endif
+}
+
+Status MakeListArray(const TypePtr& type, int32_t length,
+    const std::shared_ptr<Buffer>& offsets, const ArrayPtr& values, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap, ArrayPtr* out) {
+  switch (type->type) {
+    case Type::BINARY:
+    case Type::LIST:
+      out->reset(new ListArray(type, length, offsets, values, null_count, null_bitmap));
+      break;
+    case Type::CHAR:
+    case Type::DECIMAL_TEXT:
+    case Type::STRING:
+    case Type::VARCHAR:
+      out->reset(new StringArray(type, length, offsets, values, null_count, null_bitmap));
+      break;
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+#ifdef NDEBUG
+  return Status::OK();
+#else
+  return (*out)->Validate();
+#endif
 }
 
 }  // namespace arrow

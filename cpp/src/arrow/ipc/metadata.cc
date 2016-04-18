@@ -17,10 +17,11 @@
 
 #include "arrow/ipc/metadata.h"
 
-#include <flatbuffers/flatbuffers.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
+
+#include "flatbuffers/flatbuffers.h"
 
 // Generated C++ flatbuffer IDL
 #include "arrow/ipc/Message_generated.h"

@@ -38,7 +38,9 @@ class RecordBatchMessage;
 
 // ----------------------------------------------------------------------
 // Write path
-
+// We have trouble decoding flatbuffers if the size i > 70, so 64 is a nice round number
+// TODO(emkornfield) investigate this more
+constexpr int kMaxIpcRecursionDepth = 64;
 // Write the RowBatch (collection of equal-length Arrow arrays) to the memory
 // source at the indicated position
 //
@@ -52,8 +54,8 @@ class RecordBatchMessage;
 //
 // Finally, the memory offset to the start of the metadata / data header is
 // returned in an out-variable
-Status WriteRowBatch(
-    MemorySource* dst, const RowBatch* batch, int64_t position, int64_t* header_offset);
+Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
+    int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRowBatchMetadata(const RowBatch* batch);
 
@@ -69,6 +71,9 @@ class RowBatchReader {
  public:
   static Status Open(
       MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out);
+
+  static Status Open(MemorySource* source, int64_t position, int max_recursion_depth,
+      std::shared_ptr<RowBatchReader>* out);
 
   // Reassemble the row batch. A Schema is required to be able to construct the
   // right array containers

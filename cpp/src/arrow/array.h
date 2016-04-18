@@ -28,6 +28,7 @@
 namespace arrow {
 
 class Buffer;
+class Status;
 
 // Immutable data array with some logical type and some length. Any memory is
 // owned by the respective Buffer instance (or its parents).
@@ -39,7 +40,7 @@ class Array {
   Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
-  virtual ~Array() {}
+  virtual ~Array() = default;
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
@@ -58,6 +59,9 @@ class Array {
 
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
+  // Determines if the array is internally consistent.  Defaults to always
+  // returning Status::OK.  This can be an expensive check.
+  virtual Status Validate() const;
 
  protected:
   std::shared_ptr<DataType> type_;

@@ -25,6 +25,25 @@
 
 namespace arrow {
 
+Status ArrayBuilder::AppendToBitmap(bool is_valid) {
+  if (length_ == capacity_) {
+    // If the capacity was not already a multiple of 2, do so here
+    // TODO(emkornfield) doubling isn't great default allocation practice
+    // see https://github.com/facebook/folly/blob/master/folly/docs/FBVector.md
+    // fo discussion
+    RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
+  }
+  UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
+}
+
+Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
+  RETURN_NOT_OK(Reserve(length));
+
+  UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
 Status ArrayBuilder::Init(int32_t capacity) {
   capacity_ = capacity;
   int32_t to_alloc = util::ceil_byte(capacity) / 8;
@@ -36,6 +55,7 @@ Status ArrayBuilder::Init(int32_t capacity) {
 }
 
 Status ArrayBuilder::Resize(int32_t new_bits) {
+  if (!null_bitmap_) { return Init(new_bits); }
   int32_t new_bytes = util::ceil_byte(new_bits) / 8;
   int32_t old_bytes = null_bitmap_->size();
   RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
@@ -56,10 +76,46 @@ Status ArrayBuilder::Advance(int32_t elements) {
 
 Status ArrayBuilder::Reserve(int32_t elements) {
   if (length_ + elements > capacity_) {
+    // TODO(emkornfield) power of 2 growth is potentially suboptimal
     int32_t new_capacity = util::next_power2(length_ + elements);
     return Resize(new_capacity);
   }
   return Status::OK();
+}
+
+Status ArrayBuilder::SetNotNull(int32_t length) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeSetNotNull(length);
+  return Status::OK();
+}
+
+void ArrayBuilder::UnsafeAppendToBitmap(bool is_valid) {
+  if (is_valid) {
+    util::set_bit(null_bitmap_data_, length_);
+  } else {
+    ++null_count_;
+  }
+  ++length_;
+}
+
+void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
+  if (valid_bytes == nullptr) {
+    UnsafeSetNotNull(length);
+    return;
+  }
+  for (int32_t i = 0; i < length; ++i) {
+    // TODO(emkornfield) Optimize for large values of length?
+    UnsafeAppendToBitmap(valid_bytes[i] > 0);
+  }
+}
+
+void ArrayBuilder::UnsafeSetNotNull(int32_t length) {
+  const int32_t new_length = length + length_;
+  // TODO(emkornfield) Optimize for large values of length?
+  for (int32_t i = length_; i < new_length; ++i) {
+    util::set_bit(null_bitmap_data_, i);
+  }
+  length_ = new_length;
 }
 
 }  // namespace arrow

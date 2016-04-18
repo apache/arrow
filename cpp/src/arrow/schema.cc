@@ -18,8 +18,8 @@
 #include "arrow/schema.h"
 
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "arrow/type.h"
