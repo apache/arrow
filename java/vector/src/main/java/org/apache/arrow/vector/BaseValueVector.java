@@ -17,12 +17,7 @@
  */
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.util.Iterator;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.MaterializedField;
@@ -30,10 +25,16 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
+
+import io.netty.buffer.ArrowBuf;
+
 public abstract class BaseValueVector implements ValueVector {
   private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
-  public static final int MAX_ALLOCATION_SIZE = Integer.MAX_VALUE;
+  public static final String MAX_ALLOCATION_SIZE_PROPERTY = "arrow.vector.max_allocation_bytes";
+  public static final int MAX_ALLOCATION_SIZE = Integer.getInteger(MAX_ALLOCATION_SIZE_PROPERTY, Integer.MAX_VALUE);
   public static final int INITIAL_VALUE_ALLOCATION = 4096;
 
   protected final BufferAllocator allocator;
@@ -99,6 +100,7 @@ public abstract class BaseValueVector implements ValueVector {
     public void generateTestData(int values) {}
 
     //TODO: consider making mutator stateless(if possible) on another issue.
+    @Override
     public void reset() {}
   }
 
