@@ -103,12 +103,12 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
     buffers->push_back(std::make_shared<Buffer>(nullptr, 0));
   }
 
-  const auto arr_type = arr->type().get();
+  const DataType* arr_type = arr->type().get();
   if (IsPrimitive(arr_type)) {
-    const PrimitiveArray* prim_arr = static_cast<const PrimitiveArray*>(arr);
+    const auto prim_arr = static_cast<const PrimitiveArray*>(arr);
     buffers->push_back(prim_arr->data());
   } else if (IsListType(arr_type)) {
-    const ListArray* list_arr = static_cast<const ListArray*>(arr);
+    const auto list_arr = static_cast<const ListArray*>(arr);
     buffers->push_back(list_arr->offset_buffer());
     RETURN_NOT_OK(VisitArray(
         list_arr->values().get(), field_nodes, buffers, max_recursion_depth - 1));
@@ -142,9 +142,7 @@ class RowBatchWriter {
       int64_t size = 0;
 
       // The buffer might be null if we are handling zero row lengths.
-      if (buffer) {
-        size = buffer->size();
-      }
+      if (buffer) { size = buffer->size(); }
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
       // future. Use page=0 for now
@@ -154,7 +152,7 @@ class RowBatchWriter {
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
       buffer_meta_.push_back(flatbuf::Buffer(0, position + offset, size));
-      
+
       if (size > 0) {
         RETURN_NOT_OK(dst->Write(position + offset, buffer->data(), size));
         offset += size;

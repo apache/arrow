@@ -119,8 +119,10 @@ Status MakeListRowBatch(std::shared_ptr<RowBatch>* out) {
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
-  RETURN_NOT_OK(MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(
+      MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
+  RETURN_NOT_OK(
+      MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
   out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
   return Status::OK();
@@ -140,7 +142,8 @@ Status MakeZeroLengthRowBatch(std::shared_ptr<RowBatch>* out) {
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &leaf_values));
   RETURN_NOT_OK(MakeRandomListArray(leaf_values, 0, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(MakeRandomListArray(list_array, 0, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(
+      MakeRandomListArray(list_array, 0, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
   out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
   return Status::OK();
@@ -157,11 +160,12 @@ Status MakeNonNullRowBatch(std::shared_ptr<RowBatch>* out) {
   MemoryPool* pool = default_memory_pool();
   const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
-  
+
   RETURN_NOT_OK(MakeRandomInt32Array(1000, true, pool, &leaf_values));
-  bool include_nulls = false; 
+  bool include_nulls = false;
   RETURN_NOT_OK(MakeRandomListArray(leaf_values, 50, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(MakeRandomListArray(list_array, 50, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(
+      MakeRandomListArray(list_array, 50, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
   out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
   return Status::OK();
@@ -188,8 +192,8 @@ Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
 }
 
 INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
-    ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch, &MakeZeroLengthRowBatch, 
-        &MakeDeeplyNestedList));
+    ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
+                            &MakeZeroLengthRowBatch, &MakeDeeplyNestedList));
 
 class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
  public:
@@ -205,7 +209,8 @@ class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
     RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool_, &array));
     for (int i = 0; i < recursion_level; ++i) {
       type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
-      RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool_, &array));
+      RETURN_NOT_OK(
+          MakeRandomListArray(array, batch_length, include_nulls, pool_, &array));
     }
 
     auto f0 = std::make_shared<Field>("f0", type);
@@ -247,9 +252,5 @@ TEST_F(RecursionLimits, ReadLimit) {
   ASSERT_RAISES(Invalid, reader->GetRowBatch(schema, &batch_result));
 }
 
-// TODO(emkornfield) More tests
-// Test primitive and lists with zero elements
-// Tests lists and primitives with no nulls
-// String  type
 }  // namespace ipc
 }  // namespace arrow

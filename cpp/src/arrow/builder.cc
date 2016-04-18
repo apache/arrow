@@ -105,7 +105,7 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t leng
   }
   for (int32_t i = 0; i < length; ++i) {
     // TODO(emkornfield) Optimize for large values of length?
-    AppendToBitmap(valid_bytes[i] > 0);
+    UnsafeAppendToBitmap(valid_bytes[i] > 0);
   }
 }
 

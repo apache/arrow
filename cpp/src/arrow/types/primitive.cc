@@ -57,9 +57,7 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     }
     return true;
   } else {
-    if (length_ == 0 && other.length_ == 0) {
-      return true;
-    }
+    if (length_ == 0 && other.length_ == 0) { return true; }
     return data_->Equals(*other.data_, length_);
   }
 }

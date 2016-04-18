@@ -24,10 +24,9 @@ bool ListArray::EqualsExact(const ListArray& other) const {
   if (this == &other) { return true; }
   if (null_count_ != other.null_count_) { return false; }
 
-  bool equal_offsets = offset_buf_->Equals(*other.offset_buf_, (length_ + 1) * sizeof(int32_t));
-  if (!equal_offsets) {
-    return false;
-  }
+  bool equal_offsets =
+      offset_buf_->Equals(*other.offset_buf_, (length_ + 1) * sizeof(int32_t));
+  if (!equal_offsets) { return false; }
   bool equal_null_bitmap = true;
   if (null_count_ > 0) {
     equal_null_bitmap =
@@ -47,9 +46,7 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
 
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
-  if (!offset_buf_) {
-    return Status::Invalid("offset_buf_ was null");
-  }
+  if (!offset_buf_) { return Status::Invalid("offset_buf_ was null"); }
   if (offset_buf_->size() / sizeof(int32_t) < length_) {
     std::stringstream ss;
     ss << "offset buffer size (bytes): " << offset_buf_->size()
