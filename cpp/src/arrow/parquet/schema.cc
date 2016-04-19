@@ -21,8 +21,8 @@
 
 #include "parquet/api/schema.h"
 
-#include "arrow/util/status.h"
 #include "arrow/types/decimal.h"
+#include "arrow/util/status.h"
 
 using parquet::schema::Node;
 using parquet::schema::NodePtr;

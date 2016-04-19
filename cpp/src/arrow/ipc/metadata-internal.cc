@@ -17,12 +17,13 @@
 
 #include "arrow/ipc/metadata-internal.h"
 
-#include <flatbuffers/flatbuffers.h>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
+
+#include "flatbuffers/flatbuffers.h"
 
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/schema.h"

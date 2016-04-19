@@ -9,7 +9,7 @@ concepts, here is a small glossary to help disambiguate.
 * Slot or array slot: a single logical value in an array of some particular data type
 * Contiguous memory region: a sequential virtual address space with a given
   length. Any byte can be reached via a single pointer offset less than the
-  region’s length.
+  region's length.
 * Primitive type: a data type that occupies a fixed-size memory slot specified
   in bit width or byte width
 * Nested or parametric type: a data type whose full structure depends on one or
@@ -42,7 +42,7 @@ Base requirements
 * Capable of representing fully-materialized and decoded / decompressed Parquet
   data
 * All leaf nodes (primitive value arrays) use contiguous memory regions
-* Any relative type can be have null slots
+* Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
   be built.
@@ -69,10 +69,14 @@ Base requirements
 * To define a selection or masking vector construct
 * Implementation-specific details
 * Details of a user or developer C/C++/Java API.
-* Any “table” structure composed of named arrays each having their own type or
+* Any "table" structure composed of named arrays each having their own type or
   any other structure that composes arrays.
 * Any memory management or reference counting subsystem
 * To enumerate or specify types of encodings or compression support
+
+## Byte Order (Endianness)
+
+The Arrow format is little endian.
 
 ## Array lengths
 
@@ -142,9 +146,59 @@ the size is rounded up to the nearest byte.
 The associated null bitmap is contiguously allocated (as described above) but
 does not need to be adjacent in memory to the values buffer.
 
-(diagram not to scale)
 
-<img src="diagrams/layout-primitive-array.png" width="400"/>
+### Example Layout: Int32 Array
+For example a primitive array of int32s:
+
+[1, 2, null, 4, 8]
+
+Would look like:
+
+```
+* Length: 5, Null count: 1
+* Null bitmap buffer:
+
+  |Byte 0 (validity bitmap) | Bytes 1-7             |
+  |-------------------------|-----------------------|
+  |00011011                 | 0 (padding)           |
+
+* Value Buffer:
+
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
+  |------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | unspecified | 4           | 8           |
+```
+
+### Example Layout: Non-null int32 Array
+
+[1, 2, 3, 4, 8] has two possible layouts:
+
+```
+* Length: 5, Null count: 0
+* Null bitmap buffer:
+
+  | Byte 0 (validity bitmap) | Bytes 1-7             |
+  |--------------------------|-----------------------|
+  | 00011111                 | 0 (padding)           |
+
+* Value Buffer:
+
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 |
+  |------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | 3           | 4           | 8           |
+```
+
+or with the bitmap elided:
+
+```
+* Length 5, Null count: 0
+* Null bitmap buffer: Not required
+* Value Buffer:
+
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 |
+  |------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | 3           | 4           | 8           |
+```
 
 ## List type
 
@@ -158,7 +212,7 @@ A list type is specified like `List<T>`, where `T` is any relative type
 A list-array is represented by the combination of the following:
 
 * A values array, a child array of type T. T may also be a nested type.
-* An offsets array containing 32-bit signed integers with length equal to the
+* An offsets buffer containing 32-bit signed integers with length equal to the
   length of the top-level array plus one. Note that this limits the size of the
   values array to 2^31 -1.
 
@@ -175,20 +229,76 @@ slot_length = offsets[j + 1] - offsets[j]  // (for 0 <= j < length)
 The first value in the offsets array is 0, and the last element is the length
 of the values array.
 
-Let’s consider an example, the type `List<Char>`, where Char is a 1-byte
+### Example Layout: `List<Char>` Array
+Let's consider an example, the type `List<Char>`, where Char is a 1-byte
 logical type.
 
-For an array of length 3 with respective values:
+For an array of length 4 with respective values:
 
-[[‘j’, ‘o’, ‘e’], null, [‘m’, ‘a’, ‘r’, ‘k’]]
+[['j', 'o', 'e'], null, ['m', 'a', 'r', 'k'], []]
 
-We have the following offsets and values arrays
+will have the following representation:
 
-<img src="diagrams/layout-list.png" width="400"/>
+```
+* Length: 4, Null count: 1
+* Null bitmap buffer:
 
-Let’s consider an array of a nested type, `List<List<byte>>`
+  | Byte 0 (validity bitmap) | Bytes 1-7             |
+  |--------------------------|-----------------------|
+  | 00001101                 | 0 (padding)           |
 
-<img src="diagrams/layout-list-of-list.png" width="400"/>
+* Offsets buffer (int32)
+
+  | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
+  |------------|-------------|-------------|-------------|-------------|
+  | 0          | 3           | 3           | 7           | 7           |
+
+* Values array (char array):
+  * Length: 7,  Null count: 0
+  * Null bitmap buffer: Not required
+
+    | Bytes 0-7  |
+    |------------|
+    | joemark    |
+```
+
+### Example Layout: `List<List<byte>>`
+[[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], [[9, 10]]]
+
+will be be represented as follows:
+
+```
+* Length 3
+* Nulls count: 0
+* Null bitmap buffer: Not required
+* Offsets buffer (int32)
+
+  | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
+  |------------|------------|------------|-------------|
+  | 0          |  2         |  6         |  7          |
+
+* Values array (`List<byte>`)
+  * Length: 6, Null count: 1
+  * Null bitmap buffer:
+
+    | Byte 0 (validity bitmap) | Bytes 1-7   |
+    |--------------------------|-------------|
+    | 00110111                 | 0 (padding) |
+
+  * Offsets buffer (int32)
+
+    | Bytes 0-28           |
+    |----------------------|
+    | 0, 2, 4, 7, 7, 8, 10 |
+
+  * Values array (bytes):
+    * Length: 10, Null count: 0
+    * Null bitmap buffer: Not required
+
+      | Bytes 0-9                     |
+      |-------------------------------|
+      | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
+```
 
 ## Struct type
 
@@ -198,7 +308,8 @@ types (which can all be distinct), called its fields.
 Typically the fields have names, but the names and their types are part of the
 type metadata, not the physical memory layout.
 
-A struct does not have any additional allocated physical storage.
+A struct array does not have any additional allocated physical storage for its values.
+A struct array must still have an allocated null bitmap, if it has one or more null values.
 
 Physically, a struct type has one child array for each field.
 
@@ -213,15 +324,67 @@ Struct <
 ```
 
 has two child arrays, one List<char> array (layout as above) and one 4-byte
-physical value array having Int32 logical type. Here is a diagram showing the
-full physical layout of this struct:
+primitive value array having Int32 logical type.
 
-<img src="diagrams/layout-list-of-struct.png" width="400"/>
+### Example Layout: `Struct<List<char>, Int32>`:
+The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
+
+```
+* Length: 4, Null count: 1
+* Null bitmap buffer:
+
+  | Byte 0 (validity bitmap) | Bytes 1-7   |
+  |--------------------------|-------------|
+  | 00001011                 | 0 (padding) |
+
+* Children arrays:
+  * field-0 array (`List<char>`):
+    * Length: 4, Null count: 1
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-7             |
+      |--------------------------|-----------------------|
+      | 00011101                 | 0 (padding)           |
+
+    * Offsets buffer:
+
+      | Bytes 0-19     |
+      |----------------|
+      | 0, 3, 3, 6, 10 |
+
+     * Values array:
+        * Length: 10, Null count: 0
+        * Null bitmap buffer: Not required
+
+        * Value buffer:
+
+          | Bytes 0-9      |
+          |----------------|
+          | joebobmark     |
+
+  * field-1 array (int32 array):
+    * Length: 4, Null count: 0
+    * Null bitmap buffer: Not required
+    * Value Buffer:
+
+      | Bytes 0-15     |
+      |----------------|
+      | 1, 2, 3, 4     |
+
+```
 
 While a struct does not have physical storage for each of its semantic slots
 (i.e. each scalar C-like struct), an entire struct slot can be set to null via
 the null bitmap. Any of the child field arrays can have null values according
 to their respective independent null bitmaps.
+This implies that for a particular struct slot the null bitmap for the struct
+array might indicate a null slot when one or more of its child arrays has a
+non-null value in their corresponding slot.  When reading the struct array the
+parent null bitmap is authoritative.
+This is illustrated in the example above, the child arrays have valid entries
+for the null struct but are 'hidden' from the consumer by the parent array's
+null bitmap.  However, when treated independently corresponding
+values of the children array will be non-null.
 
 ## Dense union type
 
@@ -237,23 +400,64 @@ cases. This first, the dense union, represents a mixed-type array with 6 bytes
 of overhead for each value. Its physical layout is as follows:
 
 * One child array for each relative type
-* Types array: An array of unsigned integers, enumerated from 0 corresponding
+* Types buffer: A buffer of unsigned integers, enumerated from 0 corresponding
   to each type, with the smallest byte width capable of representing the number
   of types in the union.
-* Offsets array: An array of signed int32 values indicating the relative offset
+* Offsets buffer: A buffer of signed int32 values indicating the relative offset
   into the respective child array for the type in a given slot. The respective
   offsets for each child value array must be in order / increasing.
 
-Alternate proposal (TBD): the types and offset values may be packed into an
-int48 with 2 bytes for the type and 4 bytes for the offset.
-
 Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (Union<s1: Struct1, s2:
-Struct2, s3: Struct3, …>)
+union-of-structs with non-overlapping-fields use case (`Union<s1: Struct1, s2:
+Struct2, s3: Struct3, ...>`)
 
-Here is a diagram of an example dense union:
+### Example Layout: Dense union
 
-<img src="diagrams/layout-dense-union.png" width="400"/>
+An example layout for logical union of:
+`Union<f: float, i: int32>` having the values:
+[{f=1.2}, null, {f=3.4}, {i=5}]
+
+```
+* Length: 4, Null count: 1
+* Null bitmap buffer:
+  |Byte 0 (validity bitmap) | Bytes 1-7             |
+  |-------------------------|-----------------------|
+  |00001101                 | 0 (padding)           |
+
+* Types buffer:
+
+  |Byte 0-1 | Byte 2-3    | Byte 4-5 | Byte 6-7 |
+  |---------|-------------|----------|----------|
+  | 0       | unspecified | 0        | 1        |
+
+* Offset buffer:
+
+  |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 |
+  |---------|-------------|-----------|------------|
+  | 0       | unspecified | 1         | 0          |
+
+* Children arrays:
+  * Field-0 array (f: float):
+    * Length: 2, nulls: 0
+    * Null bitmap buffer: Not required
+
+    * Value Buffer:
+
+      | Bytes 0-7 |
+      |-----------|
+      | 1.2, 3.4  |
+
+
+  * Field-1 array (f: float):
+    * Length: 1, nulls: 0
+    * Null bitmap buffer: Not required
+
+    * Value Buffer:
+
+      | Bytes 0-3 |
+      |-----------|
+      | 5         |
+```
 
 ## Sparse union type
 
@@ -264,14 +468,89 @@ the length of the union.
 While a sparse union may use significantly more space compared with a dense
 union, it has some advantages that may be desirable in certain use cases:
 
-<img src="diagrams/layout-sparse-union.png" width="400"/>
+* A sparse union is more amenable to vectorized expression evaluation in some use cases.
+* Equal-length arrays can be interpreted as a union by only defining the types array.
 
-More amenable to vectorized expression evaluation in some use cases.
-Equal-length arrays can be interpreted as a union by only defining the types array
+### Example layout: `SparseUnion<u0: Int32, u1: Float, u2: List<Char>>`
+
+For the union array:
+
+[{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, 'mark']
+
+will have the following layout:
+```
+* Length: 6, Null count: 0
+* Null bitmap buffer: Not required
+
+* Types buffer:
+
+ | Bytes 0-1  | Bytes 2-3   | Bytes 4-5   | Bytes 6-7   | Bytes 8-9   | Bytes 10-11  |
+ |------------|-------------|-------------|-------------|-------------|--------------|
+ | 0          | 1           | 2           | 1           | 0           | 2            |
+
+* Children arrays:
+
+  * u0 (Int32):
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |-------------------------|-----------------------|
+      |00010001                 | 0 (padding)           |
+
+    * Value buffer:
+
+      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
+      |------------|-------------|-------------|-------------|-------------|--------------|
+      | 1          | unspecified | unspecified | unspecified | 4           |  unspecified |
+
+  * u1 (float):
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |-------------------------|-----------------------|
+      |00001010                 | 0 (padding)           |
+
+    * Value buffer:
+
+      |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
+      |-------------|-------------|-------------|-------------|-------------|--------------|
+      | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified |
+
+  * u2 (`List<char>`)
+    * Length: 6, Null count: 4
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-7             |
+      |--------------------------|-----------------------|
+      | 00100100                 | 0 (padding)           |
+
+    * Offsets buffer (int32)
+
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
+      |------------|-------------|-------------|-------------|-------------|-------------|-------------|
+      | 0          | 0           | 0           | 3           | 3           | 3           | 7           |
+
+    * Values array (char array):
+      * Length: 7,  Null count: 0
+      * Null bitmap buffer: Not required
+
+        | Bytes 0-7  |
+        |------------|
+        | joemark    |
+```
 
 Note that nested types in a sparse union must be internally consistent
-(e.g. see the List in the diagram), i.e. random access at any index j yields
-the correct value.
+(e.g. see the List in the diagram), i.e. random access at any index j
+on any child array will not cause an error.
+In other words, the array for the nested type must be valid if it is
+reinterpreted as a non-nested array.
+
+Similar to structs, a particular child array may have a non-null slot
+even if the null bitmap of the parent union array indicates the slot is
+null.  Additionally, a child array may have a non-null slot even if
+the the types array indicates that a slot contains a different type at the index.
 
 ## References
 

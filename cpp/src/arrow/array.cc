@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "arrow/util/buffer.h"
+#include "arrow/util/status.h"
 
 namespace arrow {
 
@@ -45,6 +46,10 @@ bool Array::EqualsExact(const Array& other) const {
     return null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
   }
   return true;
+}
+
+Status Array::Validate() const {
+  return Status::OK();
 }
 
 bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {

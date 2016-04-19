@@ -34,7 +34,10 @@ class PoolBuffer;
 
 static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
 
-// Base class for all data array builders
+// Base class for all data array builders.
+// This class provides a facilities for incrementally building the null bitmap
+// (see Append methods) and as a side effect the current number of slots and
+// the null count.
 class ArrayBuilder {
  public:
   explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
@@ -46,7 +49,7 @@ class ArrayBuilder {
         length_(0),
         capacity_(0) {}
 
-  virtual ~ArrayBuilder() {}
+  virtual ~ArrayBuilder() = default;
 
   // For nested types. Since the objects are owned by this class instance, we
   // skip shared pointers and just return a raw pointer
@@ -58,14 +61,27 @@ class ArrayBuilder {
   int32_t null_count() const { return null_count_; }
   int32_t capacity() const { return capacity_; }
 
-  // Allocates requires memory at this level, but children need to be
-  // initialized independently
-  Status Init(int32_t capacity);
+  // Append to null bitmap
+  Status AppendToBitmap(bool is_valid);
+  // Vector append. Treat each zero byte as a null.   If valid_bytes is null
+  // assume all of length bits are valid.
+  Status AppendToBitmap(const uint8_t* valid_bytes, int32_t length);
+  // Set the next length bits to not null (i.e. valid).
+  Status SetNotNull(int32_t length);
 
-  // Resizes the null_bitmap array
-  Status Resize(int32_t new_bits);
+  // Allocates initial capacity requirements for the builder.  In most
+  // cases subclasses should override and call there parent classes
+  // method as well.
+  virtual Status Init(int32_t capacity);
 
-  Status Reserve(int32_t extra_bits);
+  // Resizes the null_bitmap array.  In most
+  // cases subclasses should override and call there parent classes
+  // method as well.
+  virtual Status Resize(int32_t new_bits);
+
+  // Ensures there is enough space for adding the number of elements by checking
+  // capacity and calling Resize if necessary.
+  Status Reserve(int32_t elements);
 
   // For cases where raw data was memcpy'd into the internal buffers, allows us
   // to advance the length of the builder. It is your responsibility to use
@@ -75,7 +91,7 @@ class ArrayBuilder {
   const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_; }
 
   // Creates new array object to hold the contents of the builder and transfers
-  // ownership of the data
+  // ownership of the data.  This resets all variables on the builder.
   virtual std::shared_ptr<Array> Finish() = 0;
 
   const std::shared_ptr<DataType>& type() const { return type_; }
@@ -96,6 +112,18 @@ class ArrayBuilder {
 
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
+
+  //
+  // Unsafe operations (don't check capacity/don't resize)
+  //
+
+  // Append to null bitmap.
+  void UnsafeAppendToBitmap(bool is_valid);
+  // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
+  // assume all of length bits are valid.
+  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length);
+  // Set the next length bits to not null (i.e. valid).
+  void UnsafeSetNotNull(int32_t length);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

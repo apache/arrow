@@ -18,6 +18,7 @@
 #include "arrow/ipc/memory.h"
 
 #include <sys/mman.h>  // For memory-mapping
+
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>

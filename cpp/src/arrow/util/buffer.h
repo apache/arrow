@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
 
@@ -137,26 +138,64 @@ class BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool) : pool_(pool), capacity_(0), size_(0) {}
 
+  Status Resize(int32_t elements) {
+    if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
+    capacity_ = elements;
+    RETURN_NOT_OK(buffer_->Resize(capacity_));
+    data_ = buffer_->mutable_data();
+    return Status::OK();
+  }
+
   Status Append(const uint8_t* data, int length) {
-    if (capacity_ < length + size_) {
-      if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
-      capacity_ = std::max(MIN_BUFFER_CAPACITY, capacity_);
-      while (capacity_ < length + size_) {
-        capacity_ *= 2;
-      }
-      RETURN_NOT_OK(buffer_->Resize(capacity_));
-      data_ = buffer_->mutable_data();
-    }
+    if (capacity_ < length + size_) { RETURN_NOT_OK(Resize(length + size_)); }
+    UnsafeAppend(data, length);
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status Append(T arithmetic_value) {
+    static_assert(std::is_arithmetic<T>::value,
+        "Convenience buffer append only supports arithmetic types");
+    return Append(reinterpret_cast<uint8_t*>(&arithmetic_value), sizeof(T));
+  }
+
+  template <typename T>
+  Status Append(const T* arithmetic_values, int num_elements) {
+    static_assert(std::is_arithmetic<T>::value,
+        "Convenience buffer append only supports arithmetic types");
+    return Append(
+        reinterpret_cast<const uint8_t*>(arithmetic_values), num_elements * sizeof(T));
+  }
+
+  // Unsafe methods don't check existing size
+  void UnsafeAppend(const uint8_t* data, int length) {
     memcpy(data_ + size_, data, length);
     size_ += length;
-    return Status::OK();
+  }
+
+  template <typename T>
+  void UnsafeAppend(T arithmetic_value) {
+    static_assert(std::is_arithmetic<T>::value,
+        "Convenience buffer append only supports arithmetic types");
+    UnsafeAppend(reinterpret_cast<uint8_t*>(&arithmetic_value), sizeof(T));
+  }
+
+  template <typename T>
+  void UnsafeAppend(const T* arithmetic_values, int num_elements) {
+    static_assert(std::is_arithmetic<T>::value,
+        "Convenience buffer append only supports arithmetic types");
+    UnsafeAppend(
+        reinterpret_cast<const uint8_t*>(arithmetic_values), num_elements * sizeof(T));
   }
 
   std::shared_ptr<Buffer> Finish() {
     auto result = buffer_;
     buffer_ = nullptr;
+    capacity_ = size_ = 0;
     return result;
   }
+  int capacity() { return capacity_; }
+  int length() { return size_; }
 
  private:
   std::shared_ptr<PoolBuffer> buffer_;

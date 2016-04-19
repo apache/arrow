@@ -95,15 +95,13 @@ class PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  void AppendNulls(const uint8_t* valid_bytes, int32_t length);
+  void AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    UnsafeAppendToBitmap(valid_bytes, length);
+  }
 
   Status AppendNull() {
-    if (length_ == capacity_) {
-      // If the capacity was not already a multiple of 2, do so here
-      RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
-    }
-    ++null_count_;
-    ++length_;
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
     return Status::OK();
   }
 
@@ -116,21 +114,17 @@ class PrimitiveBuilder : public ArrayBuilder {
   Status Append(
       const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
-  // Ensure that builder can accommodate an additional number of
-  // elements. Resizes if the current capacity is not sufficient
-  Status Reserve(int32_t elements);
-
   std::shared_ptr<Array> Finish() override;
+
+  Status Init(int32_t capacity) override;
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity) override;
 
  protected:
   std::shared_ptr<PoolBuffer> data_;
   value_type* raw_data_;
-
-  Status Init(int32_t capacity);
-
-  // Increase the capacity of the builder to accommodate at least the indicated
-  // number of elements
-  Status Resize(int32_t capacity);
 };
 
 template <typename T>
@@ -140,9 +134,17 @@ class NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::PrimitiveBuilder;
 
   using PrimitiveBuilder<T>::Append;
+  using PrimitiveBuilder<T>::Init;
+  using PrimitiveBuilder<T>::Resize;
 
-  // Scalar append. Does not capacity-check; make sure to call Reserve beforehand
+  // Scalar append.
   void Append(value_type val) {
+    ArrayBuilder::Reserve(1);
+    UnsafeAppend(val);
+  }
+
+  // Does not capacity-check; make sure to call Reserve beforehand
+  void UnsafeAppend(value_type val) {
     util::set_bit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
   }
@@ -151,9 +153,6 @@ class NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::length_;
   using PrimitiveBuilder<T>::null_bitmap_data_;
   using PrimitiveBuilder<T>::raw_data_;
-
-  using PrimitiveBuilder<T>::Init;
-  using PrimitiveBuilder<T>::Resize;
 };
 
 template <>

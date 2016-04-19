@@ -18,8 +18,8 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
-#include <iostream>
 #include <cstdlib>
+#include <iostream>
 
 namespace arrow {
 

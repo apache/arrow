@@ -19,6 +19,7 @@
 #define ARROW_TEST_UTIL_H_
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
@@ -26,12 +27,13 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/type.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/random.h"
 #include "arrow/util/status.h"
@@ -103,10 +105,12 @@ std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
       reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T));
 }
 
-void random_null_bitmap(int64_t n, double pct_null, uint8_t* null_bitmap) {
+// Sets approximately pct_null of the first n bytes in null_bytes to zero
+// and the rest to non-zero (true) values.
+void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
-    null_bitmap[i] = rng.NextDoubleFraction() > pct_null;
+    null_bytes[i] = rng.NextDoubleFraction() > pct_null;
   }
 }
 
@@ -121,6 +125,7 @@ static inline void random_bytes(int n, uint32_t seed, uint8_t* out) {
 
 template <typename T>
 void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
+  DCHECK(out);
   std::mt19937 gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -129,11 +134,25 @@ void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
 }
 
 static inline int bitmap_popcount(const uint8_t* data, int length) {
+  // book keeping
+  constexpr int pop_len = sizeof(uint64_t);
+  const uint64_t* i64_data = reinterpret_cast<const uint64_t*>(data);
+  const int fast_counts = length / pop_len;
+  const uint64_t* end = i64_data + fast_counts;
+
   int count = 0;
-  for (int i = 0; i < length; ++i) {
-    // TODO(wesm): accelerate this
+  // popcount as much as possible with the widest possible count
+  for (auto iter = i64_data; iter < end; ++iter) {
+    count += __builtin_popcountll(*iter);
+  }
+
+  // Account for left over bytes (in theory we could fall back to smaller
+  // versions of popcount but the code complexity is likely not worth it)
+  const int loop_tail_index = fast_counts * pop_len;
+  for (int i = loop_tail_index; i < length; ++i) {
     if (util::get_bit(data, i)) { ++count; }
   }
+
   return count;
 }
 
@@ -151,6 +170,26 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   // TODO(wesm): error checking
   util::bytes_to_bits(bytes, &out);
   return out;
+}
+
+Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
+    std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
+  DCHECK(pool);
+  auto data = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(data->Resize(length * sizeof(int32_t)));
+  test::rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
+      reinterpret_cast<int32_t*>(data->mutable_data()));
+  *pool_buffer = data;
+  return Status::OK();
+}
+
+Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
+    std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
+  auto bytes = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(bytes->Resize(length));
+  test::random_bytes(length, seed, bytes->mutable_data());
+  *pool_buffer = bytes;
+  return Status::OK();
 }
 
 }  // namespace test

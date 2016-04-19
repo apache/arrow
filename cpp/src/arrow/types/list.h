@@ -28,6 +28,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -46,11 +47,16 @@ class ListArray : public Array {
     values_ = values;
   }
 
-  virtual ~ListArray() {}
+  Status Validate() const override;
+
+  virtual ~ListArray() = default;
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   const std::shared_ptr<Array>& values() const { return values_; }
+  const std::shared_ptr<Buffer> offset_buffer() const {
+    return std::static_pointer_cast<Buffer>(offset_buf_);
+  }
 
   const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
 
@@ -78,59 +84,73 @@ class ListArray : public Array {
 //
 // To use this class, you must append values to the child array builder and use
 // the Append function to delimit each distinct list value (once the values
-// have been appended to the child array)
-class ListBuilder : public Int32Builder {
+// have been appended to the child array) or use the bulk API to append
+// a sequence of offests and null values.
+//
+// A note on types.  Per arrow/type.h all types in the c++ implementation are
+// logical so even though this class always builds an Array of lists, this can
+// represent multiple different logical types.  If no logical type is provided
+// at construction time, the class defaults to List<T> where t is take from the
+// value_builder/values that the object is constructed with.
+class ListBuilder : public ArrayBuilder {
  public:
-  ListBuilder(
-      MemoryPool* pool, const TypePtr& type, std::shared_ptr<ArrayBuilder> value_builder)
-      : Int32Builder(pool, type), value_builder_(value_builder) {}
+  // Use this constructor to incrementally build the value array along with offsets and
+  // null bitmap.
+  ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
+      const TypePtr& type = nullptr)
+      : ArrayBuilder(
+            pool, type ? type : std::static_pointer_cast<DataType>(
+                                    std::make_shared<ListType>(value_builder->type()))),
+        offset_builder_(pool),
+        value_builder_(value_builder) {}
 
-  Status Init(int32_t elements) {
-    // One more than requested.
-    //
-    // XXX: This is slightly imprecise, because we might trigger null mask
-    // resizes that are unnecessary when creating arrays with power-of-two size
-    return Int32Builder::Init(elements + 1);
+  // Use this constructor to build the list with a pre-existing values array
+  ListBuilder(
+      MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr)
+      : ArrayBuilder(pool, type ? type : std::static_pointer_cast<DataType>(
+                                             std::make_shared<ListType>(values->type()))),
+        offset_builder_(pool),
+        values_(values) {}
+
+  Status Init(int32_t elements) override {
+    RETURN_NOT_OK(ArrayBuilder::Init(elements));
+    // one more then requested for offsets
+    return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
   }
 
-  Status Resize(int32_t capacity) {
-    // Need space for the end offset
-    RETURN_NOT_OK(Int32Builder::Resize(capacity + 1));
-
-    // Slight hack, as the "real" capacity is one less
-    --capacity_;
-    return Status::OK();
+  Status Resize(int32_t capacity) override {
+    // one more then requested for offsets
+    RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+    return ArrayBuilder::Resize(capacity);
   }
 
   // Vector append
   //
   // If passed, valid_bytes is of equal length to values, and any zero byte
   // will be considered as a null for that slot
-  Status Append(value_type* values, int32_t length, uint8_t* valid_bytes = nullptr) {
-    if (length_ + length > capacity_) {
-      int32_t new_capacity = util::next_power2(length_ + length);
-      RETURN_NOT_OK(Resize(new_capacity));
-    }
-    memcpy(raw_data_ + length_, values, type_traits<Int32Type>::bytes_required(length));
-
-    if (valid_bytes != nullptr) { AppendNulls(valid_bytes, length); }
-
-    length_ += length;
+  Status Append(
+      const int32_t* offsets, int32_t length, const uint8_t* valid_bytes = nullptr) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    offset_builder_.UnsafeAppend<int32_t>(offsets, length);
     return Status::OK();
   }
 
+  // The same as Finalize but allows for overridding the c++ type
   template <typename Container>
   std::shared_ptr<Array> Transfer() {
-    std::shared_ptr<Array> items = value_builder_->Finish();
+    std::shared_ptr<Array> items = values_;
+    if (!items) { items = value_builder_->Finish(); }
 
-    // Add final offset if the length is non-zero
-    if (length_) { raw_data_[length_] = items->length(); }
+    offset_builder_.Append<int32_t>(items->length());
 
+    const auto offsets_buffer = offset_builder_.Finish();
     auto result = std::make_shared<Container>(
-        type_, length_, data_, items, null_count_, null_bitmap_);
+        type_, length_, offsets_buffer, items, null_count_, null_bitmap_);
 
-    data_ = null_bitmap_ = nullptr;
+    // TODO(emkornfield) make a reset method
     capacity_ = length_ = null_count_ = 0;
+    null_bitmap_ = nullptr;
 
     return result;
   }
@@ -141,26 +161,24 @@ class ListBuilder : public Int32Builder {
   //
   // This function should be called before beginning to append elements to the
   // value builder
-  Status Append(bool is_null = false) {
-    if (length_ == capacity_) {
-      // If the capacity was not already a multiple of 2, do so here
-      RETURN_NOT_OK(Resize(util::next_power2(capacity_ + 1)));
-    }
-    if (is_null) {
-      ++null_count_;
-    } else {
-      util::set_bit(null_bitmap_data_, length_);
-    }
-    raw_data_[length_++] = value_builder_->length();
+  Status Append(bool is_valid = true) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(is_valid);
+    RETURN_NOT_OK(offset_builder_.Append<int32_t>(value_builder_->length()));
     return Status::OK();
   }
 
-  Status AppendNull() { return Append(true); }
+  Status AppendNull() { return Append(false); }
 
-  const std::shared_ptr<ArrayBuilder>& value_builder() const { return value_builder_; }
+  const std::shared_ptr<ArrayBuilder>& value_builder() const {
+    DCHECK(!values_) << "Using value builder is pointless when values_ is set";
+    return value_builder_;
+  }
 
  protected:
+  BufferBuilder offset_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<Array> values_;
 };
 
 }  // namespace arrow
