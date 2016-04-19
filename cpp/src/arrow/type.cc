@@ -31,7 +31,18 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-StringType::StringType() : DataType(Type::STRING) {}
+bool DataType::Equals(const DataType* other) const {
+  bool equals = other && ((this == other) ||
+                             ((this->type == other->type) &&
+                                 ((this->num_children() == other->num_children()))));
+  if (equals) {
+    for (int i = 0; i < num_children(); ++i) {
+      // TODO(emkornfield) limit recursion
+      if (!children_[i]->Equals(other->children_[i])) { return false; }
+    }
+  }
+  return equals;
+}
 
 std::string StringType::ToString() const {
   std::string result(name());
@@ -41,6 +52,16 @@ std::string StringType::ToString() const {
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
+  return s.str();
+}
+
+std::string BinaryType::ToString() const {
+  return std::string(name());
+}
+
+std::string CharType::ToString() const {
+  std::stringstream s;
+  s << "char(" << size << ")";
   return s.str();
 }
 

@@ -34,85 +34,141 @@ namespace arrow {
 class Buffer;
 class MemoryPool;
 
-struct CharType : public DataType {
-  int size;
-
-  explicit CharType(int size) : DataType(Type::CHAR), size(size) {}
-
-  CharType(const CharType& other) : CharType(other.size) {}
-
-  virtual std::string ToString() const;
-};
-
-// Variable-length, null-terminated strings, up to a certain length
-struct VarcharType : public DataType {
-  int size;
-
-  explicit VarcharType(int size) : DataType(Type::VARCHAR), size(size) {}
-  VarcharType(const VarcharType& other) : VarcharType(other.size) {}
-
-  virtual std::string ToString() const;
-};
-
-// TODO(wesm): add a BinaryArray layer in between
-class StringArray : public ListArray {
+class BinaryArray : public ListArray {
  public:
-  StringArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+  BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
-      : ListArray(type, length, offsets, values, null_count, null_bitmap) {
-    // For convenience
-    bytes_ = static_cast<UInt8Array*>(values.get());
-    raw_bytes_ = bytes_->raw_data();
-  }
-
-  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  // Constructor that allows sub-classes/builders to propagate there logical type up the
+  // class hierarchy.
+  BinaryArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
-  // Compute the pointer t
+  // Return the pointer to the given elements bytes
+  // TODO(emkornfield) introduce a StringPiece or something similar to capture zero-copy
+  // pointer + offset
   const uint8_t* GetValue(int i, int32_t* out_length) const {
-    int32_t pos = offsets_[i];
+    DCHECK(out_length);
+    const int32_t pos = offsets_[i];
     *out_length = offsets_[i + 1] - pos;
     return raw_bytes_ + pos;
   }
 
-  // Construct a std::string
-  std::string GetString(int i) const {
-    int32_t nchars;
-    const uint8_t* str = GetValue(i, &nchars);
-    return std::string(reinterpret_cast<const char*>(str), nchars);
-  }
+  Status Validate() const override;
 
  private:
   UInt8Array* bytes_;
   const uint8_t* raw_bytes_;
 };
 
-// String builder
-class StringBuilder : public ListBuilder {
+class StringArray : public BinaryArray {
  public:
-  explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
+  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  // Constructor that allows overriding the logical type, so subclasses can propagate
+  // there
+  // up the class hierarchy.
+  StringArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+      : BinaryArray(type, length, offsets, values, null_count, null_bitmap) {}
+
+  // Construct a std::string
+  // TODO: std::bad_alloc possibility
+  std::string GetString(int i) const {
+    int32_t nchars;
+    const uint8_t* str = GetValue(i, &nchars);
+    return std::string(reinterpret_cast<const char*>(str), nchars);
+  }
+
+  Status Validate() const override;
+};
+
+class CharArray : public StringArray {
+ public:
+  CharArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+      : StringArray(type, length, offsets, values, null_count, null_bitmap),
+        char_type(std::dynamic_pointer_cast<CharType>(type).get()) {}
+
+  // The fixed size of each string
+  // (TODO), right now this is in bytes, DB systems seems to
+  // generally store this as characters.  Which would mean 3-6x the number of bytes
+  // stored)
+  int32_t string_size() const { return char_type->size; }
+  Status Validate() const override;
+
+ private:
+  // for convenience
+  CharType* char_type;
+};
+
+// BinaryBuilder : public ListBuilder
+class BinaryBuilder : public ListBuilder {
+ public:
+  explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type)
       : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, value_type_), type) {
     byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
   }
 
+  Status Append(const uint8_t* value, int32_t length) {
+    RETURN_NOT_OK(ListBuilder::Append());
+    return byte_builder_->Append(value, length);
+  }
+
+  std::shared_ptr<Array> Finish() override {
+    return ListBuilder::Transfer<BinaryArray>();
+  }
+
+ protected:
+  UInt8Builder* byte_builder_;
+  static TypePtr value_type_;
+};
+
+// String builder
+class StringBuilder : public BinaryBuilder {
+ public:
+  explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
+      : BinaryBuilder(pool, type) {}
+
   Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
 
   Status Append(const char* value, int32_t length) {
-    RETURN_NOT_OK(ListBuilder::Append());
-    return byte_builder_->Append(reinterpret_cast<const uint8_t*>(value), length);
+    return BinaryBuilder::Append(reinterpret_cast<const uint8_t*>(value), length);
   }
+
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
 
   std::shared_ptr<Array> Finish() override {
     return ListBuilder::Transfer<StringArray>();
   }
+};
 
- protected:
-  UInt8Builder* byte_builder_;
+// Fixed width char builder
+class CharBuilder : public StringBuilder {
+ public:
+  explicit CharBuilder(MemoryPool* pool, const std::shared_ptr<CharType>& type)
+      : StringBuilder(pool, std::static_pointer_cast<DataType>(type)) {
+    DCHECK(type);
+    fixed_length_ = type->size;
+  }
 
-  static TypePtr value_type_;
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+
+  Status Append(const char* value, int32_t length) {
+    if (length != fixed_length_) {
+      return Status::Invalid("Invalid length specified for fixed character type");
+    }
+    return BinaryBuilder::Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  std::shared_ptr<Array> Finish() override { return ListBuilder::Transfer<CharArray>(); }
+
+ private:
+  int32_t fixed_length_;
 };
 
 }  // namespace arrow

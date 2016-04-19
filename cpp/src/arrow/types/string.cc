@@ -24,25 +24,54 @@
 
 namespace arrow {
 
+const std::shared_ptr<DataType> BINARY(new BinaryType());
 const std::shared_ptr<DataType> STRING(new StringType());
+
+BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+    const ArrayPtr& values, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : BinaryArray(BINARY, length, offsets, values, null_count, null_bitmap) {}
+
+BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
+    const std::shared_ptr<Buffer>& offsets, const ArrayPtr& values, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : ListArray(type, length, offsets, values, null_count, null_bitmap),
+      bytes_(std::dynamic_pointer_cast<UInt8Array>(values).get()),
+      raw_bytes_(bytes_->raw_data()) {}
+
+Status BinaryArray::Validate() const {
+  if (values()->null_count() > 0) {
+    std::stringstream ss;
+    ss << type()->ToString() << " can have null values in the value array";
+    Status::Invalid(ss.str());
+  }
+  return ListArray::Validate();
+}
 
 StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const ArrayPtr& values, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : StringArray(STRING, length, offsets, values, null_count, null_bitmap) {}
 
-std::string CharType::ToString() const {
-  std::stringstream s;
-  s << "char(" << size << ")";
-  return s.str();
+Status StringArray::Validate() const {
+  // TODO(emkornfield) Validate proper UTF8 code points?
+  return BinaryArray::Validate();
 }
 
-std::string VarcharType::ToString() const {
-  std::stringstream s;
-  s << "varchar(" << size << ")";
-  return s.str();
+Status CharArray::Validate() const {
+  const int32_t num_slots = length();
+  const int32_t fixed_length = std::static_pointer_cast<CharType>(type())->size;
+  for (int i = 0; i < num_slots; ++i) {
+    int str_len = value_length(i);
+    if (str_len != fixed_length) {
+      std::stringstream ss;
+      ss << "String length ( " << str_len << ") != fixed size (" << fixed_length
+         << ") at element: " << i;
+    }
+  }
+  return StringArray::Validate();
 }
 
-TypePtr StringBuilder::value_type_ = TypePtr(new UInt8Type());
+TypePtr BinaryBuilder::value_type_ = TypePtr(new UInt8Type());
 
 }  // namespace arrow
