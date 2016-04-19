@@ -206,7 +206,7 @@ Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
 }
 
 Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
-  RowBatchWriter serializer(batch);
+  RowBatchWriter serializer(batch, kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
