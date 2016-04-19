@@ -27,14 +27,14 @@ namespace parquet {
 
 namespace schema {
 
-class SchemaPrinter : public Node::Visitor {
+class SchemaPrinter : public Node::ConstVisitor {
  public:
   explicit SchemaPrinter(std::ostream& stream, int indent_width) :
       stream_(stream),
       indent_(0),
       indent_width_(2) {}
 
-  virtual void Visit(const Node* node);
+  void Visit(const Node* node) override;
 
  private:
   void Visit(const PrimitiveNode* node);
@@ -108,7 +108,7 @@ void SchemaPrinter::Visit(const GroupNode* node) {
 
   indent_ += indent_width_;
   for (int i = 0; i < node->field_count(); ++i) {
-    node->field(i)->Visit(this);
+    node->field(i)->VisitConst(this);
   }
   indent_ -= indent_width_;
   Indent();

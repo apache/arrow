@@ -203,6 +203,10 @@ void PrimitiveNode::Visit(Node::Visitor* visitor) {
   visitor->Visit(this);
 }
 
+void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
+  visitor->Visit(this);
+}
+
 // ----------------------------------------------------------------------
 // Group node
 
@@ -229,6 +233,10 @@ bool GroupNode::Equals(const Node* other) const {
 }
 
 void GroupNode::Visit(Node::Visitor* visitor) {
+  visitor->Visit(this);
+}
+
+void GroupNode::VisitConst(Node::ConstVisitor* visitor) const {
   visitor->Visit(this);
 }
 
@@ -278,6 +286,35 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
 
   // Return as unique_ptr to the base type
   return std::unique_ptr<Node>(result.release());
+}
+
+void GroupNode::ToParquet(void* opaque_element) const {
+  format::SchemaElement* element =
+    static_cast<format::SchemaElement*>(opaque_element);
+  element->__set_name(name_);
+  element->__set_num_children(field_count());
+  element->__set_repetition_type(ToThrift(repetition_));
+  if (logical_type_ != LogicalType::NONE) {
+    element->__set_converted_type(ToThrift(logical_type_));
+  }
+  // FIXME: SchemaFlattener does this for us: element->__set_field_id(id_);
+}
+
+void PrimitiveNode::ToParquet(void* opaque_element) const {
+  format::SchemaElement* element =
+    static_cast<format::SchemaElement*>(opaque_element);
+
+  element->__set_name(name_);
+  element->__set_num_children(0);
+  element->__set_repetition_type(ToThrift(repetition_));
+  if (logical_type_ != LogicalType::NONE) {
+    element->__set_converted_type(ToThrift(logical_type_));
+  }
+  element->__set_type(ToThrift(physical_type_));
+  // FIXME: SchemaFlattener does this for us: element->__set_field_id(id_);
+  element->__set_type_length(type_length_);
+  element->__set_precision(decimal_metadata_.precision);
+  element->__set_scale(decimal_metadata_.scale);
 }
 
 } // namespace schema

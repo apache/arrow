@@ -112,7 +112,7 @@ TEST_F(TestPrimitiveNode, Attrs) {
 
 TEST_F(TestPrimitiveNode, FromParquet) {
   SchemaElement elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
-      format::Type::INT32);
+      format::Type::INT32, 0);
   Convert(&elt);
   ASSERT_EQ(name_, prim_node_->name());
   ASSERT_EQ(id_, prim_node_->id());
@@ -121,7 +121,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(LogicalType::NONE, prim_node_->logical_type());
 
   // Test a logical type
-  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, format::Type::BYTE_ARRAY);
+  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, format::Type::BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::UTF8);
 
   Convert(&elt);
@@ -131,7 +131,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
 
   // FIXED_LEN_BYTE_ARRAY
   elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
-      format::Type::FIXED_LEN_BYTE_ARRAY);
+      format::Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_type_length(16);
 
   Convert(&elt);
@@ -143,7 +143,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
 
   // ConvertedType::Decimal
   elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
-      format::Type::FIXED_LEN_BYTE_ARRAY);
+      format::Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);

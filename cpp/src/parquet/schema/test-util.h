@@ -36,22 +36,28 @@ namespace parquet {
 namespace schema {
 
 static inline SchemaElement NewPrimitive(const std::string& name,
-    FieldRepetitionType::type repetition, format::Type::type type) {
+    FieldRepetitionType::type repetition, format::Type::type type, int id = 0) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
   result.__set_type(type);
   result.__set_num_children(0);
+  result.__set_field_id(id);
+  // Set default (non-set) values
+  result.__set_type_length(-1);
+  result.__set_precision(-1);
+  result.__set_scale(-1);
 
   return result;
 }
 
 static inline SchemaElement NewGroup(const std::string& name,
-    FieldRepetitionType::type repetition, int num_children) {
+    FieldRepetitionType::type repetition, int num_children, int id = 0) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
   result.__set_num_children(num_children);
+  result.__set_field_id(id);
 
   return result;
 }

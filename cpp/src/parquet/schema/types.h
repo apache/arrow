@@ -163,15 +163,26 @@ class Node {
     return parent_;
   }
 
+  // ToParquet returns an opaque void* to avoid exporting
+  // parquet::SchemaElement into the public API
+  virtual void ToParquet(void* opaque_element) const = 0;
+
   // Node::Visitor abstract class for walking schemas with the visitor pattern
   class Visitor {
    public:
     virtual ~Visitor() {}
 
+    virtual void Visit(Node* node) = 0;
+  };
+  class ConstVisitor {
+   public:
+    virtual ~ConstVisitor() {}
+
     virtual void Visit(const Node* node) = 0;
   };
 
   virtual void Visit(Visitor* visitor) = 0;
+  virtual void VisitConst(ConstVisitor* visitor) const = 0;
 
  protected:
   friend class GroupNode;
@@ -224,7 +235,9 @@ class PrimitiveNode : public Node {
     return decimal_metadata_;
   }
 
+  void ToParquet(void* opaque_element) const override;
   virtual void Visit(Visitor* visitor);
+  void VisitConst(ConstVisitor* visitor) const override;
 
  private:
   PrimitiveNode(const std::string& name, Repetition::type repetition,
@@ -278,7 +291,9 @@ class GroupNode : public Node {
     return fields_.size();
   }
 
+  void ToParquet(void* opaque_element) const override;
   virtual void Visit(Visitor* visitor);
+  void VisitConst(ConstVisitor* visitor) const override;
 
  private:
   GroupNode(const std::string& name, Repetition::type repetition,

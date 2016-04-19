@@ -80,9 +80,11 @@ class SchemaFlattener {
  public:
   SchemaFlattener(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
+  void Flatten();
+
  private:
   const GroupNode* root_;
-  std::vector<format::SchemaElement>* schema_;
+  std::vector<format::SchemaElement>* elements_;
 };
 
 } // namespace schema
