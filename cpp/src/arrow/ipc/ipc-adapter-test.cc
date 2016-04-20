@@ -88,29 +88,6 @@ TEST_P(TestWriteRowBatch, RoundTrip) {
   }
 }
 
-TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
-  const int length = 1000;
-
-  auto f0 = std::make_shared<Field>("f0", INT32);
-  std::shared_ptr<Schema> schema(new Schema({f0}));
-
-  auto data = std::make_shared<PoolBuffer>(pool_);
-  ASSERT_OK(data->Resize(length * sizeof(int32_t)));
-  test::rand_uniform_int(length, 0, 0, std::numeric_limits<int32_t>::max(),
-      reinterpret_cast<int32_t*>(data->mutable_data()));
-  auto a0 = std::make_shared<Int32Array>(length, data);
-
-  RowBatch batch(schema, length, {a0});
-
-  MockMemorySource mock_source(1 << 16);
-  int64_t mock_header_location;
-  ASSERT_OK(WriteRowBatch(&mock_source, &batch, 0, &mock_header_location));
-
-  int64_t size;
-  ASSERT_OK(GetRowBatchSize(&batch, &size));
-  EXPECT_EQ(mock_source.Position(), size);
-}
-
 Status MakeIntRowBatch(std::shared_ptr<RowBatch>* out) {
   const int length = 1000;
 
@@ -217,6 +194,34 @@ Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
 INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
     ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
                             &MakeZeroLengthRowBatch, &MakeDeeplyNestedList));
+
+void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
+  MockMemorySource mock_source(1 << 16);
+  int64_t mock_header_location;
+  int64_t size;
+  ASSERT_OK(WriteRowBatch(&mock_source, batch.get(), 0, &mock_header_location));
+  ASSERT_OK(GetRowBatchSize(batch.get(), &size));
+  ASSERT_EQ(mock_source.Position(), size);
+}
+
+TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
+  std::shared_ptr<RowBatch> batch;
+
+  ASSERT_OK(MakeIntRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeListRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeZeroLengthRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeNonNullRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRowBatchSize(batch);
+}
 
 class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
  public:
