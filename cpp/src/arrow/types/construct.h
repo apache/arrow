@@ -20,17 +20,22 @@
 
 #include <cstdint>
 #include <memory>
-
+#include <vector>
 namespace arrow {
 
 class Array;
 class ArrayBuilder;
 class Buffer;
 struct DataType;
+struct Field;
 class MemoryPool;
 class Status;
 
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    std::shared_ptr<ArrayBuilder>* out);
+
+Status MakeStructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    const std::vector<std::shared_ptr<Field>>& fields,
     std::shared_ptr<ArrayBuilder>* out);
 
 // Create new arrays for logical types that are backed by primitive arrays.

@@ -23,6 +23,7 @@
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
+#include "arrow/types/struct.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
@@ -69,6 +70,20 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     default:
       return Status::NotImplemented(type->ToString());
   }
+}
+
+Status MakeStructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    const std::vector<std::shared_ptr<Field>>& fields,
+    std::shared_ptr<ArrayBuilder>* out) {
+  std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
+
+  for (auto it = fields.cbegin(); it != fields.cend(); it++) {
+    std::shared_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(pool, it->get()->type, &builder));
+    values_builder.push_back(builder);
+  }
+  out->reset(new StructBuilder(pool, type, fields, values_builder));
+  return Status::OK();
 }
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
