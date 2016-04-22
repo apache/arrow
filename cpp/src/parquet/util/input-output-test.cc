@@ -50,6 +50,37 @@ TEST(TestInMemoryOutputStream, Basics) {
   ASSERT_TRUE(data_buf.Equals(*buffer));
 }
 
+TEST(TestBufferedReader, Basics) {
+  std::vector<uint8_t> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  auto buffer = std::make_shared<Buffer>(data.data(), data.size());
+  BufferReader reader(buffer);
+
+  uint8_t out[4];
+  ASSERT_EQ(4, reader.Read(4, out));
+  ASSERT_EQ(4, reader.Tell());
+  ASSERT_EQ(0, out[0]);
+  ASSERT_EQ(1, out[1]);
+  ASSERT_EQ(2, out[2]);
+  ASSERT_EQ(3, out[3]);
+
+  reader.Seek(8);
+  ASSERT_EQ(8, reader.Tell());
+
+  auto out_buffer = reader.Read(5);
+  ASSERT_EQ(8, out_buffer->data()[0]);
+  ASSERT_EQ(9, out_buffer->data()[1]);
+  ASSERT_EQ(10, out_buffer->data()[2]);
+  ASSERT_EQ(11, out_buffer->data()[3]);
+  ASSERT_EQ(12, out_buffer->data()[4]);
+
+  // Read past the end of the buffer
+  ASSERT_EQ(13, reader.Tell());
+  ASSERT_EQ(0, reader.Read(4, out));
+  ASSERT_EQ(0, reader.Read(4)->size());
+
+  reader.Close();
+}
+
 static bool file_exists(const std::string& path) {
   return std::ifstream(path.c_str()).good();
 }

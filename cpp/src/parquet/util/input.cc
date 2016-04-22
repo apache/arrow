@@ -199,8 +199,10 @@ void BufferReader::Seek(int64_t pos) {
 }
 
 int64_t BufferReader::Read(int64_t nbytes, uint8_t* out) {
-  ParquetException::NYI("not implemented");
-  return 0;
+  int64_t bytes_available = std::min(nbytes, size_ - pos_);
+  memcpy(out, Head(), bytes_available);
+  pos_ += bytes_available;
+  return bytes_available;
 }
 
 std::shared_ptr<Buffer> BufferReader::Read(int64_t nbytes) {
