@@ -134,7 +134,8 @@ class MockMemorySource : public MemorySource {
 
   int64_t Size() const override;
 
-  // @return: the smallest number of bytes containing the modified region of the MockMemorySource
+  // @return: the smallest number of bytes containing the modified region of the
+  // MockMemorySource
   int64_t GetExtentBytesWritten() const;
 
  private:

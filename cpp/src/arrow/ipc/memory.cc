@@ -145,7 +145,8 @@ Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t 
   return Status::OK();
 }
 
-MockMemorySource::MockMemorySource(int64_t size) : size_(size), extent_bytes_written_(0) {}
+MockMemorySource::MockMemorySource(int64_t size)
+    : size_(size), extent_bytes_written_(0) {}
 
 Status MockMemorySource::Close() {
   return Status::OK();
