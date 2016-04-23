@@ -184,7 +184,7 @@ class RowBatchWriter {
     int64_t data_header_offset;
     MockMemorySource source(0);
     RETURN_NOT_OK(Write(&source, 0, &data_header_offset));
-    *size = source.Position();
+    *size = source.GetExtentBytesWritten();
     return Status::OK();
   }
 

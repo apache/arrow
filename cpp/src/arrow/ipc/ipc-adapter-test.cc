@@ -201,7 +201,7 @@ void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
   int64_t size;
   ASSERT_OK(WriteRowBatch(&mock_source, batch.get(), 0, &mock_header_location));
   ASSERT_OK(GetRowBatchSize(batch.get(), &size));
-  ASSERT_EQ(mock_source.Position(), size);
+  ASSERT_EQ(mock_source.GetExtentBytesWritten(), size);
 }
 
 TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {

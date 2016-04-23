@@ -134,11 +134,12 @@ class MockMemorySource : public MemorySource {
 
   int64_t Size() const override;
 
-  int64_t Position() const;
+  // @return: the smallest number of bytes containing the modified region of the MockMemorySource
+  int64_t GetExtentBytesWritten() const;
 
  private:
   int64_t size_;
-  int64_t pos_;
+  int64_t extent_bytes_written_;
 };
 
 }  // namespace ipc
