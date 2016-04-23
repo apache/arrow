@@ -179,20 +179,13 @@ class RowBatchWriter {
   }
 
   // This must be called after invoking AssemblePayload
-  int64_t DataHeaderSize() {
-    // TODO(wesm): In case it is needed, compute the upper bound for the size
-    // of the buffer containing the flatbuffer data header.
-    return 0;
-  }
-
-  // Total footprint of buffers. This must be called after invoking
-  // AssemblePayload
-  int64_t TotalBytes() {
-    int64_t total = 0;
-    for (const std::shared_ptr<Buffer>& buffer : buffers_) {
-      total += buffer->size();
-    }
-    return total;
+  Status GetTotalSize(int64_t* size) {
+    // emulates the behavior of Write without actually writing
+    int64_t data_header_offset;
+    MockMemorySource source(0);
+    RETURN_NOT_OK(Write(&source, 0, &data_header_offset));
+    *size = source.GetExtentBytesWritten();
+    return Status::OK();
   }
 
  private:
@@ -211,6 +204,14 @@ Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, position, header_offset);
 }
+
+Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
+  RowBatchWriter serializer(batch, kMaxIpcRecursionDepth);
+  RETURN_NOT_OK(serializer.AssemblePayload());
+  RETURN_NOT_OK(serializer.GetTotalSize(size));
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Row batch read path
 

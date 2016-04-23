@@ -195,6 +195,34 @@ INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
     ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
                             &MakeZeroLengthRowBatch, &MakeDeeplyNestedList));
 
+void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
+  MockMemorySource mock_source(1 << 16);
+  int64_t mock_header_location;
+  int64_t size;
+  ASSERT_OK(WriteRowBatch(&mock_source, batch.get(), 0, &mock_header_location));
+  ASSERT_OK(GetRowBatchSize(batch.get(), &size));
+  ASSERT_EQ(mock_source.GetExtentBytesWritten(), size);
+}
+
+TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
+  std::shared_ptr<RowBatch> batch;
+
+  ASSERT_OK(MakeIntRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeListRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeZeroLengthRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeNonNullRowBatch(&batch));
+  TestGetRowBatchSize(batch);
+
+  ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRowBatchSize(batch);
+}
+
 class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
  public:
   void SetUp() { pool_ = default_memory_pool(); }

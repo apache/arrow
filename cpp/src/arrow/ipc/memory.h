@@ -121,6 +121,28 @@ class MemoryMappedSource : public MemorySource {
   std::unique_ptr<Impl> impl_;
 };
 
+// A MemorySource that tracks the size of allocations from a memory source
+class MockMemorySource : public MemorySource {
+ public:
+  explicit MockMemorySource(int64_t size);
+
+  Status Close() override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  Status Write(int64_t position, const uint8_t* data, int64_t nbytes) override;
+
+  int64_t Size() const override;
+
+  // @return: the smallest number of bytes containing the modified region of the
+  // MockMemorySource
+  int64_t GetExtentBytesWritten() const;
+
+ private:
+  int64_t size_;
+  int64_t extent_bytes_written_;
+};
+
 }  // namespace ipc
 }  // namespace arrow
 

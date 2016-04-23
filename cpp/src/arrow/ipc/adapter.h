@@ -62,7 +62,7 @@ Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the row batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-int64_t GetRowBatchSize(const RowBatch* batch);
+Status GetRowBatchSize(const RowBatch* batch, int64_t* size);
 
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the MemorySource does not
