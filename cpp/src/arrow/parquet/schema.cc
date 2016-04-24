@@ -24,6 +24,7 @@
 #include "arrow/types/decimal.h"
 #include "arrow/util/status.h"
 
+using parquet::Repetition;
 using parquet::schema::Node;
 using parquet::schema::NodePtr;
 using parquet::schema::GroupNode;
@@ -181,6 +182,104 @@ Status FromParquetSchema(
   *out = std::make_shared<Schema>(fields);
   return Status::OK();
 }
+
+Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
+  LogicalType::type logical_type = LogicalType::NONE;
+  ParquetType::type type;
+  Repetition::type repetition = Repetition::REQUIRED;
+  if (field->nullable) {
+    repetition = Repetition::OPTIONAL;
+  }
+
+  switch (field->type->type) {
+    // TODO:
+    // case Type::NA:
+    // break;
+    case Type::BOOL:
+      type = ParquetType::BOOLEAN;
+      break;
+    case Type::UINT8:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_8;
+      break;
+    case Type::INT8:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::INT_8;
+      break;
+    case Type::UINT16:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_16;
+      break;
+    case Type::INT16:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::INT_16;
+      break;
+    case Type::UINT32:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_32;
+      break;
+    case Type::INT32:
+      type = ParquetType::INT32;
+      break;
+    case Type::UINT64:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::UINT_64;
+      break;
+    case Type::INT64:
+      type = ParquetType::INT64;
+      break;
+    case Type::FLOAT:
+      type = ParquetType::FLOAT;
+      break;
+    case Type::DOUBLE:
+      type = ParquetType::DOUBLE;
+      break;
+    // // CHAR(N): fixed-length UTF8 string with length N
+    // CHAR = 12,
+    // // UTF8 variable-length string as List<Char>
+    // STRING = 13,
+    // // VARCHAR(N): Null-terminated string type embedded in a CHAR(N + 1)
+    // VARCHAR = 14,
+
+    // // Variable-length bytes (no guarantee of UTF8-ness)
+    // BINARY = 15,
+    // By default, int32 days since the UNIX epoch
+    // DATE = 16,
+    // Exact timestamp encoded with int64 since UNIX epoch
+    // Default unit millisecond
+    // TIMESTAMP = 17,
+    // Timestamp as double seconds since the UNIX epoch
+    // TIMESTAMP_DOUBLE = 18,
+    // Exact time encoded with int64, default unit millisecond
+    // TIME = 19,
+    // Precision- and scale-based decimal type. Storage type depends on the
+    // parameters.
+    // DECIMAL = 20,
+    // Decimal value encoded as a text string
+    // DECIMAL_TEXT = 21,
+    default:
+      // TODO: LIST, STRUCT, DENSE_UNION, SPARE_UNION, JSON_SCALAR
+      return Status::NotImplemented("unhandled type");
+  }
+  // TODO: handle required, repeated
+  *out = PrimitiveNode::Make(field->name, repetition, type, logical_type);
+  return Status::OK();
+}
+
+Status ToParquetSchema(
+    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out) {
+  std::vector<NodePtr> nodes(arrow_schema->num_fields());
+  for (int i = 0; i < arrow_schema->num_fields(); i++) {
+    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), &nodes[i]));
+  }
+
+  NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+  *out = std::make_shared<::parquet::SchemaDescriptor>();
+  (*out)->Init(schema);
+
+  return Status::OK();
+}
+
 
 }  // namespace parquet
 

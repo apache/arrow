@@ -36,6 +36,9 @@ Status NodeToField(const ::parquet::schema::NodePtr& node, std::shared_ptr<Field
 Status FromParquetSchema(
     const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out);
 
+Status ToParquetSchema(
+    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out);
+
 }  // namespace parquet
 
 }  // namespace arrow
