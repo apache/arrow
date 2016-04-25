@@ -67,23 +67,23 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new ListBuilder(pool, value_builder));
       return Status::OK();
     }
+
+    case Type::STRUCT: {
+      auto fields = type->children_;
+      std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
+
+      for (auto it : fields) {
+        std::shared_ptr<ArrayBuilder> builder;
+        RETURN_NOT_OK(MakeBuilder(pool, it->type, &builder));
+        values_builder.push_back(builder);
+      }
+      out->reset(new StructBuilder(pool, type, values_builder));
+      return Status::OK();
+    }
+
     default:
       return Status::NotImplemented(type->ToString());
   }
-}
-
-Status MakeStructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    const std::vector<std::shared_ptr<Field>>& fields,
-    std::shared_ptr<ArrayBuilder>* out) {
-  std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
-
-  for (auto it = fields.cbegin(); it != fields.cend(); it++) {
-    std::shared_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(pool, it->get()->type, &builder));
-    values_builder.push_back(builder);
-  }
-  out->reset(new StructBuilder(pool, type, fields, values_builder));
-  return Status::OK();
 }
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \

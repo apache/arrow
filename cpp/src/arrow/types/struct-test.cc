@@ -21,17 +21,16 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/type.h"
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
-#include "arrow/types/struct.h"
+#include "arrow/type.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/struct.h"
 #include "arrow/types/test-common.h"
 #include "arrow/util/status.h"
-
 
 using std::shared_ptr;
 using std::string;
@@ -62,7 +61,39 @@ TEST(TestStructType, Basics) {
   // TODO(wesm): out of bounds for field(...)
 }
 
-// .............................................................................
+void ValidateBasicStructArray(const StructArray* result,
+    const vector<uint8_t>& struct_is_valid, const vector<char>& list_values,
+    const vector<uint8_t>& list_is_valid, const vector<int>& list_lengths,
+    const vector<int>& list_offsets, const vector<int32_t>& int_values) {
+  ASSERT_EQ(4, result->length());
+  ASSERT_OK(result->Validate());
+
+  auto list_char_arr = static_cast<ListArray*>(result->field(0).get());
+  auto char_arr = static_cast<Int8Array*>(list_char_arr->values().get());
+  auto int32_arr = static_cast<Int32Array*>(result->field(1).get());
+
+  ASSERT_EQ(0, result->null_count());
+  ASSERT_EQ(1, list_char_arr->null_count());
+  ASSERT_EQ(0, int32_arr->null_count());
+
+  // List<char>
+  ASSERT_EQ(4, list_char_arr->length());
+  ASSERT_EQ(10, list_char_arr->values()->length());
+  for (size_t i = 0; i < list_offsets.size(); ++i) {
+    ASSERT_EQ(list_offsets[i], list_char_arr->offsets()[i]);
+  }
+  for (size_t i = 0; i < list_values.size(); ++i) {
+    ASSERT_EQ(list_values[i], char_arr->Value(i));
+  }
+
+  // Int32
+  ASSERT_EQ(4, int32_arr->length());
+  for (size_t i = 0; i < int_values.size(); ++i) {
+    ASSERT_EQ(int_values[i], int32_arr->Value(i));
+  }
+}
+
+// ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public TestBuilder {
  public:
@@ -82,14 +113,12 @@ class TestStructBuilder : public TestBuilder {
     value_fields_ = fields;
 
     std::shared_ptr<ArrayBuilder> tmp;
-    ASSERT_OK(MakeStructBuilder(pool_, type_, fields, &tmp));
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
 
     builder_ = std::dynamic_pointer_cast<StructBuilder>(tmp);
   }
 
-  void Done() {
-    result_ = std::dynamic_pointer_cast<StructArray>(builder_->Finish());
-  }
+  void Done() { result_ = std::dynamic_pointer_cast<StructArray>(builder_->Finish()); }
 
  protected:
   std::vector<FieldPtr> value_fields_;
@@ -102,26 +131,35 @@ class TestStructBuilder : public TestBuilder {
 TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_OK(builder_->AppendNull());
-  ASSERT_EQ(2, builder_->value_builder().size());
+  ASSERT_EQ(2, builder_->field_builders().size());
+
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
+  ASSERT_OK(list_vb->AppendNull());
+  ASSERT_OK(list_vb->AppendNull());
+  ASSERT_EQ(2, list_vb->length());
+
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
+  ASSERT_OK(int_vb->AppendNull());
+  ASSERT_OK(int_vb->AppendNull());
+  ASSERT_EQ(2, int_vb->length());
 
   Done();
 
-  ASSERT_EQ(2, result_->values().size());
+  ASSERT_OK(result_->Validate());
+
+  ASSERT_EQ(2, result_->fields().size());
   ASSERT_EQ(2, result_->length());
+  ASSERT_EQ(2, result_->field(0)->length());
+  ASSERT_EQ(2, result_->field(1)->length());
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
+  ASSERT_TRUE(result_->field(0)->IsNull(0));
+  ASSERT_TRUE(result_->field(0)->IsNull(1));
+  ASSERT_TRUE(result_->field(1)->IsNull(0));
+  ASSERT_TRUE(result_->field(1)->IsNull(1));
 
-
-  auto list_char = static_cast<ListArray*>(result_->values(0).get());
-  auto chars = static_cast<Int8Array*>(list_char->values().get());
-  auto int32 = static_cast<Int32Array*>(result_->values(1).get());
-  ASSERT_EQ(0, list_char->length());
-  ASSERT_EQ(0, chars->length());
-  ASSERT_EQ(0, int32->length());
-
-  ASSERT_EQ(Type::LIST, list_char->type_enum());
-  ASSERT_EQ(Type::INT8, list_char->values()->type_enum());
-  ASSERT_EQ(Type::INT32, int32->type_enum());
+  ASSERT_EQ(Type::LIST, result_->field(0)->type_enum());
+  ASSERT_EQ(Type::INT32, result_->field(1)->type_enum());
 }
 
 TEST_F(TestStructBuilder, TestBasics) {
@@ -129,16 +167,13 @@ TEST_F(TestStructBuilder, TestBasics) {
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
   vector<int> list_offsets = {0, 3, 3, 6, 10};
-  vector<uint8_t> list_is_not_null = {1, 0, 1, 1};
-  vector<uint8_t> struct_is_not_null = {1, 1, 1, 1};
+  vector<uint8_t> list_is_valid = {1, 0, 1, 1};
+  vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(
-      builder_->value_builder().at(0).get());
-  Int8Builder* char_vb = static_cast<Int8Builder*>(
-      list_vb->value_builder().get());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(
-      builder_->value_builder().at(1).get());
-  ASSERT_EQ(2, builder_->value_builder().size());
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
+  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
+  ASSERT_EQ(2, builder_->field_builders().size());
 
   EXPECT_OK(builder_->Reserve(list_lengths.size()));
   EXPECT_OK(char_vb->Reserve(list_values.size()));
@@ -146,49 +181,92 @@ TEST_F(TestStructBuilder, TestBasics) {
 
   int pos = 0;
   for (size_t i = 0; i < list_lengths.size(); ++i) {
-    ASSERT_OK(list_vb->Append(list_is_not_null[i] > 0));
-    int_vb->Append(int_values[i]);
+    ASSERT_OK(list_vb->Append(list_is_valid[i] > 0));
+    int_vb->UnsafeAppend(int_values[i]);
     for (int j = 0; j < list_lengths[i]; ++j) {
-     char_vb->Append(list_values[pos++]);
+      char_vb->UnsafeAppend(list_values[pos++]);
     }
   }
 
-  for (size_t i = 0; i < struct_is_not_null.size(); ++i) {
-    ASSERT_OK(builder_->Append(struct_is_not_null[i] > 0));
+  for (size_t i = 0; i < struct_is_valid.size(); ++i) {
+    ASSERT_OK(builder_->Append(struct_is_valid[i] > 0));
   }
 
   Done();
 
-  ASSERT_EQ(4, result_->length());
-
-  auto list_char = static_cast<ListArray*>(result_->values(0).get());
-  auto chars = static_cast<Int8Array*>(list_char->values().get());
-  auto int32 = static_cast<Int32Array*>(result_->values(1).get());
-
-  ASSERT_EQ(0, result_->null_count());
-  ASSERT_EQ(1, list_char->null_count());
-  ASSERT_EQ(0, int32->null_count());
-
-
-  for (int i = 0; i < result_->length(); ++i) {
-    ASSERT_EQ(!static_cast<bool>(struct_is_not_null[i]), result_->IsNull(i));
-    ASSERT_EQ(!static_cast<bool>(list_is_not_null[i]), list_char->IsNull(i));
-  }
-
-  // List<char>
-  ASSERT_EQ(4, list_char->length());
-  ASSERT_EQ(10, list_char->values()->length());
-  for (size_t i = 0; i < list_offsets.size(); ++i) {
-    ASSERT_EQ(list_offsets[i], list_char->offsets()[i]);
-  }
-  for (size_t i = 0; i < list_values.size(); ++i) {
-    ASSERT_EQ(list_values[i], chars->Value(i));
-  }
-
-  // Int32
-  ASSERT_EQ(4, int32->length());
-  for (size_t i = 0; i < int_values.size(); ++i) {
-    ASSERT_EQ(int_values[i], int32->Value(i));
-  }
+  ValidateBasicStructArray(result_.get(), struct_is_valid, list_values, list_is_valid,
+      list_lengths, list_offsets, int_values);
 }
-} // namespace arrow
+
+TEST_F(TestStructBuilder, BulkAppend) {
+  vector<int32_t> int_values = {1, 2, 3, 4};
+  vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
+  vector<int> list_lengths = {3, 0, 3, 4};
+  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<uint8_t> list_is_valid = {1, 0, 1, 1};
+  vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
+
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
+  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
+
+  ASSERT_OK(builder_->Reserve(list_lengths.size()));
+  ASSERT_OK(char_vb->Reserve(list_values.size()));
+  ASSERT_OK(int_vb->Reserve(int_values.size()));
+
+  builder_->Append(struct_is_valid.data(), struct_is_valid.size());
+
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+
+  Done();
+  ValidateBasicStructArray(result_.get(), struct_is_valid, list_values, list_is_valid,
+      list_lengths, list_offsets, int_values);
+}
+
+TEST_F(TestStructBuilder, BulkAppendInvalid) {
+  vector<int32_t> int_values = {1, 2, 3, 4};
+  vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
+  vector<int> list_lengths = {3, 0, 3, 4};
+  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<uint8_t> list_is_valid = {1, 0, 1, 1};
+  vector<uint8_t> struct_is_valid = {1, 0, 1, 1};  // should be 1, 1, 1, 1
+
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
+  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
+
+  ASSERT_OK(builder_->Reserve(list_lengths.size()));
+  ASSERT_OK(char_vb->Reserve(list_values.size()));
+  ASSERT_OK(int_vb->Reserve(int_values.size()));
+
+  builder_->Append(struct_is_valid.data(), struct_is_valid.size());
+
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+
+  Done();
+  ASSERT_RAISES(Invalid, result_->Validate());
+}
+
+TEST_F(TestStructBuilder, TestEquals) {}
+
+TEST_F(TestStructBuilder, TestZeroLength) {
+  // All buffers are null
+  Done();
+  ASSERT_OK(result_->Validate());
+}
+
+}  // namespace arrow

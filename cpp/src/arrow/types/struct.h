@@ -23,66 +23,59 @@
 #include <vector>
 
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
 #include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
 
 namespace arrow {
 
 class StructArray : public Array {
  public:
-  StructArray(const TypePtr& type, int32_t length,
-      std::vector<ArrayPtr>& values,
-      int32_t null_count = 0,
-      std::shared_ptr<Buffer> null_bitmap = nullptr) :
-      Array(type, length, null_count, null_bitmap) {
+  StructArray(const TypePtr& type, int32_t length, std::vector<ArrayPtr>& field_arrays,
+      int32_t null_count = 0, std::shared_ptr<Buffer> null_bitmap = nullptr)
+      : Array(type, length, null_count, null_bitmap) {
     type_ = type;
-    values_ = values;
+    field_arrays_ = field_arrays;
   }
+
+  Status Validate() const override;
 
   virtual ~StructArray() {}
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const std::shared_ptr<Array>& values(int32_t pos) const {return values_.at(pos);}
-  const std::vector<ArrayPtr>& values() const {return values_;}
+  const std::shared_ptr<Array>& field(int32_t pos) const { return field_arrays_.at(pos); }
+  const std::vector<ArrayPtr>& fields() const { return field_arrays_; }
 
-  const std::shared_ptr<DataType>& value_type(int32_t pos) const {
-    return values_.at(pos)->type();
+  const std::shared_ptr<DataType>& field_type(int32_t pos) const {
+    return field_arrays_.at(pos)->type();
   }
 
-  bool EqualsExact(const ListArray& other) const {
-    return true;
-  }
-  bool Equals(const std::shared_ptr<Array>& arr) const override {
-    return true;
-  }
+  bool EqualsExact(const StructArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
-  // Contains kinds of Arrays.
-  std::vector<ArrayPtr> values_;
+  // The child arrays corresponding to each field of the struct data type.
+  std::vector<ArrayPtr> field_arrays_;
 };
 
-// ............................................................................
-// StrcutArray builder
+// ---------------------------------------------------------------------------------
+// StructArray builder
 class StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    const std::vector<FieldPtr>& fields,
-    std::vector<std::shared_ptr<ArrayBuilder>>& value_builder)
-    : ArrayBuilder(pool, type) {
-    fields_ = fields;
-    value_builder_ = value_builder;
+      std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)
+      : ArrayBuilder(pool, type) {
+    field_builders_ = field_builders;
   }
 
-  Status Init(int32_t elements) {
-    return ArrayBuilder::Init(elements);
+  Status Init(int32_t elements) override {
+    RETURN_NOT_OK(ArrayBuilder::Init(elements));
+    return Status::OK();
   }
 
-  Status Resize(int32_t capacity) {
+  Status Resize(int32_t capacity) override {
     // Need space for the end offset
-    if (capacity < MIN_BUILDER_CAPACITY) {
-      capacity = MIN_BUILDER_CAPACITY;
-    }
+    if (capacity < MIN_BUILDER_CAPACITY) { capacity = MIN_BUILDER_CAPACITY; }
 
     if (capacity_ == 0) {
       RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -91,33 +84,32 @@ class StructBuilder : public ArrayBuilder {
     }
     capacity_ = capacity;
 
-    for (auto it = value_builder_.begin(); it != value_builder_.end(); ++it) {
-      it->get()->Resize(capacity);
+    for (auto it : field_builders_) {
+      RETURN_NOT_OK(it->Resize(capacity));
     }
     return Status::OK();
   }
 
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
+  // null_bitmap is of equal length to every child field, and any zero byte
+  // will be considered as a null for that field, but users must using app-
+  // end methods or advance methods of the child builders independently to
+  // insert data.
   Status Append(const uint8_t* null_bitmap, int32_t length) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(null_bitmap, length);
     return Status::OK();
   }
 
-  template <typename Container>
-  std::shared_ptr<Array> Transfer() {
-    DCHECK(value_builder_.size());
+  std::shared_ptr<Array> Finish() override {
+    DCHECK(field_builders_.size());
 
-    std::vector<std::shared_ptr<Array>> items;
-    for (auto it = value_builder_.cbegin(); it != value_builder_.cend(); it++) {
-      items.push_back(it->get()->Finish());
+    std::vector<ArrayPtr> fields;
+    for (auto it : field_builders_) {
+      fields.push_back(it->Finish());
     }
-    // Here, for ListArray, offsets_ is needed, but StructArray dont need it.
-    auto result = std::make_shared<StructArray>(type_, length_, items,
-        null_count_, null_bitmap_);
+
+    auto result =
+        std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
 
     null_bitmap_ = nullptr;
     capacity_ = length_ = null_count_ = 0;
@@ -125,35 +117,28 @@ class StructBuilder : public ArrayBuilder {
     return result;
   }
 
-  std::shared_ptr<Array> Finish() override {
-    return Transfer<StructArray>();
-  }
-
-  // Start a new variable-length list slot
-  //
-  // This function should be called before beginning to append elements to the
-  // value builder
-  // TODO: This method should be a virtual method or not, to append null to
-  // it's all children?
+  // This function just appends elements to StructBuilder, if you want to
+  // inserting data into the child fields, please make sure that the chi-
+  // ld builders' append methods must be called independently before that.
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
     return Status::OK();
   }
 
-  Status AppendNull() {
-    return Append(false);
-  }
+  Status AppendNull() { return Append(false); }
 
-  const std::vector<std::shared_ptr<ArrayBuilder>>& value_builder() const {
-    return value_builder_;
+  const std::shared_ptr<ArrayBuilder> field_builder(int pos) const {
+    return field_builders_.at(pos);
+  }
+  const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders() const {
+    return field_builders_;
   }
 
  protected:
-  std::vector<std::shared_ptr<ArrayBuilder>> value_builder_;
-  std::vector<FieldPtr> fields_;
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
 };
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif // ARROW_TYPES_STRUCT_H
+#endif  // ARROW_TYPES_STRUCT_H

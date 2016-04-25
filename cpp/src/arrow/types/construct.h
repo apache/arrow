@@ -34,10 +34,6 @@ class Status;
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out);
 
-Status MakeStructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    const std::vector<std::shared_ptr<Field>>& fields,
-    std::shared_ptr<ArrayBuilder>* out);
-
 // Create new arrays for logical types that are backed by primitive arrays.
 Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
