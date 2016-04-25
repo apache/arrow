@@ -43,8 +43,6 @@ Base requirements
   linearly in the nesting level
 * Capable of representing fully-materialized and decoded / decompressed Parquet
   data
-* All leaf nodes (primitive value arrays) use contiguous memory regions (TODO I'm not sure how to read this, 
-does the next line take care of the concerns?).
 * All contiguous memory buffers are aligned at 64-byte boundaries and padded to a multiple of 64 bytes.
 * Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
@@ -84,9 +82,9 @@ The Arrow format is little endian.
 
 ## Alignment and Padding
 
-As noted above all buffers are intented to be aligned in memory at 64 byte
+As noted above, all buffers are intended to be aligned in memory at 64 byte
 boundaries and padded to a length that is a multiple of 64 bytes.  The alignment
-requirement follows best practices for optimized memory accesses:  
+requirement follows best practices for optimized memory access:
 
 * Elements in numeric arrays will be guaranteed to be retrieved via aligned access.
 * On some architectures alignment can help limit partially used cache lines.
