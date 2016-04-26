@@ -62,6 +62,10 @@ std::string ColumnPath::ToDotString() const {
   return ss.str();
 }
 
+const std::vector<std::string>& ColumnPath::ToDotVector() const {
+  return path_;
+}
+
 // ----------------------------------------------------------------------
 // Base node
 

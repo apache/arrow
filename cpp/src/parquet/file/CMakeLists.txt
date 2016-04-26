@@ -20,3 +20,4 @@ install(FILES
   DESTINATION include/parquet/file)
 
 ADD_PARQUET_TEST(file-deserialize-test)
+ADD_PARQUET_TEST(file-serialize-test)

@@ -224,4 +224,16 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(
   return std::shared_ptr<ColumnReader>(nullptr);
 }
 
+// ----------------------------------------------------------------------
+// Instantiate templated classes
+
+template class TypedColumnReader<Type::BOOLEAN>;
+template class TypedColumnReader<Type::INT32>;
+template class TypedColumnReader<Type::INT64>;
+template class TypedColumnReader<Type::INT96>;
+template class TypedColumnReader<Type::FLOAT>;
+template class TypedColumnReader<Type::DOUBLE>;
+template class TypedColumnReader<Type::BYTE_ARRAY>;
+template class TypedColumnReader<Type::FIXED_LEN_BYTE_ARRAY>;
+
 } // namespace parquet

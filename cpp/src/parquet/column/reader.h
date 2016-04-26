@@ -108,7 +108,8 @@ class TypedColumnReader : public ColumnReader {
   typedef typename type_traits<TYPE>::value_type T;
 
   TypedColumnReader(const ColumnDescriptor* schema,
-      std::unique_ptr<PageReader> pager, MemoryAllocator* allocator) :
+      std::unique_ptr<PageReader> pager,
+      MemoryAllocator* allocator = default_allocator()) :
       ColumnReader(schema, std::move(pager), allocator),
       current_decoder_(NULL) {
   }

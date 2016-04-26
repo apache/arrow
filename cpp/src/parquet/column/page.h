@@ -210,6 +210,20 @@ class PageReader {
   virtual std::shared_ptr<Page> NextPage() = 0;
 };
 
+class PageWriter {
+ public:
+  virtual ~PageWriter() {}
+
+  virtual void Close() = 0;
+
+  virtual int64_t WriteDataPage(int32_t num_rows, int32_t num_values,
+      const std::shared_ptr<Buffer>& definition_levels,
+      Encoding::type definition_level_encoding,
+      const std::shared_ptr<Buffer>& repetition_levels,
+      Encoding::type repetition_level_encoding,
+      const std::shared_ptr<Buffer>& values, Encoding::type encoding) = 0;
+};
+
 } // namespace parquet
 
 #endif // PARQUET_COLUMN_PAGE_H

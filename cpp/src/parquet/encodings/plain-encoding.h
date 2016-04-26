@@ -177,7 +177,7 @@ class PlainEncoder : public Encoder<TYPE> {
       MemoryAllocator* allocator = default_allocator()) :
       Encoder<TYPE>(descr, Encoding::PLAIN, allocator) {}
 
-  void Encode(const T* src, int num_values, OutputStream* dst);
+  void Encode(const T* src, int num_values, OutputStream* dst) override;
 };
 
 template <>

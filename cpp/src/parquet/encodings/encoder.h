@@ -39,6 +39,8 @@ class Encoder {
 
   virtual ~Encoder() {}
 
+  virtual void Encode(const T* src, int num_values, OutputStream* dst) = 0;
+
   const Encoding::type encoding() const { return encoding_; }
 
  protected:
