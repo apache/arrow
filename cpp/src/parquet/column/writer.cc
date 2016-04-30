@@ -117,14 +117,14 @@ int64_t ColumnWriter::Close() {
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
-template <int TYPE>
-TypedColumnWriter<TYPE>::TypedColumnWriter(const ColumnDescriptor* schema,
+template <typename Type>
+TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* schema,
       std::unique_ptr<PageWriter> pager, int64_t expected_rows,
       MemoryAllocator* allocator) :
       ColumnWriter(schema, std::move(pager), expected_rows, allocator) {
   // TODO(PARQUET-590) Get decoder type from WriterProperties
   current_encoder_ = std::unique_ptr<EncoderType>(
-      new PlainEncoder<TYPE>(schema, allocator));
+      new PlainEncoder<Type>(schema, allocator));
 }
 
 // ----------------------------------------------------------------------
@@ -170,14 +170,13 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
 // ----------------------------------------------------------------------
 // Instantiate templated classes
 
-template class TypedColumnWriter<Type::BOOLEAN>;
-template class TypedColumnWriter<Type::INT32>;
-template class TypedColumnWriter<Type::INT64>;
-template class TypedColumnWriter<Type::INT96>;
-template class TypedColumnWriter<Type::FLOAT>;
-template class TypedColumnWriter<Type::DOUBLE>;
-template class TypedColumnWriter<Type::BYTE_ARRAY>;
-template class TypedColumnWriter<Type::FIXED_LEN_BYTE_ARRAY>;
-
+template class TypedColumnWriter<BooleanType>;
+template class TypedColumnWriter<Int32Type>;
+template class TypedColumnWriter<Int64Type>;
+template class TypedColumnWriter<Int96Type>;
+template class TypedColumnWriter<FloatType>;
+template class TypedColumnWriter<DoubleType>;
+template class TypedColumnWriter<ByteArrayType>;
+template class TypedColumnWriter<FLBAType>;
 
 } // namespace parquet

@@ -47,8 +47,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   // seed the prng so failure is deterministic
   vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
 
-  PlainEncoder<Type::BOOLEAN> encoder(nullptr);
-  PlainDecoder<Type::BOOLEAN> decoder(nullptr);
+  PlainEncoder<BooleanType> encoder(nullptr);
+  PlainDecoder<BooleanType> decoder(nullptr);
 
   InMemoryOutputStream dst;
   encoder.Encode(draws, nvalues, &dst);
@@ -218,8 +218,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
-    PlainEncoder<TYPE> encoder(descr_.get());
-    PlainDecoder<TYPE> decoder(descr_.get());
+    PlainEncoder<Type> encoder(descr_.get());
+    PlainDecoder<Type> decoder(descr_.get());
     InMemoryOutputStream dst;
     encoder.Encode(draws_, num_values_, &dst);
 
@@ -274,11 +274,11 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
         indices->size());
     indices->Resize(actual_bytes);
 
-    PlainDecoder<TYPE> dict_decoder(descr_.get());
+    PlainDecoder<Type> dict_decoder(descr_.get());
     dict_decoder.SetData(encoder.num_entries(), dict_buffer_->data(),
         dict_buffer_->size());
 
-    DictionaryDecoder<TYPE> decoder(descr_.get());
+    DictionaryDecoder<Type> decoder(descr_.get());
     decoder.SetDict(&dict_decoder);
 
     decoder.SetData(num_values_, indices->data(), indices->size());
@@ -303,8 +303,8 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
 }
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
-  PlainDecoder<Type::BOOLEAN> dict_decoder(nullptr);
-  DictionaryDecoder<Type::BOOLEAN> decoder(nullptr);
+  PlainDecoder<BooleanType> dict_decoder(nullptr);
+  DictionaryDecoder<BooleanType> decoder(nullptr);
 
   ASSERT_THROW(decoder.SetDict(&dict_decoder), ParquetException);
 }

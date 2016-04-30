@@ -99,8 +99,8 @@ class TestFlatScanner : public ::testing::Test {
   }
 
   void CheckResults(int batch_size, const ColumnDescriptor *d) {
-    TypedScanner<Type::type_num>* scanner =
-      reinterpret_cast<TypedScanner<Type::type_num>* >(scanner_.get());
+    TypedScanner<Type>* scanner =
+      reinterpret_cast<TypedScanner<Type>* >(scanner_.get());
     T val;
     bool is_null = false;
     int16_t def_level;
@@ -243,8 +243,8 @@ TEST_F(TestFlatFLBAScanner, TestDescriptorAPI) {
       data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
-  TypedScanner<FLBAType::type_num>* scanner =
-    reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
+  TypedScanner<FLBAType>* scanner =
+    reinterpret_cast<TypedScanner<FLBAType>* >(scanner_.get());
   ASSERT_EQ(10, scanner->descr()->type_precision());
   ASSERT_EQ(2, scanner->descr()->type_scale());
   ASSERT_EQ(FLBA_LENGTH, scanner->descr()->type_length());
@@ -258,8 +258,8 @@ TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
       data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
-  TypedScanner<FLBAType::type_num>* scanner =
-    reinterpret_cast<TypedScanner<FLBAType::type_num>* >(scanner_.get());
+  TypedScanner<FLBAType>* scanner =
+    reinterpret_cast<TypedScanner<FLBAType>* >(scanner_.get());
   scanner->SetBatchSize(batch_size);
   std::stringstream ss_fail;
   for (int i = 0; i < num_levels_; i++) {

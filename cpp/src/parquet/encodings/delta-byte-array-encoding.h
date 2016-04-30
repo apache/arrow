@@ -26,11 +26,11 @@
 
 namespace parquet {
 
-class DeltaByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
+class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
  public:
   explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
       MemoryAllocator* allocator = default_allocator())
-      : Decoder<Type::BYTE_ARRAY>(descr, Encoding::DELTA_BYTE_ARRAY),
+      : Decoder<ByteArrayType>(descr, Encoding::DELTA_BYTE_ARRAY),
       prefix_len_decoder_(nullptr, allocator),
       suffix_decoder_(nullptr, allocator) {
   }
@@ -70,9 +70,9 @@ class DeltaByteArrayDecoder : public Decoder<Type::BYTE_ARRAY> {
   }
 
  private:
-  using Decoder<Type::BYTE_ARRAY>::num_values_;
+  using Decoder<ByteArrayType>::num_values_;
 
-  DeltaBitPackDecoder<Type::INT32> prefix_len_decoder_;
+  DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
   ByteArray last_value_;
 };

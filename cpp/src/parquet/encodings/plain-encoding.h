@@ -33,14 +33,14 @@ namespace parquet {
 // ----------------------------------------------------------------------
 // Encoding::PLAIN decoder implementation
 
-template <int TYPE>
-class PlainDecoder : public Decoder<TYPE> {
+template <typename DType>
+class PlainDecoder : public Decoder<DType> {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
-  using Decoder<TYPE>::num_values_;
+  typedef typename DType::c_type T;
+  using Decoder<DType>::num_values_;
 
   explicit PlainDecoder(const ColumnDescriptor* descr) :
-      Decoder<TYPE>(descr, Encoding::PLAIN),
+      Decoder<DType>(descr, Encoding::PLAIN),
       data_(NULL), len_(0) {
     if (descr_ && descr_->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
       type_length_ = descr_->type_length();
@@ -58,7 +58,7 @@ class PlainDecoder : public Decoder<TYPE> {
   virtual int Decode(T* buffer, int max_values);
 
  private:
-  using Decoder<TYPE>::descr_;
+  using Decoder<DType>::descr_;
   const uint8_t* data_;
   int len_;
   int type_length_;
@@ -112,8 +112,8 @@ inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size
   return bytes_to_decode;
 }
 
-template <int TYPE>
-inline int PlainDecoder<TYPE>::Decode(T* buffer, int max_values) {
+template <typename DType>
+inline int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
   int bytes_consumed = DecodePlain<T>(data_, len_, max_values,
       type_length_, buffer);
@@ -124,10 +124,10 @@ inline int PlainDecoder<TYPE>::Decode(T* buffer, int max_values) {
 }
 
 template <>
-class PlainDecoder<Type::BOOLEAN> : public Decoder<Type::BOOLEAN> {
+class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
  public:
   explicit PlainDecoder(const ColumnDescriptor* descr) :
-      Decoder<Type::BOOLEAN>(descr, Encoding::PLAIN) {}
+      Decoder<BooleanType>(descr, Encoding::PLAIN) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -168,24 +168,24 @@ class PlainDecoder<Type::BOOLEAN> : public Decoder<Type::BOOLEAN> {
 // ----------------------------------------------------------------------
 // Encoding::PLAIN encoder implementation
 
-template <int TYPE>
-class PlainEncoder : public Encoder<TYPE> {
+template <typename DType>
+class PlainEncoder : public Encoder<DType> {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   explicit PlainEncoder(const ColumnDescriptor* descr,
       MemoryAllocator* allocator = default_allocator()) :
-      Encoder<TYPE>(descr, Encoding::PLAIN, allocator) {}
+      Encoder<DType>(descr, Encoding::PLAIN, allocator) {}
 
   void Encode(const T* src, int num_values, OutputStream* dst) override;
 };
 
 template <>
-class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
+class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  public:
   explicit PlainEncoder(const ColumnDescriptor* descr,
       MemoryAllocator* allocator = default_allocator()) :
-      Encoder<Type::BOOLEAN>(descr, Encoding::PLAIN, allocator) {}
+      Encoder<BooleanType>(descr, Encoding::PLAIN, allocator) {}
 
   virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
     int bytes_required = BitUtil::Ceil(num_values, 8);
@@ -221,14 +221,14 @@ class PlainEncoder<Type::BOOLEAN> : public Encoder<Type::BOOLEAN> {
   }
 };
 
-template <int TYPE>
-inline void PlainEncoder<TYPE>::Encode(const T* buffer, int num_values,
+template <typename DType>
+inline void PlainEncoder<DType>::Encode(const T* buffer, int num_values,
     OutputStream* dst) {
   dst->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
 }
 
 template <>
-inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
+inline void PlainEncoder<ByteArrayType>::Encode(const ByteArray* src,
     int num_values, OutputStream* dst) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
@@ -238,7 +238,7 @@ inline void PlainEncoder<Type::BYTE_ARRAY>::Encode(const ByteArray* src,
 }
 
 template <>
-inline void PlainEncoder<Type::FIXED_LEN_BYTE_ARRAY>::Encode(
+inline void PlainEncoder<FLBAType>::Encode(
     const FixedLenByteArray* src, int num_values, OutputStream* dst) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream

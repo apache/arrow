@@ -102,10 +102,10 @@ class ColumnReader {
 };
 
 // API to read values from a single column. This is the main client facing API.
-template <int TYPE>
+template <typename DType>
 class TypedColumnReader : public ColumnReader {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   TypedColumnReader(const ColumnDescriptor* schema,
       std::unique_ptr<PageReader> pager,
@@ -131,7 +131,7 @@ class TypedColumnReader : public ColumnReader {
       T* values, int64_t* values_read);
 
  private:
-  typedef Decoder<TYPE> DecoderType;
+  typedef Decoder<DType> DecoderType;
 
   // Advance to the next data page
   virtual bool ReadNewPage();
@@ -153,14 +153,14 @@ class TypedColumnReader : public ColumnReader {
 };
 
 
-template <int TYPE>
-inline int64_t TypedColumnReader<TYPE>::ReadValues(int64_t batch_size, T* out) {
+template <typename DType>
+inline int64_t TypedColumnReader<DType>::ReadValues(int64_t batch_size, T* out) {
   int64_t num_decoded = current_decoder_->Decode(out, batch_size);
   return num_decoded;
 }
 
-template <int TYPE>
-inline int64_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_levels,
+template <typename DType>
+inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_levels,
     int16_t* rep_levels, T* values, int64_t* values_read) {
   // HasNext invokes ReadNewPage
   if (!HasNext()) {
@@ -208,14 +208,14 @@ inline int64_t TypedColumnReader<TYPE>::ReadBatch(int batch_size, int16_t* def_l
 }
 
 
-typedef TypedColumnReader<Type::BOOLEAN> BoolReader;
-typedef TypedColumnReader<Type::INT32> Int32Reader;
-typedef TypedColumnReader<Type::INT64> Int64Reader;
-typedef TypedColumnReader<Type::INT96> Int96Reader;
-typedef TypedColumnReader<Type::FLOAT> FloatReader;
-typedef TypedColumnReader<Type::DOUBLE> DoubleReader;
-typedef TypedColumnReader<Type::BYTE_ARRAY> ByteArrayReader;
-typedef TypedColumnReader<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayReader;
+typedef TypedColumnReader<BooleanType> BoolReader;
+typedef TypedColumnReader<Int32Type> Int32Reader;
+typedef TypedColumnReader<Int64Type> Int64Reader;
+typedef TypedColumnReader<Int96Type> Int96Reader;
+typedef TypedColumnReader<FloatType> FloatReader;
+typedef TypedColumnReader<DoubleType> DoubleReader;
+typedef TypedColumnReader<ByteArrayType> ByteArrayReader;
+typedef TypedColumnReader<FLBAType> FixedLenByteArrayReader;
 
 } // namespace parquet
 

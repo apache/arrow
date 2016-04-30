@@ -36,8 +36,8 @@ ColumnReader::ColumnReader(const ColumnDescriptor* descr,
     num_decoded_values_(0),
     allocator_(allocator) {}
 
-template <int TYPE>
-void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
+template <typename DType>
+void TypedColumnReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
   int encoding = static_cast<int>(page->encoding());
   if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
       page->encoding() == Encoding::PLAIN) {
@@ -51,7 +51,7 @@ void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
 
   if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
       page->encoding() == Encoding::PLAIN) {
-    PlainDecoder<TYPE> dictionary(descr_);
+    PlainDecoder<DType> dictionary(descr_);
     dictionary.SetData(page->num_values(), page->data(), page->size());
 
     // The dictionary is fully decoded during DictionaryDecoder::Init, so the
@@ -60,7 +60,7 @@ void TypedColumnReader<TYPE>::ConfigureDictionary(const DictionaryPage* page) {
     // TODO(wesm): investigate whether this all-or-nothing decoding of the
     // dictionary makes sense and whether performance can be improved
 
-    auto decoder = std::make_shared<DictionaryDecoder<TYPE> >(descr_, allocator_);
+    auto decoder = std::make_shared<DictionaryDecoder<DType> >(descr_, allocator_);
     decoder->SetDict(&dictionary);
     decoders_[encoding] = decoder;
   } else {
@@ -77,8 +77,8 @@ static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
     e == Encoding::PLAIN_DICTIONARY;
 }
 
-template <int TYPE>
-bool TypedColumnReader<TYPE>::ReadNewPage() {
+template <typename DType>
+bool TypedColumnReader<DType>::ReadNewPage() {
   // Loop until we find the next data page.
   const uint8_t* buffer;
 
@@ -147,7 +147,7 @@ bool TypedColumnReader<TYPE>::ReadNewPage() {
       } else {
         switch (encoding) {
           case Encoding::PLAIN: {
-            std::shared_ptr<DecoderType> decoder(new PlainDecoder<TYPE>(descr_));
+            std::shared_ptr<DecoderType> decoder(new PlainDecoder<DType>(descr_));
             decoders_[static_cast<int>(encoding)] = decoder;
             current_decoder_ = decoder.get();
             break;
@@ -227,13 +227,13 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(
 // ----------------------------------------------------------------------
 // Instantiate templated classes
 
-template class TypedColumnReader<Type::BOOLEAN>;
-template class TypedColumnReader<Type::INT32>;
-template class TypedColumnReader<Type::INT64>;
-template class TypedColumnReader<Type::INT96>;
-template class TypedColumnReader<Type::FLOAT>;
-template class TypedColumnReader<Type::DOUBLE>;
-template class TypedColumnReader<Type::BYTE_ARRAY>;
-template class TypedColumnReader<Type::FIXED_LEN_BYTE_ARRAY>;
+template class TypedColumnReader<BooleanType>;
+template class TypedColumnReader<Int32Type>;
+template class TypedColumnReader<Int64Type>;
+template class TypedColumnReader<Int96Type>;
+template class TypedColumnReader<FloatType>;
+template class TypedColumnReader<DoubleType>;
+template class TypedColumnReader<ByteArrayType>;
+template class TypedColumnReader<FLBAType>;
 
 } // namespace parquet

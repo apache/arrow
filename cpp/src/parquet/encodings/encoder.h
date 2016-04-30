@@ -32,10 +32,10 @@ class OutputStream;
 // dictionary encoding) we use a class instance to maintain any state.
 //
 // TODO(wesm): Encode interface API is temporary
-template <int TYPE>
+template <typename DType>
 class Encoder {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   virtual ~Encoder() {}
 

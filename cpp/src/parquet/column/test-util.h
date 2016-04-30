@@ -128,7 +128,7 @@ class DataPageBuilder {
 
   void AppendValues(const ColumnDescriptor *d, const vector<T>& values,
       Encoding::type encoding = Encoding::PLAIN) {
-    PlainEncoder<Type::type_num> encoder(d);
+    PlainEncoder<Type> encoder(d);
     encoder.Encode(&values[0], values.size(), sink_);
 
     num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
@@ -195,7 +195,7 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor *d,
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
-  PlainEncoder<Type::BOOLEAN> encoder(d);
+  PlainEncoder<BooleanType> encoder(d);
   encoder.Encode(values, values.size(), sink_);
 
   num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);

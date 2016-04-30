@@ -28,16 +28,16 @@
 
 namespace parquet {
 
-template <int TYPE>
-class DeltaBitPackDecoder : public Decoder<TYPE> {
+template <typename DType>
+class DeltaBitPackDecoder : public Decoder<DType> {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
       MemoryAllocator* allocator = default_allocator())
-      : Decoder<TYPE>(descr, Encoding::DELTA_BINARY_PACKED),
+      : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED),
         delta_bit_widths_(0, allocator) {
-    if (TYPE != Type::INT32 && TYPE != Type::INT64) {
+    if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
   }
@@ -54,7 +54,7 @@ class DeltaBitPackDecoder : public Decoder<TYPE> {
   }
 
  private:
-  using Decoder<TYPE>::num_values_;
+  using Decoder<DType>::num_values_;
 
   void InitBlock() {
     int32_t block_size;

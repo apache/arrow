@@ -101,10 +101,10 @@ class ColumnWriter {
 };
 
 // API to write values to a single column. This is the main client facing API.
-template <int TYPE>
+template <typename DType>
 class TypedColumnWriter : public ColumnWriter {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   TypedColumnWriter(const ColumnDescriptor* schema,
       std::unique_ptr<PageWriter> pager, int64_t expected_rows,
@@ -116,7 +116,7 @@ class TypedColumnWriter : public ColumnWriter {
       T* values);
 
  private:
-  typedef Encoder<TYPE> EncoderType;
+  typedef Encoder<DType> EncoderType;
 
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, T* values);
@@ -135,8 +135,8 @@ class TypedColumnWriter : public ColumnWriter {
 // See also: parquet-column/../column/impl/ColumnWriteStoreV2.java:sizeCheck
 const int64_t PAGE_VALUE_COUNT = 1000;
 
-template <int TYPE>
-inline void TypedColumnWriter<TYPE>::WriteBatch(int64_t num_values, int16_t* def_levels,
+template <typename DType>
+inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, int16_t* def_levels,
     int16_t* rep_levels, T* values) {
   int64_t values_to_write = 0;
 
@@ -185,22 +185,20 @@ inline void TypedColumnWriter<TYPE>::WriteBatch(int64_t num_values, int16_t* def
   }
 }
 
-template <int TYPE>
-void TypedColumnWriter<TYPE>::WriteValues(int64_t num_values, T* values) {
+template <typename DType>
+void TypedColumnWriter<DType>::WriteValues(int64_t num_values, T* values) {
   current_encoder_->Encode(values, num_values, values_sink_.get());
 }
 
-
-typedef TypedColumnWriter<Type::BOOLEAN> BoolWriter;
-typedef TypedColumnWriter<Type::INT32> Int32Writer;
-typedef TypedColumnWriter<Type::INT64> Int64Writer;
-typedef TypedColumnWriter<Type::INT96> Int96Writer;
-typedef TypedColumnWriter<Type::FLOAT> FloatWriter;
-typedef TypedColumnWriter<Type::DOUBLE> DoubleWriter;
-typedef TypedColumnWriter<Type::BYTE_ARRAY> ByteArrayWriter;
-typedef TypedColumnWriter<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayWriter;
+typedef TypedColumnWriter<BooleanType> BoolWriter;
+typedef TypedColumnWriter<Int32Type> Int32Writer;
+typedef TypedColumnWriter<Int64Type> Int64Writer;
+typedef TypedColumnWriter<Int96Type> Int96Writer;
+typedef TypedColumnWriter<FloatType> FloatWriter;
+typedef TypedColumnWriter<DoubleType> DoubleWriter;
+typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
+typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
 } // namespace parquet
 
 #endif // PARQUET_COLUMN_READER_H
-

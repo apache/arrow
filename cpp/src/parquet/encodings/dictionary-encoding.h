@@ -36,21 +36,21 @@
 
 namespace parquet {
 
-template <int TYPE>
-class DictionaryDecoder : public Decoder<TYPE> {
+template <typename Type>
+class DictionaryDecoder : public Decoder<Type> {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename Type::c_type T;
 
   // Initializes the dictionary with values from 'dictionary'. The data in
   // dictionary is not guaranteed to persist in memory after this call so the
   // dictionary decoder needs to copy the data out if necessary.
   explicit DictionaryDecoder(const ColumnDescriptor* descr,
       MemoryAllocator* allocator = default_allocator()):
-      Decoder<TYPE>(descr, Encoding::RLE_DICTIONARY), dictionary_(0, allocator),
+      Decoder<Type>(descr, Encoding::RLE_DICTIONARY), dictionary_(0, allocator),
       byte_array_data_(0, allocator) {}
 
   // Perform type-specific initiatialization
-  void SetDict(Decoder<TYPE>* dictionary);
+  void SetDict(Decoder<Type>* dictionary);
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -70,7 +70,7 @@ class DictionaryDecoder : public Decoder<TYPE> {
   }
 
  private:
-  using Decoder<TYPE>::num_values_;
+  using Decoder<Type>::num_values_;
 
   int index() {
     int idx = 0;
@@ -89,22 +89,22 @@ class DictionaryDecoder : public Decoder<TYPE> {
   RleDecoder idx_decoder_;
 };
 
-template <int TYPE>
-inline void DictionaryDecoder<TYPE>::SetDict(Decoder<TYPE>* dictionary) {
+template <typename Type>
+inline void DictionaryDecoder<Type>::SetDict(Decoder<Type>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 }
 
 template <>
-inline void DictionaryDecoder<Type::BOOLEAN>::SetDict(
-    Decoder<Type::BOOLEAN>* dictionary) {
+inline void DictionaryDecoder<BooleanType>::SetDict(
+    Decoder<BooleanType>* dictionary) {
   ParquetException::NYI("Dictionary encoding is not implemented for boolean values");
 }
 
 template <>
-inline void DictionaryDecoder<Type::BYTE_ARRAY>::SetDict(
-    Decoder<Type::BYTE_ARRAY>* dictionary) {
+inline void DictionaryDecoder<ByteArrayType>::SetDict(
+    Decoder<ByteArrayType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
@@ -123,8 +123,7 @@ inline void DictionaryDecoder<Type::BYTE_ARRAY>::SetDict(
 }
 
 template <>
-inline void DictionaryDecoder<Type::FIXED_LEN_BYTE_ARRAY>::SetDict(
-    Decoder<Type::FIXED_LEN_BYTE_ARRAY>* dictionary) {
+inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(&dictionary_[0], num_dictionary_values);

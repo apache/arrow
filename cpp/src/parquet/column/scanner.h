@@ -91,17 +91,17 @@ class Scanner {
 };
 
 
-template <int TYPE>
+template <typename DType>
 class TypedScanner : public Scanner {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
       MemoryAllocator* allocator = default_allocator()) :
       Scanner(reader, batch_size, allocator) {
-    typed_reader_ = static_cast<TypedColumnReader<TYPE>*>(reader.get());
-    int value_byte_size = type_traits<TYPE>::value_byte_size;
+    typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
+    int value_byte_size = type_traits<DType::type_num>::value_byte_size;
     value_buffer_.Resize(batch_size_ * value_byte_size);
     values_ = reinterpret_cast<T*>(&value_buffer_[0]);
   }
@@ -183,7 +183,7 @@ class TypedScanner : public Scanner {
     }
 
     if (is_null) {
-      std::string null_fmt = format_fwf<Type::BYTE_ARRAY>(width);
+      std::string null_fmt = format_fwf<ByteArrayType>(width);
       snprintf(buffer, sizeof(buffer), null_fmt.c_str(), "NULL");
     } else {
       FormatValue(&val, buffer, sizeof(buffer), width);
@@ -193,7 +193,7 @@ class TypedScanner : public Scanner {
 
  private:
   // The ownership of this object is expressed through the reader_ variable in the base
-  TypedColumnReader<TYPE>* typed_reader_;
+  TypedColumnReader<DType>* typed_reader_;
 
   inline void FormatValue(void* val, char* buffer, int bufsize, int width);
 
@@ -201,47 +201,47 @@ class TypedScanner : public Scanner {
 };
 
 
-template <int TYPE>
-inline void TypedScanner<TYPE>::FormatValue(void* val, char* buffer,
+template <typename DType>
+inline void TypedScanner<DType>::FormatValue(void* val, char* buffer,
     int bufsize, int width) {
-  std::string fmt = format_fwf<TYPE>(width);
+  std::string fmt = format_fwf<DType>(width);
   snprintf(buffer, bufsize, fmt.c_str(), *reinterpret_cast<T*>(val));
 }
 
 template <>
-inline void TypedScanner<Type::INT96>::FormatValue(
+inline void TypedScanner<Int96Type>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<Type::INT96>(width);
+  std::string fmt = format_fwf<Int96Type>(width);
   std::string result = Int96ToString(*reinterpret_cast<Int96*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
-inline void TypedScanner<Type::BYTE_ARRAY>::FormatValue(
+inline void TypedScanner<ByteArrayType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<Type::BYTE_ARRAY>(width);
+  std::string fmt = format_fwf<ByteArrayType>(width);
   std::string result = ByteArrayToString(*reinterpret_cast<ByteArray*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
-inline void TypedScanner<Type::FIXED_LEN_BYTE_ARRAY>::FormatValue(
+inline void TypedScanner<FLBAType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<Type::FIXED_LEN_BYTE_ARRAY>(width);
+  std::string fmt = format_fwf<FLBAType>(width);
   std::string result = FixedLenByteArrayToString(
       *reinterpret_cast<FixedLenByteArray*>(val),
       descr()->type_length());
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
-typedef TypedScanner<Type::BOOLEAN> BoolScanner;
-typedef TypedScanner<Type::INT32> Int32Scanner;
-typedef TypedScanner<Type::INT64> Int64Scanner;
-typedef TypedScanner<Type::INT96> Int96Scanner;
-typedef TypedScanner<Type::FLOAT> FloatScanner;
-typedef TypedScanner<Type::DOUBLE> DoubleScanner;
-typedef TypedScanner<Type::BYTE_ARRAY> ByteArrayScanner;
-typedef TypedScanner<Type::FIXED_LEN_BYTE_ARRAY> FixedLenByteArrayScanner;
+typedef TypedScanner<BooleanType> BoolScanner;
+typedef TypedScanner<Int32Type> Int32Scanner;
+typedef TypedScanner<Int64Type> Int64Scanner;
+typedef TypedScanner<Int96Type> Int96Scanner;
+typedef TypedScanner<FloatType> FloatScanner;
+typedef TypedScanner<DoubleType> DoubleScanner;
+typedef TypedScanner<ByteArrayType> ByteArrayScanner;
+typedef TypedScanner<FLBAType> FixedLenByteArrayScanner;
 
 } // namespace parquet
 

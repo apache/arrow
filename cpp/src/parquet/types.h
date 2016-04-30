@@ -277,10 +277,10 @@ typedef DataType<Type::DOUBLE> DoubleType;
 typedef DataType<Type::BYTE_ARRAY> ByteArrayType;
 typedef DataType<Type::FIXED_LEN_BYTE_ARRAY> FLBAType;
 
-template <int TYPE>
+template <typename Type>
 inline std::string format_fwf(int width) {
   std::stringstream ss;
-  ss << "%-" << width << type_traits<TYPE>::printf_code;
+  ss << "%-" << width << type_traits<Type::type_num>::printf_code;
   return ss.str();
 }
 

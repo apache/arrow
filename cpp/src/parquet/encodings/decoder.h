@@ -28,11 +28,11 @@ namespace parquet {
 
 class ColumnDescriptor;
 
-// The Decoder template is parameterized on parquet::Type::type
-template <int TYPE>
+// The Decoder template is parameterized on parquet::DataType subclasses
+template <typename DType>
 class Decoder {
  public:
-  typedef typename type_traits<TYPE>::value_type T;
+  typedef typename DType::c_type T;
 
   virtual ~Decoder() {}
 
