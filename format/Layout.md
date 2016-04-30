@@ -10,6 +10,8 @@ concepts, here is a small glossary to help disambiguate.
 * Contiguous memory region: a sequential virtual address space with a given
   length. Any byte can be reached via a single pointer offset less than the
   region's length.
+* Contiguous memory buffer: A contiguous memory region that stores
+  a multi-value component of an Array.  Sometimes referred to as just "buffer".
 * Primitive type: a data type that occupies a fixed-size memory slot specified
   in bit width or byte width
 * Nested or parametric type: a data type whose full structure depends on one or
@@ -41,7 +43,7 @@ Base requirements
   linearly in the nesting level
 * Capable of representing fully-materialized and decoded / decompressed Parquet
   data
-* All leaf nodes (primitive value arrays) use contiguous memory regions
+* All contiguous memory buffers are aligned at 64-byte boundaries and padded to a multiple of 64 bytes.
 * Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
@@ -78,6 +80,28 @@ Base requirements
 
 The Arrow format is little endian.
 
+## Alignment and Padding
+
+As noted above, all buffers are intended to be aligned in memory at 64 byte
+boundaries and padded to a length that is a multiple of 64 bytes.  The alignment
+requirement follows best practices for optimized memory access:
+
+* Elements in numeric arrays will be guaranteed to be retrieved via aligned access.
+* On some architectures alignment can help limit partially used cache lines.
+* 64 byte alignment is recommended by the [Intel performance guide][2] for
+data-structures over 64 bytes (which will be a common case for Arrow Arrays).
+
+Requiring padding to a multiple of 64 bytes allows for using SIMD instructions
+consistently in loops without additional conditional checks.
+This should allow for simpler and more efficient code.  
+The specific padding length was chosen because it matches the largest known
+SIMD instruction registers available as of April 2016 (Intel AVX-512).
+Guaranteed padding can also allow certain compilers
+to generate more optimized code directly (e.g. One can safely use Intel's
+`-qopt-assume-safe-padding`).
+
+Unless otherwise noted, padded bytes do not need to have a specific value.
+
 ## Array lengths
 
 Any array has a known and fixed length, stored as a 32-bit signed integer, so a
@@ -101,14 +125,14 @@ signed integer, as it may be as large as the array length.
 Any relative type can have null value slots, whether primitive or nested type.
 
 An array with nulls must have a contiguous memory buffer, known as the null (or
-validity) bitmap, whose length is a multiple of 8 bytes (to avoid
-word-alignment concerns) and large enough to have at least 1 bit for each array
+validity) bitmap, whose length is a multiple of 64 bytes (as discussed above)  
+and large enough to have at least 1 bit for each array
 slot.
 
 Whether any array slot is valid (non-null) is encoded in the respective bits of
 this bitmap. A 1 (set bit) for index `j` indicates that the value is not null,
 while a 0 (bit not set) indicates that it is null. Bitmaps are to be
-initialized to be all unset at allocation time.
+initialized to be all unset at allocation time (this includes padding).
 
 ```
 is_valid[j] -> bitmap[j / 8] & (1 << (j % 8))
@@ -158,15 +182,15 @@ Would look like:
 * Length: 5, Null count: 1
 * Null bitmap buffer:
 
-  |Byte 0 (validity bitmap) | Bytes 1-7             |
+  |Byte 0 (validity bitmap) | Bytes 1-63            |
   |-------------------------|-----------------------|
   |00011011                 | 0 (padding)           |
 
 * Value Buffer:
 
-  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
-  |------------|-------------|-------------|-------------|-------------|
-  | 1          | 2           | unspecified | 4           | 8           |
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
+  |------------|-------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | unspecified | 4           | 8           | unspecified |
 ```
 
 ### Example Layout: Non-null int32 Array
@@ -177,15 +201,15 @@ Would look like:
 * Length: 5, Null count: 0
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 1-7             |
+  | Byte 0 (validity bitmap) | Bytes 1-63            |
   |--------------------------|-----------------------|
   | 00011111                 | 0 (padding)           |
 
 * Value Buffer:
 
-  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 |
-  |------------|-------------|-------------|-------------|-------------|
-  | 1          | 2           | 3           | 4           | 8           |
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
+  |------------|-------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | 3           | 4           | 8           | unspecified |
 ```
 
 or with the bitmap elided:
@@ -195,9 +219,9 @@ or with the bitmap elided:
 * Null bitmap buffer: Not required
 * Value Buffer:
 
-  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 |
-  |------------|-------------|-------------|-------------|-------------|
-  | 1          | 2           | 3           | 4           | 8           |
+  |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
+  |------------|-------------|-------------|-------------|-------------|-------------|
+  | 1          | 2           | 3           | 4           | 8           | unspecified |
 ```
 
 ## List type
@@ -243,23 +267,23 @@ will have the following representation:
 * Length: 4, Null count: 1
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 1-7             |
+  | Byte 0 (validity bitmap) | Bytes 1-63            |
   |--------------------------|-----------------------|
   | 00001101                 | 0 (padding)           |
 
 * Offsets buffer (int32)
 
-  | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 |
-  |------------|-------------|-------------|-------------|-------------|
-  | 0          | 3           | 3           | 7           | 7           |
+  | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
+  |------------|-------------|-------------|-------------|-------------|-------------|
+  | 0          | 3           | 3           | 7           | 7           | unspecified |
 
 * Values array (char array):
   * Length: 7,  Null count: 0
   * Null bitmap buffer: Not required
 
-    | Bytes 0-7  |
-    |------------|
-    | joemark    |
+    | Bytes 0-7  | Bytes 8-63  |
+    |------------|-------------|
+    | joemark    | unspecified |
 ```
 
 ### Example Layout: `List<List<byte>>`
@@ -273,31 +297,31 @@ will be be represented as follows:
 * Null bitmap buffer: Not required
 * Offsets buffer (int32)
 
-  | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
-  |------------|------------|------------|-------------|
-  | 0          |  2         |  6         |  7          |
+  | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
+  |------------|------------|------------|-------------|-------------|
+  | 0          |  2         |  6         |  7          | unspecified |
 
 * Values array (`List<byte>`)
   * Length: 6, Null count: 1
   * Null bitmap buffer:
 
-    | Byte 0 (validity bitmap) | Bytes 1-7   |
+    | Byte 0 (validity bitmap) | Bytes 1-63  |
     |--------------------------|-------------|
     | 00110111                 | 0 (padding) |
 
   * Offsets buffer (int32)
 
-    | Bytes 0-28           |
-    |----------------------|
-    | 0, 2, 4, 7, 7, 8, 10 |
+    | Bytes 0-28           | Bytes 29-63 |
+    |----------------------|-------------|
+    | 0, 2, 4, 7, 7, 8, 10 | unspecified |
 
   * Values array (bytes):
     * Length: 10, Null count: 0
     * Null bitmap buffer: Not required
 
-      | Bytes 0-9                     |
-      |-------------------------------|
-      | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
+      | Bytes 0-9                     | Bytes 10-63 |
+      |-------------------------------|-------------|
+      | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified |
 ```
 
 ## Struct type
@@ -333,9 +357,9 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 * Length: 4, Null count: 1
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 1-7   |
-  |--------------------------|-------------|
-  | 00001011                 | 0 (padding) |
+  | Byte 0 (validity bitmap) | Bytes 1-7   | Bytes 8-63  |
+  |--------------------------|-------------|-------------|
+  | 00001011                 | 0 (padding) | unspecified |
 
 * Children arrays:
   * field-0 array (`List<char>`):
@@ -396,13 +420,13 @@ The union types may be named, but like structs this will be a matter of the
 metadata and will not affect the physical memory layout.
 
 We define two distinct union types that are optimized for different use
-cases. This first, the dense union, represents a mixed-type array with 6 bytes
+cases. This first, the dense union, represents a mixed-type array with 5 bytes
 of overhead for each value. Its physical layout is as follows:
 
 * One child array for each relative type
-* Types buffer: A buffer of unsigned integers, enumerated from 0 corresponding
-  to each type, with the smallest byte width capable of representing the number
-  of types in the union.
+* Types buffer: A buffer of 8-bit signed integers, enumerated from 0 corresponding
+  to each type.  A union with more then 127 possible types can be modeled as a
+  union of unions. 
 * Offsets buffer: A buffer of signed int32 values indicating the relative offset
   into the respective child array for the type in a given slot. The respective
   offsets for each child value array must be in order / increasing.
@@ -420,21 +444,21 @@ An example layout for logical union of:
 ```
 * Length: 4, Null count: 1
 * Null bitmap buffer:
-  |Byte 0 (validity bitmap) | Bytes 1-7             |
+  |Byte 0 (validity bitmap) | Bytes 1-63            |
   |-------------------------|-----------------------|
   |00001101                 | 0 (padding)           |
 
 * Types buffer:
 
-  |Byte 0-1 | Byte 2-3    | Byte 4-5 | Byte 6-7 |
-  |---------|-------------|----------|----------|
-  | 0       | unspecified | 0        | 1        |
+  |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
+  |---------|-------------|----------|----------|-------------|
+  | 0       | unspecified | 0        | 1        | unspecified |
 
 * Offset buffer:
 
-  |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 |
-  |---------|-------------|-----------|------------|
-  | 0       | unspecified | 1         | 0          |
+  |Byte 0-3 | Byte 4-7    | Byte 8-11 | Byte 12-15 | Bytes 16-63 |
+  |---------|-------------|-----------|------------|-------------|
+  | 0       | unspecified | 1         | 0          | unspecified |
 
 * Children arrays:
   * Field-0 array (f: float):
@@ -443,9 +467,9 @@ An example layout for logical union of:
 
     * Value Buffer:
 
-      | Bytes 0-7 |
-      |-----------|
-      | 1.2, 3.4  |
+      | Bytes 0-7 | Bytes 8-63  |
+      |-----------|-------------|
+      | 1.2, 3.4  | unspecified |
 
 
   * Field-1 array (f: float):
@@ -454,9 +478,9 @@ An example layout for logical union of:
 
     * Value Buffer:
 
-      | Bytes 0-3 |
-      |-----------|
-      | 5         |
+      | Bytes 0-3 | Bytes 4-63  |
+      |-----------|-------------|
+      | 5         | unspecified |
 ```
 
 ## Sparse union type
@@ -484,9 +508,9 @@ will have the following layout:
 
 * Types buffer:
 
- | Bytes 0-1  | Bytes 2-3   | Bytes 4-5   | Bytes 6-7   | Bytes 8-9   | Bytes 10-11  |
- |------------|-------------|-------------|-------------|-------------|--------------|
- | 0          | 1           | 2           | 1           | 0           | 2            |
+ | Byte 0     | Byte 1      | Byte 2      | Byte 3      | Byte 4      | Byte 5       | Bytes  6-63           |
+ |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
+ | 0          | 1           | 2           | 1           | 0           | 2            | unspecified (padding) |
 
 * Children arrays:
 
@@ -494,51 +518,51 @@ will have the following layout:
     * Length: 6, Null count: 4
     * Null bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
       |00010001                 | 0 (padding)           |
 
     * Value buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
-      |------------|-------------|-------------|-------------|-------------|--------------|
-      | 1          | unspecified | unspecified | unspecified | 4           |  unspecified |
+      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
+      |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
+      | 1          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
   * u1 (float):
     * Length: 6, Null count: 4
     * Null bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-7             |
+      |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
       |00001010                 | 0 (padding)           |
 
     * Value buffer:
 
-      |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  |
-      |-------------|-------------|-------------|-------------|-------------|--------------|
-      | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified |
+      |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
+      |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
+      | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
   * u2 (`List<char>`)
     * Length: 6, Null count: 4
     * Null bitmap buffer:
 
-      | Byte 0 (validity bitmap) | Bytes 1-7             |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
       | 00100100                 | 0 (padding)           |
 
     * Offsets buffer (int32)
 
-      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 |
-      |------------|-------------|-------------|-------------|-------------|-------------|-------------|
-      | 0          | 0           | 0           | 3           | 3           | 3           | 7           |
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
+      |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+      | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified |
 
     * Values array (char array):
       * Length: 7,  Null count: 0
       * Null bitmap buffer: Not required
 
-        | Bytes 0-7  |
-        |------------|
-        | joemark    |
+        | Bytes 0-7  | Bytes 8-63            |
+        |------------|-----------------------|
+        | joemark    | unspecified (padding) |
 ```
 
 Note that nested types in a sparse union must be internally consistent
@@ -557,3 +581,4 @@ the the types array indicates that a slot contains a different type at the index
 Drill docs https://drill.apache.org/docs/value-vectors/
 
 [1]: https://en.wikipedia.org/wiki/Bit_numbering
+[2]: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
