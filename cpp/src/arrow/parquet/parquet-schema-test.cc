@@ -217,7 +217,7 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
 
   // TODO: String types need to be clarified a bit more in the Arrow spec
   parquet_fields.push_back(PrimitiveNode::Make(
-     "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
 
   ASSERT_OK(ConvertSchema(arrow_fields));
