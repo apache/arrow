@@ -17,6 +17,7 @@
 
 #include "arrow/parquet/schema.h"
 
+#include <string>
 #include <vector>
 
 #include "parquet/api/schema.h"
