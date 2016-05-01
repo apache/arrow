@@ -47,20 +47,14 @@ class ColumnReader {
     // Either there is no data page available yet, or the data page has been
     // exhausted
     if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
-      if (!ReadNewPage() || num_buffered_values_ == 0) {
-        return false;
-      }
+      if (!ReadNewPage() || num_buffered_values_ == 0) { return false; }
     }
     return true;
   }
 
-  Type::type type() const {
-    return descr_->physical_type();
-  }
+  Type::type type() const { return descr_->physical_type(); }
 
-  const ColumnDescriptor* descr() const {
-    return descr_;
-  }
+  const ColumnDescriptor* descr() const { return descr_; }
 
  protected:
   virtual bool ReadNewPage() = 0;
@@ -107,12 +101,9 @@ class TypedColumnReader : public ColumnReader {
  public:
   typedef typename DType::c_type T;
 
-  TypedColumnReader(const ColumnDescriptor* schema,
-      std::unique_ptr<PageReader> pager,
-      MemoryAllocator* allocator = default_allocator()) :
-      ColumnReader(schema, std::move(pager), allocator),
-      current_decoder_(NULL) {
-  }
+  TypedColumnReader(const ColumnDescriptor* schema, std::unique_ptr<PageReader> pager,
+      MemoryAllocator* allocator = default_allocator())
+      : ColumnReader(schema, std::move(pager), allocator), current_decoder_(NULL) {}
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
@@ -145,13 +136,12 @@ class TypedColumnReader : public ColumnReader {
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
-  std::unordered_map<int, std::shared_ptr<DecoderType> > decoders_;
+  std::unordered_map<int, std::shared_ptr<DecoderType>> decoders_;
 
   void ConfigureDictionary(const DictionaryPage* page);
 
   DecoderType* current_decoder_;
 };
-
 
 template <typename DType>
 inline int64_t TypedColumnReader<DType>::ReadValues(int64_t batch_size, T* out) {
@@ -183,9 +173,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
     // TODO(wesm): this tallying of values-to-decode can be performed with better
     // cache-efficiency if fused with the level decoding.
     for (int64_t i = 0; i < num_def_levels; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) {
-        ++values_to_read;
-      }
+      if (def_levels[i] == descr_->max_definition_level()) { ++values_to_read; }
     }
   } else {
     // Required field, read all values
@@ -207,7 +195,6 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
   return total_values;
 }
 
-
 typedef TypedColumnReader<BooleanType> BoolReader;
 typedef TypedColumnReader<Int32Type> Int32Reader;
 typedef TypedColumnReader<Int64Type> Int64Reader;
@@ -217,6 +204,6 @@ typedef TypedColumnReader<DoubleType> DoubleReader;
 typedef TypedColumnReader<ByteArrayType> ByteArrayReader;
 typedef TypedColumnReader<FLBAType> FixedLenByteArrayReader;
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_COLUMN_READER_H
+#endif  // PARQUET_COLUMN_READER_H

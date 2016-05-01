@@ -36,25 +36,23 @@
 
 #define PREFETCH(addr) __builtin_prefetch(addr)
 
-//macros to disable padding
-//these macros are portable across different compilers and platforms
+// macros to disable padding
+// these macros are portable across different compilers and platforms
 //[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
 #if defined(_MSC_VER)
-  #define MANUALLY_ALIGNED_STRUCT(alignment) \
-    __pragma(pack(1)); \
-    struct __declspec(align(alignment))
-  #define STRUCT_END(name, size) \
-    __pragma(pack()); \
-    static_assert(sizeof(name) == size, "compiler breaks packing rules")
+#define MANUALLY_ALIGNED_STRUCT(alignment) \
+  __pragma(pack(1));                       \
+  struct __declspec(align(alignment))
+#define STRUCT_END(name, size) \
+  __pragma(pack());            \
+  static_assert(sizeof(name) == size, "compiler breaks packing rules")
 #elif defined(__GNUC__) || defined(__clang__)
-  #define MANUALLY_ALIGNED_STRUCT(alignment) \
-    _Pragma("pack(1)") \
-    struct __attribute__((aligned(alignment)))
-  #define STRUCT_END(name, size) \
-    _Pragma("pack()") \
-    static_assert(sizeof(name) == size, "compiler breaks packing rules")
+#define MANUALLY_ALIGNED_STRUCT(alignment) \
+  _Pragma("pack(1)") struct __attribute__((aligned(alignment)))
+#define STRUCT_END(name, size) \
+  _Pragma("pack()") static_assert(sizeof(name) == size, "compiler breaks packing rules")
 #else
-  #error Unknown compiler, please define structure alignment macros
+#error Unknown compiler, please define structure alignment macros
 #endif
 
-#endif // PARQUET_UTIL_COMPILER_UTIL_H
+#endif  // PARQUET_UTIL_COMPILER_UTIL_H

@@ -39,28 +39,17 @@ class SchemaDescriptor;
 class ColumnDescriptor {
  public:
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
-      int16_t max_repetition_level,
-      const SchemaDescriptor* schema_descr = nullptr);
+      int16_t max_repetition_level, const SchemaDescriptor* schema_descr = nullptr);
 
-  int16_t max_definition_level() const {
-    return max_definition_level_;
-  }
+  int16_t max_definition_level() const { return max_definition_level_; }
 
-  int16_t max_repetition_level() const {
-    return max_repetition_level_;
-  }
+  int16_t max_repetition_level() const { return max_repetition_level_; }
 
-  Type::type physical_type() const {
-    return primitive_node_->physical_type();
-  }
+  Type::type physical_type() const { return primitive_node_->physical_type(); }
 
-  LogicalType::type logical_type() const {
-    return primitive_node_->logical_type();
-  }
+  LogicalType::type logical_type() const { return primitive_node_->logical_type(); }
 
-  const std::string& name() const {
-    return primitive_node_->name();
-  }
+  const std::string& name() const { return primitive_node_->name(); }
 
   const std::shared_ptr<schema::ColumnPath> path() const;
 
@@ -106,13 +95,9 @@ class SchemaDescriptor {
   const ColumnDescriptor* Column(int i) const;
 
   // The number of physical columns appearing in the file
-  int num_columns() const {
-    return leaves_.size();
-  }
+  int num_columns() const { return leaves_.size(); }
 
-  const schema::NodePtr& schema() const {
-    return schema_;
-  }
+  const schema::NodePtr& schema() const { return schema_; }
 
  private:
   friend class ColumnDescriptor;
@@ -120,8 +105,8 @@ class SchemaDescriptor {
   schema::NodePtr schema_;
   const schema::GroupNode* group_;
 
-  void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
-      int16_t max_rep_level);
+  void BuildTree(
+      const schema::NodePtr& node, int16_t max_def_level, int16_t max_rep_level);
 
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
@@ -138,6 +123,6 @@ class SchemaDescriptor {
   std::unordered_map<int, schema::NodePtr> leaf_to_base_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_SCHEMA_DESCRIPTOR_H
+#endif  // PARQUET_SCHEMA_DESCRIPTOR_H

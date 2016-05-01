@@ -53,11 +53,10 @@ class RandomAccessSource {
   int64_t size_;
 };
 
-
 class LocalFileSource : public RandomAccessSource {
  public:
-  explicit LocalFileSource(MemoryAllocator* allocator = default_allocator()) :
-      file_(nullptr), is_open_(false), allocator_(allocator) {}
+  explicit LocalFileSource(MemoryAllocator* allocator = default_allocator())
+      : file_(nullptr), is_open_(false), allocator_(allocator) {}
 
   virtual ~LocalFileSource();
 
@@ -72,8 +71,8 @@ class LocalFileSource : public RandomAccessSource {
 
   virtual std::shared_ptr<Buffer> Read(int64_t nbytes);
 
-  bool is_open() const { return is_open_;}
-  const std::string& path() const { return path_;}
+  bool is_open() const { return is_open_; }
+  const std::string& path() const { return path_; }
 
   // Return the integer file descriptor
   int file_descriptor() const;
@@ -90,8 +89,8 @@ class LocalFileSource : public RandomAccessSource {
 
 class MemoryMapSource : public LocalFileSource {
  public:
-  explicit MemoryMapSource(MemoryAllocator* allocator = default_allocator()) :
-      LocalFileSource(allocator), data_(nullptr), pos_(0) {}
+  explicit MemoryMapSource(MemoryAllocator* allocator = default_allocator())
+      : LocalFileSource(allocator), data_(nullptr), pos_(0) {}
 
   virtual ~MemoryMapSource();
 
@@ -130,9 +129,7 @@ class BufferReader : public RandomAccessSource {
   virtual std::shared_ptr<Buffer> Read(int64_t nbytes);
 
  protected:
-  const uint8_t* Head() {
-    return data_ + pos_;
-  }
+  const uint8_t* Head() { return data_ + pos_; }
 
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;
@@ -183,6 +180,6 @@ class InMemoryInputStream : public InputStream {
   int64_t offset_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_INPUT_H
+#endif  // PARQUET_UTIL_INPUT_H

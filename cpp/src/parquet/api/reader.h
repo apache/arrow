@@ -29,4 +29,4 @@
 // IO
 #include "parquet/api/io.h"
 
-#endif // PARQUET_API_READER_H
+#endif  // PARQUET_API_READER_H

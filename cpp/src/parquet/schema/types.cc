@@ -54,9 +54,7 @@ std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) con
 std::string ColumnPath::ToDotString() const {
   std::stringstream ss;
   for (auto it = path_.cbegin(); it != path_.cend(); ++it) {
-    if (it != path_.cbegin()) {
-      ss << ".";
-    }
+    if (it != path_.cbegin()) { ss << "."; }
     ss << *it;
   }
   return ss.str();
@@ -70,24 +68,23 @@ const std::vector<std::string>& ColumnPath::ToDotVector() const {
 // Base node
 
 bool Node::EqualsInternal(const Node* other) const {
-  return type_ == other->type_ &&
-    name_ == other->name_ &&
-    repetition_ == other->repetition_ &&
-    logical_type_ == other->logical_type_;
+  return type_ == other->type_ && name_ == other->name_ &&
+         repetition_ == other->repetition_ && logical_type_ == other->logical_type_;
 }
 
 void Node::SetParent(const Node* parent) {
-    parent_ = parent;
+  parent_ = parent;
 }
 
 // ----------------------------------------------------------------------
 // Primitive node
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-    Type::type type, LogicalType::type logical_type,
-    int length, int precision, int scale, int id) :
-  Node(Node::PRIMITIVE, name, repetition, logical_type, id),
-  physical_type_(type), type_length_(length) {
+    Type::type type, LogicalType::type logical_type, int length, int precision, int scale,
+    int id)
+    : Node(Node::PRIMITIVE, name, repetition, logical_type, id),
+      physical_type_(type),
+      type_length_(length) {
   std::stringstream ss;
   // Check if the physical and logical types match
   // Mapping referred from Apache parquet-mr as on 2016-02-22
@@ -108,10 +105,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       }
       break;
     case LogicalType::DECIMAL:
-      if ((type != Type::INT32) &&
-            (type != Type::INT64) &&
-            (type != Type::BYTE_ARRAY) &&
-            (type != Type::FIXED_LEN_BYTE_ARRAY)) {
+      if ((type != Type::INT32) && (type != Type::INT64) && (type != Type::BYTE_ARRAY) &&
+          (type != Type::FIXED_LEN_BYTE_ARRAY)) {
         ss << "DECIMAL can only annotate INT32, INT64, BYTE_ARRAY, and FIXED";
         throw ParquetException(ss.str());
       }
@@ -188,7 +183,7 @@ bool PrimitiveNode::EqualsInternal(const PrimitiveNode* other) const {
   }
   if (logical_type_ == LogicalType::DECIMAL) {
     is_equal &= (decimal_metadata_.precision == other->decimal_metadata_.precision) &&
-      (decimal_metadata_.scale == other->decimal_metadata_.scale);
+                (decimal_metadata_.scale == other->decimal_metadata_.scale);
   }
   if (physical_type_ == Type::FIXED_LEN_BYTE_ARRAY) {
     is_equal &= (type_length_ == other->type_length_);
@@ -197,9 +192,7 @@ bool PrimitiveNode::EqualsInternal(const PrimitiveNode* other) const {
 }
 
 bool PrimitiveNode::Equals(const Node* other) const {
-  if (!Node::EqualsInternal(other)) {
-    return false;
-  }
+  if (!Node::EqualsInternal(other)) { return false; }
   return EqualsInternal(static_cast<const PrimitiveNode*>(other));
 }
 
@@ -215,24 +208,16 @@ void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
 // Group node
 
 bool GroupNode::EqualsInternal(const GroupNode* other) const {
-  if (this == other) {
-    return true;
-  }
-  if (this->field_count() != other->field_count()) {
-    return false;
-  }
+  if (this == other) { return true; }
+  if (this->field_count() != other->field_count()) { return false; }
   for (int i = 0; i < this->field_count(); ++i) {
-    if (!this->field(i)->Equals(other->field(i).get())) {
-      return false;
-    }
+    if (!this->field(i)->Equals(other->field(i).get())) { return false; }
   }
   return true;
 }
 
 bool GroupNode::Equals(const Node* other) const {
-  if (!Node::EqualsInternal(other)) {
-    return false;
-  }
+  if (!Node::EqualsInternal(other)) { return false; }
   return EqualsInternal(static_cast<const GroupNode*>(other));
 }
 
@@ -248,8 +233,7 @@ void GroupNode::VisitConst(Node::ConstVisitor* visitor) const {
 // Node construction from Parquet metadata
 
 struct NodeParams {
-  explicit NodeParams(const std::string& name) :
-      name(name) {}
+  explicit NodeParams(const std::string& name) : name(name) {}
 
   const std::string& name;
   Repetition::type repetition;
@@ -268,33 +252,32 @@ static inline NodeParams GetNodeParams(const format::SchemaElement* element) {
   return params;
 }
 
-std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int node_id,
-    const NodeVector& fields) {
+std::unique_ptr<Node> GroupNode::FromParquet(
+    const void* opaque_element, int node_id, const NodeVector& fields) {
   const format::SchemaElement* element =
-    static_cast<const format::SchemaElement*>(opaque_element);
+      static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
-  return std::unique_ptr<Node>(new GroupNode(params.name, params.repetition, fields,
-          params.logical_type, node_id));
+  return std::unique_ptr<Node>(new GroupNode(
+      params.name, params.repetition, fields, params.logical_type, node_id));
 }
 
-std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
-    int node_id) {
+std::unique_ptr<Node> PrimitiveNode::FromParquet(
+    const void* opaque_element, int node_id) {
   const format::SchemaElement* element =
-    static_cast<const format::SchemaElement*>(opaque_element);
+      static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
 
-  std::unique_ptr<PrimitiveNode> result = std::unique_ptr<PrimitiveNode>(
-      new PrimitiveNode(params.name, params.repetition,
-          FromThrift(element->type), params.logical_type,
-          element->type_length, element->precision, element->scale, node_id));
+  std::unique_ptr<PrimitiveNode> result =
+      std::unique_ptr<PrimitiveNode>(new PrimitiveNode(params.name, params.repetition,
+          FromThrift(element->type), params.logical_type, element->type_length,
+          element->precision, element->scale, node_id));
 
   // Return as unique_ptr to the base type
   return std::unique_ptr<Node>(result.release());
 }
 
 void GroupNode::ToParquet(void* opaque_element) const {
-  format::SchemaElement* element =
-    static_cast<format::SchemaElement*>(opaque_element);
+  format::SchemaElement* element = static_cast<format::SchemaElement*>(opaque_element);
   element->__set_name(name_);
   element->__set_num_children(field_count());
   element->__set_repetition_type(ToThrift(repetition_));
@@ -305,8 +288,7 @@ void GroupNode::ToParquet(void* opaque_element) const {
 }
 
 void PrimitiveNode::ToParquet(void* opaque_element) const {
-  format::SchemaElement* element =
-    static_cast<format::SchemaElement*>(opaque_element);
+  format::SchemaElement* element = static_cast<format::SchemaElement*>(opaque_element);
 
   element->__set_name(name_);
   element->__set_num_children(0);
@@ -321,6 +303,6 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   element->__set_scale(decimal_metadata_.scale);
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

@@ -64,4 +64,4 @@ TEST(TestAllocator, TotalMax) {
   ASSERT_EQ(110, allocator.MaxMemory());
 }
 
-} // namespace parquet
+}  // namespace parquet

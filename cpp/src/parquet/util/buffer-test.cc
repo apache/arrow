@@ -30,8 +30,7 @@ using std::string;
 
 namespace parquet {
 
-class TestBuffer : public ::testing::Test {
-};
+class TestBuffer : public ::testing::Test {};
 
 TEST_F(TestBuffer, Resize) {
   OwnedMutableBuffer buf;
@@ -48,8 +47,8 @@ TEST_F(TestBuffer, Resize) {
 }
 
 TEST_F(TestBuffer, ResizeOOM) {
-  // Tests that deliberately throw Exceptions foul up valgrind and report
-  // red herring memory leaks
+// Tests that deliberately throw Exceptions foul up valgrind and report
+// red herring memory leaks
 #ifndef PARQUET_VALGRIND
   OwnedMutableBuffer buf;
   ASSERT_NO_THROW(buf.Resize(100));
@@ -59,10 +58,8 @@ TEST_F(TestBuffer, ResizeOOM) {
     FAIL() << "Exception not thrown";
   } catch (const ParquetException& e) {
     // pass
-  } catch(const std::exception& e) {
-    FAIL() << "Different exception thrown";
-  }
+  } catch (const std::exception& e) { FAIL() << "Different exception thrown"; }
 #endif
 }
 
-} // namespace parquet
+}  // namespace parquet

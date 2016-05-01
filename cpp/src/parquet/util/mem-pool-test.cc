@@ -137,16 +137,16 @@ TEST(MemPoolTest, Basic) {
 // free chunks.
 TEST(MemPoolTest, Keep) {
   MemPool p;
-  p.Allocate(4*1024);
-  p.Allocate(8*1024);
-  p.Allocate(16*1024);
+  p.Allocate(4 * 1024);
+  p.Allocate(8 * 1024);
+  p.Allocate(16 * 1024);
   EXPECT_EQ((4 + 8 + 16) * 1024, p.total_allocated_bytes());
   EXPECT_EQ((4 + 8 + 16) * 1024, p.GetTotalChunkSizes());
   p.Clear();
   EXPECT_EQ(0, p.total_allocated_bytes());
   EXPECT_EQ((4 + 8 + 16) * 1024, p.GetTotalChunkSizes());
-  p.Allocate(1*1024);
-  p.Allocate(4*1024);
+  p.Allocate(1 * 1024);
+  p.Allocate(4 * 1024);
   EXPECT_EQ((1 + 4) * 1024, p.total_allocated_bytes());
   EXPECT_EQ((4 + 8 + 16) * 1024, p.GetTotalChunkSizes());
 
@@ -244,4 +244,4 @@ TEST(MemPoolTest, FragmentationOverhead) {
   p.FreeAll();
 }
 
-} // namespace parquet
+}  // namespace parquet

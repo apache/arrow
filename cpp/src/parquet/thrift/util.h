@@ -122,6 +122,6 @@ inline void SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
   out->Write(out_buffer, out_length);
 }
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_THRIFT_UTIL_H
+#endif  // PARQUET_THRIFT_UTIL_H

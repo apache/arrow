@@ -21,8 +21,8 @@
 // Useful macros from elsewhere
 
 // From Google gutil
-#define DISALLOW_COPY_AND_ASSIGN(TypeName)      \
-  TypeName(const TypeName&) = delete;           \
+#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&) = delete;      \
   void operator=(const TypeName&) = delete
 
 // ----------------------------------------------------------------------
@@ -46,7 +46,7 @@
 //   // Can call MyClass::MyMethod() here.
 // }
 
-#define FRIEND_TEST(test_case_name, test_name)\
-friend class test_case_name##_##test_name##_Test
+#define FRIEND_TEST(test_case_name, test_name) \
+  friend class test_case_name##_##test_name##_Test
 
-#endif // PARQUET_UTIL_MACROS_H
+#endif  // PARQUET_UTIL_MACROS_H

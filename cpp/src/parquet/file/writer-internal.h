@@ -35,9 +35,8 @@ namespace parquet {
 // TODO: Currently only writes DataPage pages.
 class SerializedPageWriter : public PageWriter {
  public:
-  SerializedPageWriter(OutputStream* sink,
-      Compression::type codec, format::ColumnChunk* metadata,
-      MemoryAllocator* allocator = default_allocator());
+  SerializedPageWriter(OutputStream* sink, Compression::type codec,
+      format::ColumnChunk* metadata, MemoryAllocator* allocator = default_allocator());
 
   virtual ~SerializedPageWriter() {}
 
@@ -47,8 +46,8 @@ class SerializedPageWriter : public PageWriter {
       const std::shared_ptr<Buffer>& definition_levels,
       Encoding::type definition_level_encoding,
       const std::shared_ptr<Buffer>& repetition_levels,
-      Encoding::type repetition_level_encoding,
-      const std::shared_ptr<Buffer>& values, Encoding::type encoding) override;
+      Encoding::type repetition_level_encoding, const std::shared_ptr<Buffer>& values,
+      Encoding::type encoding) override;
 
   void Close() override;
 
@@ -67,16 +66,15 @@ class SerializedPageWriter : public PageWriter {
 // RowGroupWriter::Contents implementation for the Parquet file specification
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
-  RowGroupSerializer(int64_t num_rows,
-      const SchemaDescriptor* schema,
-      OutputStream* sink,
-      format::RowGroup* metadata,
-      MemoryAllocator* allocator) :
-      num_rows_(num_rows), schema_(schema), sink_(sink),
-      metadata_(metadata),
-      allocator_(allocator),
-      total_bytes_written_(0),
-      current_column_index_(-1) {
+  RowGroupSerializer(int64_t num_rows, const SchemaDescriptor* schema, OutputStream* sink,
+      format::RowGroup* metadata, MemoryAllocator* allocator)
+      : num_rows_(num_rows),
+        schema_(schema),
+        sink_(sink),
+        metadata_(metadata),
+        allocator_(allocator),
+        total_bytes_written_(0),
+        current_column_index_(-1) {
     metadata_->__set_num_rows(num_rows_);
     metadata_->columns.resize(schema->num_columns());
   }
@@ -109,8 +107,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 class FileSerializer : public ParquetFileWriter::Contents {
  public:
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
-      std::shared_ptr<OutputStream> sink,
-      std::shared_ptr<schema::GroupNode>& schema,
+      std::shared_ptr<OutputStream> sink, std::shared_ptr<schema::GroupNode>& schema,
       MemoryAllocator* allocator = default_allocator());
 
   void Close() override;
@@ -125,8 +122,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
  private:
   explicit FileSerializer(std::shared_ptr<OutputStream> sink,
-      std::shared_ptr<schema::GroupNode>& schema,
-      MemoryAllocator* allocator);
+      std::shared_ptr<schema::GroupNode>& schema, MemoryAllocator* allocator);
 
   std::shared_ptr<OutputStream> sink_;
   format::FileMetaData metadata_;
@@ -140,6 +136,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
   void WriteMetaData();
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_FILE_WRITER_INTERNAL_H
+#endif  // PARQUET_FILE_WRITER_INTERNAL_H

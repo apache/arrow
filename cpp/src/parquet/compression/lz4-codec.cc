@@ -23,13 +23,11 @@
 
 namespace parquet {
 
-void Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer) {
+void Lz4Codec::Decompress(
+    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
   int64_t n = LZ4_decompress_fast(reinterpret_cast<const char*>(input),
       reinterpret_cast<char*>(output_buffer), output_len);
-  if (n != input_len) {
-    throw ParquetException("Corrupt lz4 compressed data.");
-  }
+  if (n != input_len) { throw ParquetException("Corrupt lz4 compressed data."); }
 }
 
 int64_t Lz4Codec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
@@ -42,4 +40,4 @@ int64_t Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
       reinterpret_cast<char*>(output_buffer), input_len);
 }
 
-} // namespace parquet
+}  // namespace parquet

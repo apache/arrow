@@ -39,14 +39,14 @@ class Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      MemoryAllocator* allocator = default_allocator()) :
-      batch_size_(batch_size),
-      level_offset_(0),
-      levels_buffered_(0),
-      value_buffer_(0, allocator),
-      value_offset_(0),
-      values_buffered_(0),
-      reader_(reader) {
+      MemoryAllocator* allocator = default_allocator())
+      : batch_size_(batch_size),
+        level_offset_(0),
+        levels_buffered_(0),
+        value_buffer_(0, allocator),
+        value_offset_(0),
+        values_buffered_(0),
+        reader_(reader) {
     // TODO: don't allocate for required fields
     def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
     rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
@@ -60,19 +60,13 @@ class Scanner {
 
   virtual void PrintNext(std::ostream& out, int width) = 0;
 
-  bool HasNext() {
-    return level_offset_ < levels_buffered_ || reader_->HasNext();
-  }
+  bool HasNext() { return level_offset_ < levels_buffered_ || reader_->HasNext(); }
 
-  const ColumnDescriptor* descr() const {
-    return reader_->descr();
-  }
+  const ColumnDescriptor* descr() const { return reader_->descr(); }
 
-  int64_t batch_size() const { return batch_size_;}
+  int64_t batch_size() const { return batch_size_; }
 
-  void SetBatchSize(int64_t batch_size) {
-    batch_size_ = batch_size;
-  }
+  void SetBatchSize(int64_t batch_size) { batch_size_ = batch_size; }
 
  protected:
   int64_t batch_size_;
@@ -90,7 +84,6 @@ class Scanner {
   std::shared_ptr<ColumnReader> reader_;
 };
 
-
 template <typename DType>
 class TypedScanner : public Scanner {
  public:
@@ -98,8 +91,8 @@ class TypedScanner : public Scanner {
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      MemoryAllocator* allocator = default_allocator()) :
-      Scanner(reader, batch_size, allocator) {
+      MemoryAllocator* allocator = default_allocator())
+      : Scanner(reader, batch_size, allocator) {
     typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
     value_buffer_.Resize(batch_size_ * value_byte_size);
@@ -110,14 +103,12 @@ class TypedScanner : public Scanner {
 
   bool NextLevels(int16_t* def_level, int16_t* rep_level) {
     if (level_offset_ == levels_buffered_) {
-      levels_buffered_ = typed_reader_->ReadBatch(batch_size_, &def_levels_[0],
-          &rep_levels_[0], values_, &values_buffered_);
+      levels_buffered_ = typed_reader_->ReadBatch(
+          batch_size_, &def_levels_[0], &rep_levels_[0], values_, &values_buffered_);
 
       value_offset_ = 0;
       level_offset_ = 0;
-      if (!levels_buffered_) {
-        return false;
-      }
+      if (!levels_buffered_) { return false; }
     }
     *def_level = descr()->max_definition_level() > 0 ? def_levels_[level_offset_] : 0;
     *rep_level = descr()->max_repetition_level() > 0 ? rep_levels_[level_offset_] : 0;
@@ -126,7 +117,7 @@ class TypedScanner : public Scanner {
   }
 
   bool Next(T* val, int16_t* def_level, int16_t* rep_level, bool* is_null) {
-     if (level_offset_ == levels_buffered_) {
+    if (level_offset_ == levels_buffered_) {
       if (!HasNext()) {
         // Out of data pages
         return false;
@@ -136,9 +127,7 @@ class TypedScanner : public Scanner {
     NextLevels(def_level, rep_level);
     *is_null = *def_level < descr()->max_definition_level();
 
-    if (*is_null) {
-      return true;
-    }
+    if (*is_null) { return true; }
 
     if (value_offset_ == values_buffered_) {
       throw ParquetException("Value was non-null, but has not been buffered");
@@ -162,9 +151,7 @@ class TypedScanner : public Scanner {
     NextLevels(&def_level, &rep_level);
     *is_null = def_level < descr()->max_definition_level();
 
-    if (*is_null) {
-      return true;
-    }
+    if (*is_null) { return true; }
 
     if (value_offset_ == values_buffered_) {
       throw ParquetException("Value was non-null, but has not been buffered");
@@ -178,9 +165,7 @@ class TypedScanner : public Scanner {
     bool is_null = false;
     char buffer[25];
 
-    if (!NextValue(&val, &is_null)) {
-      throw ParquetException("No more values buffered");
-    }
+    if (!NextValue(&val, &is_null)) { throw ParquetException("No more values buffered"); }
 
     if (is_null) {
       std::string null_fmt = format_fwf<ByteArrayType>(width);
@@ -200,10 +185,9 @@ class TypedScanner : public Scanner {
   T* values_;
 };
 
-
 template <typename DType>
-inline void TypedScanner<DType>::FormatValue(void* val, char* buffer,
-    int bufsize, int width) {
+inline void TypedScanner<DType>::FormatValue(
+    void* val, char* buffer, int bufsize, int width) {
   std::string fmt = format_fwf<DType>(width);
   snprintf(buffer, bufsize, fmt.c_str(), *reinterpret_cast<T*>(val));
 }
@@ -229,8 +213,7 @@ inline void TypedScanner<FLBAType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
   std::string fmt = format_fwf<FLBAType>(width);
   std::string result = FixedLenByteArrayToString(
-      *reinterpret_cast<FixedLenByteArray*>(val),
-      descr()->type_length());
+      *reinterpret_cast<FixedLenByteArray*>(val), descr()->type_length());
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
@@ -243,6 +226,6 @@ typedef TypedScanner<DoubleType> DoubleScanner;
 typedef TypedScanner<ByteArrayType> ByteArrayScanner;
 typedef TypedScanner<FLBAType> FixedLenByteArrayScanner;
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_COLUMN_SCANNER_H
+#endif  // PARQUET_COLUMN_SCANNER_H

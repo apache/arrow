@@ -30,11 +30,11 @@ namespace parquet {
 
 ColumnReader::ColumnReader(const ColumnDescriptor* descr,
     std::unique_ptr<PageReader> pager, MemoryAllocator* allocator)
-  : descr_(descr),
-    pager_(std::move(pager)),
-    num_buffered_values_(0),
-    num_decoded_values_(0),
-    allocator_(allocator) {}
+    : descr_(descr),
+      pager_(std::move(pager)),
+      num_buffered_values_(0),
+      num_decoded_values_(0),
+      allocator_(allocator) {}
 
 template <typename DType>
 void TypedColumnReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
@@ -60,7 +60,7 @@ void TypedColumnReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
     // TODO(wesm): investigate whether this all-or-nothing decoding of the
     // dictionary makes sense and whether performance can be improved
 
-    auto decoder = std::make_shared<DictionaryDecoder<DType> >(descr_, allocator_);
+    auto decoder = std::make_shared<DictionaryDecoder<DType>>(descr_, allocator_);
     decoder->SetDict(&dictionary);
     decoders_[encoding] = decoder;
   } else {
@@ -73,8 +73,7 @@ void TypedColumnReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
 // PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
 // encoding.
 static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
-  return e == Encoding::RLE_DICTIONARY ||
-    e == Encoding::PLAIN_DICTIONARY;
+  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
 }
 
 template <typename DType>
@@ -108,24 +107,24 @@ bool TypedColumnReader<DType>::ReadNewPage() {
       // the page size to determine the number of bytes in the encoded data.
       int64_t data_size = page->size();
 
-      //Data page Layout: Repetition Levels - Definition Levels - encoded values.
-      //Levels are encoded as rle or bit-packed.
-      //Init repetition levels
+      // Data page Layout: Repetition Levels - Definition Levels - encoded values.
+      // Levels are encoded as rle or bit-packed.
+      // Init repetition levels
       if (descr_->max_repetition_level() > 0) {
-        int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
-            page->repetition_level_encoding(), descr_->max_repetition_level(),
-            num_buffered_values_, buffer);
+        int64_t rep_levels_bytes =
+            repetition_level_decoder_.SetData(page->repetition_level_encoding(),
+                descr_->max_repetition_level(), num_buffered_values_, buffer);
         buffer += rep_levels_bytes;
         data_size -= rep_levels_bytes;
       }
-      //TODO figure a way to set max_definition_level_ to 0
-      //if the initial value is invalid
+      // TODO figure a way to set max_definition_level_ to 0
+      // if the initial value is invalid
 
-      //Init definition levels
+      // Init definition levels
       if (descr_->max_definition_level() > 0) {
-        int64_t def_levels_bytes = definition_level_decoder_.SetData(
-            page->definition_level_encoding(), descr_->max_definition_level(),
-            num_buffered_values_, buffer);
+        int64_t def_levels_bytes =
+            definition_level_decoder_.SetData(page->definition_level_encoding(),
+                descr_->max_definition_level(), num_buffered_values_, buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
       }
@@ -134,14 +133,12 @@ bool TypedColumnReader<DType>::ReadNewPage() {
       // first page with this encoding.
       Encoding::type encoding = page->encoding();
 
-      if (IsDictionaryIndexEncoding(encoding)) {
-        encoding = Encoding::RLE_DICTIONARY;
-      }
+      if (IsDictionaryIndexEncoding(encoding)) { encoding = Encoding::RLE_DICTIONARY; }
 
       auto it = decoders_.find(static_cast<int>(encoding));
       if (it != decoders_.end()) {
         if (encoding == Encoding::RLE_DICTIONARY) {
-            DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
+          DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
         }
         current_decoder_ = it->second.get();
       } else {
@@ -179,26 +176,20 @@ bool TypedColumnReader<DType>::ReadNewPage() {
 // Batch read APIs
 
 int64_t ColumnReader::ReadDefinitionLevels(int64_t batch_size, int16_t* levels) {
-  if (descr_->max_definition_level() == 0) {
-    return 0;
-  }
+  if (descr_->max_definition_level() == 0) { return 0; }
   return definition_level_decoder_.Decode(batch_size, levels);
 }
 
 int64_t ColumnReader::ReadRepetitionLevels(int64_t batch_size, int16_t* levels) {
-  if (descr_->max_repetition_level() == 0) {
-    return 0;
-  }
+  if (descr_->max_repetition_level() == 0) { return 0; }
   return repetition_level_decoder_.Decode(batch_size, levels);
 }
 
 // ----------------------------------------------------------------------
 // Dynamic column reader constructor
 
-std::shared_ptr<ColumnReader> ColumnReader::Make(
-    const ColumnDescriptor* descr,
-    std::unique_ptr<PageReader> pager,
-    MemoryAllocator* allocator) {
+std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
+    std::unique_ptr<PageReader> pager, MemoryAllocator* allocator) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<BoolReader>(descr, std::move(pager), allocator);
@@ -215,8 +206,8 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(
     case Type::BYTE_ARRAY:
       return std::make_shared<ByteArrayReader>(descr, std::move(pager), allocator);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayReader>(descr,
-          std::move(pager), allocator);
+      return std::make_shared<FixedLenByteArrayReader>(
+          descr, std::move(pager), allocator);
     default:
       ParquetException::NYI("type reader not implemented");
   }
@@ -236,4 +227,4 @@ template class TypedColumnReader<DoubleType>;
 template class TypedColumnReader<ByteArrayType>;
 template class TypedColumnReader<FLBAType>;
 
-} // namespace parquet
+}  // namespace parquet

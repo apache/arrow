@@ -44,10 +44,11 @@ class DictionaryDecoder : public Decoder<Type> {
   // Initializes the dictionary with values from 'dictionary'. The data in
   // dictionary is not guaranteed to persist in memory after this call so the
   // dictionary decoder needs to copy the data out if necessary.
-  explicit DictionaryDecoder(const ColumnDescriptor* descr,
-      MemoryAllocator* allocator = default_allocator()):
-      Decoder<Type>(descr, Encoding::RLE_DICTIONARY), dictionary_(0, allocator),
-      byte_array_data_(0, allocator) {}
+  explicit DictionaryDecoder(
+      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+      : Decoder<Type>(descr, Encoding::RLE_DICTIONARY),
+        dictionary_(0, allocator),
+        byte_array_data_(0, allocator) {}
 
   // Perform type-specific initiatialization
   void SetDict(Decoder<Type>* dictionary);
@@ -97,8 +98,7 @@ inline void DictionaryDecoder<Type>::SetDict(Decoder<Type>* dictionary) {
 }
 
 template <>
-inline void DictionaryDecoder<BooleanType>::SetDict(
-    Decoder<BooleanType>* dictionary) {
+inline void DictionaryDecoder<BooleanType>::SetDict(Decoder<BooleanType>* dictionary) {
   ParquetException::NYI("Dictionary encoding is not implemented for boolean values");
 }
 
@@ -129,7 +129,7 @@ inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) 
   dictionary->Decode(&dictionary_[0], num_dictionary_values);
 
   int fixed_len = descr_->type_length();
-  int total_size = num_dictionary_values*fixed_len;
+  int total_size = num_dictionary_values * fixed_len;
 
   byte_array_data_.Resize(total_size);
   int offset = 0;
@@ -162,9 +162,7 @@ static constexpr double MAX_HASH_LOAD = 0.7;
 /// the encoder, including new dictionary entries.
 class DictEncoderBase {
  public:
-  virtual ~DictEncoderBase() {
-    DCHECK(buffered_indices_.empty());
-  }
+  virtual ~DictEncoderBase() { DCHECK(buffered_indices_.empty()); }
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
   /// dict_encoded_size() bytes.
@@ -200,17 +198,15 @@ class DictEncoderBase {
   int dict_encoded_size() { return dict_encoded_size_; }
 
  protected:
-  explicit DictEncoderBase(MemPool* pool, MemoryAllocator* allocator) :
-      hash_table_size_(INITIAL_HASH_TABLE_SIZE),
-      mod_bitmask_(hash_table_size_ - 1),
-      hash_slots_(0, allocator),
-      allocator_(allocator),
-      pool_(pool),
-      dict_encoded_size_(0) {
+  explicit DictEncoderBase(MemPool* pool, MemoryAllocator* allocator)
+      : hash_table_size_(INITIAL_HASH_TABLE_SIZE),
+        mod_bitmask_(hash_table_size_ - 1),
+        hash_slots_(0, allocator),
+        allocator_(allocator),
+        pool_(pool),
+        dict_encoded_size_(0) {
     hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    if (!CpuInfo::initialized()) {
-      CpuInfo::Init();
-    }
+    if (!CpuInfo::initialized()) { CpuInfo::Init(); }
   }
 
   /// Size of the table. Must be a power of 2.
@@ -240,18 +236,14 @@ template <typename T>
 class DictEncoder : public DictEncoderBase {
  public:
   explicit DictEncoder(MemPool* pool = nullptr,
-      MemoryAllocator* allocator = default_allocator(), int type_length = -1) :
-      DictEncoderBase(pool, allocator), type_length_(type_length) {}
+      MemoryAllocator* allocator = default_allocator(), int type_length = -1)
+      : DictEncoderBase(pool, allocator), type_length_(type_length) {}
 
   // TODO(wesm): think about how to address the construction semantics in
   // encodings/dictionary-encoding.h
-  void set_mem_pool(MemPool* pool) {
-    pool_ = pool;
-  }
+  void set_mem_pool(MemPool* pool) { pool_ = pool; }
 
-  void set_type_length(int type_length) {
-    type_length_ = type_length;
-  }
+  void set_type_length(int type_length) { type_length_ = type_length; }
 
   /// Encode value. Note that this does not actually write any data, just
   /// buffers the value's index to be written later.
@@ -278,19 +270,18 @@ class DictEncoder : public DictEncoderBase {
   void AddDictKey(const T& value);
 };
 
-template<typename T>
+template <typename T>
 inline int DictEncoder<T>::Hash(const T& value) const {
   return HashUtil::Hash(&value, sizeof(value), 0);
 }
 
-template<>
+template <>
 inline int DictEncoder<ByteArray>::Hash(const ByteArray& value) const {
   return HashUtil::Hash(value.ptr, value.len, 0);
 }
 
-template<>
-inline int DictEncoder<FixedLenByteArray>::Hash(
-    const FixedLenByteArray& value) const {
+template <>
+inline int DictEncoder<FixedLenByteArray>::Hash(const FixedLenByteArray& value) const {
   return HashUtil::Hash(value.ptr, type_length_, 0);
 }
 
@@ -324,8 +315,7 @@ inline void DictEncoder<T>::Put(const T& v) {
     hash_slots_[j] = index;
     AddDictKey(v);
 
-    if (UNLIKELY(static_cast<int>(uniques_.size()) >
-            hash_table_size_ * MAX_HASH_LOAD)) {
+    if (UNLIKELY(static_cast<int>(uniques_.size()) > hash_table_size_ * MAX_HASH_LOAD)) {
       DoubleTableSize();
     }
   }
@@ -343,9 +333,7 @@ inline void DictEncoder<T>::DoubleTableSize() {
   for (int i = 0; i < hash_table_size_; ++i) {
     index = hash_slots_[i];
 
-    if (index == HASH_SLOT_EMPTY) {
-      continue;
-    }
+    if (index == HASH_SLOT_EMPTY) { continue; }
 
     // Compute the hash value mod the new table size to start looking for an
     // empty slot
@@ -370,24 +358,22 @@ inline void DictEncoder<T>::DoubleTableSize() {
   hash_slots_.Swap(new_hash_slots);
 }
 
-template<typename T>
+template <typename T>
 inline void DictEncoder<T>::AddDictKey(const T& v) {
   uniques_.push_back(v);
   dict_encoded_size_ += sizeof(T);
 }
 
-template<>
+template <>
 inline void DictEncoder<ByteArray>::AddDictKey(const ByteArray& v) {
   uint8_t* heap = pool_->Allocate(v.len);
-  if (UNLIKELY(v.len > 0 && heap == nullptr)) {
-    throw ParquetException("out of memory");
-  }
+  if (UNLIKELY(v.len > 0 && heap == nullptr)) { throw ParquetException("out of memory"); }
   memcpy(heap, v.ptr, v.len);
   uniques_.push_back(ByteArray(v.len, heap));
   dict_encoded_size_ += v.len + sizeof(uint32_t);
 }
 
-template<>
+template <>
 inline void DictEncoder<FixedLenByteArray>::AddDictKey(const FixedLenByteArray& v) {
   uint8_t* heap = pool_->Allocate(type_length_);
   if (UNLIKELY(type_length_ > 0 && heap == nullptr)) {
@@ -440,6 +426,6 @@ inline int DictEncoderBase::WriteIndices(uint8_t* buffer, int buffer_len) {
   return 1 + encoder.len();
 }
 
-} // namespace parquet
+}  // namespace parquet
 
 #endif

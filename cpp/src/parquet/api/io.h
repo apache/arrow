@@ -24,4 +24,4 @@
 #include "parquet/util/mem-allocator.h"
 #include "parquet/util/output.h"
 
-#endif // PARQUET_API_IO_H
+#endif  // PARQUET_API_IO_H

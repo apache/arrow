@@ -28,11 +28,10 @@ namespace schema {
 
 class Node;
 
-void PrintSchema(const Node* schema, std::ostream& stream,
-    int indent_width = 2);
+void PrintSchema(const Node* schema, std::ostream& stream, int indent_width = 2);
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_SCHEMA_PRINTER_H
+#endif  // PARQUET_SCHEMA_PRINTER_H

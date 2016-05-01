@@ -24,10 +24,10 @@
 
 namespace parquet {
 
-void SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer) {
+void SnappyCodec::Decompress(
+    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
-      static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer))) {
+          static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer))) {
     throw parquet::ParquetException("Corrupt snappy compressed data.");
   }
 }
@@ -45,4 +45,4 @@ int64_t SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
   return output_len;
 }
 
-} // namespace parquet
+}  // namespace parquet

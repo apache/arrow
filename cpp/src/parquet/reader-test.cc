@@ -36,14 +36,14 @@ namespace parquet {
 
 const char* data_dir = std::getenv("PARQUET_TEST_DATA");
 
-
 class TestAllTypesPlain : public ::testing::Test {
  public:
   void SetUp() {
     std::string dir_string(data_dir);
 
     std::stringstream ss;
-    ss << dir_string << "/" << "alltypes_plain.parquet";
+    ss << dir_string << "/"
+       << "alltypes_plain.parquet";
 
     reader_ = ParquetFileReader::OpenFile(ss.str());
   }
@@ -54,15 +54,14 @@ class TestAllTypesPlain : public ::testing::Test {
   std::unique_ptr<ParquetFileReader> reader_;
 };
 
-TEST_F(TestAllTypesPlain, NoopConstructDestruct) {
-}
+TEST_F(TestAllTypesPlain, NoopConstructDestruct) {}
 
 TEST_F(TestAllTypesPlain, TestBatchRead) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
   std::shared_ptr<Int32Reader> col =
-    std::dynamic_pointer_cast<Int32Reader>(group->Column(0));
+      std::dynamic_pointer_cast<Int32Reader>(group->Column(0));
 
   int16_t def_levels[4];
   int16_t rep_levels[4];
@@ -94,8 +93,7 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<Int32Scanner> scanner(
-      new Int32Scanner(group->Column(0)));
+  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
   int32_t val;
   bool is_null;
   for (int i = 0; i < 8; ++i) {
@@ -107,19 +105,16 @@ TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
   ASSERT_FALSE(scanner->NextValue(&val, &is_null));
 }
 
-
 TEST_F(TestAllTypesPlain, TestSetScannerBatchSize) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<Int32Scanner> scanner(
-      new Int32Scanner(group->Column(0)));
+  std::shared_ptr<Int32Scanner> scanner(new Int32Scanner(group->Column(0)));
 
   ASSERT_EQ(128, scanner->batch_size());
   scanner->SetBatchSize(1024);
   ASSERT_EQ(1024, scanner->batch_size());
 }
-
 
 TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::stringstream ss;
@@ -156,14 +151,14 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
 }
 
-
 class TestLocalFileSource : public ::testing::Test {
  public:
   void SetUp() {
     std::string dir_string(data_dir);
 
     std::stringstream ss;
-    ss << dir_string << "/" << "alltypes_plain.parquet";
+    ss << dir_string << "/"
+       << "alltypes_plain.parquet";
 
     file.reset(new LocalFileSource());
     file->Open(ss.str());
@@ -186,5 +181,4 @@ TEST_F(TestLocalFileSource, FileClosedOnDestruction) {
   ASSERT_EQ(EBADF, errno);
 }
 
-
-} // namespace parquet
+}  // namespace parquet

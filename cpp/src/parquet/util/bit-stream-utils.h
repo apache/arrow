@@ -37,9 +37,7 @@ class BitWriter {
  public:
   /// buffer: buffer to write bits to.  Buffer should be preallocated with
   /// 'buffer_len' bytes.
-  BitWriter(uint8_t* buffer, int buffer_len) :
-      buffer_(buffer),
-      max_bytes_(buffer_len) {
+  BitWriter(uint8_t* buffer, int buffer_len) : buffer_(buffer), max_bytes_(buffer_len) {
     Clear();
   }
 
@@ -62,7 +60,7 @@ class BitWriter {
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
   /// num_bytes, the extra high-order bytes will be ignored. Returns false if
   /// there was not enough space.
-  template<typename T>
+  template <typename T>
   bool PutAligned(T v, int num_bytes);
 
   /// Write a Vlq encoded int to the buffer.  Returns false if there was not enough
@@ -92,8 +90,8 @@ class BitWriter {
   /// buffer_. This is faster than writing values byte by byte directly to buffer_.
   uint64_t buffered_values_;
 
-  int byte_offset_;       // Offset in buffer_
-  int bit_offset_;        // Offset in buffered_values_
+  int byte_offset_;  // Offset in buffer_
+  int bit_offset_;   // Offset in buffered_values_
 };
 
 /// Utility class to read bit/byte stream.  This class can read bits or bytes
@@ -102,11 +100,8 @@ class BitWriter {
 class BitReader {
  public:
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
-  BitReader(const uint8_t* buffer, int buffer_len) :
-      buffer_(buffer),
-      max_bytes_(buffer_len),
-      byte_offset_(0),
-      bit_offset_(0) {
+  BitReader(const uint8_t* buffer, int buffer_len)
+      : buffer_(buffer), max_bytes_(buffer_len), byte_offset_(0), bit_offset_(0) {
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
   }
@@ -124,7 +119,7 @@ class BitReader {
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
   /// there are not enough bytes left. num_bits must be <= 32.
-  template<typename T>
+  template <typename T>
   bool GetValue(int num_bits, T* v);
 
   /// Reads a 'num_bytes'-sized value from the buffer and stores it in 'v'. T
@@ -132,7 +127,7 @@ class BitReader {
   /// 'num_bytes'. The value is assumed to be byte-aligned so the stream will
   /// be advanced to the start of the next byte before 'v' is read. Returns
   /// false if there are not enough bytes left.
-  template<typename T>
+  template <typename T>
   bool GetAligned(int num_bytes, T* v);
 
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
@@ -158,10 +153,10 @@ class BitReader {
   /// faster than reading values byte by byte directly from buffer_.
   uint64_t buffered_values_;
 
-  int byte_offset_;       // Offset in buffer_
-  int bit_offset_;        // Offset in buffered_values_
+  int byte_offset_;  // Offset in buffer_
+  int bit_offset_;   // Offset in buffered_values_
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_BIT_STREAM_UTILS_H
+#endif  // PARQUET_UTIL_BIT_STREAM_UTILS_H

@@ -66,11 +66,7 @@ namespace schema {
 // of these encodings (versus a struct containing an array). We should refuse
 // the temptation to guess, as they say.
 struct ListEncoding {
-  enum type {
-    ONE_LEVEL,
-    TWO_LEVEL,
-    THREE_LEVEL
-  };
+  enum type { ONE_LEVEL, TWO_LEVEL, THREE_LEVEL };
 };
 
 struct DecimalMetadata {
@@ -100,69 +96,42 @@ class GroupNode;
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
 class Node {
  public:
-  enum type {
-    PRIMITIVE,
-    GROUP
-  };
+  enum type { PRIMITIVE, GROUP };
 
-  Node(Node::type type, const std::string& name,
-      Repetition::type repetition,
-      LogicalType::type logical_type = LogicalType::NONE,
-      int id = -1) :
-      type_(type),
-      name_(name),
-      repetition_(repetition),
-      logical_type_(logical_type),
-      id_(id),
-      parent_(nullptr) {}
+  Node(Node::type type, const std::string& name, Repetition::type repetition,
+      LogicalType::type logical_type = LogicalType::NONE, int id = -1)
+      : type_(type),
+        name_(name),
+        repetition_(repetition),
+        logical_type_(logical_type),
+        id_(id),
+        parent_(nullptr) {}
 
   virtual ~Node() {}
 
-  bool is_primitive() const {
-    return type_ == Node::PRIMITIVE;
-  }
+  bool is_primitive() const { return type_ == Node::PRIMITIVE; }
 
-  bool is_group() const {
-    return type_ == Node::GROUP;
-  }
+  bool is_group() const { return type_ == Node::GROUP; }
 
-  bool is_optional() const {
-    return repetition_ == Repetition::OPTIONAL;
-  }
+  bool is_optional() const { return repetition_ == Repetition::OPTIONAL; }
 
-  bool is_repeated() const {
-    return repetition_ == Repetition::REPEATED;
-  }
+  bool is_repeated() const { return repetition_ == Repetition::REPEATED; }
 
-  bool is_required() const {
-    return repetition_ == Repetition::REQUIRED;
-  }
+  bool is_required() const { return repetition_ == Repetition::REQUIRED; }
 
   virtual bool Equals(const Node* other) const = 0;
 
-  const std::string& name() const {
-    return name_;
-  }
+  const std::string& name() const { return name_; }
 
-  Node::type node_type() const {
-    return type_;
-  }
+  Node::type node_type() const { return type_; }
 
-  Repetition::type repetition() const {
-    return repetition_;
-  }
+  Repetition::type repetition() const { return repetition_; }
 
-  LogicalType::type logical_type() const {
-    return logical_type_;
-  }
+  LogicalType::type logical_type() const { return logical_type_; }
 
-  int id() const {
-    return id_;
-  }
+  int id() const { return id_; }
 
-  const Node* parent() const {
-    return parent_;
-  }
+  const Node* parent() const { return parent_; }
 
   // ToParquet returns an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API
@@ -214,46 +183,36 @@ class PrimitiveNode : public Node {
   // parquet::SchemaElement into the public API
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
 
-  static inline NodePtr Make(const std::string& name,
-      Repetition::type repetition, Type::type type,
-      LogicalType::type logical_type = LogicalType::NONE,
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+      Type::type type, LogicalType::type logical_type = LogicalType::NONE,
       int length = -1, int precision = -1, int scale = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, type, logical_type,
-          length, precision, scale));
+    return NodePtr(new PrimitiveNode(
+        name, repetition, type, logical_type, length, precision, scale));
   }
 
   virtual bool Equals(const Node* other) const;
 
-  Type::type physical_type() const {
-    return physical_type_;
-  }
+  Type::type physical_type() const { return physical_type_; }
 
-  int32_t type_length() const {
-    return type_length_;
-  }
+  int32_t type_length() const { return type_length_; }
 
-  const DecimalMetadata& decimal_metadata() const {
-    return decimal_metadata_;
-  }
+  const DecimalMetadata& decimal_metadata() const { return decimal_metadata_; }
 
   void ToParquet(void* opaque_element) const override;
   virtual void Visit(Visitor* visitor);
   void VisitConst(ConstVisitor* visitor) const override;
 
  private:
-  PrimitiveNode(const std::string& name, Repetition::type repetition,
-      Type::type type, LogicalType::type logical_type = LogicalType::NONE,
-      int length = -1, int precision = -1, int scale = -1, int id = -1);
+  PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
+      LogicalType::type logical_type = LogicalType::NONE, int length = -1,
+      int precision = -1, int scale = -1, int id = -1);
 
   Type::type physical_type_;
   int32_t type_length_;
   DecimalMetadata decimal_metadata_;
 
   // For FIXED_LEN_BYTE_ARRAY
-  void SetTypeLength(int32_t length) {
-    type_length_ = length;
-  }
-
+  void SetTypeLength(int32_t length) { type_length_ = length; }
 
   // For Decimal logical type: Precision and scale
   void SetDecimalMetadata(int32_t scale, int32_t precision) {
@@ -273,24 +232,19 @@ class GroupNode : public Node {
  public:
   // Like PrimitiveNode, GroupNode::FromParquet accepts an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
-      const NodeVector& fields);
+  static std::unique_ptr<Node> FromParquet(
+      const void* opaque_element, int id, const NodeVector& fields);
 
-  static inline NodePtr Make(const std::string& name,
-      Repetition::type repetition, const NodeVector& fields,
-      LogicalType::type logical_type = LogicalType::NONE) {
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+      const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE) {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
   virtual bool Equals(const Node* other) const;
 
-  const NodePtr& field(int i) const {
-    return fields_[i];
-  }
+  const NodePtr& field(int i) const { return fields_[i]; }
 
-  int field_count() const {
-    return fields_.size();
-  }
+  int field_count() const { return fields_.size(); }
 
   void ToParquet(void* opaque_element) const override;
   virtual void Visit(Visitor* visitor);
@@ -298,15 +252,13 @@ class GroupNode : public Node {
 
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
-      const NodeVector& fields,
-      LogicalType::type logical_type = LogicalType::NONE,
-      int id = -1) :
-      Node(Node::GROUP, name, repetition, logical_type, id),
-      fields_(fields) {
-      for (NodePtr& field : fields_) {
-        field->SetParent(this);
-      }
+      const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
+      int id = -1)
+      : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
+    for (NodePtr& field : fields_) {
+      field->SetParent(this);
     }
+  }
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
@@ -318,10 +270,10 @@ class GroupNode : public Node {
 // ----------------------------------------------------------------------
 // Convenience primitive type factory functions
 
-#define PRIMITIVE_FACTORY(FuncName, TYPE)                       \
-  static inline NodePtr FuncName(const std::string& name,       \
-      Repetition::type repetition = Repetition::OPTIONAL) {     \
-    return PrimitiveNode::Make(name, repetition, Type::TYPE);   \
+#define PRIMITIVE_FACTORY(FuncName, TYPE)                                            \
+  static inline NodePtr FuncName(                                                    \
+      const std::string& name, Repetition::type repetition = Repetition::OPTIONAL) { \
+    return PrimitiveNode::Make(name, repetition, Type::TYPE);                        \
   }
 
 PRIMITIVE_FACTORY(Boolean, BOOLEAN);
@@ -332,8 +284,8 @@ PRIMITIVE_FACTORY(Float, FLOAT);
 PRIMITIVE_FACTORY(Double, DOUBLE);
 PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY);
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_SCHEMA_TYPES_H
+#endif  // PARQUET_SCHEMA_TYPES_H

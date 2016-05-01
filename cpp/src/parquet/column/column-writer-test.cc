@@ -70,8 +70,8 @@ class TestPrimitiveWriter : public ::testing::Test {
     sink_.reset(new InMemoryOutputStream());
     std::unique_ptr<SerializedPageWriter> pager(
         new SerializedPageWriter(sink_.get(), Compression::UNCOMPRESSED, &metadata_));
-    return std::unique_ptr<Int64Writer>(new Int64Writer(schema_.get(), std::move(pager),
-          output_size));
+    return std::unique_ptr<Int64Writer>(
+        new Int64Writer(schema_.get(), std::move(pager), output_size));
   }
 
   void ReadColumn() {
@@ -138,8 +138,8 @@ TEST_F(TestPrimitiveWriter, OptionalRepeated) {
   std::vector<int16_t> repetition_levels(100, 0);
 
   auto writer = BuildWriter();
-  writer->WriteBatch(values.size(), definition_levels.data(),
-      repetition_levels.data(), values.data());
+  writer->WriteBatch(
+      values.size(), definition_levels.data(), repetition_levels.data(), values.data());
   writer->Close();
 
   ReadColumn();
@@ -176,8 +176,8 @@ TEST_F(TestPrimitiveWriter, OptionalRepeatedTooFewRows) {
   repetition_levels[3] = 1;
 
   auto writer = BuildWriter();
-  writer->WriteBatch(values.size(), definition_levels.data(),
-      repetition_levels.data(), values.data());
+  writer->WriteBatch(
+      values.size(), definition_levels.data(), repetition_levels.data(), values.data());
   ASSERT_THROW(writer->Close(), ParquetException);
 }
 
@@ -196,7 +196,5 @@ TEST_F(TestPrimitiveWriter, RequiredNonRepeatedLargeChunk) {
   ASSERT_EQ(values, values_out_);
 }
 
-} // namespace test
-} // namespace parquet
-
-
+}  // namespace test
+}  // namespace parquet

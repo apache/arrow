@@ -74,8 +74,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
 template <typename T>
 void GenerateData(int num_values, T* out, vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
-  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
-      std::numeric_limits<T>::max(), out);
+  random_numbers(
+      num_values, 0, std::numeric_limits<T>::min(), std::numeric_limits<T>::max(), out);
 }
 
 template <>
@@ -148,15 +148,11 @@ class TestEncodingBase : public ::testing::Test {
 
   void SetUp() {
     descr_ = ExampleDescr<T>();
-    if (descr_) {
-      type_length_ = descr_->type_length();
-    }
+    if (descr_) { type_length_ = descr_->type_length(); }
     allocator_ = default_allocator();
   }
 
-  void TearDown() {
-    pool_.FreeAll();
-  }
+  void TearDown() { pool_.FreeAll(); }
 
   void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
@@ -210,7 +206,6 @@ class TestEncodingBase : public ::testing::Test {
   using TestEncodingBase<Type>::encode_buffer_; \
   using TestEncodingBase<Type>::decode_buf_;
 
-
 template <typename Type>
 class TestPlainEncoding : public TestEncodingBase<Type> {
  public:
@@ -225,8 +220,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
 
     encode_buffer_ = dst.GetBuffer();
 
-    decoder.SetData(num_values_, encode_buffer_->data(),
-        encode_buffer_->size());
+    decoder.SetData(num_values_, encode_buffer_->data(), encode_buffer_->size());
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
     VerifyResults<T>(decode_buf_, draws_, num_values_);
@@ -246,7 +240,7 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
 // Dictionary encoding tests
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-                         ByteArrayType, FLBAType> DictEncodedTypes;
+    ByteArrayType, FLBAType> DictEncodedTypes;
 
 template <typename Type>
 class TestDictionaryEncoding : public TestEncodingBase<Type> {
@@ -260,23 +254,21 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     dict_buffer_ = std::make_shared<OwnedMutableBuffer>();
     auto indices = std::make_shared<OwnedMutableBuffer>();
 
-    ASSERT_NO_THROW(
-        {
-          for (int i = 0; i < num_values_; ++i) {
-            encoder.Put(draws_[i]);
-          }
-        });
+    ASSERT_NO_THROW({
+      for (int i = 0; i < num_values_; ++i) {
+        encoder.Put(draws_[i]);
+      }
+    });
     dict_buffer_->Resize(encoder.dict_encoded_size());
     encoder.WriteDict(dict_buffer_->mutable_data());
 
     indices->Resize(encoder.EstimatedDataEncodedSize());
-    int actual_bytes = encoder.WriteIndices(indices->mutable_data(),
-        indices->size());
+    int actual_bytes = encoder.WriteIndices(indices->mutable_data(), indices->size());
     indices->Resize(actual_bytes);
 
     PlainDecoder<Type> dict_decoder(descr_.get());
-    dict_decoder.SetData(encoder.num_entries(), dict_buffer_->data(),
-        dict_buffer_->size());
+    dict_decoder.SetData(
+        encoder.num_entries(), dict_buffer_->data(), dict_buffer_->size());
 
     DictionaryDecoder<Type> decoder(descr_.get());
     decoder.SetDict(&dict_decoder);
@@ -309,6 +301,6 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
   ASSERT_THROW(decoder.SetDict(&dict_decoder), ParquetException);
 }
 
-} // namespace test
+}  // namespace test
 
-} // namespace parquet
+}  // namespace parquet

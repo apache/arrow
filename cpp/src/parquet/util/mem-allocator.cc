@@ -26,18 +26,12 @@ namespace parquet {
 MemoryAllocator::~MemoryAllocator() {}
 
 uint8_t* TrackingAllocator::Malloc(int64_t size) {
-  if (0 == size) {
-    return nullptr;
-  }
+  if (0 == size) { return nullptr; }
 
   uint8_t* p = static_cast<uint8_t*>(std::malloc(size));
-  if (!p) {
-    throw ParquetException("OOM: memory allocation failed");
-  }
+  if (!p) { throw ParquetException("OOM: memory allocation failed"); }
   total_memory_ += size;
-  if (total_memory_ > max_memory_) {
-    max_memory_ = total_memory_;
-  }
+  if (total_memory_ > max_memory_) { max_memory_ = total_memory_; }
   return p;
 }
 
@@ -58,4 +52,4 @@ MemoryAllocator* default_allocator() {
   return &default_allocator;
 }
 
-} // namespace parquet
+}  // namespace parquet

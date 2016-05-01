@@ -23,4 +23,4 @@
 #include "parquet/schema/printer.h"
 #include "parquet/schema/types.h"
 
-#endif // PARQUET_API_SCHEMA_H
+#endif  // PARQUET_API_SCHEMA_H

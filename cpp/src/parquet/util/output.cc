@@ -28,11 +28,10 @@ namespace parquet {
 // ----------------------------------------------------------------------
 // In-memory output stream
 
-InMemoryOutputStream::InMemoryOutputStream(int64_t initial_capacity,
-    MemoryAllocator* allocator) : size_(0), capacity_(initial_capacity) {
-  if (initial_capacity == 0) {
-    initial_capacity = IN_MEMORY_DEFAULT_CAPACITY;
-  }
+InMemoryOutputStream::InMemoryOutputStream(
+    int64_t initial_capacity, MemoryAllocator* allocator)
+    : size_(0), capacity_(initial_capacity) {
+  if (initial_capacity == 0) { initial_capacity = IN_MEMORY_DEFAULT_CAPACITY; }
   buffer_.reset(new OwnedMutableBuffer(initial_capacity, allocator));
 }
 
@@ -64,4 +63,4 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
   return result;
 }
 
-} // namespace parquet
+}  // namespace parquet

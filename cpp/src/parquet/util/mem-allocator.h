@@ -34,7 +34,7 @@ class MemoryAllocator {
 
 MemoryAllocator* default_allocator();
 
-class TrackingAllocator: public MemoryAllocator {
+class TrackingAllocator : public MemoryAllocator {
  public:
   TrackingAllocator() : total_memory_(0), max_memory_(0) {}
   virtual ~TrackingAllocator();
@@ -42,19 +42,15 @@ class TrackingAllocator: public MemoryAllocator {
   uint8_t* Malloc(int64_t size) override;
   void Free(uint8_t* p, int64_t size) override;
 
-  int64_t TotalMemory() {
-    return total_memory_;
-  }
+  int64_t TotalMemory() { return total_memory_; }
 
-  int64_t MaxMemory() {
-    return max_memory_;
-  }
+  int64_t MaxMemory() { return max_memory_; }
 
  private:
   int64_t total_memory_;
   int64_t max_memory_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_MEMORY_POOL_H
+#endif  // PARQUET_UTIL_MEMORY_POOL_H

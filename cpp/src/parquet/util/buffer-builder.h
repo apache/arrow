@@ -29,20 +29,17 @@ namespace parquet {
 class BufferBuilder {
  public:
   BufferBuilder(uint8_t* dst_buffer, int dst_len)
-    : buffer_(dst_buffer), capacity_(dst_len), size_(0) {
-  }
+      : buffer_(dst_buffer), capacity_(dst_len), size_(0) {}
 
   BufferBuilder(char* dst_buffer, int dst_len)
-    : buffer_(reinterpret_cast<uint8_t*>(dst_buffer)),
-      capacity_(dst_len), size_(0) {
-  }
+      : buffer_(reinterpret_cast<uint8_t*>(dst_buffer)), capacity_(dst_len), size_(0) {}
 
   inline void Append(const void* buffer, int len) {
     memcpy(buffer_ + size_, buffer, len);
     size_ += len;
   }
 
-  template<typename T>
+  template <typename T>
   inline void Append(const T& v) {
     Append(&v, sizeof(T));
   }
@@ -56,6 +53,6 @@ class BufferBuilder {
   int size_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_BUFFER_BUILDER_H
+#endif  // PARQUET_UTIL_BUFFER_BUILDER_H

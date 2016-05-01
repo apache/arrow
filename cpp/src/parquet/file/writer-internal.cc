@@ -33,10 +33,9 @@ static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 // ----------------------------------------------------------------------
 // SerializedPageWriter
 
-SerializedPageWriter::SerializedPageWriter(OutputStream* sink,
-        Compression::type codec, format::ColumnChunk* metadata,
-        MemoryAllocator* allocator) : sink_(sink), metadata_(metadata),
-        allocator_(allocator) {
+SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type codec,
+    format::ColumnChunk* metadata, MemoryAllocator* allocator)
+    : sink_(sink), metadata_(metadata), allocator_(allocator) {
   compressor_ = Codec::Create(codec);
   // Currently we directly start with the data page
   metadata_->meta_data.__set_data_page_offset(sink_->Tell());
@@ -57,16 +56,16 @@ int64_t SerializedPageWriter::WriteDataPage(int32_t num_rows, int32_t num_values
     const std::shared_ptr<Buffer>& definition_levels,
     Encoding::type definition_level_encoding,
     const std::shared_ptr<Buffer>& repetition_levels,
-    Encoding::type repetition_level_encoding,
-    const std::shared_ptr<Buffer>& values, Encoding::type encoding) {
-  int64_t uncompressed_size = definition_levels->size() + repetition_levels->size()
-    + values->size();
+    Encoding::type repetition_level_encoding, const std::shared_ptr<Buffer>& values,
+    Encoding::type encoding) {
+  int64_t uncompressed_size =
+      definition_levels->size() + repetition_levels->size() + values->size();
 
   // Concatenate data into a single buffer
   // TODO: In the uncompressed case, directly write this to the sink
   // TODO: Reuse the (un)compressed_data buffer instead of recreating it each time.
   std::shared_ptr<OwnedMutableBuffer> uncompressed_data =
-    std::make_shared<OwnedMutableBuffer>(uncompressed_size, allocator_);
+      std::make_shared<OwnedMutableBuffer>(uncompressed_size, allocator_);
   uint8_t* uncompressed_ptr = uncompressed_data->mutable_data();
   memcpy(uncompressed_ptr, repetition_levels->data(), repetition_levels->size());
   uncompressed_ptr += repetition_levels->size();
@@ -124,7 +123,7 @@ int64_t RowGroupSerializer::num_rows() const {
   return num_rows_;
 }
 
-const SchemaDescriptor* RowGroupSerializer::schema() const  {
+const SchemaDescriptor* RowGroupSerializer::schema() const {
   return schema_;
 }
 
@@ -134,20 +133,17 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
   }
   current_column_index_++;
 
-  if (current_column_writer_) {
-    total_bytes_written_ += current_column_writer_->Close();
-  }
+  if (current_column_writer_) { total_bytes_written_ += current_column_writer_->Close(); }
 
   const ColumnDescriptor* column_descr = schema_->Column(current_column_index_);
   format::ColumnChunk* col_meta = &metadata_->columns[current_column_index_];
   col_meta->__isset.meta_data = true;
   col_meta->meta_data.__set_type(ToThrift(column_descr->physical_type()));
   col_meta->meta_data.__set_path_in_schema(column_descr->path()->ToDotVector());
-  std::unique_ptr<PageWriter> pager(new SerializedPageWriter(sink_,
-        Compression::UNCOMPRESSED, col_meta,
-        allocator_));
-  current_column_writer_ = ColumnWriter::Make(column_descr,
-      std::move(pager), num_rows_, allocator_);
+  std::unique_ptr<PageWriter> pager(
+      new SerializedPageWriter(sink_, Compression::UNCOMPRESSED, col_meta, allocator_));
+  current_column_writer_ =
+      ColumnWriter::Make(column_descr, std::move(pager), num_rows_, allocator_);
   return current_column_writer_.get();
 }
 
@@ -177,9 +173,7 @@ std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
 }
 
 void FileSerializer::Close() {
-  if (row_group_writer_) {
-    row_group_writer_->Close();
-  }
+  if (row_group_writer_) { row_group_writer_->Close(); }
   row_group_writer_.reset();
 
   // Write magic bytes and metadata
@@ -201,9 +195,7 @@ int64_t FileSerializer::num_rows() const {
 }
 
 RowGroupWriter* FileSerializer::AppendRowGroup(int64_t num_rows) {
-  if (row_group_writer_) {
-    row_group_writer_->Close();
-  }
+  if (row_group_writer_) { row_group_writer_->Close(); }
   num_rows_ += num_rows;
   num_row_groups_++;
 
@@ -224,8 +216,8 @@ void FileSerializer::WriteMetaData() {
   // Write MetaData
   uint32_t metadata_len = sink_->Tell();
 
-  SchemaFlattener flattener(static_cast<GroupNode*>(schema_.schema().get()),
-      &metadata_.schema);
+  SchemaFlattener flattener(
+      static_cast<GroupNode*>(schema_.schema().get()), &metadata_.schema);
   flattener.Flatten();
 
   // TODO: Currently we only write version 1 files
@@ -244,12 +236,9 @@ void FileSerializer::WriteMetaData() {
   sink_->Write(PARQUET_MAGIC, 4);
 }
 
-FileSerializer::FileSerializer(
-    std::shared_ptr<OutputStream> sink,
-    std::shared_ptr<GroupNode>& schema,
-    MemoryAllocator* allocator = default_allocator()) :
-        sink_(sink), allocator_(allocator),
-        num_row_groups_(0), num_rows_(0) {
+FileSerializer::FileSerializer(std::shared_ptr<OutputStream> sink,
+    std::shared_ptr<GroupNode>& schema, MemoryAllocator* allocator = default_allocator())
+    : sink_(sink), allocator_(allocator), num_row_groups_(0), num_rows_(0) {
   schema_.Init(schema);
   StartFile();
 }
@@ -259,4 +248,4 @@ void FileSerializer::StartFile() {
   sink_->Write(PARQUET_MAGIC, 4);
 }
 
-} // namespace parquet
+}  // namespace parquet

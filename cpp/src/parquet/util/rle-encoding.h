@@ -85,11 +85,11 @@ class RleDecoder {
   /// Create a decoder object. buffer/buffer_len is the decoded data.
   /// bit_width is the width of each value (before encoding).
   RleDecoder(const uint8_t* buffer, int buffer_len, int bit_width)
-    : bit_reader_(buffer, buffer_len),
-      bit_width_(bit_width),
-      current_value_(0),
-      repeat_count_(0),
-      literal_count_(0) {
+      : bit_reader_(buffer, buffer_len),
+        bit_width_(bit_width),
+        current_value_(0),
+        repeat_count_(0),
+        literal_count_(0) {
     DCHECK_GE(bit_width_, 0);
     DCHECK_LE(bit_width_, 64);
   }
@@ -107,7 +107,7 @@ class RleDecoder {
   }
 
   /// Gets the next value.  Returns false if there are no more.
-  template<typename T>
+  template <typename T>
   bool Get(T* val);
 
  protected:
@@ -121,7 +121,7 @@ class RleDecoder {
  private:
   /// Fills literal_count_ and repeat_count_ with next values. Returns false if there
   /// are no more.
-  template<typename T>
+  template <typename T>
   bool NextCounts();
 };
 
@@ -140,8 +140,7 @@ class RleEncoder {
   /// based on the bit_width, which can determine a storage optimal choice.
   /// TODO: allow 0 bit_width (and have dict encoder use it)
   RleEncoder(uint8_t* buffer, int buffer_len, int bit_width)
-    : bit_width_(bit_width),
-      bit_writer_(buffer, buffer_len) {
+      : bit_width_(bit_width), bit_writer_(buffer, buffer_len) {
     DCHECK_GE(bit_width_, 0);
     DCHECK_LE(bit_width_, 64);
     max_run_byte_size_ = MinBufferSize(bit_width);
@@ -154,8 +153,8 @@ class RleEncoder {
   /// It is not valid to pass a buffer less than this length.
   static int MinBufferSize(int bit_width) {
     /// 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
-    int max_literal_run_size = 1 +
-        BitUtil::Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
+    int max_literal_run_size =
+        1 + BitUtil::Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
     /// Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
     int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + BitUtil::Ceil(bit_width, 8);
     return std::max(max_literal_run_size, max_repeated_run_size);
@@ -248,7 +247,7 @@ class RleEncoder {
   uint8_t* literal_indicator_byte_;
 };
 
-template<typename T>
+template <typename T>
 inline bool RleDecoder::Get(T* val) {
   DCHECK_GE(bit_width_, 0);
   if (UNLIKELY(literal_count_ == 0 && repeat_count_ == 0)) {
@@ -268,7 +267,7 @@ inline bool RleDecoder::Get(T* val) {
   return true;
 }
 
-template<typename T>
+template <typename T>
 bool RleDecoder::NextCounts() {
   // Read the next run's indicator int, it could be a literal or repeated run.
   // The int is encoded as a vlq-encoded value.
@@ -399,16 +398,16 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
 
 inline int RleEncoder::Flush() {
   if (literal_count_ > 0 || repeat_count_ > 0 || num_buffered_values_ > 0) {
-    bool all_repeat = literal_count_ == 0 &&
-        (repeat_count_ == num_buffered_values_ || num_buffered_values_ == 0);
+    bool all_repeat = literal_count_ == 0 && (repeat_count_ == num_buffered_values_ ||
+                                                 num_buffered_values_ == 0);
     // There is something pending, figure out if it's a repeated or literal run
     if (repeat_count_ > 0 && all_repeat) {
       FlushRepeatedRun();
-    } else  {
+    } else {
       DCHECK_EQ(literal_count_ % 8, 0);
       // Buffer the last group of literals to 8 by padding with 0s.
       for (; num_buffered_values_ != 0 && num_buffered_values_ < 8;
-          ++num_buffered_values_) {
+           ++num_buffered_values_) {
         buffered_values_[num_buffered_values_] = 0;
       }
       literal_count_ += num_buffered_values_;
@@ -441,6 +440,6 @@ inline void RleEncoder::Clear() {
   bit_writer_.Clear();
 }
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_RLE_ENCODING_H
+#endif  // PARQUET_UTIL_RLE_ENCODING_H

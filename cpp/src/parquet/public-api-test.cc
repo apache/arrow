@@ -29,4 +29,4 @@ TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #endif
 }
 
-} // namespace parquet
+}  // namespace parquet

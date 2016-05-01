@@ -34,10 +34,10 @@ namespace parquet {
 /// /sys/devices)
 class CpuInfo {
  public:
-  static const int64_t SSSE3   = (1 << 1);
-  static const int64_t SSE4_1  = (1 << 2);
-  static const int64_t SSE4_2  = (1 << 3);
-  static const int64_t POPCNT  = (1 << 4);
+  static const int64_t SSSE3 = (1 << 1);
+  static const int64_t SSE4_1 = (1 << 2);
+  static const int64_t SSE4_2 = (1 << 3);
+  static const int64_t POPCNT = (1 << 4);
 
   /// Cache enums for L1 (data), L2 and L3
   enum CacheLevel {
@@ -93,9 +93,7 @@ class CpuInfo {
     return model_name_;
   }
 
-  static bool initialized() {
-    return initialized_;
-  }
+  static bool initialized() { return initialized_; }
 
  private:
   static bool initialized_;
@@ -104,9 +102,9 @@ class CpuInfo {
   static int64_t cache_sizes_[L3_CACHE + 1];
   static int64_t cycles_per_ms_;
   static int num_cores_;
-  static std::string model_name_; // NOLINT
+  static std::string model_name_;  // NOLINT
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_CPU_INFO_H
+#endif  // PARQUET_UTIL_CPU_INFO_H

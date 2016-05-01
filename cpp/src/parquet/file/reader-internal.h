@@ -42,17 +42,15 @@ static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(std::unique_ptr<InputStream> stream,
-      Compression::type codec, MemoryAllocator* allocator = default_allocator());
+  SerializedPageReader(std::unique_ptr<InputStream> stream, Compression::type codec,
+      MemoryAllocator* allocator = default_allocator());
 
   virtual ~SerializedPageReader() {}
 
   // Implement the PageReader interface
   virtual std::shared_ptr<Page> NextPage();
 
-  void set_max_page_header_size(uint32_t size) {
-    max_page_header_size_ = size;
-  }
+  void set_max_page_header_size(uint32_t size) { max_page_header_size_ = size; }
 
  private:
   std::unique_ptr<InputStream> stream_;
@@ -70,11 +68,9 @@ class SerializedPageReader : public PageReader {
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(RandomAccessSource* source,
-      const format::RowGroup* metadata, MemoryAllocator* allocator) :
-      source_(source),
-      metadata_(metadata),
-      allocator_(allocator) {}
+  SerializedRowGroup(RandomAccessSource* source, const format::RowGroup* metadata,
+      MemoryAllocator* allocator)
+      : source_(source), metadata_(metadata), allocator_(allocator) {}
 
   virtual int num_columns() const;
   virtual int64_t num_rows() const;
@@ -108,8 +104,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
  private:
   // This class takes ownership of the provided data source
-  explicit SerializedFile(std::unique_ptr<RandomAccessSource> source,
-      MemoryAllocator* allocator);
+  explicit SerializedFile(
+      std::unique_ptr<RandomAccessSource> source, MemoryAllocator* allocator);
 
   std::unique_ptr<RandomAccessSource> source_;
   format::FileMetaData metadata_;
@@ -118,6 +114,6 @@ class SerializedFile : public ParquetFileReader::Contents {
   void ParseMetaData();
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_FILE_READER_INTERNAL_H
+#endif  // PARQUET_FILE_READER_INTERNAL_H

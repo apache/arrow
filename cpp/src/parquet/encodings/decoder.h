@@ -65,6 +65,6 @@ class Decoder {
   int num_values_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_ENCODINGS_DECODER_H
+#endif  // PARQUET_ENCODINGS_DECODER_H

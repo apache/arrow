@@ -32,8 +32,8 @@ class LevelEncoder {
   LevelEncoder() {}
 
   // Initialize the LevelEncoder.
-  void Init(Encoding::type encoding, int16_t max_level,
-      int num_buffered_values, uint8_t* data, int data_size) {
+  void Init(Encoding::type encoding, int16_t max_level, int num_buffered_values,
+      uint8_t* data, int data_size) {
     bit_width_ = BitUtil::Log2(max_level + 1);
     encoding_ = encoding;
     switch (encoding) {
@@ -60,18 +60,14 @@ class LevelEncoder {
 
     if (encoding_ == Encoding::RLE) {
       for (int i = 0; i < batch_size; ++i) {
-        if (!rle_encoder_->Put(*(levels + i))) {
-          break;
-        }
+        if (!rle_encoder_->Put(*(levels + i))) { break; }
         ++num_encoded;
       }
       rle_encoder_->Flush();
       rle_length_ = rle_encoder_->len();
     } else {
       for (int i = 0; i < batch_size; ++i) {
-        if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) {
-          break;
-        }
+        if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) { break; }
         ++num_encoded;
       }
       bit_packed_encoder_->Flush();
@@ -94,15 +90,14 @@ class LevelEncoder {
   std::unique_ptr<BitWriter> bit_packed_encoder_;
 };
 
-
 class LevelDecoder {
  public:
   LevelDecoder() : num_values_remaining_(0) {}
 
   // Initialize the LevelDecoder state with new data
   // and return the number of bytes consumed
-  int SetData(Encoding::type encoding, int16_t max_level,
-      int num_buffered_values, const uint8_t* data) {
+  int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
+      const uint8_t* data) {
     uint32_t num_bytes = 0;
     encoding_ = encoding;
     num_values_remaining_ = num_buffered_values;
@@ -140,16 +135,12 @@ class LevelDecoder {
     int num_values = std::min(num_values_remaining_, batch_size);
     if (encoding_ == Encoding::RLE) {
       for (int i = 0; i < num_values; ++i) {
-        if (!rle_decoder_->Get(levels + i)) {
-          break;
-        }
+        if (!rle_decoder_->Get(levels + i)) { break; }
         ++num_decoded;
       }
     } else {
       for (int i = 0; i < num_values; ++i) {
-        if (!bit_packed_decoder_->GetValue(bit_width_, levels + i)) {
-          break;
-        }
+        if (!bit_packed_decoder_->GetValue(bit_width_, levels + i)) { break; }
         ++num_decoded;
       }
     }
@@ -165,5 +156,5 @@ class LevelDecoder {
   std::unique_ptr<BitReader> bit_packed_decoder_;
 };
 
-} // namespace parquet
-#endif // PARQUET_COLUMN_LEVELS_H
+}  // namespace parquet
+#endif  // PARQUET_COLUMN_LEVELS_H

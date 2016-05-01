@@ -40,67 +40,46 @@ namespace parquet {
 // here, both on the read and write path
 class Page {
  public:
-  Page(const std::shared_ptr<Buffer>& buffer, PageType::type type) :
-      buffer_(buffer),
-      type_(type) {}
+  Page(const std::shared_ptr<Buffer>& buffer, PageType::type type)
+      : buffer_(buffer), type_(type) {}
 
-  PageType::type type() const {
-    return type_;
-  }
+  PageType::type type() const { return type_; }
 
   // @returns: a pointer to the page's data
-  const uint8_t* data() const {
-    return buffer_->data();
-  }
+  const uint8_t* data() const { return buffer_->data(); }
 
   // @returns: the total size in bytes of the page's data buffer
-  int32_t size() const {
-    return buffer_->size();
-  }
+  int32_t size() const { return buffer_->size(); }
 
  private:
   std::shared_ptr<Buffer> buffer_;
   PageType::type type_;
 };
 
-
 class DataPage : public Page {
  public:
-  DataPage(const std::shared_ptr<Buffer>& buffer,
-      int32_t num_values, Encoding::type encoding,
-      Encoding::type definition_level_encoding,
-      Encoding::type repetition_level_encoding) :
-      Page(buffer, PageType::DATA_PAGE),
-      num_values_(num_values),
-      encoding_(encoding),
-      definition_level_encoding_(definition_level_encoding),
-      repetition_level_encoding_(repetition_level_encoding) {}
+  DataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
+      Encoding::type encoding, Encoding::type definition_level_encoding,
+      Encoding::type repetition_level_encoding)
+      : Page(buffer, PageType::DATA_PAGE),
+        num_values_(num_values),
+        encoding_(encoding),
+        definition_level_encoding_(definition_level_encoding),
+        repetition_level_encoding_(repetition_level_encoding) {}
 
-  int32_t num_values() const {
-    return num_values_;
-  }
+  int32_t num_values() const { return num_values_; }
 
-  Encoding::type encoding() const {
-    return encoding_;
-  }
+  Encoding::type encoding() const { return encoding_; }
 
-  Encoding::type repetition_level_encoding() const {
-    return repetition_level_encoding_;
-  }
+  Encoding::type repetition_level_encoding() const { return repetition_level_encoding_; }
 
-  Encoding::type definition_level_encoding() const {
-    return definition_level_encoding_;
-  }
+  Encoding::type definition_level_encoding() const { return definition_level_encoding_; }
 
   // DataPageHeader::statistics::max field, if it was set
-  const uint8_t* max() const {
-    return reinterpret_cast<const uint8_t*>(max_.c_str());
-  }
+  const uint8_t* max() const { return reinterpret_cast<const uint8_t*>(max_.c_str()); }
 
   // DataPageHeader::statistics::min field, if it was set
-  const uint8_t* min() const {
-    return reinterpret_cast<const uint8_t*>(min_.c_str());
-  }
+  const uint8_t* min() const { return reinterpret_cast<const uint8_t*>(min_.c_str()); }
 
  private:
   int32_t num_values_;
@@ -114,50 +93,33 @@ class DataPage : public Page {
   std::string min_;
 };
 
-
 class DataPageV2 : public Page {
  public:
-  DataPageV2(const std::shared_ptr<Buffer>& buffer,
-      int32_t num_values, int32_t num_nulls, int32_t num_rows,
-      Encoding::type encoding,
-      int32_t definition_levels_byte_length,
-      int32_t repetition_levels_byte_length, bool is_compressed = false) :
-      Page(buffer, PageType::DATA_PAGE_V2),
-      num_values_(num_values),
-      num_nulls_(num_nulls),
-      num_rows_(num_rows),
-      encoding_(encoding),
-      definition_levels_byte_length_(definition_levels_byte_length),
-      repetition_levels_byte_length_(repetition_levels_byte_length),
-      is_compressed_(is_compressed) {}
+  DataPageV2(const std::shared_ptr<Buffer>& buffer, int32_t num_values, int32_t num_nulls,
+      int32_t num_rows, Encoding::type encoding, int32_t definition_levels_byte_length,
+      int32_t repetition_levels_byte_length, bool is_compressed = false)
+      : Page(buffer, PageType::DATA_PAGE_V2),
+        num_values_(num_values),
+        num_nulls_(num_nulls),
+        num_rows_(num_rows),
+        encoding_(encoding),
+        definition_levels_byte_length_(definition_levels_byte_length),
+        repetition_levels_byte_length_(repetition_levels_byte_length),
+        is_compressed_(is_compressed) {}
 
-  int32_t num_values() const {
-    return num_values_;
-  }
+  int32_t num_values() const { return num_values_; }
 
-  int32_t num_nulls() const {
-    return num_nulls_;
-  }
+  int32_t num_nulls() const { return num_nulls_; }
 
-  int32_t num_rows() const {
-    return num_rows_;
-  }
+  int32_t num_rows() const { return num_rows_; }
 
-  Encoding::type encoding() const {
-    return encoding_;
-  }
+  Encoding::type encoding() const { return encoding_; }
 
-  int32_t definition_levels_byte_length() const {
-    return definition_levels_byte_length_;
-  }
+  int32_t definition_levels_byte_length() const { return definition_levels_byte_length_; }
 
-  int32_t repetition_levels_byte_length() const {
-    return repetition_levels_byte_length_;
-  }
+  int32_t repetition_levels_byte_length() const { return repetition_levels_byte_length_; }
 
-  bool is_compressed() const {
-    return is_compressed_;
-  }
+  bool is_compressed() const { return is_compressed_; }
 
  private:
   int32_t num_values_;
@@ -171,27 +133,20 @@ class DataPageV2 : public Page {
   // TODO(wesm): format::DataPageHeaderV2.statistics
 };
 
-
 class DictionaryPage : public Page {
  public:
-  DictionaryPage(const std::shared_ptr<Buffer>& buffer,
-      int32_t num_values, Encoding::type encoding, bool is_sorted = false) :
-      Page(buffer, PageType::DICTIONARY_PAGE),
-      num_values_(num_values),
-      encoding_(encoding),
-      is_sorted_(is_sorted) {}
+  DictionaryPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
+      Encoding::type encoding, bool is_sorted = false)
+      : Page(buffer, PageType::DICTIONARY_PAGE),
+        num_values_(num_values),
+        encoding_(encoding),
+        is_sorted_(is_sorted) {}
 
-  int32_t num_values() const {
-    return num_values_;
-  }
+  int32_t num_values() const { return num_values_; }
 
-  Encoding::type encoding() const {
-    return encoding_;
-  }
+  Encoding::type encoding() const { return encoding_; }
 
-  bool is_sorted() const {
-    return is_sorted_;
-  }
+  bool is_sorted() const { return is_sorted_; }
 
  private:
   int32_t num_values_;
@@ -220,10 +175,10 @@ class PageWriter {
       const std::shared_ptr<Buffer>& definition_levels,
       Encoding::type definition_level_encoding,
       const std::shared_ptr<Buffer>& repetition_levels,
-      Encoding::type repetition_level_encoding,
-      const std::shared_ptr<Buffer>& values, Encoding::type encoding) = 0;
+      Encoding::type repetition_level_encoding, const std::shared_ptr<Buffer>& values,
+      Encoding::type encoding) = 0;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_COLUMN_PAGE_H
+#endif  // PARQUET_COLUMN_PAGE_H

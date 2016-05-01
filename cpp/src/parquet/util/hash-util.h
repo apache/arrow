@@ -104,7 +104,7 @@ class HashUtil {
     const uint64_t* p = reinterpret_cast<const uint64_t*>(v);
     hash = SSE4_crc32_u64(hash, *p);
     ++p;
-    hash = SSE4_crc32_u32(hash, *reinterpret_cast<const uint32_t *>(p));
+    hash = SSE4_crc32_u32(hash, *reinterpret_cast<const uint32_t*>(p));
     hash = (hash << 16) | (hash >> 16);
     return hash;
   }
@@ -141,14 +141,21 @@ class HashUtil {
 
     const uint8_t* data2 = reinterpret_cast<const uint8_t*>(data);
     switch (len & 7) {
-      case 7: h ^= uint64_t(data2[6]) << 48;
-      case 6: h ^= uint64_t(data2[5]) << 40;
-      case 5: h ^= uint64_t(data2[4]) << 32;
-      case 4: h ^= uint64_t(data2[3]) << 24;
-      case 3: h ^= uint64_t(data2[2]) << 16;
-      case 2: h ^= uint64_t(data2[1]) << 8;
-      case 1: h ^= uint64_t(data2[0]);
-              h *= MURMUR_PRIME;
+      case 7:
+        h ^= uint64_t(data2[6]) << 48;
+      case 6:
+        h ^= uint64_t(data2[5]) << 40;
+      case 5:
+        h ^= uint64_t(data2[4]) << 32;
+      case 4:
+        h ^= uint64_t(data2[3]) << 24;
+      case 3:
+        h ^= uint64_t(data2[2]) << 16;
+      case 2:
+        h ^= uint64_t(data2[1]) << 8;
+      case 1:
+        h ^= uint64_t(data2[0]);
+        h *= MURMUR_PRIME;
     }
 
     h ^= h >> MURMUR_R;
@@ -158,8 +165,8 @@ class HashUtil {
   }
 
   /// default values recommended by http://isthe.com/chongo/tech/comp/fnv/
-  static const uint32_t FNV_PRIME = 0x01000193; //   16777619
-  static const uint32_t FNV_SEED = 0x811C9DC5; // 2166136261
+  static const uint32_t FNV_PRIME = 0x01000193;  //   16777619
+  static const uint32_t FNV_SEED = 0x811C9DC5;   // 2166136261
   static const uint64_t FNV64_PRIME = 1099511628211UL;
   static const uint64_t FNV64_SEED = 14695981039346656037UL;
 
@@ -246,6 +253,6 @@ class HashUtil {
   }
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_HASH_UTIL_H
+#endif  // PARQUET_UTIL_HASH_UTIL_H

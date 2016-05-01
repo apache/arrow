@@ -50,8 +50,8 @@ class RowGroupReader {
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
   };
 
-  RowGroupReader(const SchemaDescriptor* schema,
-      std::unique_ptr<Contents> contents, MemoryAllocator* allocator);
+  RowGroupReader(const SchemaDescriptor* schema, std::unique_ptr<Contents> contents,
+      MemoryAllocator* allocator);
 
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
@@ -73,7 +73,6 @@ class RowGroupReader {
   MemoryAllocator* allocator_;
 };
 
-
 class ParquetFileReader {
  public:
   // Forward declare the PIMPL
@@ -89,9 +88,7 @@ class ParquetFileReader {
     virtual int num_row_groups() const = 0;
 
     // Return const-poitner to make it clear that this object is not to be copied
-    const SchemaDescriptor* schema() const {
-      return &schema_;
-    }
+    const SchemaDescriptor* schema() const { return &schema_; }
     SchemaDescriptor schema_;
   };
 
@@ -117,16 +114,12 @@ class ParquetFileReader {
   int num_row_groups() const;
 
   // Returns the file schema descriptor
-  const SchemaDescriptor* descr() {
-    return schema_;
-  }
+  const SchemaDescriptor* descr() { return schema_; }
 
-  const ColumnDescriptor* column_schema(int i) const {
-    return schema_->Column(i);
-  }
+  const ColumnDescriptor* column_schema(int i) const { return schema_->Column(i); }
 
-  void DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-      bool print_values = true);
+  void DebugPrint(
+      std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
 
  private:
   // PIMPL idiom
@@ -138,7 +131,6 @@ class ParquetFileReader {
   const SchemaDescriptor* schema_;
 };
 
+}  // namespace parquet
 
-} // namespace parquet
-
-#endif // PARQUET_FILE_READER_H
+#endif  // PARQUET_FILE_READER_H

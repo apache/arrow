@@ -28,12 +28,11 @@ namespace parquet {
 
 class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
  public:
-  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
-      MemoryAllocator* allocator = default_allocator())
+  explicit DeltaByteArrayDecoder(
+      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
       : Decoder<ByteArrayType>(descr, Encoding::DELTA_BYTE_ARRAY),
-      prefix_len_decoder_(nullptr, allocator),
-      suffix_decoder_(nullptr, allocator) {
-  }
+        prefix_len_decoder_(nullptr, allocator),
+        suffix_decoder_(nullptr, allocator) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -51,7 +50,7 @@ class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
   // new strings to store the results.
   virtual int Decode(ByteArray* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
-    for (int  i = 0; i < max_values; ++i) {
+    for (int i = 0; i < max_values; ++i) {
       int prefix_len = 0;
       prefix_len_decoder_.Decode(&prefix_len, 1);
       ByteArray suffix;
@@ -77,6 +76,6 @@ class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
   ByteArray last_value_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
 #endif

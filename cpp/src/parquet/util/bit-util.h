@@ -39,8 +39,7 @@ namespace parquet {
 // We add a partial stub implementation here
 
 template <typename T>
-struct make_unsigned {
-};
+struct make_unsigned {};
 
 template <>
 struct make_unsigned<int8_t> {
@@ -111,41 +110,30 @@ class BitUtil {
   /// Specialized round up and down functions for frequently used factors,
   /// like 8 (bits->bytes), 32 (bits->i32), and 64 (bits->i64).
   /// Returns the rounded up number of bytes that fit the number of bits.
-  static inline uint32_t RoundUpNumBytes(uint32_t bits) {
-    return (bits + 7) >> 3;
-  }
+  static inline uint32_t RoundUpNumBytes(uint32_t bits) { return (bits + 7) >> 3; }
 
   /// Returns the rounded down number of bytes that fit the number of bits.
-  static inline uint32_t RoundDownNumBytes(uint32_t bits) {
-    return bits >> 3;
-  }
+  static inline uint32_t RoundDownNumBytes(uint32_t bits) { return bits >> 3; }
 
   /// Returns the rounded up to 32 multiple. Used for conversions of bits to i32.
-  static inline uint32_t RoundUpNumi32(uint32_t bits) {
-    return (bits + 31) >> 5;
-  }
+  static inline uint32_t RoundUpNumi32(uint32_t bits) { return (bits + 31) >> 5; }
 
   /// Returns the rounded up 32 multiple.
-  static inline uint32_t RoundDownNumi32(uint32_t bits) {
-    return bits >> 5;
-  }
+  static inline uint32_t RoundDownNumi32(uint32_t bits) { return bits >> 5; }
 
   /// Returns the rounded up to 64 multiple. Used for conversions of bits to i64.
-  static inline uint32_t RoundUpNumi64(uint32_t bits) {
-    return (bits + 63) >> 6;
-  }
+  static inline uint32_t RoundUpNumi64(uint32_t bits) { return (bits + 63) >> 6; }
 
   /// Returns the rounded down to 64 multiple.
-  static inline uint32_t RoundDownNumi64(uint32_t bits) {
-    return bits >> 6;
-  }
+  static inline uint32_t RoundDownNumi64(uint32_t bits) { return bits >> 6; }
 
   /// Non hw accelerated pop count.
   /// TODO: we don't use this in any perf sensitive code paths currently.  There
   /// might be a much faster way to implement this.
   static inline int PopcountNoHw(uint64_t x) {
     int count = 0;
-    for (; x != 0; ++count) x &= x-1;
+    for (; x != 0; ++count)
+      x &= x - 1;
     return count;
   }
 
@@ -163,7 +151,7 @@ class BitUtil {
   }
 
   // Compute correct population count for various-width signed integers
-  template<typename T>
+  template <typename T>
   static inline int PopcountSigned(T v) {
     // Converting to same-width unsigned then extending preserves the bit pattern.
     return BitUtil::Popcount(static_cast<typename make_unsigned<T>::type>(v));
@@ -189,20 +177,17 @@ class BitUtil {
     // (floor(log2(n)) = MSB(n) (0-indexed))
     --x;
     int result = 1;
-    while (x >>= 1) ++result;
+    while (x >>= 1)
+      ++result;
     return result;
   }
 
   /// Swaps the byte order (i.e. endianess)
-  static inline int64_t ByteSwap(int64_t value) {
-    return __builtin_bswap64(value);
-  }
+  static inline int64_t ByteSwap(int64_t value) { return __builtin_bswap64(value); }
   static inline uint64_t ByteSwap(uint64_t value) {
     return static_cast<uint64_t>(__builtin_bswap64(value));
   }
-  static inline int32_t ByteSwap(int32_t value) {
-    return __builtin_bswap32(value);
-  }
+  static inline int32_t ByteSwap(int32_t value) { return __builtin_bswap32(value); }
   static inline uint32_t ByteSwap(uint32_t value) {
     return static_cast<uint32_t>(__builtin_bswap32(value));
   }
@@ -231,7 +216,8 @@ class BitUtil {
         *reinterpret_cast<int64_t*>(dst) =
             ByteSwap(*reinterpret_cast<const int64_t*>(src));
         return;
-      default: break;
+      default:
+        break;
     }
 
     uint8_t* d = reinterpret_cast<uint8_t*>(dst);
@@ -241,52 +227,52 @@ class BitUtil {
     }
   }
 
-  /// Converts to big endian format (if not already in big endian) from the
-  /// machine's native endian format.
+/// Converts to big endian format (if not already in big endian) from the
+/// machine's native endian format.
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-  static inline int64_t  ToBigEndian(int64_t value)  { return ByteSwap(value); }
+  static inline int64_t ToBigEndian(int64_t value) { return ByteSwap(value); }
   static inline uint64_t ToBigEndian(uint64_t value) { return ByteSwap(value); }
-  static inline int32_t  ToBigEndian(int32_t value)  { return ByteSwap(value); }
+  static inline int32_t ToBigEndian(int32_t value) { return ByteSwap(value); }
   static inline uint32_t ToBigEndian(uint32_t value) { return ByteSwap(value); }
-  static inline int16_t  ToBigEndian(int16_t value)  { return ByteSwap(value); }
+  static inline int16_t ToBigEndian(int16_t value) { return ByteSwap(value); }
   static inline uint16_t ToBigEndian(uint16_t value) { return ByteSwap(value); }
 #else
-  static inline int64_t  ToBigEndian(int64_t val)  { return val; }
+  static inline int64_t ToBigEndian(int64_t val) { return val; }
   static inline uint64_t ToBigEndian(uint64_t val) { return val; }
-  static inline int32_t  ToBigEndian(int32_t val)  { return val; }
+  static inline int32_t ToBigEndian(int32_t val) { return val; }
   static inline uint32_t ToBigEndian(uint32_t val) { return val; }
-  static inline int16_t  ToBigEndian(int16_t val)  { return val; }
+  static inline int16_t ToBigEndian(int16_t val) { return val; }
   static inline uint16_t ToBigEndian(uint16_t val) { return val; }
 #endif
 
-  /// Converts from big endian format to the machine's native endian format.
+/// Converts from big endian format to the machine's native endian format.
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-  static inline int64_t  FromBigEndian(int64_t value)  { return ByteSwap(value); }
+  static inline int64_t FromBigEndian(int64_t value) { return ByteSwap(value); }
   static inline uint64_t FromBigEndian(uint64_t value) { return ByteSwap(value); }
-  static inline int32_t  FromBigEndian(int32_t value)  { return ByteSwap(value); }
+  static inline int32_t FromBigEndian(int32_t value) { return ByteSwap(value); }
   static inline uint32_t FromBigEndian(uint32_t value) { return ByteSwap(value); }
-  static inline int16_t  FromBigEndian(int16_t value)  { return ByteSwap(value); }
+  static inline int16_t FromBigEndian(int16_t value) { return ByteSwap(value); }
   static inline uint16_t FromBigEndian(uint16_t value) { return ByteSwap(value); }
 #else
-  static inline int64_t  FromBigEndian(int64_t val)  { return val; }
+  static inline int64_t FromBigEndian(int64_t val) { return val; }
   static inline uint64_t FromBigEndian(uint64_t val) { return val; }
-  static inline int32_t  FromBigEndian(int32_t val)  { return val; }
+  static inline int32_t FromBigEndian(int32_t val) { return val; }
   static inline uint32_t FromBigEndian(uint32_t val) { return val; }
-  static inline int16_t  FromBigEndian(int16_t val)  { return val; }
+  static inline int16_t FromBigEndian(int16_t val) { return val; }
   static inline uint16_t FromBigEndian(uint16_t val) { return val; }
 #endif
 
   // Logical right shift for signed integer types
   // This is needed because the C >> operator does arithmetic right shift
   // Negative shift amounts lead to undefined behavior
-  template<typename T>
+  template <typename T>
   static T ShiftRightLogical(T v, int shift) {
     // Conversion to unsigned ensures most significant bits always filled with 0's
     return static_cast<typename make_unsigned<T>::type>(v) >> shift;
   }
 
   // Get an specific bit of a numeric type
-  template<typename T>
+  template <typename T>
   static inline int8_t GetBit(T v, int bitpos) {
     T masked = v & (static_cast<T>(0x1) << bitpos);
     return static_cast<int8_t>(ShiftRightLogical(masked, bitpos));
@@ -294,7 +280,7 @@ class BitUtil {
 
   // Set a specific bit to 1
   // Behavior when bitpos is negative is undefined
-  template<typename T>
+  template <typename T>
   static T SetBit(T v, int bitpos) {
     return v | (static_cast<T>(0x1) << bitpos);
   }
@@ -309,7 +295,7 @@ class BitUtil {
 
   // Set a specific bit to 0
   // Behavior when bitpos is negative is undefined
-  template<typename T>
+  template <typename T>
   static T UnsetBit(T v, int bitpos) {
     return v & ~(static_cast<T>(0x1) << bitpos);
   }
@@ -323,6 +309,6 @@ class BitUtil {
   }
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_BIT_UTIL_H
+#endif  // PARQUET_UTIL_BIT_UTIL_H

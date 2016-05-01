@@ -67,7 +67,7 @@ inline uint8_t* BitWriter::GetNextBytePtr(int num_bytes) {
   return ptr;
 }
 
-template<typename T>
+template <typename T>
 inline bool BitWriter::PutAligned(T val, int num_bytes) {
   uint8_t* ptr = GetNextBytePtr(num_bytes);
   if (ptr == NULL) return false;
@@ -85,7 +85,7 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
   return result;
 }
 
-template<typename T>
+template <typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
   DCHECK(buffer_ != NULL);
   // TODO: revisit this limit if necessary
@@ -116,7 +116,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
   return true;
 }
 
-template<typename T>
+template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
   DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
   int bytes_read = BitUtil::Ceil(bit_offset_, 8);
@@ -165,6 +165,6 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   return true;
 }
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_BIT_STREAM_UTILS_INLINE_H
+#endif  // PARQUET_UTIL_BIT_STREAM_UTILS_INLINE_H

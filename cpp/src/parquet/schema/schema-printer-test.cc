@@ -46,8 +46,8 @@ TEST(TestSchemaPrinter, Examples) {
   // 3-level list encoding
   NodePtr item1 = Int64("item1");
   NodePtr item2 = Boolean("item2", Repetition::REQUIRED);
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item1, item2},
-          LogicalType::LIST));
+  NodePtr list(
+      GroupNode::Make("b", Repetition::REPEATED, {item1, item2}, LogicalType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -67,6 +67,6 @@ TEST(TestSchemaPrinter, Examples) {
   ASSERT_EQ(expected, result);
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

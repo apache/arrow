@@ -41,10 +41,8 @@ namespace parquet {
 // RowGroupReader public API
 
 RowGroupReader::RowGroupReader(const SchemaDescriptor* schema,
-    std::unique_ptr<Contents> contents, MemoryAllocator* allocator) :
-    schema_(schema),
-    contents_(std::move(contents)),
-    allocator_(allocator) {}
+    std::unique_ptr<Contents> contents, MemoryAllocator* allocator)
+    : schema_(schema), contents_(std::move(contents)), allocator_(allocator) {}
 
 int RowGroupReader::num_columns() const {
   return contents_->num_columns();
@@ -84,8 +82,8 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
   return result;
 }
 
-std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(const std::string& path,
-    bool memory_map, MemoryAllocator* allocator) {
+std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
+    const std::string& path, bool memory_map, MemoryAllocator* allocator) {
   std::unique_ptr<LocalFileSource> file;
   if (memory_map) {
     file.reset(new MemoryMapSource(allocator));
@@ -103,9 +101,7 @@ void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> conten
 }
 
 void ParquetFileReader::Close() {
-  if (contents_) {
-    contents_->Close();
-  }
+  if (contents_) { contents_->Close(); }
 }
 
 int ParquetFileReader::num_row_groups() const {
@@ -124,8 +120,7 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   if (i >= num_row_groups()) {
     std::stringstream ss;
     ss << "The file only has " << num_row_groups()
-       << "row groups, requested reader for: "
-       << i;
+       << "row groups, requested reader for: " << i;
     throw ParquetException(ss.str());
   }
 
@@ -138,8 +133,8 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 // the fixed initial size is just for an example
 #define COL_WIDTH "20"
 
-void ParquetFileReader::DebugPrint(std::ostream& stream,
-    std::list<int> selected_columns, bool print_values) {
+void ParquetFileReader::DebugPrint(
+    std::ostream& stream, std::list<int> selected_columns, bool print_values) {
   stream << "File statistics:\n";
   stream << "Total rows: " << num_rows() << "\n";
 
@@ -157,11 +152,8 @@ void ParquetFileReader::DebugPrint(std::ostream& stream,
 
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = schema_->Column(i);
-    stream << "Column " << i << ": "
-           << descr->name()
-           << " ("
-           << type_to_string(descr->physical_type())
-           << ")" << std::endl;
+    stream << "Column " << i << ": " << descr->name() << " ("
+           << type_to_string(descr->physical_type()) << ")" << std::endl;
   }
 
   for (int r = 0; r < num_row_groups(); ++r) {
@@ -173,25 +165,19 @@ void ParquetFileReader::DebugPrint(std::ostream& stream,
     for (auto i : selected_columns) {
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
 
-      stream << "Column " << i << ": "
-             << group_reader->num_rows() << " rows, "
-             << stats.num_values << " values, "
-             << stats.null_count << " null values, "
-             << stats.distinct_count << " distinct values, "
-             << *stats.max << " max, "
-             << *stats.min << " min, "
-             << std::endl;
+      stream << "Column " << i << ": " << group_reader->num_rows() << " rows, "
+             << stats.num_values << " values, " << stats.null_count << " null values, "
+             << stats.distinct_count << " distinct values, " << *stats.max << " max, "
+             << *stats.min << " min, " << std::endl;
     }
 
-    if (!print_values) {
-      continue;
-    }
+    if (!print_values) { continue; }
 
     static constexpr int bufsize = 25;
     char buffer[bufsize];
 
     // Create readers for selected columns and print contents
-    vector<std::shared_ptr<Scanner> > scanners(selected_columns.size(), NULL);
+    vector<std::shared_ptr<Scanner>> scanners(selected_columns.size(), NULL);
     int j = 0;
     for (auto i : selected_columns) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
@@ -223,4 +209,4 @@ void ParquetFileReader::DebugPrint(std::ostream& stream,
   }
 }
 
-} // namespace parquet
+}  // namespace parquet

@@ -52,16 +52,14 @@ int64_t CpuInfo::original_hardware_flags_;
 int64_t CpuInfo::cache_sizes_[L3_CACHE + 1];
 int64_t CpuInfo::cycles_per_ms_;
 int CpuInfo::num_cores_ = 1;
-string CpuInfo::model_name_ = "unknown"; // NOLINT
+string CpuInfo::model_name_ = "unknown";  // NOLINT
 
 static struct {
   string name;
   int64_t flag;
 } flag_mappings[] = {
-  { "ssse3",  CpuInfo::SSSE3 },
-  { "sse4_1", CpuInfo::SSE4_1 },
-  { "sse4_2", CpuInfo::SSE4_2 },
-  { "popcnt", CpuInfo::POPCNT },
+    {"ssse3", CpuInfo::SSSE3}, {"sse4_1", CpuInfo::SSE4_1}, {"sse4_2", CpuInfo::SSE4_2},
+    {"popcnt", CpuInfo::POPCNT},
 };
 static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
 
@@ -72,9 +70,7 @@ static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]
 int64_t ParseCPUFlags(const string& values) {
   int64_t flags = 0;
   for (int i = 0; i < num_flags; ++i) {
-    if (contains(values, flag_mappings[i].name)) {
-      flags |= flag_mappings[i].flag;
-    }
+    if (contains(values, flag_mappings[i].name)) { flags |= flag_mappings[i].flag; }
   }
   return flags;
 }
@@ -167,4 +163,4 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   }
 }
 
-} // namespace parquet
+}  // namespace parquet

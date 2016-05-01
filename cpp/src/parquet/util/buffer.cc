@@ -25,8 +25,7 @@
 
 namespace parquet {
 
-Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
-    int64_t size) {
+Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size) {
   data_ = parent->data() + offset;
   size_ = size;
   parent_ = parent;
@@ -36,15 +35,13 @@ std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }
 
-OwnedMutableBuffer::OwnedMutableBuffer(int64_t size, MemoryAllocator* allocator) :
-    ResizableBuffer(nullptr, 0), allocator_(allocator) {
+OwnedMutableBuffer::OwnedMutableBuffer(int64_t size, MemoryAllocator* allocator)
+    : ResizableBuffer(nullptr, 0), allocator_(allocator) {
   Resize(size);
 }
 
 OwnedMutableBuffer::~OwnedMutableBuffer() {
-  if (mutable_data_) {
-    allocator_->Free(mutable_data_, capacity_);
-  }
+  if (mutable_data_) { allocator_->Free(mutable_data_, capacity_); }
 }
 
 void OwnedMutableBuffer::Reserve(int64_t new_capacity) {
@@ -72,9 +69,10 @@ uint8_t& OwnedMutableBuffer::operator[](int64_t i) {
 }
 
 template <class T>
-Vector<T>::Vector(int64_t size, MemoryAllocator* allocator) :
-    buffer_(new OwnedMutableBuffer(size * sizeof(T), allocator)),
-    size_(size), capacity_(size) {
+Vector<T>::Vector(int64_t size, MemoryAllocator* allocator)
+    : buffer_(new OwnedMutableBuffer(size * sizeof(T), allocator)),
+      size_(size),
+      capacity_(size) {
   if (size > 0) {
     data_ = reinterpret_cast<T*>(buffer_->mutable_data());
   } else {
@@ -122,4 +120,4 @@ template class Vector<Int96>;
 template class Vector<ByteArray>;
 template class Vector<FixedLenByteArray>;
 
-} // namespace parquet
+}  // namespace parquet

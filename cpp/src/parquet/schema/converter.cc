@@ -77,8 +77,7 @@ std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& 
   std::unique_ptr<Node> root = converter.Convert();
 
   std::shared_ptr<SchemaDescriptor> descr = std::make_shared<SchemaDescriptor>();
-  descr->Init(std::shared_ptr<GroupNode>(
-          static_cast<GroupNode*>(root.release())));
+  descr->Init(std::shared_ptr<GroupNode>(static_cast<GroupNode*>(root.release())));
 
   return descr;
 }
@@ -91,7 +90,7 @@ void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out)
 class SchemaVisitor : public Node::ConstVisitor {
  public:
   explicit SchemaVisitor(std::vector<format::SchemaElement>* elements)
-     : elements_(elements) {}
+      : elements_(elements) {}
   virtual ~SchemaVisitor() {}
 
   void Visit(const Node* node) override {
@@ -113,8 +112,8 @@ class SchemaVisitor : public Node::ConstVisitor {
   std::vector<format::SchemaElement>* elements_;
 };
 
-SchemaFlattener::SchemaFlattener(const GroupNode* schema,
-        std::vector<format::SchemaElement>* out)
+SchemaFlattener::SchemaFlattener(
+    const GroupNode* schema, std::vector<format::SchemaElement>* out)
     : root_(schema), elements_(out) {}
 
 void SchemaFlattener::Flatten() {
@@ -122,6 +121,6 @@ void SchemaFlattener::Flatten() {
   root_->VisitConst(&visitor);
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

@@ -90,9 +90,7 @@ class TestFileReaders : public ::testing::Test {
  public:
   void SetUp() {
     test_path_ = "parquet-input-output-test.txt";
-    if (file_exists(test_path_)) {
-      std::remove(test_path_.c_str());
-    }
+    if (file_exists(test_path_)) { std::remove(test_path_.c_str()); }
     test_data_ = "testingdata";
 
     std::ofstream stream;
@@ -101,14 +99,10 @@ class TestFileReaders : public ::testing::Test {
     filesize_ = test_data_.size();
   }
 
-  void TearDown() {
-    DeleteTestFile();
-  }
+  void TearDown() { DeleteTestFile(); }
 
   void DeleteTestFile() {
-    if (file_exists(test_path_)) {
-      std::remove(test_path_.c_str());
-    }
+    if (file_exists(test_path_)) { std::remove(test_path_.c_str()); }
   }
 
  protected:
@@ -153,4 +147,4 @@ TYPED_TEST(TestFileReaders, BadSeek) {
   ASSERT_THROW(this->source.Seek(this->filesize_ + 1), ParquetException);
 }
 
-} // namespace parquet
+}  // namespace parquet

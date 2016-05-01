@@ -28,8 +28,8 @@ using std::string;
 
 namespace parquet {
 
-void GenerateLevels(int min_repeat_factor, int max_repeat_factor,
-    int max_level, std::vector<int16_t>& input_levels) {
+void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,
+    std::vector<int16_t>& input_levels) {
   // for each repetition count upto max_repeat_factor
   for (int repeat = min_repeat_factor; repeat <= max_repeat_factor; repeat++) {
     // repeat count increases by a factor of 2 for every iteration
@@ -56,14 +56,13 @@ void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
   // encode levels
   if (encoding == Encoding::RLE) {
     // leave space to write the rle length value
-    encoder.Init(encoding, max_level, num_levels,
-        bytes.data() + sizeof(uint32_t), bytes.size());
+    encoder.Init(
+        encoding, max_level, num_levels, bytes.data() + sizeof(uint32_t), bytes.size());
 
     levels_count = encoder.Encode(num_levels, input_levels);
     (reinterpret_cast<uint32_t*>(bytes.data()))[0] = encoder.len();
   } else {
-    encoder.Init(encoding, max_level, num_levels,
-        bytes.data(), bytes.size());
+    encoder.Init(encoding, max_level, num_levels, bytes.data(), bytes.size());
     levels_count = encoder.Encode(num_levels, input_levels);
   }
   ASSERT_EQ(num_levels, levels_count);
@@ -94,7 +93,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int max_level,
   }
   // check the remaining levels
   int num_levels_completed = decode_count * (num_levels / decode_count);
-  int num_remaining_levels =  num_levels - num_levels_completed;
+  int num_remaining_levels = num_levels - num_levels_completed;
   if (num_remaining_levels > 0) {
     levels_count = decoder.Decode(num_remaining_levels, output_levels.data());
     ASSERT_EQ(num_remaining_levels, levels_count);
@@ -102,7 +101,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int max_level,
       EXPECT_EQ(input_levels[i + num_levels_completed], output_levels[i]);
     }
   }
-  //Test zero Decode values
+  // Test zero Decode values
   ASSERT_EQ(0, decoder.Decode(1, output_levels.data()));
 }
 
@@ -133,12 +132,11 @@ void VerifyDecodingMultipleSetData(Encoding::type encoding, int max_level,
 // increase the repetition count for each iteration by a factor of 2
 TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
   int min_repeat_factor = 0;
-  int max_repeat_factor = 7; // 128
+  int max_repeat_factor = 7;  // 128
   int max_bit_width = 8;
   std::vector<int16_t> input_levels;
   std::vector<uint8_t> bytes;
-  Encoding::type encodings[2] = {Encoding::RLE,
-      Encoding::BIT_PACKED};
+  Encoding::type encodings[2] = {Encoding::RLE, Encoding::BIT_PACKED};
 
   // for each encoding
   for (int encode = 0; encode < 2; encode++) {
@@ -150,8 +148,7 @@ TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
       // find the maximum level for the current bit_width
       int max_level = (1 << bit_width) - 1;
       // Generate levels
-      GenerateLevels(min_repeat_factor, max_repeat_factor,
-          max_level, input_levels);
+      GenerateLevels(min_repeat_factor, max_repeat_factor, max_level, input_levels);
       EncodeLevels(encoding, max_level, input_levels.size(), input_levels.data(), bytes);
       VerifyDecodingLevels(encoding, max_level, input_levels, bytes);
       input_levels.clear();
@@ -162,15 +159,13 @@ TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
 // Test multiple decoder SetData calls
 TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
   int min_repeat_factor = 3;
-  int max_repeat_factor = 7; // 128
+  int max_repeat_factor = 7;  // 128
   int bit_width = 8;
   int max_level = (1 << bit_width) - 1;
   std::vector<int16_t> input_levels;
   std::vector<std::vector<uint8_t>> bytes;
-  Encoding::type encodings[2] = {Encoding::RLE,
-      Encoding::BIT_PACKED};
-  GenerateLevels(min_repeat_factor, max_repeat_factor,
-      max_level, input_levels);
+  Encoding::type encodings[2] = {Encoding::RLE, Encoding::BIT_PACKED};
+  GenerateLevels(min_repeat_factor, max_repeat_factor, max_level, input_levels);
   int num_levels = input_levels.size();
   int setdata_factor = 8;
   int split_level_size = num_levels / setdata_factor;
@@ -188,4 +183,4 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
   }
 }
 
-} // namespace parquet
+}  // namespace parquet

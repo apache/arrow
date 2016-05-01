@@ -44,6 +44,6 @@ class ParquetException : public std::exception {
   std::string msg_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_EXCEPTION_H
+#endif  // PARQUET_EXCEPTION_H

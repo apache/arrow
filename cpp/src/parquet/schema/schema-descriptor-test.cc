@@ -36,8 +36,8 @@ namespace parquet {
 namespace schema {
 
 TEST(TestColumnDescriptor, TestAttrs) {
-  NodePtr node = PrimitiveNode::Make("name", Repetition::OPTIONAL,
-      Type::BYTE_ARRAY, LogicalType::UTF8);
+  NodePtr node = PrimitiveNode::Make(
+      "name", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::UTF8);
   ColumnDescriptor descr(node, 4, 1);
 
   ASSERT_EQ("name", descr.name());
@@ -49,8 +49,8 @@ TEST(TestColumnDescriptor, TestAttrs) {
   ASSERT_EQ(-1, descr.type_length());
 
   // Test FIXED_LEN_BYTE_ARRAY
-  node = PrimitiveNode::Make("name", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 12, 10, 4);
+  node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
+      LogicalType::DECIMAL, 12, 10, 4);
   descr = ColumnDescriptor(node, 4, 1);
 
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr.physical_type());
@@ -59,16 +59,14 @@ TEST(TestColumnDescriptor, TestAttrs) {
 
 class TestSchemaDescriptor : public ::testing::Test {
  public:
-  void setUp() {
-  }
+  void setUp() {}
 
  protected:
   SchemaDescriptor descr_;
 };
 
 TEST_F(TestSchemaDescriptor, InitNonGroup) {
-  NodePtr node = PrimitiveNode::Make("field", Repetition::OPTIONAL,
-      Type::INT32);
+  NodePtr node = PrimitiveNode::Make("field", Repetition::OPTIONAL, Type::INT32);
 
   ASSERT_THROW(descr_.Init(node), ParquetException);
 }
@@ -85,8 +83,8 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   NodePtr item1 = Int64("item1", Repetition::REQUIRED);
   NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
   NodePtr item3 = Int32("item3", Repetition::REPEATED);
-  NodePtr list(GroupNode::Make("records", Repetition::REPEATED,
-          {item1, item2, item3}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make(
+      "records", Repetition::REPEATED, {item1, item2, item3}, LogicalType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -129,6 +127,6 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(nleaves, descr_.num_columns());
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

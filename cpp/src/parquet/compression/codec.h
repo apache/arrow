@@ -34,8 +34,8 @@ class Codec {
 
   static std::unique_ptr<Codec> Create(Compression::type codec);
 
-  virtual void Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer) = 0;
+  virtual void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer) = 0;
 
   virtual int64_t Compress(int64_t input_len, const uint8_t* input,
       int64_t output_buffer_len, uint8_t* output_buffer) = 0;
@@ -45,12 +45,11 @@ class Codec {
   virtual const char* name() const = 0;
 };
 
-
 // Snappy codec.
 class SnappyCodec : public Codec {
  public:
-  virtual void Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer);
+  virtual void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer);
 
   virtual int64_t Compress(int64_t input_len, const uint8_t* input,
       int64_t output_buffer_len, uint8_t* output_buffer);
@@ -63,8 +62,8 @@ class SnappyCodec : public Codec {
 // Lz4 codec.
 class Lz4Codec : public Codec {
  public:
-  virtual void Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer);
+  virtual void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer);
 
   virtual int64_t Compress(int64_t input_len, const uint8_t* input,
       int64_t output_buffer_len, uint8_t* output_buffer);
@@ -87,8 +86,8 @@ class GZipCodec : public Codec {
   explicit GZipCodec(Format format = GZIP);
   virtual ~GZipCodec();
 
-  virtual void Decompress(int64_t input_len, const uint8_t* input,
-      int64_t output_len, uint8_t* output_buffer);
+  virtual void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer);
 
   virtual int64_t Compress(int64_t input_len, const uint8_t* input,
       int64_t output_buffer_len, uint8_t* output_buffer);
@@ -121,6 +120,6 @@ class GZipCodec : public Codec {
   bool decompressor_initialized_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
 #endif

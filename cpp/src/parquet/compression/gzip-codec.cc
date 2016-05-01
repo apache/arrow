@@ -36,11 +36,8 @@ static constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 static constexpr int DETECT_CODEC = 32;
 
-GZipCodec::GZipCodec(Format format) :
-    format_(format),
-    compressor_initialized_(false),
-    decompressor_initialized_(false) {
-}
+GZipCodec::GZipCodec(Format format)
+    : format_(format), compressor_initialized_(false), decompressor_initialized_(false) {}
 
 GZipCodec::~GZipCodec() {
   EndCompressor();
@@ -59,19 +56,16 @@ void GZipCodec::InitCompressor() {
   } else if (format_ == GZIP) {
     window_bits += GZIP_CODEC;
   }
-  if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-              window_bits, 9, Z_DEFAULT_STRATEGY)) != Z_OK) {
-    throw ParquetException("zlib deflateInit failed: " +
-        std::string(stream_.msg));
+  if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits, 9,
+           Z_DEFAULT_STRATEGY)) != Z_OK) {
+    throw ParquetException("zlib deflateInit failed: " + std::string(stream_.msg));
   }
 
   compressor_initialized_ = true;
 }
 
 void GZipCodec::EndCompressor() {
-  if (compressor_initialized_) {
-    (void)deflateEnd(&stream_);
-  }
+  if (compressor_initialized_) { (void)deflateEnd(&stream_); }
   compressor_initialized_ = false;
 }
 
@@ -83,23 +77,19 @@ void GZipCodec::InitDecompressor() {
   // Initialize to run either deflate or zlib/gzip format
   int window_bits = format_ == DEFLATE ? -WINDOW_BITS : WINDOW_BITS | DETECT_CODEC;
   if ((ret = inflateInit2(&stream_, window_bits)) != Z_OK) {
-    throw ParquetException("zlib inflateInit failed: " +  std::string(stream_.msg));
+    throw ParquetException("zlib inflateInit failed: " + std::string(stream_.msg));
   }
   decompressor_initialized_ = true;
 }
 
 void GZipCodec::EndDecompressor() {
-  if (decompressor_initialized_) {
-    (void)inflateEnd(&stream_);
-  }
+  if (decompressor_initialized_) { (void)inflateEnd(&stream_); }
   decompressor_initialized_ = false;
 }
 
-void GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
-    int64_t output_length, uint8_t* output) {
-  if (!decompressor_initialized_) {
-    InitDecompressor();
-  }
+void GZipCodec::Decompress(
+    int64_t input_length, const uint8_t* input, int64_t output_length, uint8_t* output) {
+  if (!decompressor_initialized_) { InitDecompressor(); }
   if (output_length == 0) {
     // The zlib library does not allow *output to be NULL, even when output_length
     // is 0 (inflate() will return Z_STREAM_ERROR). We don't consider this an
@@ -133,8 +123,8 @@ void GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
 
     // Failure, buffer was too small
     std::stringstream ss;
-    ss << "Too small a buffer passed to GZipCodec. InputLength="
-       << input_length << " OutputLength=" << output_length;
+    ss << "Too small a buffer passed to GZipCodec. InputLength=" << input_length
+       << " OutputLength=" << output_length;
     throw ParquetException(ss.str());
   }
 
@@ -149,18 +139,14 @@ void GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
 
 int64_t GZipCodec::MaxCompressedLen(int64_t input_length, const uint8_t* input) {
   // Most be in compression mode
-  if (!compressor_initialized_) {
-    InitCompressor();
-  }
+  if (!compressor_initialized_) { InitCompressor(); }
   // TODO(wesm): deal with zlib < 1.2.3 (see Impala codebase)
   return deflateBound(&stream_, static_cast<uLong>(input_length));
 }
 
-int64_t GZipCodec::Compress(int64_t input_length, const uint8_t* input,
-    int64_t output_length, uint8_t* output) {
-  if (!compressor_initialized_) {
-    InitCompressor();
-  }
+int64_t GZipCodec::Compress(
+    int64_t input_length, const uint8_t* input, int64_t output_length, uint8_t* output) {
+  if (!compressor_initialized_) { InitCompressor(); }
   stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
   stream_.avail_in = input_length;
   stream_.next_out = reinterpret_cast<Bytef*>(output);
@@ -179,12 +165,11 @@ int64_t GZipCodec::Compress(int64_t input_length, const uint8_t* input,
   }
 
   if (deflateReset(&stream_) != Z_OK) {
-    throw ParquetException("zlib deflateReset failed: " +
-        std::string(stream_.msg));
+    throw ParquetException("zlib deflateReset failed: " + std::string(stream_.msg));
   }
 
   // Actual output length
   return output_length - stream_.avail_out;
 }
 
-} // namespace parquet
+}  // namespace parquet

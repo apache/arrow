@@ -62,8 +62,8 @@ static inline SchemaElement NewGroup(const std::string& name,
   return result;
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_COLUMN_TEST_UTIL_H
+#endif  // PARQUET_COLUMN_TEST_UTIL_H

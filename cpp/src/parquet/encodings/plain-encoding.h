@@ -39,9 +39,8 @@ class PlainDecoder : public Decoder<DType> {
   typedef typename DType::c_type T;
   using Decoder<DType>::num_values_;
 
-  explicit PlainDecoder(const ColumnDescriptor* descr) :
-      Decoder<DType>(descr, Encoding::PLAIN),
-      data_(NULL), len_(0) {
+  explicit PlainDecoder(const ColumnDescriptor* descr)
+      : Decoder<DType>(descr, Encoding::PLAIN), data_(NULL), len_(0) {
     if (descr_ && descr_->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
       type_length_ = descr_->type_length();
     } else {
@@ -66,12 +65,10 @@ class PlainDecoder : public Decoder<DType> {
 
 // Decode routine templated on C++ type rather than type enum
 template <typename T>
-inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
-    int type_length, T* out) {
+inline int DecodePlain(
+    const uint8_t* data, int64_t data_size, int num_values, int type_length, T* out) {
   int bytes_to_decode = num_values * sizeof(T);
-  if (data_size < bytes_to_decode) {
-    ParquetException::EofException();
-  }
+  if (data_size < bytes_to_decode) { ParquetException::EofException(); }
   memcpy(out, data, bytes_to_decode);
   return bytes_to_decode;
 }
@@ -101,9 +98,7 @@ template <>
 inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size,
     int num_values, int type_length, FixedLenByteArray* out) {
   int bytes_to_decode = type_length * num_values;
-  if (data_size < bytes_to_decode) {
-    ParquetException::EofException();
-  }
+  if (data_size < bytes_to_decode) { ParquetException::EofException(); }
   for (int i = 0; i < num_values; ++i) {
     out[i].ptr = data;
     data += type_length;
@@ -115,8 +110,7 @@ inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size
 template <typename DType>
 inline int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
-  int bytes_consumed = DecodePlain<T>(data_, len_, max_values,
-      type_length_, buffer);
+  int bytes_consumed = DecodePlain<T>(data_, len_, max_values, type_length_, buffer);
   data_ += bytes_consumed;
   len_ -= bytes_consumed;
   num_values_ -= max_values;
@@ -126,8 +120,8 @@ inline int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
 template <>
 class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
  public:
-  explicit PlainDecoder(const ColumnDescriptor* descr) :
-      Decoder<BooleanType>(descr, Encoding::PLAIN) {}
+  explicit PlainDecoder(const ColumnDescriptor* descr)
+      : Decoder<BooleanType>(descr, Encoding::PLAIN) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -139,9 +133,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
     max_values = std::min(max_values, num_values_);
     bool val;
     for (int i = 0; i < max_values; ++i) {
-      if (!bit_reader_.GetValue(1, &val)) {
-        ParquetException::EofException();
-      }
+      if (!bit_reader_.GetValue(1, &val)) { ParquetException::EofException(); }
       BitUtil::SetArrayBit(buffer, i, val);
     }
     num_values_ -= max_values;
@@ -152,9 +144,7 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
     max_values = std::min(max_values, num_values_);
     bool val;
     for (int i = 0; i < max_values; ++i) {
-      if (!bit_reader_.GetValue(1, &val)) {
-        ParquetException::EofException();
-      }
+      if (!bit_reader_.GetValue(1, &val)) { ParquetException::EofException(); }
       buffer[i] = val;
     }
     num_values_ -= max_values;
@@ -173,9 +163,9 @@ class PlainEncoder : public Encoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit PlainEncoder(const ColumnDescriptor* descr,
-      MemoryAllocator* allocator = default_allocator()) :
-      Encoder<DType>(descr, Encoding::PLAIN, allocator) {}
+  explicit PlainEncoder(
+      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+      : Encoder<DType>(descr, Encoding::PLAIN, allocator) {}
 
   void Encode(const T* src, int num_values, OutputStream* dst) override;
 };
@@ -183,9 +173,9 @@ class PlainEncoder : public Encoder<DType> {
 template <>
 class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  public:
-  explicit PlainEncoder(const ColumnDescriptor* descr,
-      MemoryAllocator* allocator = default_allocator()) :
-      Encoder<BooleanType>(descr, Encoding::PLAIN, allocator) {}
+  explicit PlainEncoder(
+      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+      : Encoder<BooleanType>(descr, Encoding::PLAIN, allocator) {}
 
   virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
     int bytes_required = BitUtil::Ceil(num_values, 8);
@@ -222,14 +212,14 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
 };
 
 template <typename DType>
-inline void PlainEncoder<DType>::Encode(const T* buffer, int num_values,
-    OutputStream* dst) {
+inline void PlainEncoder<DType>::Encode(
+    const T* buffer, int num_values, OutputStream* dst) {
   dst->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
 }
 
 template <>
-inline void PlainEncoder<ByteArrayType>::Encode(const ByteArray* src,
-    int num_values, OutputStream* dst) {
+inline void PlainEncoder<ByteArrayType>::Encode(
+    const ByteArray* src, int num_values, OutputStream* dst) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
     dst->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
@@ -245,6 +235,6 @@ inline void PlainEncoder<FLBAType>::Encode(
     dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
   }
 }
-} // namespace parquet
+}  // namespace parquet
 
 #endif

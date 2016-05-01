@@ -76,19 +76,15 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(num_levels_, batch_actual);
     ASSERT_EQ(num_values_, total_values_read);
     ASSERT_TRUE(vector_equal(values_, vresult));
-    if (max_def_level_ > 0) {
-      ASSERT_TRUE(vector_equal(def_levels_, dresult));
-    }
-    if (max_rep_level_ > 0) {
-      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
-    }
+    if (max_def_level_ > 0) { ASSERT_TRUE(vector_equal(def_levels_, dresult)); }
+    if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
     // catch improper writes at EOS
     batch_actual = reader->ReadBatch(5, nullptr, nullptr, nullptr, &values_read);
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, values_read);
   }
 
-  void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor *d) {
+  void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
     num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
         rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
@@ -101,7 +97,7 @@ class TestPrimitiveReader : public ::testing::Test {
     reader_.reset();
   }
 
-  void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor *d) {
+  void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
     num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
         rep_levels_, values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
     num_levels_ = num_pages * levels_per_page;
@@ -114,12 +110,12 @@ class TestPrimitiveReader : public ::testing::Test {
   int num_values_;
   int16_t max_def_level_;
   int16_t max_rep_level_;
-  vector<shared_ptr<Page> > pages_;
+  vector<shared_ptr<Page>> pages_;
   std::shared_ptr<ColumnReader> reader_;
   vector<int32_t> values_;
   vector<int16_t> def_levels_;
   vector<int16_t> rep_levels_;
-  vector<uint8_t> data_buffer_; // For BA and FLBA
+  vector<uint8_t> data_buffer_;  // For BA and FLBA
 };
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
@@ -162,10 +158,10 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
   shared_ptr<OwnedMutableBuffer> dummy = std::make_shared<OwnedMutableBuffer>();
 
-  shared_ptr<DictionaryPage> dict_page = std::make_shared<DictionaryPage>(dummy,
-      0, Encoding::PLAIN);
-  shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
-      Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  shared_ptr<DictionaryPage> dict_page =
+      std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
+  shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(
+      &descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(dict_page);
   pages_.push_back(data_page);
   InitReader(&descr);
@@ -173,10 +169,9 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_NO_THROW(reader_->HasNext());
   pages_.clear();
 
-  dict_page = std::make_shared<DictionaryPage>(dummy,
-      0, Encoding::PLAIN_DICTIONARY);
-  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
-      Encoding::PLAIN_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  dict_page = std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN_DICTIONARY);
+  data_page = MakeDataPage<Int32Type>(
+      &descr, {}, 0, Encoding::PLAIN_DICTIONARY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(dict_page);
   pages_.push_back(data_page);
   InitReader(&descr);
@@ -184,26 +179,25 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_NO_THROW(reader_->HasNext());
   pages_.clear();
 
-  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
-      Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  data_page = MakeDataPage<Int32Type>(
+      &descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(data_page);
   InitReader(&descr);
   // Tests dictionary page must occur before data page
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
 
-  dict_page = std::make_shared<DictionaryPage>(dummy,
-      0, Encoding::DELTA_BYTE_ARRAY);
+  dict_page = std::make_shared<DictionaryPage>(dummy, 0, Encoding::DELTA_BYTE_ARRAY);
   pages_.push_back(dict_page);
   InitReader(&descr);
   // Tests only RLE_DICTIONARY is supported
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
 
-  shared_ptr<DictionaryPage> dict_page1 = std::make_shared<DictionaryPage>(dummy,
-      0, Encoding::PLAIN_DICTIONARY);
-  shared_ptr<DictionaryPage> dict_page2 = std::make_shared<DictionaryPage>(dummy,
-      0, Encoding::PLAIN);
+  shared_ptr<DictionaryPage> dict_page1 =
+      std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN_DICTIONARY);
+  shared_ptr<DictionaryPage> dict_page2 =
+      std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
   pages_.push_back(dict_page1);
   pages_.push_back(dict_page2);
   InitReader(&descr);
@@ -211,8 +205,8 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
 
-  data_page = MakeDataPage<Int32Type>(&descr, {}, 0,
-      Encoding::DELTA_BYTE_ARRAY, {}, 0, {}, 0, {}, 0);
+  data_page = MakeDataPage<Int32Type>(
+      &descr, {}, 0, Encoding::DELTA_BYTE_ARRAY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(data_page);
   InitReader(&descr);
   // unsupported encoding
@@ -220,5 +214,5 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   pages_.clear();
 }
 
-} // namespace test
-} // namespace parquet
+}  // namespace test
+}  // namespace parquet

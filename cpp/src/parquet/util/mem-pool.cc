@@ -35,18 +35,15 @@ const int MemPool::INITIAL_CHUNK_SIZE;
 const int MemPool::MAX_CHUNK_SIZE;
 
 MemPool::MemPool(MemoryAllocator* allocator)
-  : current_chunk_idx_(-1),
-    next_chunk_size_(INITIAL_CHUNK_SIZE),
-    total_allocated_bytes_(0),
-    peak_allocated_bytes_(0),
-    total_reserved_bytes_(0),
-    allocator_(allocator) {}
+    : current_chunk_idx_(-1),
+      next_chunk_size_(INITIAL_CHUNK_SIZE),
+      total_allocated_bytes_(0),
+      peak_allocated_bytes_(0),
+      total_reserved_bytes_(0),
+      allocator_(allocator) {}
 
 MemPool::ChunkInfo::ChunkInfo(int64_t size, uint8_t* buf)
-  : data(buf),
-    size(size),
-    allocated_bytes(0) {
-}
+    : data(buf), size(size), allocated_bytes(0) {}
 
 MemPool::~MemPool() {
   int64_t total_bytes_released = 0;
@@ -86,7 +83,7 @@ bool MemPool::FindChunk(int64_t min_size) {
   int first_free_idx = current_chunk_idx_ + 1;
   // (cast size() to signed int in order to avoid everything else being cast to
   // unsigned long, in particular -1)
-  while (++current_chunk_idx_  < static_cast<int>(chunks_.size())) {
+  while (++current_chunk_idx_ < static_cast<int>(chunks_.size())) {
     // we found a free chunk
     DCHECK_EQ(chunks_[current_chunk_idx_].allocated_bytes, 0);
 
@@ -127,8 +124,8 @@ bool MemPool::FindChunk(int64_t min_size) {
     total_reserved_bytes_ += chunk_size;
     // Don't increment the chunk size until the allocation succeeds: if an attempted
     // large allocation fails we don't want to increase the chunk size further.
-    next_chunk_size_ = static_cast<int>(std::min<int64_t>(
-            chunk_size * 2, MAX_CHUNK_SIZE));
+    next_chunk_size_ =
+        static_cast<int>(std::min<int64_t>(chunk_size * 2, MAX_CHUNK_SIZE));
   }
 
   DCHECK_LT(current_chunk_idx_, static_cast<int>(chunks_.size()));
@@ -188,16 +185,13 @@ std::string MemPool::DebugString() {
   char str[16];
   out << "MemPool(#chunks=" << chunks_.size() << " [";
   for (size_t i = 0; i < chunks_.size(); ++i) {
-    sprintf(str, "0x%lx=", reinterpret_cast<size_t>(chunks_[i].data)); // NOLINT
-    out << (i > 0 ? " " : "")
-        << str
-        << chunks_[i].size
-        << "/" << chunks_[i].allocated_bytes;
+    sprintf(str, "0x%lx=", reinterpret_cast<size_t>(chunks_[i].data));  // NOLINT
+    out << (i > 0 ? " " : "") << str << chunks_[i].size << "/"
+        << chunks_[i].allocated_bytes;
   }
   out << "] current_chunk=" << current_chunk_idx_
       << " total_sizes=" << GetTotalChunkSizes()
-      << " total_alloc=" << total_allocated_bytes_
-      << ")";
+      << " total_alloc=" << total_allocated_bytes_ << ")";
   return out.str();
 }
 
@@ -232,4 +226,4 @@ bool MemPool::CheckIntegrity(bool current_chunk_empty) {
   return true;
 }
 
-} // namespace parquet
+}  // namespace parquet

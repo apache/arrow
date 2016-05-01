@@ -39,24 +39,22 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
   std::vector<uint8_t> decompressed(data.size());
 
   // compress with c1
-  int actual_size = c1.Compress(data.size(), &data[0], max_compressed_len,
-      &compressed[0]);
+  int actual_size =
+      c1.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]);
   compressed.resize(actual_size);
 
   // decompress with c2
-  c2.Decompress(compressed.size(), &compressed[0],
-      decompressed.size(), &decompressed[0]);
+  c2.Decompress(compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]);
 
   ASSERT_TRUE(test::vector_equal(data, decompressed));
 
   // compress with c2
-  int actual_size2 = c2.Compress(data.size(), &data[0], max_compressed_len,
-      &compressed[0]);
+  int actual_size2 =
+      c2.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]);
   ASSERT_EQ(actual_size2, actual_size);
 
   // decompress with c1
-  c1.Decompress(compressed.size(), &compressed[0],
-      decompressed.size(), &decompressed[0]);
+  c1.Decompress(compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]);
 
   ASSERT_TRUE(test::vector_equal(data, decompressed));
 }
@@ -83,4 +81,4 @@ TEST(TestCompressors, GZip) {
   CheckCodec<GZipCodec>();
 }
 
-} // namespace parquet
+}  // namespace parquet

@@ -92,9 +92,7 @@ void LocalFileSource::Seek(int64_t pos) {
 
 int64_t LocalFileSource::Tell() const {
   int64_t position = ftell(file_);
-  if (position < 0) {
-    throw ParquetException("ftell failed, did the file disappear?");
-  }
+  if (position < 0) { throw ParquetException("ftell failed, did the file disappear?"); }
   return position;
 }
 
@@ -111,9 +109,7 @@ std::shared_ptr<Buffer> LocalFileSource::Read(int64_t nbytes) {
   result->Resize(nbytes);
 
   int64_t bytes_read = Read(nbytes, result->mutable_data());
-  if (bytes_read < nbytes) {
-    result->Resize(bytes_read);
-  }
+  if (bytes_read < nbytes) { result->Resize(bytes_read); }
   return result;
 }
 // ----------------------------------------------------------------------
@@ -125,12 +121,10 @@ MemoryMapSource::~MemoryMapSource() {
 
 void MemoryMapSource::Open(const std::string& path) {
   LocalFileSource::Open(path);
-  data_ = reinterpret_cast<uint8_t*>(mmap(nullptr, size_, PROT_READ,
-          MAP_SHARED, fileno(file_), 0));
-  if (data_ == nullptr) {
-    throw ParquetException("Memory mapping file failed");
-  }
-  pos_  = 0;
+  data_ = reinterpret_cast<uint8_t*>(
+      mmap(nullptr, size_, PROT_READ, MAP_SHARED, fileno(file_), 0));
+  if (data_ == nullptr) { throw ParquetException("Memory mapping file failed"); }
+  pos_ = 0;
 }
 
 void MemoryMapSource::Close() {
@@ -139,9 +133,7 @@ void MemoryMapSource::Close() {
 }
 
 void MemoryMapSource::CloseFile() {
-  if (data_ != nullptr) {
-    munmap(data_, size_);
-  }
+  if (data_ != nullptr) { munmap(data_, size_); }
 
   LocalFileSource::CloseFile();
 }
@@ -177,10 +169,8 @@ std::shared_ptr<Buffer> MemoryMapSource::Read(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // BufferReader
 
-BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer) :
-    buffer_(buffer),
-    data_(buffer->data()),
-    pos_(0) {
+BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
+    : buffer_(buffer), data_(buffer->data()), pos_(0) {
   size_ = buffer->size();
 }
 
@@ -191,8 +181,7 @@ int64_t BufferReader::Tell() const {
 void BufferReader::Seek(int64_t pos) {
   if (pos < 0 || pos >= size_) {
     std::stringstream ss;
-    ss << "Cannot seek to " << pos
-       << "File is length " << size_;
+    ss << "Cannot seek to " << pos << "File is length " << size_;
     throw ParquetException(ss.str());
   }
   pos_ = pos;
@@ -215,8 +204,8 @@ std::shared_ptr<Buffer> BufferReader::Read(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // InMemoryInputStream
 
-InMemoryInputStream::InMemoryInputStream(const std::shared_ptr<Buffer>& buffer) :
-    buffer_(buffer), offset_(0) {
+InMemoryInputStream::InMemoryInputStream(const std::shared_ptr<Buffer>& buffer)
+    : buffer_(buffer), offset_(0) {
   len_ = buffer_->size();
 }
 
@@ -235,4 +224,4 @@ void InMemoryInputStream::Advance(int64_t num_bytes) {
   offset_ += num_bytes;
 }
 
-} // namespace parquet
+}  // namespace parquet

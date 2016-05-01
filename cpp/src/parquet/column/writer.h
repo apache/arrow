@@ -37,13 +37,9 @@ class ColumnWriter {
       std::unique_ptr<PageWriter>, int64_t expected_rows,
       MemoryAllocator* allocator = default_allocator());
 
-  Type::type type() const {
-    return descr_->physical_type();
-  }
+  Type::type type() const { return descr_->physical_type(); }
 
-  const ColumnDescriptor* descr() const {
-    return descr_;
-  }
+  const ColumnDescriptor* descr() const { return descr_; }
 
   /**
    * Closes the ColumnWriter, commits any buffered values to pages.
@@ -61,8 +57,8 @@ class ColumnWriter {
   // Write multiple repetition levels
   void WriteRepetitionLevels(int64_t num_levels, int16_t* levels);
 
-  std::shared_ptr<Buffer> RleEncodeLevels(const std::shared_ptr<Buffer>& buffer,
-      int16_t max_level);
+  std::shared_ptr<Buffer> RleEncodeLevels(
+      const std::shared_ptr<Buffer>& buffer, int16_t max_level);
 
   const ColumnDescriptor* descr_;
 
@@ -106,14 +102,13 @@ class TypedColumnWriter : public ColumnWriter {
  public:
   typedef typename DType::c_type T;
 
-  TypedColumnWriter(const ColumnDescriptor* schema,
-      std::unique_ptr<PageWriter> pager, int64_t expected_rows,
-      MemoryAllocator* allocator = default_allocator());
+  TypedColumnWriter(const ColumnDescriptor* schema, std::unique_ptr<PageWriter> pager,
+      int64_t expected_rows, MemoryAllocator* allocator = default_allocator());
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
-  void WriteBatch(int64_t num_values, int16_t* def_levels, int16_t* rep_levels,
-      T* values);
+  void WriteBatch(
+      int64_t num_values, int16_t* def_levels, int16_t* rep_levels, T* values);
 
  private:
   typedef Encoder<DType> EncoderType;
@@ -124,7 +119,7 @@ class TypedColumnWriter : public ColumnWriter {
   // Map of encoding type to the respective encoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
-  std::unordered_map<int, std::shared_ptr<EncoderType> > encoders_;
+  std::unordered_map<int, std::shared_ptr<EncoderType>> encoders_;
 
   void ConfigureDictionary(const DictionaryPage* page);
 
@@ -136,16 +131,14 @@ class TypedColumnWriter : public ColumnWriter {
 const int64_t PAGE_VALUE_COUNT = 1000;
 
 template <typename DType>
-inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, int16_t* def_levels,
-    int16_t* rep_levels, T* values) {
+inline void TypedColumnWriter<DType>::WriteBatch(
+    int64_t num_values, int16_t* def_levels, int16_t* rep_levels, T* values) {
   int64_t values_to_write = 0;
 
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
     for (int64_t i = 0; i < num_values; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) {
-        ++values_to_write;
-      }
+      if (def_levels[i] == descr_->max_definition_level()) { ++values_to_write; }
     }
 
     WriteDefinitionLevels(num_values, def_levels);
@@ -159,9 +152,7 @@ inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, int16_t* de
     // A row could include more than one value
     // Count the occasions where we start a new row
     for (int64_t i = 0; i < num_values; ++i) {
-      if (rep_levels[i] == 0) {
-        num_rows_++;
-      }
+      if (rep_levels[i] == 0) { num_rows_++; }
     }
 
     WriteRepetitionLevels(num_values, rep_levels);
@@ -180,9 +171,7 @@ inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, int16_t* de
   num_buffered_encoded_values_ += values_to_write;
 
   // TODO(PARQUET-591): Instead of rows as a boundary, do a size check
-  if (num_buffered_values_ >= PAGE_VALUE_COUNT) {
-    WriteNewPage();
-  }
+  if (num_buffered_values_ >= PAGE_VALUE_COUNT) { WriteNewPage(); }
 }
 
 template <typename DType>
@@ -199,6 +188,6 @@ typedef TypedColumnWriter<DoubleType> DoubleWriter;
 typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
 typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_COLUMN_READER_H
+#endif  // PARQUET_COLUMN_READER_H

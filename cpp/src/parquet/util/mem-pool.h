@@ -85,9 +85,7 @@ class MemPool {
   /// Allocates 8-byte aligned section of memory of 'size' bytes at the end
   /// of the the current chunk. Creates a new chunk if there aren't any chunks
   /// with enough capacity.
-  uint8_t* Allocate(int size) {
-    return Allocate<false>(size);
-  }
+  uint8_t* Allocate(int size) { return Allocate<false>(size); }
 
   /// Returns 'byte_size' to the current chunk back to the mem pool. This can
   /// only be used to return either all or part of the previous allocation returned
@@ -131,18 +129,15 @@ class MemPool {
   static const int MAX_CHUNK_SIZE = 1024 * 1024;
 
   struct ChunkInfo {
-    uint8_t* data; // Owned by the ChunkInfo.
-    int64_t size;  // in bytes
+    uint8_t* data;  // Owned by the ChunkInfo.
+    int64_t size;   // in bytes
 
     /// bytes allocated via Allocate() in this chunk
     int64_t allocated_bytes;
 
     explicit ChunkInfo(int64_t size, uint8_t* buf);
 
-    ChunkInfo()
-      : data(NULL),
-        size(0),
-        allocated_bytes(0) {}
+    ChunkInfo() : data(NULL), size(0), allocated_bytes(0) {}
   };
 
   /// chunk from which we served the last Allocate() call;
@@ -189,9 +184,9 @@ class MemPool {
     if (size == 0) return NULL;
 
     int64_t num_bytes = BitUtil::RoundUp(size, 8);
-    if (current_chunk_idx_ == -1
-        || num_bytes + chunks_[current_chunk_idx_].allocated_bytes
-          > chunks_[current_chunk_idx_].size) {
+    if (current_chunk_idx_ == -1 ||
+        num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
+            chunks_[current_chunk_idx_].size) {
       // If we couldn't allocate a new chunk, return NULL.
       if (UNLIKELY(!FindChunk(num_bytes))) return NULL;
     }
@@ -206,6 +201,6 @@ class MemPool {
   }
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_MEM_POOL_H
+#endif  // PARQUET_UTIL_MEM_POOL_H

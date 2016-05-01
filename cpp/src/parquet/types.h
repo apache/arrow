@@ -84,11 +84,7 @@ struct LogicalType {
 
 // Mirrors parquet::FieldRepetitionType
 struct Repetition {
-  enum type {
-    REQUIRED = 0,
-    OPTIONAL = 1,
-    REPEATED = 2
-  };
+  enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2 };
 };
 
 // Data encodings. Mirrors parquet::Encoding
@@ -107,22 +103,12 @@ struct Encoding {
 
 // Compression, mirrors parquet::CompressionCodec
 struct Compression {
-  enum type {
-    UNCOMPRESSED,
-    SNAPPY,
-    GZIP,
-    LZO
-  };
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO };
 };
 
 // parquet::PageType
 struct PageType {
-  enum type {
-    DATA_PAGE,
-    INDEX_PAGE,
-    DICTIONARY_PAGE,
-    DATA_PAGE_V2
-  };
+  enum type { DATA_PAGE, INDEX_PAGE, DICTIONARY_PAGE, DATA_PAGE_V2 };
 };
 
 // ----------------------------------------------------------------------
@@ -134,8 +120,7 @@ struct ByteArray {
   const uint8_t* ptr;
 
   bool operator==(const ByteArray& other) const {
-    return this->len == other.len &&
-      0 == memcmp(this->ptr, other.ptr, this->len);
+    return this->len == other.len && 0 == memcmp(this->ptr, other.ptr, this->len);
   }
 
   bool operator!=(const ByteArray& other) const {
@@ -158,9 +143,7 @@ MANUALLY_ALIGNED_STRUCT(1) Int96 {
     return 0 == memcmp(this->value, other.value, 3 * sizeof(uint32_t));
   }
 
-  bool operator!=(const Int96& other) const {
-    return !(*this == other);
-  }
+  bool operator!=(const Int96& other) const { return !(*this == other); }
 };
 STRUCT_END(Int96, 12);
 
@@ -171,16 +154,16 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
 static inline std::string Int96ToString(const Int96& a) {
   std::stringstream result;
   for (int i = 0; i < 3; i++) {
-     result << a.value[i]  << " ";
+    result << a.value[i] << " ";
   }
   return result.str();
 }
 
 static inline std::string FixedLenByteArrayToString(const FixedLenByteArray& a, int len) {
-  const uint8_t *bytes = reinterpret_cast<const uint8_t*>(a.ptr);
+  const uint8_t* bytes = reinterpret_cast<const uint8_t*>(a.ptr);
   std::stringstream result;
   for (int i = 0; i < len; i++) {
-     result << (uint32_t)bytes[i]  << " ";
+    result << (uint32_t)bytes[i] << " ";
   }
   return result.str();
 }
@@ -195,8 +178,7 @@ static inline int ByteCompare(const ByteArray& x1, const ByteArray& x2) {
 }
 
 template <int TYPE>
-struct type_traits {
-};
+struct type_traits {};
 
 template <>
 struct type_traits<Type::BOOLEAN> {
@@ -383,6 +365,6 @@ static inline std::string logical_type_to_string(LogicalType::type t) {
       break;
   }
 }
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_TYPES_H
+#endif  // PARQUET_TYPES_H

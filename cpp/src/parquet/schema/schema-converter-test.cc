@@ -45,9 +45,7 @@ namespace schema {
 
 class TestSchemaConverter : public ::testing::Test {
  public:
-  void setUp() {
-    name_ = "parquet_schema";
-  }
+  void setUp() { name_ = "parquet_schema"; }
 
   void Convert(const parquet::format::SchemaElement* elements, int length) {
     FlatSchemaConverter converter(elements, length);
@@ -66,14 +64,10 @@ bool check_for_parent_consistency(const GroupNode* node) {
   // Each node should have the group as parent
   for (int i = 0; i < node->field_count(); i++) {
     const NodePtr& field = node->field(i);
-    if (field->parent() != node) {
-      return false;
-    }
+    if (field->parent() != node) { return false; }
     if (field->is_group()) {
       const GroupNode* group = static_cast<GroupNode*>(field.get());
-      if (!check_for_parent_consistency(group)) {
-        return false;
-      }
+      if (!check_for_parent_consistency(group)) { return false; }
     }
   }
   return true;
@@ -85,8 +79,8 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
 
   // A primitive one
-  elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED,
-          format::Type::INT32, 1));
+  elements.push_back(
+      NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1));
 
   // A group
   elements.push_back(NewGroup("bag", FieldRepetitionType::OPTIONAL, 1, 2));
@@ -95,8 +89,8 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
   elt.__set_converted_type(ConvertedType::LIST);
   elements.push_back(elt);
-  elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL,
-          format::Type::INT64, 4));
+  elements.push_back(
+      NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
 
   Convert(&elements[0], elements.size());
 
@@ -126,8 +120,8 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // element is not a group, it is a malformed Parquet file.
 
   SchemaElement elements[2];
-  elements[0] = NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED,
-      format::Type::INT32, 0);
+  elements[0] =
+      NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED, format::Type::INT32, 0);
   ASSERT_THROW(Convert(elements, 2), ParquetException);
 
   // While the Parquet spec indicates that the root group should have REPEATED
@@ -135,8 +129,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // groups as the first element. These tests check that this is okay as a
   // practicality matter.
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::REQUIRED, 1, 0);
-  elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED,
-      format::Type::INT32, 1);
+  elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1);
   Convert(elements, 2);
 
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::OPTIONAL, 1, 0);
@@ -156,13 +149,9 @@ TEST_F(TestSchemaConverter, NotEnoughChildren) {
 
 class TestSchemaFlatten : public ::testing::Test {
  public:
-  void setUp() {
-    name_ = "parquet_schema";
-  }
+  void setUp() { name_ = "parquet_schema"; }
 
-  void Flatten(const GroupNode* schema) {
-    ToParquet(schema, &elements_);
-  }
+  void Flatten(const GroupNode* schema) { ToParquet(schema, &elements_); }
 
  protected:
   std::string name_;
@@ -175,8 +164,8 @@ TEST_F(TestSchemaFlatten, NestedExample) {
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
 
   // A primitive one
-  elements.push_back(NewPrimitive("a", FieldRepetitionType::REQUIRED,
-          format::Type::INT32, 1));
+  elements.push_back(
+      NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1));
 
   // A group
   elements.push_back(NewGroup("bag", FieldRepetitionType::OPTIONAL, 1, 2));
@@ -185,8 +174,8 @@ TEST_F(TestSchemaFlatten, NestedExample) {
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
   elt.__set_converted_type(ConvertedType::LIST);
   elements.push_back(elt);
-  elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL,
-          format::Type::INT64, 4));
+  elements.push_back(
+      NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
 
   // Construct the schema
   NodeVector fields;
@@ -207,6 +196,6 @@ TEST_F(TestSchemaFlatten, NestedExample) {
   }
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

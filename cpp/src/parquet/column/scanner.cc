@@ -42,8 +42,8 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
     case Type::BYTE_ARRAY:
       return std::make_shared<ByteArrayScanner>(col_reader, batch_size, allocator);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayScanner>(col_reader,
-          batch_size, allocator);
+      return std::make_shared<FixedLenByteArrayScanner>(
+          col_reader, batch_size, allocator);
     default:
       ParquetException::NYI("type reader not implemented");
   }
@@ -51,4 +51,4 @@ std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
   return std::shared_ptr<Scanner>(nullptr);
 }
 
-} // namespace parquet
+}  // namespace parquet

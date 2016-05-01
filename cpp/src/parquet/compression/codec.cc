@@ -44,4 +44,4 @@ std::unique_ptr<Codec> Codec::Create(Compression::type codec_type) {
   return result;
 }
 
-} // namespace parquet
+}  // namespace parquet

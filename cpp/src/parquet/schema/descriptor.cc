@@ -46,8 +46,8 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
   }
 }
 
-void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
-    int16_t max_rep_level) {
+void SchemaDescriptor::BuildTree(
+    const NodePtr& node, int16_t max_def_level, int16_t max_rep_level) {
   if (node->is_optional()) {
     ++max_def_level;
   } else if (node->is_repeated()) {
@@ -71,14 +71,12 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
 
 ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
     int16_t max_definition_level, int16_t max_repetition_level,
-    const SchemaDescriptor* schema_descr) :
-      node_(node),
+    const SchemaDescriptor* schema_descr)
+    : node_(node),
       max_definition_level_(max_definition_level),
       max_repetition_level_(max_repetition_level),
       schema_descr_(schema_descr) {
-  if (!node_->is_primitive()) {
-    throw ParquetException("Must be a primitive type");
-  }
+  if (!node_->is_primitive()) { throw ParquetException("Must be a primitive type"); }
   primitive_node_ = static_cast<const PrimitiveNode*>(node_.get());
 }
 
@@ -113,4 +111,4 @@ const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
   return std::make_shared<ColumnPath>(std::move(path_));
 }
 
-} // namespace parquet
+}  // namespace parquet

@@ -94,17 +94,14 @@ class ParquetFileWriter {
     virtual int num_row_groups() const = 0;
 
     // Return const-poitner to make it clear that this object is not to be copied
-    const SchemaDescriptor* schema() const {
-       return &schema_;
-    }
+    const SchemaDescriptor* schema() const { return &schema_; }
     SchemaDescriptor schema_;
   };
 
   ParquetFileWriter();
   ~ParquetFileWriter();
 
-  static std::unique_ptr<ParquetFileWriter> Open(
-      std::shared_ptr<OutputStream> sink,
+  static std::unique_ptr<ParquetFileWriter> Open(std::shared_ptr<OutputStream> sink,
       std::shared_ptr<schema::GroupNode>& schema,
       MemoryAllocator* allocator = default_allocator());
 
@@ -144,13 +141,9 @@ class ParquetFileWriter {
   /**
    * Returns the file schema descriptor
    */
-  const SchemaDescriptor* descr() {
-    return schema_;
-  }
+  const SchemaDescriptor* descr() { return schema_; }
 
-  const ColumnDescriptor* column_schema(int i) const {
-    return schema_->Column(i);
-  }
+  const ColumnDescriptor* column_schema(int i) const { return schema_->Column(i); }
 
  private:
   // This is declared in the .cc file so that we can hide compiled Thrift
@@ -161,7 +154,6 @@ class ParquetFileWriter {
   const SchemaDescriptor* schema_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_FILE_WRITER_H
-
+#endif  // PARQUET_FILE_WRITER_H

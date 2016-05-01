@@ -39,17 +39,14 @@
 
 namespace parquet {
 
-
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
-static inline void AddDummyStats(int stat_size,
-    format::DataPageHeader& data_page) {
-
+static inline void AddDummyStats(int stat_size, format::DataPageHeader& data_page) {
   std::vector<uint8_t> stat_bytes(stat_size);
   // Some non-zero value
   std::fill(stat_bytes.begin(), stat_bytes.end(), 1);
-  data_page.statistics.__set_max(std::string(
-          reinterpret_cast<const char*>(stat_bytes.data()), stat_size));
+  data_page.statistics.__set_max(
+      std::string(reinterpret_cast<const char*>(stat_bytes.data()), stat_size));
   data_page.__isset.statistics = true;
 }
 
@@ -63,16 +60,15 @@ class TestPageSerde : public ::testing::Test {
     ResetStream();
   }
 
-  void InitSerializedPageReader(Compression::type codec =
-      Compression::UNCOMPRESSED) {
+  void InitSerializedPageReader(Compression::type codec = Compression::UNCOMPRESSED) {
     EndStream();
     std::unique_ptr<InputStream> stream;
     stream.reset(new InMemoryInputStream(out_buffer_));
     page_reader_.reset(new SerializedPageReader(std::move(stream), codec));
   }
 
-  void WriteDataPageHeader(int max_serialized_len = 1024,
-      int32_t uncompressed_size = 0, int32_t compressed_size = 0) {
+  void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
+      int32_t compressed_size = 0) {
     // Simplifying writing serialized data page headers which may or may not
     // have meaningful data associated with them
 
@@ -82,17 +78,13 @@ class TestPageSerde : public ::testing::Test {
     page_header_.compressed_page_size = compressed_size;
     page_header_.type = format::PageType::DATA_PAGE;
 
-    ASSERT_NO_THROW(SerializeThriftMsg(&page_header_, max_serialized_len,
-          out_stream_.get()));
+    ASSERT_NO_THROW(
+        SerializeThriftMsg(&page_header_, max_serialized_len, out_stream_.get()));
   }
 
-  void ResetStream() {
-    out_stream_.reset(new InMemoryOutputStream);
-  }
+  void ResetStream() { out_stream_.reset(new InMemoryOutputStream); }
 
-  void EndStream() {
-    out_buffer_ = out_stream_->GetBuffer();
-  }
+  void EndStream() { out_buffer_ = out_stream_->GetBuffer(); }
 
  protected:
   std::unique_ptr<InMemoryOutputStream> out_stream_;
@@ -103,25 +95,22 @@ class TestPageSerde : public ::testing::Test {
   format::DataPageHeader data_page_header_;
 };
 
-void CheckDataPageHeader(const format::DataPageHeader expected,
-    const Page* page) {
+void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
   const DataPage* data_page = static_cast<const DataPage*>(page);
   ASSERT_EQ(expected.num_values, data_page->num_values());
   ASSERT_EQ(expected.encoding, data_page->encoding());
-  ASSERT_EQ(expected.definition_level_encoding,
-      data_page->definition_level_encoding());
-  ASSERT_EQ(expected.repetition_level_encoding,
-      data_page->repetition_level_encoding());
+  ASSERT_EQ(expected.definition_level_encoding, data_page->definition_level_encoding());
+  ASSERT_EQ(expected.repetition_level_encoding, data_page->repetition_level_encoding());
 
   if (expected.statistics.__isset.max) {
-    ASSERT_EQ(0, memcmp(expected.statistics.max.c_str(),
-            data_page->max(), expected.statistics.max.length()));
+    ASSERT_EQ(0, memcmp(expected.statistics.max.c_str(), data_page->max(),
+                     expected.statistics.max.length()));
   }
   if (expected.statistics.__isset.min) {
-    ASSERT_EQ(0, memcmp(expected.statistics.min.c_str(),
-            data_page->min(), expected.statistics.min.length()));
+    ASSERT_EQ(0, memcmp(expected.statistics.min.c_str(), data_page->min(),
+                     expected.statistics.min.length()));
   }
 }
 
@@ -139,13 +128,13 @@ TEST_F(TestPageSerde, DataPage) {
 }
 
 TEST_F(TestPageSerde, TestLargePageHeaders) {
-  int stats_size = 256 * 1024; // 256 KB
+  int stats_size = 256 * 1024;  // 256 KB
   AddDummyStats(stats_size, data_page_header_);
 
   // Any number to verify metadata roundtrip
   data_page_header_.num_values = 4141;
 
-  int max_header_size = 512 * 1024; // 512 KB
+  int max_header_size = 512 * 1024;  // 512 KB
   WriteDataPageHeader(max_header_size);
   ASSERT_GE(max_header_size, out_stream_->Tell());
 
@@ -159,11 +148,11 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, TestFailLargePageHeaders) {
-  int stats_size = 256 * 1024; // 256 KB
+  int stats_size = 256 * 1024;  // 256 KB
   AddDummyStats(stats_size, data_page_header_);
 
   // Serialize the Page header
-  int max_header_size = 512 * 1024; // 512 KB
+  int max_header_size = 512 * 1024;  // 512 KB
   WriteDataPageHeader(max_header_size);
   ASSERT_GE(max_header_size, out_stream_->Tell());
 
@@ -185,7 +174,7 @@ TEST_F(TestPageSerde, Compression) {
 
   int num_pages = 10;
 
-  std::vector<std::vector<uint8_t> > faux_data;
+  std::vector<std::vector<uint8_t>> faux_data;
   faux_data.resize(num_pages);
   for (int i = 0; i < num_pages; ++i) {
     // The pages keep getting larger
@@ -203,8 +192,8 @@ TEST_F(TestPageSerde, Compression) {
       int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
       buffer.resize(max_compressed_size);
 
-      int64_t actual_size = codec->Compress(data_size, data,
-          max_compressed_size, &buffer[0]);
+      int64_t actual_size =
+          codec->Compress(data_size, data, max_compressed_size, &buffer[0]);
 
       WriteDataPageHeader(1024, data_size, actual_size);
       out_stream_->Write(buffer.data(), actual_size);
@@ -245,8 +234,7 @@ class TestParquetFileReader : public ::testing::Test {
     reader_.reset(new ParquetFileReader());
 
     ASSERT_THROW(
-        reader_->Open(SerializedFile::Open(std::move(reader))),
-        ParquetException);
+        reader_->Open(SerializedFile::Open(std::move(reader))), ParquetException);
   }
 
  protected:
@@ -291,4 +279,4 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
   AssertInvalidFileThrows(buffer);
 }
 
-} // namespace parquet
+}  // namespace parquet

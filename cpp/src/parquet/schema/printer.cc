@@ -29,10 +29,8 @@ namespace schema {
 
 class SchemaPrinter : public Node::ConstVisitor {
  public:
-  explicit SchemaPrinter(std::ostream& stream, int indent_width) :
-      stream_(stream),
-      indent_(0),
-      indent_width_(2) {}
+  explicit SchemaPrinter(std::ostream& stream, int indent_width)
+      : stream_(stream), indent_(0), indent_width_(2) {}
 
   void Visit(const Node* node) override;
 
@@ -132,12 +130,11 @@ void SchemaPrinter::Visit(const Node* node) {
   }
 }
 
-void PrintSchema(const Node* schema, std::ostream& stream,
-    int indent_width) {
+void PrintSchema(const Node* schema, std::ostream& stream, int indent_width) {
   SchemaPrinter printer(stream, indent_width);
   printer.Visit(schema);
 }
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet

@@ -43,13 +43,27 @@ namespace parquet {
 #ifdef NDEBUG
 #define PARQUET_DFATAL PARQUET_WARNING
 
-#define DCHECK(condition) while (false) parquet::internal::NullLog()
-#define DCHECK_EQ(val1, val2) while (false) parquet::internal::NullLog()
-#define DCHECK_NE(val1, val2) while (false) parquet::internal::NullLog()
-#define DCHECK_LE(val1, val2) while (false) parquet::internal::NullLog()
-#define DCHECK_LT(val1, val2) while (false) parquet::internal::NullLog()
-#define DCHECK_GE(val1, val2) while (false) parquet::internal::NullLog()
-#define DCHECK_GT(val1, val2) while (false) parquet::internal::NullLog()
+#define DCHECK(condition) \
+  while (false)           \
+  parquet::internal::NullLog()
+#define DCHECK_EQ(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
+#define DCHECK_NE(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
+#define DCHECK_LE(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
+#define DCHECK_LT(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
+#define DCHECK_GE(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
+#define DCHECK_GT(val1, val2) \
+  while (false)               \
+  parquet::internal::NullLog()
 
 #else
 #define PARQUET_DFATAL PARQUET_FATAL
@@ -62,13 +76,13 @@ namespace parquet {
 #define DCHECK_GE(val1, val2) PARQUET_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) PARQUET_CHECK((val1) > (val2))
 
-#endif // NDEBUG
+#endif  // NDEBUG
 
 namespace internal {
 
 class NullLog {
  public:
-  template<class T>
+  template <class T>
   NullLog& operator<<(const T& t) {
     return *this;
   }
@@ -76,21 +90,16 @@ class NullLog {
 
 class CerrLog {
  public:
-  CerrLog(int severity) // NOLINT(runtime/explicit)
-    : severity_(severity),
-      has_logged_(false) {
-  }
+  CerrLog(int severity)  // NOLINT(runtime/explicit)
+      : severity_(severity),
+        has_logged_(false) {}
 
   ~CerrLog() {
-    if (has_logged_) {
-      std::cerr << std::endl;
-    }
-    if (severity_ == PARQUET_FATAL) {
-      exit(1);
-    }
+    if (has_logged_) { std::cerr << std::endl; }
+    if (severity_ == PARQUET_FATAL) { exit(1); }
   }
 
-  template<class T>
+  template <class T>
   CerrLog& operator<<(const T& t) {
     has_logged_ = true;
     std::cerr << t;
@@ -102,8 +111,8 @@ class CerrLog {
   bool has_logged_;
 };
 
-} // namespace internal
+}  // namespace internal
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_LOGGING_H
+#endif  // PARQUET_UTIL_LOGGING_H

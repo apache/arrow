@@ -33,8 +33,8 @@ class DeltaBitPackDecoder : public Decoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
-      MemoryAllocator* allocator = default_allocator())
+  explicit DeltaBitPackDecoder(
+      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
       : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED),
         delta_bit_widths_(0, allocator) {
     if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
@@ -60,9 +60,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
     int32_t block_size;
     if (!decoder_.GetVlqInt(&block_size)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&values_current_block_)) {
-      ParquetException::EofException();
-    }
+    if (!decoder_.GetVlqInt(&values_current_block_)) { ParquetException::EofException(); }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
     delta_bit_widths_.Resize(num_mini_blocks_);
 
@@ -119,6 +117,6 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   int32_t last_value_;
 };
-} // namespace parquet
+}  // namespace parquet
 
 #endif

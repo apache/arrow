@@ -74,6 +74,6 @@ class InMemoryOutputStream : public OutputStream {
   DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_OUTPUT_H
+#endif  // PARQUET_UTIL_OUTPUT_H

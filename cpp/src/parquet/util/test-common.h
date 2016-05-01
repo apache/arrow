@@ -31,13 +31,11 @@ namespace parquet {
 
 namespace test {
 
-typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type,
-                         FloatType, DoubleType, ByteArrayType,
-                         FLBAType> ParquetTypes;
+typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type, FloatType,
+    DoubleType, ByteArrayType, FLBAType> ParquetTypes;
 
 template <typename T>
-static inline void assert_vector_equal(const vector<T>& left,
-    const vector<T>& right) {
+static inline void assert_vector_equal(const vector<T>& left, const vector<T>& right) {
   ASSERT_EQ(left.size(), right.size());
 
   for (size_t i = 0; i < left.size(); ++i) {
@@ -47,15 +45,11 @@ static inline void assert_vector_equal(const vector<T>& left,
 
 template <typename T>
 static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
-  if (left.size() != right.size()) {
-    return false;
-  }
+  if (left.size() != right.size()) { return false; }
 
   for (size_t i = 0; i < left.size(); ++i) {
     if (left[i] != right[i]) {
-      std::cerr << "index " << i
-                << " left was " << left[i]
-                << " right was " << right[i]
+      std::cerr << "index " << i << " left was " << left[i] << " right was " << right[i]
                 << std::endl;
       return false;
     }
@@ -66,9 +60,7 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
 
 template <typename T>
 static vector<T> slice(const vector<T>& values, int start, int end) {
-  if (end < start) {
-    return vector<T>(0);
-  }
+  if (end < start) { return vector<T>(0); }
 
   vector<T> out(end - start);
   for (int i = start; i < end; ++i) {
@@ -137,8 +129,8 @@ void random_numbers(int n, uint32_t seed, float min_value, float max_value, floa
 }
 
 template <>
-void random_numbers(int n, uint32_t seed, double min_value, double max_value,
-    double* out) {
+void random_numbers(
+    int n, uint32_t seed, double min_value, double max_value, double* out) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<double> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -146,8 +138,8 @@ void random_numbers(int n, uint32_t seed, double min_value, double max_value,
   }
 }
 
-void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
-    Int96* out) {
+void random_Int96_numbers(
+    int n, uint32_t seed, int32_t min_value, int32_t max_value, Int96* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int32_t> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -157,8 +149,7 @@ void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_v
   }
 }
 
-void random_fixed_byte_array(int n, uint32_t seed, uint8_t *buf, int len,
-    FLBA* out) {
+void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
   for (int i = 0; i < n; ++i) {
@@ -170,8 +161,8 @@ void random_fixed_byte_array(int n, uint32_t seed, uint8_t *buf, int len,
   }
 }
 
-void random_byte_array(int n, uint32_t seed, uint8_t *buf,
-    ByteArray* out, int min_size, int max_size) {
+void random_byte_array(
+    int n, uint32_t seed, uint8_t* buf, ByteArray* out, int min_size, int max_size) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d1(min_size, max_size);
   std::uniform_int_distribution<int> d2(0, 255);
@@ -186,12 +177,11 @@ void random_byte_array(int n, uint32_t seed, uint8_t *buf,
   }
 }
 
-void random_byte_array(int n, uint32_t seed, uint8_t *buf,
-    ByteArray* out, int max_size) {
+void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int max_size) {
   random_byte_array(n, seed, buf, out, 0, max_size);
 }
 
-} // namespace test
-} // namespace parquet
+}  // namespace test
+}  // namespace parquet
 
-#endif // PARQUET_UTIL_TEST_COMMON_H
+#endif  // PARQUET_UTIL_TEST_COMMON_H

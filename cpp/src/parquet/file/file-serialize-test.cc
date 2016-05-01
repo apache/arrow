@@ -37,34 +37,31 @@ class TestSerialize : public ::testing::Test {
  public:
   void SetUpSchemaRequired() {
     auto pnode = PrimitiveNode::Make("int64", Repetition::REQUIRED, Type::INT64);
-    node_ = GroupNode::Make("schema", Repetition::REQUIRED,
-        std::vector<NodePtr>({pnode}));
+    node_ =
+        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
     schema_.Init(node_);
   }
 
   void SetUpSchemaOptional() {
     auto pnode = PrimitiveNode::Make("int64", Repetition::OPTIONAL, Type::INT64);
-    node_ = GroupNode::Make("schema", Repetition::REQUIRED,
-        std::vector<NodePtr>({pnode}));
+    node_ =
+        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
     schema_.Init(node_);
   }
 
   void SetUpSchemaRepeated() {
     auto pnode = PrimitiveNode::Make("int64", Repetition::REPEATED, Type::INT64);
-    node_ = GroupNode::Make("schema", Repetition::REQUIRED,
-        std::vector<NodePtr>({pnode}));
+    node_ =
+        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
     schema_.Init(node_);
   }
 
-  void SetUp() {
-    SetUpSchemaRequired();
-  }
+  void SetUp() { SetUpSchemaRequired(); }
 
  protected:
   NodePtr node_;
   SchemaDescriptor schema_;
 };
-
 
 TEST_F(TestSerialize, SmallFile) {
   std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
@@ -100,6 +97,6 @@ TEST_F(TestSerialize, SmallFile) {
   ASSERT_EQ(values, values_out);
 }
 
-} // namespace test
+}  // namespace test
 
-} // namespace parquet
+}  // namespace parquet

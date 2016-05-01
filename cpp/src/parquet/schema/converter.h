@@ -30,7 +30,9 @@
 
 namespace parquet {
 
-namespace format { class SchemaElement;}
+namespace format {
+class SchemaElement;
+}
 
 class SchemaDescriptor;
 
@@ -47,11 +49,8 @@ std::shared_ptr<SchemaDescriptor> FromParquet(
 
 class FlatSchemaConverter {
  public:
-  FlatSchemaConverter(const format::SchemaElement* elements, int length) :
-      elements_(elements),
-      length_(length),
-      pos_(0),
-      current_id_(0) {}
+  FlatSchemaConverter(const format::SchemaElement* elements, int length)
+      : elements_(elements), length_(length), pos_(0), current_id_(0) {}
 
   std::unique_ptr<Node> Convert();
 
@@ -61,9 +60,7 @@ class FlatSchemaConverter {
   int pos_;
   int current_id_;
 
-  int next_id() {
-    return current_id_++;
-  }
+  int next_id() { return current_id_++; }
 
   const format::SchemaElement& Next();
 
@@ -87,8 +84,8 @@ class SchemaFlattener {
   std::vector<format::SchemaElement>* elements_;
 };
 
-} // namespace schema
+}  // namespace schema
 
-} // namespace parquet
+}  // namespace parquet
 
-#endif // PARQUET_SCHEMA_CONVERTER_H
+#endif  // PARQUET_SCHEMA_CONVERTER_H
