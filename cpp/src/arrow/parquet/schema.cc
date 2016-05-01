@@ -184,6 +184,20 @@ Status FromParquetSchema(
   return Status::OK();
 }
 
+Status StructToNode(const std::shared_ptr<StructType>& type, const std::string& name,
+    bool nullable, NodePtr* out) {
+  Repetition::type repetition = Repetition::REQUIRED;
+  if (nullable) { repetition = Repetition::OPTIONAL; }
+
+  std::vector<NodePtr> children(type->num_children());
+  for (int i = 0; i < type->num_children(); i++) {
+    RETURN_NOT_OK(FieldToNode(type->child(i), &children[i]));
+  }
+
+  *out = GroupNode::Make(name, repetition, children);
+  return Status::OK();
+}
+
 Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
@@ -263,14 +277,15 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
     case Type::TIME:
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MILLIS;
-    // Precision- and scale-based decimal type. Storage type depends on the
-    // parameters.
-    // DECIMAL = 20,
+      break;
+    case Type::STRUCT: {
+      auto struct_type = std::static_pointer_cast<StructType>(field->type);
+      return StructToNode(struct_type, field->name, field->nullable, out);
+    } break;
     default:
-      // TODO: LIST, STRUCT, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
+      // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
       return Status::NotImplemented("unhandled type");
   }
-  // TODO: handle repeated
   *out = PrimitiveNode::Make(field->name, repetition, type, logical_type, length);
   return Status::OK();
 }
