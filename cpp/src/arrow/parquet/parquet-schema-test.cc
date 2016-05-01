@@ -161,6 +161,81 @@ TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   }
 }
 
+class TestConvertArrowSchema : public ::testing::Test {
+ public:
+  virtual void SetUp() {}
+
+  void CheckFlatSchema(const std::vector<NodePtr>& nodes) {
+    NodePtr schema_node = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+    const GroupNode* expected_schema_node =
+        static_cast<const GroupNode*>(schema_node.get());
+    const GroupNode* result_schema_node =
+        static_cast<const GroupNode*>(result_schema_->schema().get());
+
+    ASSERT_EQ(expected_schema_node->field_count(), result_schema_node->field_count());
+
+    for (int i = 0; i < expected_schema_node->field_count(); i++) {
+      auto lhs = result_schema_node->field(i);
+      auto rhs = expected_schema_node->field(i);
+      EXPECT_TRUE(lhs->Equals(rhs.get()));
+    }
+  }
+
+  Status ConvertSchema(const std::vector<std::shared_ptr<Field>>& fields) {
+    arrow_schema_ = std::make_shared<Schema>(fields);
+    return ToParquetSchema(arrow_schema_.get(), &result_schema_);
+  }
+
+ protected:
+  std::shared_ptr<Schema> arrow_schema_;
+  std::shared_ptr<::parquet::SchemaDescriptor> result_schema_;
+};
+
+TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("boolean", Repetition::REQUIRED, ParquetType::BOOLEAN));
+  arrow_fields.push_back(std::make_shared<Field>("boolean", BOOL, false));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int32", Repetition::REQUIRED, ParquetType::INT32));
+  arrow_fields.push_back(std::make_shared<Field>("int32", INT32, false));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int64", Repetition::REQUIRED, ParquetType::INT64));
+  arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("float", Repetition::OPTIONAL, ParquetType::FLOAT));
+  arrow_fields.push_back(std::make_shared<Field>("float", FLOAT));
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("double", Repetition::OPTIONAL, ParquetType::DOUBLE));
+  arrow_fields.push_back(std::make_shared<Field>("double", DOUBLE));
+
+  // TODO: String types need to be clarified a bit more in the Arrow spec
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
+  arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+
+  CheckFlatSchema(parquet_fields);
+}
+
+TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // TODO: Test Decimal Arrow -> Parquet conversion
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+
+  CheckFlatSchema(parquet_fields);
+}
+
 TEST(TestNodeConversion, DateAndTime) {}
 
 }  // namespace parquet

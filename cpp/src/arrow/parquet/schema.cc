@@ -17,13 +17,18 @@
 
 #include "arrow/parquet/schema.h"
 
+#include <string>
 #include <vector>
 
 #include "parquet/api/schema.h"
+#include "parquet/exception.h"
 
 #include "arrow/types/decimal.h"
+#include "arrow/types/string.h"
 #include "arrow/util/status.h"
 
+using parquet::ParquetException;
+using parquet::Repetition;
 using parquet::schema::Node;
 using parquet::schema::NodePtr;
 using parquet::schema::GroupNode;
@@ -35,6 +40,11 @@ using parquet::LogicalType;
 namespace arrow {
 
 namespace parquet {
+
+#define PARQUET_CATCH_NOT_OK(s) \
+  try {                         \
+    (s);                        \
+  } catch (const ParquetException& e) { return Status::Invalid(e.what()); }
 
 const auto BOOL = std::make_shared<BooleanType>();
 const auto UINT8 = std::make_shared<UInt8Type>();
@@ -179,6 +189,126 @@ Status FromParquetSchema(
   }
 
   *out = std::make_shared<Schema>(fields);
+  return Status::OK();
+}
+
+Status StructToNode(const std::shared_ptr<StructType>& type, const std::string& name,
+    bool nullable, NodePtr* out) {
+  Repetition::type repetition = Repetition::REQUIRED;
+  if (nullable) { repetition = Repetition::OPTIONAL; }
+
+  std::vector<NodePtr> children(type->num_children());
+  for (int i = 0; i < type->num_children(); i++) {
+    RETURN_NOT_OK(FieldToNode(type->child(i), &children[i]));
+  }
+
+  *out = GroupNode::Make(name, repetition, children);
+  return Status::OK();
+}
+
+Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
+  LogicalType::type logical_type = LogicalType::NONE;
+  ParquetType::type type;
+  Repetition::type repetition = Repetition::REQUIRED;
+  if (field->nullable) { repetition = Repetition::OPTIONAL; }
+  int length = -1;
+
+  switch (field->type->type) {
+    // TODO:
+    // case Type::NA:
+    // break;
+    case Type::BOOL:
+      type = ParquetType::BOOLEAN;
+      break;
+    case Type::UINT8:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_8;
+      break;
+    case Type::INT8:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::INT_8;
+      break;
+    case Type::UINT16:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_16;
+      break;
+    case Type::INT16:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::INT_16;
+      break;
+    case Type::UINT32:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::UINT_32;
+      break;
+    case Type::INT32:
+      type = ParquetType::INT32;
+      break;
+    case Type::UINT64:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::UINT_64;
+      break;
+    case Type::INT64:
+      type = ParquetType::INT64;
+      break;
+    case Type::FLOAT:
+      type = ParquetType::FLOAT;
+      break;
+    case Type::DOUBLE:
+      type = ParquetType::DOUBLE;
+      break;
+    case Type::CHAR:
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      logical_type = LogicalType::UTF8;
+      length = static_cast<CharType*>(field->type.get())->size;
+      break;
+    case Type::STRING:
+      type = ParquetType::BYTE_ARRAY;
+      logical_type = LogicalType::UTF8;
+      break;
+    case Type::BINARY:
+      type = ParquetType::BYTE_ARRAY;
+      break;
+    case Type::DATE:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::DATE;
+      break;
+    case Type::TIMESTAMP:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::TIMESTAMP_MILLIS;
+      break;
+    case Type::TIMESTAMP_DOUBLE:
+      type = ParquetType::INT64;
+      // This is specified as seconds since the UNIX epoch
+      // TODO: Converted type in Parquet?
+      // logical_type = LogicalType::TIMESTAMP_MILLIS;
+      break;
+    case Type::TIME:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::TIME_MILLIS;
+      break;
+    case Type::STRUCT: {
+      auto struct_type = std::static_pointer_cast<StructType>(field->type);
+      return StructToNode(struct_type, field->name, field->nullable, out);
+    } break;
+    default:
+      // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
+      return Status::NotImplemented("unhandled type");
+  }
+  *out = PrimitiveNode::Make(field->name, repetition, type, logical_type, length);
+  return Status::OK();
+}
+
+Status ToParquetSchema(
+    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out) {
+  std::vector<NodePtr> nodes(arrow_schema->num_fields());
+  for (int i = 0; i < arrow_schema->num_fields(); i++) {
+    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), &nodes[i]));
+  }
+
+  NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+  *out = std::make_shared<::parquet::SchemaDescriptor>();
+  PARQUET_CATCH_NOT_OK((*out)->Init(schema));
+
   return Status::OK();
 }
 
