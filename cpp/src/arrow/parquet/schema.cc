@@ -22,6 +22,7 @@
 #include "parquet/api/schema.h"
 
 #include "arrow/types/decimal.h"
+#include "arrow/types/string.h"
 #include "arrow/util/status.h"
 
 using parquet::Repetition;
@@ -187,9 +188,8 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
   Repetition::type repetition = Repetition::REQUIRED;
-  if (field->nullable) {
-    repetition = Repetition::OPTIONAL;
-  }
+  if (field->nullable) { repetition = Repetition::OPTIONAL; }
+  int length = -1;
 
   switch (field->type->type) {
     // TODO:
@@ -234,35 +234,44 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
     case Type::DOUBLE:
       type = ParquetType::DOUBLE;
       break;
-    // // CHAR(N): fixed-length UTF8 string with length N
-    // CHAR = 12,
-    // // UTF8 variable-length string as List<Char>
-    // STRING = 13,
-    // // VARCHAR(N): Null-terminated string type embedded in a CHAR(N + 1)
-    // VARCHAR = 14,
-
-    // // Variable-length bytes (no guarantee of UTF8-ness)
-    // BINARY = 15,
-    // By default, int32 days since the UNIX epoch
-    // DATE = 16,
-    // Exact timestamp encoded with int64 since UNIX epoch
-    // Default unit millisecond
-    // TIMESTAMP = 17,
-    // Timestamp as double seconds since the UNIX epoch
-    // TIMESTAMP_DOUBLE = 18,
-    // Exact time encoded with int64, default unit millisecond
-    // TIME = 19,
+    case Type::CHAR:
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      logical_type = LogicalType::UTF8;
+      length = static_cast<CharType*>(field->type.get())->size;
+      break;
+    case Type::STRING:
+      type = ParquetType::BYTE_ARRAY;
+      logical_type = LogicalType::UTF8;
+      break;
+    case Type::BINARY:
+      type = ParquetType::BYTE_ARRAY;
+      break;
+    case Type::DATE:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::DATE;
+      break;
+    case Type::TIMESTAMP:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::TIMESTAMP_MILLIS;
+      break;
+    case Type::TIMESTAMP_DOUBLE:
+      type = ParquetType::INT64;
+      // This is specified as seconds since the UNIX epoch
+      // TODO: Converted type in Parquet?
+      // logical_type = LogicalType::TIMESTAMP_MILLIS;
+      break;
+    case Type::TIME:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::TIME_MILLIS;
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
     // DECIMAL = 20,
-    // Decimal value encoded as a text string
-    // DECIMAL_TEXT = 21,
     default:
-      // TODO: LIST, STRUCT, DENSE_UNION, SPARE_UNION, JSON_SCALAR
+      // TODO: LIST, STRUCT, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
       return Status::NotImplemented("unhandled type");
   }
-  // TODO: handle required, repeated
-  *out = PrimitiveNode::Make(field->name, repetition, type, logical_type);
+  // TODO: handle repeated
+  *out = PrimitiveNode::Make(field->name, repetition, type, logical_type, length);
   return Status::OK();
 }
 
@@ -279,7 +288,6 @@ Status ToParquetSchema(
 
   return Status::OK();
 }
-
 
 }  // namespace parquet
 
