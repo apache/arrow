@@ -242,7 +242,7 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
-    install_requires=['cython >= 0.21'],
+    install_requires=['cython >= 0.21', 'numpy >= 1.9'],
     description=DESC,
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
