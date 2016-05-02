@@ -63,6 +63,20 @@ if(PARQUET_BUILD_TESTS)
   endif()
 endif()
 
+if (PARQUET_BUILD_BENCHMARKS)
+  add_library(parquet_benchmark_main benchmark_main.cc)
+  if (APPLE)
+    target_link_libraries(parquet_benchmark_main
+      gbenchmark
+    )
+  else()
+    target_link_libraries(parquet_benchmark_main
+      gbenchmark
+      pthread
+    )
+  endif()
+endif()
+
 ADD_PARQUET_TEST(bit-util-test)
 ADD_PARQUET_TEST(buffer-test)
 ADD_PARQUET_TEST(input-output-test)

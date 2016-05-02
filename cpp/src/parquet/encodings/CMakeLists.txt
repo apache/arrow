@@ -27,3 +27,4 @@ install(FILES
   DESTINATION include/parquet/encodings)
 
 ADD_PARQUET_TEST(encoding-test)
+ADD_PARQUET_BENCHMARK(encoding-benchmark)

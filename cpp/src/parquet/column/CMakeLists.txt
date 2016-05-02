@@ -27,3 +27,5 @@ ADD_PARQUET_TEST(column-reader-test)
 ADD_PARQUET_TEST(column-writer-test)
 ADD_PARQUET_TEST(levels-test)
 ADD_PARQUET_TEST(scanner-test)
+
+ADD_PARQUET_BENCHMARK(column-io-benchmark)
