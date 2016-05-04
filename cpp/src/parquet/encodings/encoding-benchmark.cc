@@ -31,6 +31,7 @@ static void BM_PlainEncodingBoolean(::benchmark::State& state) {
     InMemoryOutputStream dst;
     encoder.Encode(values, values.size(), &dst);
   }
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(bool));
 }
 
 BENCHMARK(BM_PlainEncodingBoolean)->Range(1024, 65536);
@@ -49,6 +50,7 @@ static void BM_PlainDecodingBoolean(::benchmark::State& state) {
     decoder.Decode(output, values.size());
   }
 
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(bool));
   delete[] output;
 }
 
@@ -62,6 +64,7 @@ static void BM_PlainEncodingInt64(::benchmark::State& state) {
     InMemoryOutputStream dst;
     encoder.Encode(values.data(), values.size(), &dst);
   }
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int64_t));
 }
 
 BENCHMARK(BM_PlainEncodingInt64)->Range(1024, 65536);
@@ -78,6 +81,7 @@ static void BM_PlainDecodingInt64(::benchmark::State& state) {
     decoder.SetData(values.size(), buf->data(), buf->size());
     decoder.Decode(values.data(), values.size());
   }
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int64_t));
 }
 
 BENCHMARK(BM_PlainDecodingInt64)->Range(1024, 65536);

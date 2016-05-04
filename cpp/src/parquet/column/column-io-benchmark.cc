@@ -44,6 +44,17 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
       node, repetition != Repetition::REQUIRED, repetition == Repetition::REPEATED);
 }
 
+void SetBytesProcessed(::benchmark::State& state, Repetition::type repetition) {
+  int64_t bytes_processed = state.iterations() * state.range_x() * sizeof(int64_t);
+  if (repetition != Repetition::REQUIRED) {
+    bytes_processed += state.iterations() * state.range_x() * sizeof(int16_t);
+  }
+  if (repetition == Repetition::REPEATED) {
+    bytes_processed += state.iterations() * state.range_x() * sizeof(int16_t);
+  }
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
+}
+
 template <Repetition::type repetition>
 static void BM_WriteInt64Column(::benchmark::State& state) {
   format::ColumnChunk metadata;
@@ -60,6 +71,7 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
         values.size(), definition_levels.data(), repetition_levels.data(), values.data());
     writer->Close();
   }
+  SetBytesProcessed(state, repetition);
 }
 
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED)->Range(1024, 65536);
@@ -103,6 +115,7 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
           repetition_levels_out.data(), values_out.data(), &values_read);
     }
   }
+  SetBytesProcessed(state, repetition);
 }
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED)
