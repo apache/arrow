@@ -30,7 +30,7 @@ public interface VariableWidthVector extends ValueVector{
   void allocateNew(int totalBytes, int valueCount);
 
   /**
-   * Provide the maximum amount of variable width bytes that can be stored int his vector.
+   * Provide the maximum amount of variable width bytes that can be stored in this vector.
    * @return
    */
   int getByteCapacity();
