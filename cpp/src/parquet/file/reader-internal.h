@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "parquet/column/page.h"
+#include "parquet/column/properties.h"
 #include "parquet/compression/codec.h"
 #include "parquet/file/reader.h"
 #include "parquet/thrift/parquet_types.h"
@@ -69,8 +70,8 @@ class SerializedPageReader : public PageReader {
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(RandomAccessSource* source, const format::RowGroup* metadata,
-      MemoryAllocator* allocator)
-      : source_(source), metadata_(metadata), allocator_(allocator) {}
+      ReaderProperties props)
+      : source_(source), metadata_(metadata), properties_(props) {}
 
   virtual int num_columns() const;
   virtual int64_t num_rows() const;
@@ -80,7 +81,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
  private:
   RandomAccessSource* source_;
   const format::RowGroup* metadata_;
-  MemoryAllocator* allocator_;
+  ReaderProperties properties_;
 };
 
 // An implementation of ParquetFileReader::Contents that deals with the Parquet
@@ -94,7 +95,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   // lifetime separately
   static std::unique_ptr<ParquetFileReader::Contents> Open(
       std::unique_ptr<RandomAccessSource> source,
-      MemoryAllocator* allocator = default_allocator());
+      ReaderProperties props = default_reader_properties());
   virtual void Close();
   virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i);
   virtual int64_t num_rows() const;
@@ -105,11 +106,11 @@ class SerializedFile : public ParquetFileReader::Contents {
  private:
   // This class takes ownership of the provided data source
   explicit SerializedFile(
-      std::unique_ptr<RandomAccessSource> source, MemoryAllocator* allocator);
+      std::unique_ptr<RandomAccessSource> source, ReaderProperties props);
 
   std::unique_ptr<RandomAccessSource> source_;
   format::FileMetaData metadata_;
-  MemoryAllocator* allocator_;
+  ReaderProperties properties_;
 
   void ParseMetaData();
 };

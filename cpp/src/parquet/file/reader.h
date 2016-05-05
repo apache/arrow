@@ -25,6 +25,7 @@
 #include <string>
 
 #include "parquet/column/page.h"
+#include "parquet/column/properties.h"
 #include "parquet/schema/descriptor.h"
 
 namespace parquet {
@@ -97,11 +98,11 @@ class ParquetFileReader {
 
   // API Convenience to open a serialized Parquet file on disk
   static std::unique_ptr<ParquetFileReader> OpenFile(const std::string& path,
-      bool memory_map = true, MemoryAllocator* allocator = default_allocator());
+      bool memory_map = true, ReaderProperties props = default_reader_properties());
 
   static std::unique_ptr<ParquetFileReader> Open(
       std::unique_ptr<RandomAccessSource> source,
-      MemoryAllocator* allocator = default_allocator());
+      ReaderProperties props = default_reader_properties());
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

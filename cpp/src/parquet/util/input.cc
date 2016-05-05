@@ -209,6 +209,16 @@ InMemoryInputStream::InMemoryInputStream(const std::shared_ptr<Buffer>& buffer)
   len_ = buffer_->size();
 }
 
+InMemoryInputStream::InMemoryInputStream(
+    RandomAccessSource* source, int64_t start, int64_t num_bytes)
+    : offset_(0) {
+  buffer_ = source->ReadAt(start, num_bytes);
+  if (buffer_->size() < num_bytes) {
+    throw ParquetException("Unable to read column chunk data");
+  }
+  len_ = buffer_->size();
+}
+
 const uint8_t* InMemoryInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
   *num_bytes = std::min(static_cast<int64_t>(num_to_peek), len_ - offset_);
   return buffer_->data() + offset_;
@@ -222,6 +232,50 @@ const uint8_t* InMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes
 
 void InMemoryInputStream::Advance(int64_t num_bytes) {
   offset_ += num_bytes;
+}
+
+// ----------------------------------------------------------------------
+// BufferedInputStream
+BufferedInputStream::BufferedInputStream(MemoryAllocator* pool, int64_t buffer_size,
+    RandomAccessSource* source, int64_t start, int64_t num_bytes)
+    : source_(source), stream_offset_(start), stream_end_(start + num_bytes) {
+  buffer_ = std::make_shared<OwnedMutableBuffer>(buffer_size, pool);
+  buffer_size_ = buffer_->size();
+  // Required to force a lazy read
+  buffer_offset_ = buffer_size_;
+}
+
+const uint8_t* BufferedInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
+  *num_bytes = std::min(num_to_peek, stream_end_ - stream_offset_);
+  // increase the buffer size if needed
+  if (*num_bytes > buffer_size_) {
+    buffer_->Resize(*num_bytes);
+    buffer_size_ = buffer_->size();
+    DCHECK(buffer_size_ >= *num_bytes);
+  }
+  // Read more data when buffer has insufficient left or when resized
+  if (*num_bytes > (buffer_size_ - buffer_offset_)) {
+    source_->Seek(stream_offset_);
+    buffer_size_ = std::min(buffer_size_, stream_end_ - stream_offset_);
+    int64_t bytes_read = source_->Read(buffer_size_, buffer_->mutable_data());
+    if (bytes_read < *num_bytes) {
+      throw ParquetException("Failed reading column data from source");
+    }
+    buffer_offset_ = 0;
+  }
+  return buffer_->data() + buffer_offset_;
+}
+
+const uint8_t* BufferedInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
+  const uint8_t* result = Peek(num_to_read, num_bytes);
+  stream_offset_ += *num_bytes;
+  buffer_offset_ += *num_bytes;
+  return result;
+}
+
+void BufferedInputStream::Advance(int64_t num_bytes) {
+  stream_offset_ += num_bytes;
+  buffer_offset_ += num_bytes;
 }
 
 }  // namespace parquet

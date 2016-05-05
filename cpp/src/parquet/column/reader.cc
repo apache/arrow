@@ -22,11 +22,17 @@
 #include <memory>
 
 #include "parquet/column/page.h"
+#include "parquet/column/properties.h"
 
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
 
 namespace parquet {
+
+ReaderProperties default_reader_properties() {
+  static ReaderProperties default_reader_properties;
+  return default_reader_properties;
+}
 
 ColumnReader::ColumnReader(const ColumnDescriptor* descr,
     std::unique_ptr<PageReader> pager, MemoryAllocator* allocator)

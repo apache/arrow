@@ -73,8 +73,8 @@ ParquetFileReader::~ParquetFileReader() {
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    std::unique_ptr<RandomAccessSource> source, MemoryAllocator* allocator) {
-  auto contents = SerializedFile::Open(std::move(source), allocator);
+    std::unique_ptr<RandomAccessSource> source, ReaderProperties props) {
+  auto contents = SerializedFile::Open(std::move(source), props);
 
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));
@@ -83,16 +83,16 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
-    const std::string& path, bool memory_map, MemoryAllocator* allocator) {
+    const std::string& path, bool memory_map, ReaderProperties props) {
   std::unique_ptr<LocalFileSource> file;
   if (memory_map) {
-    file.reset(new MemoryMapSource(allocator));
+    file.reset(new MemoryMapSource(props.allocator()));
   } else {
-    file.reset(new LocalFileSource(allocator));
+    file.reset(new LocalFileSource(props.allocator()));
   }
   file->Open(path);
 
-  return Open(std::move(file), allocator);
+  return Open(std::move(file), props);
 }
 
 void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> contents) {
@@ -165,10 +165,15 @@ void ParquetFileReader::DebugPrint(
     for (auto i : selected_columns) {
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
 
+      const ColumnDescriptor* descr = schema_->Column(i);
       stream << "Column " << i << ": " << group_reader->num_rows() << " rows, "
              << stats.num_values << " values, " << stats.null_count << " null values, "
-             << stats.distinct_count << " distinct values, " << *stats.max << " max, "
-             << *stats.min << " min, " << std::endl;
+             << stats.distinct_count << " distinct values, "
+             << FormatValue(
+                    descr->physical_type(), stats.max->c_str(), descr->type_length())
+             << " max, " << FormatValue(descr->physical_type(), stats.min->c_str(),
+                                descr->type_length())
+             << " min, " << std::endl;
     }
 
     if (!print_values) { continue; }

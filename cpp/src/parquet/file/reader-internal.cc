@@ -163,15 +163,12 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
   }
 
   int64_t bytes_to_read = col.meta_data.total_compressed_size;
-  std::shared_ptr<Buffer> buffer = source_->ReadAt(col_start, bytes_to_read);
+  std::unique_ptr<InputStream> stream;
 
-  if (buffer->size() < bytes_to_read) {
-    throw ParquetException("Unable to read column chunk data");
-  }
+  stream = properties_.GetStream(source_, col_start, bytes_to_read);
 
-  std::unique_ptr<InputStream> stream(new InMemoryInputStream(buffer));
   return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), FromThrift(col.meta_data.codec), allocator_));
+      std::move(stream), FromThrift(col.meta_data.codec), properties_.allocator()));
 }
 
 RowGroupStatistics SerializedRowGroup::GetColumnStats(int i) {
@@ -194,9 +191,9 @@ static constexpr uint32_t FOOTER_SIZE = 8;
 static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 
 std::unique_ptr<ParquetFileReader::Contents> SerializedFile::Open(
-    std::unique_ptr<RandomAccessSource> source, MemoryAllocator* allocator) {
+    std::unique_ptr<RandomAccessSource> source, ReaderProperties props) {
   std::unique_ptr<ParquetFileReader::Contents> result(
-      new SerializedFile(std::move(source), allocator));
+      new SerializedFile(std::move(source), props));
 
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
@@ -217,9 +214,10 @@ SerializedFile::~SerializedFile() {
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(
-      new SerializedRowGroup(source_.get(), &metadata_.row_groups[i], allocator_));
+      new SerializedRowGroup(source_.get(), &metadata_.row_groups[i], properties_));
 
-  return std::make_shared<RowGroupReader>(&schema_, std::move(contents), allocator_);
+  return std::make_shared<RowGroupReader>(
+      &schema_, std::move(contents), properties_.allocator());
 }
 
 int64_t SerializedFile::num_rows() const {
@@ -235,8 +233,8 @@ int SerializedFile::num_row_groups() const {
 }
 
 SerializedFile::SerializedFile(std::unique_ptr<RandomAccessSource> source,
-    MemoryAllocator* allocator = default_allocator())
-    : source_(std::move(source)), allocator_(allocator) {}
+    ReaderProperties props = default_reader_properties())
+    : source_(std::move(source)), properties_(props) {}
 
 void SerializedFile::ParseMetaData() {
   int64_t filesize = source_->Size();
@@ -261,7 +259,7 @@ void SerializedFile::ParseMetaData() {
   }
   source_->Seek(metadata_start);
 
-  OwnedMutableBuffer metadata_buffer(metadata_len, allocator_);
+  OwnedMutableBuffer metadata_buffer(metadata_len, properties_.allocator());
   bytes_read = source_->Read(metadata_len, &metadata_buffer[0]);
   if (bytes_read != metadata_len) {
     throw ParquetException("Invalid parquet file. Could not read metadata bytes.");

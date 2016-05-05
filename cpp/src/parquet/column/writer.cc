@@ -17,12 +17,18 @@
 
 #include "parquet/column/writer.h"
 
+#include "parquet/column/properties.h"
 #include "parquet/encodings/plain-encoding.h"
 
 namespace parquet {
 
 // ----------------------------------------------------------------------
 // ColumnWriter
+
+WriterProperties default_writer_properties() {
+  static WriterProperties default_writer_properties;
+  return default_writer_properties;
+}
 
 ColumnWriter::ColumnWriter(const ColumnDescriptor* descr,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows, MemoryAllocator* allocator)
