@@ -1,0 +1,4 @@
+global-include CMakeLists.txt
+graft cmake_modules
+recursive-include src/pyarrow *.cc *.h
+recursive-include pyarrow *.pxd
