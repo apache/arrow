@@ -189,6 +189,78 @@ TEST_F(TestListBuilder, BulkAppendInvalid) {
   ASSERT_RAISES(Invalid, result_->Validate());
 }
 
+// test slicing a ListArray
+TEST_F(TestListBuilder, TestSlice) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int> lengths = {3, 0, 4};
+  vector<uint8_t> is_valid = {1, 0, 1};
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
+
+  EXPECT_OK(builder_->Reserve(lengths.size()));
+  EXPECT_OK(vb->Reserve(values.size()));
+
+  int pos = 0;
+  for (size_t i = 0; i < lengths.size(); ++i) {
+    ASSERT_OK(builder_->Append(is_valid[i] > 0));
+    for (int j = 0; j < lengths[i]; ++j) {
+      vb->Append(values[pos++]);
+    }
+  }
+
+  Done();
+
+  ValidateBasicListArray(result_.get(), values, is_valid);
+
+  // test 1: slice original list array from 1 to 2
+  auto sliced_result = std::dynamic_pointer_cast<ListArray>(result_->Slice(1, 2));
+  auto start = 1;
+
+  ASSERT_EQ(1, sliced_result->null_count());
+  ASSERT_EQ(0, sliced_result->values()->null_count());
+  ASSERT_EQ(2, sliced_result->length());
+
+  vector<int32_t> ex_offsets = {0, 0, 4};
+  vector<int32_t> sliced_values = {3, 4, 5, 6};
+  for (size_t i = 0; i < ex_offsets.size(); ++i) {
+    ASSERT_EQ(ex_offsets[i], sliced_result->offset(i));
+  }
+
+  for (int i = 0; i < sliced_result->length(); ++i) {
+    ASSERT_EQ(!static_cast<bool>(is_valid[i + start]), sliced_result->IsNull(i));
+  }
+
+  ASSERT_EQ(4, sliced_result->values()->length());
+  Int32Array* sliced_arr = static_cast<Int32Array*>(sliced_result->values().get());
+
+  for (size_t i = 0; i < sliced_values.size(); ++i) {
+    ASSERT_EQ(sliced_values[i], sliced_arr->Value(i));
+  }
+
+  // test 2
+  auto sliced_result_2 = std::dynamic_pointer_cast<ListArray>(result_->Slice(0));
+
+  ASSERT_EQ(1, sliced_result_2->null_count());
+  ASSERT_EQ(0, sliced_result_2->values()->null_count());
+  ASSERT_EQ(3, sliced_result_2->length());
+
+  vector<int32_t> ex_offsets_2 = {0, 3, 3, 7};
+  vector<int32_t> sliced_values_2 = {0, 1, 2, 3, 4, 5, 6};
+  for (size_t i = 0; i < ex_offsets_2.size(); ++i) {
+    ASSERT_EQ(ex_offsets_2[i], sliced_result_2->offset(i));
+  }
+
+  for (int i = 0; i < sliced_result_2->length(); ++i) {
+    ASSERT_EQ(!static_cast<bool>(is_valid[i]), sliced_result_2->IsNull(i));
+  }
+
+  ASSERT_EQ(7, sliced_result_2->values()->length());
+  Int32Array* sliced_arr_2 = static_cast<Int32Array*>(sliced_result_2->values().get());
+
+  for (size_t i = 0; i < sliced_values_2.size(); ++i) {
+    ASSERT_EQ(sliced_values_2[i], sliced_arr_2->Value(i));
+  }
+}
+
 TEST_F(TestListBuilder, TestZeroLength) {
   // All buffers are null
   Done();

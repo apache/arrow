@@ -72,6 +72,9 @@ static inline int64_t next_power2(int64_t n) {
 }
 
 void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
+// return the count of null bits of target
+int32_t bytes_to_bits(
+    const uint8_t* source, int64_t from, int64_t length, uint8_t* target);
 Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 }  // namespace util

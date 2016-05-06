@@ -63,6 +63,14 @@ class Array {
   // returning Status::OK.  This can be an expensive check.
   virtual Status Validate() const;
 
+  virtual std::shared_ptr<Array> Slice(int32_t start) const { return nullptr; }
+  virtual std::shared_ptr<Array> Slice(int32_t start, int32_t length) const {
+    return nullptr;
+  }
+  // slice null_bitmap_
+  virtual Status SliceNullBitmap(std::shared_ptr<Buffer>* out_buf,
+      int32_t& out_null_count, int32_t start, int32_t length) const;
+
  protected:
   std::shared_ptr<DataType> type_;
   int32_t null_count_;

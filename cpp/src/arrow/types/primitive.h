@@ -28,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -64,6 +65,43 @@ class PrimitiveArray : public Array {
                                                                                        \
     bool EqualsExact(const NAME& other) const {                                        \
       return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
+    }                                                                                  \
+                                                                                       \
+    virtual std::shared_ptr<Array> Slice(int32_t start) const {                        \
+      return Slice(start, length_);                                                    \
+    }                                                                                  \
+                                                                                       \
+    virtual std::shared_ptr<Array> Slice(int32_t start, int32_t length) const {        \
+      int32_t sliced_from = start;                                                     \
+      int32_t sliced_length = length;                                                  \
+      if (data_ == nullptr || sliced_length == 0) { return nullptr; }                  \
+      DCHECK_GE(sliced_from, 0);                                                       \
+      DCHECK_GT(sliced_length, 0);                                                     \
+      sliced_length = sliced_length <= length_ - sliced_from ? sliced_length           \
+                                                             : length_ - sliced_from;  \
+                                                                                       \
+      DCHECK_LE(sliced_length + sliced_from, length_);                                 \
+      DCHECK_GT(sliced_length, 0);                                                     \
+      if (sliced_from > length_) { return nullptr; }                                   \
+      if (sliced_length > (length_ - sliced_from)) {                                   \
+        sliced_length = length_ - sliced_from;                                         \
+      }                                                                                \
+      DCHECK_LE(sliced_from + sliced_length, length_);                                 \
+                                                                                       \
+      auto parent_data = data_;                                                        \
+      auto sliced_buf = std::make_shared<Buffer>(parent_data,                          \
+          static_cast<int64_t>(sliced_from * sizeof(T)),                               \
+          static_cast<int64_t>(sliced_length * sizeof(T)));                            \
+                                                                                       \
+      int32_t sliced_null_count = 0;                                                   \
+      std::shared_ptr<Buffer> sliced_null_bitmap = nullptr;                            \
+      if (null_count_ > 0 && null_bitmap_ != nullptr) {                                \
+        Array::SliceNullBitmap(                                                        \
+            &sliced_null_bitmap, sliced_null_count, sliced_from, sliced_length);       \
+      }                                                                                \
+                                                                                       \
+      return std::make_shared<NAME>(                                                   \
+          sliced_length, sliced_buf, sliced_null_count, sliced_null_bitmap);           \
     }                                                                                  \
                                                                                        \
     const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }        \
