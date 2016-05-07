@@ -54,9 +54,11 @@ class MemoryMappedSource::Impl {
     if (is_open_) { return Status::IOError("A file is already open"); }
 
     path_ = path;
+    int prot_flag = PROT_READ;
 
     if (mode == MemorySource::READ_WRITE) {
       file_ = fopen(path.c_str(), "r+b");
+      prot_flag |= PROT_WRITE;
     } else {
       file_ = fopen(path.c_str(), "rb");
     }
@@ -73,9 +75,8 @@ class MemoryMappedSource::Impl {
     fseek(file_, 0L, SEEK_SET);
     is_open_ = true;
 
-    // TODO(wesm): Add read-only version of this
     data_ = reinterpret_cast<uint8_t*>(
-        mmap(nullptr, size_, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(file_), 0));
+        mmap(nullptr, size_, prot_flag, MAP_SHARED, fileno(file_), 0));
     if (data_ == nullptr) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
