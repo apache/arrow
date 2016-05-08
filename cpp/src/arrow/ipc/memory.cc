@@ -41,7 +41,7 @@ MemorySource::~MemorySource() {}
 
 class MemoryMappedSource::Impl {
  public:
-  Impl() : file_(nullptr), is_open_(false), data_(nullptr) {}
+  Impl() : file_(nullptr), is_open_(false), is_writable_(false), data_(nullptr) {}
 
   ~Impl() {
     if (is_open_) {
