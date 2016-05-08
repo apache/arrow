@@ -53,7 +53,7 @@ class MemoryMappedSource::Impl {
   Status Open(const std::string& path, MemorySource::AccessMode mode) {
     if (is_open_) { return Status::IOError("A file is already open"); }
 
-    uint8_t prot_flags = PROT_READ;
+    int8_t prot_flags = PROT_READ;
 
     if (mode == MemorySource::READ_WRITE) {
       file_ = fopen(path.c_str(), "r+b");
@@ -77,7 +77,7 @@ class MemoryMappedSource::Impl {
 
     void* result = mmap(nullptr, size_, prot_flags, MAP_SHARED, fileno(file_), 0);
     if (result == MAP_FAILED) {
-      std::stringstream ss  ;
+      std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
       return Status::IOError(ss.str());
     }
