@@ -26,9 +26,6 @@
 
 #include "arrow/ipc/memory.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/test-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {
@@ -90,7 +87,7 @@ TEST_F(TestMemoryMappedSource, ReadOnly) {
   rwmmap->Close();
 
   std::shared_ptr<MemoryMappedSource> rommap;
-  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_WRITE, &rommap));
+  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
 
   position = 0;
   std::shared_ptr<Buffer> out_buffer;
@@ -101,6 +98,21 @@ TEST_F(TestMemoryMappedSource, ReadOnly) {
     position += buffer_size;
   }
   rommap->Close();
+}
+
+TEST_F(TestMemoryMappedSource, InvalidMode) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  std::string path = "ipc-invalid-mode-test";
+  CreateFile(path, buffer_size);
+
+  std::shared_ptr<MemoryMappedSource> rommap;
+  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
+
+  ASSERT_RAISES(IOError, rommap->Write(0, buffer.data(), buffer_size));
 }
 
 TEST_F(TestMemoryMappedSource, InvalidFile) {

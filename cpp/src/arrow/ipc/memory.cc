@@ -53,12 +53,11 @@ class MemoryMappedSource::Impl {
   Status Open(const std::string& path, MemorySource::AccessMode mode) {
     if (is_open_) { return Status::IOError("A file is already open"); }
 
-    path_ = path;
-    int prot_flag = PROT_READ;
+    prot_flags = PROT_READ;
 
     if (mode == MemorySource::READ_WRITE) {
       file_ = fopen(path.c_str(), "r+b");
-      prot_flag |= PROT_WRITE;
+      prot_flags |= PROT_WRITE;
     } else {
       file_ = fopen(path.c_str(), "rb");
     }
@@ -75,13 +74,13 @@ class MemoryMappedSource::Impl {
     fseek(file_, 0L, SEEK_SET);
     is_open_ = true;
 
-    data_ = reinterpret_cast<uint8_t*>(
-        mmap(nullptr, size_, prot_flag, MAP_SHARED, fileno(file_), 0));
-    if (data_ == nullptr) {
-      std::stringstream ss;
+    void* result = mmap(nullptr, size_, prot_flags, MAP_SHARED, fileno(file_), 0);
+    if (result == MAP_FAILED) {
+      std::stringstream ss  ;
       ss << "Memory mapping file failed, errno: " << errno;
       return Status::IOError(ss.str());
     }
+    data_ = reinterpret_cast<uint8_t*>(result);
 
     return Status::OK();
   }
@@ -90,11 +89,13 @@ class MemoryMappedSource::Impl {
 
   uint8_t* data() { return data_; }
 
+  bool writable() { return (prot_flags & PROT_WRITE) == PROT_WRITE; }
+
  private:
-  std::string path_;
   FILE* file_;
   int64_t size_;
   bool is_open_;
+  uint8_t prot_flags;
 
   // The memory map
   uint8_t* data_;
@@ -135,6 +136,9 @@ Status MemoryMappedSource::ReadAt(
 }
 
 Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t nbytes) {
+  if (!impl_->writable()) {
+    return Status::IOError("Unable to write");
+  }
   if (position < 0 || position >= impl_->size()) {
     return Status::Invalid("position is out of bounds");
   }
