@@ -45,4 +45,4 @@ Status ToParquetSchema(
 
 }  // namespace arrow
 
-#endif // ARROW_PARQUET_SCHEMA_H
+#endif  // ARROW_PARQUET_SCHEMA_H

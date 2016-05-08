@@ -78,8 +78,7 @@ class FlatColumnReader;
 // arrays
 class FileReader {
  public:
-  ArrowReader(MemoryPool* pool,
-      std::unique_ptr<::parquet::ParquetFileReader> reader);
+  FileReader(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -89,6 +88,10 @@ class FileReader {
   //
   // Returns error status if the column of interest is not flat.
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
+  // Read column as a whole into an Array.
+  Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
+
+  virtual ~FileReader();
 
  private:
   class Impl;
@@ -103,6 +106,8 @@ class FileReader {
 // might change in the future.
 class FlatColumnReader {
  public:
+  virtual ~FlatColumnReader();
+
   // Scan the next array of the indicated size. The actual size of the
   // returned array may be less than the passed size depending how much data is
   // available in the file.
@@ -117,12 +122,13 @@ class FlatColumnReader {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
+  FlatColumnReader(std::unique_ptr<Impl> impl);
 
   friend class FileReader;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-} // namespace arrow
+}  // namespace arrow
 
-#endif ARROW_PARQUET_READER_H
+#endif  // ARROW_PARQUET_READER_H
