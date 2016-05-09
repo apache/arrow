@@ -21,6 +21,7 @@ install(FILES
   levels.h
   reader.h
   scanner.h
+  writer.h
   DESTINATION include/parquet/column)
 
 ADD_PARQUET_TEST(column-reader-test)
