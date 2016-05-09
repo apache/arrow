@@ -31,6 +31,28 @@ class LevelEncoder {
  public:
   LevelEncoder() {}
 
+  static int MaxBufferSize(
+      Encoding::type encoding, int16_t max_level, int num_buffered_values) {
+    int bit_width = BitUtil::Log2(max_level + 1);
+    int num_bytes = 0;
+    switch (encoding) {
+      case Encoding::RLE: {
+        // TODO: Due to the way we currently check if the buffer is full enough,
+        // we need to have MinBufferSize as head room.
+        num_bytes = RleEncoder::MaxBufferSize(bit_width, num_buffered_values) +
+                    RleEncoder::MinBufferSize(bit_width);
+        break;
+      }
+      case Encoding::BIT_PACKED: {
+        num_bytes = BitUtil::Ceil(num_buffered_values * bit_width, 8);
+        break;
+      }
+      default:
+        throw ParquetException("Unknown encoding type for levels.");
+    }
+    return num_bytes;
+  }
+
   // Initialize the LevelEncoder.
   void Init(Encoding::type encoding, int16_t max_level, int num_buffered_values,
       uint8_t* data, int data_size) {

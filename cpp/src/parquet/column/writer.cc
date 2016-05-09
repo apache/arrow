@@ -62,7 +62,9 @@ void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, int16_t* levels) {
 std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(
     const std::shared_ptr<Buffer>& buffer, int16_t max_level) {
   // TODO: This only works with due to some RLE specifics
-  int64_t rle_size = 2 * num_buffered_values_ + sizeof(uint32_t);
+  int64_t rle_size =
+      LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, num_buffered_values_) +
+      sizeof(uint32_t);
   auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size, allocator_);
   level_encoder_.Init(Encoding::RLE, max_level, num_buffered_values_,
       buffer_rle->mutable_data() + sizeof(uint32_t),
