@@ -53,6 +53,8 @@ class ColumnDescriptor {
 
   const std::shared_ptr<schema::ColumnPath> path() const;
 
+  const schema::NodePtr& schema_node() const { return node_; }
+
   int type_length() const;
 
   int type_precision() const;
