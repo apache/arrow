@@ -19,5 +19,6 @@
 install(FILES
   io.h
   reader.h
+  writer.h
   schema.h
   DESTINATION include/parquet/api)
