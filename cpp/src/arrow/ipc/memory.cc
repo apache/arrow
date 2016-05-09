@@ -53,7 +53,7 @@ class MemoryMappedSource::Impl {
   Status Open(const std::string& path, MemorySource::AccessMode mode) {
     if (is_open_) { return Status::IOError("A file is already open"); }
 
-    int8_t prot_flags = PROT_READ;
+    int prot_flags = PROT_READ;
 
     if (mode == MemorySource::READ_WRITE) {
       file_ = fopen(path.c_str(), "r+b");
