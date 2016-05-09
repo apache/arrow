@@ -23,7 +23,6 @@
 
 #include "parquet/util/input.h"
 #include "parquet/util/mem-allocator.h"
-#include "parquet/types.h"
 
 namespace parquet {
 

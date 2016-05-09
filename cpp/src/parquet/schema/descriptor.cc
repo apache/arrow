@@ -18,6 +18,7 @@
 #include "parquet/schema/descriptor.h"
 
 #include "parquet/exception.h"
+#include "parquet/util/logging.h"
 
 namespace parquet {
 
@@ -42,12 +43,12 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
   leaves_.clear();
 
   for (int i = 0; i < group_->field_count(); ++i) {
-    BuildTree(group_->field(i), 0, 0);
+    BuildTree(group_->field(i), 0, 0, group_->field(i));
   }
 }
 
-void SchemaDescriptor::BuildTree(
-    const NodePtr& node, int16_t max_def_level, int16_t max_rep_level) {
+void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
+    int16_t max_rep_level, const NodePtr& base) {
   if (node->is_optional()) {
     ++max_def_level;
   } else if (node->is_repeated()) {
@@ -61,11 +62,12 @@ void SchemaDescriptor::BuildTree(
   if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
     for (int i = 0; i < group->field_count(); ++i) {
-      BuildTree(group->field(i), max_def_level, max_rep_level);
+      BuildTree(group->field(i), max_def_level, max_rep_level, base);
     }
   } else {
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
+    leaf_to_base_.emplace(leaves_.size() - 1, base);
   }
 }
 
@@ -81,7 +83,13 @@ ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
 }
 
 const ColumnDescriptor* SchemaDescriptor::Column(int i) const {
+  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
   return &leaves_[i];
+}
+
+const schema::NodePtr& SchemaDescriptor::GetColumnRoot(int i) const {
+  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
+  return leaf_to_base_.find(i)->second;
 }
 
 int ColumnDescriptor::type_scale() const {

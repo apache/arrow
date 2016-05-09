@@ -19,6 +19,7 @@
 install(FILES
   page.h
   levels.h
+  properties.h
   reader.h
   scanner.h
   writer.h

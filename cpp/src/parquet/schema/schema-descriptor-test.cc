@@ -75,7 +75,8 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   NodeVector fields;
   NodePtr schema;
 
-  fields.push_back(Int32("a", Repetition::REQUIRED));
+  NodePtr inta = Int32("a", Repetition::REQUIRED);
+  fields.push_back(inta);
   fields.push_back(Int64("b", Repetition::OPTIONAL));
   fields.push_back(ByteArray("c", Repetition::REPEATED));
 
@@ -121,6 +122,13 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(descr_.Column(3)->path()->ToDotString(), "bag.records.item1");
   ASSERT_EQ(descr_.Column(4)->path()->ToDotString(), "bag.records.item2");
   ASSERT_EQ(descr_.Column(5)->path()->ToDotString(), "bag.records.item3");
+
+  ASSERT_EQ(inta.get(), descr_.GetColumnRoot(0).get());
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(3).get());
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(4).get());
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(5).get());
+
+  ASSERT_EQ(schema.get(), descr_.group());
 
   // Init clears the leaves
   descr_.Init(schema);

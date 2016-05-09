@@ -101,14 +101,19 @@ class SchemaDescriptor {
 
   const schema::NodePtr& schema() const { return schema_; }
 
+  const schema::GroupNode* group() const { return group_; }
+
+  // Returns the root (child of the schema root) node of the leaf(column) node
+  const schema::NodePtr& GetColumnRoot(int i) const;
+
  private:
   friend class ColumnDescriptor;
 
   schema::NodePtr schema_;
   const schema::GroupNode* group_;
 
-  void BuildTree(
-      const schema::NodePtr& node, int16_t max_def_level, int16_t max_rep_level);
+  void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
+      int16_t max_rep_level, const schema::NodePtr& base);
 
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
@@ -122,7 +127,7 @@ class SchemaDescriptor {
   // -- -- b     |
   // -- -- -- c  |
   // -- -- -- -- d
-  std::unordered_map<int, schema::NodePtr> leaf_to_base_;
+  std::unordered_map<int, const schema::NodePtr> leaf_to_base_;
 };
 
 }  // namespace parquet
