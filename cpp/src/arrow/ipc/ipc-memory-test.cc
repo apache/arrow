@@ -26,9 +26,6 @@
 
 #include "arrow/ipc/memory.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/test-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {
@@ -65,6 +62,57 @@ TEST_F(TestMemoryMappedSource, WriteRead) {
 
     position += buffer_size;
   }
+}
+
+TEST_F(TestMemoryMappedSource, ReadOnly) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  const int reps = 5;
+
+  std::string path = "ipc-read-only-test";
+  CreateFile(path, reps * buffer_size);
+
+  std::shared_ptr<MemoryMappedSource> rwmmap;
+  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_WRITE, &rwmmap));
+
+  int64_t position = 0;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rwmmap->Write(position, buffer.data(), buffer_size));
+
+    position += buffer_size;
+  }
+  rwmmap->Close();
+
+  std::shared_ptr<MemoryMappedSource> rommap;
+  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
+
+  position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rommap->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rommap->Close();
+}
+
+TEST_F(TestMemoryMappedSource, InvalidMode) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  std::string path = "ipc-invalid-mode-test";
+  CreateFile(path, buffer_size);
+
+  std::shared_ptr<MemoryMappedSource> rommap;
+  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
+
+  ASSERT_RAISES(IOError, rommap->Write(0, buffer.data(), buffer_size));
 }
 
 TEST_F(TestMemoryMappedSource, InvalidFile) {

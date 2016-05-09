@@ -41,7 +41,7 @@ MemorySource::~MemorySource() {}
 
 class MemoryMappedSource::Impl {
  public:
-  Impl() : file_(nullptr), is_open_(false), data_(nullptr) {}
+  Impl() : file_(nullptr), is_open_(false), is_writable_(false), data_(nullptr) {}
 
   ~Impl() {
     if (is_open_) {
@@ -53,10 +53,12 @@ class MemoryMappedSource::Impl {
   Status Open(const std::string& path, MemorySource::AccessMode mode) {
     if (is_open_) { return Status::IOError("A file is already open"); }
 
-    path_ = path;
+    int prot_flags = PROT_READ;
 
     if (mode == MemorySource::READ_WRITE) {
       file_ = fopen(path.c_str(), "r+b");
+      prot_flags |= PROT_WRITE;
+      is_writable_ = true;
     } else {
       file_ = fopen(path.c_str(), "rb");
     }
@@ -73,14 +75,13 @@ class MemoryMappedSource::Impl {
     fseek(file_, 0L, SEEK_SET);
     is_open_ = true;
 
-    // TODO(wesm): Add read-only version of this
-    data_ = reinterpret_cast<uint8_t*>(
-        mmap(nullptr, size_, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(file_), 0));
-    if (data_ == nullptr) {
+    void* result = mmap(nullptr, size_, prot_flags, MAP_SHARED, fileno(file_), 0);
+    if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
       return Status::IOError(ss.str());
     }
+    data_ = reinterpret_cast<uint8_t*>(result);
 
     return Status::OK();
   }
@@ -89,11 +90,15 @@ class MemoryMappedSource::Impl {
 
   uint8_t* data() { return data_; }
 
+  bool writable() { return is_writable_; }
+
+  bool opened() { return is_open_; }
+
  private:
-  std::string path_;
   FILE* file_;
   int64_t size_;
   bool is_open_;
+  bool is_writable_;
 
   // The memory map
   uint8_t* data_;
@@ -134,6 +139,9 @@ Status MemoryMappedSource::ReadAt(
 }
 
 Status MemoryMappedSource::Write(int64_t position, const uint8_t* data, int64_t nbytes) {
+  if (!impl_->opened() || !impl_->writable()) {
+    return Status::IOError("Unable to write");
+  }
   if (position < 0 || position >= impl_->size()) {
     return Status::Invalid("position is out of bounds");
   }
