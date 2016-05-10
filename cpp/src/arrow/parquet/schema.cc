@@ -21,13 +21,12 @@
 #include <vector>
 
 #include "parquet/api/schema.h"
-#include "parquet/exception.h"
 
+#include "arrow/parquet/utils.h"
 #include "arrow/types/decimal.h"
 #include "arrow/types/string.h"
 #include "arrow/util/status.h"
 
-using parquet::ParquetException;
 using parquet::Repetition;
 using parquet::schema::Node;
 using parquet::schema::NodePtr;
@@ -40,11 +39,6 @@ using parquet::LogicalType;
 namespace arrow {
 
 namespace parquet {
-
-#define PARQUET_CATCH_NOT_OK(s) \
-  try {                         \
-    (s);                        \
-  } catch (const ParquetException& e) { return Status::Invalid(e.what()); }
 
 const auto BOOL = std::make_shared<BooleanType>();
 const auto UINT8 = std::make_shared<UInt8Type>();

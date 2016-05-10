@@ -23,12 +23,8 @@
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
-#include "parquet/api/schema.h"
-#include "parquet/column/writer.h"
-#include "parquet/file/reader.h"
-#include "parquet/file/writer.h"
-#include "parquet/util/input.h"
-#include "parquet/util/output.h"
+#include "parquet/api/reader.h"
+#include "parquet/api/writer.h"
 
 using ParquetBuffer = parquet::Buffer;
 using parquet::BufferReader;
