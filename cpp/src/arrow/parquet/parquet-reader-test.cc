@@ -84,7 +84,7 @@ TEST_F(TestReadParquet, SingleColumnInt64) {
   std::unique_ptr<ParquetFileReader> file_reader = Int64File(values, 1);
   arrow::parquet::FileReader reader(default_memory_pool(), std::move(file_reader));
   std::unique_ptr<arrow::parquet::FlatColumnReader> column_reader;
-  ASSERT_OK(reader.GetFlatColumn(0, &column_reader));
+  ASSERT_NO_THROW(ASSERT_OK(reader.GetFlatColumn(0, &column_reader)));
   ASSERT_NE(nullptr, column_reader.get());
   std::shared_ptr<Array> out;
   ASSERT_OK(column_reader->NextBatch(100, &out));
@@ -100,7 +100,7 @@ TEST_F(TestReadParquet, SingleColumnInt64Chunked) {
   std::unique_ptr<ParquetFileReader> file_reader = Int64File(values, 4);
   arrow::parquet::FileReader reader(default_memory_pool(), std::move(file_reader));
   std::unique_ptr<arrow::parquet::FlatColumnReader> column_reader;
-  ASSERT_OK(reader.GetFlatColumn(0, &column_reader));
+  ASSERT_NO_THROW(ASSERT_OK(reader.GetFlatColumn(0, &column_reader)));
   ASSERT_NE(nullptr, column_reader.get());
   std::shared_ptr<Array> out;
   ASSERT_OK(column_reader->NextBatch(100, &out));
