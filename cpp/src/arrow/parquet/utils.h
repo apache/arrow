@@ -15,34 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PARQUET_SCHEMA_H
-#define ARROW_PARQUET_SCHEMA_H
+#ifndef ARROW_PARQUET_UTILS_H
+#define ARROW_PARQUET_UTILS_H
 
-#include <memory>
+#include "arrow/util/status.h"
 
-#include "parquet/api/schema.h"
-
-#include "arrow/schema.h"
-#include "arrow/type.h"
+#include "parquet/exception.h"
 
 namespace arrow {
 
-class Status;
-
 namespace parquet {
 
-Status NodeToField(const ::parquet::schema::NodePtr& node, std::shared_ptr<Field>* out);
-
-Status FromParquetSchema(
-    const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out);
-
-Status FieldToNode(const std::shared_ptr<Field>& field, ::parquet::schema::NodePtr* out);
-
-Status ToParquetSchema(
-    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out);
+#define PARQUET_CATCH_NOT_OK(s) \
+  try {                         \
+    (s);                        \
+  } catch (const ::parquet::ParquetException& e) { return Status::Invalid(e.what()); }
 
 }  // namespace parquet
 
 }  // namespace arrow
 
-#endif  // ARROW_PARQUET_SCHEMA_H
+#endif  // ARROW_PARQUET_UTILS_H

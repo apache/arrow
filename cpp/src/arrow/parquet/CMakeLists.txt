@@ -19,6 +19,7 @@
 # arrow_parquet : Arrow <-> Parquet adapter
 
 set(PARQUET_SRCS
+  reader.cc
   schema.cc
 )
 
@@ -35,6 +36,9 @@ SET_TARGET_PROPERTIES(arrow_parquet PROPERTIES LINKER_LANGUAGE CXX)
 
 ADD_ARROW_TEST(parquet-schema-test)
 ARROW_TEST_LINK_LIBRARIES(parquet-schema-test arrow_parquet)
+
+ADD_ARROW_TEST(parquet-reader-test)
+ARROW_TEST_LINK_LIBRARIES(parquet-reader-test arrow_parquet)
 
 # Headers: top level
 install(FILES
