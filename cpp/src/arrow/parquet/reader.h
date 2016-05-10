@@ -122,7 +122,7 @@ class FlatColumnReader {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  FlatColumnReader(std::unique_ptr<Impl> impl);
+  explicit FlatColumnReader(std::unique_ptr<Impl> impl);
 
   friend class FileReader;
 };
