@@ -76,7 +76,6 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
 
   int64_t nbytes = type_traits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
-  memset(data_->mutable_data(), 0, nbytes);
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
@@ -92,14 +91,10 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
 
-    int64_t old_bytes = data_->size();
-    int64_t new_bytes = type_traits<T>::bytes_required(capacity);
+    const int64_t new_bytes = type_traits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-
-    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
   }
-  capacity_ = capacity;
   return Status::OK();
 }
 

@@ -197,8 +197,8 @@ INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
 
 void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
   MockMemorySource mock_source(1 << 16);
-  int64_t mock_header_location;
-  int64_t size;
+  int64_t mock_header_location = -1;
+  int64_t size = -1;
   ASSERT_OK(WriteRowBatch(&mock_source, batch.get(), 0, &mock_header_location));
   ASSERT_OK(GetRowBatchSize(batch.get(), &size));
   ASSERT_EQ(mock_source.GetExtentBytesWritten(), size);
@@ -270,7 +270,7 @@ TEST_F(RecursionLimits, WriteLimit) {
 }
 
 TEST_F(RecursionLimits, ReadLimit) {
-  int64_t header_location;
+  int64_t header_location = -1;
   std::shared_ptr<Schema> schema;
   ASSERT_OK(WriteToMmap(64, true, &header_location, &schema));
 

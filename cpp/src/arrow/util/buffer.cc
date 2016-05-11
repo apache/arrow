@@ -19,15 +19,31 @@
 
 #include <cstdint>
 
+#include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
+namespace {
+int64_t RoundUpToMultipleOf64(int64_t num) {
+  DCHECK_GE(num, 0);
+  constexpr int64_t round_to = 64;
+  constexpr int64_t multiple_bitmask = round_to - 1;
+  int64_t remainder = num & multiple_bitmask;
+  int rounded = num;
+  if (remainder) { rounded += 64 - remainder; }
+  // handle overflow.  This should result in a malloc error upstream
+  if (rounded > 0) { num = rounded; }
+  return num;
+}
+}  // namespace
+
 Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size) {
   data_ = parent->data() + offset;
   size_ = size;
   parent_ = parent;
+  capacity_ = size;
 }
 
 Buffer::~Buffer() {}
@@ -48,6 +64,7 @@ PoolBuffer::~PoolBuffer() {
 Status PoolBuffer::Reserve(int64_t new_capacity) {
   if (!mutable_data_ || new_capacity > capacity_) {
     uint8_t* new_data;
+    new_capacity = RoundUpToMultipleOf64(new_capacity);
     if (mutable_data_) {
       RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
       memcpy(new_data, mutable_data_, size_);

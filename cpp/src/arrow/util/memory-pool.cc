@@ -17,6 +17,7 @@
 
 #include "arrow/util/memory-pool.h"
 
+#include <stdlib.h>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
@@ -44,12 +45,20 @@ class InternalMemoryPool : public MemoryPool {
 };
 
 Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
+  constexpr size_t kAlignment = 64;
   std::lock_guard<std::mutex> guard(pool_lock_);
-  *out = static_cast<uint8_t*>(std::malloc(size));
-  if (*out == nullptr) {
+  // TODO(emkornfield) find something compatible with windows
+  const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment, size);
+  if (result == ENOMEM) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
     return Status::OutOfMemory(ss.str());
+  }
+
+  if (result == EINVAL) {
+    std::stringstream ss;
+    ss << "invalid alignment parameter: " << kAlignment;
+    return Status::Invalid(ss.str());
   }
 
   bytes_allocated_ += size;

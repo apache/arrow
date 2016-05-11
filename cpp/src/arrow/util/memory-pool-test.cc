@@ -31,6 +31,7 @@ TEST(DefaultMemoryPool, MemoryTracking) {
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
+  EXPECT_EQ(0, reinterpret_cast<uint64_t>(data) % 64);
   ASSERT_EQ(100, pool->bytes_allocated());
 
   pool->Free(data, 100);

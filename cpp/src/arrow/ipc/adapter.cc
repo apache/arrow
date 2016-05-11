@@ -115,6 +115,8 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   } else if (arr->type_enum() == Type::STRUCT) {
     // TODO(wesm)
     return Status::NotImplemented("Struct type");
+  } else {
+    return Status::NotImplemented("Unrecognized type");
   }
   return Status::OK();
 }
@@ -142,7 +144,13 @@ class RowBatchWriter {
       int64_t size = 0;
 
       // The buffer might be null if we are handling zero row lengths.
-      if (buffer) { size = buffer->size(); }
+      if (buffer) {
+        // We use capacity here, because size might not reflect the padding
+        // requirements of buffers but capacity always should.
+        size = buffer->capacity();
+        // check that padding is appropriate
+        DCHECK_EQ(size % 64, 0);
+      }
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
       // future. Use page=0 for now

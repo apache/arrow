@@ -45,12 +45,14 @@ Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int32_t length) 
 }
 
 Status ArrayBuilder::Init(int32_t capacity) {
-  capacity_ = capacity;
   int32_t to_alloc = util::ceil_byte(capacity) / 8;
   null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
+  // Buffers might allocate more then necessary to satisfy padding requirements
+  const int byte_capacity = null_bitmap_->capacity();
+  capacity_ = capacity;
   null_bitmap_data_ = null_bitmap_->mutable_data();
-  memset(null_bitmap_data_, 0, to_alloc);
+  memset(null_bitmap_data_, 0, byte_capacity);
   return Status::OK();
 }
 
@@ -60,8 +62,11 @@ Status ArrayBuilder::Resize(int32_t new_bits) {
   int32_t old_bytes = null_bitmap_->size();
   RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
   null_bitmap_data_ = null_bitmap_->mutable_data();
+  // The buffer might be overpadded to deal with padding according to the spec
+  const int32_t byte_capacity = null_bitmap_->capacity();
+  capacity_ = new_bits;
   if (old_bytes < new_bytes) {
-    memset(null_bitmap_data_ + old_bytes, 0, new_bytes - old_bytes);
+    memset(null_bitmap_data_ + old_bytes, 0, byte_capacity - old_bytes);
   }
   return Status::OK();
 }
