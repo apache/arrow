@@ -8,14 +8,7 @@ out-of-source builds with the latter one being preferred.
 Arrow requires a C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
 sufficient.
 
-To build the thirdparty build dependencies, run:
-
-```
-./thirdparty/download_thirdparty.sh
-./thirdparty/build_thirdparty.sh
-```
-
-You can also run from the root of the C++ tree
+To build the thirdparty build dependencies, run from the root of the C++ tree
 
 ```
 source setup_build_env.sh
