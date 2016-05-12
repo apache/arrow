@@ -24,7 +24,7 @@
 
 namespace parquet {
 
-std::string FormatValue(Type::type parquet_type, const char* val, int length) {
+std::string FormatStatValue(Type::type parquet_type, const char* val) {
   std::stringstream result;
   switch (parquet_type) {
     case Type::BOOLEAN:
@@ -49,23 +49,69 @@ std::string FormatValue(Type::type parquet_type, const char* val, int length) {
       break;
     }
     case Type::BYTE_ARRAY: {
-      const ByteArray* a = reinterpret_cast<const ByteArray*>(val);
-      for (int i = 0; i < static_cast<int>(a->len); i++) {
-        result << a[0].ptr[i] << " ";
-      }
+      result << val << " ";
       break;
     }
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      const FLBA* a = reinterpret_cast<const FLBA*>(val);
-      for (int i = 0; i < length; i++) {
-        result << a[0].ptr[i] << " ";
-      }
+      result << val << " ";
       break;
     }
     default:
       break;
   }
   return result.str();
+}
+
+std::string encoding_to_string(Encoding::type t) {
+  switch (t) {
+    case Encoding::PLAIN:
+      return "PLAIN";
+      break;
+    case Encoding::PLAIN_DICTIONARY:
+      return "PLAIN_DICTIONARY";
+      break;
+    case Encoding::RLE:
+      return "RLE";
+      break;
+    case Encoding::BIT_PACKED:
+      return "BIT_PACKED";
+      break;
+    case Encoding::DELTA_BINARY_PACKED:
+      return "DELTA_BINARY_PACKED";
+      break;
+    case Encoding::DELTA_LENGTH_BYTE_ARRAY:
+      return "DELTA_LENGTH_BYTE_ARRAY";
+      break;
+    case Encoding::DELTA_BYTE_ARRAY:
+      return "DELTA_BYTE_ARRAY";
+      break;
+    case Encoding::RLE_DICTIONARY:
+      return "RLE_DICTIONARY";
+      break;
+    default:
+      return "UNKNOWN";
+      break;
+  }
+}
+
+std::string compression_to_string(Compression::type t) {
+  switch (t) {
+    case Compression::UNCOMPRESSED:
+      return "UNCOMPRESSED";
+      break;
+    case Compression::SNAPPY:
+      return "SNAPPY";
+      break;
+    case Compression::GZIP:
+      return "GZIP";
+      break;
+    case Compression::LZO:
+      return "LZO";
+      break;
+    default:
+      return "UNKNOWN";
+      break;
+  }
 }
 
 std::string type_to_string(Type::type t) {

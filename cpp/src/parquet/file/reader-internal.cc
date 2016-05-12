@@ -171,7 +171,7 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
       std::move(stream), FromThrift(col.meta_data.codec), properties_.allocator()));
 }
 
-RowGroupStatistics SerializedRowGroup::GetColumnStats(int i) {
+RowGroupStatistics SerializedRowGroup::GetColumnStats(int i) const {
   const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
 
   RowGroupStatistics result;
@@ -180,8 +180,37 @@ RowGroupStatistics SerializedRowGroup::GetColumnStats(int i) {
   result.distinct_count = meta_data.statistics.distinct_count;
   result.max = &meta_data.statistics.max;
   result.min = &meta_data.statistics.min;
-
   return result;
+}
+
+bool SerializedRowGroup::IsColumnStatsSet(int i) const {
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+  return meta_data.__isset.statistics;
+}
+
+Compression::type SerializedRowGroup::GetColumnCompression(int i) const {
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+  return FromThrift(meta_data.codec);
+}
+
+std::vector<Encoding::type> SerializedRowGroup::GetColumnEncodings(int i) const {
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+
+  std::vector<Encoding::type> encodings;
+  for (auto encoding : meta_data.encodings) {
+    encodings.push_back(FromThrift(encoding));
+  }
+  return encodings;
+}
+
+int64_t SerializedRowGroup::GetColumnUnCompressedSize(int i) const {
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+  return meta_data.total_uncompressed_size;
+}
+
+int64_t SerializedRowGroup::GetColumnCompressedSize(int i) const {
+  const format::ColumnMetaData& meta_data = metadata_->columns[i].meta_data;
+  return meta_data.total_compressed_size;
 }
 
 // ----------------------------------------------------------------------

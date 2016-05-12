@@ -266,11 +266,15 @@ inline std::string format_fwf(int width) {
   return ss.str();
 }
 
+std::string compression_to_string(Compression::type t);
+
+std::string encoding_to_string(Encoding::type t);
+
 std::string logical_type_to_string(LogicalType::type t);
 
 std::string type_to_string(Type::type t);
 
-std::string FormatValue(Type::type parquet_type, const char* val, int length);
+std::string FormatStatValue(Type::type parquet_type, const char* val);
 }  // namespace parquet
 
 #endif  // PARQUET_TYPES_H

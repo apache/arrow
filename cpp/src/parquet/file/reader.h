@@ -23,6 +23,7 @@
 #include <memory>
 #include <list>
 #include <string>
+#include <vector>
 
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
@@ -47,8 +48,13 @@ class RowGroupReader {
   struct Contents {
     virtual int num_columns() const = 0;
     virtual int64_t num_rows() const = 0;
-    virtual RowGroupStatistics GetColumnStats(int i) = 0;
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
+    virtual RowGroupStatistics GetColumnStats(int i) const = 0;
+    virtual bool IsColumnStatsSet(int i) const = 0;
+    virtual Compression::type GetColumnCompression(int i) const = 0;
+    virtual std::vector<Encoding::type> GetColumnEncodings(int i) const = 0;
+    virtual int64_t GetColumnCompressedSize(int i) const = 0;
+    virtual int64_t GetColumnUnCompressedSize(int i) const = 0;
   };
 
   RowGroupReader(const SchemaDescriptor* schema, std::unique_ptr<Contents> contents,
@@ -61,6 +67,11 @@ class RowGroupReader {
   int64_t num_rows() const;
 
   RowGroupStatistics GetColumnStats(int i) const;
+  bool IsColumnStatsSet(int i) const;
+  Compression::type GetColumnCompression(int i) const;
+  std::vector<Encoding::type> GetColumnEncodings(int i) const;
+  int64_t GetColumnCompressedSize(int i) const;
+  int64_t GetColumnUnCompressedSize(int i) const;
 
  private:
   // Owned by the parent ParquetFileReader

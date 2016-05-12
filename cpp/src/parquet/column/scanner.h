@@ -146,8 +146,8 @@ class TypedScanner : public Scanner {
     }
 
     // Out of values
-    int16_t def_level;
-    int16_t rep_level;
+    int16_t def_level = -1;
+    int16_t rep_level = -1;
     NextLevels(&def_level, &rep_level);
     *is_null = def_level < descr()->max_definition_level();
 

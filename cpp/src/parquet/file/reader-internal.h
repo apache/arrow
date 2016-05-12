@@ -76,7 +76,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   virtual int num_columns() const;
   virtual int64_t num_rows() const;
   virtual std::unique_ptr<PageReader> GetColumnPageReader(int i);
-  virtual RowGroupStatistics GetColumnStats(int i);
+  virtual RowGroupStatistics GetColumnStats(int i) const;
+  virtual bool IsColumnStatsSet(int i) const;
+  virtual Compression::type GetColumnCompression(int i) const;
+  virtual std::vector<Encoding::type> GetColumnEncodings(int i) const;
+  virtual int64_t GetColumnCompressedSize(int i) const;
+  virtual int64_t GetColumnUnCompressedSize(int i) const;
 
  private:
   RandomAccessSource* source_;

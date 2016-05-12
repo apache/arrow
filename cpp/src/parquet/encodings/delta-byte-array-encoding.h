@@ -53,7 +53,7 @@ class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
     for (int i = 0; i < max_values; ++i) {
       int prefix_len = 0;
       prefix_len_decoder_.Decode(&prefix_len, 1);
-      ByteArray suffix;
+      ByteArray suffix = {0, NULL};
       suffix_decoder_.Decode(&suffix, 1);
       buffer[i].len = prefix_len + suffix.len;
 

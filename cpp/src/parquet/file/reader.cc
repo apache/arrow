@@ -64,6 +64,26 @@ RowGroupStatistics RowGroupReader::GetColumnStats(int i) const {
   return contents_->GetColumnStats(i);
 }
 
+bool RowGroupReader::IsColumnStatsSet(int i) const {
+  return contents_->IsColumnStatsSet(i);
+}
+
+Compression::type RowGroupReader::GetColumnCompression(int i) const {
+  return contents_->GetColumnCompression(i);
+}
+
+std::vector<Encoding::type> RowGroupReader::GetColumnEncodings(int i) const {
+  return contents_->GetColumnEncodings(i);
+}
+
+int64_t RowGroupReader::GetColumnUnCompressedSize(int i) const {
+  return contents_->GetColumnUnCompressedSize(i);
+}
+
+int64_t RowGroupReader::GetColumnCompressedSize(int i) const {
+  return contents_->GetColumnCompressedSize(i);
+}
+
 // ----------------------------------------------------------------------
 // ParquetFileReader public API
 
@@ -166,14 +186,28 @@ void ParquetFileReader::DebugPrint(
       RowGroupStatistics stats = group_reader->GetColumnStats(i);
 
       const ColumnDescriptor* descr = schema_->Column(i);
-      stream << "Column " << i << ": " << group_reader->num_rows() << " rows, "
-             << stats.num_values << " values, " << stats.null_count << " null values, "
-             << stats.distinct_count << " distinct values, "
-             << FormatValue(
-                    descr->physical_type(), stats.max->c_str(), descr->type_length())
-             << " max, " << FormatValue(descr->physical_type(), stats.min->c_str(),
-                                descr->type_length())
-             << " min, " << std::endl;
+      stream << "Column " << i << std::endl
+             << "  rows: " << group_reader->num_rows() << ", values: " << stats.num_values
+             << ", null values: " << stats.null_count
+             << ", distinct values: " << stats.distinct_count << std::endl;
+      if (group_reader->IsColumnStatsSet(i)) {
+        stream << "  max: " << FormatStatValue(descr->physical_type(), stats.max->c_str())
+               << ", min: "
+               << FormatStatValue(descr->physical_type(), stats.min->c_str());
+      } else {
+        stream << "  Statistics Not Set";
+      }
+      stream << std::endl
+             << "  compression: "
+             << compression_to_string(group_reader->GetColumnCompression(i))
+             << ", encodings: ";
+      for (auto encoding : group_reader->GetColumnEncodings(i)) {
+        stream << encoding_to_string(encoding) << " ";
+      }
+      stream << std::endl
+             << "  uncompressed size: " << group_reader->GetColumnUnCompressedSize(i)
+             << ", compressed size: " << group_reader->GetColumnCompressedSize(i)
+             << std::endl;
     }
 
     if (!print_values) { continue; }

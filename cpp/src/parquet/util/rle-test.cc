@@ -117,7 +117,7 @@ void TestBitArrayValues(int bit_width, int num_vals) {
 
   BitReader reader(buffer, len);
   for (int i = 0; i < num_vals; ++i) {
-    int64_t val;
+    int64_t val = 0;
     bool result = reader.GetValue(bit_width, &val);
     EXPECT_TRUE(result);
     EXPECT_EQ(val, i % mod);
@@ -215,7 +215,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
     if (!result) { return false; }
   }
   int encoded_len = encoder.Flush();
-  int out;
+  int out = 0;
 
   RleDecoder decoder(buffer, encoded_len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
