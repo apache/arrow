@@ -42,4 +42,11 @@ ARROW_TEST_LINK_LIBRARIES(parquet-reader-test arrow_parquet)
 
 # Headers: top level
 install(FILES
+  reader.h
+  schema.h
+  utils.h
   DESTINATION include/arrow/parquet)
+
+install(TARGETS arrow_parquet
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
