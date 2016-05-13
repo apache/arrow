@@ -49,14 +49,14 @@ void ColumnWriter::InitSinks() {
   values_sink_.reset(new InMemoryOutputStream());
 }
 
-void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, int16_t* levels) {
+void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
   definition_levels_sink_->Write(
-      reinterpret_cast<uint8_t*>(levels), sizeof(int16_t) * num_levels);
+      reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
 }
 
-void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, int16_t* levels) {
+void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
   repetition_levels_sink_->Write(
-      reinterpret_cast<uint8_t*>(levels), sizeof(int16_t) * num_levels);
+      reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
 }
 
 std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(

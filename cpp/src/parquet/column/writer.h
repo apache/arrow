@@ -52,10 +52,10 @@ class ColumnWriter {
   void WriteNewPage();
 
   // Write multiple definition levels
-  void WriteDefinitionLevels(int64_t num_levels, int16_t* levels);
+  void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels);
 
   // Write multiple repetition levels
-  void WriteRepetitionLevels(int64_t num_levels, int16_t* levels);
+  void WriteRepetitionLevels(int64_t num_levels, const int16_t* levels);
 
   std::shared_ptr<Buffer> RleEncodeLevels(
       const std::shared_ptr<Buffer>& buffer, int16_t max_level);
@@ -107,14 +107,14 @@ class TypedColumnWriter : public ColumnWriter {
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
-  void WriteBatch(
-      int64_t num_values, int16_t* def_levels, int16_t* rep_levels, T* values);
+  void WriteBatch(int64_t num_values, const int16_t* def_levels,
+      const int16_t* rep_levels, const T* values);
 
  private:
   typedef Encoder<DType> EncoderType;
 
   // Write values to a temporary buffer before they are encoded into pages
-  void WriteValues(int64_t num_values, T* values);
+  void WriteValues(int64_t num_values, const T* values);
 
   // Map of encoding type to the respective encoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
@@ -131,8 +131,8 @@ class TypedColumnWriter : public ColumnWriter {
 const int64_t PAGE_VALUE_COUNT = 1000;
 
 template <typename DType>
-inline void TypedColumnWriter<DType>::WriteBatch(
-    int64_t num_values, int16_t* def_levels, int16_t* rep_levels, T* values) {
+inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
+    const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
   int64_t values_to_write = 0;
 
   // If the field is required and non-repeated, there are no definition levels
@@ -175,7 +175,7 @@ inline void TypedColumnWriter<DType>::WriteBatch(
 }
 
 template <typename DType>
-void TypedColumnWriter<DType>::WriteValues(int64_t num_values, T* values) {
+void TypedColumnWriter<DType>::WriteValues(int64_t num_values, const T* values) {
   current_encoder_->Encode(values, num_values, values_sink_.get());
 }
 
