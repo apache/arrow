@@ -17,12 +17,10 @@
 
 add_library(parquet_compression STATIC
   codec.cc
-  lz4-codec.cc
   snappy-codec.cc
   gzip-codec.cc
 )
 target_link_libraries(parquet_compression
-  lz4static
   snappystatic
   zlibstatic)
 

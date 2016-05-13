@@ -73,10 +73,6 @@ TEST(TestCompressors, Snappy) {
   CheckCodec<SnappyCodec>();
 }
 
-TEST(TestCompressors, Lz4) {
-  CheckCodec<Lz4Codec>();
-}
-
 TEST(TestCompressors, GZip) {
   CheckCodec<GZipCodec>();
 }
