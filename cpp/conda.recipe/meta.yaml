@@ -5,6 +5,10 @@ package:
 build:
   number: {{environ.get('TRAVIS_BUILD_NUMBER', 0)}}    # [unix]
   skip: true  # [win]
+  script_env:
+    - CC [linux]
+    - CXX [linux]
+    - LD_LIBRARY_PATH [linux]
 
 requirements:
   build:
@@ -12,6 +16,9 @@ requirements:
     - flatbuffers
     - parquet-cpp
     - thrift-cpp
+
+  run:
+    - parquet-cpp
 
 test:
   commands:

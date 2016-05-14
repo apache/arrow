@@ -1,0 +1,41 @@
+package:
+  name: pyarrow
+  version: "0.1"
+
+build:
+  number: {{environ.get('TRAVIS_BUILD_NUMBER', 0)}}    # [unix]
+  rpaths:
+    - lib                                                        # [unix]
+    - lib/python{{environ.get('PY_VER')}}/site-packages/pyarrow  # [unix]
+  script_env:
+    - CC [linux]
+    - CXX [linux]
+    - LD_LIBRARY_PATH [linux]
+  skip: true  # [win]
+
+requirements:
+  build:
+    - cmake
+    - python
+    - setuptools
+    - cython
+    - numpy
+    - pandas
+    - arrow-cpp
+    - pytest
+
+  run:
+    - arrow-cpp
+    - python
+    - numpy
+    - pandas
+    - six
+
+test:
+  imports:
+    - pyarrow
+
+about:
+  home: http://github.com/apache/arrow
+  license: Apache 2.0
+  summary: 'Python bindings for Arrow C++ and interoperability tool for pandas and NumPy'
