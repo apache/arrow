@@ -13,6 +13,7 @@ To build the thirdparty build dependencies, run:
 ```
 ./thirdparty/download_thirdparty.sh
 ./thirdparty/build_thirdparty.sh
+source ./thirdparty/set_thirdparty_env.sh
 ```
 
 You can also run from the root of the C++ tree

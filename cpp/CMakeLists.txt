@@ -25,11 +25,6 @@ include(CMakeParseArguments)
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
-# Allow "make install" to not depend on all targets.
-#
-# Must be declared in the top-level CMakeLists.txt.
-set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
