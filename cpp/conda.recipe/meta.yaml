@@ -1,0 +1,32 @@
+package:
+  name: arrow-cpp
+  version: "0.1"
+
+build:
+  number: {{environ.get('TRAVIS_BUILD_NUMBER', 0)}}    # [unix]
+  skip: true  # [win]
+  script_env:
+    - CC [linux]
+    - CXX [linux]
+    - LD_LIBRARY_PATH [linux]
+
+requirements:
+  build:
+    - cmake
+    - flatbuffers
+    - parquet-cpp
+    - thrift-cpp
+
+  run:
+    - parquet-cpp
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libarrow.so
+    - test -f $PREFIX/lib/libarrow_parquet.so
+    - test -f $PREFIX/include/arrow/api.h
+
+about:
+  home: http://github.com/apache/arrow
+  license: Apache 2.0
+  summary: 'C++ libraries for the reference Apache Arrow implementation'

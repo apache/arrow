@@ -136,6 +136,7 @@ class NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::Append;
   using PrimitiveBuilder<T>::Init;
   using PrimitiveBuilder<T>::Resize;
+  using PrimitiveBuilder<T>::Reserve;
 
   // Scalar append.
   void Append(value_type val) {
