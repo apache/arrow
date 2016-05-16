@@ -147,17 +147,12 @@ class ArrowSerializer {
 
   Status ConvertObjectStrings(std::shared_ptr<Array>* out) {
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    arrow::TypePtr string_type(new arrow::StringType());
+    arrow::StringBuilder string_builder(pool_, string_type);
+    RETURN_ARROW_NOT_OK(string_builder.Resize(length_));
 
-    auto offsets_buffer = std::make_shared<arrow::PoolBuffer>(pool_);
-    RETURN_ARROW_NOT_OK(offsets_buffer->Resize(sizeof(int32_t) * (length_ + 1)));
-    int32_t* offsets = reinterpret_cast<int32_t*>(offsets_buffer->mutable_data());
-
-    arrow::BufferBuilder data_builder(pool_);
     arrow::Status s;
     PyObject* obj;
-    int length;
-    int offset = 0;
-    int64_t null_count = 0;
     for (int64_t i = 0; i < length_; ++i) {
       obj = objects[i];
       if (PyUnicode_Check(obj)) {
@@ -166,38 +161,20 @@ class ArrowSerializer {
           PyErr_Clear();
           return Status::TypeError("failed converting unicode to UTF8");
         }
-        length = PyBytes_GET_SIZE(obj);
-        s = data_builder.Append(
-            reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)), length);
+        const int32_t length = PyBytes_GET_SIZE(obj);
+        s = string_builder.Append(PyBytes_AS_STRING(obj), length);
         Py_DECREF(obj);
         if (!s.ok()) {
           return Status::ArrowError(s.ToString());
         }
-        util::set_bit(null_bitmap_data_, i);
       } else if (PyBytes_Check(obj)) {
-        length = PyBytes_GET_SIZE(obj);
-        RETURN_ARROW_NOT_OK(data_builder.Append(
-                reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)), length));
-        util::set_bit(null_bitmap_data_, i);
+        const int32_t length = PyBytes_GET_SIZE(obj);
+        RETURN_ARROW_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
       } else {
-        // NULL
-        // No change to offset
-        length = 0;
-        ++null_count;
+        string_builder.AppendNull();
       }
-      offsets[i] = offset;
-      offset += length;
     }
-    // End offset
-    offsets[length_] = offset;
-
-    std::shared_ptr<arrow::Buffer> data_buffer = data_builder.Finish();
-
-    auto values = std::make_shared<arrow::UInt8Array>(data_buffer->size(),
-        data_buffer);
-    *out = std::shared_ptr<arrow::Array>(
-        new arrow::StringArray(length_, offsets_buffer, values, null_count,
-            null_bitmap_));
+    *out = std::shared_ptr<arrow::Array>(string_builder.Finish());
 
     return Status::OK();
   }
