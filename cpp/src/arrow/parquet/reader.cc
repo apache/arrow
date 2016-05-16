@@ -130,16 +130,37 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     }
     auto reader = dynamic_cast<TypedColumnReader<ParquetType>*>(column_reader_.get());
     int64_t values_read;
+    int64_t levels_read;
+    int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
+    int16_t* rep_levels = reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data());
     CType* values = reinterpret_cast<CType*>(values_buffer_.mutable_data());
-    PARQUET_CATCH_NOT_OK(
-        values_to_read -= reader->ReadBatch(values_to_read,
-            reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data()),
-            reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data()), values,
-            &values_read));
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(values_to_read, def_levels,
+                             rep_levels, values, &values_read));
+    values_to_read -= levels_read;
     if (descr_->max_definition_level() == 0) {
       RETURN_NOT_OK(builder.Append(values, values_read));
+    } else if (descr_->max_definition_level() == 1) {
+      CType* values_start = values;
+      int num_values = 0;
+      for (int64_t i = 0; i < levels_read; i++) {
+        if (def_levels[i] < descr_->max_definition_level()) {
+          if (num_values > 0) {
+            // Bulk copy non-null values
+            RETURN_NOT_OK(builder.Append(values_start, num_values));
+            values_start += num_values;
+            num_values = 0;
+          }
+          RETURN_NOT_OK(builder.AppendNull());
+        } else {
+          num_values++;
+        }
+      }
+      if (num_values > 0) {
+        // Bulk copy non-null values
+        RETURN_NOT_OK(builder.Append(values_start, num_values));
+      }
     } else {
-      return Status::NotImplemented("no support for definition levels yet");
+      return Status::NotImplemented("no support for max definition level > 1 yet");
     }
     if (!column_reader_->HasNext()) { NextRowGroup(); }
   }
