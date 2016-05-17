@@ -44,47 +44,43 @@ namespace arrow {
 
 namespace parquet {
 
+template <typename CType, typename ArrowType>
+std::shared_ptr<PrimitiveArray> NonNullArray(size_t size, CType value) {
+  std::vector<CType> values(size, value);
+  NumericBuilder<ArrowType> builder(default_memory_pool(), std::make_shared<ArrowType>());
+  builder.Append(values.data(), values.size());
+  return std::static_pointer_cast<PrimitiveArray>(builder.Finish());
+}
+
+// This helper function only supports (size/2) nulls yet.
+template <typename CType, typename ArrowType>
+std::shared_ptr<PrimitiveArray> NullableArray(
+    size_t size, CType value, size_t num_nulls) {
+  std::vector<CType> values(size, value);
+  std::vector<uint8_t> valid_bytes(size, 1);
+
+  for (size_t i = 0; i < num_nulls; i++) {
+    valid_bytes[i * 2] = 0;
+  }
+
+  NumericBuilder<ArrowType> builder(default_memory_pool(), std::make_shared<ArrowType>());
+  builder.Append(values.data(), values.size(), valid_bytes.data());
+  return std::static_pointer_cast<PrimitiveArray>(builder.Finish());
+}
+
 class TestParquetIO : public ::testing::Test {
  public:
   virtual void SetUp() {}
 
-  std::shared_ptr<GroupNode> Schema(ParquetType::type parquet_type, Repetition::type repetition) {
+  std::shared_ptr<GroupNode> Schema(
+      ParquetType::type parquet_type, Repetition::type repetition) {
     auto pnode = PrimitiveNode::Make("column1", repetition, parquet_type);
     NodePtr node_ =
         GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
     return std::static_pointer_cast<GroupNode>(node_);
   }
 
-  // This helper function only supports (size/2) nulls yet.
-  std::shared_ptr<PrimitiveArray> DoubleValueArray(
-      size_t size, double value, size_t num_nulls) {
-    std::vector<double> values(size, value);
-    std::vector<uint8_t> valid_bytes(size, 1);
-
-    for (size_t i = 0; i < num_nulls; i++) {
-      valid_bytes[i * 2] = 0;
-    }
-
-    DoubleBuilder builder(default_memory_pool(), std::make_shared<DoubleType>());
-    builder.Append(values.data(), values.size(), valid_bytes.data());
-    return std::static_pointer_cast<PrimitiveArray>(builder.Finish());
-  }
-
-  std::shared_ptr<PrimitiveArray> Int64ValueArray(size_t size, int64_t value) {
-    std::vector<int64_t> values(size, value);
-    Int64Builder builder(default_memory_pool(), std::make_shared<Int64Type>());
-    builder.Append(values.data(), values.size());
-    return std::static_pointer_cast<PrimitiveArray>(builder.Finish());
-  }
-
-  std::unique_ptr<ParquetFileWriter> Int64FileWriter() {
-    std::shared_ptr<GroupNode> schema = Schema(ParquetType::INT64, Repetition::REQUIRED);
-    sink_ = std::make_shared<InMemoryOutputStream>();
-    return ParquetFileWriter::Open(sink_, schema);
-  }
-
-  std::unique_ptr<ParquetFileWriter> DoubleFileWriter() {
-    std::shared_ptr<GroupNode> schema = Schema(ParquetType::DOUBLE, Repetition::OPTIONAL);
+  std::unique_ptr<ParquetFileWriter> MakeWriter(std::shared_ptr<GroupNode>& schema) {
     sink_ = std::make_shared<InMemoryOutputStream>();
     return ParquetFileWriter::Open(sink_, schema);
   }
@@ -107,7 +103,8 @@ class TestParquetIO : public ::testing::Test {
 
   std::unique_ptr<ParquetFileReader> Int64File(
       std::vector<int64_t>& values, int num_chunks) {
-    std::unique_ptr<ParquetFileWriter> file_writer = Int64FileWriter();
+    std::shared_ptr<GroupNode> schema = Schema(ParquetType::INT64, Repetition::REQUIRED);
+    std::unique_ptr<ParquetFileWriter> file_writer = MakeWriter(schema);
     size_t chunk_size = values.size() / num_chunks;
     for (int i = 0; i < num_chunks; i++) {
       auto row_group_writer = file_writer->AppendRowGroup(chunk_size);
@@ -153,9 +150,10 @@ TEST_F(TestParquetIO, SingleColumnInt64ChunkedRead) {
 }
 
 TEST_F(TestParquetIO, SingleColumnInt64Write) {
-  std::shared_ptr<PrimitiveArray> values = Int64ValueArray(100, 128);
+  std::shared_ptr<PrimitiveArray> values = NonNullArray<int64_t, Int64Type>(100, 128);
 
-  FileWriter writer(default_memory_pool(), Int64FileWriter());
+  std::shared_ptr<GroupNode> schema = Schema(ParquetType::INT64, Repetition::REQUIRED);
+  FileWriter writer(default_memory_pool(), MakeWriter(schema));
   ASSERT_NO_THROW(ASSERT_OK(writer.NewRowGroup(values->length())));
   ASSERT_NO_THROW(ASSERT_OK(writer.WriteFlatColumnChunk(values.get())));
   ASSERT_NO_THROW(ASSERT_OK(writer.Close()));
@@ -167,9 +165,11 @@ TEST_F(TestParquetIO, SingleColumnInt64Write) {
 
 TEST_F(TestParquetIO, SingleColumnDoubleReadWrite) {
   // This also tests max_definition_level = 1
-  std::shared_ptr<PrimitiveArray> values = DoubleValueArray(100, 128, 10);
+  std::shared_ptr<PrimitiveArray> values =
+      NullableArray<double, DoubleType>(100, 128, 10);
 
-  FileWriter writer(default_memory_pool(), DoubleFileWriter());
+  std::shared_ptr<GroupNode> schema = Schema(ParquetType::DOUBLE, Repetition::OPTIONAL);
+  FileWriter writer(default_memory_pool(), MakeWriter(schema));
   ASSERT_NO_THROW(ASSERT_OK(writer.NewRowGroup(values->length())));
   ASSERT_NO_THROW(ASSERT_OK(writer.WriteFlatColumnChunk(values.get())));
   ASSERT_NO_THROW(ASSERT_OK(writer.Close()));
@@ -180,10 +180,12 @@ TEST_F(TestParquetIO, SingleColumnDoubleReadWrite) {
 }
 
 TEST_F(TestParquetIO, SingleColumnInt64ChunkedWrite) {
-  std::shared_ptr<PrimitiveArray> values = Int64ValueArray(100, 128);
-  std::shared_ptr<PrimitiveArray> values_chunk = Int64ValueArray(25, 128);
+  std::shared_ptr<PrimitiveArray> values = NonNullArray<int64_t, Int64Type>(100, 128);
+  std::shared_ptr<PrimitiveArray> values_chunk =
+      NonNullArray<int64_t, Int64Type>(25, 128);
 
-  FileWriter writer(default_memory_pool(), Int64FileWriter());
+  std::shared_ptr<GroupNode> schema = Schema(ParquetType::INT64, Repetition::REQUIRED);
+  FileWriter writer(default_memory_pool(), MakeWriter(schema));
   for (int i = 0; i < 4; i++) {
     ASSERT_NO_THROW(ASSERT_OK(writer.NewRowGroup(values_chunk->length())));
     ASSERT_NO_THROW(ASSERT_OK(writer.WriteFlatColumnChunk(values_chunk.get())));
@@ -196,11 +198,15 @@ TEST_F(TestParquetIO, SingleColumnInt64ChunkedWrite) {
 }
 
 TEST_F(TestParquetIO, SingleColumnDoubleChunkedWrite) {
-  std::shared_ptr<PrimitiveArray> values = DoubleValueArray(100, 128, 10);
-  std::shared_ptr<PrimitiveArray> values_chunk_nulls = DoubleValueArray(25, 128, 10);
-  std::shared_ptr<PrimitiveArray> values_chunk = DoubleValueArray(25, 128, 0);
+  std::shared_ptr<PrimitiveArray> values =
+      NullableArray<double, DoubleType>(100, 128, 10);
+  std::shared_ptr<PrimitiveArray> values_chunk_nulls =
+      NullableArray<double, DoubleType>(25, 128, 10);
+  std::shared_ptr<PrimitiveArray> values_chunk =
+      NullableArray<double, DoubleType>(25, 128, 0);
 
-  FileWriter writer(default_memory_pool(), DoubleFileWriter());
+  std::shared_ptr<GroupNode> schema = Schema(ParquetType::DOUBLE, Repetition::OPTIONAL);
+  FileWriter writer(default_memory_pool(), MakeWriter(schema));
   ASSERT_NO_THROW(ASSERT_OK(writer.NewRowGroup(values_chunk_nulls->length())));
   ASSERT_NO_THROW(ASSERT_OK(writer.WriteFlatColumnChunk(values_chunk_nulls.get())));
   for (int i = 0; i < 3; i++) {
