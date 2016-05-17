@@ -68,6 +68,8 @@ class FlatColumnReader::Impl {
   PoolBuffer values_buffer_;
   PoolBuffer def_levels_buffer_;
   PoolBuffer rep_levels_buffer_;
+  PoolBuffer values_builder_buffer_;
+  PoolBuffer valid_bytes_buffer_;
 };
 
 FileReader::Impl::Impl(
@@ -141,25 +143,22 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     if (descr_->max_definition_level() == 0) {
       RETURN_NOT_OK(builder.Append(values, values_read));
     } else if (descr_->max_definition_level() == 1) {
-      typename ParquetType::c_type* values_start = values;
-      int num_values = 0;
+      RETURN_NOT_OK(values_builder_buffer_.Resize(
+          levels_read * sizeof(typename ParquetType::c_type)));
+      RETURN_NOT_OK(valid_bytes_buffer_.Resize(levels_read * sizeof(uint8_t)));
+      auto values_ptr = reinterpret_cast<typename ParquetType::c_type*>(
+          values_builder_buffer_.mutable_data());
+      uint8_t* valid_bytes = valid_bytes_buffer_.mutable_data();
+      int values_idx = 0;
       for (int64_t i = 0; i < levels_read; i++) {
         if (def_levels[i] < descr_->max_definition_level()) {
-          if (num_values > 0) {
-            // Bulk copy non-null values
-            RETURN_NOT_OK(builder.Append(values_start, num_values));
-            values_start += num_values;
-            num_values = 0;
-          }
-          RETURN_NOT_OK(builder.AppendNull());
+          valid_bytes[i] = 0;
         } else {
-          num_values++;
+          valid_bytes[i] = 1;
+          values_ptr[i] = values[values_idx++];
         }
       }
-      if (num_values > 0) {
-        // Bulk copy non-null values
-        RETURN_NOT_OK(builder.Append(values_start, num_values));
-      }
+      builder.Append(values_ptr, levels_read, valid_bytes);
     } else {
       return Status::NotImplemented("no support for max definition level > 1 yet");
     }
