@@ -48,15 +48,8 @@ class TestParquetIO : public ::testing::Test {
  public:
   virtual void SetUp() {}
 
-  std::shared_ptr<GroupNode> Int64Schema() {
-    auto pnode = PrimitiveNode::Make("int64", Repetition::REQUIRED, ParquetType::INT64);
-    NodePtr node_ =
-        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-    return std::static_pointer_cast<GroupNode>(node_);
-  }
-
-  std::shared_ptr<GroupNode> DoubleSchema() {
-    auto pnode = PrimitiveNode::Make("double", Repetition::OPTIONAL, ParquetType::DOUBLE);
+  std::shared_ptr<GroupNode> Schema(ParquetType::type parquet_type, Repetition::type repetition) {
+    auto pnode = PrimitiveNode::Make("column1", repetition, parquet_type);
     NodePtr node_ =
         GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
     return std::static_pointer_cast<GroupNode>(node_);
@@ -84,13 +77,13 @@ class TestParquetIO : public ::testing::Test {
   }
 
   std::unique_ptr<ParquetFileWriter> Int64FileWriter() {
-    std::shared_ptr<GroupNode> schema = Int64Schema();
+    std::shared_ptr<GroupNode> schema = Schema(ParquetType::INT64, Repetition::REQUIRED);
     sink_ = std::make_shared<InMemoryOutputStream>();
     return ParquetFileWriter::Open(sink_, schema);
   }
 
   std::unique_ptr<ParquetFileWriter> DoubleFileWriter() {
-    std::shared_ptr<GroupNode> schema = DoubleSchema();
+    std::shared_ptr<GroupNode> schema = Schema(ParquetType::DOUBLE, Repetition::OPTIONAL);
     sink_ = std::make_shared<InMemoryOutputStream>();
     return ParquetFileWriter::Open(sink_, schema);
   }
