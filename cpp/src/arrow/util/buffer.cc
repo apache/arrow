@@ -18,6 +18,7 @@
 #include "arrow/util/buffer.h"
 
 #include <cstdint>
+#include <limits>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
