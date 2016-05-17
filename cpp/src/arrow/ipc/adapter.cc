@@ -43,6 +43,15 @@ namespace flatbuf = apache::arrow::flatbuf;
 
 namespace ipc {
 
+namespace {
+Status CheckMultipleOf64(int64_t size) {
+  if (util::is_multiple_of_64(size)) { return Status::OK(); }
+  return Status::Invalid(
+      "Attempted to write a buffer that "
+      "wasn't a multiple of 64 bytes");
+}
+}
+
 static bool IsPrimitive(const DataType* type) {
   DCHECK(type != nullptr);
   switch (type->type) {
@@ -149,7 +158,7 @@ class RowBatchWriter {
         // requirements of buffers but capacity always should.
         size = buffer->capacity();
         // check that padding is appropriate
-        DCHECK_EQ(size % 64, 0);
+        RETURN_NOT_OK(CheckMultipleOf64(size));
       }
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
@@ -313,6 +322,7 @@ class RowBatchReader::Impl {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
+    RETURN_NOT_OK(CheckMultipleOf64(metadata.length));
     return source_->ReadAt(metadata.offset, metadata.length, out);
   }
 

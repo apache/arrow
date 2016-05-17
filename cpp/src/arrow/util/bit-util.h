@@ -71,6 +71,10 @@ static inline int64_t next_power2(int64_t n) {
   return n;
 }
 
+static inline bool is_multiple_of_64(int64_t n) {
+  return (n & 63) == 0;
+}
+
 void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
 Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 

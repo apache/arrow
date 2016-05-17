@@ -49,7 +49,10 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
   // An offset into data that is owned by another buffer, but we want to be
   // able to retain a valid pointer to it even after other shared_ptr's to the
   // parent buffer have been destroyed
-  // TODO(emkornfield) how will this play with 64 byte alignment/padding?
+  //
+  // This method makes no assertions about alignment or padding of the buffer but
+  // in general we expected buffers to be aligned and padded to 64 bytes.  In the future
+  // we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
 
   std::shared_ptr<Buffer> get_shared_ptr() { return shared_from_this(); }
@@ -112,11 +115,13 @@ class MutableBuffer : public Buffer {
 class ResizableBuffer : public MutableBuffer {
  public:
   // Change buffer reported size to indicated size, allocating memory if
-  // necessary
+  // necessary.  This will ensure that the capacity of the buffer is a multiple
+  // of 64 bytes as defined in Layout.md.
   virtual Status Resize(int64_t new_size) = 0;
 
   // Ensure that buffer has enough memory allocated to fit the indicated
-  // capacity. Does not change buffer's reported size
+  // capacity (and meets the 64 byte padding requirement in Layout.md).
+  // It does not change buffer's reported size.
   virtual Status Reserve(int64_t new_capacity) = 0;
 
  protected:

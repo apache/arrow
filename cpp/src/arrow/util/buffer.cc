@@ -29,12 +29,11 @@ namespace {
 int64_t RoundUpToMultipleOf64(int64_t num) {
   DCHECK_GE(num, 0);
   constexpr int64_t round_to = 64;
-  constexpr int64_t multiple_bitmask = round_to - 1;
-  int64_t remainder = num & multiple_bitmask;
-  int rounded = num;
-  if (remainder) { rounded += 64 - remainder; }
-  // handle overflow.  This should result in a malloc error upstream
-  if (rounded > 0) { num = rounded; }
+  constexpr int64_t force_carry_addend = round_to - 1;
+  constexpr int64_t truncate_bitmask = ~(round_to - 1);
+  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - round_to;
+  if (num <= max_roundable_num) { return (num + force_carry_addend) & truncate_bitmask; }
+  // handle overflow case.  This should result in a malloc error upstream
   return num;
 }
 }  // namespace
