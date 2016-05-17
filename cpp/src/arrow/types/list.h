@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 
 #include "arrow/array.h"
@@ -113,12 +114,14 @@ class ListBuilder : public ArrayBuilder {
         values_(values) {}
 
   Status Init(int32_t elements) override {
+    DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
     RETURN_NOT_OK(ArrayBuilder::Init(elements));
     // one more then requested for offsets
     return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
   }
 
   Status Resize(int32_t capacity) override {
+    DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
     // one more then requested for offsets
     RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
     return ArrayBuilder::Resize(capacity);

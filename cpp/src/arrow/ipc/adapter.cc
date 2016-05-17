@@ -43,6 +43,15 @@ namespace flatbuf = apache::arrow::flatbuf;
 
 namespace ipc {
 
+namespace {
+Status CheckMultipleOf64(int64_t size) {
+  if (util::is_multiple_of_64(size)) { return Status::OK(); }
+  return Status::Invalid(
+      "Attempted to write a buffer that "
+      "wasn't a multiple of 64 bytes");
+}
+}
+
 static bool IsPrimitive(const DataType* type) {
   DCHECK(type != nullptr);
   switch (type->type) {
@@ -115,6 +124,8 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   } else if (arr->type_enum() == Type::STRUCT) {
     // TODO(wesm)
     return Status::NotImplemented("Struct type");
+  } else {
+    return Status::NotImplemented("Unrecognized type");
   }
   return Status::OK();
 }
@@ -142,7 +153,13 @@ class RowBatchWriter {
       int64_t size = 0;
 
       // The buffer might be null if we are handling zero row lengths.
-      if (buffer) { size = buffer->size(); }
+      if (buffer) {
+        // We use capacity here, because size might not reflect the padding
+        // requirements of buffers but capacity always should.
+        size = buffer->capacity();
+        // check that padding is appropriate
+        RETURN_NOT_OK(CheckMultipleOf64(size));
+      }
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
       // future. Use page=0 for now
@@ -305,6 +322,7 @@ class RowBatchReader::Impl {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
+    RETURN_NOT_OK(CheckMultipleOf64(metadata.length));
     return source_->ReadAt(metadata.offset, metadata.length, out);
   }
 

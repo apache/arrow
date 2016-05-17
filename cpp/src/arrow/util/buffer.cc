@@ -18,16 +18,32 @@
 #include "arrow/util/buffer.h"
 
 #include <cstdint>
+#include <limits>
 
+#include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
 
+namespace {
+int64_t RoundUpToMultipleOf64(int64_t num) {
+  DCHECK_GE(num, 0);
+  constexpr int64_t round_to = 64;
+  constexpr int64_t force_carry_addend = round_to - 1;
+  constexpr int64_t truncate_bitmask = ~(round_to - 1);
+  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - round_to;
+  if (num <= max_roundable_num) { return (num + force_carry_addend) & truncate_bitmask; }
+  // handle overflow case.  This should result in a malloc error upstream
+  return num;
+}
+}  // namespace
+
 Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size) {
   data_ = parent->data() + offset;
   size_ = size;
   parent_ = parent;
+  capacity_ = size;
 }
 
 Buffer::~Buffer() {}
@@ -48,6 +64,7 @@ PoolBuffer::~PoolBuffer() {
 Status PoolBuffer::Reserve(int64_t new_capacity) {
   if (!mutable_data_ || new_capacity > capacity_) {
     uint8_t* new_data;
+    new_capacity = RoundUpToMultipleOf64(new_capacity);
     if (mutable_data_) {
       RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
       memcpy(new_data, mutable_data_, size_);

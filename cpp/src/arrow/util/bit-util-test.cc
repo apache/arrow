@@ -21,6 +21,16 @@
 
 namespace arrow {
 
+TEST(UtilTests, TestIsMultipleOf64) {
+  using util::is_multiple_of_64;
+  EXPECT_TRUE(is_multiple_of_64(64));
+  EXPECT_TRUE(is_multiple_of_64(0));
+  EXPECT_TRUE(is_multiple_of_64(128));
+  EXPECT_TRUE(is_multiple_of_64(192));
+  EXPECT_FALSE(is_multiple_of_64(23));
+  EXPECT_FALSE(is_multiple_of_64(32));
+}
+
 TEST(UtilTests, TestNextPower2) {
   using util::next_power2;
 

@@ -47,7 +47,7 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
   if (!offset_buf_) { return Status::Invalid("offset_buf_ was null"); }
-  if (offset_buf_->size() / sizeof(int32_t) < length_) {
+  if (offset_buf_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
     std::stringstream ss;
     ss << "offset buffer size (bytes): " << offset_buf_->size()
        << " isn't large enough for length: " << length_;

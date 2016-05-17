@@ -17,6 +17,7 @@
 
 #include "arrow/util/memory-pool.h"
 
+#include <stdlib.h>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
@@ -24,6 +25,28 @@
 #include "arrow/util/status.h"
 
 namespace arrow {
+
+namespace {
+// Allocate memory according to the alignment requirements for Arrow
+// (as of May 2016 64 bytes)
+Status AllocateAligned(int64_t size, uint8_t** out) {
+  // TODO(emkornfield) find something compatible with windows
+  constexpr size_t kAlignment = 64;
+  const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment, size);
+  if (result == ENOMEM) {
+    std::stringstream ss;
+    ss << "malloc of size " << size << " failed";
+    return Status::OutOfMemory(ss.str());
+  }
+
+  if (result == EINVAL) {
+    std::stringstream ss;
+    ss << "invalid alignment parameter: " << kAlignment;
+    return Status::Invalid(ss.str());
+  }
+  return Status::OK();
+}
+}  // namespace
 
 MemoryPool::~MemoryPool() {}
 
@@ -45,13 +68,7 @@ class InternalMemoryPool : public MemoryPool {
 
 Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
   std::lock_guard<std::mutex> guard(pool_lock_);
-  *out = static_cast<uint8_t*>(std::malloc(size));
-  if (*out == nullptr) {
-    std::stringstream ss;
-    ss << "malloc of size " << size << " failed";
-    return Status::OutOfMemory(ss.str());
-  }
-
+  RETURN_NOT_OK(AllocateAligned(size, out));
   bytes_allocated_ += size;
 
   return Status::OK();
