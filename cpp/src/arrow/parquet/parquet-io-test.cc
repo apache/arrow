@@ -55,6 +55,7 @@ class TestParquetIO : public ::testing::Test {
     return std::static_pointer_cast<GroupNode>(node_);
   }
 
+  // This helper function only supports (size/2) nulls yet.
   std::shared_ptr<PrimitiveArray> DoubleValueArray(
       size_t size, double value, size_t num_nulls) {
     std::vector<double> values(size, value);
