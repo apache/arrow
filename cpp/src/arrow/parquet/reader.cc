@@ -51,7 +51,7 @@ class FlatColumnReader::Impl {
   virtual ~Impl() {}
 
   Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
-  template <typename ArrowType, typename ParquetType, typename CType>
+  template <typename ArrowType, typename ParquetType>
   Status TypedReadBatch(int batch_size, std::shared_ptr<Array>* out);
 
  private:
@@ -115,13 +115,13 @@ FlatColumnReader::Impl::Impl(MemoryPool* pool, const ::parquet::ColumnDescriptor
   NextRowGroup();
 }
 
-template <typename ArrowType, typename ParquetType, typename CType>
+template <typename ArrowType, typename ParquetType>
 Status FlatColumnReader::Impl::TypedReadBatch(
     int batch_size, std::shared_ptr<Array>* out) {
   int values_to_read = batch_size;
   NumericBuilder<ArrowType> builder(pool_, field_->type);
   while ((values_to_read > 0) && column_reader_) {
-    values_buffer_.Resize(values_to_read * sizeof(CType));
+    values_buffer_.Resize(values_to_read * sizeof(typename ParquetType::c_type));
     if (descr_->max_definition_level() > 0) {
       def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
     }
@@ -133,14 +133,15 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     int64_t levels_read;
     int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
     int16_t* rep_levels = reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data());
-    CType* values = reinterpret_cast<CType*>(values_buffer_.mutable_data());
+    auto values =
+        reinterpret_cast<typename ParquetType::c_type*>(values_buffer_.mutable_data());
     PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(values_to_read, def_levels,
                              rep_levels, values, &values_read));
     values_to_read -= levels_read;
     if (descr_->max_definition_level() == 0) {
       RETURN_NOT_OK(builder.Append(values, values_read));
     } else if (descr_->max_definition_level() == 1) {
-      CType* values_start = values;
+      typename ParquetType::c_type* values_start = values;
       int num_values = 0;
       for (int64_t i = 0; i < levels_read; i++) {
         if (def_levels[i] < descr_->max_definition_level()) {
@@ -168,9 +169,9 @@ Status FlatColumnReader::Impl::TypedReadBatch(
   return Status::OK();
 }
 
-#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType, CType)              \
-  case Type::ENUM:                                                         \
-    return TypedReadBatch<ArrowType, ParquetType, CType>(batch_size, out); \
+#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType)              \
+  case Type::ENUM:                                                  \
+    return TypedReadBatch<ArrowType, ParquetType>(batch_size, out); \
     break;
 
 Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
@@ -185,10 +186,10 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
   }
 
   switch (field_->type->type) {
-    TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type, int32_t)
-    TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type, int64_t)
-    TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType, float)
-    TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType, double)
+    TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type)
+    TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType)
+    TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType)
     default:
       return Status::NotImplemented(field_->type->ToString());
   }
