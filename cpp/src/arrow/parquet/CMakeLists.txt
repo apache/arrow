@@ -46,6 +46,7 @@ install(FILES
   reader.h
   schema.h
   utils.h
+  writer.h
   DESTINATION include/arrow/parquet)
 
 install(TARGETS arrow_parquet
