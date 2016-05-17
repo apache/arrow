@@ -32,3 +32,4 @@ ADD_PARQUET_TEST(properties-test)
 ADD_PARQUET_TEST(scanner-test)
 
 ADD_PARQUET_BENCHMARK(column-io-benchmark)
+ADD_PARQUET_BENCHMARK(level-benchmark)
