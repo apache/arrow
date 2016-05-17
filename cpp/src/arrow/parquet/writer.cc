@@ -31,7 +31,7 @@ class FileWriter::Impl {
   Impl(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileWriter> writer);
 
   Status NewRowGroup(int64_t chunk_size);
-  template <typename ParquetType, typename CType>
+  template <typename ParquetType>
   Status TypedWriteBatch(::parquet::ColumnWriter* writer, const PrimitiveArray* data);
   Status WriteFlatColumnChunk(const PrimitiveArray* data);
   Status Close();
@@ -59,31 +59,35 @@ Status FileWriter::Impl::NewRowGroup(int64_t chunk_size) {
   return Status::OK();
 }
 
-template <typename ParquetType, typename CType>
+template <typename ParquetType>
 Status FileWriter::Impl::TypedWriteBatch(
     ::parquet::ColumnWriter* column_writer, const PrimitiveArray* data) {
-  auto data_ptr = reinterpret_cast<const CType*>(data->data()->data());
+  auto data_ptr =
+      reinterpret_cast<const typename ParquetType::c_type*>(data->data()->data());
   auto writer =
       reinterpret_cast<::parquet::TypedColumnWriter<ParquetType>*>(column_writer);
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
-    writer->WriteBatch(data->length(), nullptr, nullptr, data_ptr);
+    PARQUET_CATCH_NOT_OK(writer->WriteBatch(data->length(), nullptr, nullptr, data_ptr));
   } else if (writer->descr()->max_definition_level() == 1) {
-    def_levels_buffer_.Resize(data->length() * sizeof(int16_t));
+    RETURN_NOT_OK(def_levels_buffer_.Resize(data->length() * sizeof(int16_t)));
     int16_t* def_levels_ptr =
         reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
-    std::fill(def_levels_ptr, def_levels_ptr + data->length(), 1);
     if (data->null_count() == 0) {
+      std::fill(def_levels_ptr, def_levels_ptr + data->length(), 1);
       PARQUET_CATCH_NOT_OK(
           writer->WriteBatch(data->length(), def_levels_ptr, nullptr, data_ptr));
     } else {
-      data_buffer_.Resize((data->length() - data->null_count()) * sizeof(CType));
-      auto buffer_ptr = reinterpret_cast<CType*>(data_buffer_.mutable_data());
-      size_t buffer_idx = 0;
+      RETURN_NOT_OK(data_buffer_.Resize(
+          (data->length() - data->null_count()) * sizeof(typename ParquetType::c_type)));
+      auto buffer_ptr =
+          reinterpret_cast<typename ParquetType::c_type*>(data_buffer_.mutable_data());
+      int buffer_idx = 0;
       for (size_t i = 0; i < data->length(); i++) {
         if (data->IsNull(i)) {
           def_levels_ptr[i] = 0;
         } else {
+          def_levels_ptr[i] = 1;
           buffer_ptr[buffer_idx++] = data_ptr[i];
         }
       }
@@ -103,18 +107,19 @@ Status FileWriter::Impl::Close() {
   return Status::OK();
 }
 
-#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType, CType) \
-  case Type::ENUM:                                            \
-    return TypedWriteBatch<ParquetType, CType>(writer, data); \
+#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType) \
+  case Type::ENUM:                                     \
+    return TypedWriteBatch<ParquetType>(writer, data); \
     break;
 
 Status FileWriter::Impl::WriteFlatColumnChunk(const PrimitiveArray* data) {
-  ::parquet::ColumnWriter* writer = row_group_writer_->NextColumn();
+  ::parquet::ColumnWriter* writer;
+  PARQUET_CATCH_NOT_OK(writer = row_group_writer_->NextColumn());
   switch (data->type_enum()) {
-    TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type, int32_t)
-    TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type, int64_t)
-    TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType, float)
-    TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType, double)
+    TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type)
+    TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType)
+    TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType)
     default:
       return Status::NotImplemented(data->type()->ToString());
   }
