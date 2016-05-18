@@ -70,6 +70,7 @@ struct ListEncoding {
 };
 
 struct DecimalMetadata {
+  bool isset;
   int32_t scale;
   int32_t precision;
 };

@@ -158,6 +158,27 @@ class TestSchemaFlatten : public ::testing::Test {
   std::vector<format::SchemaElement> elements_;
 };
 
+TEST_F(TestSchemaFlatten, DecimalMetadata) {
+  // Checks that DecimalMetadata is only set for DecimalTypes
+  NodePtr node = PrimitiveNode::Make(
+      "decimal", Repetition::REQUIRED, Type::INT64, LogicalType::DECIMAL, -1, 8, 4);
+  NodePtr group =
+      GroupNode::Make("group", Repetition::REPEATED, {node}, LogicalType::LIST);
+  Flatten(reinterpret_cast<GroupNode*>(group.get()));
+  ASSERT_EQ("decimal", elements_[1].name);
+  ASSERT_TRUE(elements_[1].__isset.precision);
+  ASSERT_TRUE(elements_[1].__isset.scale);
+
+  elements_.clear();
+  // Not for integers with no logical type
+  group =
+      GroupNode::Make("group", Repetition::REPEATED, {Int64("int64")}, LogicalType::LIST);
+  Flatten(reinterpret_cast<GroupNode*>(group.get()));
+  ASSERT_EQ("int64", elements_[1].name);
+  ASSERT_FALSE(elements_[0].__isset.precision);
+  ASSERT_FALSE(elements_[0].__isset.scale);
+}
+
 TEST_F(TestSchemaFlatten, NestedExample) {
   SchemaElement elt;
   std::vector<SchemaElement> elements;

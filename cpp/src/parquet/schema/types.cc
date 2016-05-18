@@ -86,12 +86,14 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       physical_type_(type),
       type_length_(length) {
   std::stringstream ss;
+  decimal_metadata_.isset = false;
   // Check if the physical and logical types match
   // Mapping referred from Apache parquet-mr as on 2016-02-22
   switch (logical_type) {
     case LogicalType::NONE:
       // Logical type not set
       // Clients should be able to read these values
+      decimal_metadata_.isset = true;
       decimal_metadata_.precision = precision;
       decimal_metadata_.scale = scale;
       break;
@@ -123,6 +125,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         ss << " cannot be greater than precision " << precision;
         throw ParquetException(ss.str());
       }
+      decimal_metadata_.isset = true;
       decimal_metadata_.precision = precision;
       decimal_metadata_.scale = scale;
       break;
@@ -299,8 +302,10 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   element->__set_type(ToThrift(physical_type_));
   // FIXME: SchemaFlattener does this for us: element->__set_field_id(id_);
   element->__set_type_length(type_length_);
-  element->__set_precision(decimal_metadata_.precision);
-  element->__set_scale(decimal_metadata_.scale);
+  if (decimal_metadata_.isset) {
+    element->__set_precision(decimal_metadata_.precision);
+    element->__set_scale(decimal_metadata_.scale);
+  }
 }
 
 }  // namespace schema
