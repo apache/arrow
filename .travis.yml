@@ -1,5 +1,5 @@
 sudo: required
-dist: precise 
+dist: precise
 addons:
   apt:
     sources:
@@ -18,6 +18,9 @@ addons:
     - valgrind
 
 matrix:
+  fast_finish: true
+  allow_failures:
+  - env: ARROW_TEST_GROUP=packaging
   include:
   - compiler: gcc
     language: cpp
@@ -39,6 +42,24 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+  - compiler: gcc
+    env: ARROW_TEST_GROUP=packaging
+    os: linux
+    before_script:
+    - export CC="gcc-4.9"
+    - export CXX="g++-4.9"
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_conda_build.sh
+  - os: osx
+    env: ARROW_TEST_GROUP=packaging
+    language: objective-c
+    osx_image: xcode6.4
+    compiler: clang
+    addons:
+    before_script:
+    before_install:
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_conda_build.sh
 
 before_install:
 - ulimit -c unlimited -S
@@ -51,3 +72,7 @@ after_script:
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
 - if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi
+
+env:
+  global:
+  - secure: "nb1X9Sicq7fqQ4el1R3ugr+3CQdWQhQ+PbaDIya9xsKJ6HfMcitj1M/r5mLg8zgphMt4/lcknsnOuwo8beZpVJLvgAy7WFsrPBrCAeWe2ETpssry1nJoN29VrHfazkJ21LzpxwoYmOvGEj8xHaNZYJfH40DqGFIHVA/TtB825tZpQmNv12Ewtalt6+j8emrPfEUs/v6VjlQ3/1Kq6XnbaUD/KaKytlxhRnYSGYnxZ12sSsRl9CIC9y9jccLkat9CGFgH4dVBXTWVa5LJ2hxVpajj5k/khKPfgU1B9GWKdFhGXJu6ju85MA4XHDN0crE2jBw1fPeI1MqzXRodfYAYNlUm6+h/kEnzGH5Tu2mRw2Oc8NpKfNwkOuUZgOcD0Wai/mC0VdlkKukxUOMI7rCgSBJqgmp3OiHsQlu+Pm9lbwsef5/8icVX68/0ISnI/i9L04sgHExFgVY/PfJKGa/N25MWmBVXjH9aT9tgQEdhv3hzplpcNgdPmpr3VQXdWlYLMeBGxInHDYnNJCkdEjbww/oDhVBDB+tMnbv05qmbIdeCtZz1Z92/CabZlqpa/y+ovdhp9qUOoWIWTfG5VbhX1BxsA308ab2xDPC/bXmmm9GgTN9vsT7kSO4YZ+vV+srfXnmSquo5zKSpzsNI3dVA98zNBmxo9hr3Ugpucnm3Kfs="
