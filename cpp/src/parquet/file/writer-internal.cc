@@ -173,13 +173,16 @@ std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
 }
 
 void FileSerializer::Close() {
-  if (row_group_writer_) { row_group_writer_->Close(); }
-  row_group_writer_.reset();
+  if (is_open_) {
+    if (row_group_writer_) { row_group_writer_->Close(); }
+    row_group_writer_.reset();
 
-  // Write magic bytes and metadata
-  WriteMetaData();
+    // Write magic bytes and metadata
+    WriteMetaData();
 
-  sink_->Close();
+    sink_->Close();
+    is_open_ = false;
+  }
 }
 
 int FileSerializer::num_columns() const {
@@ -238,7 +241,11 @@ void FileSerializer::WriteMetaData() {
 
 FileSerializer::FileSerializer(std::shared_ptr<OutputStream> sink,
     std::shared_ptr<GroupNode>& schema, MemoryAllocator* allocator = default_allocator())
-    : sink_(sink), allocator_(allocator), num_row_groups_(0), num_rows_(0) {
+    : sink_(sink),
+      allocator_(allocator),
+      num_row_groups_(0),
+      num_rows_(0),
+      is_open_(true) {
   schema_.Init(schema);
   StartFile();
 }

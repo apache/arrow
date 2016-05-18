@@ -130,6 +130,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   MemoryAllocator* allocator_;
   int num_row_groups_;
   int num_rows_;
+  bool is_open_;
   std::unique_ptr<RowGroupWriter> row_group_writer_;
 
   void StartFile();
