@@ -21,6 +21,7 @@
 set(PARQUET_SRCS
   reader.cc
   schema.cc
+  writer.cc
 )
 
 set(PARQUET_LIBS
@@ -37,14 +38,15 @@ SET_TARGET_PROPERTIES(arrow_parquet PROPERTIES LINKER_LANGUAGE CXX)
 ADD_ARROW_TEST(parquet-schema-test)
 ARROW_TEST_LINK_LIBRARIES(parquet-schema-test arrow_parquet)
 
-ADD_ARROW_TEST(parquet-reader-test)
-ARROW_TEST_LINK_LIBRARIES(parquet-reader-test arrow_parquet)
+ADD_ARROW_TEST(parquet-io-test)
+ARROW_TEST_LINK_LIBRARIES(parquet-io-test arrow_parquet)
 
 # Headers: top level
 install(FILES
   reader.h
   schema.h
   utils.h
+  writer.h
   DESTINATION include/arrow/parquet)
 
 install(TARGETS arrow_parquet
