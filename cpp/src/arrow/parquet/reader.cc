@@ -26,6 +26,7 @@
 #include "arrow/util/status.h"
 
 using parquet::ColumnReader;
+using parquet::Repetition;
 using parquet::TypedColumnReader;
 
 namespace arrow {
@@ -36,6 +37,7 @@ class FileReader::Impl {
   Impl(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader);
   virtual ~Impl() {}
 
+  bool CheckForFlatColumn(const ::parquet::ColumnDescriptor* descr);
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
   Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
 
@@ -67,7 +69,6 @@ class FlatColumnReader::Impl {
 
   PoolBuffer values_buffer_;
   PoolBuffer def_levels_buffer_;
-  PoolBuffer rep_levels_buffer_;
   PoolBuffer values_builder_buffer_;
   PoolBuffer valid_bytes_buffer_;
 };
@@ -76,7 +77,20 @@ FileReader::Impl::Impl(
     MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader)
     : pool_(pool), reader_(std::move(reader)) {}
 
+bool FileReader::Impl::CheckForFlatColumn(const ::parquet::ColumnDescriptor* descr) {
+  if ((descr->max_repetition_level() > 0) || (descr->max_definition_level() > 1)) {
+    return false;
+  } else if ((descr->max_definition_level() == 1) &&
+             (descr->schema_node()->repetition() != Repetition::OPTIONAL)) {
+    return false;
+  }
+  return true;
+}
+
 Status FileReader::Impl::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) {
+  if (!CheckForFlatColumn(reader_->descr()->Column(i))) {
+    return Status::Invalid("The requested column is not flat");
+  }
   std::unique_ptr<FlatColumnReader::Impl> impl(
       new FlatColumnReader::Impl(pool_, reader_->descr()->Column(i), reader_.get(), i));
   *out = std::unique_ptr<FlatColumnReader>(new FlatColumnReader(std::move(impl)));
@@ -111,8 +125,7 @@ FlatColumnReader::Impl::Impl(MemoryPool* pool, const ::parquet::ColumnDescriptor
       column_index_(column_index),
       next_row_group_(0),
       values_buffer_(pool),
-      def_levels_buffer_(pool),
-      rep_levels_buffer_(pool) {
+      def_levels_buffer_(pool) {
   NodeToField(descr_->schema_node(), &field_);
   NextRowGroup();
 }
@@ -127,22 +140,19 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     if (descr_->max_definition_level() > 0) {
       def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
     }
-    if (descr_->max_repetition_level() > 0) {
-      rep_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
-    }
     auto reader = dynamic_cast<TypedColumnReader<ParquetType>*>(column_reader_.get());
     int64_t values_read;
     int64_t levels_read;
     int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
-    int16_t* rep_levels = reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data());
     auto values =
         reinterpret_cast<typename ParquetType::c_type*>(values_buffer_.mutable_data());
-    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(values_to_read, def_levels,
-                             rep_levels, values, &values_read));
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
+                             values_to_read, def_levels, nullptr, values, &values_read));
     values_to_read -= levels_read;
     if (descr_->max_definition_level() == 0) {
       RETURN_NOT_OK(builder.Append(values, values_read));
-    } else if (descr_->max_definition_level() == 1) {
+    } else {
+      // descr_->max_definition_level() == 1
       RETURN_NOT_OK(values_builder_buffer_.Resize(
           levels_read * sizeof(typename ParquetType::c_type)));
       RETURN_NOT_OK(valid_bytes_buffer_.Resize(levels_read * sizeof(uint8_t)));
@@ -159,8 +169,6 @@ Status FlatColumnReader::Impl::TypedReadBatch(
         }
       }
       builder.Append(values_ptr, levels_read, valid_bytes);
-    } else {
-      return Status::NotImplemented("no support for max definition level > 1 yet");
     }
     if (!column_reader_->HasNext()) { NextRowGroup(); }
   }
@@ -178,10 +186,6 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
     // Exhausted all row groups.
     *out = nullptr;
     return Status::OK();
-  }
-
-  if (descr_->max_repetition_level() > 0) {
-    return Status::NotImplemented("no support for repetition yet");
   }
 
   switch (field_->type->type) {
