@@ -15,15 +15,14 @@ requirements:
     - cmake
     - flatbuffers
     - parquet-cpp
-    - thrift-cpp
 
   run:
     - parquet-cpp
 
 test:
   commands:
-    - test -f $PREFIX/lib/libarrow.so
-    - test -f $PREFIX/lib/libarrow_parquet.so
+    - test -f $PREFIX/lib/libarrow.so            # [linux]
+    - test -f $PREFIX/lib/libarrow_parquet.so    # [linux]
     - test -f $PREFIX/include/arrow/api.h
 
 about:
