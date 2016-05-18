@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "parquet/util/macros.h"
 #include "parquet/util/mem-allocator.h"
@@ -35,6 +36,8 @@ class ResizableBuffer;
 // Abstract output stream
 class OutputStream {
  public:
+  virtual ~OutputStream();
+
   // Close the output stream
   virtual void Close() = 0;
 
@@ -52,6 +55,8 @@ class InMemoryOutputStream : public OutputStream {
  public:
   explicit InMemoryOutputStream(int64_t initial_capacity = IN_MEMORY_DEFAULT_CAPACITY,
       MemoryAllocator* allocator = default_allocator());
+
+  virtual ~InMemoryOutputStream();
 
   // Close is currently a no-op with the in-memory stream
   virtual void Close() {}
@@ -72,6 +77,28 @@ class InMemoryOutputStream : public OutputStream {
   int64_t capacity_;
 
   DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
+};
+
+class LocalFileOutputStream : public OutputStream {
+ public:
+  explicit LocalFileOutputStream(const std::string& path);
+
+  virtual ~LocalFileOutputStream();
+
+  // Close the output stream
+  void Close() override;
+
+  // Return the current position in the output stream relative to the start
+  int64_t Tell() override;
+
+  // Copy bytes into the output stream
+  void Write(const uint8_t* data, int64_t length) override;
+
+ private:
+  void CloseFile();
+
+  FILE* file_;
+  bool is_open_;
 };
 
 }  // namespace parquet

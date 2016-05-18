@@ -26,6 +26,11 @@
 namespace parquet {
 
 // ----------------------------------------------------------------------
+// OutputStream
+
+OutputStream::~OutputStream() {}
+
+// ----------------------------------------------------------------------
 // In-memory output stream
 
 InMemoryOutputStream::InMemoryOutputStream(
@@ -34,6 +39,8 @@ InMemoryOutputStream::InMemoryOutputStream(
   if (initial_capacity == 0) { initial_capacity = IN_MEMORY_DEFAULT_CAPACITY; }
   buffer_.reset(new OwnedMutableBuffer(initial_capacity, allocator));
 }
+
+InMemoryOutputStream::~InMemoryOutputStream() {}
 
 uint8_t* InMemoryOutputStream::Head() {
   return buffer_->mutable_data() + size_;
@@ -61,6 +68,49 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
   std::shared_ptr<Buffer> result = buffer_;
   buffer_ = nullptr;
   return result;
+}
+
+// ----------------------------------------------------------------------
+// local file output stream
+
+LocalFileOutputStream::LocalFileOutputStream(const std::string& path) : is_open_(true) {
+  file_ = fopen(path.c_str(), "wb");
+  if (file_ == nullptr || ferror(file_)) {
+    std::stringstream ss;
+    ss << "Unable to open file: " << path;
+    throw ParquetException(ss.str());
+  }
+}
+
+LocalFileOutputStream::~LocalFileOutputStream() {
+  CloseFile();
+}
+
+void LocalFileOutputStream::Close() {
+  CloseFile();
+}
+
+int64_t LocalFileOutputStream::Tell() {
+  DCHECK(is_open_);
+  int64_t position = ftell(file_);
+  if (position < 0) { throw ParquetException("ftell failed, did the file disappear?"); }
+  return position;
+}
+
+void LocalFileOutputStream::Write(const uint8_t* data, int64_t length) {
+  DCHECK(is_open_);
+  int64_t bytes_written = fwrite(data, sizeof(uint8_t), length, file_);
+  if (bytes_written != length) {
+    int error_code = ferror(file_);
+    throw ParquetException("fwrite failed, error code: " + std::to_string(error_code));
+  }
+}
+
+void LocalFileOutputStream::CloseFile() {
+  if (is_open_) {
+    fclose(file_);
+    is_open_ = false;
+  }
 }
 
 }  // namespace parquet

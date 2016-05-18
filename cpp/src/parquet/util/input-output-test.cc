@@ -208,4 +208,37 @@ TYPED_TEST(TestFileReaders, BadSeek) {
   ASSERT_THROW(this->source.Seek(this->filesize_ + 1), ParquetException);
 }
 
+class TestFileWriter : public ::testing::Test {
+ public:
+  void SetUp() {
+    test_path_ = "parquet-input-output-test.txt";
+    if (file_exists(test_path_)) { std::remove(test_path_.c_str()); }
+  }
+
+  void TearDown() { DeleteTestFile(); }
+
+  void DeleteTestFile() {
+    if (file_exists(test_path_)) { std::remove(test_path_.c_str()); }
+  }
+
+ protected:
+  std::string test_path_;
+  uint8_t test_data_[4] = {1, 2, 3, 4};
+};
+
+TEST_F(TestFileWriter, Write) {
+  LocalFileOutputStream sink(test_path_);
+  ASSERT_EQ(0, sink.Tell());
+  sink.Write(test_data_, 4);
+  ASSERT_EQ(4, sink.Tell());
+  sink.Close();
+
+  // Check that the correct content was written
+  LocalFileSource source;
+  source.Open(test_path_);
+  std::shared_ptr<Buffer> buffer = source.Read(4);
+  ASSERT_EQ(4, buffer->size());
+  ASSERT_EQ(0, memcmp(test_data_, buffer->data(), 4));
+}
+
 }  // namespace parquet
