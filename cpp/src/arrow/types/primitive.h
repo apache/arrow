@@ -66,6 +66,21 @@ class PrimitiveArray : public Array {
       return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
     }                                                                                  \
                                                                                        \
+    bool RangeEquals(                                                                  \
+        int32_t start_idx, int32_t end_idx, const ArrayPtr& arr) const override {      \
+      if (this == arr.get()) { return true; }                                          \
+      if (!arr) { return false; }                                                      \
+      if (this->type_enum() != arr->type_enum()) { return false; }                     \
+      auto other = static_cast<NAME*>(arr.get());                                      \
+      for (int i = start_idx; i < end_idx; ++i) {                                      \
+        bool is_null = IsNull(i);                                                      \
+        if (is_null != arr->IsNull(i) || (!is_null && Value(i) != other->Value(i))) {  \
+          return false;                                                                \
+        }                                                                              \
+      }                                                                                \
+      return true;                                                                     \
+    }                                                                                  \
+                                                                                       \
     const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }        \
                                                                                        \
     T Value(int i) const { return raw_data()[i]; }                                     \
@@ -248,7 +263,9 @@ class BooleanArray : public PrimitiveArray {
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool Equals(const ArrayPtr& arr) const override;
+  bool RangeEquals(
+      int32_t start_idx, int32_t end_idx, const ArrayPtr& arr) const override;
 
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 

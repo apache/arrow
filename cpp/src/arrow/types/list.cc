@@ -44,6 +44,21 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
   return EqualsExact(*static_cast<const ListArray*>(arr.get()));
 }
 
+bool ListArray::RangeEquals(
+    int32_t start_idx, int32_t end_idx, const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (this->type_enum() != arr->type_enum()) { return false; }
+  auto other = static_cast<ListArray*>(arr.get());
+  for (int i = start_idx; i < end_idx; ++i) {
+    const bool is_null = IsNull(i);
+    if ((is_null != arr->IsNull(i)) ||
+        (!is_null && !values_->RangeEquals(offset(i), offset(i + 1), other->values()))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
   if (!offset_buf_) { return Status::Invalid("offset_buf_ was null"); }

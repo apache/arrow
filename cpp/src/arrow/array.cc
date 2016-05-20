@@ -48,6 +48,14 @@ bool Array::EqualsExact(const Array& other) const {
   return true;
 }
 
+bool Array::RangeEqualsExact(int32_t start_idx, int32_t end_idx, const Array& arr) const {
+  if (this == &arr) { return true; }
+  for (int i = start_idx; i < end_idx; ++i) {
+    if (IsNull(i) != arr.IsNull(i)) { return false; }
+  }
+  return true;
+}
+
 Status Array::Validate() const {
   return Status::OK();
 }
@@ -56,6 +64,12 @@ bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (Type::NA != arr->type_enum()) { return false; }
   return arr->length() == length_;
+}
+
+bool NullArray::RangeEquals(
+    int32_t start_idx, int32_t end_idx, const std::shared_ptr<Array>& arr) const {
+  if (Type::NA != arr->type_enum()) { return false; }
+  return true;
 }
 
 }  // namespace arrow
