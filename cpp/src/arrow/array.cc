@@ -20,7 +20,7 @@
 #include <cstdint>
 
 #include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -56,6 +56,30 @@ bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (Type::NA != arr->type_enum()) { return false; }
   return arr->length() == length_;
+}
+
+Status Array::SliceNullBitmap(std::shared_ptr<Buffer>* out_buf, int32_t& null_count,
+    int32_t start, int32_t length) const {
+  DCHECK_GE(start, 0);
+  DCHECK_GT(length, 0);
+  DCHECK_GT(null_count_, 0);
+
+  auto null_buffer = std::make_shared<PoolBuffer>();
+  auto bit_length = util::bytes_for_bits(length);
+  DCHECK_GE(bit_length, 0);
+
+  RETURN_NOT_OK(null_buffer->Resize(bit_length));
+  memset(null_buffer->mutable_data(), 0, bit_length);
+
+  auto bit_null_count = util::bytes_to_bits(
+      null_bitmap_->data(), start, length, null_buffer->mutable_data());
+
+  DCHECK_GT(null_buffer->size(), 0);
+
+  *out_buf = null_buffer;
+  null_count = bit_null_count;
+
+  return Status::OK();
 }
 
 }  // namespace arrow

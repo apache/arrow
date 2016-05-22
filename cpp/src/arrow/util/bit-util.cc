@@ -30,6 +30,19 @@ void util::bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   }
 }
 
+int32_t util::bytes_to_bits(
+    const uint8_t* bytes, int64_t from, int64_t length, uint8_t* bits) {
+  int32_t null_count = 0;
+  for (int i = 0; i < length; ++i) {
+    if (!bit_not_set(bytes, from + i)) {
+      set_bit(bits, i);
+    } else {
+      ++null_count;
+    }
+  }
+  return null_count;
+}
+
 Status util::bytes_to_bits(
     const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
   int bit_length = util::bytes_for_bits(bytes.size());

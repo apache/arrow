@@ -71,6 +71,10 @@ class ListArray : public Array {
 
   bool EqualsExact(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
+  // slice functions for ListArray
+  std::shared_ptr<Array> Slice(int32_t start) const override;
+  std::shared_ptr<Array> Slice(int32_t start, int32_t length) const override;
+  Status SliceOffset(std::shared_ptr<Buffer>* out, int32_t start, int32_t length) const;
 
  protected:
   std::shared_ptr<Buffer> offset_buf_;
