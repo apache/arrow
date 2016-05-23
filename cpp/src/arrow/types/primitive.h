@@ -296,7 +296,6 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
 
   // Scalar append
   Status Append(bool val) {
-    // TODO(emkornfield) fix reserve/resize for BooleanBuilder
     Reserve(1);
     util::set_bit(null_bitmap_data_, length_);
     if (val) {
