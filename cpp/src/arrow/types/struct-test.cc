@@ -100,14 +100,14 @@ class TestStructBuilder : public TestBuilder {
   void SetUp() {
     TestBuilder::SetUp();
 
-    auto value_type = TypePtr(new Int32Type());
+    auto int32_type = TypePtr(new Int32Type());
     auto char_type = TypePtr(new Int8Type());
     auto list_type = TypePtr(new ListType(char_type));
 
-    std::vector<TypePtr> types = {list_type, value_type};
+    std::vector<TypePtr> types = {list_type, int32_type};
     std::vector<FieldPtr> fields;
     fields.push_back(FieldPtr(new Field("list", list_type)));
-    fields.push_back(FieldPtr(new Field("int", value_type)));
+    fields.push_back(FieldPtr(new Field("int", int32_type)));
 
     type_ = TypePtr(new StructType(fields));
     value_fields_ = fields;
@@ -116,6 +116,7 @@ class TestStructBuilder : public TestBuilder {
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
 
     builder_ = std::dynamic_pointer_cast<StructBuilder>(tmp);
+    ASSERT_EQ(2, builder_->field_builders().size());
   }
 
   void Done() { result_ = std::dynamic_pointer_cast<StructArray>(builder_->Finish()); }
@@ -175,9 +176,9 @@ TEST_F(TestStructBuilder, TestBasics) {
   Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
   ASSERT_EQ(2, builder_->field_builders().size());
 
-  EXPECT_OK(builder_->Reserve(list_lengths.size()));
-  EXPECT_OK(char_vb->Reserve(list_values.size()));
-  EXPECT_OK(int_vb->Reserve(int_values.size()));
+  EXPECT_OK(builder_->Resize(list_lengths.size()));
+  EXPECT_OK(char_vb->Resize(list_values.size()));
+  EXPECT_OK(int_vb->Resize(int_values.size()));
 
   int pos = 0;
   for (size_t i = 0; i < list_lengths.size(); ++i) {
@@ -210,11 +211,11 @@ TEST_F(TestStructBuilder, BulkAppend) {
   Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
   Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
 
-  ASSERT_OK(builder_->Reserve(list_lengths.size()));
-  ASSERT_OK(char_vb->Reserve(list_values.size()));
-  ASSERT_OK(int_vb->Reserve(int_values.size()));
+  ASSERT_OK(builder_->Resize(list_lengths.size()));
+  ASSERT_OK(char_vb->Resize(list_values.size()));
+  ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  builder_->Append(struct_is_valid.data(), struct_is_valid.size());
+  builder_->Appends(struct_is_valid.size(), struct_is_valid.data());
 
   list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
   for (int8_t value : list_values) {
@@ -246,7 +247,7 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  builder_->Append(struct_is_valid.data(), struct_is_valid.size());
+  builder_->Appends(struct_is_valid.size(), struct_is_valid.data());
 
   list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
   for (int8_t value : list_values) {
@@ -258,7 +259,8 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, result_->Validate());
+  // Even null bitmap of the parent Struct is not valid, Validate() will ignore it.
+  ASSERT_OK(result_->Validate());
 }
 
 TEST_F(TestStructBuilder, TestEquals) {}

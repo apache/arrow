@@ -43,12 +43,11 @@ class StructArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const std::shared_ptr<Array>& field(int32_t pos) const { return field_arrays_.at(pos); }
-  const std::vector<ArrayPtr>& fields() const { return field_arrays_; }
-
-  const std::shared_ptr<DataType>& field_type(int32_t pos) const {
-    return field_arrays_.at(pos)->type();
+  const std::shared_ptr<Array>& field(int32_t pos) const {
+    DCHECK_GT(field_arrays_.size(), 0);
+    return field_arrays_[pos];
   }
+  const std::vector<ArrayPtr>& fields() const { return field_arrays_; }
 
   bool EqualsExact(const StructArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -60,49 +59,28 @@ class StructArray : public Array {
 
 // ---------------------------------------------------------------------------------
 // StructArray builder
+// Append, Appends, Resize and Reserve methods are acting on StructBuilder.
+// Please make sure all these methods of all child-builders' are consistently
+// called to maintain data-structure consistency.
 class StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-      std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)
+      const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)
       : ArrayBuilder(pool, type) {
     field_builders_ = field_builders;
   }
 
-  Status Init(int32_t elements) override {
-    RETURN_NOT_OK(ArrayBuilder::Init(elements));
-    return Status::OK();
-  }
-
-  Status Resize(int32_t capacity) override {
-    // Need space for the end offset
-    if (capacity < MIN_BUILDER_CAPACITY) { capacity = MIN_BUILDER_CAPACITY; }
-
-    if (capacity_ == 0) {
-      RETURN_NOT_OK(ArrayBuilder::Init(capacity));
-    } else {
-      RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-    }
-    capacity_ = capacity;
-
-    for (auto it : field_builders_) {
-      RETURN_NOT_OK(it->Resize(capacity));
-    }
-    return Status::OK();
-  }
-
   // null_bitmap is of equal length to every child field, and any zero byte
   // will be considered as a null for that field, but users must using app-
-  // end methods or advance methods of the child builders independently to
+  // end methods or advance methods of the child builders' independently to
   // insert data.
-  Status Append(const uint8_t* null_bitmap, int32_t length) {
+  Status Appends(int32_t length, const uint8_t* valid_bytes) {
     RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(null_bitmap, length);
+    UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
   std::shared_ptr<Array> Finish() override {
-    DCHECK(field_builders_.size());
-
     std::vector<ArrayPtr> fields;
     for (auto it : field_builders_) {
       fields.push_back(it->Finish());
@@ -117,9 +95,8 @@ class StructBuilder : public ArrayBuilder {
     return result;
   }
 
-  // This function just appends elements to StructBuilder, if you want to
-  // inserting data into the child fields, please make sure that the chi-
-  // ld builders' append methods must be called independently before that.
+  // Append an element to the Struct. All child-builders' Append method must
+  // be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
@@ -129,7 +106,8 @@ class StructBuilder : public ArrayBuilder {
   Status AppendNull() { return Append(false); }
 
   const std::shared_ptr<ArrayBuilder> field_builder(int pos) const {
-    return field_builders_.at(pos);
+    DCHECK_GT(field_builders_.size(), 0);
+    return field_builders_[pos];
   }
   const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders() const {
     return field_builders_;
