@@ -78,6 +78,7 @@ TEST_F(TestArray, TestEquality) {
   EXPECT_TRUE(array->Equals(equal_array));
   EXPECT_TRUE(equal_array->Equals(array));
   EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
   EXPECT_TRUE(array->RangeEquals(4, 8, unequal_array));
   EXPECT_FALSE(array->RangeEquals(0, 4, unequal_array));
   EXPECT_FALSE(array->RangeEquals(0, 8, unequal_array));
