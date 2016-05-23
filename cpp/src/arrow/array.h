@@ -61,10 +61,10 @@ class Array {
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
 
   // Compare if the range of slots specified are equal for the given array and
-  // this array.  end_idx exclusive.  These methods do not bounds check.
-  bool RangeEqualsExact(int32_t start_idx, int32_t end_idx, const Array& arr) const;
+  // this array.  end_idx exclusive.  This methods does not bounds check.
   virtual bool RangeEquals(
-      int32_t start_idx, int32_t end_idx, const std::shared_ptr<Array>& arr) const = 0;
+      int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const std::shared_ptr<Array>& arr) const = 0;
 
   // Determines if the array is internally consistent.  Defaults to always
   // returning Status::OK.  This can be an expensive check.
@@ -92,7 +92,7 @@ class NullArray : public Array {
   explicit NullArray(int32_t length) : NullArray(std::make_shared<NullType>(), length) {}
 
   bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx,
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
       const std::shared_ptr<Array>& arr) const override;
 };
 

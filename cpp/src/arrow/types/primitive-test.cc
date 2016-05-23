@@ -352,10 +352,10 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   EXPECT_FALSE(unequal_array->Equals(equal_array));
 
   // Test range equality
-  EXPECT_FALSE(array->RangeEquals(0, first_valid_idx+1, unequal_array));
-  EXPECT_FALSE(array->RangeEquals(first_valid_idx, size, unequal_array));
-  EXPECT_TRUE(array->RangeEquals(0, first_valid_idx, unequal_array));
-  EXPECT_TRUE(array->RangeEquals(first_valid_idx+1, size, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, first_valid_idx+1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(first_valid_idx, size, first_valid_idx, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(0, first_valid_idx, 0, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(first_valid_idx+1, size, first_valid_idx+1, unequal_array));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {

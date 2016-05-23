@@ -192,14 +192,14 @@ bool BooleanArray::Equals(const ArrayPtr& arr) const {
 }
 
 bool BooleanArray::RangeEquals(
-    int32_t start_idx, int32_t end_idx, const ArrayPtr& arr) const {
+    int32_t start_idx, int32_t end_idx, int32_t other_start_idx, const ArrayPtr& arr) const {
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  auto other = static_cast<BooleanArray*>(arr.get());
-  for (int i = start_idx; i < end_idx; ++i) {
-    bool is_null = IsNull(i);
-    if (is_null != arr->IsNull(i) || (!is_null && Value(i) != other->Value(i))) {
+  const auto other = static_cast<BooleanArray*>(arr.get());
+  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
+    const bool is_null = IsNull(i);
+    if (is_null != arr->IsNull(o_i) || (!is_null && Value(i) != other->Value(o_i))) {
       return false;
     }
   }

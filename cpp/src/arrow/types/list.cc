@@ -45,14 +45,25 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
 }
 
 bool ListArray::RangeEquals(
-    int32_t start_idx, int32_t end_idx, const std::shared_ptr<Array>& arr) const {
+    int32_t start_idx, int32_t end_idx, 
+    int32_t other_start_idx, 
+    const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  auto other = static_cast<ListArray*>(arr.get());
-  for (int i = start_idx; i < end_idx; ++i) {
+  const auto other = static_cast<ListArray*>(arr.get());
+  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
     const bool is_null = IsNull(i);
-    if ((is_null != arr->IsNull(i)) ||
-        (!is_null && !values_->RangeEquals(offset(i), offset(i + 1), other->values()))) {
+    if (is_null != arr->IsNull(o_i)) { return false; }
+    if (is_null) continue;
+    const int32_t begin_offset = offset(i); 
+    const int32_t end_offset = offset(i+1); 
+    const int32_t other_begin_offset = other->offset(o_i);
+    const int32_t other_end_offset = other->offset(o_i+1);
+    // Underlying can't be equal if the size isn't equal
+    if (end_offset - begin_offset != other_end_offset - other_begin_offset) {
+      return false;
+    }
+    if (!values_->RangeEquals(begin_offset, end_offset, other_begin_offset, other->values())) {
       return false;
     }
   }
