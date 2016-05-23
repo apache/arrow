@@ -47,6 +47,7 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
 bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
     const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
   const auto other = static_cast<ListArray*>(arr.get());
   for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
