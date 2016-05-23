@@ -44,9 +44,7 @@ bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
   return EqualsExact(*static_cast<const ListArray*>(arr.get()));
 }
 
-bool ListArray::RangeEquals(
-    int32_t start_idx, int32_t end_idx, 
-    int32_t other_start_idx, 
+bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
     const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) { return false; }
@@ -55,15 +53,16 @@ bool ListArray::RangeEquals(
     const bool is_null = IsNull(i);
     if (is_null != arr->IsNull(o_i)) { return false; }
     if (is_null) continue;
-    const int32_t begin_offset = offset(i); 
-    const int32_t end_offset = offset(i+1); 
+    const int32_t begin_offset = offset(i);
+    const int32_t end_offset = offset(i + 1);
     const int32_t other_begin_offset = other->offset(o_i);
-    const int32_t other_end_offset = other->offset(o_i+1);
+    const int32_t other_end_offset = other->offset(o_i + 1);
     // Underlying can't be equal if the size isn't equal
     if (end_offset - begin_offset != other_end_offset - other_begin_offset) {
       return false;
     }
-    if (!values_->RangeEquals(begin_offset, end_offset, other_begin_offset, other->values())) {
+    if (!values_->RangeEquals(
+            begin_offset, end_offset, other_begin_offset, other->values())) {
       return false;
     }
   }

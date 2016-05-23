@@ -62,8 +62,7 @@ class Array {
 
   // Compare if the range of slots specified are equal for the given array and
   // this array.  end_idx exclusive.  This methods does not bounds check.
-  virtual bool RangeEquals(
-      int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+  virtual bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const = 0;
 
   // Determines if the array is internally consistent.  Defaults to always

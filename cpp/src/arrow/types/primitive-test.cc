@@ -50,7 +50,7 @@ class Array;
                                           \
     KLASS tp_copy = tp;                   \
     ASSERT_EQ(tp_copy.type, Type::ENUM);  \
-  }                                       \
+  }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
 PRIMITIVE_TEST(Int16Type, INT16, "int16");
@@ -248,7 +248,6 @@ TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
 #define DECL_ARRAYTYPE() typedef typename TestFixture::ArrayType ArrayType;
 
-
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();
 
@@ -305,12 +304,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
 }
 
-template<class T, class Builder>
-Status MakeArray(const vector<uint8_t>& valid_bytes,  
-                 const vector<T>& draws,
-                 int size,
-                 Builder* builder, 
-                 ArrayPtr* out) { 
+template <class T, class Builder>
+Status MakeArray(const vector<uint8_t>& valid_bytes, const vector<T>& draws, int size,
+    Builder* builder, ArrayPtr* out) {
   // Append the first 1000
   for (int i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {
@@ -331,16 +327,16 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
   ArrayPtr array, equal_array, unequal_array;
-  auto builder = this->builder_.get();  
+  auto builder = this->builder_.get();
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &array));
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &equal_array));
 
   // Make the not equal array by negating the first valid element with itself.
-  const auto first_valid = std::find_if(valid_bytes.begin(), valid_bytes.end(), 
-                                        [](uint8_t valid){ return valid > 0;});
+  const auto first_valid = std::find_if(
+      valid_bytes.begin(), valid_bytes.end(), [](uint8_t valid) { return valid > 0; });
   const int first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
   // This should be true with a very high probability, but might introduce flakiness
-  ASSERT_LT(first_valid_idx, size-1); 
+  ASSERT_LT(first_valid_idx, size - 1);
   draws[first_valid_idx] = ~*reinterpret_cast<int64_t*>(&draws[first_valid_idx]);
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &unequal_array));
 
@@ -352,10 +348,11 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   EXPECT_FALSE(unequal_array->Equals(equal_array));
 
   // Test range equality
-  EXPECT_FALSE(array->RangeEquals(0, first_valid_idx+1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, first_valid_idx + 1, 0, unequal_array));
   EXPECT_FALSE(array->RangeEquals(first_valid_idx, size, first_valid_idx, unequal_array));
   EXPECT_TRUE(array->RangeEquals(0, first_valid_idx, 0, unequal_array));
-  EXPECT_TRUE(array->RangeEquals(first_valid_idx+1, size, first_valid_idx+1, unequal_array));
+  EXPECT_TRUE(
+      array->RangeEquals(first_valid_idx + 1, size, first_valid_idx + 1, unequal_array));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {

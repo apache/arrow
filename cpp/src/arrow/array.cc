@@ -58,8 +58,7 @@ bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
   return arr->length() == length_;
 }
 
-bool NullArray::RangeEquals(
-    int32_t start_idx, int32_t end_idx, int32_t other_start_index, 
+bool NullArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
     const std::shared_ptr<Array>& arr) const {
   if (Type::NA != arr->type_enum()) { return false; }
   return true;

@@ -90,10 +90,10 @@ TEST_F(TestListBuilder, Equality) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
   ArrayPtr array, equal_array, unequal_array;
-  vector<int32_t> equal_offsets =  {0, 1, 2, 5};
-  vector<int32_t> equal_values = {1,2,3,4,5,2,2,2};
+  vector<int32_t> equal_offsets = {0, 1, 2, 5};
+  vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2};
   vector<int32_t> unequal_offsets = {0, 1, 4};
-  vector<int32_t> unequal_values = {1,2,2,2,3,4,5};
+  vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
   ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
@@ -105,7 +105,7 @@ TEST_F(TestListBuilder, Equality) {
   // now an unequal one
   ASSERT_OK(builder_->Append(unequal_offsets.data(), unequal_offsets.size()));
   ASSERT_OK(vb->Append(unequal_values.data(), unequal_values.size()));
-  unequal_array = builder_->Finish();  
+  unequal_array = builder_->Finish();
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));

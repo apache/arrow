@@ -191,8 +191,8 @@ bool BooleanArray::Equals(const ArrayPtr& arr) const {
   return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
 }
 
-bool BooleanArray::RangeEquals(
-    int32_t start_idx, int32_t end_idx, int32_t other_start_idx, const ArrayPtr& arr) const {
+bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
+    int32_t other_start_idx, const ArrayPtr& arr) const {
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
