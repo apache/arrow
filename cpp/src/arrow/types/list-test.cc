@@ -86,6 +86,42 @@ class TestListBuilder : public TestBuilder {
   shared_ptr<ListArray> result_;
 };
 
+TEST_F(TestListBuilder, Equality) {
+  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
+
+  ArrayPtr array, equal_array, unequal_array;
+  vector<int32_t> equal_offsets = {0, 1, 2, 5};
+  vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2};
+  vector<int32_t> unequal_offsets = {0, 1, 4};
+  vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
+
+  // setup two equal arrays
+  ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
+  ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
+  array = builder_->Finish();
+  ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
+  ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
+  equal_array = builder_->Finish();
+  // now an unequal one
+  ASSERT_OK(builder_->Append(unequal_offsets.data(), unequal_offsets.size()));
+  ASSERT_OK(vb->Append(unequal_values.data(), unequal_values.size()));
+  unequal_array = builder_->Finish();
+
+  // Test array equality
+  EXPECT_TRUE(array->Equals(array));
+  EXPECT_TRUE(array->Equals(equal_array));
+  EXPECT_TRUE(equal_array->Equals(array));
+  EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
+
+  // Test range equality
+  EXPECT_TRUE(array->RangeEquals(0, 1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(2, 3, 2, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(3, 4, 1, unequal_array));
+}
+
 TEST_F(TestListBuilder, TestResize) {}
 
 TEST_F(TestListBuilder, TestAppendNull) {

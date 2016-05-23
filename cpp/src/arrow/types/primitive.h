@@ -66,6 +66,22 @@ class PrimitiveArray : public Array {
       return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
     }                                                                                  \
                                                                                        \
+    bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,      \
+        const ArrayPtr& arr) const override {                                          \
+      if (this == arr.get()) { return true; }                                          \
+      if (!arr) { return false; }                                                      \
+      if (this->type_enum() != arr->type_enum()) { return false; }                     \
+      const auto other = static_cast<NAME*>(arr.get());                                \
+      for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {    \
+        const bool is_null = IsNull(i);                                                \
+        if (is_null != arr->IsNull(o_i) ||                                             \
+            (!is_null && Value(i) != other->Value(o_i))) {                             \
+          return false;                                                                \
+        }                                                                              \
+      }                                                                                \
+      return true;                                                                     \
+    }                                                                                  \
+                                                                                       \
     const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }        \
                                                                                        \
     T Value(int i) const { return raw_data()[i]; }                                     \
@@ -95,8 +111,10 @@ class PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  void AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
   }
 
   Status AppendNull() {
@@ -139,9 +157,10 @@ class NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::Reserve;
 
   // Scalar append.
-  void Append(value_type val) {
-    ArrayBuilder::Reserve(1);
+  Status Append(value_type val) {
+    RETURN_NOT_OK(ArrayBuilder::Reserve(1));
     UnsafeAppend(val);
+    return Status::OK();
   }
 
   // Does not capacity-check; make sure to call Reserve beforehand
@@ -248,7 +267,9 @@ class BooleanArray : public PrimitiveArray {
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool Equals(const ArrayPtr& arr) const override;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const ArrayPtr& arr) const override;
 
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
@@ -274,7 +295,8 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
   using PrimitiveBuilder<BooleanType>::Append;
 
   // Scalar append
-  void Append(bool val) {
+  Status Append(bool val) {
+    Reserve(1);
     util::set_bit(null_bitmap_data_, length_);
     if (val) {
       util::set_bit(raw_data_, length_);
@@ -282,9 +304,10 @@ class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
       util::clear_bit(raw_data_, length_);
     }
     ++length_;
+    return Status::OK();
   }
 
-  void Append(uint8_t val) { Append(static_cast<bool>(val)); }
+  Status Append(uint8_t val) { return Append(static_cast<bool>(val)); }
 };
 
 }  // namespace arrow

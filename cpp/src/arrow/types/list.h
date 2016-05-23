@@ -72,6 +72,9 @@ class ListArray : public Array {
   bool EqualsExact(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const ArrayPtr& arr) const override;
+
  protected:
   std::shared_ptr<Buffer> offset_buf_;
   const int32_t* offsets_;

@@ -56,6 +56,35 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
+ArrayPtr MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool) {
+  int32_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
+  std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(v);
+
+  BufferBuilder value_builder(pool);
+  for (size_t i = 0; i < v.size(); ++i) {
+    value_builder.Append<int32_t>(0);
+  }
+
+  ArrayPtr arr(new Int32Array(v.size(), value_builder.Finish(), null_count, null_buf));
+  return arr;
+}
+
+TEST_F(TestArray, TestEquality) {
+  auto array = MakeArrayFromValidBytes({1, 0, 1, 1, 0, 1, 0, 0}, pool_);
+  auto equal_array = MakeArrayFromValidBytes({1, 0, 1, 1, 0, 1, 0, 0}, pool_);
+  auto unequal_array = MakeArrayFromValidBytes({1, 1, 1, 1, 0, 1, 0, 0}, pool_);
+
+  EXPECT_TRUE(array->Equals(array));
+  EXPECT_TRUE(array->Equals(equal_array));
+  EXPECT_TRUE(equal_array->Equals(array));
+  EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
+  EXPECT_TRUE(array->RangeEquals(4, 8, 4, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 4, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 8, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+}
+
 TEST_F(TestArray, TestIsNull) {
   // clang-format off
   std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,

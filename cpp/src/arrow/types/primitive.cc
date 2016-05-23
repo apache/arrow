@@ -185,10 +185,25 @@ bool BooleanArray::EqualsExact(const BooleanArray& other) const {
   }
 }
 
-bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
+bool BooleanArray::Equals(const ArrayPtr& arr) const {
   if (this == arr.get()) return true;
   if (Type::BOOL != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
+}
+
+bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
+    int32_t other_start_idx, const ArrayPtr& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (this->type_enum() != arr->type_enum()) { return false; }
+  const auto other = static_cast<BooleanArray*>(arr.get());
+  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
+    const bool is_null = IsNull(i);
+    if (is_null != arr->IsNull(o_i) || (!is_null && Value(i) != other->Value(o_i))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace arrow
