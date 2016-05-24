@@ -24,6 +24,11 @@
 
     <dependency>
       <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-format</artifactId>
+      <version>0.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory</artifactId>
       <version>${project.version}</version>
     </dependency>

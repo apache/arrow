@@ -37,10 +37,6 @@ package org.apache.arrow.vector.complex.impl;
  */
 @SuppressWarnings("unused")
 abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
-  AbstractPromotableFieldWriter(FieldWriter parent) {
-    super(parent);
-  }
-
   /**
    * Retrieve the FieldWriter, promoting if it is not a FieldWriter of the specified type
    * @param type

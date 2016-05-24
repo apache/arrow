@@ -17,20 +17,20 @@
  */
 package org.apache.arrow.vector.complex.impl;
 
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 import com.google.common.base.Preconditions;
+import org.apache.arrow.vector.types.pojo.Field;
 
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
   private SingleMapWriter mapRoot;
-  private SingleListWriter listRoot;
+  private UnionListWriter listRoot;
   private final MapVector container;
 
   Mode mode = Mode.INIT;
@@ -40,7 +40,6 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private enum Mode { INIT, MAP, LIST };
 
   public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled){
-    super(null);
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
@@ -51,7 +50,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return container.getField();
   }
 
@@ -123,7 +122,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       MapVector map = (MapVector) container;
-      mapRoot = new SingleMapWriter(map, this, unionEnabled);
+      mapRoot = new SingleMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -143,8 +142,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      MapVector map = container.addOrGet(name, Types.required(MinorType.MAP), MapVector.class);
-      mapRoot = new SingleMapWriter(map, this, unionEnabled);
+      MapVector map = container.addOrGet(name, MinorType.MAP, MapVector.class);
+      mapRoot = new SingleMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -174,7 +173,12 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      listRoot = new SingleListWriter(name, container, this);
+      int vectorCount = container.size();
+      ListVector listVector = container.addOrGet(name, MinorType.LIST, ListVector.class);
+      if (container.size() > vectorCount) {
+        listVector.allocateNew();
+      }
+      listRoot = new UnionListWriter(listVector);
       listRoot.setPosition(idx());
       mode = Mode.LIST;
       break;

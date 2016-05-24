@@ -17,20 +17,14 @@
  */
 package org.apache.arrow.vector.complex.impl;
 
-import java.lang.reflect.Constructor;
-
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VectorDescriptor;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractMapVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.util.BasicTypeHelper;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -56,14 +50,12 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private FieldWriter writer;
 
   public PromotableWriter(ValueVector v, AbstractMapVector parentContainer) {
-    super(null);
     this.parentContainer = parentContainer;
     this.listVector = null;
     init(v);
   }
 
   public PromotableWriter(ValueVector v, ListVector listVector) {
-    super(null);
     this.listVector = listVector;
     this.parentContainer = null;
     init(v);
@@ -84,30 +76,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private void setWriter(ValueVector v) {
     state = State.SINGLE;
     vector = v;
-    type = v.getField().getType().getMinorType();
-    Class<?> writerClass = BasicTypeHelper
-        .getWriterImpl(v.getField().getType().getMinorType(), v.getField().getDataMode());
-    if (writerClass.equals(SingleListWriter.class)) {
-      writerClass = UnionListWriter.class;
-    }
-    Class<?> vectorClass = BasicTypeHelper.getValueVectorClass(v.getField().getType().getMinorType(), v.getField()
-        .getDataMode());
-    try {
-      Constructor<?> constructor = null;
-      for (Constructor<?> c : writerClass.getConstructors()) {
-        if (c.getParameterTypes().length == 3) {
-          constructor = c;
-        }
-      }
-      if (constructor == null) {
-        constructor = writerClass.getConstructor(vectorClass, AbstractFieldWriter.class);
-        writer = (FieldWriter) constructor.newInstance(vector, null);
-      } else {
-        writer = (FieldWriter) constructor.newInstance(vector, null, true);
-      }
-    } catch (ReflectiveOperationException e) {
-      throw new RuntimeException(e);
-    }
+    type = v.getMinorType();
+    writer = type.getNewFieldWriter(vector);
   }
 
   @Override
@@ -129,7 +99,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       if (type == null) {
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(new VectorDescriptor(new MajorType(type, DataMode.OPTIONAL))).getVector();
+      ValueVector v = listVector.addOrGetVector(type).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
@@ -150,11 +120,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   private FieldWriter promoteToUnion() {
-    String name = vector.getField().getLastName();
-    TransferPair tp = vector.getTransferPair(vector.getField().getType().getMinorType().name().toLowerCase(), vector.getAllocator());
+    String name = vector.getField().getName();
+    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
-      unionVector = parentContainer.addOrGet(name, new MajorType(MinorType.UNION, DataMode.OPTIONAL), UnionVector.class);
+      unionVector = parentContainer.addOrGet(name, MinorType.UNION, UnionVector.class);
       unionVector.allocateNew();
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
@@ -163,7 +133,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     writer = new UnionWriter(unionVector);
     writer.setPosition(idx());
     for (int i = 0; i < idx(); i++) {
-      unionVector.getMutator().setType(i, vector.getField().getType().getMinorType());
+      unionVector.getMutator().setType(i, vector.getMinorType());
     }
     vector = null;
     state = State.UNION;
@@ -181,7 +151,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return getWriter().getField();
   }
 

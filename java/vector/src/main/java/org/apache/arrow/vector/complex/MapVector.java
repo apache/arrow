@@ -19,8 +19,10 @@ package org.apache.arrow.vector.complex;
 
 import io.netty.buffer.ArrowBuf;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -28,14 +30,13 @@ import javax.annotation.Nullable;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.RepeatedMapVector.MapSingleCopier;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
@@ -47,19 +48,13 @@ import com.google.common.primitives.Ints;
 public class MapVector extends AbstractMapVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
-  public final static MajorType TYPE = new MajorType(MinorType.MAP, DataMode.OPTIONAL);
-
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(MapVector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
   int valueCount;
 
-  public MapVector(String path, BufferAllocator allocator, CallBack callBack){
-    this(MaterializedField.create(path, TYPE), allocator, callBack);
-  }
-
-  public MapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack){
-    super(field, allocator, callBack);
+  public MapVector(String name, BufferAllocator allocator, CallBack callBack){
+    super(name, allocator, callBack);
   }
 
   @Override
@@ -69,20 +64,12 @@ public class MapVector extends AbstractMapVector {
   }
 
   transient private MapTransferPair ephPair;
-  transient private MapSingleCopier ephPair2;
 
   public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
     if(ephPair == null || ephPair.from != from) {
       ephPair = (MapTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
-  }
-
-  public void copyFromSafe(int fromSubIndex, int thisIndex, RepeatedMapVector from) {
-    if(ephPair2 == null || ephPair2.from != from) {
-      ephPair2 = from.makeSingularCopier(this);
-    }
-    ephPair2.copySafe(fromSubIndex, thisIndex);
   }
 
   @Override
@@ -139,7 +126,7 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new MapTransferPair(this, getField().getPath(), allocator);
+    return new MapTransferPair(this, name, allocator);
   }
 
   @Override
@@ -157,8 +144,8 @@ public class MapVector extends AbstractMapVector {
     private final MapVector from;
     private final MapVector to;
 
-    public MapTransferPair(MapVector from, String path, BufferAllocator allocator) {
-      this(from, new MapVector(MaterializedField.create(path, TYPE), allocator, from.callBack), false);
+    public MapTransferPair(MapVector from, String name, BufferAllocator allocator) {
+      this(from, new MapVector(name, allocator, from.callBack), false);
     }
 
     public MapTransferPair(MapVector from, MapVector to) {
@@ -170,7 +157,6 @@ public class MapVector extends AbstractMapVector {
       this.to = to;
       this.pairs = new TransferPair[from.size()];
       this.to.ephPair = null;
-      this.to.ephPair2 = null;
 
       int i = 0;
       ValueVector vector;
@@ -189,7 +175,7 @@ public class MapVector extends AbstractMapVector {
         // (This is similar to what happens in ScanBatch where the children cannot be added till they are
         // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
         // include the hashCode of the children but is based only on MaterializedField$key.
-        final ValueVector newVector = to.addOrGet(child, vector.getField().getType(), vector.getClass());
+        final ValueVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass());
         if (allocate && to.size() != preSize) {
           newVector.allocateNew();
         }
@@ -251,46 +237,6 @@ public class MapVector extends AbstractMapVector {
     return accessor;
   }
 
-//  @Override
-//  public void load(SerializedField metadata, DrillBuf buf) {
-//    final List<SerializedField> fields = metadata.getChildList();
-//    valueCount = metadata.getValueCount();
-//
-//    int bufOffset = 0;
-//    for (final SerializedField child : fields) {
-//      final MaterializedField fieldDef = SerializedFieldHelper.create(child);
-//
-//      ValueVector vector = getChild(fieldDef.getLastName());
-//      if (vector == null) {
-//         if we arrive here, we didn't have a matching vector.
-//        vector = BasicTypeHelper.getNewVector(fieldDef, allocator);
-//        putChild(fieldDef.getLastName(), vector);
-//      }
-//      if (child.getValueCount() == 0) {
-//        vector.clear();
-//      } else {
-//        vector.load(child, buf.slice(bufOffset, child.getBufferLength()));
-//      }
-//      bufOffset += child.getBufferLength();
-//    }
-//
-//    assert bufOffset == buf.capacity();
-//  }
-//
-//  @Override
-//  public SerializedField getMetadata() {
-//    SerializedField.Builder b = getField() //
-//        .getAsBuilder() //
-//        .setBufferLength(getBufferSize()) //
-//        .setValueCount(valueCount);
-//
-//
-//    for(ValueVector v : getChildren()) {
-//      b.addChild(v.getMetadata());
-//    }
-//    return b.build();
-//  }
-
   @Override
   public Mutator getMutator() {
     return mutator;
@@ -303,13 +249,6 @@ public class MapVector extends AbstractMapVector {
       Map<String, Object> vv = new JsonStringHashMap<>();
       for (String child:getChildFieldNames()) {
         ValueVector v = getChild(child);
-        // TODO(DRILL-4001):  Resolve this hack:
-        // The index/value count check in the following if statement is a hack
-        // to work around the current fact that RecordBatchLoader.load and
-        // MapVector.load leave child vectors with a length of zero (as opposed
-        // to matching the lengths of siblings and the parent map vector)
-        // because they don't remove (or set the lengths of) vectors from
-        // previous batches that aren't in the current batch.
         if (v != null && index < v.getAccessor().getValueCount()) {
           Object value = v.getAccessor().getObject(index);
           if (value != null) {
@@ -358,6 +297,20 @@ public class MapVector extends AbstractMapVector {
       v.clear();
     }
     valueCount = 0;
+  }
+
+  @Override
+  public Field getField() {
+    List<Field> children = new ArrayList<>();
+    for (ValueVector child : getChildren()) {
+      children.add(child.getField());
+    }
+    return new Field(name, false, Tuple.INSTANCE, children);
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.MAP;
   }
 
   @Override

@@ -17,6 +17,8 @@
  */
 
 
+import org.apache.arrow.vector.types.Types.MinorType;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionReader.java" />
 
@@ -37,16 +39,16 @@ public class UnionReader extends AbstractFieldReader {
     this.data = data;
   }
 
-  private static MajorType[] TYPES = new MajorType[43];
+  public MinorType getMinorType() {
+    return TYPES[data.getTypeValue(idx())];
+  }
+
+  private static MinorType[] TYPES = new MinorType[43];
 
   static {
     for (MinorType minorType : MinorType.values()) {
-      TYPES[minorType.ordinal()] = new MajorType(minorType, DataMode.OPTIONAL);
+      TYPES[minorType.ordinal()] = minorType;
     }
-  }
-
-  public MajorType getType() {
-    return TYPES[data.getTypeValue(idx())];
   }
 
   public boolean isSet(){
@@ -69,7 +71,7 @@ public class UnionReader extends AbstractFieldReader {
       return reader;
     }
     switch (MinorType.values()[typeValue]) {
-    case LATE:
+    case NULL:
       return NullReader.INSTANCE;
     case MAP:
       return (FieldReader) getMap();
@@ -119,9 +121,9 @@ public class UnionReader extends AbstractFieldReader {
     writer.data.copyFrom(idx(), writer.idx(), data);
   }
 
-  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean",
-          "Character", "DateTime", "Period", "Double", "Float",
-          "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "Integer", "Long", "Boolean",
+          "Character", "DateTime", "Double", "Float",
+          "Text", "Byte", "Short", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
 
@@ -141,11 +143,11 @@ public class UnionReader extends AbstractFieldReader {
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
   <#if !minor.class?starts_with("Decimal")>
 
-  private Nullable${name}ReaderImpl ${uncappedName}Reader;
+  private ${name}ReaderImpl ${uncappedName}Reader;
 
-  private Nullable${name}ReaderImpl get${name}() {
+  private ${name}ReaderImpl get${name}() {
     if (${uncappedName}Reader == null) {
-      ${uncappedName}Reader = new Nullable${name}ReaderImpl(data.get${name}Vector());
+      ${uncappedName}Reader = new ${name}ReaderImpl(data.get${name}Vector());
       ${uncappedName}Reader.setPosition(idx());
       readers[MinorType.${name?upper_case}.ordinal()] = ${uncappedName}Reader;
     }

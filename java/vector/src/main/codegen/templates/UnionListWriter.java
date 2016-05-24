@@ -43,7 +43,6 @@ public class UnionListWriter extends AbstractFieldWriter {
   private int lastIndex = 0;
 
   public UnionListWriter(ListVector vector) {
-    super(null);
     this.vector = vector;
     this.writer = new PromotableWriter(vector.getDataVector(), vector);
     this.offsets = vector.getOffsetVector();
@@ -64,8 +63,12 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return null;
+  }
+
+  public void setValueCount(int count) {
+    vector.getMutator().setValueCount(count);
   }
 
   @Override
@@ -76,6 +79,12 @@ public class UnionListWriter extends AbstractFieldWriter {
   @Override
   public void close() throws Exception {
 
+  }
+
+  @Override
+  public void setPosition(int index) {
+    super.setPosition(index);
+    startList();
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -91,7 +100,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>(String name) {
-    assert inMap;
+//    assert inMap;
     mapName = name;
     final int nextOffset = offsets.getAccessor().get(idx() + 1);
     vector.getMutator().setNotNull(idx());
@@ -146,7 +155,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    assert inMap;
+//    assert inMap;
     final int nextOffset = offsets.getAccessor().get(idx() + 1);
     vector.getMutator().setNotNull(idx());
     offsets.getMutator().setSafe(idx() + 1, nextOffset);
@@ -155,11 +164,11 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void end() {
-    if (inMap) {
+//    if (inMap) {
       inMap = false;
       final int nextOffset = offsets.getAccessor().get(idx() + 1);
       offsets.getMutator().setSafe(idx() + 1, nextOffset + 1);
-    }
+//    }
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -170,7 +179,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    assert !inMap;
+//    assert !inMap;
     final int nextOffset = offsets.getAccessor().get(idx() + 1);
     vector.getMutator().setNotNull(idx());
     writer.setPosition(nextOffset);

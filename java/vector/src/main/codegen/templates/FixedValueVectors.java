@@ -43,20 +43,29 @@ package org.apache.arrow.vector;
 public final class ${minor.class}Vector extends BaseDataValueVector implements FixedWidthVector{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
 
-  private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
 
   private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION * ${type.width};
   private int allocationMonitor = 0;
 
-  public ${minor.class}Vector(MaterializedField field, BufferAllocator allocator) {
-    super(field, allocator);
+  public ${minor.class}Vector(String name, BufferAllocator allocator) {
+    super(name, allocator);
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.${minor.class?upper_case};
+  }
+
+  @Override
+  public Field getField() {
+        throw new UnsupportedOperationException("internal vector");
   }
 
   @Override
   public FieldReader getReader(){
-    return reader;
+        throw new UnsupportedOperationException("non-nullable vectors cannot be used in readers");
   }
 
   @Override
@@ -162,7 +171,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
 
-    logger.debug("Reallocating vector [{}]. # of bytes: [{}] -> [{}]", field, allocationSizeInBytes, newAllocationSize);
+    logger.debug("Reallocating vector [{}]. # of bytes: [{}] -> [{}]", name, allocationSizeInBytes, newAllocationSize);
     final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
     newBuf.setBytes(0, data, 0, data.capacity());
     final int halfNewCapacity = newBuf.capacity() / 2;
@@ -199,12 +208,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 //    }
 
   public TransferPair getTransferPair(BufferAllocator allocator){
-    return new TransferImpl(getField(), allocator);
+    return new TransferImpl(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator){
-    return new TransferImpl(getField().withPath(ref), allocator);
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
@@ -230,8 +239,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   private class TransferImpl implements TransferPair{
     private ${minor.class}Vector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator){
-      to = new ${minor.class}Vector(field, allocator);
+    public TransferImpl(String name, BufferAllocator allocator){
+      to = new ${minor.class}Vector(name, allocator);
     }
 
     public TransferImpl(${minor.class}Vector to) {
@@ -260,7 +269,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   public void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from){
-    <#if (type.width > 8)>
+    <#if (type.width > 8 || minor.class == "IntervalDay")>
     from.data.getBytes(fromIndex * ${type.width}, data, thisIndex * ${type.width}, ${type.width});
     <#else> <#-- type.width <= 8 -->
     data.set${(minor.javaType!type.javaType)?cap_first}(thisIndex * ${type.width},
@@ -298,7 +307,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return false;
     }
 
-    <#if (type.width > 8)>
+    <#if (type.width > 8 || minor.class == "IntervalDay")>
 
     public ${minor.javaType!type.javaType} get(int index) {
       return data.slice(index * ${type.width}, ${type.width});
@@ -581,7 +590,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     * @param index   position of the bit to set
     * @param value   value to set
     */
-  <#if (type.width > 8)>
+  <#if (type.width > 8) || minor.class == "IntervalDay">
    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
      data.setBytes(index * ${type.width}, value, 0, ${type.width});
    }

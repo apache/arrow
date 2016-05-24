@@ -18,7 +18,9 @@
 package org.apache.arrow.vector.util;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -239,6 +241,16 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
   @Override
   public Set<K> keySet() {
     return delegate.keySet();
+  }
+
+  public List<K> keyList() {
+    int size = size();
+    Set<K> keys = keySet();
+    List<K> children = new ArrayList<>(size);
+    for (K key : keys) {
+      children.add(getOrdinal(key), key);
+    }
+    return children;
   }
 
   @Override

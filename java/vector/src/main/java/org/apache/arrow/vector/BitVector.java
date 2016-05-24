@@ -21,11 +21,11 @@ import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.complex.impl.BitReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
-import org.apache.arrow.vector.types.MaterializedField;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
 public final class BitVector extends BaseDataValueVector implements FixedWidthVector {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BitVector.class);
 
-  private final FieldReader reader = new BitReaderImpl(BitVector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
 
@@ -45,13 +44,23 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
   private int allocationMonitor = 0;
 
-  public BitVector(MaterializedField field, BufferAllocator allocator) {
-    super(field, allocator);
+  public BitVector(String name, BufferAllocator allocator) {
+    super(name, allocator);
+  }
+
+  @Override
+  public Field getField() {
+    throw new UnsupportedOperationException("internal vector");
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.BIT;
   }
 
   @Override
   public FieldReader getReader() {
-    return reader;
+    throw new UnsupportedOperationException("internal vector");
   }
 
   @Override
@@ -180,20 +189,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     return true;
   }
 
-//  @Override
-//  public void load(SerializedField metadata, DrillBuf buffer) {
-//    Preconditions.checkArgument(this.field.getPath().equals(metadata.getNamePart().getName()), "The field %s doesn't match the provided metadata %s.", this.field, metadata);
-//    final int valueCount = metadata.getValueCount();
-//    final int expectedLength = getSizeFromCount(valueCount);
-//    final int actualLength = metadata.getBufferLength();
-//    assert expectedLength == actualLength: "expected and actual buffer sizes do not match";
-//
-//    clear();
-//    data = buffer.slice(0, actualLength);
-//    data.retain();
-//    this.valueCount = valueCount;
-//  }
-
   @Override
   public Mutator getMutator() {
     return new Mutator();
@@ -206,12 +201,12 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new TransferImpl(getField(), allocator);
+    return new TransferImpl(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(getField().withPath(ref), allocator);
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
@@ -270,8 +265,8 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   private class TransferImpl implements TransferPair {
     BitVector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator) {
-      this.to = new BitVector(field, allocator);
+    public TransferImpl(String name, BufferAllocator allocator) {
+      this.to = new BitVector(name, allocator);
     }
 
     public TransferImpl(BitVector to) {

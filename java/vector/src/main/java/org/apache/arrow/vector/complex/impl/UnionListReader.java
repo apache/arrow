@@ -25,8 +25,6 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 public class UnionListReader extends AbstractFieldReader {
@@ -44,12 +42,6 @@ public class UnionListReader extends AbstractFieldReader {
   @Override
   public boolean isSet() {
     return true;
-  }
-
-  MajorType type = new MajorType(MinorType.LIST, DataMode.OPTIONAL);
-
-  public MajorType getType() {
-    return type;
   }
 
   private int currentOffset;
@@ -73,6 +65,11 @@ public class UnionListReader extends AbstractFieldReader {
   }
 
   @Override
+  public MinorType getMinorType() {
+    return MinorType.LIST;
+  }
+
+  @Override
   public void read(int index, UnionHolder holder) {
     setPosition(idx());
     for (int i = -1; i < index; i++) {
@@ -80,6 +77,12 @@ public class UnionListReader extends AbstractFieldReader {
     }
     holder.reader = data.getReader();
     holder.isSet = data.getReader().isSet() ? 1 : 0;
+  }
+
+  @Override
+  public int size() {
+    int size = maxOffset - currentOffset - 1;
+    return size < 0 ? 0 : size;
   }
 
   @Override

@@ -17,6 +17,7 @@
 data: {
     # TODO:  Rename to ~valueVectorModesAndTypes for clarity.
     vv:                       tdd(../data/ValueVectorTypes.tdd),
+    arrowTypes:               tdd(../data/ArrowTypes.tdd)
 
 }
 freemarkerLinks: {

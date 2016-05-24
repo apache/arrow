@@ -19,20 +19,20 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.util.Iterator;
 
+import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.flatbuf.Union;
+import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 
 abstract class AbstractBaseReader implements FieldReader{
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);
-  private static final MajorType LATE_BIND_TYPE = new MajorType(MinorType.LATE, DataMode.OPTIONAL);
 
   private int index;
 
@@ -56,15 +56,6 @@ abstract class AbstractBaseReader implements FieldReader{
   @Override
   public Iterator<String> iterator() {
     throw new IllegalStateException("The current reader doesn't support reading as a map.");
-  }
-
-  public MajorType getType(){
-    throw new IllegalStateException("The current reader doesn't support getting type information.");
-  }
-
-  @Override
-  public MaterializedField getField() {
-    return MaterializedField.create("unknown", LATE_BIND_TYPE);
   }
 
   @Override
