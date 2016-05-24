@@ -16,6 +16,16 @@
  * limitations under the License.
  */
 
+import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.flatbuf.Field;
+import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.flatbuf.Union;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+
+import java.util.ArrayList;
+import java.util.List;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
 
@@ -29,7 +39,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
-import org.apache.arrow.vector.util.BasicTypeHelper;
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -47,34 +56,30 @@ import org.apache.arrow.vector.util.BasicTypeHelper;
  */
 public class UnionVector implements ValueVector {
 
-  private MaterializedField field;
+  private String name;
   private BufferAllocator allocator;
   private Accessor accessor = new Accessor();
   private Mutator mutator = new Mutator();
   int valueCount;
 
   MapVector internalMap;
-  private UInt1Vector typeVector;
+  UInt1Vector typeVector;
 
   private MapVector mapVector;
   private ListVector listVector;
 
   private FieldReader reader;
-  private NullableBitVector bit;
 
   private int singleType = 0;
   private ValueVector singleVector;
-  private MajorType majorType;
 
   private final CallBack callBack;
 
-  public UnionVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
-    this.field = field.clone();
+  public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this.name = name;
     this.allocator = allocator;
     this.internalMap = new MapVector("internal", allocator, callBack);
-    this.typeVector = internalMap.addOrGet("types", new MajorType(MinorType.UINT1, DataMode.REQUIRED), UInt1Vector.class);
-    this.field.addChild(internalMap.getField().clone());
-    this.majorType = field.getType();
+    this.typeVector = new UInt1Vector("types", allocator);
     this.callBack = callBack;
   }
 
@@ -82,34 +87,20 @@ public class UnionVector implements ValueVector {
     return allocator;
   }
 
-  public List<MinorType> getSubTypes() {
-    return majorType.getSubTypes();
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.UNION;
   }
-
-  public void addSubType(MinorType type) {
-    if (majorType.getSubTypes().contains(type)) {
-      return;
-    }
-    List<MinorType> subTypes = this.majorType.getSubTypes();
-    List<MinorType> newSubTypes = new ArrayList<>(subTypes);
-    newSubTypes.add(type);
-    majorType =  new MajorType(this.majorType.getMinorType(), this.majorType.getMode(), this.majorType.getPrecision(),
-            this.majorType.getScale(), this.majorType.getTimezone(), newSubTypes);
-    field = MaterializedField.create(field.getName(), majorType);
-    if (callBack != null) {
-      callBack.doWork();
-    }
-  }
-
-  private static final MajorType MAP_TYPE = new MajorType(MinorType.MAP, DataMode.OPTIONAL);
 
   public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MAP_TYPE, MapVector.class);
-      addSubType(MinorType.MAP);
+      mapVector = internalMap.addOrGet("map", MinorType.MAP, MapVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
       }
     }
     return mapVector;
@@ -121,15 +112,16 @@ public class UnionVector implements ValueVector {
   <#if !minor.class?starts_with("Decimal")>
 
   private Nullable${name}Vector ${uncappedName}Vector;
-  private static final MajorType ${name?upper_case}_TYPE = new MajorType(MinorType.${name?upper_case}, DataMode.OPTIONAL);
 
   public Nullable${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = internalMap.addOrGet("${uncappedName}", ${name?upper_case}_TYPE, Nullable${name}Vector.class);
-      addSubType(MinorType.${name?upper_case});
+      ${uncappedName}Vector = internalMap.addOrGet("${uncappedName}", MinorType.${name?upper_case}, Nullable${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
       }
     }
     return ${uncappedName}Vector;
@@ -139,15 +131,15 @@ public class UnionVector implements ValueVector {
 
   </#list></#list>
 
-  private static final MajorType LIST_TYPE = new MajorType(MinorType.LIST, DataMode.OPTIONAL);
-
   public ListVector getList() {
     if (listVector == null) {
       int vectorCount = internalMap.size();
-      listVector = internalMap.addOrGet("list", LIST_TYPE, ListVector.class);
-      addSubType(MinorType.LIST);
+      listVector = internalMap.addOrGet("list", MinorType.LIST, ListVector.class);
       if (internalMap.size() > vectorCount) {
         listVector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
       }
     }
     return listVector;
@@ -164,6 +156,7 @@ public class UnionVector implements ValueVector {
   @Override
   public void allocateNew() throws OutOfMemoryException {
     internalMap.allocateNew();
+    typeVector.allocateNew();
     if (typeVector != null) {
       typeVector.zeroVector();
     }
@@ -172,6 +165,7 @@ public class UnionVector implements ValueVector {
   @Override
   public boolean allocateNewSafe() {
     boolean safe = internalMap.allocateNewSafe();
+    safe = safe && typeVector.allocateNewSafe();
     if (safe) {
       if (typeVector != null) {
         typeVector.zeroVector();
@@ -196,22 +190,27 @@ public class UnionVector implements ValueVector {
 
   @Override
   public void clear() {
+    typeVector.clear();
     internalMap.clear();
   }
 
   @Override
-  public MaterializedField getField() {
-    return field;
+  public Field getField() {
+    List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>();
+    for (ValueVector v : internalMap.getChildren()) {
+      childFields.add(v.getField());
+    }
+    return new Field(name, true, new ArrowType.Union(), childFields);
   }
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new TransferImpl(field, allocator);
+    return new TransferImpl(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(field.withPath(ref), allocator);
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
@@ -219,10 +218,9 @@ public class UnionVector implements ValueVector {
     return new TransferImpl((UnionVector) target);
   }
 
-  public void transferTo(UnionVector target) {
+  public void transferTo(org.apache.arrow.vector.complex.UnionVector target) {
     internalMap.makeTransferPair(target.internalMap).transfer();
     target.valueCount = valueCount;
-    target.majorType = majorType;
   }
 
   public void copyFrom(int inIndex, int outIndex, UnionVector from) {
@@ -236,13 +234,14 @@ public class UnionVector implements ValueVector {
   }
 
   public ValueVector addVector(ValueVector v) {
-    String name = v.getField().getType().getMinorType().name().toLowerCase();
-    MajorType type = v.getField().getType();
+    String name = v.getMinorType().name().toLowerCase();
     Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final ValueVector newVector = internalMap.addOrGet(name, type, (Class<ValueVector>) BasicTypeHelper.getValueVectorClass(type.getMinorType(), type.getMode()));
+    final ValueVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
     internalMap.putChild(name, newVector);
-    addSubType(v.getField().getType().getMinorType());
+    if (callBack != null) {
+      callBack.doWork();
+    }
     return newVector;
   }
 
@@ -250,8 +249,8 @@ public class UnionVector implements ValueVector {
 
     UnionVector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator) {
-      to = new UnionVector(field, allocator, null);
+    public TransferImpl(String name, BufferAllocator allocator) {
+      to = new UnionVector(name, allocator, null);
     }
 
     public TransferImpl(UnionVector to) {
@@ -357,7 +356,7 @@ public class UnionVector implements ValueVector {
     public Object getObject(int index) {
       int type = typeVector.getAccessor().get(index);
       switch (MinorType.values()[type]) {
-      case LATE:
+      case NULL:
         return null;
       <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
@@ -421,7 +420,7 @@ public class UnionVector implements ValueVector {
         writer = new UnionWriter(UnionVector.this);
       }
       writer.setPosition(index);
-      MinorType type = reader.getType().getMinorType();
+      MinorType type = reader.getMinorType();
       switch (type) {
       <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
@@ -460,7 +459,7 @@ public class UnionVector implements ValueVector {
     </#list></#list>
 
     public void setType(int index, MinorType type) {
-      typeVector.getMutator().setSafe(index, type.ordinal());
+      typeVector.getMutator().setSafe(index, (byte) type.ordinal());
     }
 
     @Override

@@ -22,22 +22,18 @@ import io.netty.buffer.ArrowBuf;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VectorDescriptor;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.util.BasicTypeHelper;
-import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ObjectArrays;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
@@ -45,19 +41,16 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
   public final static String DATA_VECTOR_NAME = "$data$";
 
-  public final static MaterializedField OFFSETS_FIELD =
-    MaterializedField.create(OFFSETS_VECTOR_NAME, new MajorType(MinorType.UINT4, DataMode.REQUIRED));
-
   protected final UInt4Vector offsets;
   protected ValueVector vector;
 
-  protected BaseRepeatedValueVector(MaterializedField field, BufferAllocator allocator) {
-    this(field, allocator, DEFAULT_DATA_VECTOR);
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator) {
+    this(name, allocator, DEFAULT_DATA_VECTOR);
   }
 
-  protected BaseRepeatedValueVector(MaterializedField field, BufferAllocator allocator, ValueVector vector) {
-    super(field, allocator);
-    this.offsets = new UInt4Vector(OFFSETS_FIELD, allocator);
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, ValueVector vector) {
+    super(name, allocator);
+    this.offsets = new UInt4Vector(OFFSETS_VECTOR_NAME, allocator);
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
   }
 
@@ -109,13 +102,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return Math.min(vector.getValueCapacity(), offsetValueCapacity);
   }
 
-//  @Override
-//  protected UserBitShared.SerializedField.Builder getMetadataBuilder() {
-//    return super.getMetadataBuilder()
-//        .addChild(offsets.getMetadata())
-//        .addChild(vector.getMetadata());
-//  }
-
   @Override
   public int getBufferSize() {
     if (getAccessor().getValueCount() == 0) {
@@ -157,47 +143,24 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return buffers;
   }
 
-//  @Override
-//  public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
-//    final UserBitShared.SerializedField offsetMetadata = metadata.getChild(0);
-//    offsets.load(offsetMetadata, buffer);
-//
-//    final UserBitShared.SerializedField vectorMetadata = metadata.getChild(1);
-//    if (getDataVector() == DEFAULT_DATA_VECTOR) {
-//      addOrGetVector(VectorDescriptor.create(vectorMetadata.getMajorType()));
-//    }
-//
-//    final int offsetLength = offsetMetadata.getBufferLength();
-//    final int vectorLength = vectorMetadata.getBufferLength();
-//    vector.load(vectorMetadata, buffer.slice(offsetLength, vectorLength));
-//  }
-
   /**
    * Returns 1 if inner vector is explicitly set via #addOrGetVector else 0
-   *
-   * @see {@link ContainerVectorLike#size}
    */
-  @Override
   public int size() {
     return vector == DEFAULT_DATA_VECTOR ? 0:1;
   }
 
-  @Override
-  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(VectorDescriptor descriptor) {
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType) {
     boolean created = false;
-    if (vector == DEFAULT_DATA_VECTOR && descriptor.getType().getMinorType() != MinorType.LATE) {
-      final MaterializedField field = descriptor.withName(DATA_VECTOR_NAME).getField();
-      vector = BasicTypeHelper.getNewVector(field, allocator);
+    if (vector instanceof ZeroVector) {
+      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, null);
       // returned vector must have the same field
-      assert field.equals(vector.getField());
-      getField().addChild(field);
       created = true;
     }
 
-    final MajorType actual = vector.getField().getType();
-    if (!actual.equals(descriptor.getType())) {
+    if (vector.getField().getType().getTypeType() != minorType.getType().getTypeType()) {
       final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          descriptor.getType(), actual);
+          Type.name(minorType.getType().getTypeType()), Type.name(vector.getField().getType().getTypeType()));
       throw new SchemaChangeRuntimeException(msg);
     }
 

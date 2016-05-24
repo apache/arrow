@@ -19,8 +19,8 @@
 <@pp.dropOutputFile />
 <#list vv.types as type>
 <#list type.minor as minor>
-<#list ["", "Nullable", "Repeated"] as mode>
-<#assign name = mode + minor.class?cap_first />
+<#list ["Nullable"] as mode>
+<#assign name = minor.class?cap_first />
 <#assign eName = name />
 <#assign javaType = (minor.javaType!type.javaType) />
 <#assign fields = minor.fields!type.fields />
@@ -38,17 +38,16 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${eName}WriterImpl extends AbstractFieldWriter {
 
-  private final ${name}Vector.Mutator mutator;
-  final ${name}Vector vector;
+  private final Nullable${name}Vector.Mutator mutator;
+  final Nullable${name}Vector vector;
 
-  public ${eName}WriterImpl(${name}Vector vector, AbstractFieldWriter parent) {
-    super(parent);
+  public ${eName}WriterImpl(Nullable${name}Vector vector) {
     this.mutator = vector.getMutator();
     this.vector = vector;
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return vector.getField();
   }
 
@@ -89,12 +88,10 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.getMutator().setValueCount(idx()+1);
   }
 
-  <#if !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     mutator.addSafe(idx(), <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     vector.getMutator().setValueCount(idx()+1);
   }
-  </#if>
 
   public void setPosition(int idx) {
     super.setPosition(idx);
@@ -114,11 +111,17 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.getMutator().setValueCount(idx()+1);
   }
 
-  <#if !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    mutator.setSafe(idx(), <#if mode == "Nullable">1, </#if><#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  <#if minor.class == "Decimal">
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    mutator.setSafe(idx(), 1, start, buffer);
     vector.getMutator().setValueCount(idx()+1);
   }
+  <#else>
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    mutator.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
+    vector.getMutator().setValueCount(idx()+1);
+  }
+  </#if>
 
   <#if mode == "Nullable">
 
@@ -126,7 +129,6 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     mutator.setNull(idx());
     vector.getMutator().setValueCount(idx()+1);
   }
-  </#if>
   </#if>
   </#if>
 }
@@ -141,7 +143,9 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  <#if !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
+  <#if minor.class == "Decimal">
+  public void writeDecimal(int start, ArrowBuf buffer);
+  <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
   </#if>
 }

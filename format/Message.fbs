@@ -1,9 +1,12 @@
-namespace apache.arrow.flatbuf;
+namespace org.apache.arrow.flatbuf;
 
 /// ----------------------------------------------------------------------
 /// Logical types and their metadata (if any)
 ///
 /// These are stored in the flatbuffer in the Type union below
+
+table Null {
+}
 
 /// A Tuple in the flatbuffer metadata is the same as an Arrow Struct
 /// (according to the physical memory layout). We used Tuple here as Struct is
@@ -45,8 +48,20 @@ table Decimal {
   scale: int;
 }
 
+table Date {
+}
+
+table Time {
+}
+
 table Timestamp {
   timezone: string;
+}
+
+table IntervalDay {
+}
+
+table IntervalYear {
 }
 
 table JSONScalar {
@@ -58,13 +73,18 @@ table JSONScalar {
 /// add new logical types to Type without breaking backwards compatibility
 
 union Type {
+  Null,
   Int,
   FloatingPoint,
   Binary,
   Utf8,
   Bool,
   Decimal,
+  Date,
+  Time,
   Timestamp,
+  IntervalDay,
+  IntervalYear,
   List,
   Tuple,
   Union,

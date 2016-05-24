@@ -21,12 +21,10 @@ import java.util.Collection;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.flatbuf.Field;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
 
@@ -43,12 +41,12 @@ import com.google.common.collect.Sets;
 public abstract class AbstractContainerVector implements ValueVector {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
-  protected MaterializedField field;
+  protected final String name;
   protected final BufferAllocator allocator;
   protected final CallBack callBack;
 
-  protected AbstractContainerVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
-    this.field = Preconditions.checkNotNull(field);
+  protected AbstractContainerVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this.name = name;
     this.allocator = allocator;
     this.callBack = callBack;
   }
@@ -65,31 +63,10 @@ public abstract class AbstractContainerVector implements ValueVector {
   }
 
   /**
-   * Returns the field definition of this instance.
-   */
-  @Override
-  public MaterializedField getField() {
-    return field;
-  }
-
-  /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given field name if exists or null.
    */
   public ValueVector getChild(String name) {
     return getChild(name, ValueVector.class);
-  }
-
-  /**
-   * Returns a sequence of field names in the order that they show up in the schema.
-   */
-  protected Collection<String> getChildFieldNames() {
-    return Sets.newLinkedHashSet(Iterables.transform(field.getChildren(), new Function<MaterializedField, String>() {
-      @Nullable
-      @Override
-      public String apply(MaterializedField field) {
-        return Preconditions.checkNotNull(field).getLastName();
-      }
-    }));
   }
 
   /**
@@ -109,22 +86,6 @@ public abstract class AbstractContainerVector implements ValueVector {
     throw new IllegalStateException(String.format("Vector requested [%s] was different than type stored [%s]. Arrow doesn't yet support hetergenous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
   }
 
-  MajorType getLastPathType() {
-    if((this.getField().getType().getMinorType() == MinorType.LIST  &&
-        this.getField().getType().getMode() == DataMode.REPEATED)) {  // Use Repeated scalar type instead of Required List.
-      VectorWithOrdinal vord = getChildVectorWithOrdinal(null);
-      ValueVector v = vord.vector;
-      if (! (v instanceof  AbstractContainerVector)) {
-        return v.getField().getType();
-      }
-    } else if (this.getField().getType().getMinorType() == MinorType.MAP  &&
-        this.getField().getType().getMode() == DataMode.REPEATED) {  // Use Required Map
-      return new MajorType(MinorType.MAP, DataMode.REQUIRED);
-    }
-
-    return this.getField().getType();
-  }
-
   protected boolean supportsDirectRead() {
     return false;
   }
@@ -133,7 +94,7 @@ public abstract class AbstractContainerVector implements ValueVector {
   public abstract int size();
 
   // add a new vector with the input MajorType or return the existing vector if we already added one with the same type
-  public abstract <T extends ValueVector> T addOrGet(String name, MajorType type, Class<T> clazz);
+  public abstract <T extends ValueVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, int... precisionScale);
 
   // return the child vector with the input name
   public abstract <T extends ValueVector> T getChild(String name, Class<T> clazz);

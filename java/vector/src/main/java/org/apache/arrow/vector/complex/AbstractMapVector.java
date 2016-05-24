@@ -17,17 +17,17 @@
  */
 package org.apache.arrow.vector.complex;
 
+import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ArrowBuf;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.flatbuf.Field;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types.MajorType;
-import org.apache.arrow.vector.util.BasicTypeHelper;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
 
@@ -43,17 +43,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   // Maintains a map with key as field name and value is the vector itself
   private final MapWithOrdinal<String, ValueVector> vectors =  new MapWithOrdinal<>();
 
-  protected AbstractMapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
-    super(field.clone(), allocator, callBack);
-    MaterializedField clonedField = field.clone();
-    // create the hierarchy of the child vectors based on the materialized field
-    for (MaterializedField child : clonedField.getChildren()) {
-      if (!child.equals(BaseRepeatedValueVector.OFFSETS_FIELD)) {
-        final String fieldName = child.getLastName();
-        final ValueVector v = BasicTypeHelper.getNewVector(child, allocator, callBack);
-        putVector(fieldName, v);
-      }
-    }
+  protected AbstractMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+    super(name, allocator, callBack);
   }
 
   @Override
@@ -109,8 +100,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    *   </li>
    * </ul>
    *
-   * @param name name of the field
-   * @param type type of the field
+   * @param name the name of the field
+   * @param minorType the minorType for the vector
    * @param clazz class of expected vector type
    * @param <T> class type of expected vector type
    * @throws java.lang.IllegalStateException raised if there is a hard schema change
@@ -118,7 +109,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    */
   @Override
-  public <T extends ValueVector> T addOrGet(String name, MajorType type, Class<T> clazz) {
+  public <T extends ValueVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, int... precisionScale) {
     final ValueVector existing = getChild(name);
     boolean create = false;
     if (existing == null) {
@@ -130,7 +121,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       create = true;
     }
     if (create) {
-      final T vector = (T) BasicTypeHelper.getNewVector(name, allocator, type, callBack);
+      final T vector = (T) minorType.getNewVector(name, allocator, callBack, precisionScale);
       putChild(name, vector);
       if (callBack!=null) {
         callBack.doWork();
@@ -177,7 +168,6 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    */
   protected void putChild(String name, ValueVector vector) {
     putVector(name, vector);
-    field.addChild(vector.getField());
   }
 
   /**
@@ -199,8 +189,21 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   /**
    * Returns a sequence of underlying child vectors.
    */
-  protected Collection<ValueVector> getChildren() {
-    return vectors.values();
+  protected List<ValueVector> getChildren() {
+    int size = vectors.size();
+    List<ValueVector> children = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      children.add(vectors.getByOrdinal(i));
+    }
+    return children;
+  }
+
+  protected List<String> getChildFieldNames() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (ValueVector child : getChildren()) {
+      builder.add(child.getField().getName());
+    }
+    return builder.build();
   }
 
   /**

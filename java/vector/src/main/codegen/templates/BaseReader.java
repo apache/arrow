@@ -30,8 +30,8 @@ package org.apache.arrow.vector.complex.reader;
 
 @SuppressWarnings("unused")
 public interface BaseReader extends Positionable{
-  MajorType getType();
-  MaterializedField getField();
+  Field getField();
+  MinorType getMinorType();
   void reset();
   void read(UnionHolder holder);
   void read(int index, UnionHolder holder);
@@ -60,7 +60,6 @@ public interface BaseReader extends Positionable{
   
   public interface ScalarReader extends  
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first /> ${name}Reader, </#list></#list> 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first /> Repeated${name}Reader, </#list></#list>
   BaseReader {}
   
   interface ComplexReader{

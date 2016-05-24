@@ -31,10 +31,6 @@ package org.apache.arrow.vector.complex.impl;
  */
 @SuppressWarnings("unused")
 abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWriter {
-  AbstractFieldWriter(FieldWriter parent) {
-    super(parent);
-  }
-
   @Override
   public void start() {
     throw new IllegalStateException(String.format("You tried to start when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
@@ -62,9 +58,15 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${name}");
   }
 
+  <#if minor.class == "Decimal">
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    fail("${name}");
+  }
+  <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     fail("${name}");
   }
+  </#if>
 
   </#list></#list>
 

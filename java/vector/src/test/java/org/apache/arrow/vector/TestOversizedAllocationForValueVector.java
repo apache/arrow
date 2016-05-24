@@ -20,8 +20,6 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.holders.UInt4Holder;
-import org.apache.arrow.vector.types.MaterializedField;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.junit.After;
 import org.junit.Before;
@@ -53,8 +51,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testFixedVectorReallocation() {
-    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
-    final UInt4Vector vector = new UInt4Vector(field, allocator);
+    final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: buffer size = max value capacity
     final int expectedValueCapacity = BaseValueVector.MAX_ALLOCATION_SIZE / 4;
     try {
@@ -78,8 +75,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testBitVectorReallocation() {
-    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
-    final BitVector vector = new BitVector(field, allocator);
+    final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: buffer size ~ max value capacity
     final int expectedValueCapacity = 1 << 29;
     try {
@@ -109,8 +105,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testVariableVectorReallocation() {
-    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
-    final VarCharVector vector = new VarCharVector(field, allocator);
+    final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: value count = MAX_VALUE_ALLOCATION
     final int expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
     final int expectedOffsetSize = 10;

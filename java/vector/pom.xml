@@ -15,13 +15,18 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1-decimal</version>
   </parent>
   <artifactId>vector</artifactId>
   <name>vectors</name>
 
   <dependencies>
 
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-format</artifactId>
+      <version>0.1-decimal</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory</artifactId>

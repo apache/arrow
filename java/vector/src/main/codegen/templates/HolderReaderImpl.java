@@ -19,9 +19,8 @@
 <@pp.dropOutputFile />
 <#list vv.types as type>
 <#list type.minor as minor>
-<#list ["", "Nullable", "Repeated"] as holderMode>
+<#list ["", "Nullable"] as holderMode>
 <#assign nullMode = holderMode />
-<#if holderMode == "Repeated"><#assign nullMode = "Nullable" /></#if>
 
 <#assign lowerName = minor.class?uncap_first />
 <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
@@ -50,42 +49,18 @@ import org.joda.time.Period;
 public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 
   private ${nullMode}${name}Holder holder;
-<#if holderMode == "Repeated" >
-  private int index = -1;
-  private ${holderMode}${name}Holder repeatedHolder;
-</#if>
-
   public ${holderMode}${name}HolderReaderImpl(${holderMode}${name}Holder holder) {
-<#if holderMode == "Repeated" >
-    this.holder = new ${nullMode}${name}Holder();
-    this.repeatedHolder = holder;
-<#else>
     this.holder = holder;
-</#if>
   }
 
   @Override
   public int size() {
-<#if holderMode == "Repeated">
-    return repeatedHolder.end - repeatedHolder.start;
-<#else>
     throw new UnsupportedOperationException("You can't call size on a Holder value reader.");
-</#if>
   }
 
   @Override
   public boolean next() {
-<#if holderMode == "Repeated">
-    if(index + 1 < repeatedHolder.end) {
-      index++;
-      repeatedHolder.vector.getAccessor().get(repeatedHolder.start + index, holder);
-      return true;
-    } else {
-      return false;
-    }
-<#else>
     throw new UnsupportedOperationException("You can't call next on a single value reader.");
-</#if>
 
   }
 
@@ -95,19 +70,13 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   }
 
   @Override
-  public MajorType getType() {
-<#if holderMode == "Repeated">
-    return this.repeatedHolder.TYPE;
-<#else>
-    return this.holder.TYPE;
-</#if>
+  public MinorType getMinorType() {
+        return MinorType.${name?upper_case};
   }
 
   @Override
   public boolean isSet() {
-    <#if holderMode == "Repeated">
-    return this.repeatedHolder.end!=this.repeatedHolder.start;
-    <#elseif nullMode == "Nullable">
+    <#if holderMode == "Nullable">
     return this.holder.isSet == 1;
     <#else>
     return true;
@@ -115,7 +84,6 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     
   }
 
-<#if holderMode != "Repeated">
 @Override
   public void read(${name}Holder h) {
   <#list fields as field>
@@ -130,19 +98,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   </#list>
     h.isSet = isSet() ? 1 : 0;
   }
-</#if>
 
-<#if holderMode == "Repeated">
-  @Override
-  public ${friendlyType} read${safeType}(int index){
-    repeatedHolder.vector.getAccessor().get(repeatedHolder.start + index, holder);
-    ${friendlyType} value = read${safeType}();
-    if (this.index > -1) {
-      repeatedHolder.vector.getAccessor().get(repeatedHolder.start + this.index, holder);
-    }
-    return value;
-  }
-</#if>
 
   @Override
   public ${friendlyType} read${safeType}(){
@@ -176,29 +132,10 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
       Period p = new Period();
       return p.plusDays(holder.days).plusMillis(holder.milliseconds);
 
-<#elseif minor.class == "Decimal9" ||
-         minor.class == "Decimal18" >
-      BigInteger value = BigInteger.valueOf(holder.value);
-      return new BigDecimal(value, holder.scale);
-
-<#elseif minor.class == "Decimal28Dense" ||
-         minor.class == "Decimal38Dense">
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromDense(holder.buffer,
-                                                                                holder.start,
-                                                                                holder.nDecimalDigits,
-                                                                                holder.scale,
-                                                                                holder.maxPrecision,
-                                                                                holder.WIDTH);
-
-<#elseif minor.class == "Decimal28Sparse" ||
-         minor.class == "Decimal38Sparse">
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromSparse(holder.buffer,
-                                                                                 holder.start,
-                                                                                 holder.nDecimalDigits,
-                                                                                 holder.scale);
-
 <#elseif minor.class == "Bit" >
       return new Boolean(holder.value != 0);
+<#elseif minor.class == "Decimal" >
+        return (BigDecimal) readSingleObject();
 <#else>
       ${friendlyType} value = new ${friendlyType}(this.holder.value);
       return value;
@@ -208,15 +145,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 
   @Override
   public Object readObject() {
-<#if holderMode == "Repeated" >
-    List<Object> valList = Lists.newArrayList();
-    for (int i = repeatedHolder.start; i < repeatedHolder.end; i++) {
-      valList.add(repeatedHolder.vector.getAccessor().getObject(i));
-    }
-    return valList;
-<#else>
     return readSingleObject();
-</#if>
   }
 
   private Object readSingleObject() {
@@ -239,6 +168,9 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
       Text text = new Text();
       text.set(value);
       return text;
+<#elseif minor.class == "Decimal" >
+        return new BigDecimal(new BigInteger(value), holder.scale);
+
 </#if>
 
 <#elseif minor.class == "Interval">
@@ -248,11 +180,6 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 <#elseif minor.class == "IntervalDay">
       Period p = new Period();
       return p.plusDays(holder.days).plusMillis(holder.milliseconds);
-
-<#elseif minor.class == "Decimal9" ||
-         minor.class == "Decimal18" >
-      BigInteger value = BigInteger.valueOf(holder.value);
-      return new BigDecimal(value, holder.scale);
 
 <#elseif minor.class == "Decimal28Dense" ||
          minor.class == "Decimal38Dense">
@@ -272,13 +199,18 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 
 <#elseif minor.class == "Bit" >
       return new Boolean(holder.value != 0);
+<#elseif minor.class == "Decimal">
+        byte[] bytes = new byte[${type.width}];
+        holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
+        ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
+        return value;
 <#else>
       ${friendlyType} value = new ${friendlyType}(this.holder.value);
       return value;
 </#if>
   }
 
-<#if holderMode != "Repeated" && nullMode != "Nullable">
+<#if nullMode != "Nullable">
   public void copyAsValue(${minor.class?cap_first}Writer writer){
     writer.write(holder);
   }

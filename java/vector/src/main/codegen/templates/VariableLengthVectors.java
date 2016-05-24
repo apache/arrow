@@ -56,9 +56,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   private static final int MIN_BYTE_COUNT = 4096;
 
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
-  private final MaterializedField offsetsField = MaterializedField.create(OFFSETS_VECTOR_NAME, new MajorType(MinorType.UINT4, DataMode.REQUIRED));
-  final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(offsetsField, allocator);
-  private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
+  final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(OFFSETS_VECTOR_NAME, allocator);
 
   private final Accessor accessor;
   private final Mutator mutator;
@@ -68,16 +66,42 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   private int allocationSizeInBytes = INITIAL_BYTE_COUNT;
   private int allocationMonitor = 0;
 
-  public ${minor.class}Vector(MaterializedField field, BufferAllocator allocator) {
-    super(field, allocator);
+  <#if minor.class == "Decimal">
+
+  private final int precision;
+  private final int scale;
+
+  public ${minor.class}Vector(String name, BufferAllocator allocator, int precision, int scale) {
+    super(name, allocator);
+    this.oAccessor = offsetVector.getAccessor();
+    this.accessor = new Accessor();
+    this.mutator = new Mutator();
+    this.precision = precision;
+    this.scale = scale;
+  }
+  <#else>
+
+  public ${minor.class}Vector(String name, BufferAllocator allocator) {
+    super(name, allocator);
     this.oAccessor = offsetVector.getAccessor();
     this.accessor = new Accessor();
     this.mutator = new Mutator();
   }
+  </#if>
+
+  @Override
+  public Field getField() {
+    throw new UnsupportedOperationException("internal vector");
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.${minor.class?upper_case};
+  }
 
   @Override
   public FieldReader getReader(){
-    return reader;
+    throw new UnsupportedOperationException("internal vector");
   }
 
   @Override
@@ -125,27 +149,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     return offsetVector.getAccessor().get(valueCount);
   }
 
-//  @Override
-//  public SerializedField getMetadata() {
-//    return getMetadataBuilder() //
-//             .addChild(offsetVector.getMetadata())
-//             .setValueCount(getAccessor().getValueCount()) //
-//             .setBufferLength(getBufferSize()) //
-//             .build();
-//  }
-//
-//  @Override
-//  public void load(SerializedField metadata, ArrowBuf buffer) {
-//     the bits vector is the first child (the order in which the children are added in getMetadataBuilder is significant)
-//    final SerializedField offsetField = metadata.getChild(0);
-//    offsetVector.load(offsetField, buffer);
-//
-//    final int capacity = buffer.capacity();
-//    final int offsetsLength = offsetField.getBufferLength();
-//    data = buffer.slice(offsetsLength, capacity - offsetsLength);
-//    data.retain();
-//  }
-
   @Override
   public void clear() {
     super.clear();
@@ -175,12 +178,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator){
-    return new TransferImpl(getField(), allocator);
+        return new TransferImpl(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator){
-    return new TransferImpl(getField().withPath(ref), allocator);
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
@@ -241,8 +244,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   private class TransferImpl implements TransferPair{
     ${minor.class}Vector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator){
-      to = new ${minor.class}Vector(field, allocator);
+    public TransferImpl(String name, BufferAllocator allocator){
+      <#if minor.class == "Decimal">
+      to = new ${minor.class}Vector(name, allocator, precision, scale);
+      <#else>
+      to = new ${minor.class}Vector(name, allocator);
+      </#if>
     }
 
     public TransferImpl(${minor.class}Vector to){
@@ -426,10 +433,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       return text;
     }
     <#break>
-    <#case "Var16Char">
+    <#case "Decimal">
     @Override
     public ${friendlyType} getObject(int index) {
-      return new String(get(index), Charsets.UTF_16);
+      return new BigDecimal(new BigInteger(get(index)), scale);
     }
     <#break>
     <#default>

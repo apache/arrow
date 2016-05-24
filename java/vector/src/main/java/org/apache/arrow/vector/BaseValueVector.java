@@ -19,8 +19,8 @@ package org.apache.arrow.vector;
 
 import java.util.Iterator;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.types.MaterializedField;
 import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,16 +38,16 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 4096;
 
   protected final BufferAllocator allocator;
-  protected final MaterializedField field;
+  protected final String name;
 
-  protected BaseValueVector(MaterializedField field, BufferAllocator allocator) {
-    this.field = Preconditions.checkNotNull(field, "field cannot be null");
+  protected BaseValueVector(String name, BufferAllocator allocator) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
+    this.name = name;
   }
 
   @Override
   public String toString() {
-    return super.toString() + "[field = " + field + ", ...]";
+    return super.toString() + "[name = " + name + ", ...]";
   }
 
   @Override
@@ -61,28 +61,9 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   @Override
-  public MaterializedField getField() {
-    return field;
-  }
-
-  public MaterializedField getField(String ref){
-    return getField().withPath(ref);
-  }
-
-  @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(getField().getPath(), allocator);
+    return getTransferPair(name, allocator);
   }
-
-//  public static SerializedField getMetadata(BaseValueVector vector) {
-//    return getMetadataBuilder(vector).build();
-//  }
-//
-//  protected static SerializedField.Builder getMetadataBuilder(BaseValueVector vector) {
-//    return SerializedFieldHelper.getAsBuilder(vector.getField())
-//        .setValueCount(vector.getAccessor().getValueCount())
-//        .setBufferLength(vector.getBufferSize());
-//  }
 
   public abstract static class BaseAccessor implements ValueVector.Accessor {
     protected BaseAccessor() { }

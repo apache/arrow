@@ -28,7 +28,7 @@ import org.apache.arrow.vector.ValueVector;
  * uses the offset vector to determine the sequence of cells pertaining to an individual value.
  *
  */
-public interface RepeatedValueVector extends ValueVector, ContainerVectorLike {
+public interface RepeatedValueVector extends ValueVector {
 
   final static int DEFAULT_REPEAT_PER_RECORD = 5;
 

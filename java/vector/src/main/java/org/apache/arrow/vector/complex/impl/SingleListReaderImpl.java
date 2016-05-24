@@ -24,14 +24,11 @@ import org.apache.arrow.vector.complex.AbstractContainerVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 @SuppressWarnings("unused")
 public class SingleListReaderImpl extends AbstractFieldReader{
 
-  private static final MajorType TYPE = Types.optional(MinorType.LIST);
   private final String name;
   private final AbstractContainerVector container;
   private FieldReader reader;
@@ -41,12 +38,6 @@ public class SingleListReaderImpl extends AbstractFieldReader{
     this.name = name;
     this.container = container;
   }
-
-  @Override
-  public MajorType getType() {
-    return TYPE;
-  }
-
 
   @Override
   public void setPosition(int index) {
@@ -68,6 +59,11 @@ public class SingleListReaderImpl extends AbstractFieldReader{
       setPosition(idx());
     }
     return reader;
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.LIST;
   }
 
   @Override

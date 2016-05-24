@@ -42,19 +42,79 @@ package org.apache.arrow.vector;
 public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
-  private final FieldReader reader = new Nullable${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
+  private final FieldReader reader = new ${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
 
-  private final MaterializedField bitsField = MaterializedField.create("$bits$", new MajorType(MinorType.UINT1, DataMode.REQUIRED));
-  private final MaterializedField valuesField = MaterializedField.create("$values$", new MajorType(field.getType().getMinorType(), DataMode.REQUIRED, field.getPrecision(), field.getScale()));
+  private final String bitsField = "$bits$";
+  private final String valuesField = "$values$";
+  private final Field field;
 
   final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
-  final ${valuesName} values = new ${minor.class}Vector(valuesField, allocator);
+  final ${valuesName} values;
 
-  private final Mutator mutator = new Mutator();
-  private final Accessor accessor = new Accessor();
+  private final Mutator mutator;
+  private final Accessor accessor;
 
-  public ${className}(MaterializedField field, BufferAllocator allocator) {
-    super(field, allocator);
+  <#if minor.class == "Decimal">
+  private final int precision;
+  private final int scale;
+
+  public ${className}(String name, BufferAllocator allocator, int precision, int scale) {
+    super(name, allocator);
+    values = new ${minor.class}Vector(valuesField, allocator, precision, scale);
+    this.precision = precision;
+    this.scale = scale;
+    mutator = new Mutator();
+    accessor = new Accessor();
+    field = new Field(name, true, new Decimal(precision, scale), null);
+  }
+  <#else>
+  public ${className}(String name, BufferAllocator allocator) {
+    super(name, allocator);
+    values = new ${minor.class}Vector(valuesField, allocator);
+    mutator = new Mutator();
+    accessor = new Accessor();
+  <#if minor.class == "TinyInt" ||
+        minor.class == "SmallInt" ||
+        minor.class == "Int" ||
+        minor.class == "BigInt">
+    field = new Field(name, true, new Int(${type.width} * 8, true), null);
+  <#elseif minor.class == "UInt1" ||
+        minor.class == "UInt2" ||
+        minor.class == "UInt4" ||
+        minor.class == "UInt8">
+    field = new Field(name, true, new Int(${type.width} * 8, false), null);
+  <#elseif minor.class == "Date">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Date(), null);
+  <#elseif minor.class == "Time">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
+  <#elseif minor.class == "Float4">
+    field = new Field(name, true, new FloatingPoint(0), null);
+  <#elseif minor.class == "Float8">
+    field = new Field(name, true, new FloatingPoint(1), null);
+  <#elseif minor.class == "TimeStamp">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
+  <#elseif minor.class == "IntervalDay">
+    field = new Field(name, true, new IntervalDay(), null);
+  <#elseif minor.class == "IntervalYear">
+    field = new Field(name, true, new IntervalYear(), null);
+  <#elseif minor.class == "VarChar">
+    field = new Field(name, true, new Utf8(), null);
+  <#elseif minor.class == "VarBinary">
+    field = new Field(name, true, new Binary(), null);
+  <#elseif minor.class == "Bit">
+    field = new Field(name, true, new Bool(), null);
+  </#if>
+  }
+  </#if>
+
+  @Override
+  public Field getField() {
+    return field;
+  }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.${minor.class?upper_case};
   }
 
   @Override
@@ -240,12 +300,13 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator){
-    return new TransferImpl(getField(), allocator);
+    return new TransferImpl(name, allocator);
+
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator){
-    return new TransferImpl(getField().withPath(ref), allocator);
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
@@ -273,8 +334,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private class TransferImpl implements TransferPair {
     Nullable${minor.class}Vector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator){
-      to = new Nullable${minor.class}Vector(field, allocator);
+    public TransferImpl(String name, BufferAllocator allocator){
+      <#if minor.class == "Decimal">
+      to = new Nullable${minor.class}Vector(name, allocator, precision, scale);
+      <#else>
+      to = new Nullable${minor.class}Vector(name, allocator);
+      </#if>
     }
 
     public TransferImpl(Nullable${minor.class}Vector to){
@@ -310,17 +375,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   @Override
   public Mutator getMutator(){
     return mutator;
-  }
-
-  public ${minor.class}Vector convertToRequiredVector(){
-    ${minor.class}Vector v = new ${minor.class}Vector(getField().getOtherNullableVersion(), allocator);
-    if (v.data != null) {
-      v.data.release(1);
-    }
-    v.data = values.data;
-    v.data.retain(1);
-    clear();
-    return v;
   }
 
   public void copyFrom(int fromIndex, int thisIndex, Nullable${minor.class}Vector from){
@@ -389,8 +443,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       holder.isSet = bAccessor.get(index);
 
       <#if minor.class.startsWith("Decimal")>
-      holder.scale = getField().getScale();
-      holder.precision = getField().getPrecision();
+      holder.scale = scale;
+      holder.precision = precision;
       </#if>
     }
 

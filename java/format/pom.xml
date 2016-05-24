@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor 
+  license agreements. See the NOTICE file distributed with this work for additional 
+  information regarding copyright ownership. The ASF licenses this file to 
+  You under the Apache License, Version 2.0 (the "License"); you may not use 
+  this file except in compliance with the License. You may obtain a copy of 
+  the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required 
+  by applicable law or agreed to in writing, software distributed under the 
+  License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS 
+  OF ANY KIND, either express or implied. See the License for the specific 
+  language governing permissions and limitations under the License. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<modelVersion>4.0.0</modelVersion>
+
+<parent>
+  <artifactId>arrow-java-root</artifactId>
+  <groupId>org.apache.arrow</groupId>
+  <version>0.1-decimal</version>
+</parent>
+
+<artifactId>arrow-format</artifactId>
+<packaging>jar</packaging>
+<name>Arrow Format</name>
+
+  <properties>
+    <fbs.version>1.2.0-3f79e055</fbs.version>
+    <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
+    <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
+    <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.vlkan</groupId>
+      <artifactId>flatbuffers</artifactId>
+      <version>${fbs.version}</version>
+    </dependency>
+  </dependencies>
+
+ <build>
+  <extensions>
+    <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
+    <extension>
+      <groupId>kr.motd.maven</groupId>
+      <artifactId>os-maven-plugin</artifactId>
+      <version>${os-maven-plugin.version}</version>
+    </extension>
+  </extensions>
+
+  <plugins>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-dependency-plugin</artifactId>
+      <version>${maven-dependency-plugin.version}</version>
+      <executions>
+        <execution>
+          <id>copy-flatc</id>
+          <phase>generate-sources</phase>
+          <goals>
+            <goal>copy</goal>
+          </goals>
+          <configuration>
+            <artifactItems>
+              <artifactItem>
+                <groupId>com.vlkan</groupId>
+                <artifactId>flatc-${os.detected.classifier}</artifactId>
+                <version>${fbs.version}</version>
+                <type>exe</type>
+                <overWrite>true</overWrite>
+                <outputDirectory>${project.build.directory}</outputDirectory>
+              </artifactItem>
+            </artifactItems>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>exec-maven-plugin</artifactId>
+      <version>1.4.0</version>
+      <executions>
+        <execution>
+          <id>script-chmod</id>
+          <goals>
+            <goal>exec</goal>
+          </goals>
+          <phase>generate-sources</phase>
+          <configuration>
+            <executable>chmod</executable>
+            <arguments>
+              <argument>+x</argument>
+              <argument>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</argument>
+            </arguments>
+          </configuration>
+        </execution>
+        <execution>
+          <goals>
+            <goal>exec</goal>
+          </goals>
+          <phase>generate-sources</phase>
+          <configuration>
+            <executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</executable>
+            <arguments>
+              <argument>-j</argument>
+              <argument>-o</argument>
+              <argument>target/generated-sources/</argument>
+              <argument>../../format/Message.fbs</argument>
+            </arguments>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>com.mycila</groupId>
+      <artifactId>license-maven-plugin</artifactId>
+      <version>2.3</version>
+      <configuration>
+        <header>${basedir}/../../header</header>
+        <includes>
+          <include>**/*.java</include>
+        </includes>
+      </configuration>
+      <executions>
+        <execution>
+          <phase>process-sources</phase>
+          <goals>
+            <goal>format</goal>
+          </goals>
+        </execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>build-helper-maven-plugin</artifactId>
+      <version>1.9.1</version>
+      <executions>
+        <execution>
+          <id>add-sources-as-resources</id>
+          <phase>generate-sources</phase>
+          <goals>
+            <goal>add-source</goal>
+          </goals>
+          <configuration>
+            <sources>
+              <source>${project.build.directory}/generated-sources</source>
+            </sources>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-checkstyle-plugin</artifactId>
+      <configuration>
+        <skip>true</skip>
+      </configuration>
+    </plugin>
+  </plugins>
+
+</build>
+</project>
+

@@ -18,17 +18,14 @@
 package org.apache.arrow.vector.holders;
 
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.types.Types.DataMode;
-import org.apache.arrow.vector.types.Types.MajorType;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 public class UnionHolder implements ValueHolder {
-  public static final MajorType TYPE = new MajorType(MinorType.UNION, DataMode.OPTIONAL);
   public FieldReader reader;
   public int isSet;
 
-  public MajorType getType() {
-    return reader.getType();
+  public MinorType getMinorType() {
+    return reader.getMinorType();
   }
 
   public boolean isSet() {
