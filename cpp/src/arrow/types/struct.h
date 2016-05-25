@@ -51,6 +51,8 @@ class StructArray : public Array {
 
   bool EqualsExact(const StructArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const std::shared_ptr<Array>& arr) const override;
 
  protected:
   // The child arrays corresponding to each field of the struct data type.
@@ -59,7 +61,7 @@ class StructArray : public Array {
 
 // ---------------------------------------------------------------------------------
 // StructArray builder
-// Append, Appends, Resize and Reserve methods are acting on StructBuilder.
+// Append, Resize and Reserve methods are acting on StructBuilder.
 // Please make sure all these methods of all child-builders' are consistently
 // called to maintain data-structure consistency.
 class StructBuilder : public ArrayBuilder {
@@ -70,11 +72,11 @@ class StructBuilder : public ArrayBuilder {
     field_builders_ = field_builders;
   }
 
-  // null_bitmap is of equal length to every child field, and any zero byte
+  // Null bitmap is of equal length to every child field, and any zero byte
   // will be considered as a null for that field, but users must using app-
   // end methods or advance methods of the child builders' independently to
   // insert data.
-  Status Appends(int32_t length, const uint8_t* valid_bytes) {
+  Status Append(int32_t length, const uint8_t* valid_bytes) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();

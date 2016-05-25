@@ -21,30 +21,32 @@
 
 namespace arrow {
 
-bool StructArray::EqualsExact(const StructArray& other) const {
-  if (this == &other) { return true; }
-  if (field_arrays_.size() != other.fields().size()) { return false; }
-  if (null_count_ != other.null_count_) { return false; }
-
-  if (null_count_ > 0) {
-    bool equal_null_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
-    if (!equal_null_bitmap) { return false; }
-
-    bool fields_equal = true;
-    for (size_t i = 0; i < field_arrays_.size(); ++i) {
-      fields_equal = field_arrays_[i].get()->Equals(other.field(i));
-      if (!fields_equal) { return false; }
-    }
-  }
-  return true;
-}
-
 bool StructArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(*static_cast<const StructArray*>(arr.get()));
+  if (null_count_ != arr->null_count()) { return false; }
+  return RangeEquals(0, length_, 0, arr);
+}
+
+bool StructArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+    const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (Type::STRUCT != arr->type_enum()) { return false; }
+  const auto other = static_cast<StructArray*>(arr.get());
+
+  bool equal_fields = true;
+  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
+    if (IsNull(i) != arr->IsNull(o_i)) { return false; }
+    if (IsNull(i)) continue;
+    for (size_t j = 0; j < field_arrays_.size(); ++j) {
+      equal_fields = field(j)->RangeEquals(i, i + 1, o_i, other->field(j));
+      if (!equal_fields) { return false; }
+    }
+  }
+
+  return true;
 }
 
 Status StructArray::Validate() const {
@@ -58,7 +60,7 @@ Status StructArray::Validate() const {
     // Validate fields
     int32_t array_length = field_arrays_[0]->length();
     for (auto it : field_arrays_) {
-      if (!(it->length() == array_length)) {
+      if (it->length() != array_length) {
         std::stringstream ss;
         ss << "Length is not equal from field " << it->type()->ToString();
         return Status::Invalid(ss.str());
@@ -73,7 +75,6 @@ Status StructArray::Validate() const {
     }
 
     // Validate null bitmap
-    // TODO: No checks for the consistency of bitmaps. Its cost maybe expensive.
     if (array_length > 0 && array_length != length_) {
       return Status::Invalid("Struct's length is not equal to its child arrays");
     }

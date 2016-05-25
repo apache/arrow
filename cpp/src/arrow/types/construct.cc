@@ -69,7 +69,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::STRUCT: {
-      auto fields = type->children_;
+      std::vector<FieldPtr>& fields = type->children_;
       std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
 
       for (auto it : fields) {

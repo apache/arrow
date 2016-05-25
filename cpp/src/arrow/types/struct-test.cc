@@ -215,13 +215,12 @@ TEST_F(TestStructBuilder, BulkAppend) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  builder_->Appends(struct_is_valid.size(), struct_is_valid.data());
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
 
   list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
-
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
@@ -247,13 +246,12 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  builder_->Appends(struct_is_valid.size(), struct_is_valid.data());
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
 
   list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
-
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
@@ -263,7 +261,122 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   ASSERT_OK(result_->Validate());
 }
 
-TEST_F(TestStructBuilder, TestEquals) {}
+TEST_F(TestStructBuilder, TestEquality) {
+  ArrayPtr array, equal_array;
+  ArrayPtr unequal_bitmap_array, unequal_offsets_array, unequal_values_array;
+
+  vector<int32_t> int_values = {1, 2, 3, 4};
+  vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
+  vector<int> list_lengths = {3, 0, 3, 4};
+  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<uint8_t> list_is_valid = {1, 0, 1, 1};
+  vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
+
+  vector<int32_t> unequal_int_values = {4, 2, 3, 1};
+  vector<char> unequal_list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'l', 'u', 'c', 'y'};
+  vector<int> unequal_list_offsets = {0, 3, 4, 6};
+  vector<uint8_t> unequal_list_is_valid = {1, 1, 1, 1};
+  vector<uint8_t> unequal_struct_is_valid = {1, 0, 0, 1};
+
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
+  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
+  ASSERT_OK(builder_->Reserve(list_lengths.size()));
+  ASSERT_OK(char_vb->Reserve(list_values.size()));
+  ASSERT_OK(int_vb->Reserve(int_values.size()));
+
+  // setup two equal arrays, one of which takes an unequal bitmap
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  array = builder_->Finish();
+
+  ASSERT_OK(builder_->Resize(list_lengths.size()));
+  ASSERT_OK(char_vb->Resize(list_values.size()));
+  ASSERT_OK(int_vb->Resize(int_values.size()));
+
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  equal_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Resize(list_lengths.size()));
+  ASSERT_OK(char_vb->Resize(list_values.size()));
+  ASSERT_OK(int_vb->Resize(int_values.size()));
+
+  // setup an unequal one with the unequal bitmap
+  builder_->Append(unequal_struct_is_valid.size(), unequal_struct_is_valid.data());
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  unequal_bitmap_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Resize(list_lengths.size()));
+  ASSERT_OK(char_vb->Resize(list_values.size()));
+  ASSERT_OK(int_vb->Resize(int_values.size()));
+
+  // setup an unequal one with unequal offsets
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
+  list_vb->Append(unequal_list_offsets.data(), unequal_list_offsets.size(),
+      unequal_list_is_valid.data());
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  unequal_offsets_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Resize(list_lengths.size()));
+  ASSERT_OK(char_vb->Resize(list_values.size()));
+  ASSERT_OK(int_vb->Resize(int_values.size()));
+
+  // setup anunequal one with unequal values
+  builder_->Append(struct_is_valid.size(), struct_is_valid.data());
+  list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data());
+  for (int8_t value : unequal_list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : unequal_int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  unequal_values_array = builder_->Finish();
+
+  // Test array equality
+  EXPECT_TRUE(array->Equals(array));
+  EXPECT_TRUE(array->Equals(equal_array));
+  EXPECT_TRUE(equal_array->Equals(array));
+  EXPECT_FALSE(equal_array->Equals(unequal_bitmap_array));
+  EXPECT_FALSE(unequal_bitmap_array->Equals(equal_array));
+  EXPECT_FALSE(unequal_bitmap_array->Equals(unequal_values_array));
+  EXPECT_FALSE(unequal_values_array->Equals(unequal_bitmap_array));
+  EXPECT_FALSE(unequal_bitmap_array->Equals(unequal_offsets_array));
+  EXPECT_FALSE(unequal_offsets_array->Equals(unequal_bitmap_array));
+
+  // Test range equality
+  EXPECT_TRUE(array->RangeEquals(0, 4, 0, equal_array));
+  EXPECT_TRUE(array->RangeEquals(3, 4, 3, unequal_bitmap_array));
+  EXPECT_TRUE(array->RangeEquals(0, 1, 0, unequal_offsets_array));
+  EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_offsets_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_offsets_array));
+  EXPECT_FALSE(array->RangeEquals(0, 1, 0, unequal_values_array));
+  EXPECT_TRUE(array->RangeEquals(1, 3, 1, unequal_values_array));
+  EXPECT_FALSE(array->RangeEquals(3, 4, 3, unequal_values_array));
+}
 
 TEST_F(TestStructBuilder, TestZeroLength) {
   // All buffers are null
