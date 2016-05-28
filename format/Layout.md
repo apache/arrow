@@ -41,7 +41,7 @@ Base requirements
   proprietary systems that utilize the open source components.
 * All array slots are accessible in constant time, with complexity growing
   linearly in the nesting level
-* Capable of representing fully-materialized and decoded / decompressed Parquet
+* Capable of representing fully-materialized and decoded / decompressed [Parquet][5]
   data
 * All contiguous memory buffers are aligned at 64-byte boundaries and padded to a multiple of 64 bytes.
 * Any relative type can have null slots
@@ -76,7 +76,7 @@ Base requirements
 * Any memory management or reference counting subsystem
 * To enumerate or specify types of encodings or compression support
 
-## Byte Order (Endianness)
+## Byte Order ([Endianness][3])
 
 The Arrow format is little endian.
 
@@ -91,7 +91,7 @@ requirement follows best practices for optimized memory access:
 * 64 byte alignment is recommended by the [Intel performance guide][2] for
 data-structures over 64 bytes (which will be a common case for Arrow Arrays).
 
-Requiring padding to a multiple of 64 bytes allows for using SIMD instructions
+Requiring padding to a multiple of 64 bytes allows for using [SIMD][4] instructions
 consistently in loops without additional conditional checks.
 This should allow for simpler and more efficient code.  
 The specific padding length was chosen because it matches the largest known
@@ -105,13 +105,13 @@ Unless otherwise noted, padded bytes do not need to have a specific value.
 ## Array lengths
 
 Any array has a known and fixed length, stored as a 32-bit signed integer, so a
-maximum of 2^31 - 1 elements. We choose a signed int32 for a couple reasons:
+maximum of 2<sup>31</sup> - 1 elements. We choose a signed int32 for a couple reasons:
 
 * Enhance compatibility with Java and client languages which may have varying
   quality of support for unsigned integers.
 * To encourage developers to compose smaller arrays (each of which contains
   contiguous memory in its leaf nodes) to create larger array structures
-  possibly exceeding 2^31 - 1 elements, as opposed to allocating very large
+  possibly exceeding 2<sup>31</sup> - 1 elements, as opposed to allocating very large
   contiguous memory blocks.
 
 ## Null count
@@ -238,7 +238,7 @@ A list-array is represented by the combination of the following:
 * A values array, a child array of type T. T may also be a nested type.
 * An offsets buffer containing 32-bit signed integers with length equal to the
   length of the top-level array plus one. Note that this limits the size of the
-  values array to 2^31 -1.
+  values array to 2<sup>31</sup>-1.
 
 The offsets array encodes a start position in the values array, and the length
 of the value in each slot is computed using the first difference with the next
@@ -578,7 +578,11 @@ the the types array indicates that a slot contains a different type at the index
 
 ## References
 
-Drill docs https://drill.apache.org/docs/value-vectors/
+Apache Drill Documentation - [Value Vectors][6] 
 
 [1]: https://en.wikipedia.org/wiki/Bit_numbering
 [2]: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
+[3]: https://en.wikipedia.org/wiki/Endianness
+[4]: https://software.intel.com/en-us/node/600110
+[5]: https://parquet.apache.org/documentation/latest/
+[6]: https://drill.apache.org/docs/value-vectors/
