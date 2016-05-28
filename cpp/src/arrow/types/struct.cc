@@ -41,6 +41,8 @@ bool StructArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_
     if (IsNull(i) != arr->IsNull(o_i)) { return false; }
     if (IsNull(i)) continue;
     for (size_t j = 0; j < field_arrays_.size(); ++j) {
+      // TODO: really we should be comparing stretches of non-null data rather
+      // than looking at one value at a time.
       equal_fields = field(j)->RangeEquals(i, i + 1, o_i, other->field(j));
       if (!equal_fields) { return false; }
     }
@@ -59,22 +61,25 @@ Status StructArray::Validate() const {
   if (field_arrays_.size() > 0) {
     // Validate fields
     int32_t array_length = field_arrays_[0]->length();
+    size_t idx = 0;
     for (auto it : field_arrays_) {
       if (it->length() != array_length) {
         std::stringstream ss;
-        ss << "Length is not equal from field " << it->type()->ToString();
+        ss << "Length is not equal from field " << it->type()->ToString()
+           << " at position {" << idx << "}";
         return Status::Invalid(ss.str());
       }
 
       const Status child_valid = it->Validate();
       if (!child_valid.ok()) {
         std::stringstream ss;
-        ss << "Child array invalid: " << child_valid.ToString();
+        ss << "Child array invalid: " << child_valid.ToString() << " at position {" << idx
+           << "}";
         return Status::Invalid(ss.str());
       }
+      ++idx;
     }
 
-    // Validate null bitmap
     if (array_length > 0 && array_length != length_) {
       return Status::Invalid("Struct's length is not equal to its child arrays");
     }
