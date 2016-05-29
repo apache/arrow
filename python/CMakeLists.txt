@@ -344,6 +344,8 @@ find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
+ADD_THIRDPARTY_LIB(arrow_parquet
+    SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -414,6 +416,7 @@ set(PYARROW_SRCS
   src/pyarrow/common.cc
   src/pyarrow/config.cc
   src/pyarrow/helpers.cc
+  src/pyarrow/parquet.cc
   src/pyarrow/status.cc
 
   src/pyarrow/adapters/builtin.cc
@@ -422,6 +425,7 @@ set(PYARROW_SRCS
 
 set(LINK_LIBS
   arrow
+  arrow_parquet
 )
 
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -442,6 +446,7 @@ set(CYTHON_EXTENSIONS
   array
   config
   error
+  parquet
   scalar
   schema
   table

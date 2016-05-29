@@ -29,6 +29,7 @@ class MemoryPool;
 class PrimitiveArray;
 class RowBatch;
 class Status;
+class Table;
 
 namespace parquet {
 
@@ -51,6 +52,14 @@ class FileWriter {
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+/**
+ * Write a flat Table to Parquet.
+ *
+ * The table shall only consist of nullable, non-repeated columns of primitive type.
+ */
+Status WriteFlatTable(const Table* table, MemoryPool* pool,
+    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size);
 
 }  // namespace parquet
 

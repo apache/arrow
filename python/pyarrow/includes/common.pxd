@@ -34,6 +34,11 @@ cdef extern from "<Python.h>":
 
 cdef extern from "<memory>" namespace "std" nogil:
 
+    cdef cppclass unique_ptr[T]:
+        unique_ptr()
+        unique_ptr(T*)
+        T* get()
+
     cdef cppclass shared_ptr[T]:
         shared_ptr()
         shared_ptr(T*)

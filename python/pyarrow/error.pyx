@@ -21,6 +21,13 @@ from pyarrow.compat import frombytes
 class ArrowException(Exception):
     pass
 
+cdef check_cstatus(const CStatus& status):
+    if status.ok():
+        return
+
+    cdef c_string c_message = status.ToString()
+    raise ArrowException(frombytes(c_message))
+
 cdef check_status(const Status& status):
     if status.ok():
         return

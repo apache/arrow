@@ -67,6 +67,8 @@ class Column {
 
   int64_t null_count() const { return data_->null_count(); }
 
+  const std::shared_ptr<Field>& field() const { return field_; }
+
   // @returns: the column's name in the passed metadata
   const std::string& name() const { return field_->name; }
 
