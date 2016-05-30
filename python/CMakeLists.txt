@@ -416,7 +416,6 @@ set(PYARROW_SRCS
   src/pyarrow/common.cc
   src/pyarrow/config.cc
   src/pyarrow/helpers.cc
-  src/pyarrow/parquet.cc
   src/pyarrow/status.cc
 
   src/pyarrow/adapters/builtin.cc
