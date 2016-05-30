@@ -157,12 +157,12 @@ FileWriter::~FileWriter() {}
 //
 // This method is specially crafted for WriteFlatTable and assumes the following:
 //  * chunk_size is a multiple of 512
-Status TemporaryArraySlice(int64_t chunk, int64_t chunk_size, PrimitiveArray* array,
+Status TemporaryArraySlice(int64_t chunk, int64_t chunk_size, const PrimitiveArray* array,
     std::shared_ptr<PrimitiveArray>* out) {
   // The last chunk may be smaller than the chunk_size
-  int64_t size = std::min(chunk_size, array->length() - chunk * chunk_size);
-  int64_t buffer_offset = chunk * chunk_size * array->type()->value_size();
-  int64_t value_size = size * array->type()->value_size();
+  const int64_t size = std::min(chunk_size, array->length() - chunk * chunk_size);
+  const int64_t buffer_offset = chunk * chunk_size * array->type()->value_size();
+  const int64_t value_size = size * array->type()->value_size();
   auto chunk_buffer = std::make_shared<Buffer>(array->data(), buffer_offset, value_size);
   std::shared_ptr<Buffer> null_bitmap;
   int32_t null_count = 0;
