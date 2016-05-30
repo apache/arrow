@@ -48,13 +48,20 @@ def read_table(filename, columns=None):
 def write_table(table, filename, chunk_size=None):
     """
     Write a Table to Parquet format
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+    filename : string
+    chunk_size : int
+        The maximum number of rows in each Parquet RowGroup
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
     cdef shared_ptr[OutputStream] sink = shared_ptr[OutputStream](new LocalFileOutputStream(filename))
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
-        chunk_size_ = ctable_.num_rows()
+        chunk_size_ = max(ctable_.num_rows(), int(2**16))
     else:
         chunk_size_ = chunk_size
 
