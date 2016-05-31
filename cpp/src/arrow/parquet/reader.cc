@@ -109,16 +109,15 @@ Status FileReader::Impl::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
 }
 
 Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
-  const std::string name = reader_->descr()->schema()->name();
+  const std::string& name = reader_->descr()->schema()->name();
   std::shared_ptr<Schema> schema;
   RETURN_NOT_OK(FromParquetSchema(reader_->descr(), &schema));
 
-  std::vector<std::shared_ptr<Column>> columns;
+  std::vector<std::shared_ptr<Column>> columns(reader_->num_columns());
   for (int i = 0; i < reader_->num_columns(); i++) {
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(ReadFlatColumn(i, &array));
-    auto column = std::make_shared<Column>(schema->field(i), array);
-    columns.push_back(column);
+    columns[i] = std::make_shared<Column>(schema->field(i), array);
   }
 
   *table = std::make_shared<Table>(name, schema, columns);

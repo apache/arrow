@@ -35,7 +35,6 @@ class TestParquetIO(unittest.TestCase):
   def tearDown(self):
     rmtree(self.temp_directory)
 
-
   def test_single_int64_column(self):
     filename = os.path.join(self.temp_directory, 'single_int64_column.parquet')
     data = [A.from_pylist(range(5))]
