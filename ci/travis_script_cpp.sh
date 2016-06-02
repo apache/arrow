@@ -7,10 +7,14 @@ set -e
 pushd $CPP_BUILD_DIR
 
 make lint
-if [ $TRAVIS_OS_NAME == "linux" ]; then
-  make check-format
-  make check-clang-tidy
-fi
+
+# ARROW-209: checks depending on the LLVM toolchain are disabled temporarily
+# until we are able to install the full LLVM toolchain in Travis CI again
+
+# if [ $TRAVIS_OS_NAME == "linux" ]; then
+#   make check-format
+#   make check-clang-tidy
+# fi
 
 ctest -L unittest
 
