@@ -11,21 +11,6 @@ popd
 
 pushd $PYTHON_DIR
 
-# Bootstrap a Conda Python environment
-
-if [ $TRAVIS_OS_NAME == "linux" ]; then
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh"
-else
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh"
-fi
-
-curl $MINICONDA_URL > miniconda.sh
-MINICONDA=$TRAVIS_BUILD_DIR/miniconda
-bash miniconda.sh -b -p $MINICONDA
-export PATH="$MINICONDA/bin:$PATH"
-conda update -y -q conda
-conda info -a
-
 python_version_tests() {
   PYTHON_VERSION=$1
   CONDA_ENV_NAME="pyarrow-test-${PYTHON_VERSION}"
