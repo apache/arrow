@@ -25,8 +25,10 @@ namespace parquet {
 namespace benchmark {
 
 static void BM_RleEncoding(::benchmark::State& state) {
-  // TODO: More than just all 0s
   std::vector<int16_t> levels(state.range_x(), 0);
+  int64_t n = 0;
+  std::generate(levels.begin(), levels.end(),
+      [&state, &n] { return (n++ % state.range_y()) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
   auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size);
@@ -38,20 +40,24 @@ static void BM_RleEncoding(::benchmark::State& state) {
     level_encoder.Encode(levels.size(), levels.data());
   }
   state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range_x());
 }
 
-BENCHMARK(BM_RleEncoding)->Range(1024, 65536);
+BENCHMARK(BM_RleEncoding)->RangePair(1024, 65536, 1, 16);
 
 static void BM_RleDecoding(::benchmark::State& state) {
   LevelEncoder level_encoder;
-  // TODO: More than just all 0s
   std::vector<int16_t> levels(state.range_x(), 0);
+  int64_t n = 0;
+  std::generate(levels.begin(), levels.end(),
+      [&state, &n] { return (n++ % state.range_y()) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
-  auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size);
-  level_encoder.Init(Encoding::RLE, max_level, levels.size(), buffer_rle->mutable_data(),
-      buffer_rle->size());
+  auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size + sizeof(uint32_t));
+  level_encoder.Init(Encoding::RLE, max_level, levels.size(),
+      buffer_rle->mutable_data() + sizeof(uint32_t), rle_size);
   level_encoder.Encode(levels.size(), levels.data());
+  reinterpret_cast<uint32_t*>(buffer_rle->mutable_data())[0] = level_encoder.len();
 
   while (state.KeepRunning()) {
     LevelDecoder level_decoder;
@@ -60,9 +66,10 @@ static void BM_RleDecoding(::benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range_x());
 }
 
-BENCHMARK(BM_RleDecoding)->Range(1024, 65536);
+BENCHMARK(BM_RleDecoding)->RangePair(1024, 65536, 1, 16);
 
 }  // namespace benchmark
 

@@ -195,12 +195,22 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
   }
 
   // Verify read
-  RleDecoder decoder(buffer, len, bit_width);
-  for (size_t i = 0; i < values.size(); ++i) {
-    uint64_t val;
-    bool result = decoder.Get(&val);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(values[i], val);
+  {
+    RleDecoder decoder(buffer, len, bit_width);
+    for (size_t i = 0; i < values.size(); ++i) {
+      uint64_t val;
+      bool result = decoder.Get(&val);
+      EXPECT_TRUE(result);
+      EXPECT_EQ(values[i], val);
+    }
+  }
+
+  // Verify batch read
+  {
+    RleDecoder decoder(buffer, len, bit_width);
+    vector<int> values_read(values.size());
+    ASSERT_EQ(values.size(), decoder.GetBatch(values_read.data(), values.size()));
+    EXPECT_EQ(values, values_read);
   }
 }
 
@@ -217,11 +227,25 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
   int encoded_len = encoder.Flush();
   int out = 0;
 
-  RleDecoder decoder(buffer, encoded_len, bit_width);
-  for (size_t i = 0; i < values.size(); ++i) {
-    EXPECT_TRUE(decoder.Get(&out));
-    if (values[i] != out) { return false; }
+  {
+    RleDecoder decoder(buffer, encoded_len, bit_width);
+    for (size_t i = 0; i < values.size(); ++i) {
+      EXPECT_TRUE(decoder.Get(&out));
+      if (values[i] != out) { return false; }
+    }
   }
+
+  // Verify batch read
+  {
+    RleDecoder decoder(buffer, len, bit_width);
+    vector<int> values_read(values.size());
+    if (static_cast<int>(values.size()) !=
+        decoder.GetBatch(values_read.data(), values.size())) {
+      return false;
+    }
+    if (values != values_read) { return false; }
+  }
+
   return true;
 }
 

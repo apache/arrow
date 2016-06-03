@@ -156,10 +156,7 @@ class LevelDecoder {
 
     int num_values = std::min(num_values_remaining_, batch_size);
     if (encoding_ == Encoding::RLE) {
-      for (int i = 0; i < num_values; ++i) {
-        if (!rle_decoder_->Get(levels + i)) { break; }
-        ++num_decoded;
-      }
+      num_decoded = rle_decoder_->GetBatch(levels, num_values);
     } else {
       for (int i = 0; i < num_values; ++i) {
         if (!bit_packed_decoder_->GetValue(bit_width_, levels + i)) { break; }
