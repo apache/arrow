@@ -42,6 +42,12 @@ using std::shared_ptr;
 
 namespace parquet {
 
+static int FLBA_LENGTH = 12;
+
+bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
+  return 0 == memcmp(a.ptr, b.ptr, FLBA_LENGTH);
+}
+
 namespace test {
 
 template <typename T>
