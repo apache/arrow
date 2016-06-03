@@ -2,6 +2,10 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+conda install -y --channel apache/channel/dev parquet-cpp
+export PARQUET_HOME=$MINICONDA
+
 : ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
 
 mkdir $CPP_BUILD_DIR
