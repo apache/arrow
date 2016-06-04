@@ -4,6 +4,10 @@ set -e
 
 PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
+# Re-use conda installation from C++
+export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
+export PATH="$MINICONDA/bin:$PATH"
+
 # Share environment with C++
 pushd $CPP_BUILD_DIR
 source setup_build_env.sh
