@@ -68,13 +68,8 @@ cdef class Array:
         values = array_format(self, window=10)
         return '{0}\n{1}'.format(type_format, values)
 
-    def __richcmp__(Array self, Array other, int op):
-        if op == cpython.Py_EQ:
-            return self.ap.Equals(other.sp_array)
-        elif op == cpython.Py_NE:
-            return not self.ap.Equals(other.sp_array)
-        else:
-            raise TypeError('Invalid comparison')
+    def equals(Array self, Array other):
+        return self.ap.Equals(other.sp_array)
 
     def __len__(self):
         if self.sp_array.get():

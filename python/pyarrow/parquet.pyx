@@ -61,7 +61,7 @@ def write_table(table, filename, chunk_size=None):
     cdef shared_ptr[OutputStream] sink = shared_ptr[OutputStream](new LocalFileOutputStream(filename))
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
-        chunk_size_ = max(ctable_.num_rows(), int(2**16))
+        chunk_size_ = min(ctable_.num_rows(), int(2**16))
     else:
         chunk_size_ = chunk_size
 

@@ -39,5 +39,5 @@ def test_single_pylist_column(tmpdir):
             assert col_read.data.num_chunks == 1
             data_written = col_written.data.chunk(0)
             data_read = col_read.data.chunk(0)
-            assert data_written == data_read
+            assert data_written.equals(data_read)
 
