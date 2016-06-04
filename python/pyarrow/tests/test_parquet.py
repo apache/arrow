@@ -27,36 +27,17 @@ from tempfile import mkdtemp
 import os.path
 
 
-def test_single_int64_column(tmpdir):
-    filename = tmpdir.join('single_int64_column.parquet')
-    data = [A.from_pylist(range(5))]
-    table = A.Table.from_arrays(('a', 'b'), data, 'table_name')
-    A.parquet.write_table(table, filename.strpath)
-    table_read = pyarrow.parquet.read_table(filename.strpath)
-    for col_written, col_read in zip(table.itercolumns(), table_read.itercolumns()):
-        assert col_written.name == col_read.name
-        assert col_read.data.num_chunks == 1
-        data_written = col_written.data.chunk(0)
-        data_read = col_read.data.chunk(0)
-        assert data_written == data_read
+def test_single_pylist_column(tmpdir):
+    for dtype in [int, float]:
+        filename = tmpdir.join('single_{}_column.parquet'.format(dtype.__name__))
+        data = [A.from_pylist(map(dtype, range(5)))]
+        table = A.Table.from_arrays(('a', 'b'), data, 'table_name')
+        A.parquet.write_table(table, filename.strpath)
+        table_read = pyarrow.parquet.read_table(filename.strpath)
+        for col_written, col_read in zip(table.itercolumns(), table_read.itercolumns()):
+            assert col_written.name == col_read.name
+            assert col_read.data.num_chunks == 1
+            data_written = col_written.data.chunk(0)
+            data_read = col_read.data.chunk(0)
+            assert data_written == data_read
 
-class TestParquetIO(unittest.TestCase):
-
-  def setUp(self):
-    self.temp_directory = mkdtemp()
-
-  def tearDown(self):
-    rmtree(self.temp_directory)
-
-  def test_single_int64_column(self):
-    filename = os.path.join(self.temp_directory, 'single_int64_column.parquet')
-    data = [A.from_pylist(range(5))]
-    table = A.Table.from_arrays(('a', 'b'), data, 'table_name')
-    A.parquet.write_table(table, filename)
-    table_read = pyarrow.parquet.read_table(filename)
-    for col_written, col_read in zip(table.itercolumns(), table_read.itercolumns()):
-        assert col_written.name == col_read.name
-        assert col_read.data.num_chunks == 1
-        data_written = col_written.data.chunk(0)
-        data_read = col_read.data.chunk(0)
-        assert data_written == data_read
