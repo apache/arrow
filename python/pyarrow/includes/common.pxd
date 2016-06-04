@@ -38,6 +38,11 @@ cdef extern from "<memory>" namespace "std" nogil:
         unique_ptr()
         unique_ptr(T*)
         T* get()
+        T* release()
+        void reset()
+        void reset(nullptr_t)
+        void reset(T*)
+        void swap(unique_ptr&)
 
     cdef cppclass shared_ptr[T]:
         shared_ptr()
@@ -45,3 +50,4 @@ cdef extern from "<memory>" namespace "std" nogil:
         T* get()
         void reset()
         void reset(T* p)
+        void swap(shared_ptr&)
