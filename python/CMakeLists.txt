@@ -339,6 +339,10 @@ if (PYARROW_BUILD_TESTS)
     STATIC_LIB ${GTEST_STATIC_LIB})
 endif()
 
+## Parquet
+find_package(Parquet REQUIRED)
+include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
 ## Arrow
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
