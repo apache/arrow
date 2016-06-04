@@ -43,7 +43,8 @@ class FileWriter {
   FileWriter(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileWriter> writer);
 
   Status NewRowGroup(int64_t chunk_size);
-  Status WriteFlatColumnChunk(const PrimitiveArray* data);
+  Status WriteFlatColumnChunk(
+      const PrimitiveArray* data, int64_t offset = 0, int64_t length = -1);
   Status Close();
 
   virtual ~FileWriter();

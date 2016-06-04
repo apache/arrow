@@ -30,7 +30,7 @@ import os.path
 def test_single_pylist_column(tmpdir):
     for dtype in [int, float]:
         filename = tmpdir.join('single_{}_column.parquet'.format(dtype.__name__))
-        data = [A.from_pylist(map(dtype, range(5)))]
+        data = [A.from_pylist(list(map(dtype, range(5))))]
         table = A.Table.from_arrays(('a', 'b'), data, 'table_name')
         A.parquet.write_table(table, filename.strpath)
         table_read = pyarrow.parquet.read_table(filename.strpath)
