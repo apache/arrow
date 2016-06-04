@@ -7,6 +7,7 @@ PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 # Re-use conda installation from C++
 export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
 export PATH="$MINICONDA/bin:$PATH"
+export PARQUET_HOME=$MINICONDA
 
 # Share environment with C++
 pushd $CPP_BUILD_DIR
