@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 

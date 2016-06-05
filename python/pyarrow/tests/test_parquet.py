@@ -24,10 +24,13 @@ A = arrow
 from shutil import rmtree
 from tempfile import mkdtemp
 
+import numpy as np
 import os.path
+import pandas as pd
+import pandas.util.testing as pdt
 
 
-def test_single_pylist_column(tmpdir):
+def test_single_pylist_column_roundtrip(tmpdir):
     for dtype in [int, float]:
         filename = tmpdir.join('single_{}_column.parquet'.format(dtype.__name__))
         data = [A.from_pylist(list(map(dtype, range(5))))]
@@ -40,4 +43,19 @@ def test_single_pylist_column(tmpdir):
             data_written = col_written.data.chunk(0)
             data_read = col_read.data.chunk(0)
             assert data_written.equals(data_read)
+
+def test_pandas_rountrip(tmpdir):
+    size = 10000
+    df = pd.DataFrame({
+        'int32': np.arange(size, dtype=np.int32),
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64)
+    })
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = A.from_pandas_dataframe(df)
+    A.parquet.write_table(arrow_table, filename.strpath)
+    table_read = pyarrow.parquet.read_table(filename.strpath)
+    df_read = table_read.to_pandas()
+    pdt.assert_frame_equal(df, df_read)
 
