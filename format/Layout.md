@@ -299,7 +299,7 @@ will be be represented as follows:
 
   | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
   |------------|------------|------------|-------------|-------------|
-  | 0          |  2         |  6         |  7          | unspecified |
+  | 0          |  2         |  5         |  6          | unspecified |
 
 * Values array (`List<byte>`)
   * Length: 6, Null count: 1
@@ -368,7 +368,7 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 
       | Byte 0 (validity bitmap) | Bytes 1-7             |
       |--------------------------|-----------------------|
-      | 00011101                 | 0 (padding)           |
+      | 00001101                 | 0 (padding)           |
 
     * Offsets buffer:
 
@@ -472,7 +472,7 @@ An example layout for logical union of:
       | 1.2, 3.4  | unspecified |
 
 
-  * Field-1 array (f: float):
+  * Field-1 array (i: int32):
     * Length: 1, nulls: 0
     * Null bitmap buffer: Not required
 
@@ -499,7 +499,7 @@ union, it has some advantages that may be desirable in certain use cases:
 
 For the union array:
 
-[{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, 'mark']
+[{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, {u2='mark'}]
 
 will have the following layout:
 ```
