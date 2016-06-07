@@ -669,7 +669,7 @@ class ArrowDeserializer {
 
           out_values[i] = make_pystring(data, length);
           if (out_values[i] == nullptr) {
-            return Status::OK();
+            return Status::UnknownError("String initialization failed");
           }
         }
       }
@@ -678,7 +678,7 @@ class ArrowDeserializer {
         data = string_arr->GetValue(i, &length);
         out_values[i] = make_pystring(data, length);
         if (out_values[i] == nullptr) {
-          return Status::OK();
+          return Status::UnknownError("String initialization failed");
         }
       }
     }
