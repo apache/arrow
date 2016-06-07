@@ -181,6 +181,7 @@ Status WriteFlatTable(const Table* table, MemoryPool* pool,
     std::shared_ptr<Array> array = table->column(i)->data()->chunk(0);
     auto primitive_array = std::dynamic_pointer_cast<PrimitiveArray>(array);
     if (!primitive_array) {
+      PARQUET_IGNORE_NOT_OK(writer.Close());
       return Status::NotImplemented("Table must consist of PrimitiveArray instances");
     }
     arrays[i] = primitive_array;
@@ -189,9 +190,9 @@ Status WriteFlatTable(const Table* table, MemoryPool* pool,
   for (int chunk = 0; chunk * chunk_size < table->num_rows(); chunk++) {
     int64_t offset = chunk * chunk_size;
     int64_t size = std::min(chunk_size, table->num_rows() - offset);
-    RETURN_NOT_OK(writer.NewRowGroup(size));
+    RETURN_NOT_OK_ELSE(writer.NewRowGroup(size), PARQUET_IGNORE_NOT_OK(writer.Close()));
     for (int i = 0; i < table->num_columns(); i++) {
-      RETURN_NOT_OK(writer.WriteFlatColumnChunk(arrays[i].get(), offset, size));
+      RETURN_NOT_OK_ELSE(writer.WriteFlatColumnChunk(arrays[i].get(), offset, size), PARQUET_IGNORE_NOT_OK(writer.Close()));
     }
   }
 

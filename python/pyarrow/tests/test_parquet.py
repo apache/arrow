@@ -21,12 +21,10 @@ import pyarrow.parquet
 
 A = arrow
 
-from shutil import rmtree
-from tempfile import mkdtemp
-
 import numpy as np
 import os.path
 import pandas as pd
+
 import pandas.util.testing as pdt
 
 
