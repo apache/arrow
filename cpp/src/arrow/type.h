@@ -161,6 +161,7 @@ struct Field {
 
   std::string ToString() const;
 };
+typedef std::shared_ptr<Field> FieldPtr;
 
 template <typename Derived>
 struct PrimitiveType : public DataType {

@@ -20,13 +20,14 @@
 
 #include <cstdint>
 #include <memory>
-
+#include <vector>
 namespace arrow {
 
 class Array;
 class ArrayBuilder;
 class Buffer;
 struct DataType;
+struct Field;
 class MemoryPool;
 class Status;
 
