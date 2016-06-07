@@ -34,11 +34,10 @@ namespace arrow {
 
 class MemoryPool;
 
-// Base class for fixed-size logical types
+// Base class for fixed-size logical types.  See MakePrimitiveArray
+// (types/construct.h) for constructing a specific subclass.
 class PrimitiveArray : public Array {
  public:
-  PrimitiveArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   virtual ~PrimitiveArray() {}
 
   const std::shared_ptr<Buffer>& data() const { return data_; }
@@ -47,6 +46,8 @@ class PrimitiveArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
+  PrimitiveArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   std::shared_ptr<Buffer> data_;
   const uint8_t* raw_data_;
 };
@@ -55,12 +56,14 @@ class PrimitiveArray : public Array {
   class NAME : public PrimitiveArray {                                                 \
    public:                                                                             \
     using value_type = T;                                                              \
-    using PrimitiveArray::PrimitiveArray;                                              \
                                                                                        \
     NAME(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,  \
         const std::shared_ptr<Buffer>& null_bitmap = nullptr)                          \
         : PrimitiveArray(                                                              \
               std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {} \
+    NAME(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,     \
+        int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)  \
+        : PrimitiveArray(type, length, data, null_count, null_bitmap) {}               \
                                                                                        \
     bool EqualsExact(const NAME& other) const {                                        \
       return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
@@ -261,9 +264,9 @@ typedef NumericBuilder<DoubleType> DoubleBuilder;
 
 class BooleanArray : public PrimitiveArray {
  public:
-  using PrimitiveArray::PrimitiveArray;
-
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  BooleanArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
