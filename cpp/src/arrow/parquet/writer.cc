@@ -192,7 +192,8 @@ Status WriteFlatTable(const Table* table, MemoryPool* pool,
     int64_t size = std::min(chunk_size, table->num_rows() - offset);
     RETURN_NOT_OK_ELSE(writer.NewRowGroup(size), PARQUET_IGNORE_NOT_OK(writer.Close()));
     for (int i = 0; i < table->num_columns(); i++) {
-      RETURN_NOT_OK_ELSE(writer.WriteFlatColumnChunk(arrays[i].get(), offset, size), PARQUET_IGNORE_NOT_OK(writer.Close()));
+      RETURN_NOT_OK_ELSE(writer.WriteFlatColumnChunk(arrays[i].get(), offset, size),
+          PARQUET_IGNORE_NOT_OK(writer.Close()));
     }
   }
 

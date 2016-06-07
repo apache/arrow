@@ -32,9 +32,9 @@ namespace parquet {
   } catch (const ::parquet::ParquetException& e) { return Status::Invalid(e.what()); }
 
 #define PARQUET_IGNORE_NOT_OK(s) \
-  try {                         \
-    (s);                        \
-  } catch (const ::parquet::ParquetException& e) { }
+  try {                          \
+    (s);                         \
+  } catch (const ::parquet::ParquetException& e) {}
 
 }  // namespace parquet
 
