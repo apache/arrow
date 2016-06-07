@@ -92,18 +92,18 @@ class CharArray : public StringArray {
       const ArrayPtr& values, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : StringArray(type, length, offsets, values, null_count, null_bitmap),
-        char_type(std::dynamic_pointer_cast<CharType>(type).get()) {}
+        char_type_(std::dynamic_pointer_cast<CharType>(type).get()) {}
 
   // The fixed size of each string
   // (TODO), right now this is in bytes, DB systems seems to
   // generally store this as characters.  Which would mean 3-6x the number of bytes
   // stored)
-  int32_t string_size() const { return char_type->size; }
+  int32_t string_size() const { return char_type_->size; }
   Status Validate() const override;
 
  private:
   // for convenience
-  CharType* char_type;
+  CharType* char_type_;
 };
 
 // BinaryBuilder : public ListBuilder
