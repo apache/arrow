@@ -148,16 +148,19 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
 }
 
 void RowGroupSerializer::Close() {
-  if (current_column_index_ != schema_->num_columns() - 1) {
-    throw ParquetException("Not all column were written in the current rowgroup.");
-  }
+  if (!closed_) {
+    closed_ = true;
+    if (current_column_index_ != schema_->num_columns() - 1) {
+      throw ParquetException("Not all column were written in the current rowgroup.");
+    }
 
-  if (current_column_writer_) {
-    total_bytes_written_ += current_column_writer_->Close();
-    current_column_writer_.reset();
-  }
+    if (current_column_writer_) {
+      total_bytes_written_ += current_column_writer_->Close();
+      current_column_writer_.reset();
+    }
 
-  metadata_->__set_total_byte_size(total_bytes_written_);
+    metadata_->__set_total_byte_size(total_bytes_written_);
+  }
 }
 
 // ----------------------------------------------------------------------

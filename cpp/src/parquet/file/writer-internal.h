@@ -74,6 +74,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         metadata_(metadata),
         allocator_(allocator),
         total_bytes_written_(0),
+        closed_(false),
         current_column_index_(-1) {
     metadata_->__set_num_rows(num_rows_);
     metadata_->columns.resize(schema->num_columns());
@@ -96,6 +97,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   format::RowGroup* metadata_;
   MemoryAllocator* allocator_;
   int64_t total_bytes_written_;
+  bool closed_;
 
   int64_t current_column_index_;
   std::shared_ptr<ColumnWriter> current_column_writer_;
