@@ -162,6 +162,11 @@ BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
     : PrimitiveArray(
           std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
 
+BooleanArray::BooleanArray(const TypePtr& type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
+
 bool BooleanArray::EqualsExact(const BooleanArray& other) const {
   if (this == &other) return true;
   if (null_count_ != other.null_count_) { return false; }
