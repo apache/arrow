@@ -18,10 +18,14 @@
 #include "arrow/parquet/reader.h"
 
 #include <queue>
+#include <string>
+#include <vector>
 
+#include "arrow/column.h"
 #include "arrow/parquet/schema.h"
 #include "arrow/parquet/utils.h"
 #include "arrow/schema.h"
+#include "arrow/table.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/status.h"
 
@@ -40,6 +44,7 @@ class FileReader::Impl {
   bool CheckForFlatColumn(const ::parquet::ColumnDescriptor* descr);
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
   Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
+  Status ReadFlatTable(std::shared_ptr<Table>* out);
 
  private:
   MemoryPool* pool_;
@@ -103,6 +108,22 @@ Status FileReader::Impl::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
   return flat_column_reader->NextBatch(reader_->num_rows(), out);
 }
 
+Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
+  const std::string& name = reader_->descr()->schema()->name();
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(FromParquetSchema(reader_->descr(), &schema));
+
+  std::vector<std::shared_ptr<Column>> columns(reader_->num_columns());
+  for (int i = 0; i < reader_->num_columns(); i++) {
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(ReadFlatColumn(i, &array));
+    columns[i] = std::make_shared<Column>(schema->field(i), array);
+  }
+
+  *table = std::make_shared<Table>(name, schema, columns);
+  return Status::OK();
+}
+
 FileReader::FileReader(
     MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader)
     : impl_(new FileReader::Impl(pool, std::move(reader))) {}
@@ -115,6 +136,10 @@ Status FileReader::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) 
 
 Status FileReader::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
   return impl_->ReadFlatColumn(i, out);
+}
+
+Status FileReader::ReadFlatTable(std::shared_ptr<Table>* out) {
+  return impl_->ReadFlatTable(out);
 }
 
 FlatColumnReader::Impl::Impl(MemoryPool* pool, const ::parquet::ColumnDescriptor* descr,

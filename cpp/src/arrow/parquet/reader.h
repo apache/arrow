@@ -29,6 +29,7 @@ class Array;
 class MemoryPool;
 class RowBatch;
 class Status;
+class Table;
 
 namespace parquet {
 
@@ -90,6 +91,8 @@ class FileReader {
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
   // Read column as a whole into an Array.
   Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
+  // Read a table of flat columns into a Table.
+  Status ReadFlatTable(std::shared_ptr<Table>* out);
 
   virtual ~FileReader();
 

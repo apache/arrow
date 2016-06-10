@@ -72,6 +72,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass MemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
+    cdef MemoryPool* default_memory_pool()
+
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)
 
@@ -103,6 +105,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t null_count()
         Type type_enum()
 
+        c_bool Equals(const shared_ptr[CArray]& arr)
         c_bool IsNull(int i)
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):

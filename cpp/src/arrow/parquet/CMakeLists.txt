@@ -35,6 +35,13 @@ add_library(arrow_parquet SHARED
 target_link_libraries(arrow_parquet ${PARQUET_LIBS})
 SET_TARGET_PROPERTIES(arrow_parquet PROPERTIES LINKER_LANGUAGE CXX)
 
+if (APPLE)
+  set_target_properties(arrow_parquet
+    PROPERTIES
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_NAME_DIR "@rpath")
+endif()
+
 ADD_ARROW_TEST(parquet-schema-test)
 ARROW_TEST_LINK_LIBRARIES(parquet-schema-test arrow_parquet)
 

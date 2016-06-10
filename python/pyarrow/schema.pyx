@@ -201,7 +201,9 @@ def string():
 
 def list_(DataType value_type):
     cdef DataType out = DataType()
-    out.init(shared_ptr[CDataType](new CListType(value_type.sp_type)))
+    cdef shared_ptr[CDataType] list_type
+    list_type.reset(new CListType(value_type.sp_type))
+    out.init(list_type)
     return out
 
 def struct(fields):
@@ -212,12 +214,13 @@ def struct(fields):
         DataType out = DataType()
         Field field
         vector[shared_ptr[CField]] c_fields
+        cdef shared_ptr[CDataType] struct_type
 
     for field in fields:
         c_fields.push_back(field.sp_field)
 
-    out.init(shared_ptr[CDataType](
-        new CStructType(c_fields)))
+    struct_type.reset(new CStructType(c_fields))
+    out.init(struct_type)
     return out
 
 def schema(fields):

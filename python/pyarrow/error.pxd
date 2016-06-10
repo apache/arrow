@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.pyarrow cimport *
 
+cdef check_cstatus(const CStatus& status)
 cdef check_status(const Status& status)

@@ -17,10 +17,20 @@
 
 #include "arrow/parquet/writer.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "arrow/array.h"
+#include "arrow/column.h"
+#include "arrow/table.h"
+#include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
+#include "arrow/parquet/schema.h"
 #include "arrow/parquet/utils.h"
 #include "arrow/util/status.h"
+
+using parquet::ParquetFileWriter;
+using parquet::schema::GroupNode;
 
 namespace arrow {
 
@@ -32,8 +42,9 @@ class FileWriter::Impl {
 
   Status NewRowGroup(int64_t chunk_size);
   template <typename ParquetType>
-  Status TypedWriteBatch(::parquet::ColumnWriter* writer, const PrimitiveArray* data);
-  Status WriteFlatColumnChunk(const PrimitiveArray* data);
+  Status TypedWriteBatch(::parquet::ColumnWriter* writer, const PrimitiveArray* data,
+      int64_t offset, int64_t length);
+  Status WriteFlatColumnChunk(const PrimitiveArray* data, int64_t offset, int64_t length);
   Status Close();
 
   virtual ~Impl() {}
@@ -60,31 +71,31 @@ Status FileWriter::Impl::NewRowGroup(int64_t chunk_size) {
 }
 
 template <typename ParquetType>
-Status FileWriter::Impl::TypedWriteBatch(
-    ::parquet::ColumnWriter* column_writer, const PrimitiveArray* data) {
+Status FileWriter::Impl::TypedWriteBatch(::parquet::ColumnWriter* column_writer,
+    const PrimitiveArray* data, int64_t offset, int64_t length) {
+  // TODO: DCHECK((offset + length) <= data->length());
   auto data_ptr =
-      reinterpret_cast<const typename ParquetType::c_type*>(data->data()->data());
+      reinterpret_cast<const typename ParquetType::c_type*>(data->data()->data()) +
+      offset;
   auto writer =
       reinterpret_cast<::parquet::TypedColumnWriter<ParquetType>*>(column_writer);
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
-    PARQUET_CATCH_NOT_OK(writer->WriteBatch(data->length(), nullptr, nullptr, data_ptr));
+    PARQUET_CATCH_NOT_OK(writer->WriteBatch(length, nullptr, nullptr, data_ptr));
   } else if (writer->descr()->max_definition_level() == 1) {
-    RETURN_NOT_OK(def_levels_buffer_.Resize(data->length() * sizeof(int16_t)));
+    RETURN_NOT_OK(def_levels_buffer_.Resize(length * sizeof(int16_t)));
     int16_t* def_levels_ptr =
         reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
     if (data->null_count() == 0) {
-      std::fill(def_levels_ptr, def_levels_ptr + data->length(), 1);
-      PARQUET_CATCH_NOT_OK(
-          writer->WriteBatch(data->length(), def_levels_ptr, nullptr, data_ptr));
+      std::fill(def_levels_ptr, def_levels_ptr + length, 1);
+      PARQUET_CATCH_NOT_OK(writer->WriteBatch(length, def_levels_ptr, nullptr, data_ptr));
     } else {
-      RETURN_NOT_OK(data_buffer_.Resize(
-          (data->length() - data->null_count()) * sizeof(typename ParquetType::c_type)));
+      RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(typename ParquetType::c_type)));
       auto buffer_ptr =
           reinterpret_cast<typename ParquetType::c_type*>(data_buffer_.mutable_data());
       int buffer_idx = 0;
-      for (size_t i = 0; i < data->length(); i++) {
-        if (data->IsNull(i)) {
+      for (size_t i = 0; i < length; i++) {
+        if (data->IsNull(offset + i)) {
           def_levels_ptr[i] = 0;
         } else {
           def_levels_ptr[i] = 1;
@@ -92,7 +103,7 @@ Status FileWriter::Impl::TypedWriteBatch(
         }
       }
       PARQUET_CATCH_NOT_OK(
-          writer->WriteBatch(data->length(), def_levels_ptr, nullptr, buffer_ptr));
+          writer->WriteBatch(length, def_levels_ptr, nullptr, buffer_ptr));
     }
   } else {
     return Status::NotImplemented("no support for max definition level > 1 yet");
@@ -107,12 +118,13 @@ Status FileWriter::Impl::Close() {
   return Status::OK();
 }
 
-#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType) \
-  case Type::ENUM:                                     \
-    return TypedWriteBatch<ParquetType>(writer, data); \
+#define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType)                 \
+  case Type::ENUM:                                                     \
+    return TypedWriteBatch<ParquetType>(writer, data, offset, length); \
     break;
 
-Status FileWriter::Impl::WriteFlatColumnChunk(const PrimitiveArray* data) {
+Status FileWriter::Impl::WriteFlatColumnChunk(
+    const PrimitiveArray* data, int64_t offset, int64_t length) {
   ::parquet::ColumnWriter* writer;
   PARQUET_CATCH_NOT_OK(writer = row_group_writer_->NextColumn());
   switch (data->type_enum()) {
@@ -133,8 +145,11 @@ Status FileWriter::NewRowGroup(int64_t chunk_size) {
   return impl_->NewRowGroup(chunk_size);
 }
 
-Status FileWriter::WriteFlatColumnChunk(const PrimitiveArray* data) {
-  return impl_->WriteFlatColumnChunk(data);
+Status FileWriter::WriteFlatColumnChunk(
+    const PrimitiveArray* data, int64_t offset, int64_t length) {
+  int64_t real_length = length;
+  if (length == -1) { real_length = data->length(); }
+  return impl_->WriteFlatColumnChunk(data, offset, real_length);
 }
 
 Status FileWriter::Close() {
@@ -142,6 +157,48 @@ Status FileWriter::Close() {
 }
 
 FileWriter::~FileWriter() {}
+
+Status WriteFlatTable(const Table* table, MemoryPool* pool,
+    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size) {
+  std::shared_ptr<::parquet::SchemaDescriptor> parquet_schema;
+  RETURN_NOT_OK(ToParquetSchema(table->schema().get(), &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema());
+  std::unique_ptr<ParquetFileWriter> parquet_writer =
+      ParquetFileWriter::Open(sink, schema_node);
+  FileWriter writer(pool, std::move(parquet_writer));
+
+  // TODO: Support writing chunked arrays.
+  for (int i = 0; i < table->num_columns(); i++) {
+    if (table->column(i)->data()->num_chunks() != 1) {
+      return Status::NotImplemented("No support for writing chunked arrays yet.");
+    }
+  }
+
+  // Cast to PrimitiveArray instances as we work with them.
+  std::vector<std::shared_ptr<PrimitiveArray>> arrays(table->num_columns());
+  for (int i = 0; i < table->num_columns(); i++) {
+    // num_chunks == 1 as per above loop
+    std::shared_ptr<Array> array = table->column(i)->data()->chunk(0);
+    auto primitive_array = std::dynamic_pointer_cast<PrimitiveArray>(array);
+    if (!primitive_array) {
+      PARQUET_IGNORE_NOT_OK(writer.Close());
+      return Status::NotImplemented("Table must consist of PrimitiveArray instances");
+    }
+    arrays[i] = primitive_array;
+  }
+
+  for (int chunk = 0; chunk * chunk_size < table->num_rows(); chunk++) {
+    int64_t offset = chunk * chunk_size;
+    int64_t size = std::min(chunk_size, table->num_rows() - offset);
+    RETURN_NOT_OK_ELSE(writer.NewRowGroup(size), PARQUET_IGNORE_NOT_OK(writer.Close()));
+    for (int i = 0; i < table->num_columns(); i++) {
+      RETURN_NOT_OK_ELSE(writer.WriteFlatColumnChunk(arrays[i].get(), offset, size),
+          PARQUET_IGNORE_NOT_OK(writer.Close()));
+    }
+  }
+
+  return writer.Close();
+}
 
 }  // namespace parquet
 

@@ -4,27 +4,18 @@ set -e
 
 PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
+# Re-use conda installation from C++
+export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
+export PATH="$MINICONDA/bin:$PATH"
+export LD_LIBRARY_PATH="$MINICONDA/lib:$LD_LIBRARY_PATH"
+export PARQUET_HOME=$MINICONDA
+
 # Share environment with C++
 pushd $CPP_BUILD_DIR
 source setup_build_env.sh
 popd
 
 pushd $PYTHON_DIR
-
-# Bootstrap a Conda Python environment
-
-if [ $TRAVIS_OS_NAME == "linux" ]; then
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh"
-else
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda-latest-MacOSX-x86_64.sh"
-fi
-
-curl $MINICONDA_URL > miniconda.sh
-MINICONDA=$TRAVIS_BUILD_DIR/miniconda
-bash miniconda.sh -b -p $MINICONDA
-export PATH="$MINICONDA/bin:$PATH"
-conda update -y -q conda
-conda info -a
 
 python_version_tests() {
   PYTHON_VERSION=$1

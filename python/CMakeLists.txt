@@ -339,11 +339,17 @@ if (PYARROW_BUILD_TESTS)
     STATIC_LIB ${GTEST_STATIC_LIB})
 endif()
 
+## Parquet
+find_package(Parquet REQUIRED)
+include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
 ## Arrow
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
+ADD_THIRDPARTY_LIB(arrow_parquet
+    SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -422,6 +428,7 @@ set(PYARROW_SRCS
 
 set(LINK_LIBS
   arrow
+  arrow_parquet
 )
 
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -442,6 +449,7 @@ set(CYTHON_EXTENSIONS
   array
   config
   error
+  parquet
   scalar
   schema
   table

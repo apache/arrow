@@ -63,6 +63,15 @@ namespace arrow {
     if (!_s.ok()) { return _s; } \
   } while (0);
 
+#define RETURN_NOT_OK_ELSE(s, else_) \
+  do {                               \
+    Status _s = (s);                 \
+    if (!_s.ok()) {                  \
+      else_;                         \
+      return _s;                     \
+    }                                \
+  } while (0);
+
 enum class StatusCode : char {
   OK = 0,
   OutOfMemory = 1,

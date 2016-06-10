@@ -68,6 +68,9 @@ cdef class Array:
         values = array_format(self, window=10)
         return '{0}\n{1}'.format(type_format, values)
 
+    def equals(Array self, Array other):
+        return self.ap.Equals(other.sp_array)
+
     def __len__(self):
         if self.sp_array.get():
             return self.sp_array.get().length()

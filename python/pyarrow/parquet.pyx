@@ -19,5 +19,53 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.includes.libarrow cimport *
+cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.parquet cimport *
+
+from pyarrow.compat import tobytes
+from pyarrow.error cimport check_cstatus
+from pyarrow.table cimport Table
+
+def read_table(filename, columns=None):
+    """
+    Read a Table from Parquet format
+    Returns
+    -------
+    table: pyarrow.Table
+    """
+    cdef unique_ptr[FileReader] reader
+    cdef Table table = Table()
+    cdef shared_ptr[CTable] ctable
+
+    # Must be in one expression to avoid calling std::move which is not possible
+    # in Cython (due to missing rvalue support)
+    reader = unique_ptr[FileReader](new FileReader(default_memory_pool(),
+        ParquetFileReader.OpenFile(tobytes(filename))))
+    check_cstatus(reader.get().ReadFlatTable(&ctable))
+    table.init(ctable)
+    return table
+
+def write_table(table, filename, chunk_size=None):
+    """
+    Write a Table to Parquet format
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+    filename : string
+    chunk_size : int
+        The maximum number of rows in each Parquet RowGroup
+    """
+    cdef Table table_ = table
+    cdef CTable* ctable_ = table_.table
+    cdef shared_ptr[OutputStream] sink
+    cdef int64_t chunk_size_ = 0
+    if chunk_size is None:
+        chunk_size_ = min(ctable_.num_rows(), int(2**16))
+    else:
+        chunk_size_ = chunk_size
+
+    sink.reset(new LocalFileOutputStream(tobytes(filename)))
+    check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink, chunk_size_))
+

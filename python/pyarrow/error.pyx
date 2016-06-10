@@ -15,11 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
 class ArrowException(Exception):
     pass
+
+cdef check_cstatus(const CStatus& status):
+    if status.ok():
+        return
+
+    cdef c_string c_message = status.ToString()
+    raise ArrowException(frombytes(c_message))
 
 cdef check_status(const Status& status):
     if status.ok():

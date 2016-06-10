@@ -214,7 +214,7 @@ class build_ext(_build_ext):
             return name + suffix
 
     def get_cmake_cython_names(self):
-        return ['array', 'config', 'error', 'scalar', 'schema', 'table']
+        return ['array', 'config', 'error', 'parquet', 'scalar', 'schema', 'table']
 
     def get_names(self):
         return self._found_names
@@ -242,7 +242,7 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
-    install_requires=['cython >= 0.21', 'numpy >= 1.9'],
+    install_requires=['cython >= 0.23', 'numpy >= 1.9'],
     description=DESC,
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
