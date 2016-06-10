@@ -71,6 +71,12 @@ struct test_traits<DoubleType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::DOUBLE;
 };
 
+template <typename T>
+using ParquetDataType = ::parquet::DataType<test_traits<T>::parquet_enum>;
+
+template <typename T>
+using ParquetWriter = ::parquet::TypedColumnWriter<ParquetDataType<T>>;
+
 template <typename TestType>
 class TestParquetIO : public ::testing::Test {
  public:
@@ -113,25 +119,6 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_NE(nullptr, out->get());
   }
 
-  std::unique_ptr<ParquetFileReader> Int64File(
-      std::vector<int64_t>& values, int num_chunks) {
-    std::shared_ptr<GroupNode> schema =
-        MakeSchema(ParquetType::INT64, Repetition::REQUIRED);
-    std::unique_ptr<ParquetFileWriter> file_writer = MakeWriter(schema);
-    size_t chunk_size = values.size() / num_chunks;
-    for (int i = 0; i < num_chunks; i++) {
-      auto row_group_writer = file_writer->AppendRowGroup(chunk_size);
-      auto column_writer =
-          static_cast<::parquet::Int64Writer*>(row_group_writer->NextColumn());
-      int64_t* data = values.data() + i * chunk_size;
-      column_writer->WriteBatch(chunk_size, nullptr, nullptr, data);
-      column_writer->Close();
-      row_group_writer->Close();
-    }
-    file_writer->Close();
-    return ReaderFromSink();
-  }
-
   std::unique_ptr<ParquetFileReader> TestFile(std::vector<T>& values, int num_chunks) {
     std::shared_ptr<GroupNode> schema =
         MakeSchema(test_traits<TestType>::parquet_enum, Repetition::REQUIRED);
@@ -139,8 +126,7 @@ class TestParquetIO : public ::testing::Test {
     size_t chunk_size = values.size() / num_chunks;
     for (int i = 0; i < num_chunks; i++) {
       auto row_group_writer = file_writer->AppendRowGroup(chunk_size);
-      auto column_writer = static_cast<::parquet::TypedColumnWriter<
-          ::parquet::DataType<test_traits<TestType>::parquet_enum>>*>(
+      auto column_writer = static_cast<ParquetWriter<TestType>*>(
           row_group_writer->NextColumn());
       T* data = values.data() + i * chunk_size;
       column_writer->WriteBatch(chunk_size, nullptr, nullptr, data);
