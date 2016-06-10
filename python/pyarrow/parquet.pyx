@@ -59,13 +59,13 @@ def write_table(table, filename, chunk_size=None):
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
-    cdef shared_ptr[OutputStream] sink = shared_ptr[OutputStream](
-        new LocalFileOutputStream(tobytes(filename)))
+    cdef shared_ptr[OutputStream] sink
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
         chunk_size_ = min(ctable_.num_rows(), int(2**16))
     else:
         chunk_size_ = chunk_size
 
+    sink.reset(new LocalFileOutputStream(tobytes(filename)))
     check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink, chunk_size_))
 

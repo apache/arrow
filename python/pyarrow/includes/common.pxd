@@ -19,6 +19,7 @@
 
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool
+from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
 
@@ -32,22 +33,3 @@ cdef extern from "<iostream>":
 cdef extern from "<Python.h>":
     void Py_XDECREF(PyObject* o)
 
-cdef extern from "<memory>" namespace "std" nogil:
-
-    cdef cppclass unique_ptr[T]:
-        unique_ptr()
-        unique_ptr(T*)
-        T* get()
-        T* release()
-        void reset()
-        void reset(nullptr_t)
-        void reset(T*)
-        void swap(unique_ptr&)
-
-    cdef cppclass shared_ptr[T]:
-        shared_ptr()
-        shared_ptr(T*)
-        T* get()
-        void reset()
-        void reset(T* p)
-        void swap(shared_ptr&)
