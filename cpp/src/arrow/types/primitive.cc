@@ -133,6 +133,11 @@ Status PrimitiveBuilder<BooleanType>::Append(
   RETURN_NOT_OK(Reserve(length));
 
   for (int i = 0; i < length; ++i) {
+    // Skip reading from unitialised memory
+    // TODO: This actually is only to keep valgrind happy but may or may not
+    // have a performance impact.
+    if ((valid_bytes != nullptr) && !valid_bytes[i]) continue;
+
     if (values[i] > 0) {
       util::set_bit(raw_data_, length_ + i);
     } else {

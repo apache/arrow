@@ -183,7 +183,9 @@ class TestConvertArrowSchema : public ::testing::Test {
 
   Status ConvertSchema(const std::vector<std::shared_ptr<Field>>& fields) {
     arrow_schema_ = std::make_shared<Schema>(fields);
-    return ToParquetSchema(arrow_schema_.get(), &result_schema_);
+    std::shared_ptr<::parquet::WriterProperties> properties =
+        ::parquet::default_writer_properties();
+    return ToParquetSchema(arrow_schema_.get(), *properties.get(), &result_schema_);
   }
 
  protected:

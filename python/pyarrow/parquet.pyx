@@ -24,6 +24,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.parquet cimport *
 
 from pyarrow.compat import tobytes
+from pyarrow.error import ArrowException
 from pyarrow.error cimport check_cstatus
 from pyarrow.table cimport Table
 
@@ -42,11 +43,13 @@ def read_table(filename, columns=None):
     # in Cython (due to missing rvalue support)
     reader = unique_ptr[FileReader](new FileReader(default_memory_pool(),
         ParquetFileReader.OpenFile(tobytes(filename))))
-    check_cstatus(reader.get().ReadFlatTable(&ctable))
+    with nogil:
+        check_cstatus(reader.get().ReadFlatTable(&ctable))
+
     table.init(ctable)
     return table
 
-def write_table(table, filename, chunk_size=None):
+def write_table(table, filename, chunk_size=None, version=None):
     """
     Write a Table to Parquet format
 
@@ -56,16 +59,29 @@ def write_table(table, filename, chunk_size=None):
     filename : string
     chunk_size : int
         The maximum number of rows in each Parquet RowGroup
+    version : {"1.0", "2.0"}, default "1.0"
+        The Parquet format version, defaults to 1.0
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
     cdef shared_ptr[OutputStream] sink
+    cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
         chunk_size_ = min(ctable_.num_rows(), int(2**16))
     else:
         chunk_size_ = chunk_size
 
+    if version is not None:
+        if version == "1.0":
+            properties_builder.version(PARQUET_1_0)
+        elif version == "2.0":
+            properties_builder.version(PARQUET_2_0)
+        else:
+            raise ArrowException("Unsupported Parquet format version")
+
     sink.reset(new LocalFileOutputStream(tobytes(filename)))
-    check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink, chunk_size_))
+    with nogil:
+        check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink,
+            chunk_size_, properties_builder.build()))
 

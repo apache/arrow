@@ -50,6 +50,8 @@
     if (!s.ok()) { FAIL() << s.ToString(); } \
   } while (0)
 
+#define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
+
 #define EXPECT_OK(expr)  \
   do {                   \
     Status s = (expr);   \

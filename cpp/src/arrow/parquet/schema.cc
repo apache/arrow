@@ -42,7 +42,12 @@ namespace parquet {
 
 const auto BOOL = std::make_shared<BooleanType>();
 const auto UINT8 = std::make_shared<UInt8Type>();
+const auto INT8 = std::make_shared<Int8Type>();
+const auto UINT16 = std::make_shared<UInt16Type>();
+const auto INT16 = std::make_shared<Int16Type>();
+const auto UINT32 = std::make_shared<UInt32Type>();
 const auto INT32 = std::make_shared<Int32Type>();
+const auto UINT64 = std::make_shared<UInt64Type>();
 const auto INT64 = std::make_shared<Int64Type>();
 const auto FLOAT = std::make_shared<FloatType>();
 const auto DOUBLE = std::make_shared<DoubleType>();
@@ -92,6 +97,21 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::NONE:
       *out = INT32;
       break;
+    case LogicalType::UINT_8:
+      *out = UINT8;
+      break;
+    case LogicalType::INT_8:
+      *out = INT8;
+      break;
+    case LogicalType::UINT_16:
+      *out = UINT16;
+      break;
+    case LogicalType::INT_16:
+      *out = INT16;
+      break;
+    case LogicalType::UINT_32:
+      *out = UINT32;
+      break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
       break;
@@ -106,6 +126,9 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
       *out = INT64;
+      break;
+    case LogicalType::UINT_64:
+      *out = UINT64;
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -187,20 +210,21 @@ Status FromParquetSchema(
 }
 
 Status StructToNode(const std::shared_ptr<StructType>& type, const std::string& name,
-    bool nullable, NodePtr* out) {
+    bool nullable, const ::parquet::WriterProperties& properties, NodePtr* out) {
   Repetition::type repetition = Repetition::REQUIRED;
   if (nullable) { repetition = Repetition::OPTIONAL; }
 
   std::vector<NodePtr> children(type->num_children());
   for (int i = 0; i < type->num_children(); i++) {
-    RETURN_NOT_OK(FieldToNode(type->child(i), &children[i]));
+    RETURN_NOT_OK(FieldToNode(type->child(i), properties, &children[i]));
   }
 
   *out = GroupNode::Make(name, repetition, children);
   return Status::OK();
 }
 
-Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
+Status FieldToNode(const std::shared_ptr<Field>& field,
+    const ::parquet::WriterProperties& properties, NodePtr* out) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
   Repetition::type repetition = Repetition::REQUIRED;
@@ -231,8 +255,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
       logical_type = LogicalType::INT_16;
       break;
     case Type::UINT32:
-      type = ParquetType::INT32;
-      logical_type = LogicalType::UINT_32;
+      if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
+        type = ParquetType::INT64;
+      } else {
+        type = ParquetType::INT32;
+        logical_type = LogicalType::UINT_32;
+      }
       break;
     case Type::INT32:
       type = ParquetType::INT32;
@@ -277,7 +305,7 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
       break;
     case Type::STRUCT: {
       auto struct_type = std::static_pointer_cast<StructType>(field->type);
-      return StructToNode(struct_type, field->name, field->nullable, out);
+      return StructToNode(struct_type, field->name, field->nullable, properties, out);
     } break;
     default:
       // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
@@ -287,11 +315,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
   return Status::OK();
 }
 
-Status ToParquetSchema(
-    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out) {
+Status ToParquetSchema(const Schema* arrow_schema,
+    const ::parquet::WriterProperties& properties,
+    std::shared_ptr<::parquet::SchemaDescriptor>* out) {
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
-    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), &nodes[i]));
+    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), properties, &nodes[i]));
   }
 
   NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);

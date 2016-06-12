@@ -17,6 +17,7 @@
 
 #include "arrow/parquet/reader.h"
 
+#include <algorithm>
 #include <queue>
 #include <string>
 #include <vector>
@@ -27,6 +28,7 @@
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
 #include "arrow/util/status.h"
 
 using parquet::ColumnReader;
@@ -35,6 +37,19 @@ using parquet::TypedColumnReader;
 
 namespace arrow {
 namespace parquet {
+
+template <typename ArrowType>
+struct ArrowTypeTraits {
+  typedef NumericBuilder<ArrowType> builder_type;
+};
+
+template <>
+struct ArrowTypeTraits<BooleanType> {
+  typedef BooleanBuilder builder_type;
+};
+
+template <typename ArrowType>
+using BuilderType = typename ArrowTypeTraits<ArrowType>::builder_type;
 
 class FileReader::Impl {
  public:
@@ -61,8 +76,44 @@ class FlatColumnReader::Impl {
   template <typename ArrowType, typename ParquetType>
   Status TypedReadBatch(int batch_size, std::shared_ptr<Array>* out);
 
+  template <typename ArrowType, typename ParquetType>
+  Status ReadNullableFlatBatch(const int16_t* def_levels,
+      typename ParquetType::c_type* values, int64_t values_read, int64_t levels_read,
+      BuilderType<ArrowType>* builder);
+  template <typename ArrowType, typename ParquetType>
+  Status ReadNonNullableBatch(typename ParquetType::c_type* values, int64_t values_read,
+      BuilderType<ArrowType>* builder);
+
  private:
   void NextRowGroup();
+
+  template <typename InType, typename OutType>
+  struct can_copy_ptr {
+    static constexpr bool value =
+        std::is_same<InType, OutType>::value ||
+        (std::is_integral<InType>{} && std::is_integral<OutType>{} &&
+            (sizeof(InType) == sizeof(OutType)));
+  };
+
+  template <typename InType, typename OutType,
+      typename std::enable_if<can_copy_ptr<InType, OutType>::value>::type* = nullptr>
+  Status ConvertPhysicalType(
+      const InType* in_ptr, int64_t length, const OutType** out_ptr) {
+    *out_ptr = reinterpret_cast<const OutType*>(in_ptr);
+    return Status::OK();
+  }
+
+  template <typename InType, typename OutType,
+      typename std::enable_if<not can_copy_ptr<InType, OutType>::value>::type* = nullptr>
+  Status ConvertPhysicalType(
+      const InType* in_ptr, int64_t length, const OutType** out_ptr) {
+    RETURN_NOT_OK(values_builder_buffer_.Resize(length * sizeof(OutType)));
+    OutType* mutable_out_ptr =
+        reinterpret_cast<OutType*>(values_builder_buffer_.mutable_data());
+    std::copy(in_ptr, in_ptr + length, mutable_out_ptr);
+    *out_ptr = mutable_out_ptr;
+    return Status::OK();
+  }
 
   MemoryPool* pool_;
   const ::parquet::ColumnDescriptor* descr_;
@@ -156,12 +207,52 @@ FlatColumnReader::Impl::Impl(MemoryPool* pool, const ::parquet::ColumnDescriptor
 }
 
 template <typename ArrowType, typename ParquetType>
+Status FlatColumnReader::Impl::ReadNonNullableBatch(typename ParquetType::c_type* values,
+    int64_t values_read, BuilderType<ArrowType>* builder) {
+  using ArrowCType = typename ArrowType::c_type;
+  using ParquetCType = typename ParquetType::c_type;
+
+  DCHECK(builder);
+  const ArrowCType* values_ptr;
+  RETURN_NOT_OK(
+      (ConvertPhysicalType<ParquetCType, ArrowCType>(values, values_read, &values_ptr)));
+  RETURN_NOT_OK(builder->Append(values_ptr, values_read));
+  return Status::OK();
+}
+
+template <typename ArrowType, typename ParquetType>
+Status FlatColumnReader::Impl::ReadNullableFlatBatch(const int16_t* def_levels,
+    typename ParquetType::c_type* values, int64_t values_read, int64_t levels_read,
+    BuilderType<ArrowType>* builder) {
+  using ArrowCType = typename ArrowType::c_type;
+
+  DCHECK(builder);
+  RETURN_NOT_OK(values_builder_buffer_.Resize(levels_read * sizeof(ArrowCType)));
+  RETURN_NOT_OK(valid_bytes_buffer_.Resize(levels_read * sizeof(uint8_t)));
+  auto values_ptr = reinterpret_cast<ArrowCType*>(values_builder_buffer_.mutable_data());
+  uint8_t* valid_bytes = valid_bytes_buffer_.mutable_data();
+  int values_idx = 0;
+  for (int64_t i = 0; i < levels_read; i++) {
+    if (def_levels[i] < descr_->max_definition_level()) {
+      valid_bytes[i] = 0;
+    } else {
+      valid_bytes[i] = 1;
+      values_ptr[i] = values[values_idx++];
+    }
+  }
+  RETURN_NOT_OK(builder->Append(values_ptr, levels_read, valid_bytes));
+  return Status::OK();
+}
+
+template <typename ArrowType, typename ParquetType>
 Status FlatColumnReader::Impl::TypedReadBatch(
     int batch_size, std::shared_ptr<Array>* out) {
+  using ParquetCType = typename ParquetType::c_type;
+
   int values_to_read = batch_size;
-  NumericBuilder<ArrowType> builder(pool_, field_->type);
+  BuilderType<ArrowType> builder(pool_, field_->type);
   while ((values_to_read > 0) && column_reader_) {
-    values_buffer_.Resize(values_to_read * sizeof(typename ParquetType::c_type));
+    values_buffer_.Resize(values_to_read * sizeof(ParquetCType));
     if (descr_->max_definition_level() > 0) {
       def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
     }
@@ -169,31 +260,62 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     int64_t values_read;
     int64_t levels_read;
     int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
-    auto values =
-        reinterpret_cast<typename ParquetType::c_type*>(values_buffer_.mutable_data());
+    auto values = reinterpret_cast<ParquetCType*>(values_buffer_.mutable_data());
     PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
                              values_to_read, def_levels, nullptr, values, &values_read));
     values_to_read -= levels_read;
     if (descr_->max_definition_level() == 0) {
-      RETURN_NOT_OK(builder.Append(values, values_read));
+      RETURN_NOT_OK(
+          (ReadNonNullableBatch<ArrowType, ParquetType>(values, values_read, &builder)));
+    } else {
+      // As per the defintion and checks for flat columns:
+      // descr_->max_definition_level() == 1
+      RETURN_NOT_OK((ReadNullableFlatBatch<ArrowType, ParquetType>(
+          def_levels, values, values_read, levels_read, &builder)));
+    }
+    if (!column_reader_->HasNext()) { NextRowGroup(); }
+  }
+  *out = builder.Finish();
+  return Status::OK();
+}
+
+template <>
+Status FlatColumnReader::Impl::TypedReadBatch<StringType, ::parquet::ByteArrayType>(
+    int batch_size, std::shared_ptr<Array>* out) {
+  int values_to_read = batch_size;
+  StringBuilder builder(pool_, field_->type);
+  while ((values_to_read > 0) && column_reader_) {
+    values_buffer_.Resize(values_to_read * sizeof(::parquet::ByteArray));
+    if (descr_->max_definition_level() > 0) {
+      def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
+    }
+    auto reader =
+        dynamic_cast<TypedColumnReader<::parquet::ByteArrayType>*>(column_reader_.get());
+    int64_t values_read;
+    int64_t levels_read;
+    int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
+    auto values = reinterpret_cast<::parquet::ByteArray*>(values_buffer_.mutable_data());
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
+                             values_to_read, def_levels, nullptr, values, &values_read));
+    values_to_read -= levels_read;
+    if (descr_->max_definition_level() == 0) {
+      for (int64_t i = 0; i < levels_read; i++) {
+        RETURN_NOT_OK(
+            builder.Append(reinterpret_cast<const char*>(values[i].ptr), values[i].len));
+      }
     } else {
       // descr_->max_definition_level() == 1
-      RETURN_NOT_OK(values_builder_buffer_.Resize(
-          levels_read * sizeof(typename ParquetType::c_type)));
-      RETURN_NOT_OK(valid_bytes_buffer_.Resize(levels_read * sizeof(uint8_t)));
-      auto values_ptr = reinterpret_cast<typename ParquetType::c_type*>(
-          values_builder_buffer_.mutable_data());
-      uint8_t* valid_bytes = valid_bytes_buffer_.mutable_data();
       int values_idx = 0;
       for (int64_t i = 0; i < levels_read; i++) {
         if (def_levels[i] < descr_->max_definition_level()) {
-          valid_bytes[i] = 0;
+          RETURN_NOT_OK(builder.AppendNull());
         } else {
-          valid_bytes[i] = 1;
-          values_ptr[i] = values[values_idx++];
+          RETURN_NOT_OK(
+              builder.Append(reinterpret_cast<const char*>(values[values_idx].ptr),
+                  values[values_idx].len));
+          values_idx++;
         }
       }
-      builder.Append(values_ptr, levels_read, valid_bytes);
     }
     if (!column_reader_->HasNext()) { NextRowGroup(); }
   }
@@ -214,10 +336,18 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
   }
 
   switch (field_->type->type) {
+    TYPED_BATCH_CASE(BOOL, BooleanType, ::parquet::BooleanType)
+    TYPED_BATCH_CASE(UINT8, UInt8Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(INT8, Int8Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(UINT16, UInt16Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(INT16, Int16Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(UINT32, UInt32Type, ::parquet::Int32Type)
     TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type)
+    TYPED_BATCH_CASE(UINT64, UInt64Type, ::parquet::Int64Type)
     TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type)
     TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType)
     TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType)
+    TYPED_BATCH_CASE(STRING, StringType, ::parquet::ByteArrayType)
     default:
       return Status::NotImplemented(field_->type->ToString());
   }

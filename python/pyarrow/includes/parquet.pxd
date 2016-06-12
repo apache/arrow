@@ -32,6 +32,10 @@ cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
     pass
 
 cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
+  enum ParquetVersion" parquet::ParquetVersion::type":
+      PARQUET_1_0" parquet::ParquetVersion::PARQUET_1_0"
+      PARQUET_2_0" parquet::ParquetVersion::PARQUET_2_0"
+
   cdef cppclass SchemaDescriptor:
     shared_ptr[Node] schema()
     GroupNode* group()
@@ -80,6 +84,11 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
         LocalFileOutputStream(const c_string& path)
         void Close()
 
+    cdef cppclass WriterProperties:
+        cppclass Builder:
+            Builder* version(ParquetVersion version)
+            shared_ptr[WriterProperties] build()
+
 
 cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:
     cdef cppclass FileReader:
@@ -93,5 +102,7 @@ cdef extern from "arrow/parquet/schema.h" namespace "arrow::parquet" nogil:
 
 
 cdef extern from "arrow/parquet/writer.h" namespace "arrow::parquet" nogil:
-    cdef CStatus WriteFlatTable(const CTable* table, MemoryPool* pool, shared_ptr[OutputStream] sink, int64_t chunk_size)
+    cdef CStatus WriteFlatTable(const CTable* table, MemoryPool* pool,
+            const shared_ptr[OutputStream]& sink, int64_t chunk_size,
+            const shared_ptr[WriterProperties]& properties)
 

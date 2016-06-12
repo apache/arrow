@@ -42,18 +42,55 @@ def test_single_pylist_column_roundtrip(tmpdir):
             data_read = col_read.data.chunk(0)
             assert data_written.equals(data_read)
 
-def test_pandas_rountrip(tmpdir):
+def test_pandas_parquet_2_0_rountrip(tmpdir):
     size = 10000
+    np.random.seed(0)
     df = pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16),
+        'uint32': np.arange(size, dtype=np.uint32),
+        'uint64': np.arange(size, dtype=np.uint64),
+        'int8': np.arange(size, dtype=np.int16),
+        'int16': np.arange(size, dtype=np.int16),
         'int32': np.arange(size, dtype=np.int32),
         'int64': np.arange(size, dtype=np.int64),
         'float32': np.arange(size, dtype=np.float32),
-        'float64': np.arange(size, dtype=np.float64)
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0,
+        'str': [str(x) for x in range(size)],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None]
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = A.from_pandas_dataframe(df)
-    A.parquet.write_table(arrow_table, filename.strpath)
+    A.parquet.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pyarrow.parquet.read_table(filename.strpath)
     df_read = table_read.to_pandas()
+    pdt.assert_frame_equal(df, df_read)
+
+def test_pandas_parquet_1_0_rountrip(tmpdir):
+    size = 10000
+    np.random.seed(0)
+    df = pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16),
+        'uint32': np.arange(size, dtype=np.uint32),
+        'uint64': np.arange(size, dtype=np.uint64),
+        'int8': np.arange(size, dtype=np.int16),
+        'int16': np.arange(size, dtype=np.int16),
+        'int32': np.arange(size, dtype=np.int32),
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0
+    })
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = A.from_pandas_dataframe(df)
+    A.parquet.write_table(arrow_table, filename.strpath, version="1.0")
+    table_read = pyarrow.parquet.read_table(filename.strpath)
+    df_read = table_read.to_pandas()
+
+    # We pass uint32_t as int64_t if we write Parquet version 1.0
+    df['uint32'] = df['uint32'].values.astype(np.int64)
+
     pdt.assert_frame_equal(df, df_read)
 
