@@ -15,9 +15,11 @@ export PATH="$MINICONDA/bin:$PATH"
 conda update -y -q conda
 conda info -a
 
-conda config --set show_channel_urls yes
+conda config --set show_channel_urls True
+conda config --add channels https://repo.continuum.io/pkgs/free
 conda config --add channels conda-forge
 conda config --add channels apache
+conda info -a
 
 conda install --yes conda-build jinja2 anaconda-client
 
