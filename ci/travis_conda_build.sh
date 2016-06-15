@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
