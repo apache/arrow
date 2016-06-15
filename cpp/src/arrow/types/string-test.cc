@@ -44,27 +44,6 @@ TEST(TypesTest, BinaryType) {
   ASSERT_EQ(t1.ToString(), std::string("binary"));
 }
 
-TEST(TypesTest, TestCharType) {
-  CharType t1(5);
-  CharType e1(5);
-  CharType ne1(6);
-
-  ASSERT_TRUE(t1.Equals(&e1));
-  EXPECT_FALSE(t1.Equals(&ne1));
-
-  ASSERT_EQ(t1.type, Type::CHAR);
-  ASSERT_EQ(t1.size, 5);
-
-  ASSERT_EQ(t1.ToString(), std::string("char(5)"));
-
-  // Test copy constructor
-  CharType t2 = t1;
-  ASSERT_EQ(t2.type, Type::CHAR);
-  ASSERT_EQ(t2.size, 5);
-
-  // Test CharType(5)
-}
-
 TEST(TypesTest, TestStringType) {
   StringType str;
   ASSERT_EQ(str.type, Type::STRING);

@@ -55,9 +55,6 @@ struct Type {
     // 8-byte floating point value
     DOUBLE = 11,
 
-    // CHAR(N): fixed-length UTF8 string with length N
-    CHAR = 12,
-
     // UTF8 variable-length string as List<Char>
     STRING = 13,
 
@@ -284,23 +281,6 @@ struct StringType : public BinaryType {
 
  protected:
   explicit StringType(Type::type logical_type) : BinaryType(logical_type) {}
-};
-
-struct CharType : public StringType {
-  int size;
-
-  explicit CharType(int size) : StringType(Type::CHAR), size(size) {}
-
-  CharType(const CharType& other) : CharType(other.size) {}
-  bool Equals(const DataType* other) const override {
-    return StringType::Equals(other) &&
-           (size == static_cast<const CharType*>(other)->size);
-  }
-  static char const* name() { return "char"; }
-  std::string ToString() const override;
-  // TODO(emkornfield) This is byte size not character size, which generally isn't how
-  // DBMSes work.
-  int value_size() const override { return size; }
 };
 
 struct StructType : public DataType {

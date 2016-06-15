@@ -37,12 +37,6 @@ table FloatingPoint {
 table Utf8 {
 }
 
-/// Equivelant of a CHAR(N)
-/// in databases
-table FixedWidthUtf8 {
-  width: int;
-}
-
 table Binary {
 }
 
@@ -78,8 +72,7 @@ union Type {
   List,
   Tuple,
   Union,
-  JSONScalar,
-  FixedWidthUtf8
+  JSONScalar
 }
 
 /// ----------------------------------------------------------------------

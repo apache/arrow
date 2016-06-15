@@ -86,26 +86,6 @@ class StringArray : public BinaryArray {
   Status Validate() const override;
 };
 
-class CharArray : public StringArray {
- public:
-  CharArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
-      : StringArray(type, length, offsets, values, null_count, null_bitmap),
-        char_type_(std::dynamic_pointer_cast<CharType>(type).get()) {}
-
-  // The fixed size of each string
-  // (TODO), right now this is in bytes, DB systems seems to
-  // generally store this as characters.  Which would mean 3-6x the number of bytes
-  // stored)
-  int32_t string_size() const { return char_type_->size; }
-  Status Validate() const override;
-
- private:
-  // for convenience
-  CharType* char_type_;
-};
-
 // BinaryBuilder : public ListBuilder
 class BinaryBuilder : public ListBuilder {
  public:
@@ -145,30 +125,6 @@ class StringBuilder : public BinaryBuilder {
   std::shared_ptr<Array> Finish() override {
     return ListBuilder::Transfer<StringArray>();
   }
-};
-
-// Fixed width char builder
-class CharBuilder : public StringBuilder {
- public:
-  explicit CharBuilder(MemoryPool* pool, const std::shared_ptr<CharType>& type)
-      : StringBuilder(pool, std::static_pointer_cast<DataType>(type)) {
-    DCHECK(type);
-    fixed_length_ = type->size;
-  }
-
-  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
-
-  Status Append(const char* value, int32_t length) {
-    if (length != fixed_length_) {
-      return Status::Invalid("Invalid length specified for fixed character type");
-    }
-    return BinaryBuilder::Append(reinterpret_cast<const uint8_t*>(value), length);
-  }
-
-  std::shared_ptr<Array> Finish() override { return ListBuilder::Transfer<CharArray>(); }
-
- private:
-  int32_t fixed_length_;
 };
 
 }  // namespace arrow

@@ -127,8 +127,6 @@ Status MakeListArray(const TypePtr& type, int32_t length,
     case Type::LIST:
       out->reset(new ListArray(type, length, offsets, values, null_count, null_bitmap));
       break;
-    case Type::CHAR:
-      out->reset(new CharArray(type, length, offsets, values, null_count, null_bitmap));
     case Type::DECIMAL_TEXT:
     case Type::STRING:
       out->reset(new StringArray(type, length, offsets, values, null_count, null_bitmap));

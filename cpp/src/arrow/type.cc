@@ -59,12 +59,6 @@ std::string BinaryType::ToString() const {
   return std::string(name());
 }
 
-std::string CharType::ToString() const {
-  std::stringstream s;
-  s << "char(" << size << ")";
-  return s.str();
-}
-
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";

@@ -37,7 +37,10 @@ BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& null_bitmap)
     : ListArray(type, length, offsets, values, null_count, null_bitmap),
       bytes_(std::dynamic_pointer_cast<UInt8Array>(values).get()),
-      raw_bytes_(bytes_->raw_data()) {}
+      raw_bytes_(bytes_->raw_data()) {
+  // Check in case the dynamic cast fails.
+  DCHECK(bytes_);
+}
 
 Status BinaryArray::Validate() const {
   if (values()->null_count() > 0) {
@@ -56,20 +59,6 @@ StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
 Status StringArray::Validate() const {
   // TODO(emkornfield) Validate proper UTF8 code points?
   return BinaryArray::Validate();
-}
-
-Status CharArray::Validate() const {
-  const int32_t num_slots = length();
-  const int32_t fixed_length = std::static_pointer_cast<CharType>(type())->size;
-  for (int i = 0; i < num_slots; ++i) {
-    int str_len = value_length(i);
-    if (str_len != fixed_length) {
-      std::stringstream ss;
-      ss << "String length ( " << str_len << ") != fixed size (" << fixed_length
-         << ") at element: " << i;
-    }
-  }
-  return StringArray::Validate();
 }
 
 TypePtr BinaryBuilder::value_type_ = TypePtr(new UInt8Type());
