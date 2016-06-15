@@ -66,7 +66,17 @@ os.chdir(ARROW_HOME)
 
 def get_json(url):
     try:
-        return json.load(urllib2.urlopen(url))
+        from urllib2 import urlopen, Request
+        env_var = 'ARROW_GITHUB_API_TOKEN'
+
+        if env_var in os.environ:
+            token = os.environ[env_var]
+            request = Request(url)
+            request.add_header('Authorization', 'token %s' % token)
+            response = urlopen(request)
+        else:
+            response = urlopen(url)
+        return json.load(response)
     except urllib2.HTTPError as e:
         print "Unable to fetch URL, exiting: %s" % url
         sys.exit(-1)
