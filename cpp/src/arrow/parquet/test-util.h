@@ -67,7 +67,7 @@ std::shared_ptr<Table> MakeSimpleTable(
 template <typename T>
 void ExpectArray(T* expected, Array* result) {
   PrimitiveArray* p_array = static_cast<PrimitiveArray*>(result);
-  for (size_t i = 0; i < result->length(); i++) {
+  for (int i = 0; i < result->length(); i++) {
     EXPECT_EQ(expected[i], reinterpret_cast<const T*>(p_array->data()->data())[i]);
   }
 }
