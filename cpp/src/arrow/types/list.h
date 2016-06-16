@@ -66,8 +66,8 @@ class ListArray : public Array {
   int32_t offset(int i) const { return offsets_[i]; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) { return offsets_[i]; }
-  int32_t value_length(int i) { return offsets_[i + 1] - offsets_[i]; }
+  int32_t value_offset(int i) const { return offsets_[i]; }
+  int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
 
   bool EqualsExact(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -92,9 +92,9 @@ class ListArray : public Array {
 // a sequence of offests and null values.
 //
 // A note on types.  Per arrow/type.h all types in the c++ implementation are
-// logical so even though this class always builds an Array of lists, this can
+// logical so even though this class always builds list array, this can
 // represent multiple different logical types.  If no logical type is provided
-// at construction time, the class defaults to List<T> where t is take from the
+// at construction time, the class defaults to List<T> where t is taken from the
 // value_builder/values that the object is constructed with.
 class ListBuilder : public ArrayBuilder {
  public:

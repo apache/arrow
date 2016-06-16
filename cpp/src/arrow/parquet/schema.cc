@@ -250,11 +250,6 @@ Status FieldToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
     case Type::DOUBLE:
       type = ParquetType::DOUBLE;
       break;
-    case Type::CHAR:
-      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
-      logical_type = LogicalType::UTF8;
-      length = static_cast<CharType*>(field->type.get())->size;
-      break;
     case Type::STRING:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::UTF8;

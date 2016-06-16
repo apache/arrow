@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 
 // Data types in this library are all *logical*. They can be expressed as
@@ -53,14 +55,8 @@ struct Type {
     // 8-byte floating point value
     DOUBLE = 11,
 
-    // CHAR(N): fixed-length UTF8 string with length N
-    CHAR = 12,
-
     // UTF8 variable-length string as List<Char>
     STRING = 13,
-
-    // VARCHAR(N): Null-terminated string type embedded in a CHAR(N + 1)
-    VARCHAR = 14,
 
     // Variable-length bytes (no guarantee of UTF8-ness)
     BINARY = 15,
@@ -114,12 +110,15 @@ struct DataType {
 
   virtual ~DataType();
 
-  bool Equals(const DataType* other) {
-    // Call with a pointer so more friendly to subclasses
-    return other && ((this == other) || (this->type == other->type));
-  }
+  // Return whether the types are equal
+  //
+  // Types that are logically convertable from one to another e.g. List<UInt8>
+  // and Binary are NOT equal).
+  virtual bool Equals(const DataType* other) const;
 
-  bool Equals(const std::shared_ptr<DataType>& other) { return Equals(other.get()); }
+  bool Equals(const std::shared_ptr<DataType>& other) const {
+    return Equals(other.get());
+  }
 
   const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
 
@@ -236,9 +235,8 @@ struct DoubleType : public PrimitiveType<DoubleType> {
 
 struct ListType : public DataType {
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type) : DataType(Type::LIST) {
-    children_ = {std::make_shared<Field>("item", value_type)};
-  }
+  explicit ListType(const std::shared_ptr<DataType>& value_type)
+      : ListType(value_type, Type::LIST) {}
 
   explicit ListType(const std::shared_ptr<Field>& value_field) : DataType(Type::LIST) {
     children_ = {value_field};
@@ -251,15 +249,38 @@ struct ListType : public DataType {
   static char const* name() { return "list"; }
 
   std::string ToString() const override;
+
+ protected:
+  // Constructor for classes that are implemented as List Arrays.
+  ListType(const std::shared_ptr<DataType>& value_type, Type::type logical_type)
+      : DataType(logical_type) {
+    // TODO ARROW-187 this can technically fail, make a constructor method ?
+    children_ = {std::make_shared<Field>("item", value_type)};
+  }
 };
 
-// String is a logical type consisting of a physical list of 1-byte values
-struct StringType : public DataType {
-  StringType();
+// BinaryType type is reprsents lists of 1-byte values.
+struct BinaryType : public ListType {
+  BinaryType() : BinaryType(Type::BINARY) {}
+  static char const* name() { return "binary"; }
+  std::string ToString() const override;
+
+ protected:
+  // Allow subclasses to change the logical type.
+  explicit BinaryType(Type::type logical_type)
+      : ListType(std::shared_ptr<DataType>(new UInt8Type()), logical_type) {}
+};
+
+// UTF encoded strings
+struct StringType : public BinaryType {
+  StringType() : BinaryType(Type::STRING) {}
 
   static char const* name() { return "string"; }
 
   std::string ToString() const override;
+
+ protected:
+  explicit StringType(Type::type logical_type) : BinaryType(logical_type) {}
 };
 
 struct StructType : public DataType {

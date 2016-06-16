@@ -29,7 +29,6 @@ struct DecimalType : public DataType {
       : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
   int precision;
   int scale;
-
   static char const* name() { return "decimal"; }
 
   std::string ToString() const override;
