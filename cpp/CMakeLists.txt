@@ -165,6 +165,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
   #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CLANG_OPTIONS}")
 endif()
 
 # Sanity check linking option.
