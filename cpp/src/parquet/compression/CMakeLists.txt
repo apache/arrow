@@ -15,19 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_library(parquet_compression STATIC
-  codec.cc
-  snappy-codec.cc
-  gzip-codec.cc
-)
-target_link_libraries(parquet_compression
-  snappystatic
-  zlibstatic)
-
-set_target_properties(parquet_compression
-  PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # Headers: compression
 install(FILES
   codec.h

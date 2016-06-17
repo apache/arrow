@@ -36,15 +36,6 @@ install(FILES
   sse-util.h
   DESTINATION include/parquet/util)
 
-add_library(parquet_util STATIC
-  buffer.cc
-  cpu-info.cc
-  input.cc
-  mem-allocator.cc
-  mem-pool.cc
-  output.cc
-)
-
 if(PARQUET_BUILD_TESTS)
   add_library(parquet_test_main
 	test_main.cc)
