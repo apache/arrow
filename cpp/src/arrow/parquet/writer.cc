@@ -96,7 +96,7 @@ Status FileWriter::Impl::TypedWriteBatch(::parquet::ColumnWriter* column_writer,
       auto buffer_ptr =
           reinterpret_cast<typename ParquetType::c_type*>(data_buffer_.mutable_data());
       int buffer_idx = 0;
-      for (size_t i = 0; i < length; i++) {
+      for (int i = 0; i < length; i++) {
         if (data->IsNull(offset + i)) {
           def_levels_ptr[i] = 0;
         } else {
