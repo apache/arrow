@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "parquet/column/properties.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/schema/types.h"
 #include "parquet/util/mem-allocator.h"
@@ -93,6 +94,8 @@ class ParquetFileWriter {
     virtual int num_columns() const = 0;
     virtual int num_row_groups() const = 0;
 
+    virtual const std::shared_ptr<WriterProperties>& properties() const = 0;
+
     // Return const-poitner to make it clear that this object is not to be copied
     const SchemaDescriptor* schema() const { return &schema_; }
     SchemaDescriptor schema_;
@@ -103,7 +106,8 @@ class ParquetFileWriter {
 
   static std::unique_ptr<ParquetFileWriter> Open(std::shared_ptr<OutputStream> sink,
       std::shared_ptr<schema::GroupNode>& schema,
-      MemoryAllocator* allocator = default_allocator());
+      MemoryAllocator* allocator = default_allocator(),
+      const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();
@@ -137,6 +141,11 @@ class ParquetFileWriter {
    * Number of started RowGroups.
    */
   int num_row_groups() const;
+
+  /**
+   * Configuartion passed to the writer, e.g. the used Parquet format version.
+   */
+  const std::shared_ptr<WriterProperties>& properties() const;
 
   /**
    * Returns the file schema descriptor

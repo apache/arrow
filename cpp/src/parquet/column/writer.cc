@@ -25,8 +25,9 @@ namespace parquet {
 // ----------------------------------------------------------------------
 // ColumnWriter
 
-WriterProperties default_writer_properties() {
-  static WriterProperties default_writer_properties;
+std::shared_ptr<WriterProperties> default_writer_properties() {
+  static std::shared_ptr<WriterProperties> default_writer_properties =
+      WriterProperties::Builder().build();
   return default_writer_properties;
 }
 

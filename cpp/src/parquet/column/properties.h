@@ -26,6 +26,10 @@
 
 namespace parquet {
 
+struct ParquetVersion {
+  enum type { PARQUET_1_0, PARQUET_2_0 };
+};
+
 static int64_t DEFAULT_BUFFER_SIZE = 0;
 static bool DEFAULT_USE_BUFFERED_STREAM = false;
 
@@ -72,42 +76,94 @@ ReaderProperties default_reader_properties();
 static int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
 static int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 static bool DEFAULT_IS_DICTIONARY_ENABLED = true;
+static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
+    ParquetVersion::PARQUET_1_0;
 
 class WriterProperties {
  public:
-  explicit WriterProperties(MemoryAllocator* allocator = default_allocator())
-      : allocator_(allocator) {
-    pagesize_ = DEFAULT_PAGE_SIZE;
-    dictionary_pagesize_ = DEFAULT_DICTIONARY_PAGE_SIZE;
-    dictionary_enabled_ = DEFAULT_IS_DICTIONARY_ENABLED;
-  }
+  class Builder {
+   public:
+    Builder()
+        : allocator_(default_allocator()),
+          dictionary_enabled_(DEFAULT_IS_DICTIONARY_ENABLED),
+          dictionary_pagesize_(DEFAULT_DICTIONARY_PAGE_SIZE),
+          pagesize_(DEFAULT_PAGE_SIZE),
+          version_(DEFAULT_WRITER_VERSION) {}
+    virtual ~Builder() {}
 
-  int64_t dictionary_pagesize() const { return dictionary_pagesize_; }
+    Builder* allocator(MemoryAllocator* allocator) {
+      allocator_ = allocator;
+      return this;
+    }
 
-  void set_dictionary_pagesize(int64_t dictionary_psize) {
-    dictionary_pagesize_ = dictionary_psize;
-  }
+    Builder* dictionary_pagesize(int64_t dictionary_psize) {
+      dictionary_pagesize_ = dictionary_psize;
+      return this;
+    }
 
-  int64_t data_pagesize() const { return pagesize_; }
+    Builder* data_pagesize(int64_t pg_size) {
+      pagesize_ = pg_size;
+      return this;
+    }
 
-  void set_data_pagesize(int64_t pg_size) { pagesize_ = pg_size; }
+    Builder* enable_dictionary() {
+      dictionary_enabled_ = true;
+      return this;
+    }
 
-  void enable_dictionary() { dictionary_enabled_ = true; }
+    Builder* disable_dictionary() {
+      dictionary_enabled_ = false;
+      return this;
+    }
 
-  void disable_dictionary() { dictionary_enabled_ = false; }
+    Builder* version(ParquetVersion::type version) {
+      version_ = version;
+      return this;
+    }
 
-  bool is_dictionary_enabled() const { return dictionary_enabled_; }
+    std::shared_ptr<WriterProperties> build() {
+      return std::shared_ptr<WriterProperties>(new WriterProperties(
+          allocator_, dictionary_enabled_, dictionary_pagesize_, pagesize_, version_));
+    }
+
+   private:
+    MemoryAllocator* allocator_;
+    bool dictionary_enabled_;
+    int64_t dictionary_pagesize_;
+    int64_t pagesize_;
+    ParquetVersion::type version_;
+  };
 
   MemoryAllocator* allocator() { return allocator_; }
 
+  bool dictionary_enabled() const { return dictionary_enabled_; }
+
+  int64_t dictionary_pagesize() const { return dictionary_pagesize_; }
+
+  int64_t data_pagesize() const { return pagesize_; }
+
+  ParquetVersion::type version() { return parquet_version_; }
+
  private:
-  int64_t pagesize_;
-  int64_t dictionary_pagesize_;
-  bool dictionary_enabled_;
+  explicit WriterProperties(MemoryAllocator* allocator, bool dictionary_enabled,
+      int64_t dictionary_pagesize, int64_t pagesize, ParquetVersion::type version)
+      : allocator_(allocator),
+        dictionary_enabled_(dictionary_enabled),
+        dictionary_pagesize_(dictionary_pagesize),
+        pagesize_(pagesize),
+        parquet_version_(version) {
+    pagesize_ = DEFAULT_PAGE_SIZE;
+    dictionary_enabled_ = DEFAULT_IS_DICTIONARY_ENABLED;
+  }
+
   MemoryAllocator* allocator_;
+  bool dictionary_enabled_;
+  int64_t dictionary_pagesize_;
+  int64_t pagesize_;
+  ParquetVersion::type parquet_version_;
 };
 
-WriterProperties default_writer_properties();
+std::shared_ptr<WriterProperties> default_writer_properties();
 
 }  // namespace parquet
 

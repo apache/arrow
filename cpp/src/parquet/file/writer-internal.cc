@@ -168,9 +168,9 @@ void RowGroupSerializer::Close() {
 
 std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
     std::shared_ptr<OutputStream> sink, std::shared_ptr<GroupNode>& schema,
-    MemoryAllocator* allocator) {
+    MemoryAllocator* allocator, const std::shared_ptr<WriterProperties>& properties) {
   std::unique_ptr<ParquetFileWriter::Contents> result(
-      new FileSerializer(sink, schema, allocator));
+      new FileSerializer(sink, schema, allocator, properties));
 
   return result;
 }
@@ -198,6 +198,10 @@ int FileSerializer::num_row_groups() const {
 
 int64_t FileSerializer::num_rows() const {
   return num_rows_;
+}
+
+const std::shared_ptr<WriterProperties>& FileSerializer::properties() const {
+  return properties_;
 }
 
 RowGroupWriter* FileSerializer::AppendRowGroup(int64_t num_rows) {
@@ -243,12 +247,14 @@ void FileSerializer::WriteMetaData() {
 }
 
 FileSerializer::FileSerializer(std::shared_ptr<OutputStream> sink,
-    std::shared_ptr<GroupNode>& schema, MemoryAllocator* allocator = default_allocator())
+    std::shared_ptr<GroupNode>& schema, MemoryAllocator* allocator,
+    const std::shared_ptr<WriterProperties>& properties)
     : sink_(sink),
       allocator_(allocator),
       num_row_groups_(0),
       num_rows_(0),
-      is_open_(true) {
+      is_open_(true),
+      properties_(properties) {
   schema_.Init(schema);
   StartFile();
 }

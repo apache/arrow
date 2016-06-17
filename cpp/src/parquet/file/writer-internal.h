@@ -110,11 +110,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
  public:
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
       std::shared_ptr<OutputStream> sink, std::shared_ptr<schema::GroupNode>& schema,
-      MemoryAllocator* allocator = default_allocator());
+      MemoryAllocator* allocator = default_allocator(),
+      const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 
   void Close() override;
 
   RowGroupWriter* AppendRowGroup(int64_t num_rows) override;
+
+  const std::shared_ptr<WriterProperties>& properties() const override;
 
   int num_columns() const override;
   int num_row_groups() const override;
@@ -124,7 +127,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
  private:
   explicit FileSerializer(std::shared_ptr<OutputStream> sink,
-      std::shared_ptr<schema::GroupNode>& schema, MemoryAllocator* allocator);
+      std::shared_ptr<schema::GroupNode>& schema, MemoryAllocator* allocator,
+      const std::shared_ptr<WriterProperties>& properties);
 
   std::shared_ptr<OutputStream> sink_;
   format::FileMetaData metadata_;
@@ -134,6 +138,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   int num_rows_;
   bool is_open_;
   std::unique_ptr<RowGroupWriter> row_group_writer_;
+  std::shared_ptr<WriterProperties> properties_;
 
   void StartFile();
   void WriteMetaData();
