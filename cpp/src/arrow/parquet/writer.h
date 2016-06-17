@@ -49,6 +49,8 @@ class FileWriter {
 
   virtual ~FileWriter();
 
+  MemoryPool* memory_pool() const;
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;

@@ -50,6 +50,8 @@ class FileWriter::Impl {
   virtual ~Impl() {}
 
  private:
+  friend class FileWriter;
+
   MemoryPool* pool_;
   PoolBuffer data_buffer_;
   PoolBuffer def_levels_buffer_;
@@ -94,7 +96,7 @@ Status FileWriter::Impl::TypedWriteBatch(::parquet::ColumnWriter* column_writer,
       auto buffer_ptr =
           reinterpret_cast<typename ParquetType::c_type*>(data_buffer_.mutable_data());
       int buffer_idx = 0;
-      for (size_t i = 0; i < length; i++) {
+      for (int i = 0; i < length; i++) {
         if (data->IsNull(offset + i)) {
           def_levels_ptr[i] = 0;
         } else {
@@ -154,6 +156,10 @@ Status FileWriter::WriteFlatColumnChunk(
 
 Status FileWriter::Close() {
   return impl_->Close();
+}
+
+MemoryPool* FileWriter::memory_pool() const {
+  return impl_->pool_;
 }
 
 FileWriter::~FileWriter() {}
