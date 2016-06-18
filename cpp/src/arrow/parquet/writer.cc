@@ -22,14 +22,15 @@
 
 #include "arrow/array.h"
 #include "arrow/column.h"
+#include "arrow/parquet/schema.h"
+#include "arrow/parquet/utils.h"
 #include "arrow/table.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
-#include "arrow/parquet/schema.h"
-#include "arrow/parquet/utils.h"
 #include "arrow/util/status.h"
 
 using parquet::ParquetFileWriter;
+using parquet::WriterProperties;
 using parquet::schema::GroupNode;
 
 namespace arrow {
@@ -165,12 +166,14 @@ MemoryPool* FileWriter::memory_pool() const {
 FileWriter::~FileWriter() {}
 
 Status WriteFlatTable(const Table* table, MemoryPool* pool,
-    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size) {
+    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size,
+    const std::shared_ptr<WriterProperties>& properties) {
   std::shared_ptr<::parquet::SchemaDescriptor> parquet_schema;
-  RETURN_NOT_OK(ToParquetSchema(table->schema().get(), &parquet_schema));
+  RETURN_NOT_OK(
+      ToParquetSchema(table->schema().get(), properties.get(), &parquet_schema));
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema());
-  std::unique_ptr<ParquetFileWriter> parquet_writer =
-      ParquetFileWriter::Open(sink, schema_node);
+  std::unique_ptr<ParquetFileWriter> parquet_writer = ParquetFileWriter::Open(
+      sink, schema_node, ::parquet::default_allocator(), properties);
   FileWriter writer(pool, std::move(parquet_writer));
 
   // TODO: Support writing chunked arrays.

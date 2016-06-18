@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
 #include "arrow/schema.h"
@@ -36,10 +37,12 @@ Status NodeToField(const ::parquet::schema::NodePtr& node, std::shared_ptr<Field
 Status FromParquetSchema(
     const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out);
 
-Status FieldToNode(const std::shared_ptr<Field>& field, ::parquet::schema::NodePtr* out);
+Status FieldToNode(const std::shared_ptr<Field>& field,
+    ::parquet::WriterProperties* properties, ::parquet::schema::NodePtr* out);
 
-Status ToParquetSchema(
-    const Schema* arrow_schema, std::shared_ptr<::parquet::SchemaDescriptor>* out);
+Status ToParquetSchema(const Schema* arrow_schema,
+    ::parquet::WriterProperties* properties,
+    std::shared_ptr<::parquet::SchemaDescriptor>* out);
 
 }  // namespace parquet
 
