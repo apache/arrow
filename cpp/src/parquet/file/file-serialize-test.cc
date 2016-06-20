@@ -61,40 +61,54 @@ class TestSerialize : public ::testing::Test {
  protected:
   NodePtr node_;
   SchemaDescriptor schema_;
+
+  void FileSerializeTest(Compression::type codec_type) {
+    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto gnode = std::static_pointer_cast<GroupNode>(node_);
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder().compression("schema.int64", codec_type)->build();
+    auto file_writer = ParquetFileWriter::Open(sink, gnode, writer_properties);
+    auto row_group_writer = file_writer->AppendRowGroup(100);
+    auto column_writer = static_cast<Int64Writer*>(row_group_writer->NextColumn());
+    std::vector<int64_t> values(100, 128);
+    column_writer->WriteBatch(values.size(), nullptr, nullptr, values.data());
+    column_writer->Close();
+    row_group_writer->Close();
+    file_writer->Close();
+
+    auto buffer = sink->GetBuffer();
+    std::unique_ptr<RandomAccessSource> source(new BufferReader(buffer));
+    auto file_reader = ParquetFileReader::Open(std::move(source));
+    ASSERT_EQ(1, file_reader->num_columns());
+    ASSERT_EQ(1, file_reader->num_row_groups());
+    ASSERT_EQ(100, file_reader->num_rows());
+
+    auto rg_reader = file_reader->RowGroup(0);
+    ASSERT_EQ(1, rg_reader->num_columns());
+    ASSERT_EQ(100, rg_reader->num_rows());
+
+    auto col_reader = std::static_pointer_cast<Int64Reader>(rg_reader->Column(0));
+    std::vector<int64_t> values_out(100);
+    std::vector<int16_t> def_levels_out(100);
+    std::vector<int16_t> rep_levels_out(100);
+    int64_t values_read;
+    col_reader->ReadBatch(values_out.size(), def_levels_out.data(), rep_levels_out.data(),
+        values_out.data(), &values_read);
+    ASSERT_EQ(100, values_read);
+    ASSERT_EQ(values, values_out);
+  }
 };
 
-TEST_F(TestSerialize, SmallFile) {
-  std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
-  auto gnode = std::static_pointer_cast<GroupNode>(node_);
-  auto file_writer = ParquetFileWriter::Open(sink, gnode);
-  auto row_group_writer = file_writer->AppendRowGroup(100);
-  auto column_writer = static_cast<Int64Writer*>(row_group_writer->NextColumn());
-  std::vector<int64_t> values(100, 128);
-  column_writer->WriteBatch(values.size(), nullptr, nullptr, values.data());
-  column_writer->Close();
-  row_group_writer->Close();
-  file_writer->Close();
+TEST_F(TestSerialize, SmallFileUncompressed) {
+  FileSerializeTest(Compression::UNCOMPRESSED);
+}
 
-  auto buffer = sink->GetBuffer();
-  std::unique_ptr<RandomAccessSource> source(new BufferReader(buffer));
-  auto file_reader = ParquetFileReader::Open(std::move(source));
-  ASSERT_EQ(1, file_reader->num_columns());
-  ASSERT_EQ(1, file_reader->num_row_groups());
-  ASSERT_EQ(100, file_reader->num_rows());
+TEST_F(TestSerialize, SmallFileSnappy) {
+  FileSerializeTest(Compression::SNAPPY);
+}
 
-  auto rg_reader = file_reader->RowGroup(0);
-  ASSERT_EQ(1, rg_reader->num_columns());
-  ASSERT_EQ(100, rg_reader->num_rows());
-
-  auto col_reader = std::static_pointer_cast<Int64Reader>(rg_reader->Column(0));
-  std::vector<int64_t> values_out(100);
-  std::vector<int16_t> def_levels_out(100);
-  std::vector<int16_t> rep_levels_out(100);
-  int64_t values_read;
-  col_reader->ReadBatch(values_out.size(), def_levels_out.data(), rep_levels_out.data(),
-      values_out.data(), &values_read);
-  ASSERT_EQ(100, values_read);
-  ASSERT_EQ(values, values_out);
+TEST_F(TestSerialize, SmallFileGzip) {
+  FileSerializeTest(Compression::GZIP);
 }
 
 }  // namespace test
