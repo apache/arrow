@@ -62,7 +62,9 @@ class FileWriter {
  * The table shall only consist of nullable, non-repeated columns of primitive type.
  */
 Status WriteFlatTable(const Table* table, MemoryPool* pool,
-    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size);
+    std::shared_ptr<::parquet::OutputStream> sink, int64_t chunk_size,
+    const std::shared_ptr<::parquet::WriterProperties>& properties =
+        ::parquet::default_writer_properties());
 
 }  // namespace parquet
 

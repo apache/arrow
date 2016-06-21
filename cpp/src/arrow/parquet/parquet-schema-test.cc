@@ -30,6 +30,7 @@
 using ParquetType = parquet::Type;
 using parquet::LogicalType;
 using parquet::Repetition;
+using parquet::WriterProperties;
 using parquet::schema::NodePtr;
 using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
@@ -183,7 +184,8 @@ class TestConvertArrowSchema : public ::testing::Test {
 
   Status ConvertSchema(const std::vector<std::shared_ptr<Field>>& fields) {
     arrow_schema_ = std::make_shared<Schema>(fields);
-    return ToParquetSchema(arrow_schema_.get(), &result_schema_);
+    std::shared_ptr<WriterProperties> properties = ::parquet::default_writer_properties();
+    return ToParquetSchema(arrow_schema_.get(), properties.get(), &result_schema_);
   }
 
  protected:
