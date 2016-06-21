@@ -224,7 +224,11 @@ FUNCTION(PYTHON_ADD_MODULE _NAME )
       SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
                           "-undefined dynamic_lookup")
     ELSE()
-      TARGET_LINK_LIBRARIES(${_NAME} ${PYTHON_LIBRARIES})
+     # In general, we should not link against libpython as we do not embed
+     # the Python interpreter. The python binary itself can then define where
+     # the symbols should loaded from.
+     SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
+         "-Wl,-undefined,dynamic_lookup")
     ENDIF()
     IF(PYTHON_MODULE_${_NAME}_BUILD_SHARED)
       SET_TARGET_PROPERTIES(${_NAME} PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}")

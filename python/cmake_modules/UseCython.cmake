@@ -163,7 +163,6 @@ function( cython_add_module _name pyx_target_name generated_files)
   include_directories( ${PYTHON_INCLUDE_DIRS} )
   python_add_module( ${_name} ${_generated_files} ${other_module_sources} )
   add_dependencies( ${_name} ${pyx_target_name})
-  target_link_libraries( ${_name} ${PYTHON_LIBRARIES} )
 endfunction()
 
 include( CMakeParseArguments )
