@@ -22,10 +22,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "parquet/util/input.h"
-#include "parquet/util/mem-allocator.h"
 #include "parquet/types.h"
 #include "parquet/schema/types.h"
+#include "parquet/util/input.h"
+#include "parquet/util/mem-allocator.h"
 
 namespace parquet {
 
@@ -79,10 +79,10 @@ ReaderProperties default_reader_properties();
 static int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
 static int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 static bool DEFAULT_IS_DICTIONARY_ENABLED = true;
+static Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
-static constexpr Compression::type DEFAULT_COMPRESSION_TYPE =
-    Compression::UNCOMPRESSED;
+static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 
 using ColumnCodecs = std::unordered_map<std::string, Compression::type>;
 
@@ -94,6 +94,7 @@ class WriterProperties {
         : allocator_(default_allocator()),
           dictionary_enabled_(DEFAULT_IS_DICTIONARY_ENABLED),
           dictionary_pagesize_(DEFAULT_DICTIONARY_PAGE_SIZE),
+          default_encoding_(DEFAULT_ENCODING),
           pagesize_(DEFAULT_PAGE_SIZE),
           version_(DEFAULT_WRITER_VERSION),
           default_codec_(DEFAULT_COMPRESSION_TYPE) {}
@@ -124,6 +125,21 @@ class WriterProperties {
       return this;
     }
 
+    Builder* encoding(
+        const std::shared_ptr<schema::ColumnPath>& path, Encoding::type encoding_type) {
+      return encoding(path->ToDotString(), encoding_type);
+    }
+
+    Builder* encoding(const std::string& column_path, Encoding::type encoding_type) {
+      encodings_[column_path] = encoding_type;
+      return this;
+    }
+
+    Builder* encoding(Encoding::type encoding_type) {
+      default_encoding_ = encoding_type;
+      return this;
+    }
+
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;
@@ -139,14 +155,14 @@ class WriterProperties {
       return this;
     }
 
-    Builder* compression(const std::shared_ptr<schema::ColumnPath>& path,
-                         Compression::type codec) {
+    Builder* compression(
+        const std::shared_ptr<schema::ColumnPath>& path, Compression::type codec) {
       return this->compression(path->ToDotString(), codec);
     }
 
     std::shared_ptr<WriterProperties> build() {
-      return std::shared_ptr<WriterProperties>(new WriterProperties(
-          allocator_, dictionary_enabled_, dictionary_pagesize_,
+      return std::shared_ptr<WriterProperties>(new WriterProperties(allocator_,
+          dictionary_enabled_, dictionary_pagesize_, default_encoding_, encodings_,
           pagesize_, version_, default_codec_, codecs_));
     }
 
@@ -154,8 +170,14 @@ class WriterProperties {
     MemoryAllocator* allocator_;
     bool dictionary_enabled_;
     int64_t dictionary_pagesize_;
+    // Encoding used for each column if not a specialized one is defined as
+    // part of encodings_
+    Encoding::type default_encoding_;
+    std::unordered_map<std::string, Encoding::type> encodings_;
     int64_t pagesize_;
     ParquetVersion::type version_;
+    // Default compression codec. This will be used for all columns that do
+    // not have a specific codec set as part of codecs_
     Compression::type default_codec_;
     ColumnCodecs codecs_;
   };
@@ -170,20 +192,29 @@ class WriterProperties {
 
   ParquetVersion::type version() const { return parquet_version_; }
 
+  Encoding::type encoding(const std::shared_ptr<schema::ColumnPath>& path) const {
+    auto it = encodings_.find(path->ToDotString());
+    if (it != encodings_.end()) { return it->second; }
+    return default_encoding_;
+  }
+
   Compression::type compression(const std::shared_ptr<schema::ColumnPath>& path) const {
     auto it = codecs_.find(path->ToDotString());
-    if (it != codecs_.end())
-      return it->second;
+    if (it != codecs_.end()) return it->second;
     return default_codec_;
   }
 
  private:
   explicit WriterProperties(MemoryAllocator* allocator, bool dictionary_enabled,
-      int64_t dictionary_pagesize, int64_t pagesize, ParquetVersion::type version,
-      Compression::type default_codec, const ColumnCodecs& codecs)
+      int64_t dictionary_pagesize, Encoding::type default_encoding,
+      const std::unordered_map<std::string, Encoding::type>& encodings, int64_t pagesize,
+      ParquetVersion::type version, Compression::type default_codec,
+      const ColumnCodecs& codecs)
       : allocator_(allocator),
         dictionary_enabled_(dictionary_enabled),
         dictionary_pagesize_(dictionary_pagesize),
+        default_encoding_(default_encoding),
+        encodings_(encodings),
         pagesize_(pagesize),
         parquet_version_(version),
         default_codec_(default_codec),
@@ -195,6 +226,8 @@ class WriterProperties {
   MemoryAllocator* allocator_;
   bool dictionary_enabled_;
   int64_t dictionary_pagesize_;
+  Encoding::type default_encoding_;
+  std::unordered_map<std::string, Encoding::type> encodings_;
   int64_t pagesize_;
   ParquetVersion::type parquet_version_;
   Compression::type default_codec_;

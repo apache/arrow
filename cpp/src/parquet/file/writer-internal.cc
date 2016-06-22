@@ -78,10 +78,10 @@ int64_t SerializedPageWriter::WriteDataPage(int32_t num_rows, int32_t num_values
   std::shared_ptr<OwnedMutableBuffer> compressed_data = uncompressed_data;
   if (compressor_) {
     const uint8_t* uncompressed_ptr = uncompressed_data->data();
-    int64_t max_compressed_size = compressor_->MaxCompressedLen(
-        uncompressed_size, uncompressed_ptr);
-    compressed_data = std::make_shared<OwnedMutableBuffer>(max_compressed_size,
-        allocator_);
+    int64_t max_compressed_size =
+        compressor_->MaxCompressedLen(uncompressed_size, uncompressed_ptr);
+    compressed_data =
+        std::make_shared<OwnedMutableBuffer>(max_compressed_size, allocator_);
     compressed_size = compressor_->Compress(uncompressed_size, uncompressed_ptr,
         max_compressed_size, compressed_data->mutable_data());
   }
@@ -142,10 +142,10 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
   col_meta->__isset.meta_data = true;
   col_meta->meta_data.__set_type(ToThrift(column_descr->physical_type()));
   col_meta->meta_data.__set_path_in_schema(column_descr->path()->ToDotVector());
-  std::unique_ptr<PageWriter> pager(new SerializedPageWriter(sink_,
-      properties_->compression(column_descr->path()), col_meta, allocator_));
+  std::unique_ptr<PageWriter> pager(new SerializedPageWriter(
+      sink_, properties_->compression(column_descr->path()), col_meta, allocator_));
   current_column_writer_ =
-      ColumnWriter::Make(column_descr, std::move(pager), num_rows_, allocator_);
+      ColumnWriter::Make(column_descr, std::move(pager), num_rows_, properties_);
   return current_column_writer_.get();
 }
 
@@ -214,9 +214,8 @@ RowGroupWriter* FileSerializer::AppendRowGroup(int64_t num_rows) {
   auto rgm_size = row_group_metadata_.size();
   row_group_metadata_.resize(rgm_size + 1);
   format::RowGroup* rg_metadata = &row_group_metadata_.data()[rgm_size];
-  std::unique_ptr<RowGroupWriter::Contents> contents(
-      new RowGroupSerializer(num_rows, &schema_, sink_.get(),
-                             rg_metadata, properties().get()));
+  std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
+      num_rows, &schema_, sink_.get(), rg_metadata, properties_.get()));
   row_group_writer_.reset(new RowGroupWriter(std::move(contents), allocator_));
   return row_group_writer_.get();
 }

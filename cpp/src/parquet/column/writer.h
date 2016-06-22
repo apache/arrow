@@ -20,6 +20,7 @@
 
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
+#include "parquet/column/properties.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
@@ -35,7 +36,7 @@ class ColumnWriter {
 
   static std::shared_ptr<ColumnWriter> Make(const ColumnDescriptor*,
       std::unique_ptr<PageWriter>, int64_t expected_rows,
-      MemoryAllocator* allocator = default_allocator());
+      const WriterProperties* properties);
 
   Type::type type() const { return descr_->physical_type(); }
 
@@ -103,7 +104,8 @@ class TypedColumnWriter : public ColumnWriter {
   typedef typename DType::c_type T;
 
   TypedColumnWriter(const ColumnDescriptor* schema, std::unique_ptr<PageWriter> pager,
-      int64_t expected_rows, MemoryAllocator* allocator = default_allocator());
+      int64_t expected_rows, Encoding::type encoding,
+      MemoryAllocator* allocator = default_allocator());
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.

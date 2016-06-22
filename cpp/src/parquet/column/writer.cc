@@ -128,11 +128,17 @@ int64_t ColumnWriter::Close() {
 
 template <typename Type>
 TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* schema,
-    std::unique_ptr<PageWriter> pager, int64_t expected_rows, MemoryAllocator* allocator)
+    std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
+    MemoryAllocator* allocator)
     : ColumnWriter(schema, std::move(pager), expected_rows, allocator) {
-  // TODO(PARQUET-590) Get decoder type from WriterProperties
-  current_encoder_ =
-      std::unique_ptr<EncoderType>(new PlainEncoder<Type>(schema, allocator));
+  switch (encoding) {
+    case Encoding::PLAIN:
+      current_encoder_ =
+          std::unique_ptr<EncoderType>(new PlainEncoder<Type>(schema, allocator));
+      break;
+    default:
+      ParquetException::NYI("Selected encoding is not supported");
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -140,32 +146,33 @@ TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* schema,
 
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(const ColumnDescriptor* descr,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows,
-    MemoryAllocator* allocator) {
+    const WriterProperties* properties) {
+  Encoding::type encoding = properties->encoding(descr->path());
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<BoolWriter>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::INT32:
       return std::make_shared<Int32Writer>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::INT64:
       return std::make_shared<Int64Writer>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::INT96:
       return std::make_shared<Int96Writer>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::FLOAT:
       return std::make_shared<FloatWriter>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::DOUBLE:
       return std::make_shared<DoubleWriter>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::BYTE_ARRAY:
       return std::make_shared<ByteArrayWriter>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FixedLenByteArrayWriter>(
-          descr, std::move(pager), expected_rows, allocator);
+          descr, std::move(pager), expected_rows, encoding, properties->allocator());
     default:
       ParquetException::NYI("type reader not implemented");
   }

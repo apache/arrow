@@ -84,12 +84,12 @@ class TestPrimitiveWriter : public ::testing::Test {
   }
 
   std::unique_ptr<TypedColumnWriter<TestType>> BuildWriter(
-      int64_t output_size = SMALL_SIZE) {
+      int64_t output_size = SMALL_SIZE, Encoding::type encoding = Encoding::PLAIN) {
     sink_.reset(new InMemoryOutputStream());
     std::unique_ptr<SerializedPageWriter> pager(
         new SerializedPageWriter(sink_.get(), Compression::UNCOMPRESSED, &metadata_));
-    return std::unique_ptr<TypedColumnWriter<TestType>>(
-        new TypedColumnWriter<TestType>(schema_.get(), std::move(pager), output_size));
+    return std::unique_ptr<TypedColumnWriter<TestType>>(new TypedColumnWriter<TestType>(
+        schema_.get(), std::move(pager), output_size, encoding));
   }
 
   void SyncValuesOut();
@@ -98,6 +98,20 @@ class TestPrimitiveWriter : public ::testing::Test {
     reader_->ReadBatch(values_out_.size(), definition_levels_out_.data(),
         repetition_levels_out_.data(), values_out_ptr_, &values_read_);
     SyncValuesOut();
+  }
+
+  void TestRequiredWithEncoding(Encoding::type encoding) {
+    this->GenerateData(SMALL_SIZE);
+
+    // Test case 1: required and non-repeated, so no definition or repetition levels
+    std::unique_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(SMALL_SIZE, encoding);
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    writer->Close();
+
+    this->ReadColumn();
+    ASSERT_EQ(SMALL_SIZE, this->values_read_);
+    ASSERT_EQ(this->values_, this->values_out_);
   }
 
  protected:
@@ -172,18 +186,39 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
-TYPED_TEST(TestPrimitiveWriter, Required) {
-  this->GenerateData(SMALL_SIZE);
-
-  // Test case 1: required and non-repeated, so no definition or repetition levels
-  std::unique_ptr<TypedColumnWriter<TypeParam>> writer = this->BuildWriter();
-  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
-  writer->Close();
-
-  this->ReadColumn();
-  ASSERT_EQ(SMALL_SIZE, this->values_read_);
-  ASSERT_EQ(this->values_, this->values_out_);
+TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
+  this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
+
+/*
+TYPED_TEST(TestPrimitiveWriter, RequiredDictionary) {
+  this->TestRequiredWithEncoding(Encoding::PLAIN_DICTIONARY);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredRLE) {
+  this->TestRequiredWithEncoding(Encoding::RLE);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredBitPacked) {
+  this->TestRequiredWithEncoding(Encoding::BIT_PACKED);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredDeltaBinaryPacked) {
+  this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredDeltaLengthByteArray) {
+  this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredDeltaByteArray) {
+  this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
+  this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);
+}
+*/
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
   // Optional and non-repeated, with definition levels
