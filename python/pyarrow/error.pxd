@@ -18,5 +18,5 @@
 from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.pyarrow cimport *
 
-cdef check_cstatus(const CStatus& status)
-cdef check_status(const Status& status)
+cdef int check_cstatus(const CStatus& status) nogil except -1
+cdef int check_status(const Status& status) nogil except -1

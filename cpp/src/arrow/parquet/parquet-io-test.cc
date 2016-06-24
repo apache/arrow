@@ -126,8 +126,8 @@ class TestParquetIO : public ::testing::Test {
     size_t chunk_size = values.size() / num_chunks;
     for (int i = 0; i < num_chunks; i++) {
       auto row_group_writer = file_writer->AppendRowGroup(chunk_size);
-      auto column_writer = static_cast<ParquetWriter<TestType>*>(
-          row_group_writer->NextColumn());
+      auto column_writer =
+          static_cast<ParquetWriter<TestType>*>(row_group_writer->NextColumn());
       T* data = values.data() + i * chunk_size;
       column_writer->WriteBatch(chunk_size, nullptr, nullptr, data);
       column_writer->Close();

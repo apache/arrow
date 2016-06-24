@@ -1,5 +1,5 @@
 sudo: required
-dist: precise
+dist: trusty
 addons:
   apt:
     sources:
@@ -12,6 +12,9 @@ addons:
     - ccache
     - cmake
     - valgrind
+    - libboost-dev
+    - libboost-filesystem-dev
+    - libboost-system-dev
 
 matrix:
   fast_finish: true

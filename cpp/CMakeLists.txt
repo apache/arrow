@@ -62,6 +62,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
+  option(ARROW_HDFS
+    "Build the Arrow IO extensions for the Hadoop file system"
+    OFF)
+
   option(ARROW_SSE3
     "Build Arrow with SSE3"
     ON)
@@ -454,6 +458,47 @@ if ("$ENV{GBENCHMARK_HOME}" STREQUAL "")
   set(GBENCHMARK_HOME ${THIRDPARTY_DIR}/installed)
 endif()
 
+# ----------------------------------------------------------------------
+# Add Boost dependencies (code adapted from Apache Kudu (incubating))
+
+# find boost headers and libs
+set(Boost_DEBUG TRUE)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_LIBS ON)
+find_package(Boost COMPONENTS system filesystem REQUIRED)
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+set(BOOST_STATIC_LIBS ${Boost_LIBRARIES})
+list(LENGTH BOOST_STATIC_LIBS BOOST_STATIC_LIBS_LEN)
+
+# Find Boost shared libraries.
+set(Boost_USE_STATIC_LIBS OFF)
+find_package(Boost COMPONENTS system filesystem REQUIRED)
+set(BOOST_SHARED_LIBS ${Boost_LIBRARIES})
+list(LENGTH BOOST_SHARED_LIBS BOOST_SHARED_LIBS_LEN)
+list(SORT BOOST_SHARED_LIBS)
+
+message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
+message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
+
+math(EXPR LAST_IDX "${BOOST_STATIC_LIBS_LEN} - 1")
+foreach(IDX RANGE ${LAST_IDX})
+  list(GET BOOST_STATIC_LIBS ${IDX} BOOST_STATIC_LIB)
+  list(GET BOOST_SHARED_LIBS ${IDX} BOOST_SHARED_LIB)
+
+  # Remove the prefix/suffix from the library name.
+  #
+  # e.g. libboost_system-mt --> boost_system
+  get_filename_component(LIB_NAME ${BOOST_STATIC_LIB} NAME_WE)
+  string(REGEX REPLACE "lib([^-]*)(-mt)?" "\\1" LIB_NAME_NO_PREFIX_SUFFIX ${LIB_NAME})
+  ADD_THIRDPARTY_LIB(${LIB_NAME_NO_PREFIX_SUFFIX}
+    STATIC_LIB "${BOOST_STATIC_LIB}"
+    SHARED_LIB "${BOOST_SHARED_LIB}")
+  list(APPEND ARROW_BOOST_LIBS ${LIB_NAME_NO_PREFIX_SUFFIX})
+endforeach()
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+# ----------------------------------------------------------------------
+# Enable / disable tests and benchmarks
 
 if(ARROW_BUILD_TESTS)
   add_custom_target(unittest ctest -L unittest)
@@ -529,12 +574,24 @@ endif (UNIX)
 # "make lint" target
 ############################################################
 if (UNIX)
+
+  file(GLOB_RECURSE LINT_FILES
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+	)
+
+  FOREACH(item ${LINT_FILES})
+	IF(NOT (item MATCHES "_generated.h"))
+      LIST(APPEND FILTERED_LINT_FILES ${item})
+	ENDIF()
+  ENDFOREACH(item ${LINT_FILES})
+
   # Full lint
   add_custom_target(lint ${BUILD_SUPPORT_DIR}/cpplint.py
   --verbose=2
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h | sed -e '/_generated/g'`)
+  ${FILTERED_LINT_FILES})
 endif (UNIX)
 
 
@@ -624,6 +681,7 @@ set_target_properties(arrow
 target_link_libraries(arrow ${LIBARROW_LINK_LIBS})
 
 add_subdirectory(src/arrow)
+add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
 add_subdirectory(src/arrow/types)
 

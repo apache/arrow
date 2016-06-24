@@ -348,8 +348,10 @@ find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
+ADD_THIRDPARTY_LIB(arrow_io
+  SHARED_LIB ${ARROW_IO_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_parquet
-    SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
+  SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -428,6 +430,7 @@ set(PYARROW_SRCS
 
 set(LINK_LIBS
   arrow
+  arrow_io
   arrow_parquet
 )
 
@@ -449,6 +452,7 @@ set(CYTHON_EXTENSIONS
   array
   config
   error
+  io
   parquet
   scalar
   schema

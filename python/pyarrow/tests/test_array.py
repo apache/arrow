@@ -15,25 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import unittest
 import pyarrow
 import pyarrow.formatting as fmt
 
 
-class TestArrayAPI(unittest.TestCase):
+def test_repr_on_pre_init_array():
+    arr = pyarrow.array.Array()
+    assert len(repr(arr)) > 0
 
-    def test_repr_on_pre_init_array(self):
-        arr = pyarrow.array.Array()
-        assert len(repr(arr)) > 0
 
-    def test_getitem_NA(self):
-        arr = pyarrow.from_pylist([1, None, 2])
-        assert arr[1] is pyarrow.NA
+def test_getitem_NA():
+    arr = pyarrow.from_pylist([1, None, 2])
+    assert arr[1] is pyarrow.NA
 
-    def test_list_format(self):
-        arr = pyarrow.from_pylist([[1], None, [2, 3, None]])
-        result = fmt.array_format(arr)
-        expected = """\
+
+def test_list_format():
+    arr = pyarrow.from_pylist([[1], None, [2, 3, None]])
+    result = fmt.array_format(arr)
+    expected = """\
 [
   [1],
   NA,
@@ -41,23 +40,25 @@ class TestArrayAPI(unittest.TestCase):
    3,
    NA]
 ]"""
-        assert result == expected
+    assert result == expected
 
-    def test_string_format(self):
-        arr = pyarrow.from_pylist(['', None, 'foo'])
-        result = fmt.array_format(arr)
-        expected = """\
+
+def test_string_format():
+    arr = pyarrow.from_pylist(['', None, 'foo'])
+    result = fmt.array_format(arr)
+    expected = """\
 [
   '',
   NA,
   'foo'
 ]"""
-        assert result == expected
+    assert result == expected
 
-    def test_long_array_format(self):
-        arr = pyarrow.from_pylist(range(100))
-        result = fmt.array_format(arr, window=2)
-        expected = """\
+
+def test_long_array_format():
+    arr = pyarrow.from_pylist(range(100))
+    result = fmt.array_format(arr, window=2)
+    expected = """\
 [
   0,
   1,
@@ -65,4 +66,4 @@ class TestArrayAPI(unittest.TestCase):
   98,
   99
 ]"""
-        assert result == expected
+    assert result == expected

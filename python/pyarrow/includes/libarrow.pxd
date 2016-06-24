@@ -20,25 +20,6 @@
 from pyarrow.includes.common cimport *
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef CStatus CStatus_OK "Status::OK"()
-
-    cdef cppclass CStatus "arrow::Status":
-        CStatus()
-
-        c_string ToString()
-
-        c_bool ok()
-        c_bool IsOutOfMemory()
-        c_bool IsKeyError()
-        c_bool IsNotImplemented()
-        c_bool IsInvalid()
-
-    cdef cppclass Buffer:
-        uint8_t* data()
-        int64_t size()
-
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum Type" arrow::Type::type":
         Type_NA" arrow::Type::NA"

@@ -22,16 +22,18 @@ from pyarrow.compat import frombytes
 class ArrowException(Exception):
     pass
 
-cdef check_cstatus(const CStatus& status):
+cdef int check_cstatus(const CStatus& status) nogil except -1:
     if status.ok():
-        return
+        return 0
 
     cdef c_string c_message = status.ToString()
-    raise ArrowException(frombytes(c_message))
+    with gil:
+        raise ArrowException(frombytes(c_message))
 
-cdef check_status(const Status& status):
+cdef int check_status(const Status& status) nogil except -1:
     if status.ok():
-        return
+        return 0
 
     cdef c_string c_message = status.ToString()
-    raise ArrowException(frombytes(c_message))
+    with gil:
+        raise ArrowException(frombytes(c_message))

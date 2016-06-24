@@ -173,7 +173,10 @@ def merge_pr(pr_num, target_ref):
     for c in commits:
         merge_message_flags += ["-m", c]
 
-    run_cmd(['git', 'commit', '--author="%s"' % primary_author] + merge_message_flags)
+    run_cmd(['git', 'commit',
+             '--no-verify',  # do not run commit hooks
+             '--author="%s"' % primary_author] +
+            merge_message_flags)
 
     continue_maybe("Merge complete (local ref %s). Push to %s?" % (
         target_branch_name, PUSH_REMOTE_NAME))

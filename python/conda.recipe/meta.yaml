@@ -26,6 +26,7 @@ requirements:
 
   run:
     - arrow-cpp
+    - parquet-cpp
     - python
     - numpy
     - pandas
