@@ -57,7 +57,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     uint32_t header_size = 0;
     const uint8_t* buffer;
     uint32_t allowed_page_size = DEFAULT_PAGE_HEADER_SIZE;
-    std::stringstream ss;
 
     // Page headers can be very large because of page statistics
     // We try to deserialize a larger buffer progressively
@@ -73,6 +72,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
+        std::stringstream ss;
         ss << e.what();
         allowed_page_size *= 2;
         if (allowed_page_size > max_page_header_size_) {
