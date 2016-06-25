@@ -18,8 +18,7 @@
 #ifndef PARQUET_UTIL_MEMORY_POOL_H
 #define PARQUET_UTIL_MEMORY_POOL_H
 
-#include "parquet/util/logging.h"
-#include "parquet/util/bit-util.h"
+#include <cstdint>
 
 namespace parquet {
 

@@ -20,12 +20,19 @@
 #include "parquet/api/io.h"
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
+#include "parquet/api/writer.h"
 
 namespace parquet {
 
 TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #ifdef _THRIFT_THRIFT_H_
   FAIL() << "Thrift headers should not be in the public API";
+#endif
+}
+
+TEST(TestPublicAPI, DoesNotExportDCHECK) {
+#ifdef DCHECK
+  FAIL() << "parquet/util/logging.h should not be transitively included";
 #endif
 }
 
