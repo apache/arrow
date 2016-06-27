@@ -111,7 +111,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 class FileSerializer : public ParquetFileWriter::Contents {
  public:
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
-      std::shared_ptr<OutputStream> sink, std::shared_ptr<schema::GroupNode>& schema,
+      std::shared_ptr<OutputStream> sink,
+      const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 
   void Close() override;
@@ -128,7 +129,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
  private:
   explicit FileSerializer(std::shared_ptr<OutputStream> sink,
-      std::shared_ptr<schema::GroupNode>& schema,
+      const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties);
 
   std::shared_ptr<OutputStream> sink_;
