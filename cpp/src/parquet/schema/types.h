@@ -191,7 +191,7 @@ class PrimitiveNode : public Node {
         name, repetition, type, logical_type, length, precision, scale));
   }
 
-  virtual bool Equals(const Node* other) const;
+  bool Equals(const Node* other) const override;
 
   Type::type physical_type() const { return physical_type_; }
 
@@ -200,7 +200,7 @@ class PrimitiveNode : public Node {
   const DecimalMetadata& decimal_metadata() const { return decimal_metadata_; }
 
   void ToParquet(void* opaque_element) const override;
-  virtual void Visit(Visitor* visitor);
+  void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
  private:
@@ -241,14 +241,14 @@ class GroupNode : public Node {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
-  virtual bool Equals(const Node* other) const;
+  bool Equals(const Node* other) const override;
 
   const NodePtr& field(int i) const { return fields_[i]; }
 
   int field_count() const { return fields_.size(); }
 
   void ToParquet(void* opaque_element) const override;
-  virtual void Visit(Visitor* visitor);
+  void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
  private:
