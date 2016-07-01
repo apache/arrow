@@ -18,13 +18,14 @@
 #ifndef PARQUET_UTIL_INPUT_H
 #define PARQUET_UTIL_INPUT_H
 
-#include <parquet/util/mem-allocator.h>
-
 #include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -35,7 +36,7 @@ class OwnedMutableBuffer;
 // Random access input (e.g. file-like)
 
 // Random
-class RandomAccessSource {
+class PARQUET_EXPORT RandomAccessSource {
  public:
   virtual ~RandomAccessSource() {}
 
@@ -54,7 +55,7 @@ class RandomAccessSource {
   int64_t size_;
 };
 
-class LocalFileSource : public RandomAccessSource {
+class PARQUET_EXPORT LocalFileSource : public RandomAccessSource {
  public:
   explicit LocalFileSource(MemoryAllocator* allocator = default_allocator())
       : file_(nullptr), is_open_(false), allocator_(allocator) {}
@@ -88,7 +89,7 @@ class LocalFileSource : public RandomAccessSource {
   MemoryAllocator* allocator_;
 };
 
-class MemoryMapSource : public LocalFileSource {
+class PARQUET_EXPORT MemoryMapSource : public LocalFileSource {
  public:
   explicit MemoryMapSource(MemoryAllocator* allocator = default_allocator())
       : LocalFileSource(allocator), data_(nullptr), pos_(0) {}
@@ -118,7 +119,7 @@ class MemoryMapSource : public LocalFileSource {
 // ----------------------------------------------------------------------
 // A file-like object that reads from virtual address space
 
-class BufferReader : public RandomAccessSource {
+class PARQUET_EXPORT BufferReader : public RandomAccessSource {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   virtual void Close() {}

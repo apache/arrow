@@ -24,6 +24,7 @@
 
 #include "parquet/util/macros.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -34,7 +35,7 @@ class ResizableBuffer;
 // Output stream classes
 
 // Abstract output stream
-class OutputStream {
+class PARQUET_EXPORT OutputStream {
  public:
   virtual ~OutputStream();
 
@@ -51,7 +52,7 @@ class OutputStream {
 static constexpr int64_t IN_MEMORY_DEFAULT_CAPACITY = 1024;
 
 // An output stream that is an in-memory
-class InMemoryOutputStream : public OutputStream {
+class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
  public:
   explicit InMemoryOutputStream(int64_t initial_capacity = IN_MEMORY_DEFAULT_CAPACITY,
       MemoryAllocator* allocator = default_allocator());
@@ -79,7 +80,7 @@ class InMemoryOutputStream : public OutputStream {
   DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
 };
 
-class LocalFileOutputStream : public OutputStream {
+class PARQUET_EXPORT LocalFileOutputStream : public OutputStream {
  public:
   explicit LocalFileOutputStream(const std::string& path);
 

@@ -30,12 +30,13 @@
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
 static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 
-class Scanner {
+class PARQUET_EXPORT Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
@@ -85,7 +86,7 @@ class Scanner {
 };
 
 template <typename DType>
-class TypedScanner : public Scanner {
+class PARQUET_EXPORT TypedScanner : public Scanner {
  public:
   typedef typename DType::c_type T;
 

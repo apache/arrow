@@ -22,6 +22,8 @@
 #include <sstream>
 #include <string>
 
+#include "parquet/util/visibility.h"
+
 namespace parquet {
 
 class ParquetException : public std::exception {

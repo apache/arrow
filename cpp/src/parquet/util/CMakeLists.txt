@@ -34,6 +34,7 @@ install(FILES
   rle-encoding.h
   stopwatch.h
   sse-util.h
+  visibility.h
   DESTINATION include/parquet/util)
 
 if(PARQUET_BUILD_TESTS)

@@ -26,10 +26,11 @@
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
 #include "parquet/util/output.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
-class ColumnWriter {
+class PARQUET_EXPORT ColumnWriter {
  public:
   ColumnWriter(const ColumnDescriptor*, std::unique_ptr<PageWriter>,
       int64_t expected_rows, MemoryAllocator* allocator = default_allocator());
@@ -99,7 +100,7 @@ class ColumnWriter {
 
 // API to write values to a single column. This is the main client facing API.
 template <typename DType>
-class TypedColumnWriter : public ColumnWriter {
+class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
  public:
   typedef typename DType::c_type T;
 

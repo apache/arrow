@@ -28,6 +28,7 @@
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
 #include "parquet/schema/descriptor.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -42,7 +43,7 @@ struct RowGroupStatistics {
   const std::string* max;
 };
 
-class RowGroupReader {
+class PARQUET_EXPORT RowGroupReader {
  public:
   // Forward declare the PIMPL
   struct Contents {
@@ -85,7 +86,7 @@ class RowGroupReader {
   MemoryAllocator* allocator_;
 };
 
-class ParquetFileReader {
+class PARQUET_EXPORT ParquetFileReader {
  public:
   // Forward declare the PIMPL
   struct Contents {

@@ -28,9 +28,9 @@
 
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
-
 namespace schema {
 
 // List encodings: using the terminology from Impala to define different styles
@@ -75,7 +75,7 @@ struct DecimalMetadata {
   int32_t precision;
 };
 
-class ColumnPath {
+class PARQUET_EXPORT ColumnPath {
  public:
   ColumnPath() : path_() {}
   explicit ColumnPath(const std::vector<std::string>& path) : path_(path) {}
@@ -95,7 +95,7 @@ class GroupNode;
 
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
-class Node {
+class PARQUET_EXPORT Node {
  public:
   enum type { PRIMITIVE, GROUP };
 
@@ -178,7 +178,7 @@ typedef std::vector<NodePtr> NodeVector;
 // the other type metadata (name, repetition level, logical type), also has the
 // physical storage type and their type-specific metadata (byte width, decimal
 // parameters)
-class PrimitiveNode : public Node {
+class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
   // FromParquet accepts an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API
@@ -229,7 +229,7 @@ class PrimitiveNode : public Node {
   FRIEND_TEST(TestPrimitiveNode, FromParquet);
 };
 
-class GroupNode : public Node {
+class PARQUET_EXPORT GroupNode : public Node {
  public:
   // Like PrimitiveNode, GroupNode::FromParquet accepts an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API

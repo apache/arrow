@@ -90,8 +90,7 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
   return num_encoded;
 }
 
-LevelDecoder::LevelDecoder()
-    : num_values_remaining_(0) {}
+LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 
 LevelDecoder::~LevelDecoder() {}
 

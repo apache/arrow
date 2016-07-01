@@ -31,10 +31,11 @@
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
-class ColumnReader {
+class PARQUET_EXPORT ColumnReader {
  public:
   ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>,
       MemoryAllocator* allocator = default_allocator());
@@ -97,7 +98,7 @@ class ColumnReader {
 
 // API to read values from a single column. This is the main client facing API.
 template <typename DType>
-class TypedColumnReader : public ColumnReader {
+class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
  public:
   typedef typename DType::c_type T;
 

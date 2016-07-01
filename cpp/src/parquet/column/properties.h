@@ -26,6 +26,7 @@
 #include "parquet/schema/types.h"
 #include "parquet/util/input.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -36,7 +37,7 @@ struct ParquetVersion {
 static int64_t DEFAULT_BUFFER_SIZE = 0;
 static bool DEFAULT_USE_BUFFERED_STREAM = false;
 
-class ReaderProperties {
+class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryAllocator* allocator = default_allocator())
       : allocator_(allocator) {
@@ -74,7 +75,7 @@ class ReaderProperties {
   bool buffered_stream_enabled_;
 };
 
-ReaderProperties default_reader_properties();
+ReaderProperties PARQUET_EXPORT default_reader_properties();
 
 static int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
 static int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
@@ -86,7 +87,7 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 
 using ColumnCodecs = std::unordered_map<std::string, Compression::type>;
 
-class WriterProperties {
+class PARQUET_EXPORT WriterProperties {
  public:
   class Builder {
    public:
@@ -234,7 +235,7 @@ class WriterProperties {
   ColumnCodecs codecs_;
 };
 
-std::shared_ptr<WriterProperties> default_writer_properties();
+std::shared_ptr<WriterProperties> PARQUET_EXPORT default_writer_properties();
 
 }  // namespace parquet
 

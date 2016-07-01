@@ -20,9 +20,11 @@
 
 #include <cstdint>
 
+#include "parquet/util/visibility.h"
+
 namespace parquet {
 
-class MemoryAllocator {
+class PARQUET_EXPORT MemoryAllocator {
  public:
   virtual ~MemoryAllocator();
 
@@ -31,9 +33,9 @@ class MemoryAllocator {
   virtual void Free(uint8_t* p, int64_t size) = 0;
 };
 
-MemoryAllocator* default_allocator();
+PARQUET_EXPORT MemoryAllocator* default_allocator();
 
-class TrackingAllocator : public MemoryAllocator {
+class PARQUET_EXPORT TrackingAllocator : public MemoryAllocator {
  public:
   TrackingAllocator() : total_memory_(0), max_memory_(0) {}
   virtual ~TrackingAllocator();

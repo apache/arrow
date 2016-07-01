@@ -26,6 +26,7 @@
 
 #include "parquet/util/macros.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -34,7 +35,7 @@ namespace parquet {
 
 // Immutable API for a chunk of bytes which may or may not be owned by the
 // class instance
-class Buffer : public std::enable_shared_from_this<Buffer> {
+class PARQUET_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
  public:
   Buffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
@@ -78,7 +79,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
 };
 
 // A Buffer whose contents can be mutated. May or may not own its data.
-class MutableBuffer : public Buffer {
+class PARQUET_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
     mutable_data_ = data;
@@ -95,7 +96,7 @@ class MutableBuffer : public Buffer {
   uint8_t* mutable_data_;
 };
 
-class ResizableBuffer : public MutableBuffer {
+class PARQUET_EXPORT ResizableBuffer : public MutableBuffer {
  public:
   virtual void Resize(int64_t new_size) = 0;
 
@@ -108,7 +109,7 @@ class ResizableBuffer : public MutableBuffer {
 // A ResizableBuffer whose memory is owned by the class instance. For example,
 // for reading data out of files that you want to deallocate when this class is
 // garbage-collected
-class OwnedMutableBuffer : public ResizableBuffer {
+class PARQUET_EXPORT OwnedMutableBuffer : public ResizableBuffer {
  public:
   explicit OwnedMutableBuffer(
       int64_t size = 0, MemoryAllocator* allocator = default_allocator());

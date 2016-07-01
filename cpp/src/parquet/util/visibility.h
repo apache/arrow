@@ -15,26 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// A simple Schema printer using the visitor pattern
+#ifndef PARQUET_UTIL_VISIBILITY_H
+#define PARQUET_UTIL_VISIBILITY_H
 
-#ifndef PARQUET_SCHEMA_PRINTER_H
-#define PARQUET_SCHEMA_PRINTER_H
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define PARQUET_EXPORT __declspec(dllexport)
+#else  // Not Windows
+#ifndef PARQUET_EXPORT
+#define PARQUET_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef PARQUET_NO_EXPORT
+#define PARQUET_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-#include <ostream>
-
-#include "parquet/util/visibility.h"
-
-namespace parquet {
-
-namespace schema {
-
-class Node;
-
-void PARQUET_EXPORT PrintSchema(
-    const Node* schema, std::ostream& stream, int indent_width = 2);
-
-}  // namespace schema
-
-}  // namespace parquet
-
-#endif  // PARQUET_SCHEMA_PRINTER_H
+#endif  // PARQUET_UTIL_VISIBILITY_H

@@ -25,6 +25,7 @@
 #include "parquet/schema/descriptor.h"
 #include "parquet/schema/types.h"
 #include "parquet/util/mem-allocator.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -32,7 +33,7 @@ class ColumnWriter;
 class PageWriter;
 class OutputStream;
 
-class RowGroupWriter {
+class PARQUET_EXPORT RowGroupWriter {
  public:
   struct Contents {
     virtual int num_columns() const = 0;
@@ -81,7 +82,7 @@ class RowGroupWriter {
   MemoryAllocator* allocator_;
 };
 
-class ParquetFileWriter {
+class PARQUET_EXPORT ParquetFileWriter {
  public:
   struct Contents {
     virtual ~Contents() {}

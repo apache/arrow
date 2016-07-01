@@ -26,6 +26,7 @@
 #include <vector>
 #include "parquet/schema/types.h"
 #include "parquet/types.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -36,7 +37,7 @@ class SchemaDescriptor;
 // examine the node structure of a column's path to the root in the schema tree
 // to be able to reassemble the nested structure from the repetition and
 // definition levels.
-class ColumnDescriptor {
+class PARQUET_EXPORT ColumnDescriptor {
  public:
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
       int16_t max_repetition_level, const SchemaDescriptor* schema_descr = nullptr);
@@ -85,7 +86,7 @@ class ColumnDescriptor {
 // repetition-definition level encoding of nested data
 //
 // TODO(wesm): this object can be recomputed from a Schema
-class SchemaDescriptor {
+class PARQUET_EXPORT SchemaDescriptor {
  public:
   SchemaDescriptor() {}
   ~SchemaDescriptor() {}
