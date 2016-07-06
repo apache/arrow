@@ -36,6 +36,7 @@ namespace parquet {
 
 #define PARQUET_LOG_INTERNAL(level) parquet::internal::CerrLog(level)
 #define PARQUET_LOG(level) PARQUET_LOG_INTERNAL(PARQUET_##level)
+#define PARQUET_IGNORE_EXPR(expr) ((void)(expr));
 
 #define PARQUET_CHECK(condition) \
   (condition) ? 0 : PARQUET_LOG(FATAL) << "Check failed: " #condition " "
@@ -44,24 +45,31 @@ namespace parquet {
 #define PARQUET_DFATAL PARQUET_WARNING
 
 #define DCHECK(condition) \
+  PARQUET_IGNORE_EXPR(condition)\
   while (false)           \
   parquet::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 #define DCHECK_NE(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 #define DCHECK_LE(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 #define DCHECK_LT(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 #define DCHECK_GE(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 #define DCHECK_GT(val1, val2) \
+  PARQUET_IGNORE_EXPR(val1)   \
   while (false)               \
   parquet::internal::NullLog()
 
