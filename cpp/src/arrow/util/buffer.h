@@ -26,6 +26,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -41,7 +42,7 @@ class Status;
 // Capacity is the number of bytes that where allocated for the buffer in
 // total.
 // The following invariant is always true: Size < Capacity
-class Buffer : public std::enable_shared_from_this<Buffer> {
+class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
  public:
   Buffer(const uint8_t* data, int64_t size) : data_(data), size_(size), capacity_(size) {}
   virtual ~Buffer();
@@ -95,7 +96,7 @@ class Buffer : public std::enable_shared_from_this<Buffer> {
 };
 
 // A Buffer whose contents can be mutated. May or may not own its data.
-class MutableBuffer : public Buffer {
+class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
     mutable_data_ = data;
@@ -112,7 +113,7 @@ class MutableBuffer : public Buffer {
   uint8_t* mutable_data_;
 };
 
-class ResizableBuffer : public MutableBuffer {
+class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
  public:
   // Change buffer reported size to indicated size, allocating memory if
   // necessary.  This will ensure that the capacity of the buffer is a multiple
@@ -129,7 +130,7 @@ class ResizableBuffer : public MutableBuffer {
 };
 
 // A Buffer whose lifetime is tied to a particular MemoryPool
-class PoolBuffer : public ResizableBuffer {
+class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
   explicit PoolBuffer(MemoryPool* pool = nullptr);
   virtual ~PoolBuffer();
@@ -145,7 +146,8 @@ static constexpr int64_t MIN_BUFFER_CAPACITY = 1024;
 
 class BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool) : pool_(pool), capacity_(0), size_(0) {}
+  explicit BufferBuilder(MemoryPool* pool)
+      : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
 
   // Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
   Status Resize(int32_t elements) {

@@ -15,29 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MEMORY_POOL_H
-#define ARROW_UTIL_MEMORY_POOL_H
+#ifndef PYARROW_VISIBILITY_H
+#define PYARROW_VISIBILITY_H
 
-#include <cstdint>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define PYARROW_EXPORT __declspec(dllexport)
+#else  // Not Windows
+#ifndef PYARROW_EXPORT
+#define PYARROW_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef PYARROW_NO_EXPORT
+#define PYARROW_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-#include "arrow/util/visibility.h"
-
-namespace arrow {
-
-class Status;
-
-class ARROW_EXPORT MemoryPool {
- public:
-  virtual ~MemoryPool();
-
-  virtual Status Allocate(int64_t size, uint8_t** out) = 0;
-  virtual void Free(uint8_t* buffer, int64_t size) = 0;
-
-  virtual int64_t bytes_allocated() const = 0;
-};
-
-ARROW_EXPORT MemoryPool* default_memory_pool();
-
-}  // namespace arrow
-
-#endif  // ARROW_UTIL_MEMORY_POOL_H
+#endif  // PYARROW_VISIBILITY_H

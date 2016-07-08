@@ -227,7 +227,7 @@ TEST_F(TestHdfsClient, ListDirectory) {
   // Do it again, appends!
   ASSERT_OK(client_->ListDirectory(scratch_dir_, &listing));
 
-  ASSERT_EQ(6, listing.size());
+  ASSERT_EQ(6, static_cast<int>(listing.size()));
 
   // Argh, well, shouldn't expect the listing to be in any particular order
   for (size_t i = 0; i < listing.size(); ++i) {

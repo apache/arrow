@@ -116,7 +116,7 @@ class TestStructBuilder : public TestBuilder {
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
 
     builder_ = std::dynamic_pointer_cast<StructBuilder>(tmp);
-    ASSERT_EQ(2, builder_->field_builders().size());
+    ASSERT_EQ(2, static_cast<int>(builder_->field_builders().size()));
   }
 
   void Done() { result_ = std::dynamic_pointer_cast<StructArray>(builder_->Finish()); }
@@ -132,7 +132,7 @@ class TestStructBuilder : public TestBuilder {
 TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_OK(builder_->AppendNull());
-  ASSERT_EQ(2, builder_->field_builders().size());
+  ASSERT_EQ(2, static_cast<int>(builder_->field_builders().size()));
 
   ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
   ASSERT_OK(list_vb->AppendNull());
@@ -148,7 +148,7 @@ TEST_F(TestStructBuilder, TestAppendNull) {
 
   ASSERT_OK(result_->Validate());
 
-  ASSERT_EQ(2, result_->fields().size());
+  ASSERT_EQ(2, static_cast<int>(result_->fields().size()));
   ASSERT_EQ(2, result_->length());
   ASSERT_EQ(2, result_->field(0)->length());
   ASSERT_EQ(2, result_->field(1)->length());
@@ -174,7 +174,7 @@ TEST_F(TestStructBuilder, TestBasics) {
   ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0).get());
   Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder().get());
   Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1).get());
-  ASSERT_EQ(2, builder_->field_builders().size());
+  ASSERT_EQ(2, static_cast<int>(builder_->field_builders().size()));
 
   EXPECT_OK(builder_->Resize(list_lengths.size()));
   EXPECT_OK(char_vb->Resize(list_values.size()));

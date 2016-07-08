@@ -16,6 +16,6 @@ make lint
 #   make check-clang-tidy
 # fi
 
-ctest -L unittest
+ctest -VV -L unittest
 
 popd

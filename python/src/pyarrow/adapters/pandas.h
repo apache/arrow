@@ -25,6 +25,8 @@
 
 #include <memory>
 
+#include "pyarrow/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -36,12 +38,15 @@ namespace pyarrow {
 
 class Status;
 
+PYARROW_EXPORT
 Status ArrowToPandas(const std::shared_ptr<arrow::Column>& col, PyObject* py_ref,
     PyObject** out);
 
+PYARROW_EXPORT
 Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     std::shared_ptr<arrow::Array>* out);
 
+PYARROW_EXPORT
 Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
     std::shared_ptr<arrow::Array>* out);
 

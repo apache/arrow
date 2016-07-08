@@ -25,6 +25,7 @@
 
 #include "arrow/schema.h"
 #include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -32,15 +33,16 @@ class Status;
 
 namespace parquet {
 
-Status NodeToField(const ::parquet::schema::NodePtr& node, std::shared_ptr<Field>* out);
+Status ARROW_EXPORT NodeToField(
+    const ::parquet::schema::NodePtr& node, std::shared_ptr<Field>* out);
 
-Status FromParquetSchema(
+Status ARROW_EXPORT FromParquetSchema(
     const ::parquet::SchemaDescriptor* parquet_schema, std::shared_ptr<Schema>* out);
 
-Status FieldToNode(const std::shared_ptr<Field>& field,
+Status ARROW_EXPORT FieldToNode(const std::shared_ptr<Field>& field,
     const ::parquet::WriterProperties& properties, ::parquet::schema::NodePtr* out);
 
-Status ToParquetSchema(const Schema* arrow_schema,
+Status ARROW_EXPORT ToParquetSchema(const Schema* arrow_schema,
     const ::parquet::WriterProperties& properties,
     std::shared_ptr<::parquet::SchemaDescriptor>* out);
 

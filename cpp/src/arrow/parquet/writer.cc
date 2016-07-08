@@ -118,7 +118,7 @@ Status FileWriter::Impl::TypedWriteBatch(::parquet::ColumnWriter* column_writer,
       reinterpret_cast<::parquet::TypedColumnWriter<ParquetType>*>(column_writer);
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
-    const ParquetCType* data_writer_ptr;
+    const ParquetCType* data_writer_ptr = nullptr;
     RETURN_NOT_OK((ConvertPhysicalType<ArrowCType, ParquetCType>(
         data_ptr, length, &data_writer_ptr)));
     PARQUET_CATCH_NOT_OK(writer->WriteBatch(length, nullptr, nullptr, data_writer_ptr));
@@ -128,7 +128,7 @@ Status FileWriter::Impl::TypedWriteBatch(::parquet::ColumnWriter* column_writer,
         reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
     if (data->null_count() == 0) {
       std::fill(def_levels_ptr, def_levels_ptr + length, 1);
-      const ParquetCType* data_writer_ptr;
+      const ParquetCType* data_writer_ptr = nullptr;
       RETURN_NOT_OK((ConvertPhysicalType<ArrowCType, ParquetCType>(
           data_ptr, length, &data_writer_ptr)));
       PARQUET_CATCH_NOT_OK(

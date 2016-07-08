@@ -55,6 +55,7 @@ extern "C" {
 #include <boost/algorithm/string.hpp>  // NOLINT
 
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace fs = boost::filesystem;
 
@@ -496,7 +497,7 @@ static arrow::Status try_dlopen(
 namespace arrow {
 namespace io {
 
-Status ConnectLibHdfs() {
+Status ARROW_EXPORT ConnectLibHdfs() {
   static std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
 

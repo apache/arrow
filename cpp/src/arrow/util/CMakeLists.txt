@@ -27,6 +27,7 @@ install(FILES
   macros.h
   memory-pool.h
   status.h
+  visibility.h
   DESTINATION include/arrow/util)
 
 #######################################

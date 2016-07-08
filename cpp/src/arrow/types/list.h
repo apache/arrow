@@ -31,12 +31,13 @@
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class MemoryPool;
 
-class ListArray : public Array {
+class ARROW_EXPORT ListArray : public Array {
  public:
   ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
       const ArrayPtr& values, int32_t null_count = 0,
@@ -96,7 +97,7 @@ class ListArray : public Array {
 // represent multiple different logical types.  If no logical type is provided
 // at construction time, the class defaults to List<T> where t is taken from the
 // value_builder/values that the object is constructed with.
-class ListBuilder : public ArrayBuilder {
+class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
   // Use this constructor to incrementally build the value array along with offsets and
   // null bitmap.
@@ -115,6 +116,8 @@ class ListBuilder : public ArrayBuilder {
                                              std::make_shared<ListType>(values->type()))),
         offset_builder_(pool),
         values_(values) {}
+
+  virtual ~ListBuilder() {}
 
   Status Init(int32_t elements) override {
     DCHECK_LT(elements, std::numeric_limits<int32_t>::max());

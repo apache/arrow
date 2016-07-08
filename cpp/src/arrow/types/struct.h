@@ -25,10 +25,11 @@
 #include "arrow/type.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class StructArray : public Array {
+class ARROW_EXPORT StructArray : public Array {
  public:
   StructArray(const TypePtr& type, int32_t length, std::vector<ArrayPtr>& field_arrays,
       int32_t null_count = 0, std::shared_ptr<Buffer> null_bitmap = nullptr)
@@ -64,7 +65,7 @@ class StructArray : public Array {
 // Append, Resize and Reserve methods are acting on StructBuilder.
 // Please make sure all these methods of all child-builders' are consistently
 // called to maintain data-structure consistency.
-class StructBuilder : public ArrayBuilder {
+class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)

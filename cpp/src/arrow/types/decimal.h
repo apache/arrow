@@ -21,10 +21,11 @@
 #include <string>
 
 #include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-struct DecimalType : public DataType {
+struct ARROW_EXPORT DecimalType : public DataType {
   explicit DecimalType(int precision_, int scale_)
       : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
   int precision;

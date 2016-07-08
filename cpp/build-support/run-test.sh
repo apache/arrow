@@ -79,16 +79,16 @@ function setup_sanitizers() {
   TSAN_OPTIONS="$TSAN_OPTIONS suppressions=$ROOT/build-support/tsan-suppressions.txt"
   TSAN_OPTIONS="$TSAN_OPTIONS history_size=7"
   export TSAN_OPTIONS
-  
+
   # Enable leak detection even under LLVM 3.4, where it was disabled by default.
   # This flag only takes effect when running an ASAN build.
   ASAN_OPTIONS="$ASAN_OPTIONS detect_leaks=1"
   export ASAN_OPTIONS
-  
+
   # Set up suppressions for LeakSanitizer
   LSAN_OPTIONS="$LSAN_OPTIONS suppressions=$ROOT/build-support/lsan-suppressions.txt"
   export LSAN_OPTIONS
-  
+
   # Suppressions require symbolization. We'll default to using the symbolizer in
   # thirdparty.
   if [ -z "$ASAN_SYMBOLIZER_PATH" ]; then
@@ -107,7 +107,7 @@ function run_test() {
     | $ROOT/build-support/asan_symbolize.py \
     | c++filt \
     | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
-    | $pipe_cmd > $LOGFILE
+    | $pipe_cmd 2>&1 | tee $LOGFILE
   STATUS=$?
 
   # TSAN doesn't always exit with a non-zero exit code due to a bug:
@@ -198,7 +198,7 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
   fi
 done
 
-if [ $RUN_TYPE = "test" ]; then	
+if [ $RUN_TYPE = "test" ]; then
   post_process_tests
 fi
 

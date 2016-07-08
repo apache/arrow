@@ -23,6 +23,8 @@
 #include "parquet/api/schema.h"
 #include "parquet/api/writer.h"
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -40,7 +42,7 @@ namespace parquet {
  *  Start a new RowGroup/Chunk with NewRowGroup
  *  Write column-by-column the whole column chunk
  */
-class FileWriter {
+class ARROW_EXPORT FileWriter {
  public:
   FileWriter(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileWriter> writer);
 
@@ -62,7 +64,7 @@ class FileWriter {
  *
  * The table shall only consist of nullable, non-repeated columns of primitive type.
  */
-Status WriteFlatTable(const Table* table, MemoryPool* pool,
+Status ARROW_EXPORT WriteFlatTable(const Table* table, MemoryPool* pool,
     const std::shared_ptr<::parquet::OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<::parquet::WriterProperties>& properties =
         ::parquet::default_writer_properties());

@@ -7,7 +7,6 @@ PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 # Re-use conda installation from C++
 export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
 export PATH="$MINICONDA/bin:$PATH"
-export LD_LIBRARY_PATH="$MINICONDA/lib:$LD_LIBRARY_PATH"
 export PARQUET_HOME=$MINICONDA
 
 # Share environment with C++
@@ -32,12 +31,15 @@ python_version_tests() {
   # Expensive dependencies install from Continuum package repo
   conda install -y pip numpy pandas cython
 
+  conda install -y parquet-cpp arrow-cpp -c apache/channel/dev
+
   # Other stuff pip install
   pip install -r requirements.txt
 
   export ARROW_HOME=$ARROW_CPP_INSTALL
 
-  python setup.py build_ext --inplace
+  python setup.py build_ext \
+		 --inplace
 
   python -m pytest -vv -r sxX pyarrow
 }

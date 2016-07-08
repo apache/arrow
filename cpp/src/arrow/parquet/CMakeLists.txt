@@ -25,8 +25,8 @@ set(PARQUET_SRCS
 )
 
 set(PARQUET_LIBS
-  arrow
-  ${PARQUET_SHARED_LIB}
+  arrow_shared
+  parquet_shared
 )
 
 add_library(arrow_parquet SHARED

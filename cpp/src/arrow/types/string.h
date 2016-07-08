@@ -28,13 +28,14 @@
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
 class MemoryPool;
 
-class BinaryArray : public ListArray {
+class ARROW_EXPORT BinaryArray : public ListArray {
  public:
   BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values, int32_t null_count = 0,
@@ -62,7 +63,7 @@ class BinaryArray : public ListArray {
   const uint8_t* raw_bytes_;
 };
 
-class StringArray : public BinaryArray {
+class ARROW_EXPORT StringArray : public BinaryArray {
  public:
   StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const ArrayPtr& values, int32_t null_count = 0,
@@ -87,12 +88,10 @@ class StringArray : public BinaryArray {
 };
 
 // BinaryBuilder : public ListBuilder
-class BinaryBuilder : public ListBuilder {
+class ARROW_EXPORT BinaryBuilder : public ListBuilder {
  public:
-  explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type)
-      : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, value_type_), type) {
-    byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
-  }
+  explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type);
+  virtual ~BinaryBuilder() {}
 
   Status Append(const uint8_t* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());
@@ -105,11 +104,10 @@ class BinaryBuilder : public ListBuilder {
 
  protected:
   UInt8Builder* byte_builder_;
-  static TypePtr value_type_;
 };
 
 // String builder
-class StringBuilder : public BinaryBuilder {
+class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
       : BinaryBuilder(pool, type) {}

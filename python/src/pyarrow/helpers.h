@@ -21,6 +21,8 @@
 #include <arrow/api.h>
 #include <memory>
 
+#include "pyarrow/visibility.h"
+
 namespace pyarrow {
 
 using arrow::DataType;
@@ -40,6 +42,7 @@ extern const std::shared_ptr<arrow::FloatType> FLOAT;
 extern const std::shared_ptr<arrow::DoubleType> DOUBLE;
 extern const std::shared_ptr<arrow::StringType> STRING;
 
+PYARROW_EXPORT
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
 } // namespace pyarrow

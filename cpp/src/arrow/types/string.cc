@@ -61,6 +61,15 @@ Status StringArray::Validate() const {
   return BinaryArray::Validate();
 }
 
-TypePtr BinaryBuilder::value_type_ = TypePtr(new UInt8Type());
+// This used to be a static member variable of BinaryBuilder, but it can cause
+// valgrind to report a (spurious?) memory leak when needed in other shared
+// libraries. The problem came up while adding explicit visibility to libarrow
+// and libarrow_parquet
+static TypePtr kBinaryValueType = TypePtr(new UInt8Type());
+
+BinaryBuilder::BinaryBuilder(MemoryPool* pool, const TypePtr& type)
+    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, kBinaryValueType), type) {
+  byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
+}
 
 }  // namespace arrow
