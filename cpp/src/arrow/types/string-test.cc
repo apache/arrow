@@ -115,7 +115,7 @@ TEST_F(TestStringContainer, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
-    ASSERT_EQ(expected_[i].size(), strings_->value_length(i));
+    ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
     pos += expected_[i].size();
   }
 }
@@ -189,7 +189,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
       ASSERT_FALSE(result_->IsNull(i));
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->offset(i));
-      ASSERT_EQ(strings[i % N].size(), length);
+      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
       ASSERT_EQ(strings[i % N], result_->GetString(i));
 
       pos += length;
@@ -267,7 +267,7 @@ TEST_F(TestBinaryContainer, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
-    ASSERT_EQ(expected_[i].size(), strings_->value_length(i));
+    ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
     pos += expected_[i].size();
   }
 }
@@ -339,7 +339,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
     } else {
       ASSERT_FALSE(result_->IsNull(i));
       const uint8_t* vals = result_->GetValue(i, &length);
-      ASSERT_EQ(strings[i % N].size(), length);
+      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
       ASSERT_EQ(0, std::memcmp(vals, strings[i % N].data(), length));
     }
   }

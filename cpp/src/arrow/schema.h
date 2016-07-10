@@ -22,11 +22,13 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 struct Field;
 
-class Schema {
+class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields);
 

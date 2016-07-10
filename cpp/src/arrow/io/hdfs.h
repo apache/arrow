@@ -25,14 +25,13 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Status;
 
 namespace io {
-
-Status ConnectLibHdfs();
 
 class HdfsClient;
 class HdfsReadableFile;
@@ -64,7 +63,7 @@ struct HdfsConnectionConfig {
   // TODO: Kerberos, etc.
 };
 
-class HdfsClient : public FileSystemClient {
+class ARROW_EXPORT HdfsClient : public FileSystemClient {
  public:
   ~HdfsClient();
 
@@ -149,14 +148,14 @@ class HdfsClient : public FileSystemClient {
   friend class HdfsReadableFile;
   friend class HdfsWriteableFile;
 
-  class HdfsClientImpl;
+  class ARROW_NO_EXPORT HdfsClientImpl;
   std::unique_ptr<HdfsClientImpl> impl_;
 
   HdfsClient();
   DISALLOW_COPY_AND_ASSIGN(HdfsClient);
 };
 
-class HdfsReadableFile : public RandomAccessFile {
+class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
   ~HdfsReadableFile();
 
@@ -175,7 +174,7 @@ class HdfsReadableFile : public RandomAccessFile {
   Status Read(int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) override;
 
  private:
-  class HdfsReadableFileImpl;
+  class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;
 
   friend class HdfsClient::HdfsClientImpl;
@@ -184,7 +183,7 @@ class HdfsReadableFile : public RandomAccessFile {
   DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
 
-class HdfsWriteableFile : public WriteableFile {
+class ARROW_EXPORT HdfsWriteableFile : public WriteableFile {
  public:
   ~HdfsWriteableFile();
 
@@ -197,7 +196,7 @@ class HdfsWriteableFile : public WriteableFile {
   Status Tell(int64_t* position) override;
 
  private:
-  class HdfsWriteableFileImpl;
+  class ARROW_NO_EXPORT HdfsWriteableFileImpl;
   std::unique_ptr<HdfsWriteableFileImpl> impl_;
 
   friend class HdfsClient::HdfsClientImpl;
@@ -206,6 +205,8 @@ class HdfsWriteableFile : public WriteableFile {
 
   DISALLOW_COPY_AND_ASSIGN(HdfsWriteableFile);
 };
+
+Status ARROW_EXPORT ConnectLibHdfs();
 
 }  // namespace io
 }  // namespace arrow

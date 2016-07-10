@@ -28,6 +28,7 @@
 #include <arrow/type.h>
 
 #include "pyarrow/common.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow { class Array; }
 
@@ -35,6 +36,7 @@ namespace pyarrow {
 
 class Status;
 
+PYARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
 
 } // namespace pyarrow

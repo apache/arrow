@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -101,7 +102,7 @@ struct Type {
 
 struct Field;
 
-struct DataType {
+struct ARROW_EXPORT DataType {
   Type::type type;
 
   std::vector<std::shared_ptr<Field>> children_;
@@ -133,7 +134,7 @@ typedef std::shared_ptr<DataType> TypePtr;
 
 // A field is a piece of metadata that includes (for now) a name and a data
 // type
-struct Field {
+struct ARROW_EXPORT Field {
   // Field name
   std::string name;
 
@@ -163,7 +164,7 @@ struct Field {
 typedef std::shared_ptr<Field> FieldPtr;
 
 template <typename Derived>
-struct PrimitiveType : public DataType {
+struct ARROW_EXPORT PrimitiveType : public DataType {
   PrimitiveType() : DataType(Derived::type_enum) {}
 
   std::string ToString() const override;
@@ -185,55 +186,55 @@ inline std::string PrimitiveType<Derived>::ToString() const {
                                                            \
   static const char* name() { return NAME; }
 
-struct NullType : public PrimitiveType<NullType> {
+struct ARROW_EXPORT NullType : public PrimitiveType<NullType> {
   PRIMITIVE_DECL(NullType, void, NA, 0, "null");
 };
 
-struct BooleanType : public PrimitiveType<BooleanType> {
+struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType> {
   PRIMITIVE_DECL(BooleanType, uint8_t, BOOL, 1, "bool");
 };
 
-struct UInt8Type : public PrimitiveType<UInt8Type> {
+struct ARROW_EXPORT UInt8Type : public PrimitiveType<UInt8Type> {
   PRIMITIVE_DECL(UInt8Type, uint8_t, UINT8, 1, "uint8");
 };
 
-struct Int8Type : public PrimitiveType<Int8Type> {
+struct ARROW_EXPORT Int8Type : public PrimitiveType<Int8Type> {
   PRIMITIVE_DECL(Int8Type, int8_t, INT8, 1, "int8");
 };
 
-struct UInt16Type : public PrimitiveType<UInt16Type> {
+struct ARROW_EXPORT UInt16Type : public PrimitiveType<UInt16Type> {
   PRIMITIVE_DECL(UInt16Type, uint16_t, UINT16, 2, "uint16");
 };
 
-struct Int16Type : public PrimitiveType<Int16Type> {
+struct ARROW_EXPORT Int16Type : public PrimitiveType<Int16Type> {
   PRIMITIVE_DECL(Int16Type, int16_t, INT16, 2, "int16");
 };
 
-struct UInt32Type : public PrimitiveType<UInt32Type> {
+struct ARROW_EXPORT UInt32Type : public PrimitiveType<UInt32Type> {
   PRIMITIVE_DECL(UInt32Type, uint32_t, UINT32, 4, "uint32");
 };
 
-struct Int32Type : public PrimitiveType<Int32Type> {
+struct ARROW_EXPORT Int32Type : public PrimitiveType<Int32Type> {
   PRIMITIVE_DECL(Int32Type, int32_t, INT32, 4, "int32");
 };
 
-struct UInt64Type : public PrimitiveType<UInt64Type> {
+struct ARROW_EXPORT UInt64Type : public PrimitiveType<UInt64Type> {
   PRIMITIVE_DECL(UInt64Type, uint64_t, UINT64, 8, "uint64");
 };
 
-struct Int64Type : public PrimitiveType<Int64Type> {
+struct ARROW_EXPORT Int64Type : public PrimitiveType<Int64Type> {
   PRIMITIVE_DECL(Int64Type, int64_t, INT64, 8, "int64");
 };
 
-struct FloatType : public PrimitiveType<FloatType> {
+struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType> {
   PRIMITIVE_DECL(FloatType, float, FLOAT, 4, "float");
 };
 
-struct DoubleType : public PrimitiveType<DoubleType> {
+struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType> {
   PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
 };
 
-struct ListType : public DataType {
+struct ARROW_EXPORT ListType : public DataType {
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
       : ListType(value_type, Type::LIST) {}
@@ -260,7 +261,7 @@ struct ListType : public DataType {
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
-struct BinaryType : public ListType {
+struct ARROW_EXPORT BinaryType : public ListType {
   BinaryType() : BinaryType(Type::BINARY) {}
   static char const* name() { return "binary"; }
   std::string ToString() const override;
@@ -272,7 +273,7 @@ struct BinaryType : public ListType {
 };
 
 // UTF encoded strings
-struct StringType : public BinaryType {
+struct ARROW_EXPORT StringType : public BinaryType {
   StringType() : BinaryType(Type::STRING) {}
 
   static char const* name() { return "string"; }
@@ -283,7 +284,7 @@ struct StringType : public BinaryType {
   explicit StringType(Type::type logical_type) : BinaryType(logical_type) {}
 };
 
-struct StructType : public DataType {
+struct ARROW_EXPORT StructType : public DataType {
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
       : DataType(Type::STRUCT) {
     children_ = fields;

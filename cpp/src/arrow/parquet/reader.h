@@ -23,6 +23,8 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -77,7 +79,7 @@ class FlatColumnReader;
 //
 // This is additionally complicated "chunky" repeated fields or very large byte
 // arrays
-class FileReader {
+class ARROW_EXPORT FileReader {
  public:
   FileReader(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader);
 
@@ -107,7 +109,7 @@ class FileReader {
 //
 // We also do not expose any internal Parquet details, such as row groups. This
 // might change in the future.
-class FlatColumnReader {
+class ARROW_EXPORT FlatColumnReader {
  public:
   virtual ~FlatColumnReader();
 

@@ -44,12 +44,22 @@ endif(CCACHE_FOUND)
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  option(ARROW_BUILD_STATIC
+    "Build the libarrow static libraries"
+    ON)
+
+  option(ARROW_BUILD_SHARED
+    "Build the libarrow shared libraries"
+    ON)
+
   option(ARROW_PARQUET
     "Build the Parquet adapter and link to libparquet"
     OFF)
+
   option(ARROW_TEST_MEMCHECK
-	"Run the test suite using valgrind --tool=memcheck"
-	OFF)
+    "Run the test suite using valgrind --tool=memcheck"
+    OFF)
+
   option(ARROW_BUILD_TESTS
     "Build the Arrow googletest unit tests"
     ON)
@@ -65,6 +75,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_HDFS
     "Build the Arrow IO extensions for the Hadoop file system"
     OFF)
+
+  option(ARROW_BOOST_USE_SHARED
+    "Rely on boost shared libraries where relevant"
+    ON)
 
   option(ARROW_SSE3
     "Build Arrow with SSE3"
@@ -172,18 +186,6 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CLANG_OPTIONS}")
 endif()
 
-# Sanity check linking option.
-if (NOT ARROW_LINK)
-  set(ARROW_LINK "d")
-elseif(NOT ("auto" MATCHES "^${ARROW_LINK}" OR
-            "dynamic" MATCHES "^${ARROW_LINK}" OR
-            "static" MATCHES "^${ARROW_LINK}"))
-  message(FATAL_ERROR "Unknown value for ARROW_LINK, must be auto|dynamic|static")
-else()
-  # Remove all but the first letter.
-  string(SUBSTRING "${ARROW_LINK}" 0 1 ARROW_LINK)
-endif()
-
 # ASAN / TSAN / UBSAN
 include(san-config)
 
@@ -203,59 +205,9 @@ if ("${ARROW_GENERATE_COVERAGE}")
   # For coverage to work properly, we need to use static linkage. Otherwise,
   # __gcov_flush() doesn't properly flush coverage from every module.
   # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if("${ARROW_LINK}" STREQUAL "a")
-    message("Using static linking for coverage build")
-    set(ARROW_LINK "s")
-  elseif("${ARROW_LINK}" STREQUAL "d")
-    message(SEND_ERROR "Cannot use coverage with dynamic linking")
+  if(NOT ARROW_BUILD_STATIC)
+    message(SEND_ERROR "Coverage requires the static lib to be built")
   endif()
-endif()
-
-# If we still don't know what kind of linking to perform, choose based on
-# build type (developers like fast builds).
-if ("${ARROW_LINK}" STREQUAL "a")
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR
-      "${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-    message("Using dynamic linking for ${CMAKE_BUILD_TYPE} builds")
-    set(ARROW_LINK "d")
-  else()
-    message("Using static linking for ${CMAKE_BUILD_TYPE} builds")
-    set(ARROW_LINK "s")
-  endif()
-endif()
-
-# Are we using the gold linker? It doesn't work with dynamic linking as
-# weak symbols aren't properly overridden, causing tcmalloc to be omitted.
-# Let's flag this as an error in RELEASE builds (we shouldn't release a
-# product like this).
-#
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=16979 for details.
-#
-# The gold linker is only for ELF binaries, which OSX doesn't use. We can
-# just skip.
-if (NOT APPLE)
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -Wl,--version OUTPUT_VARIABLE LINKER_OUTPUT)
-endif ()
-if (LINKER_OUTPUT MATCHES "gold")
-  if ("${ARROW_LINK}" STREQUAL "d" AND
-      "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    message(SEND_ERROR "Cannot use gold with dynamic linking in a RELEASE build "
-      "as it would cause tcmalloc symbols to get dropped")
-  else()
-    message("Using gold linker")
-  endif()
-  set(ARROW_USING_GOLD 1)
-else()
-  message("Using ld linker")
-endif()
-
-# Having set ARROW_LINK due to build type and/or sanitizer, it's now safe to
-# act on its value.
-if ("${ARROW_LINK}" STREQUAL "d")
-  set(BUILD_SHARED_LIBS ON)
-
-  # Position independent code is only necessary when producing shared objects.
-  add_definitions(-fPIC)
 endif()
 
 # set compile output directory
@@ -289,6 +241,15 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 include_directories(src)
+
+############################################################
+# Visibility
+############################################################
+# For generate_export_header() and add_compiler_export_flags().
+include(GenerateExportHeader)
+
+# Sets -fvisibility=hidden for gcc
+add_compiler_export_flags()
 
 ############################################################
 # Benchmarking
@@ -360,7 +321,7 @@ endfunction()
 #
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
-  if(NO_TESTS)
+  if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
     return()
   endif()
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
@@ -377,13 +338,13 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
   endif()
 
   if (ARROW_TEST_MEMCHECK)
-	SET_PROPERTY(TARGET ${TEST_NAME}
-	  APPEND_STRING PROPERTY
-	  COMPILE_FLAGS " -DARROW_VALGRIND")
-	add_test(${TEST_NAME}
-	  valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ${TEST_PATH})
+    SET_PROPERTY(TARGET ${TEST_NAME}
+      APPEND_STRING PROPERTY
+      COMPILE_FLAGS " -DARROW_VALGRIND")
+    add_test(${TEST_NAME}
+      valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ${TEST_PATH})
   else()
-	add_test(${TEST_NAME}
+    add_test(${TEST_NAME}
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
   endif()
   set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
@@ -427,19 +388,34 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(("${ARROW_LINK}" STREQUAL "s" AND ARG_STATIC_LIB) OR (NOT ARG_SHARED_LIB))
+  if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
     if(NOT ARG_STATIC_LIB)
       message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
     endif()
+
+    SET(AUG_LIB_NAME "${LIB_NAME}_static")
+    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+
+    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
+    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+  elseif(ARG_STATIC_LIB)
     add_library(${LIB_NAME} STATIC IMPORTED)
     set_target_properties(${LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
-  else()
+  elseif(ARG_SHARED_LIB)
     add_library(${LIB_NAME} SHARED IMPORTED)
     set_target_properties(${LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+  else()
+    message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
   endif()
 
   if(ARG_DEPS)
@@ -538,9 +514,17 @@ endif()
 ############################################################
 # Linker setup
 ############################################################
-set(ARROW_MIN_TEST_LIBS arrow arrow_test_main ${ARROW_BASE_LIBS})
+set(ARROW_MIN_TEST_LIBS
+  arrow_static
+  arrow_test_main
+  ${ARROW_BASE_LIBS})
+
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-set(ARROW_BENCHMARK_LINK_LIBS arrow arrow_benchmark_main ${ARROW_BASE_LIBS})
+
+set(ARROW_BENCHMARK_LINK_LIBS
+  arrow_static
+  arrow_benchmark_main
+  ${ARROW_BASE_LIBS})
 
 ############################################################
 # "make ctags" target
@@ -576,14 +560,14 @@ endif (UNIX)
 if (UNIX)
 
   file(GLOB_RECURSE LINT_FILES
-	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-	)
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+    )
 
   FOREACH(item ${LINT_FILES})
-	IF(NOT (item MATCHES "_generated.h"))
+    IF(NOT (item MATCHES "_generated.h"))
       LIST(APPEND FILTERED_LINT_FILES ${item})
-	ENDIF()
+    ENDIF()
   ENDFOREACH(item ${LINT_FILES})
 
   # Full lint
@@ -628,7 +612,10 @@ endif()
 # Subdirectories
 ############################################################
 
-set(LIBARROW_LINK_LIBS
+set(ARROW_LINK_LIBS
+)
+
+set(ARROW_PRIVATE_LINK_LIBS
 )
 
 set(ARROW_SRCS
@@ -660,34 +647,66 @@ set(ARROW_SRCS
   src/arrow/util/status.cc
 )
 
-set(LIBARROW_LINKAGE "SHARED")
-
-add_library(arrow
-  ${LIBARROW_LINKAGE}
+add_library(arrow_objlib OBJECT
   ${ARROW_SRCS}
 )
 
+# Necessary to make static linking into other shared libraries work properly
+set_property(TARGET arrow_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+
+if(NOT APPLE)
+  # Localize thirdparty symbols using a linker version script. This hides them
+  # from the client application. The OS X linker does not support the
+  # version-script option.
+  set(SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
+endif()
+
+if (ARROW_BUILD_SHARED)
+  add_library(arrow_shared SHARED $<TARGET_OBJECTS:arrow_objlib>)
+  if(APPLE)
+    set_target_properties(arrow_shared PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  endif()
+  set_target_properties(arrow_shared
+    PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+    LINK_FLAGS "${SHARED_LINK_FLAGS}"
+    OUTPUT_NAME "arrow")
+  target_link_libraries(arrow_shared
+    LINK_PUBLIC ${ARROW_LINK_LIBS}
+    LINK_PRIVATE ${ARROW_PRIVATE_LINK_LIBS})
+
+  install(TARGETS arrow_shared
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
+endif()
+
+if (ARROW_BUILD_STATIC)
+  add_library(arrow_static STATIC $<TARGET_OBJECTS:arrow_objlib>)
+  set_target_properties(arrow_static
+    PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+    OUTPUT_NAME "arrow")
+
+  target_link_libraries(arrow_static
+    LINK_PUBLIC ${ARROW_LINK_LIBS}
+    LINK_PRIVATE ${ARROW_PRIVATE_LINK_LIBS})
+
+  install(TARGETS arrow_static
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
+endif()
+
 if (APPLE)
-  set_target_properties(arrow
+  set_target_properties(arrow_shared
     PROPERTIES
     BUILD_WITH_INSTALL_RPATH ON
     INSTALL_NAME_DIR "@rpath")
 endif()
 
-set_target_properties(arrow
-  PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-)
-target_link_libraries(arrow ${LIBARROW_LINK_LIBS})
-
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
 add_subdirectory(src/arrow/types)
-
-install(TARGETS arrow
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
 
 #----------------------------------------------------------------------
 # Parquet adapter library
@@ -715,7 +734,7 @@ if(ARROW_IPC)
   include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
   add_library(flatbuffers STATIC IMPORTED)
   set_target_properties(flatbuffers PROPERTIES
-	IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
+    IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
 
   add_subdirectory(src/arrow/ipc)
 endif()

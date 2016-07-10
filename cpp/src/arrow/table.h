@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -33,7 +35,7 @@ class Status;
 // A row batch is a simpler and more rigid table data structure intended for
 // use primarily in shared memory IPC. It contains a schema (metadata) and a
 // corresponding vector of equal-length Arrow arrays
-class RowBatch {
+class ARROW_EXPORT RowBatch {
  public:
   // num_rows is a parameter to allow for row batches of a particular size not
   // having any materialized columns. Each array should have the same length as
@@ -63,7 +65,7 @@ class RowBatch {
 };
 
 // Immutable container of fixed-length columns conforming to a particular schema
-class Table {
+class ARROW_EXPORT Table {
  public:
   // If columns is zero-length, the table's number of rows is zero
   Table(const std::string& name, const std::shared_ptr<Schema>& schema,

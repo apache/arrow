@@ -21,6 +21,7 @@
 #include <Python.h>
 
 #include "pyarrow/numpy_interop.h"
+#include "pyarrow/visibility.h"
 
 #if PY_MAJOR_VERSION >= 3
   #define PyString_Check PyUnicode_Check
@@ -28,10 +29,13 @@
 
 namespace pyarrow {
 
+PYARROW_EXPORT
 extern PyObject* numpy_nan;
 
+PYARROW_EXPORT
 void pyarrow_init();
 
+PYARROW_EXPORT
 void pyarrow_set_numpy_nan(PyObject* obj);
 
 } // namespace pyarrow

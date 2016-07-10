@@ -411,7 +411,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
  public:
   typedef typename TestType::c_type T;
 
-  void TestFile(std::vector<T>& values, int num_chunks,
+  void MakeTestFile(std::vector<T>& values, int num_chunks,
       std::unique_ptr<ParquetFileReader>* file_reader) {
     std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
     std::unique_ptr<ParquetFileWriter> file_writer = this->MakeWriter(schema);
@@ -435,10 +435,10 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
     *file_reader = this->ReaderFromSink();
   }
 
-  void TestSingleColumnRequiredTableRead(int num_chunks) {
+  void CheckSingleColumnRequiredTableRead(int num_chunks) {
     std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
     std::unique_ptr<ParquetFileReader> file_reader;
-    ASSERT_NO_THROW(TestFile(values, num_chunks, &file_reader));
+    ASSERT_NO_THROW(MakeTestFile(values, num_chunks, &file_reader));
 
     std::shared_ptr<Table> out;
     this->ReadTableFromFile(std::move(file_reader), &out);
@@ -450,10 +450,10 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
     ExpectArray<TestType>(values.data(), chunked_array->chunk(0).get());
   }
 
-  void TestSingleColumnRequiredRead(int num_chunks) {
+  void CheckSingleColumnRequiredRead(int num_chunks) {
     std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
     std::unique_ptr<ParquetFileReader> file_reader;
-    ASSERT_NO_THROW(TestFile(values, num_chunks, &file_reader));
+    ASSERT_NO_THROW(MakeTestFile(values, num_chunks, &file_reader));
 
     std::shared_ptr<Array> out;
     this->ReadSingleColumnFile(std::move(file_reader), &out);
@@ -469,19 +469,19 @@ typedef ::testing::Types<BooleanType, UInt8Type, Int8Type, UInt16Type, Int16Type
 TYPED_TEST_CASE(TestPrimitiveParquetIO, PrimitiveTestTypes);
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredRead) {
-  this->TestSingleColumnRequiredRead(1);
+  this->CheckSingleColumnRequiredRead(1);
 }
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredTableRead) {
-  this->TestSingleColumnRequiredTableRead(1);
+  this->CheckSingleColumnRequiredTableRead(1);
 }
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedRead) {
-  this->TestSingleColumnRequiredRead(4);
+  this->CheckSingleColumnRequiredRead(4);
 }
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
-  this->TestSingleColumnRequiredTableRead(4);
+  this->CheckSingleColumnRequiredTableRead(4);
 }
 
 }  // namespace parquet

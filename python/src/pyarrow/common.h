@@ -22,6 +22,8 @@
 
 #include "arrow/util/buffer.h"
 
+#include "pyarrow/visibility.h"
+
 namespace arrow { class MemoryPool; }
 
 namespace pyarrow {
@@ -94,9 +96,9 @@ struct PyObjectStringify {
     return Status::UnknownError(message);           \
   }
 
-arrow::MemoryPool* GetMemoryPool();
+PYARROW_EXPORT arrow::MemoryPool* GetMemoryPool();
 
-class NumPyBuffer : public arrow::Buffer {
+class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
  public:
   NumPyBuffer(PyArrayObject* arr) :
       Buffer(nullptr, 0) {

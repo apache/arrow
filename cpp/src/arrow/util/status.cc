@@ -58,6 +58,9 @@ std::string Status::CodeAsString() const {
     case StatusCode::NotImplemented:
       type = "NotImplemented";
       break;
+    default:
+      type = "Unknown";
+      break;
   }
   return std::string(type);
 }

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -34,7 +35,7 @@ typedef std::vector<std::shared_ptr<Array>> ArrayVector;
 
 // A data structure managing a list of primitive Arrow arrays logically as one
 // large array
-class ChunkedArray {
+class ARROW_EXPORT ChunkedArray {
  public:
   explicit ChunkedArray(const ArrayVector& chunks);
 
@@ -56,7 +57,7 @@ class ChunkedArray {
 // An immutable column data structure consisting of a field (type metadata) and
 // a logical chunked data array (which can be validated as all being the same
 // type).
-class Column {
+class ARROW_EXPORT Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
   Column(const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data);

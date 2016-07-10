@@ -19,6 +19,8 @@
 #include <cstring>
 #include <string>
 
+#include "arrow/util/visibility.h"
+
 // Return the given status if it is not OK.
 #define ARROW_RETURN_NOT_OK(s)   \
   do {                           \
@@ -82,7 +84,7 @@ enum class StatusCode : char {
   NotImplemented = 10,
 };
 
-class Status {
+class ARROW_EXPORT Status {
  public:
   // Create a success status.
   Status() : state_(NULL) {}

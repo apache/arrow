@@ -25,6 +25,7 @@
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -38,7 +39,7 @@ static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
 // This class provides a facilities for incrementally building the null bitmap
 // (see Append methods) and as a side effect the current number of slots and
 // the null count.
-class ArrayBuilder {
+class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
       : pool_(pool),

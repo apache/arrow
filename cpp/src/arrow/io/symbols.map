@@ -1,0 +1,18 @@
+{
+  # Symbols marked as 'local' are not exported by the DSO and thus may not
+  # be used by client applications.
+  local:
+    # devtoolset / static-libstdc++ symbols
+    __cxa_*;
+
+    extern "C++" {
+      # boost
+      boost::*;
+
+      # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
+      # links c++11 symbols into binaries so that the result may be executed on
+      # a system with an older libstdc++ which doesn't include the necessary
+      # c++11 symbols.
+      std::*;
+    };
+};

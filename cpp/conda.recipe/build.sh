@@ -39,16 +39,17 @@ pwd
 source thirdparty/versions.sh
 export GTEST_HOME=`pwd`/thirdparty/$GTEST_BASEDIR
 
-if [ `uname` == Linux ]; then
-    SHARED_LINKER_FLAGS='-static-libstdc++'
-elif [ `uname` == Darwin ]; then
-    SHARED_LINKER_FLAGS=''
-fi
+# if [ `uname` == Linux ]; then
+#     SHARED_LINKER_FLAGS='-static-libstdc++'
+# elif [ `uname` == Darwin ]; then
+#     SHARED_LINKER_FLAGS=''
+# fi
+
+# -DCMAKE_SHARED_LINKER_FLAGS=$SHARED_LINKER_FLAGS \
 
 cmake \
     -DCMAKE_BUILD_TYPE=release \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
-    -DCMAKE_SHARED_LINKER_FLAGS=$SHARED_LINKER_FLAGS \
     -DARROW_HDFS=on \
     -DARROW_IPC=on \
     -DARROW_PARQUET=on \

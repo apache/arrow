@@ -29,6 +29,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -36,7 +37,7 @@ class MemoryPool;
 
 // Base class for fixed-size logical types.  See MakePrimitiveArray
 // (types/construct.h) for constructing a specific subclass.
-class PrimitiveArray : public Array {
+class ARROW_EXPORT PrimitiveArray : public Array {
  public:
   virtual ~PrimitiveArray() {}
 
@@ -53,7 +54,7 @@ class PrimitiveArray : public Array {
 };
 
 #define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                                         \
-  class NAME : public PrimitiveArray {                                                 \
+  class ARROW_EXPORT NAME : public PrimitiveArray {                                    \
    public:                                                                             \
     using value_type = T;                                                              \
                                                                                        \
@@ -102,7 +103,7 @@ NUMERIC_ARRAY_DECL(FloatArray, FloatType, float);
 NUMERIC_ARRAY_DECL(DoubleArray, DoubleType, double);
 
 template <typename Type>
-class PrimitiveBuilder : public ArrayBuilder {
+class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
   typedef typename Type::c_type value_type;
 
@@ -149,7 +150,7 @@ class PrimitiveBuilder : public ArrayBuilder {
 };
 
 template <typename T>
-class NumericBuilder : public PrimitiveBuilder<T> {
+class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
  public:
   using typename PrimitiveBuilder<T>::value_type;
   using PrimitiveBuilder<T>::PrimitiveBuilder;
@@ -262,7 +263,7 @@ typedef NumericBuilder<Int64Type> Int64Builder;
 typedef NumericBuilder<FloatType> FloatBuilder;
 typedef NumericBuilder<DoubleType> DoubleBuilder;
 
-class BooleanArray : public PrimitiveArray {
+class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
@@ -288,7 +289,7 @@ struct type_traits<BooleanType> {
   }
 };
 
-class BooleanBuilder : public PrimitiveBuilder<BooleanType> {
+class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
  public:
   explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
       : PrimitiveBuilder<BooleanType>(pool, type) {}

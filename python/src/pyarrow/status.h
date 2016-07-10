@@ -17,6 +17,8 @@
 #include <cstring>
 #include <string>
 
+#include "pyarrow/visibility.h"
+
 namespace pyarrow {
 
 #define PY_RETURN_NOT_OK(s) do {                \
@@ -38,7 +40,7 @@ enum class StatusCode: char {
   UnknownError = 10
 };
 
-class Status {
+class PYARROW_EXPORT Status {
  public:
   // Create a success status.
   Status() : state_(NULL) { }

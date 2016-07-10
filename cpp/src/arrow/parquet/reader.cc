@@ -213,7 +213,7 @@ Status FlatColumnReader::Impl::ReadNonNullableBatch(typename ParquetType::c_type
   using ParquetCType = typename ParquetType::c_type;
 
   DCHECK(builder);
-  const ArrowCType* values_ptr;
+  const ArrowCType* values_ptr = nullptr;
   RETURN_NOT_OK(
       (ConvertPhysicalType<ParquetCType, ArrowCType>(values, values_read, &values_ptr)));
   RETURN_NOT_OK(builder->Append(values_ptr, values_read));

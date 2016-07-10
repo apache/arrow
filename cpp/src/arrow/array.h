@@ -24,6 +24,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -35,7 +36,7 @@ class Status;
 //
 // The base class is only required to have a null bitmap buffer if the null
 // count is greater than 0
-class Array {
+class ARROW_EXPORT Array {
  public:
   Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
@@ -83,7 +84,7 @@ class Array {
 };
 
 // Degenerate null type Array
-class NullArray : public Array {
+class ARROW_EXPORT NullArray : public Array {
  public:
   NullArray(const std::shared_ptr<DataType>& type, int32_t length)
       : Array(type, length, length, nullptr) {}
