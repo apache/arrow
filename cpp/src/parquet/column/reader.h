@@ -39,6 +39,7 @@ class PARQUET_EXPORT ColumnReader {
  public:
   ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>,
       MemoryAllocator* allocator = default_allocator());
+  virtual ~ColumnReader();
 
   static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor*,
       std::unique_ptr<PageReader>, MemoryAllocator* allocator = default_allocator());
@@ -105,6 +106,7 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   TypedColumnReader(const ColumnDescriptor* schema, std::unique_ptr<PageReader> pager,
       MemoryAllocator* allocator = default_allocator())
       : ColumnReader(schema, std::move(pager), allocator), current_decoder_(NULL) {}
+  virtual ~TypedColumnReader() {}
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.

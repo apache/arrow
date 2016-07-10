@@ -42,6 +42,8 @@ ColumnReader::ColumnReader(const ColumnDescriptor* descr,
       num_decoded_values_(0),
       allocator_(allocator) {}
 
+ColumnReader::~ColumnReader() {}
+
 template <typename DType>
 void TypedColumnReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
   int encoding = static_cast<int>(page->encoding());
