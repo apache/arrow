@@ -191,6 +191,15 @@ typedef TypedColumnWriter<DoubleType> DoubleWriter;
 typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
 typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
+extern template class PARQUET_EXPORT TypedColumnWriter<BooleanType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int32Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int64Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int96Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<FloatType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<DoubleType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<ByteArrayType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<FLBAType>;
+
 }  // namespace parquet
 
 #endif  // PARQUET_COLUMN_READER_H
