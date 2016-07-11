@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_INTERFACES
-#define ARROW_IO_INTERFACES
+#ifndef ARROW_IO_INTERFACES_H
+#define ARROW_IO_INTERFACES_H
 
 #include <cstdint>
 
@@ -40,17 +40,17 @@ class FileSystemClient {
 };
 
 class FileBase {
+ public:
   virtual Status Close() = 0;
-
   virtual Status Tell(int64_t* position) = 0;
 };
 
 class ReadableFile : public FileBase {
  public:
   virtual Status ReadAt(
-      int64_t position, int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) = 0;
+      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) = 0;
 
-  virtual Status Read(int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) = 0;
+  virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) = 0;
 
   virtual Status GetSize(int64_t* size) = 0;
 };
@@ -62,10 +62,10 @@ class RandomAccessFile : public ReadableFile {
 
 class WriteableFile : public FileBase {
  public:
-  virtual Status Write(const uint8_t* buffer, int32_t nbytes) = 0;
+  virtual Status Write(const uint8_t* buffer, int64_t nbytes) = 0;
 };
 
 }  // namespace io
 }  // namespace arrow
 
-#endif  // ARROW_IO_INTERFACES
+#endif  // ARROW_IO_INTERFACES_H

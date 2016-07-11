@@ -51,17 +51,17 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
 
     cdef cppclass HdfsReadableFile(CHdfsFile):
         CStatus GetSize(int64_t* size)
-        CStatus Read(int32_t nbytes, int32_t* bytes_read,
+        CStatus Read(int64_t nbytes, int64_t* bytes_read,
                      uint8_t* buffer)
 
-        CStatus ReadAt(int64_t position, int32_t nbytes,
-                       int32_t* bytes_read, uint8_t* buffer)
+        CStatus ReadAt(int64_t position, int64_t nbytes,
+                       int64_t* bytes_read, uint8_t* buffer)
 
     cdef cppclass HdfsWriteableFile(CHdfsFile):
-        CStatus Write(const uint8_t* buffer, int32_t nbytes)
+        CStatus Write(const uint8_t* buffer, int64_t nbytes)
 
-        CStatus Write(const uint8_t* buffer, int32_t nbytes,
-                      int32_t* bytes_written)
+        CStatus Write(const uint8_t* buffer, int64_t nbytes,
+                      int64_t* bytes_written)
 
     cdef cppclass CHdfsClient" arrow::io::HdfsClient":
         @staticmethod

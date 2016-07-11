@@ -100,7 +100,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status ReadAt(int64_t position, int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) {
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
     tSize ret = hdfsPread(fs_, file_, static_cast<tOffset>(position),
         reinterpret_cast<void*>(buffer), nbytes);
     RETURN_NOT_OK(CheckReadResult(ret));
@@ -108,7 +108,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Read(int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) {
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
     tSize ret = hdfsRead(fs_, file_, reinterpret_cast<void*>(buffer), nbytes);
     RETURN_NOT_OK(CheckReadResult(ret));
     *bytes_read = ret;
@@ -138,11 +138,11 @@ Status HdfsReadableFile::Close() {
 }
 
 Status HdfsReadableFile::ReadAt(
-    int64_t position, int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) {
+    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
 }
 
-Status HdfsReadableFile::Read(int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) {
+Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
 }
 
@@ -177,7 +177,7 @@ class HdfsWriteableFile::HdfsWriteableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* buffer, int32_t nbytes, int32_t* bytes_written) {
+  Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
     tSize ret = hdfsWrite(fs_, file_, reinterpret_cast<const void*>(buffer), nbytes);
     CHECK_FAILURE(ret, "Write");
     *bytes_written = ret;
@@ -198,12 +198,12 @@ Status HdfsWriteableFile::Close() {
 }
 
 Status HdfsWriteableFile::Write(
-    const uint8_t* buffer, int32_t nbytes, int32_t* bytes_read) {
+    const uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);
 }
 
-Status HdfsWriteableFile::Write(const uint8_t* buffer, int32_t nbytes) {
-  int32_t bytes_written_dummy = 0;
+Status HdfsWriteableFile::Write(const uint8_t* buffer, int64_t nbytes) {
+  int64_t bytes_written_dummy = 0;
   return Write(buffer, nbytes, &bytes_written_dummy);
 }
 

@@ -383,7 +383,7 @@ cdef class HdfsFile:
         Read indicated number of bytes from the file, up to EOF
         """
         cdef:
-            int32_t bytes_read = 0
+            int64_t bytes_read = 0
             uint8_t* buf
 
         self._assert_readable()
@@ -394,7 +394,7 @@ cdef class HdfsFile:
         if buf == NULL:
             raise MemoryError("Failed to allocate {0} bytes".format(nbytes))
 
-        cdef int32_t total_bytes = 0
+        cdef int64_t total_bytes = 0
 
         cdef int rpc_chunksize = min(self.buffer_size, nbytes)
 
@@ -423,7 +423,7 @@ cdef class HdfsFile:
         memory). First seeks to the beginning of the file.
         """
         cdef:
-            int32_t bytes_read = 0
+            int64_t bytes_read = 0
             uint8_t* buf
         self._assert_readable()
 
@@ -499,6 +499,6 @@ cdef class HdfsFile:
         data = tobytes(data)
 
         cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
-        cdef int32_t bufsize = len(data)
+        cdef int64_t bufsize = len(data)
         with nogil:
             check_cstatus(self.wr_file.get().Write(buf, bufsize))

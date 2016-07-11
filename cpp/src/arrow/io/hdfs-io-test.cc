@@ -266,7 +266,7 @@ TEST_F(TestHdfsClient, ReadableMethods) {
   ASSERT_EQ(size, file_size);
 
   uint8_t buffer[50];
-  int32_t bytes_read = 0;
+  int64_t bytes_read = 0;
 
   ASSERT_OK(file->Read(50, &bytes_read, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, data.data(), 50));
