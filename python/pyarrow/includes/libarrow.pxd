@@ -51,7 +51,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToString()
 
     cdef cppclass MemoryPool" arrow::MemoryPool":
-        int64_t bytes_allocated()
+        uint64_t bytes_allocated()
 
     cdef MemoryPool* default_memory_pool()
 

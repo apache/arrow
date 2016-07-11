@@ -47,15 +47,22 @@ class PyArrowMemoryPool : public arrow::MemoryPool {
     return arrow::Status::OK();
   }
 
-  int64_t bytes_allocated() const override {
+  uint64_t bytes_allocated() const override {
     std::lock_guard<std::mutex> guard(pool_lock_);
     return bytes_allocated_;
   }
 
-  void Free(uint8_t* buffer, int64_t size) override {
+  arrow::Status Free(uint8_t* buffer, int64_t size) override {
     std::lock_guard<std::mutex> guard(pool_lock_);
+    if (bytes_allocated_ < size) {
+      std::stringstream ss;
+      ss << "free of size " << size << " larger than allocated bytes " << bytes_allocated_ << " failed ";
+      return arrow::Status::Invalid(ss.str());
+    }
     std::free(buffer);
     bytes_allocated_ -= size;
+
+    return arrow::Status::OK();
   }
 
  private:
