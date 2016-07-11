@@ -57,13 +57,13 @@ class InternalMemoryPool : public MemoryPool {
 
   Status Allocate(int64_t size, uint8_t** out) override;
 
-  void Free(uint8_t* buffer, int64_t size) override;
+  Status Free(uint8_t* buffer, int64_t size) override;
 
-  int64_t bytes_allocated() const override;
+  uint64_t bytes_allocated() const override;
 
  private:
   mutable std::mutex pool_lock_;
-  int64_t bytes_allocated_;
+  uint64_t bytes_allocated_;
 };
 
 Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
@@ -74,15 +74,22 @@ Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
   return Status::OK();
 }
 
-int64_t InternalMemoryPool::bytes_allocated() const {
+uint64_t InternalMemoryPool::bytes_allocated() const {
   std::lock_guard<std::mutex> guard(pool_lock_);
   return bytes_allocated_;
 }
 
-void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
+Status InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
   std::lock_guard<std::mutex> guard(pool_lock_);
+  if (bytes_allocated_ < size) {
+    std::stringstream ss;
+    ss << "free of size " << size << " larger than allocated bytes " << bytes_allocated_ << " failed ";
+    return Status::Invalid(ss.str());
+  }
   std::free(buffer);
   bytes_allocated_ -= size;
+
+  return Status::OK();
 }
 
 InternalMemoryPool::~InternalMemoryPool() {}

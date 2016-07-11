@@ -31,9 +31,9 @@ class ARROW_EXPORT MemoryPool {
   virtual ~MemoryPool();
 
   virtual Status Allocate(int64_t size, uint8_t** out) = 0;
-  virtual void Free(uint8_t* buffer, int64_t size) = 0;
+  virtual Status Free(uint8_t* buffer, int64_t size) = 0;
 
-  virtual int64_t bytes_allocated() const = 0;
+  virtual uint64_t bytes_allocated() const = 0;
 };
 
 ARROW_EXPORT MemoryPool* default_memory_pool();

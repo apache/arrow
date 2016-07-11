@@ -34,7 +34,7 @@ TEST(DefaultMemoryPool, MemoryTracking) {
   EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data) % 64);
   ASSERT_EQ(100, pool->bytes_allocated());
 
-  pool->Free(data, 100);
+  ASSERT_OK(pool->Free(data, 100));
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
@@ -44,6 +44,14 @@ TEST(DefaultMemoryPool, OOM) {
   uint8_t* data;
   int64_t to_alloc = std::numeric_limits<int64_t>::max();
   ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+}
+
+TEST(DefaultMemoryPool, FreeInsufficientMemory) {
+  MemoryPool* pool = default_memory_pool();
+
+  uint8_t* data;
+  ASSERT_OK(pool->Allocate(128, &data));
+  ASSERT_RAISES(Invalid, pool->Free(data, 256));
 }
 
 }  // namespace arrow
