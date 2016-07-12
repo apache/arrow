@@ -96,6 +96,7 @@ cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
         ParquetAllocator()
         ParquetAllocator(MemoryPool* pool)
         MemoryPool* pool()
+        void set_pool(MemoryPool* pool)
 
     cdef cppclass ParquetReadSource:
         ParquetReadSource(const shared_ptr[RandomAccessFile]& file,
@@ -103,19 +104,20 @@ cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
 
 
 cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:
-    cdef cppclass FileReader:
-        @staticmethod
-        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
                      ParquetAllocator* allocator,
                      unique_ptr[FileReader]* reader)
 
+    cdef cppclass FileReader:
         FileReader(MemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadFlatTable(shared_ptr[CTable]* out);
 
 
 cdef extern from "arrow/parquet/schema.h" namespace "arrow::parquet" nogil:
-    CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema, shared_ptr[CSchema]* out)
-    CStatus ToParquetSchema(const CSchema* arrow_schema, shared_ptr[SchemaDescriptor]* out)
+    CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                              shared_ptr[CSchema]* out)
+    CStatus ToParquetSchema(const CSchema* arrow_schema,
+                            shared_ptr[SchemaDescriptor]* out)
 
 
 cdef extern from "arrow/parquet/writer.h" namespace "arrow::parquet" nogil:

@@ -316,10 +316,10 @@ cdef class HdfsClient:
 
 cdef class NativeFileInterface:
 
-    cdef int read_handle(self, shared_ptr[RandomAccessFile]* file) except -1:
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
         raise NotImplementedError
 
-    cdef int write_handle(self, shared_ptr[WriteableFile]* file) except -1:
+    cdef write_handle(self, shared_ptr[WriteableFile]* file):
         raise NotImplementedError
 
 cdef class HdfsFile(NativeFileInterface):
@@ -364,15 +364,13 @@ cdef class HdfsFile(NativeFileInterface):
         if self.is_readonly:
             raise IOError("only valid on writeonly files")
 
-    cdef int read_handle(self, shared_ptr[RandomAccessFile]* file) except -1:
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
         self._assert_readable()
         file[0] = <shared_ptr[RandomAccessFile]> self.rd_file
-        return 0
 
-    cdef int write_handle(self, shared_ptr[WriteableFile]* file) except -1:
+    cdef write_handle(self, shared_ptr[WriteableFile]* file):
         self._assert_writeable()
         file[0] = <shared_ptr[WriteableFile]> self.wr_file
-        return 0
 
     def size(self):
         cdef int64_t size
