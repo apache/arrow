@@ -124,9 +124,13 @@ Status MakeListArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& null_bitmap, ArrayPtr* out) {
   switch (type->type) {
     case Type::BINARY:
+      out->reset(new BinaryArray(type, length, offsets, values, null_count, null_bitmap));
+      break;
+
     case Type::LIST:
       out->reset(new ListArray(type, length, offsets, values, null_count, null_bitmap));
       break;
+
     case Type::DECIMAL_TEXT:
     case Type::STRING:
       out->reset(new StringArray(type, length, offsets, values, null_count, null_bitmap));

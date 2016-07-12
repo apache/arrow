@@ -31,6 +31,7 @@
 #include "arrow/test-util.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
@@ -101,6 +102,52 @@ Status MakeIntRowBatch(std::shared_ptr<RowBatch>* out) {
   MemoryPool* pool = default_memory_pool();
   RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0));
   RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1));
+  out->reset(new RowBatch(schema, length, {a0, a1}));
+  return Status::OK();
+}
+
+template <class Builder, class RawType>
+Status MakeRandomBinaryArray(
+    const TypePtr& type, int32_t length, MemoryPool* pool, ArrayPtr* array) {
+  const std::vector<std::string> values = {
+      "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
+  Builder builder(pool, type);
+  const auto values_len = values.size();
+  for (int32_t i = 0; i < length; ++i) {
+    int values_index = i % values_len;
+    if (values_index == 0) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      const std::string& value = values[values_index];
+      RETURN_NOT_OK(
+          builder.Append(reinterpret_cast<const RawType*>(value.data()), value.size()));
+    }
+  }
+  *array = builder.Finish();
+  return Status::OK();
+}
+
+Status MakeStringTypesRowBatch(std::shared_ptr<RowBatch>* out) {
+  const int32_t length = 500;
+  auto string_type = std::make_shared<StringType>();
+  auto binary_type = std::make_shared<BinaryType>();
+  auto f0 = std::make_shared<Field>("f0", string_type);
+  auto f1 = std::make_shared<Field>("f1", binary_type);
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  std::shared_ptr<Array> a0, a1;
+  MemoryPool* pool = default_memory_pool();
+
+  {
+    auto status =
+        MakeRandomBinaryArray<StringBuilder, char>(string_type, length, pool, &a0);
+    RETURN_NOT_OK(status);
+  }
+  {
+    auto status =
+        MakeRandomBinaryArray<BinaryBuilder, uint8_t>(binary_type, length, pool, &a1);
+    RETURN_NOT_OK(status);
+  }
   out->reset(new RowBatch(schema, length, {a0, a1}));
   return Status::OK();
 }
@@ -191,9 +238,10 @@ Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
   return Status::OK();
 }
 
-INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
+INSTANTIATE_TEST_CASE_P(
+    RoundTripTests, TestWriteRowBatch,
     ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
-                            &MakeZeroLengthRowBatch, &MakeDeeplyNestedList));
+        &MakeZeroLengthRowBatch, &MakeDeeplyNestedList, &MakeStringTypesRowBatch));
 
 void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
   MockMemorySource mock_source(1 << 16);

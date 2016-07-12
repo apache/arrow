@@ -33,6 +33,7 @@
 #include "arrow/types/construct.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
@@ -81,14 +82,9 @@ static bool IsListType(const DataType* type) {
     // code consider using pattern like:
     // http://stackoverflow.com/questions/26784685/c-macro-for-calling-function-based-on-enum-type
     //
-    // TODO(emkornfield) Fix type systems so these are all considered lists and
-    // the types behave the same way?
-    // case Type::BINARY:
-    // case Type::CHAR:
+    case Type::BINARY:
     case Type::LIST:
-      // see todo on common types
-      // case Type::STRING:
-      // case Type::VARCHAR:
+    case Type::STRING:
       return true;
     default:
       return false;
