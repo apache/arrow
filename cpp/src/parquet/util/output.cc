@@ -19,6 +19,7 @@
 
 #include <cstring>
 #include <memory>
+#include <sstream>
 
 #include "parquet/exception.h"
 #include "parquet/util/buffer.h"

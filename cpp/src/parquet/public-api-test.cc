@@ -22,8 +22,6 @@
 #include "parquet/api/schema.h"
 #include "parquet/api/writer.h"
 
-namespace parquet {
-
 TEST(TestPublicAPI, DoesNotIncludeThrift) {
 #ifdef _THRIFT_THRIFT_H_
   FAIL() << "Thrift headers should not be in the public API";
@@ -36,4 +34,10 @@ TEST(TestPublicAPI, DoesNotExportDCHECK) {
 #endif
 }
 
-}  // namespace parquet
+void ThrowsParquetException() {
+  throw parquet::ParquetException("This function throws");
+}
+
+TEST(TestPublicAPI, CanThrowParquetException) {
+  ASSERT_THROW(ThrowsParquetException(), parquet::ParquetException);
+}

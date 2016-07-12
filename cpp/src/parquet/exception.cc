@@ -15,32 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_EXCEPTION_H
-#define PARQUET_EXCEPTION_H
+#include "parquet/exception.h"
 
 #include <exception>
+#include <sstream>
 #include <string>
-
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
-class PARQUET_EXPORT ParquetException : public std::exception {
- public:
-  static void EofException();
-  static void NYI(const std::string& msg);
+void ParquetException::EofException() {
+  throw ParquetException("Unexpected end of stream.");
+}
 
-  explicit ParquetException(const char* msg);
-  explicit ParquetException(const std::string& msg);
-  explicit ParquetException(const char* msg, exception& e);
+void ParquetException::NYI(const std::string& msg) {
+  std::stringstream ss;
+  ss << "Not yet implemented: " << msg << ".";
+  throw ParquetException(ss.str());
+}
 
-  virtual ~ParquetException() throw();
-  virtual const char* what() const throw();
+ParquetException::ParquetException(const char* msg) : msg_(msg) {}
 
- private:
-  std::string msg_;
-};
+ParquetException::ParquetException(const std::string& msg) : msg_(msg) {}
+
+ParquetException::ParquetException(const char* msg, std::exception& e) : msg_(msg) {}
+
+ParquetException::~ParquetException() throw() {}
+
+const char* ParquetException::what() const throw() {
+  return msg_.c_str();
+}
 
 }  // namespace parquet
-
-#endif  // PARQUET_EXCEPTION_H

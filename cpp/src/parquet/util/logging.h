@@ -44,9 +44,9 @@ namespace parquet {
 #ifdef NDEBUG
 #define PARQUET_DFATAL PARQUET_WARNING
 
-#define DCHECK(condition) \
-  PARQUET_IGNORE_EXPR(condition)\
-  while (false)           \
+#define DCHECK(condition)        \
+  PARQUET_IGNORE_EXPR(condition) \
+  while (false)                  \
   parquet::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
   PARQUET_IGNORE_EXPR(val1)   \
