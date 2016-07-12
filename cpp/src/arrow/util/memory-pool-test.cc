@@ -51,7 +51,7 @@ TEST(DefaultMemoryPool, FreeLargeMemory) {
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(128, &data));
-  ASSERT_DEATH(pool->Free(data, 256),
+  ASSERT_EXIT(pool->Free(data, 256), ::testing::ExitedWithCode(1),
                ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
 }
 
