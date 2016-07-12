@@ -50,8 +50,8 @@ TEST(DefaultMemoryPool, FreeLargeMemory) {
   MemoryPool* pool = default_memory_pool();
 
   uint8_t* data;
-  ASSERT_OK(pool->Allocate(128, &data));
-  ASSERT_EXIT(pool->Free(data, 256), ::testing::ExitedWithCode(1),
+  ASSERT_OK(pool->Allocate(100, &data));
+  ASSERT_EXIT(pool->Free(data, 120), ::testing::ExitedWithCode(1),
                ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
 }
 
