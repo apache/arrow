@@ -18,12 +18,12 @@
 #ifndef ARROW_PARQUET_UTILS_H
 #define ARROW_PARQUET_UTILS_H
 
-#include "arrow/util/status.h"
+#include <sstream>
 
+#include "arrow/util/status.h"
 #include "parquet/exception.h"
 
 namespace arrow {
-
 namespace parquet {
 
 #define PARQUET_CATCH_NOT_OK(s) \
@@ -36,8 +36,17 @@ namespace parquet {
     (s);                         \
   } catch (const ::parquet::ParquetException& e) {}
 
-}  // namespace parquet
+#define PARQUET_THROW_NOT_OK(s)                    \
+  do {                                             \
+    ::arrow::Status _s = (s);                      \
+    if (!_s.ok()) {                                \
+      std::stringstream ss;                        \
+      ss << "Arrow error: " << _s.ToString();      \
+      throw ::parquet::ParquetException(ss.str()); \
+    }                                              \
+  } while (0);
 
+}  // namespace parquet
 }  // namespace arrow
 
 #endif  // ARROW_PARQUET_UTILS_H

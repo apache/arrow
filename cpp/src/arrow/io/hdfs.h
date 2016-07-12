@@ -164,14 +164,14 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   Status GetSize(int64_t* size) override;
 
   Status ReadAt(
-      int64_t position, int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) override;
+      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
 
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) override;
 
   // NOTE: If you wish to read a particular range of a file in a multithreaded
   // context, you may prefer to use ReadAt to avoid locking issues
-  Status Read(int32_t nbytes, int32_t* bytes_read, uint8_t* buffer) override;
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
 
  private:
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
@@ -189,9 +189,9 @@ class ARROW_EXPORT HdfsWriteableFile : public WriteableFile {
 
   Status Close() override;
 
-  Status Write(const uint8_t* buffer, int32_t nbytes) override;
+  Status Write(const uint8_t* buffer, int64_t nbytes) override;
 
-  Status Write(const uint8_t* buffer, int32_t nbytes, int32_t* bytes_written);
+  Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written);
 
   Status Tell(int64_t* position) override;
 

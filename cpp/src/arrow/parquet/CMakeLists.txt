@@ -19,6 +19,7 @@
 # arrow_parquet : Arrow <-> Parquet adapter
 
 set(PARQUET_SRCS
+  io.cc
   reader.cc
   schema.cc
   writer.cc
@@ -48,8 +49,12 @@ ARROW_TEST_LINK_LIBRARIES(parquet-schema-test arrow_parquet)
 ADD_ARROW_TEST(parquet-io-test)
 ARROW_TEST_LINK_LIBRARIES(parquet-io-test arrow_parquet)
 
+ADD_ARROW_TEST(parquet-reader-writer-test)
+ARROW_TEST_LINK_LIBRARIES(parquet-reader-writer-test arrow_parquet)
+
 # Headers: top level
 install(FILES
+  io.h
   reader.h
   schema.h
   utils.h
