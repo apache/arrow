@@ -99,8 +99,8 @@ cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
         void set_pool(MemoryPool* pool)
 
     cdef cppclass ParquetReadSource:
-        ParquetReadSource(const shared_ptr[RandomAccessFile]& file,
-                          ParquetAllocator* allocator)
+        ParquetReadSource(ParquetAllocator* allocator)
+        Open(const shared_ptr[RandomAccessFile]& file)
 
 
 cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:

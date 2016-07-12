@@ -189,7 +189,8 @@ FileReader::~FileReader() {}
 // Static ctor
 Status OpenFile(const std::shared_ptr<io::RandomAccessFile>& file,
     ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<ParquetRAS> source(new ParquetReadSource(file, allocator));
+  std::unique_ptr<ParquetReadSource> source(new ParquetReadSource(allocator));
+  RETURN_NOT_OK(source->Open(file));
 
   // TODO(wesm): reader properties
   std::unique_ptr<ParquetReader> pq_reader;

@@ -55,9 +55,17 @@ void ParquetAllocator::Free(uint8_t* buffer, int64_t size) {
 // ----------------------------------------------------------------------
 // ParquetReadSource
 
-ParquetReadSource::ParquetReadSource(
-    const std::shared_ptr<ArrowROFile>& file, ParquetAllocator* allocator)
-    : file_(file), allocator_(allocator) {}
+ParquetReadSource::ParquetReadSource(ParquetAllocator* allocator)
+    : file_(nullptr), allocator_(allocator) {}
+
+Status ParquetReadSource::Open(const std::shared_ptr<io::RandomAccessFile>& file) {
+  int64_t file_size;
+  RETURN_NOT_OK(file->GetSize(&file_size));
+
+  file_ = file;
+  size_ = file_size;
+  return Status::OK();
+}
 
 void ParquetReadSource::Close() {
   PARQUET_THROW_NOT_OK(file_->Close());
