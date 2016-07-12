@@ -34,7 +34,7 @@ TEST(DefaultMemoryPool, MemoryTracking) {
   EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data) % 64);
   ASSERT_EQ(100, pool->bytes_allocated());
 
-  ASSERT_OK(pool->Free(data, 100));
+  pool->Free(data, 100);
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
@@ -46,12 +46,13 @@ TEST(DefaultMemoryPool, OOM) {
   ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
 }
 
-TEST(DefaultMemoryPool, FreeInsufficientMemory) {
+TEST(DefaultMemoryPool, FreeLargeMemory) {
   MemoryPool* pool = default_memory_pool();
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(128, &data));
-  ASSERT_RAISES(Invalid, pool->Free(data, 256));
+  ASSERT_DEATH(pool->Free(data, 256),
+               ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
 }
 
 }  // namespace arrow
