@@ -147,9 +147,8 @@ TEST(TestParquetReadSource, Basics) {
   std::string data = "this is the data";
   auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
 
-  ParquetAllocator allocator;
   auto file = std::make_shared<BufferReader>(data_buffer, data.size());
-  auto source = std::make_shared<ParquetReadSource>(file, &allocator);
+  auto source = std::make_shared<ParquetReadSource>(file, default_memory_pool());
 
   ASSERT_EQ(0, source->Tell());
   ASSERT_NO_THROW(source->Seek(5));

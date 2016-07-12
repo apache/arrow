@@ -35,7 +35,6 @@ using parquet::ParquetVersion;
 using parquet::schema::GroupNode;
 
 namespace arrow {
-
 namespace parquet {
 
 class FileWriter::Impl {

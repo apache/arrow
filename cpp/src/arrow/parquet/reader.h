@@ -23,6 +23,8 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
+#include "arrow/io/interfaces.h"
+#include "arrow/parquet/io.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -81,6 +83,11 @@ class FlatColumnReader;
 // arrays
 class ARROW_EXPORT FileReader {
  public:
+  // Helper function to create a file reader from an implementation of an Arrow
+  // readable file
+  static Status Open(MemoryPool* pool, const std::shared_ptr<io::RandomAccessFile>& file,
+      std::unique_ptr<FileReader>* reader);
+
   FileReader(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
@@ -99,7 +106,7 @@ class ARROW_EXPORT FileReader {
   virtual ~FileReader();
 
  private:
-  class Impl;
+  class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
 

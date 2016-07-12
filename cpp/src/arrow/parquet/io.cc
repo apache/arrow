@@ -56,8 +56,10 @@ void ParquetAllocator::Free(uint8_t* buffer, int64_t size) {
 // ParquetReadSource
 
 ParquetReadSource::ParquetReadSource(
-    const std::shared_ptr<ArrowROFile>& file, ParquetAllocator* allocator)
-    : file_(file), allocator_(allocator) {}
+    const std::shared_ptr<ArrowROFile>& file, MemoryPool* pool)
+    : file_(file) {
+  allocator_.set_pool(pool);
+}
 
 void ParquetReadSource::Close() {
   PARQUET_THROW_NOT_OK(file_->Close());
@@ -82,7 +84,7 @@ int64_t ParquetReadSource::Read(int64_t nbytes, uint8_t* out) {
 std::shared_ptr<::parquet::Buffer> ParquetReadSource::Read(int64_t nbytes) {
   // TODO(wesm): This code is duplicated from parquet/util/input.cc; suggests
   // that there should be more code sharing amongst file-like sources
-  auto result = std::make_shared<::parquet::OwnedMutableBuffer>(0, allocator_);
+  auto result = std::make_shared<::parquet::OwnedMutableBuffer>(0, &allocator_);
   result->Resize(nbytes);
 
   int64_t bytes_read = Read(nbytes, result->mutable_data());
