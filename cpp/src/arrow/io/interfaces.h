@@ -19,6 +19,7 @@
 #define ARROW_IO_INTERFACES_H
 
 #include <cstdint>
+#include <memory>
 
 namespace arrow {
 

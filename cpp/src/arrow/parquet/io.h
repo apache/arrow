@@ -51,7 +51,7 @@ class ARROW_EXPORT ParquetAllocator : public ::parquet::MemoryAllocator {
 
   void set_pool(MemoryPool* pool) { pool_ = pool; }
 
-  MemoryPool* pool() { return pool_; }
+  MemoryPool* pool() const { return pool_; }
 
  private:
   MemoryPool* pool_;
@@ -59,7 +59,8 @@ class ARROW_EXPORT ParquetAllocator : public ::parquet::MemoryAllocator {
 
 class ARROW_EXPORT ParquetReadSource : public ::parquet::RandomAccessSource {
  public:
-  ParquetReadSource(const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool);
+  ParquetReadSource(
+      const std::shared_ptr<io::RandomAccessFile>& file, ParquetAllocator* allocator);
 
   void Close() override;
   int64_t Tell() const override;
@@ -72,7 +73,7 @@ class ARROW_EXPORT ParquetReadSource : public ::parquet::RandomAccessSource {
   std::shared_ptr<io::RandomAccessFile> file_;
 
   // The allocator is required for creating managed buffers
-  ParquetAllocator allocator_;
+  ParquetAllocator* allocator_;
 };
 
 }  // namespace parquet

@@ -85,8 +85,8 @@ class ARROW_EXPORT FileReader {
  public:
   // Helper function to create a file reader from an implementation of an Arrow
   // readable file
-  static Status Open(MemoryPool* pool, const std::shared_ptr<io::RandomAccessFile>& file,
-      std::unique_ptr<FileReader>* reader);
+  static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
+      ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader);
 
   FileReader(MemoryPool* pool, std::unique_ptr<::parquet::ParquetFileReader> reader);
 

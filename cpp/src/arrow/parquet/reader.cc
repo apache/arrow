@@ -187,14 +187,16 @@ FileReader::FileReader(
 FileReader::~FileReader() {}
 
 // Static ctor
-Status Open(MemoryPool* pool, const std::shared_ptr<io::RandomAccessFile>& file,
-    std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<ParquetRAS> source(new ParquetReadSource(file, pool));
+Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
+    ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader) {
+  std::unique_ptr<ParquetRAS> source(new ParquetReadSource(file, allocator));
 
   // TODO(wesm): reader properties
   std::unique_ptr<ParquetReader> pq_reader;
   PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(std::move(source)));
-  reader->reset(new FileReader(pool, std::move(pq_reader)));
+
+  // Use the same memory pool as the ParquetAllocator
+  reader->reset(new FileReader(allocator->pool(), std::move(pq_reader)));
   return Status::OK();
 }
 

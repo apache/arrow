@@ -19,10 +19,36 @@
 
 from pyarrow.includes.common cimport *
 
-cdef extern from "arrow/io/interfaces.h" nogil:
+cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
+    enum FileMode" arrow::io::FileMode::type":
+        FileMode_READ" arrow::io::FileMode::READ"
+        FileMode_WRITE" arrow::io::FileMode::WRITE"
+        FileMode_READWRITE" arrow::io::FileMode::READWRITE"
+
     enum ObjectType" arrow::io::ObjectType::type":
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
+
+    cdef cppclass FileBase:
+        CStatus Close()
+        CStatus Tell(int64_t* position)
+
+    cdef cppclass ReadableFile(FileBase):
+        CStatus GetSize(int64_t* size)
+        CStatus Read(int64_t nbytes, int64_t* bytes_read,
+                     uint8_t* buffer)
+
+        CStatus ReadAt(int64_t position, int64_t nbytes,
+                       int64_t* bytes_read, uint8_t* buffer)
+
+    cdef cppclass RandomAccessFile(ReadableFile):
+        CStatus Seek(int64_t position)
+
+    cdef cppclass WriteableFile(FileBase):
+        CStatus Write(const uint8_t* buffer, int64_t nbytes)
+        # CStatus Write(const uint8_t* buffer, int64_t nbytes,
+        #               int64_t* bytes_written)
+
 
 cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     CStatus ConnectLibHdfs()
@@ -44,24 +70,11 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         int64_t block_size
         int16_t permissions
 
-    cdef cppclass CHdfsFile:
-        CStatus Close()
-        CStatus Seek(int64_t position)
-        CStatus Tell(int64_t* position)
+    cdef cppclass HdfsReadableFile(RandomAccessFile):
+        pass
 
-    cdef cppclass HdfsReadableFile(CHdfsFile):
-        CStatus GetSize(int64_t* size)
-        CStatus Read(int64_t nbytes, int64_t* bytes_read,
-                     uint8_t* buffer)
-
-        CStatus ReadAt(int64_t position, int64_t nbytes,
-                       int64_t* bytes_read, uint8_t* buffer)
-
-    cdef cppclass HdfsWriteableFile(CHdfsFile):
-        CStatus Write(const uint8_t* buffer, int64_t nbytes)
-
-        CStatus Write(const uint8_t* buffer, int64_t nbytes,
-                      int64_t* bytes_written)
+    cdef cppclass HdfsWriteableFile(WriteableFile):
+        pass
 
     cdef cppclass CHdfsClient" arrow::io::HdfsClient":
         @staticmethod

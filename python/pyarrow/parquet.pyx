@@ -39,10 +39,11 @@ def read_table(filename, columns=None):
     cdef Table table = Table()
     cdef shared_ptr[CTable] ctable
 
-    # Must be in one expression to avoid calling std::move which is not possible
-    # in Cython (due to missing rvalue support)
+    # Must be in one expression to avoid calling std::move which is not
+    # possible in Cython (due to missing rvalue support)
     reader = unique_ptr[FileReader](new FileReader(default_memory_pool(),
         ParquetFileReader.OpenFile(tobytes(filename))))
+
     with nogil:
         check_cstatus(reader.get().ReadFlatTable(&ctable))
 
@@ -84,4 +85,3 @@ def write_table(table, filename, chunk_size=None, version=None):
     with nogil:
         check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink,
             chunk_size_, properties_builder.build()))
-
