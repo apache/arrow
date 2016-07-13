@@ -68,7 +68,10 @@ Status ParquetReadSource::Open(const std::shared_ptr<io::RandomAccessFile>& file
 }
 
 void ParquetReadSource::Close() {
-  PARQUET_THROW_NOT_OK(file_->Close());
+  // TODO(wesm): Make this a no-op for now. This leaves Python wrappers for
+  // these classes in a borked state. Probably better to explicitly close.
+
+  // PARQUET_THROW_NOT_OK(file_->Close());
 }
 
 int64_t ParquetReadSource::Tell() const {
