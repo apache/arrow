@@ -51,8 +51,12 @@ TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
+
+#ifndef NDEBUG
   EXPECT_EXIT(pool->Free(data, 120), ::testing::ExitedWithCode(1),
                ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
+#endif
+
   pool->Free(data, 100);
 }
 
