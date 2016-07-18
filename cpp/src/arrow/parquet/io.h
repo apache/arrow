@@ -59,7 +59,7 @@ class ARROW_EXPORT ParquetAllocator : public ::parquet::MemoryAllocator {
 
 class ARROW_EXPORT ParquetReadSource : public ::parquet::RandomAccessSource {
  public:
-  ParquetReadSource(ParquetAllocator* allocator);
+  explicit ParquetReadSource(ParquetAllocator* allocator);
 
   // We need to ask for the file size on opening the file, and this can fail
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file);
