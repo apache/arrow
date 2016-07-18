@@ -40,7 +40,7 @@ namespace arrow {
 
 #define ARROW_CHECK(condition)                               \
   (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) \
-                        << __FILE__ << __LINE__ << "Check failed: " #condition " "
+                        << __FILE__ << __LINE__ << " Check failed: " #condition " "
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ARROW_WARNING

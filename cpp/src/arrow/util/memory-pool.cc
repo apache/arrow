@@ -23,6 +23,7 @@
 #include <sstream>
 
 #include "arrow/util/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -81,6 +82,7 @@ int64_t InternalMemoryPool::bytes_allocated() const {
 
 void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
   std::lock_guard<std::mutex> guard(pool_lock_);
+  DCHECK_GE(bytes_allocated_, size);
   std::free(buffer);
   bytes_allocated_ -= size;
 }
