@@ -55,7 +55,7 @@ class ARROW_EXPORT FileWriter {
   MemoryPool* memory_pool() const;
 
  private:
-  class Impl;
+  class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
 

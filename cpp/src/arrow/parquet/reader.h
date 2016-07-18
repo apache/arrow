@@ -23,6 +23,8 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
+#include "arrow/io/interfaces.h"
+#include "arrow/parquet/io.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -99,7 +101,7 @@ class ARROW_EXPORT FileReader {
   virtual ~FileReader();
 
  private:
-  class Impl;
+  class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
 
@@ -125,15 +127,20 @@ class ARROW_EXPORT FlatColumnReader {
   Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
 
  private:
-  class Impl;
+  class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
   explicit FlatColumnReader(std::unique_ptr<Impl> impl);
 
   friend class FileReader;
 };
 
-}  // namespace parquet
+// Helper function to create a file reader from an implementation of an Arrow
+// readable file
+ARROW_EXPORT
+Status OpenFile(const std::shared_ptr<io::RandomAccessFile>& file,
+    ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader);
 
+}  // namespace parquet
 }  // namespace arrow
 
 #endif  // ARROW_PARQUET_READER_H

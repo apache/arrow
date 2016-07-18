@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/column.h"
+#include "arrow/parquet/io.h"
 #include "arrow/parquet/schema.h"
 #include "arrow/parquet/utils.h"
 #include "arrow/schema.h"
@@ -34,6 +35,10 @@
 using parquet::ColumnReader;
 using parquet::Repetition;
 using parquet::TypedColumnReader;
+
+// Help reduce verbosity
+using ParquetRAS = parquet::RandomAccessSource;
+using ParquetReader = parquet::ParquetFileReader;
 
 namespace arrow {
 namespace parquet {
@@ -180,6 +185,21 @@ FileReader::FileReader(
     : impl_(new FileReader::Impl(pool, std::move(reader))) {}
 
 FileReader::~FileReader() {}
+
+// Static ctor
+Status OpenFile(const std::shared_ptr<io::RandomAccessFile>& file,
+    ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader) {
+  std::unique_ptr<ParquetReadSource> source(new ParquetReadSource(allocator));
+  RETURN_NOT_OK(source->Open(file));
+
+  // TODO(wesm): reader properties
+  std::unique_ptr<ParquetReader> pq_reader;
+  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(std::move(source)));
+
+  // Use the same memory pool as the ParquetAllocator
+  reader->reset(new FileReader(allocator->pool(), std::move(pq_reader)));
+  return Status::OK();
+}
 
 Status FileReader::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) {
   return impl_->GetFlatColumn(i, out);

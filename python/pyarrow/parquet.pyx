@@ -20,34 +20,75 @@
 # cython: embedsignature = True
 
 from pyarrow.includes.libarrow cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.parquet cimport *
+from pyarrow.includes.libarrow_io cimport RandomAccessFile, WriteableFile
+cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import tobytes
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_cstatus
+from pyarrow.io import NativeFileInterface
 from pyarrow.table cimport Table
 
-def read_table(filename, columns=None):
+from pyarrow.io cimport NativeFileInterface
+
+import six
+
+
+cdef class ParquetReader:
+    cdef:
+        ParquetAllocator allocator
+        unique_ptr[FileReader] reader
+
+    def __cinit__(self):
+        self.allocator.set_pool(default_memory_pool())
+
+    cdef open_local_file(self, file_path):
+        cdef c_string path = tobytes(file_path)
+
+        # Must be in one expression to avoid calling std::move which is not
+        # possible in Cython (due to missing rvalue support)
+
+        # TODO(wesm): ParquetFileReader::OpenFIle can throw?
+        self.reader = unique_ptr[FileReader](
+            new FileReader(default_memory_pool(),
+                           ParquetFileReader.OpenFile(path)))
+
+    cdef open_native_file(self, NativeFileInterface file):
+        cdef shared_ptr[RandomAccessFile] cpp_handle
+        file.read_handle(&cpp_handle)
+
+        check_cstatus(OpenFile(cpp_handle, &self.allocator, &self.reader))
+
+    def read_all(self):
+        cdef:
+            Table table = Table()
+            shared_ptr[CTable] ctable
+
+        with nogil:
+            check_cstatus(self.reader.get()
+                          .ReadFlatTable(&ctable))
+
+        table.init(ctable)
+        return table
+
+
+def read_table(source, columns=None):
     """
     Read a Table from Parquet format
     Returns
     -------
     table: pyarrow.Table
     """
-    cdef unique_ptr[FileReader] reader
-    cdef Table table = Table()
-    cdef shared_ptr[CTable] ctable
+    cdef ParquetReader reader = ParquetReader()
 
-    # Must be in one expression to avoid calling std::move which is not possible
-    # in Cython (due to missing rvalue support)
-    reader = unique_ptr[FileReader](new FileReader(default_memory_pool(),
-        ParquetFileReader.OpenFile(tobytes(filename))))
-    with nogil:
-        check_cstatus(reader.get().ReadFlatTable(&ctable))
+    if isinstance(source, six.string_types):
+        reader.open_local_file(source)
+    elif isinstance(source, NativeFileInterface):
+        reader.open_native_file(source)
 
-    table.init(ctable)
-    return table
+    return reader.read_all()
+
 
 def write_table(table, filename, chunk_size=None, version=None):
     """
@@ -84,4 +125,3 @@ def write_table(table, filename, chunk_size=None, version=None):
     with nogil:
         check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink,
             chunk_size_, properties_builder.build()))
-

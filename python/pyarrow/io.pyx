@@ -164,7 +164,7 @@ cdef class HdfsClient:
                           .ListDirectory(c_path, &listing))
 
         cdef const HdfsPathInfo* info
-        for i in range(listing.size()):
+        for i in range(<int> listing.size()):
             info = &listing[i]
 
             # Try to trim off the hdfs://HOST:PORT piece
@@ -314,8 +314,15 @@ cdef class HdfsClient:
         f = self.open(path, 'rb', buffer_size=buffer_size)
         f.download(stream)
 
+cdef class NativeFileInterface:
 
-cdef class HdfsFile:
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
+        raise NotImplementedError
+
+    cdef write_handle(self, shared_ptr[WriteableFile]* file):
+        raise NotImplementedError
+
+cdef class HdfsFile(NativeFileInterface):
     cdef:
         shared_ptr[HdfsReadableFile] rd_file
         shared_ptr[HdfsWriteableFile] wr_file
@@ -356,6 +363,14 @@ cdef class HdfsFile:
     cdef _assert_writeable(self):
         if self.is_readonly:
             raise IOError("only valid on writeonly files")
+
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
+        self._assert_readable()
+        file[0] = <shared_ptr[RandomAccessFile]> self.rd_file
+
+    cdef write_handle(self, shared_ptr[WriteableFile]* file):
+        self._assert_writeable()
+        file[0] = <shared_ptr[WriteableFile]> self.wr_file
 
     def size(self):
         cdef int64_t size

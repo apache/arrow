@@ -49,7 +49,9 @@ class ARROW_EXPORT ParquetAllocator : public ::parquet::MemoryAllocator {
   uint8_t* Malloc(int64_t size) override;
   void Free(uint8_t* buffer, int64_t size) override;
 
-  MemoryPool* pool() { return pool_; }
+  void set_pool(MemoryPool* pool) { pool_ = pool; }
+
+  MemoryPool* pool() const { return pool_; }
 
  private:
   MemoryPool* pool_;
@@ -57,8 +59,10 @@ class ARROW_EXPORT ParquetAllocator : public ::parquet::MemoryAllocator {
 
 class ARROW_EXPORT ParquetReadSource : public ::parquet::RandomAccessSource {
  public:
-  ParquetReadSource(
-      const std::shared_ptr<io::RandomAccessFile>& file, ParquetAllocator* allocator);
+  explicit ParquetReadSource(ParquetAllocator* allocator);
+
+  // We need to ask for the file size on opening the file, and this can fail
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& file);
 
   void Close() override;
   int64_t Tell() const override;
