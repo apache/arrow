@@ -30,3 +30,8 @@ if [ ! -d ${FLATBUFFERS_BASEDIR} ]; then
   echo "Fetching flatbuffers"
   download_extract_and_cleanup $FLATBUFFERS_URL
 fi
+
+if [ ! -d ${LIBHDFS3_BASEDIR} ]; then
+  echo "Fetching libhdfs3"
+  download_extract_and_cleanup $LIBHDFS3_URL
+fi

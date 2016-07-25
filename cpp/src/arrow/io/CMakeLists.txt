@@ -18,8 +18,15 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
+if( USE_LIBHDFS3)
+    set(LIBHDFS3_ROOT ${THIRDPARTY_DIR}/installed)
+    find_package(LIBHDFS3 REQUIRED)
+    include_directories(${LIBHDFS3_INCLUDE_DIR})
+    add_definitions(-DUSE_LIBHDFS3)
+endif()
+
 set(ARROW_IO_LINK_LIBS
-  arrow_shared
+ arrow_shared
 )
 
 if (ARROW_BOOST_USE_SHARED)
@@ -30,6 +37,9 @@ else()
   set(ARROW_IO_PRIVATE_LINK_LIBS
     boost_system_static
     boost_filesystem_static)
+endif()
+if(USE_LIBHDFS3)
+    set(ARROW_IO_PRIVATE_LINK_LIBS ${ARROW_IO_PRIVATE_LINK_LIBS} ${LIBHDFS3_LIBRARIES})
 endif()
 
 set(ARROW_IO_TEST_LINK_LIBS
@@ -43,26 +53,15 @@ if(ARROW_HDFS)
   if(NOT THIRDPARTY_DIR)
     message(FATAL_ERROR "THIRDPARTY_DIR not set")
   endif()
-
-  if (DEFINED ENV{HADOOP_HOME})
-    set(HADOOP_HOME $ENV{HADOOP_HOME})
-  else()
-    set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-  endif()
-
-  set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
-  if (NOT EXISTS ${HDFS_H_PATH})
-    message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
-  endif()
-  message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
-  message(STATUS "Building libhdfs shim component")
-
-  include_directories(SYSTEM "${HADOOP_HOME}/include")
-
   set(ARROW_HDFS_SRCS
-    hdfs.cc
-    libhdfs_shim.cc)
-
+      hdfs.cc)
+  if( NOT USE_LIBHDFS3)
+  set(ARROW_HDFS_SRCS
+    ${ARROW_HDFS_SRCS} libhdfs_shim.cc)
+  else()
+   set(ARROW_HDFS_SRCS
+    ${ARROW_HDFS_SRCS} libhdfs3_shim.cc)
+  endif()
   set_property(SOURCE ${ARROW_HDFS_SRCS}
     APPEND_STRING PROPERTY
     COMPILE_FLAGS "-DHAS_HADOOP")

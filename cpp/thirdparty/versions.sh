@@ -9,3 +9,7 @@ GBENCHMARK_BASEDIR=benchmark-$GBENCHMARK_VERSION
 FLATBUFFERS_VERSION=1.3.0
 FLATBUFFERS_URL="https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
 FLATBUFFERS_BASEDIR=flatbuffers-$FLATBUFFERS_VERSION
+
+LIBHDFS3_VERSION=2.2.31
+LIBHDFS3_URL="https://github.com/Pivotal-Data-Attic/pivotalrd-libhdfs3/archive/v${LIBHDFS3_VERSION}.tar.gz"
+LIBHDFS3_BASEDIR=pivotalrd-libhdfs3-$LIBHDFS3_VERSION

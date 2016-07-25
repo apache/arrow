@@ -14,8 +14,11 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+#ifdef USE_LIBHDFS3
+#include <hdfs/hdfs.h>
+#else 
 #include <hdfs.h>
+#endif 
 
 #include <cstdint>
 #include <sstream>
@@ -101,8 +104,14 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+    #ifdef USE_LIBHDFS3
+    hdfsSeek(fs_, file_, static_cast<tOffset>(position));
+    tSize ret = hdfsRead(fs_, file_, 
+        reinterpret_cast<void*>(buffer), nbytes);
+    #else 
     tSize ret = hdfsPread(fs_, file_, static_cast<tOffset>(position),
         reinterpret_cast<void*>(buffer), nbytes);
+    #endif
     RETURN_NOT_OK(CheckReadResult(ret));
     *bytes_read = ret;
     return Status::OK();
