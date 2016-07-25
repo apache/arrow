@@ -72,10 +72,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_HDFS
-    "Build the Arrow IO extensions for the Hadoop file system"
-    OFF)
+  option(arrow_hdfs
+    "build the arrow io extensions for the hadoop file system"
+    off)
 
+   option(USE_LIBHDFS3
+    "build the arrow io extensions using libhdfs3 instead of libhdfs JNI"
+    off)
+ 
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
@@ -735,6 +739,5 @@ if(ARROW_IPC)
   add_library(flatbuffers STATIC IMPORTED)
   set_target_properties(flatbuffers PROPERTIES
     IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
-
   add_subdirectory(src/arrow/ipc)
 endif()
