@@ -16,8 +16,8 @@ This project is layered in two pieces:
 #### PyArrow Dependencies:
 These are the various projects that PyArrow depends on.
 
-1. **g++ and gcc Version >= 4.9**
-2. **cmake >= 3.2**
+1. **g++ and gcc Version >= 4.8**
+2. **cmake > 2.8.6**
 3. **boost**
 4. **Parquet-cpp**
 
