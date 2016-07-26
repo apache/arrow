@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
+#include "arrow/types/datetime.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
@@ -100,6 +101,7 @@ NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type);
 NUMERIC_ARRAY_DECL(Int32Array, Int32Type);
 NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type);
 NUMERIC_ARRAY_DECL(Int64Array, Int64Type);
+NUMERIC_ARRAY_DECL(TimestampArray, TimestampType);
 NUMERIC_ARRAY_DECL(FloatArray, FloatType);
 NUMERIC_ARRAY_DECL(DoubleArray, DoubleType);
 
@@ -235,7 +237,15 @@ struct type_traits<Int64Type> {
 
   static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
 };
+
 template <>
+struct type_traits<TimestampType> {
+  typedef TimestampArray ArrayType;
+
+  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+};
+template <>
+
 struct type_traits<FloatType> {
   typedef FloatArray ArrayType;
 
@@ -260,6 +270,7 @@ typedef NumericBuilder<Int8Type> Int8Builder;
 typedef NumericBuilder<Int16Type> Int16Builder;
 typedef NumericBuilder<Int32Type> Int32Builder;
 typedef NumericBuilder<Int64Type> Int64Builder;
+typedef NumericBuilder<TimestampType> TimestampBuilder;
 
 typedef NumericBuilder<FloatType> FloatBuilder;
 typedef NumericBuilder<DoubleType> DoubleBuilder;

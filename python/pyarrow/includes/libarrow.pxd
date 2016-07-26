@@ -38,6 +38,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_FLOAT" arrow::Type::FLOAT"
         Type_DOUBLE" arrow::Type::DOUBLE"
 
+        Type_TIMESTAMP" arrow::Type::TIMESTAMP"
         Type_STRING" arrow::Type::STRING"
 
         Type_LIST" arrow::Type::LIST"

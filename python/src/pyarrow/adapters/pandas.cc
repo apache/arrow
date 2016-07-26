@@ -38,6 +38,7 @@ namespace pyarrow {
 
 using arrow::Array;
 using arrow::Column;
+using arrow::DataType;
 namespace util = arrow::util;
 
 // ----------------------------------------------------------------------
@@ -50,7 +51,7 @@ struct npy_traits {
 template <>
 struct npy_traits<NPY_BOOL> {
   typedef uint8_t value_type;
-  using ArrayType = arrow::BooleanArray;
+  using TypeClass = arrow::BooleanType;
 
   static constexpr bool supports_nulls = false;
   static inline bool isnull(uint8_t v) {
@@ -62,7 +63,7 @@ struct npy_traits<NPY_BOOL> {
   template <>                                       \
   struct npy_traits<NPY_##TYPE> {                   \
     typedef T value_type;                           \
-    using ArrayType = arrow::CapType##Array;        \
+    using TypeClass = arrow::CapType##Type;         \
                                                     \
     static constexpr bool supports_nulls = false;   \
     static inline bool isnull(T v) {                \
@@ -82,7 +83,7 @@ NPY_INT_DECL(UINT64, UInt64, uint64_t);
 template <>
 struct npy_traits<NPY_FLOAT32> {
   typedef float value_type;
-  using ArrayType = arrow::FloatArray;
+  using TypeClass = arrow::FloatType;
 
   static constexpr bool supports_nulls = true;
 
@@ -94,12 +95,28 @@ struct npy_traits<NPY_FLOAT32> {
 template <>
 struct npy_traits<NPY_FLOAT64> {
   typedef double value_type;
-  using ArrayType = arrow::DoubleArray;
+  using TypeClass = arrow::DoubleType;
 
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(double v) {
     return v != v;
+  }
+};
+
+template <>
+struct npy_traits<NPY_DATETIME> {
+  typedef double value_type;
+  using TypeClass = arrow::TimestampType;
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(int64_t v) {
+    // NaT = -2**63
+    // = -0x8000000000000000
+    // = -9223372036854775808;
+    // = std::numeric_limits<int64_t>::min()
+    return v == std::numeric_limits<int64_t>::min();
   }
 };
 
@@ -206,6 +223,8 @@ class ArrowSerializer {
     return Status::OK();
   }
 
+  Status MakeDataType(std::shared_ptr<DataType>* out);
+
   arrow::MemoryPool* pool_;
 
   PyArrayObject* arr_;
@@ -254,6 +273,39 @@ static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap)
 }
 
 template <int TYPE>
+inline Status ArrowSerializer<TYPE>::MakeDataType(std::shared_ptr<DataType>* out) {
+  out->reset(new typename npy_traits<TYPE>::TypeClass());
+  return Status::OK();
+}
+
+template <>
+inline Status ArrowSerializer<NPY_DATETIME>::MakeDataType(std::shared_ptr<DataType>* out) {
+  PyArray_Descr* descr = PyArray_DESCR(arr_);
+  auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+  arrow::TimestampType::Unit unit;
+
+  switch (date_dtype->meta.base) {
+      case NPY_FR_s:
+          unit = arrow::TimestampType::Unit::SECOND;
+          break;
+      case NPY_FR_ms:
+          unit = arrow::TimestampType::Unit::MILLI;
+          break;
+      case NPY_FR_us:
+          unit = arrow::TimestampType::Unit::MICRO;
+          break;
+      case NPY_FR_ns:
+          unit = arrow::TimestampType::Unit::NANO;
+          break;
+      default:
+          return Status::ValueError("Unknown NumPy datetime unit");
+  }
+
+  out->reset(new arrow::TimestampType(unit));
+  return Status::OK();
+}
+
+template <int TYPE>
 inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   typedef npy_traits<TYPE> traits;
 
@@ -269,9 +321,9 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   }
 
   RETURN_NOT_OK(ConvertData());
-  *out = std::make_shared<typename traits::ArrayType>(length_, data_, null_count,
-      null_bitmap_);
-
+  std::shared_ptr<DataType> type;
+  RETURN_NOT_OK(MakeDataType(&type));
+  RETURN_ARROW_NOT_OK(MakePrimitiveArray(type, length_, data_, null_count, null_bitmap_, out));
   return Status::OK();
 }
 
@@ -402,6 +454,7 @@ Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     TO_ARROW_CASE(UINT64);
     TO_ARROW_CASE(FLOAT32);
     TO_ARROW_CASE(FLOAT64);
+    TO_ARROW_CASE(DATETIME);
     TO_ARROW_CASE(OBJECT);
     default:
       std::stringstream ss;
@@ -477,6 +530,17 @@ struct arrow_traits<arrow::Type::DOUBLE> {
 };
 
 template <>
+struct arrow_traits<arrow::Type::TIMESTAMP> {
+  static constexpr int npy_type = NPY_DATETIME;
+  static constexpr bool supports_nulls = true;
+  static constexpr int64_t na_value = std::numeric_limits<int64_t>::min();
+  static constexpr bool is_boolean = false;
+  static constexpr bool is_integer = true;
+  static constexpr bool is_floating = false;
+  typedef typename npy_traits<NPY_DATETIME>::value_type T;
+};
+
+template <>
 struct arrow_traits<arrow::Type::STRING> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
@@ -492,6 +556,30 @@ static inline PyObject* make_pystring(const uint8_t* data, int32_t length) {
 #else
   return PyString_FromStringAndSize(reinterpret_cast<const char*>(data), length);
 #endif
+}
+
+inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
+  if (type == NPY_DATETIME) {
+    auto timestamp_type = static_cast<arrow::TimestampType*>(datatype);
+    // We only support ms resolution at the moment
+    PyArray_Descr* descr = PyArray_DESCR(out);
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+
+    switch (timestamp_type->unit) {
+      case arrow::TimestampType::Unit::SECOND:
+        date_dtype->meta.base = NPY_FR_s;
+        break;
+      case arrow::TimestampType::Unit::MILLI:
+        date_dtype->meta.base = NPY_FR_ms;
+        break;
+      case arrow::TimestampType::Unit::MICRO:
+        date_dtype->meta.base = NPY_FR_us;
+        break;
+      case arrow::TimestampType::Unit::NANO:
+        date_dtype->meta.base = NPY_FR_ns;
+        break;
+    }
+  }
 }
 
 template <int TYPE>
@@ -522,6 +610,8 @@ class ArrowDeserializer {
       return Status::OK();
     }
 
+    set_numpy_metadata(type, col_->type().get(), out_);
+
     return Status::OK();
   }
 
@@ -537,6 +627,8 @@ class ArrowDeserializer {
       // Error occurred, trust that SimpleNew set the error state
       return Status::OK();
     }
+
+    set_numpy_metadata(type, col_->type().get(), out_);
 
     if (PyArray_SetBaseObject(out_, py_ref_) == -1) {
       // Error occurred, trust that SetBaseObject set the error state
@@ -713,6 +805,7 @@ Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
     FROM_ARROW_CASE(FLOAT);
     FROM_ARROW_CASE(DOUBLE);
     FROM_ARROW_CASE(STRING);
+    FROM_ARROW_CASE(TIMESTAMP);
     default:
       return Status::NotImplemented("Arrow type reading not implemented");
   }

@@ -57,11 +57,13 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
+        # Pandas only support ns resolution, Arrow at the moment only ms
+        'datetime': np.arange("2016-01-01T00:00:00.001", size, dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None]
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.from_pandas_dataframe(df, timestamps_to_ms=True)
     A.parquet.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pyarrow.parquet.read_table(filename.strpath)
     df_read = table_read.to_pandas()

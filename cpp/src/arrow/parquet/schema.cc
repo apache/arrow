@@ -52,6 +52,7 @@ const auto INT64 = std::make_shared<Int64Type>();
 const auto FLOAT = std::make_shared<FloatType>();
 const auto DOUBLE = std::make_shared<DoubleType>();
 const auto UTF8 = std::make_shared<StringType>();
+const auto TIMESTAMP_MS = std::make_shared<TimestampType>(TimestampType::Unit::MILLI);
 const auto BINARY = std::make_shared<ListType>(std::make_shared<Field>("", UINT8));
 
 TypePtr MakeDecimalType(const PrimitiveNode* node) {
@@ -132,6 +133,9 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
+      break;
+    case LogicalType::TIMESTAMP_MILLIS:
+      *out = TIMESTAMP_MS;
       break;
     default:
       return Status::NotImplemented("Unhandled logical type for int64");
@@ -289,10 +293,15 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       type = ParquetType::INT32;
       logical_type = LogicalType::DATE;
       break;
-    case Type::TIMESTAMP:
+    case Type::TIMESTAMP: {
+      auto timestamp_type = static_cast<TimestampType*>(field->type.get());
+      if (timestamp_type->unit != TimestampType::Unit::MILLI) {
+        return Status::NotImplemented(
+            "Other timestamp units than millisecond are not yet support with parquet.");
+      }
       type = ParquetType::INT64;
       logical_type = LogicalType::TIMESTAMP_MILLIS;
-      break;
+    } break;
     case Type::TIMESTAMP_DOUBLE:
       type = ParquetType::INT64;
       // This is specified as seconds since the UNIX epoch

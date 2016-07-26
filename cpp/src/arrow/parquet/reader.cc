@@ -368,6 +368,7 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
     TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType)
     TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType)
     TYPED_BATCH_CASE(STRING, StringType, ::parquet::ByteArrayType)
+    TYPED_BATCH_CASE(TIMESTAMP, TimestampType, ::parquet::Int64Type)
     default:
       return Status::NotImplemented(field_->type->ToString());
   }

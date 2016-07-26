@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+import numpy as np
+
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
@@ -186,6 +188,7 @@ cdef dict _array_classes = {
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,
     Type_STRING: StringArray,
+    Type_TIMESTAMP: Int64Array,
 }
 
 cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
@@ -217,11 +220,28 @@ def from_pylist(object list_obj, DataType type=None):
     return box_arrow_array(sp_array)
 
 
-def from_pandas_series(object series, object mask=None):
+def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
+    """
+    Convert pandas.Series to an Arrow Array.
+
+    Parameters
+    ----------
+    series: pandas.Series or numpy.ndarray
+
+    mask: pandas.Series or numpy.ndarray
+        array to mask null entries in the series
+
+    timestamps_to_ms: bool
+        Convert datetime columns to ms resolution. This is needed for
+        compability with other functionality like Parquet I/O which
+        only supports milliseconds.
+    """
     cdef:
         shared_ptr[CArray] out
 
     series_values = series_as_ndarray(series)
+    if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
+        series_values = series_values.astype('datetime64[ms]')
 
     if mask is None:
         check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
@@ -234,14 +254,28 @@ def from_pandas_series(object series, object mask=None):
     return box_arrow_array(out)
 
 
-def from_pandas_dataframe(object df, name=None):
+def from_pandas_dataframe(object df, name=None, timestamps_to_ms=False):
+    """
+    Convert pandas.DataFrame to an Arrow Table
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+
+    name: str
+
+    timestamps_to_ms: bool
+        Convert datetime columns to ms resolution. This is needed for
+        compability with other functionality like Parquet I/O which
+        only supports milliseconds.
+    """
     cdef:
         list names = []
         list arrays = []
 
     for name in df.columns:
         col = df[name]
-        arr = from_pandas_series(col)
+        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
 
         names.append(name)
         arrays.append(arr)
