@@ -56,8 +56,9 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // Finally, the memory offset to the start of the metadata / data header is
 // returned in an out-variable
-ARROW_EXPORT Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
-    int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
+ARROW_EXPORT Status WriteRowBatch(MemorySource* dst, const RowBatch* batch,
+    int64_t position, int64_t* header_offset,
+    int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRowBatchMetadata(const RowBatch* batch);
 
