@@ -25,6 +25,7 @@
 #include <string>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -69,7 +70,7 @@ class BufferOutputStream : public OutputStream {
   int64_t position_;
 };
 
-class MemorySource {
+class ARROW_EXPORT MemorySource {
  public:
   // Indicates the access permissions of the memory source
   enum AccessMode { READ_ONLY, READ_WRITE };
@@ -100,7 +101,7 @@ class MemorySource {
 };
 
 // A memory source that uses memory-mapped files for memory interactions
-class MemoryMappedSource : public MemorySource {
+class ARROW_EXPORT MemoryMappedSource : public MemorySource {
  public:
   static Status Open(const std::string& path, AccessMode access_mode,
       std::shared_ptr<MemoryMappedSource>* out);
