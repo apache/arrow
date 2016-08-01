@@ -24,6 +24,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -54,20 +56,21 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // Finally, the memory offset to the start of the metadata / data header is
 // returned in an out-variable
-Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
-    int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
+ARROW_EXPORT Status WriteRowBatch(MemorySource* dst, const RowBatch* batch,
+    int64_t position, int64_t* header_offset,
+    int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRowBatchMetadata(const RowBatch* batch);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the row batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-Status GetRowBatchSize(const RowBatch* batch, int64_t* size);
+ARROW_EXPORT Status GetRowBatchSize(const RowBatch* batch, int64_t* size);
 
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the MemorySource does not
 
-class RowBatchReader {
+class ARROW_EXPORT RowBatchReader {
  public:
   static Status Open(
       MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out);
