@@ -28,6 +28,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.RepeatedListVector;
 import org.apache.arrow.vector.complex.RepeatedMapVector;
+import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.MaterializedField;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -71,6 +72,47 @@ public class TestValueVector {
   public void terminate() throws Exception {
     allocator.close();
   }
+
+  @Test
+  public void testUnionVector() throws Exception {
+    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
+
+    final BufferAllocator alloc = new NonCleanBufferAllocator(allocator, (byte) 100);
+
+    UnionVector unionVector = new UnionVector(field, alloc, null);
+
+    final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
+    uInt4Holder.value = 100;
+    uInt4Holder.isSet = 1;
+
+    try {
+      // write some data
+      final UnionVector.Mutator mutator = unionVector.getMutator();
+      mutator.setType(0, MinorType.UINT4);
+      mutator.setSafe(0, uInt4Holder);
+      mutator.setType(2, MinorType.UINT4);
+      mutator.setSafe(2, uInt4Holder);
+      mutator.setValueCount(4);
+
+      // check that what we wrote is correct
+      final UnionVector.Accessor accessor = unionVector.getAccessor();
+      assertEquals(4, accessor.getValueCount());
+
+      assertEquals(false, accessor.isNull(0));
+      assertEquals(100, accessor.getObject(0));
+
+      assertEquals(true, accessor.isNull(1));
+
+      assertEquals(false, accessor.isNull(2));
+      assertEquals(100, accessor.getObject(2));
+
+      assertEquals(true, accessor.isNull(3));
+
+    } finally {
+      unionVector.clear();
+    }
+  }
+
 
   @Test(expected = OversizedAllocationException.class)
   public void testFixedVectorReallocation() {
