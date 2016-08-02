@@ -133,10 +133,7 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   if (encoding_ == Encoding::RLE) {
     num_decoded = rle_decoder_->GetBatch(levels, num_values);
   } else {
-    for (int i = 0; i < num_values; ++i) {
-      if (!bit_packed_decoder_->GetValue(bit_width_, levels + i)) { break; }
-      ++num_decoded;
-    }
+    num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
   }
   num_values_remaining_ -= num_decoded;
   return num_decoded;

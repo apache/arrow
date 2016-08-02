@@ -142,10 +142,8 @@ class PlainDecoder<BooleanType> : public Decoder<BooleanType> {
 
   virtual int Decode(bool* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
-    bool val;
-    for (int i = 0; i < max_values; ++i) {
-      if (!bit_reader_.GetValue(1, &val)) { ParquetException::EofException(); }
-      buffer[i] = val;
+    if (bit_reader_.GetBatch(1, buffer, max_values) != max_values) {
+      ParquetException::EofException();
     }
     num_values_ -= max_values;
     return max_values;

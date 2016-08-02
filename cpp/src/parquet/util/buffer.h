@@ -133,7 +133,7 @@ class Vector {
   void Reserve(int64_t new_capacity);
   void Assign(int64_t size, const T val);
   void Swap(Vector<T>& v);
-  inline T& operator[](int64_t i) { return data_[i]; }
+  inline T& operator[](int64_t i) const { return data_[i]; }
 
  private:
   std::unique_ptr<OwnedMutableBuffer> buffer_;

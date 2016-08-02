@@ -122,6 +122,10 @@ class BitReader {
   template <typename T>
   bool GetValue(int num_bits, T* v);
 
+  /// Get a number of values from the buffer. Return the number of values actually read.
+  template <typename T>
+  int GetBatch(int num_bits, T* v, int batch_size);
+
   /// Reads a 'num_bytes'-sized value from the buffer and stores it in 'v'. T
   /// needs to be a little-endian native type and big enough to store
   /// 'num_bytes'. The value is assumed to be byte-aligned so the stream will

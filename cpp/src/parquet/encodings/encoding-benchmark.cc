@@ -17,11 +17,22 @@
 
 #include "benchmark/benchmark.h"
 
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encodings/dictionary-encoding.h"
+#include "parquet/file/reader-internal.h"
+#include "parquet/util/mem-pool.h"
 
 namespace parquet {
 
+using format::ColumnChunk;
+using schema::PrimitiveNode;
+
 namespace benchmark {
+
+std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
+  auto node = PrimitiveNode::Make("int64", repetition, Type::INT64);
+  return std::make_shared<ColumnDescriptor>(
+      node, repetition != Repetition::REQUIRED, repetition == Repetition::REPEATED);
+}
 
 static void BM_PlainEncodingBoolean(::benchmark::State& state) {
   std::vector<bool> values(state.range_x(), 64);
@@ -85,6 +96,65 @@ static void BM_PlainDecodingInt64(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_PlainDecodingInt64)->Range(1024, 65536);
+
+template <typename Type>
+static void DecodeDict(
+    std::vector<typename Type::c_type>& values, ::benchmark::State& state) {
+  typedef typename Type::c_type T;
+  int num_values = values.size();
+
+  MemPool pool;
+  MemoryAllocator* allocator = default_allocator();
+  std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
+  std::shared_ptr<OwnedMutableBuffer> dict_buffer =
+      std::make_shared<OwnedMutableBuffer>();
+  auto indices = std::make_shared<OwnedMutableBuffer>();
+
+  DictEncoder<T> encoder(&pool, allocator, descr->type_length());
+  for (int i = 0; i < num_values; ++i) {
+    encoder.Put(values[i]);
+  }
+
+  dict_buffer->Resize(encoder.dict_encoded_size());
+  encoder.WriteDict(dict_buffer->mutable_data());
+  indices->Resize(encoder.EstimatedDataEncodedSize());
+  int actual_bytes = encoder.WriteIndices(indices->mutable_data(), indices->size());
+  indices->Resize(actual_bytes);
+
+  while (state.KeepRunning()) {
+    PlainDecoder<Type> dict_decoder(descr.get());
+    dict_decoder.SetData(encoder.num_entries(), dict_buffer->data(), dict_buffer->size());
+    DictionaryDecoder<Type> decoder(descr.get());
+    decoder.SetDict(&dict_decoder);
+    decoder.SetData(num_values, indices->data(), indices->size());
+    decoder.Decode(values.data(), num_values);
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(T));
+}
+
+static void BM_DictDecodingInt64_repeats(::benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range_x(), 64);
+  DecodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictDecodingInt64_repeats)->Range(1024, 65536);
+
+static void BM_DictDecodingInt64_literals(::benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range_x());
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = i;
+  }
+  DecodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictDecodingInt64_literals)->Range(1024, 65536);
 
 }  // namespace benchmark
 

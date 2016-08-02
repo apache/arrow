@@ -64,21 +64,14 @@ class DictionaryDecoder : public Decoder<Type> {
 
   virtual int Decode(T* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
-    for (int i = 0; i < max_values; ++i) {
-      buffer[i] = dictionary_[index()];
-    }
+    int decoded_values = idx_decoder_.GetBatchWithDict(dictionary_, buffer, max_values);
+    if (decoded_values != max_values) { ParquetException::EofException(); }
+    num_values_ -= max_values;
     return max_values;
   }
 
  private:
   using Decoder<Type>::num_values_;
-
-  int index() {
-    int idx = 0;
-    if (!idx_decoder_.Get(&idx)) ParquetException::EofException();
-    --num_values_;
-    return idx;
-  }
 
   // Only one is set.
   Vector<T> dictionary_;
@@ -177,7 +170,12 @@ class DictEncoderBase {
   /// Returns a conservative estimate of the number of bytes needed to encode the buffered
   /// indices. Used to size the buffer passed to WriteIndices().
   int EstimatedDataEncodedSize() {
-    return 1 + RleEncoder::MaxBufferSize(bit_width(), buffered_indices_.size());
+    // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
+    // reserve
+    // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
+    // but not reserving them would cause the encoder to fail.
+    return 1 + RleEncoder::MaxBufferSize(bit_width(), buffered_indices_.size()) +
+           RleEncoder::MinBufferSize(bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.

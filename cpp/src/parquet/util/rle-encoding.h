@@ -26,6 +26,7 @@
 #include "parquet/util/compiler-util.h"
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/bit-util.h"
+#include "parquet/util/buffer.h"
 
 namespace parquet {
 
@@ -113,6 +114,10 @@ class RleDecoder {
   /// Gets a batch of values.  Returns the number of decoded elements.
   template <typename T>
   int GetBatch(T* values, int batch_size);
+
+  /// Like GetBatch but the values are then decoded using the provided dictionary
+  template <typename T>
+  int GetBatchWithDict(const Vector<T>& dictionary, T* values, int batch_size);
 
  protected:
   BitReader bit_reader_;
@@ -253,22 +258,7 @@ class RleEncoder {
 
 template <typename T>
 inline bool RleDecoder::Get(T* val) {
-  DCHECK_GE(bit_width_, 0);
-  if (UNLIKELY(literal_count_ == 0 && repeat_count_ == 0)) {
-    if (!NextCounts<T>()) return false;
-  }
-
-  if (LIKELY(repeat_count_ > 0)) {
-    *val = current_value_;
-    --repeat_count_;
-  } else {
-    DCHECK_GT(literal_count_, 0);
-    bool result = bit_reader_.GetValue(bit_width_, val);
-    DCHECK(result);
-    --literal_count_;
-  }
-
-  return true;
+  return GetBatch(val, 1) == 1;
 }
 
 template <typename T>
@@ -277,27 +267,59 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
   int values_read = 0;
 
   while (values_read < batch_size) {
-    if (UNLIKELY(literal_count_ == 0 && repeat_count_ == 0)) {
-      if (!NextCounts<T>()) return values_read;
-    }
-
-    if (LIKELY(repeat_count_ > 0)) {
+    if (repeat_count_ > 0) {
       int repeat_batch =
           std::min(batch_size - values_read, static_cast<int>(repeat_count_));
       std::fill(
           values + values_read, values + values_read + repeat_batch, current_value_);
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
-    } else {
-      DCHECK_GT(literal_count_, 0);
+    } else if (literal_count_ > 0) {
       int literal_batch =
           std::min(batch_size - values_read, static_cast<int>(literal_count_));
-      for (int i = 0; i < literal_batch; i++) {
-        bool result = bit_reader_.GetValue(bit_width_, values + values_read + i);
-        DCHECK(result);
+      int actual_read =
+          bit_reader_.GetBatch(bit_width_, values + values_read, literal_batch);
+      DCHECK_EQ(actual_read, literal_batch);
+      literal_count_ -= literal_batch;
+      values_read += literal_batch;
+    } else {
+      if (!NextCounts<T>()) return values_read;
+    }
+  }
+
+  return values_read;
+}
+
+template <typename T>
+inline int RleDecoder::GetBatchWithDict(
+    const Vector<T>& dictionary, T* values, int batch_size) {
+  DCHECK_GE(bit_width_, 0);
+  int values_read = 0;
+
+  while (values_read < batch_size) {
+    if (repeat_count_ > 0) {
+      int repeat_batch =
+          std::min(batch_size - values_read, static_cast<int>(repeat_count_));
+      std::fill(values + values_read, values + values_read + repeat_batch,
+          dictionary[current_value_]);
+      repeat_count_ -= repeat_batch;
+      values_read += repeat_batch;
+    } else if (literal_count_ > 0) {
+      int literal_batch =
+          std::min(batch_size - values_read, static_cast<int>(literal_count_));
+
+      const int buffer_size = 1024;
+      static int indices[buffer_size];
+      literal_batch = std::min(literal_batch, buffer_size);
+      int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
+      DCHECK_EQ(actual_read, literal_batch);
+      for (int i = 0; i < literal_batch; ++i) {
+        values[values_read + i] = dictionary[indices[i]];
       }
       literal_count_ -= literal_batch;
       values_read += literal_batch;
+    } else {
+      if (!NextCounts<T>()) return values_read;
     }
   }
 
