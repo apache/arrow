@@ -28,12 +28,12 @@ import io.netty.buffer.ByteBufAllocator;
  * Wrapper around a buffer delegate that populates any allocated buffer with a constant
  * value. Useful for testing if value vectors are properly resetting their buffers.
  */
-public class NonCleanBufferAllocator implements BufferAllocator {
+public class DirtyBufferAllocator implements BufferAllocator {
 
   private final BufferAllocator delegate;
   private final byte fillValue;
 
-  NonCleanBufferAllocator(final BufferAllocator delegate, final byte fillValue) {
+  DirtyBufferAllocator(final BufferAllocator delegate, final byte fillValue) {
     this.delegate = delegate;
     this.fillValue = fillValue;
   }

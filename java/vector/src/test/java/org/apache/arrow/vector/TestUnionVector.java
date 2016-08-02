@@ -49,7 +49,7 @@ public class TestUnionVector {
   public void testUnionVector() throws Exception {
     final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
 
-    final BufferAllocator alloc = new NonCleanBufferAllocator(allocator, (byte) 100);
+    final BufferAllocator alloc = new DirtyBufferAllocator(allocator, (byte) 100);
 
     UnionVector unionVector = new UnionVector(field, alloc, null);
 
