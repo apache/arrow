@@ -369,6 +369,8 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
   return Status::OK();
 }
 
+RowBatchReader::~RowBatchReader() {}
+
 Status RowBatchReader::GetRowBatch(
     const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
   return impl_->AssembleBatch(schema, out);
