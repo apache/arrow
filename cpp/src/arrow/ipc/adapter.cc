@@ -370,7 +370,7 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
 }
 
 // Here the explicit destructor is required for compilers to be aware of
-// the complete implementation of Impl class
+// the complete information of RowBatchReader::Impl class
 RowBatchReader::~RowBatchReader() {}
 
 Status RowBatchReader::GetRowBatch(
