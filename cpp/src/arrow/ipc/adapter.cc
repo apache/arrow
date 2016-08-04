@@ -369,6 +369,10 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
   return Status::OK();
 }
 
+// Here the explicit destructor is required for compilers to be aware of
+// the complete information of RowBatchReader::Impl class
+RowBatchReader::~RowBatchReader() {}
+
 Status RowBatchReader::GetRowBatch(
     const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
   return impl_->AssembleBatch(schema, out);

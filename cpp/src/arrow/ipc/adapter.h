@@ -78,6 +78,8 @@ class ARROW_EXPORT RowBatchReader {
   static Status Open(MemorySource* source, int64_t position, int max_recursion_depth,
       std::shared_ptr<RowBatchReader>* out);
 
+  virtual ~RowBatchReader();
+
   // Reassemble the row batch. A Schema is required to be able to construct the
   // right array containers
   Status GetRowBatch(
