@@ -130,6 +130,8 @@ struct FieldNode {
   null_count: int;
 }
 
+enum Endianness:int { Little, Big }
+
 /// A data header describing the shared memory layout of a "record" or "row"
 /// batch. Some systems call this a "row batch" internally and others a "record
 /// batch".
@@ -137,6 +139,11 @@ table RecordBatch {
   /// number of records / rows. The arrays in the batch should all have this
   /// length
   length: int;
+
+  /// endianness of the buffer
+  /// it is Little Endian by default
+  /// if endianness doesn't match the underlying system then the vectors need to be converted
+  endianness: Endianness=Little;
 
   /// Nodes correspond to the pre-ordered flattened logical schema
   nodes: [FieldNode];
