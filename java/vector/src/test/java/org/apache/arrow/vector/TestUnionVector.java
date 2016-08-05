@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.UInt4Holder;
@@ -37,7 +36,7 @@ public class TestUnionVector {
 
   @Before
   public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
+    allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
   @After
@@ -49,15 +48,13 @@ public class TestUnionVector {
   public void testUnionVector() throws Exception {
     final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
 
-    final BufferAllocator alloc = new DirtyBufferAllocator(allocator, (byte) 100);
-
-    UnionVector unionVector = new UnionVector(field, alloc, null);
-
     final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
 
-    try {
+    try (UnionVector unionVector = new UnionVector(field, allocator, null)) {
+      unionVector.allocateNew();
+
       // write some data
       final UnionVector.Mutator mutator = unionVector.getMutator();
       mutator.setType(0, Types.MinorType.UINT4);
@@ -79,9 +76,6 @@ public class TestUnionVector {
       assertEquals(100, accessor.getObject(2));
 
       assertEquals(true, accessor.isNull(3));
-
-    } finally {
-      unionVector.clear();
     }
   }
 

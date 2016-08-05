@@ -73,8 +73,6 @@ public class UnionVector implements ValueVector {
     this.allocator = allocator;
     this.internalMap = new MapVector("internal", allocator, callBack);
     this.typeVector = internalMap.addOrGet("types", new MajorType(MinorType.UINT1, DataMode.REQUIRED), UInt1Vector.class);
-    this.typeVector.allocateNew();
-    this.typeVector.zeroVector();
     this.field.addChild(internalMap.getField().clone());
     this.majorType = field.getType();
     this.callBack = callBack;
@@ -193,6 +191,7 @@ public class UnionVector implements ValueVector {
 
   @Override
   public void close() {
+    clear();
   }
 
   @Override

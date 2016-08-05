@@ -155,6 +155,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     tp.transfer();
     if (parentContainer != null) {
       unionVector = parentContainer.addOrGet(name, new MajorType(MinorType.UNION, DataMode.OPTIONAL), UnionVector.class);
+      unionVector.allocateNew();
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
     }
