@@ -18,6 +18,8 @@
 #ifndef ARROW_TYPES_DATETIME_H
 #define ARROW_TYPES_DATETIME_H
 
+#include <string>
+
 #include "arrow/type.h"
 
 namespace arrow {
