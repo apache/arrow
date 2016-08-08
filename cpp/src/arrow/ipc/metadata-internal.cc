@@ -259,11 +259,21 @@ Status MessageBuilder::SetSchema(const Schema* schema) {
   return Status::OK();
 }
 
+// will return the endianness of the system we are running on
+flatbuf::Endianness endianness(void) {
+  union {
+    uint32_t i;
+    char c[4];
+  } bint = {0x01020304};
+
+  return bint.c[0] == 1 ? flatbuf::Endianness_Big : flatbuf::Endianness_Little;
+}
+
 Status MessageBuilder::SetRecordBatch(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers) {
   header_type_ = flatbuf::MessageHeader_RecordBatch;
-  header_ = flatbuf::CreateRecordBatch(fbb_, length, flatbuf::Endianness_Little,
+  header_ = flatbuf::CreateRecordBatch(fbb_, length, endianness(),
                 fbb_.CreateVectorOfStructs(nodes),
                 fbb_.CreateVectorOfStructs(buffers))
                 .Union();
