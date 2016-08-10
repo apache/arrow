@@ -79,12 +79,12 @@ Base requirements
 ## Byte Order ([Endianness][3])
 
 The Arrow format is little endian by default.
-The RecordBatch metadata has an endianness field labelling the RecordBatch accordingly.
+The Schema metadata has an endianness field indicating endiannmess of RecordBatches.
 Typically this is the endianness of the system where the RecordBatch was generated.
 The main use case is exchanging RecordBatches between systems with the same Endianness.
 At first we will return an error when trying to read a RecordBatch with an endianness
 that does not match the underlying system. The reference implementation is focused on
-Little Endian and provides test for it. Eventually we may provide automatic conversion
+Little Endian and provides tests for it. Eventually we may provide automatic conversion
 via byte swapping.
 
 ## Alignment and Padding
