@@ -138,6 +138,18 @@ class ARROW_EXPORT Status {
   // Get the POSIX code associated with this Status, or -1 if there is none.
   int16_t posix_code() const;
 
+  StatusCode code() const {
+    return ((state_ == NULL) ? StatusCode::OK : static_cast<StatusCode>(state_[4]));
+  }
+
+  std::string message() const {
+    uint32_t length;
+    memcpy(&length, state_, sizeof(length));
+    std::string msg;
+    msg.append((state_ + 7), length);
+    return msg;
+  }
+
  private:
   // OK status has a NULL state_.  Otherwise, state_ is a new[] array
   // of the following form:
@@ -146,10 +158,6 @@ class ARROW_EXPORT Status {
   //    state_[5..6] == posix_code
   //    state_[7..]  == message
   const char* state_;
-
-  StatusCode code() const {
-    return ((state_ == NULL) ? StatusCode::OK : static_cast<StatusCode>(state_[4]));
-  }
 
   Status(StatusCode code, const std::string& msg, int16_t posix_code);
   static const char* CopyState(const char* s);
