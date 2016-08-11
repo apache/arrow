@@ -99,8 +99,6 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::Invalid("Type metadata cannot be none");
     case flatbuf::Type_Int:
       return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
-    case flatbuf::Type_Bit:
-      return Status::NotImplemented("Type is not implemented");
     case flatbuf::Type_FloatingPoint:
       return FloatFromFlatuffer(
           static_cast<const flatbuf::FloatingPoint*>(type_data), out);
