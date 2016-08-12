@@ -21,7 +21,7 @@ table Union {
 }
 
 table Int {
-  bitWidth: int; // 1 to 64
+  bitWidth: int; // restricted to 8, 16, 32, and 64 in v1
   is_signed: bool;
 }
 
