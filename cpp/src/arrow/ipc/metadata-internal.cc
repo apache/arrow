@@ -244,6 +244,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* 
 // Implement MessageBuilder
 
 // will return the endianness of the system we are running on
+// based the NUMPY_API function. See NOTICE.txt
 flatbuf::Endianness endianness() {
   union {
     uint32_t i;
