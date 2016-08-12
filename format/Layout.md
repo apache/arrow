@@ -583,6 +583,12 @@ even if the null bitmap of the parent union array indicates the slot is
 null.  Additionally, a child array may have a non-null slot even if
 the the types array indicates that a slot contains a different type at the index.
 
+## Dictionary encoding
+
+When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
+The Dictionary is received as a DIctionaryBacth whose id is referenced byt the dictionary field in the Field.
+The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its indexed in the DictionaryBatch.
+
 ## References
 
 Apache Drill Documentation - [Value Vectors][6] 
