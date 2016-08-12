@@ -19,8 +19,8 @@
 <@pp.dropOutputFile />
 <#list vv.types as type>
 <#list type.minor as minor>
-<#list ["", "Nullable", "Repeated"] as mode>
-<#assign name = mode + minor.class?cap_first />
+<#list ["Nullable"] as mode>
+<#assign name = minor.class?cap_first />
 <#assign eName = name />
 <#assign javaType = (minor.javaType!type.javaType) />
 <#assign fields = minor.fields!type.fields />
@@ -38,17 +38,16 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${eName}WriterImpl extends AbstractFieldWriter {
 
-  private final ${name}Vector.Mutator mutator;
-  final ${name}Vector vector;
+  private final Nullable${name}Vector.Mutator mutator;
+  final Nullable${name}Vector vector;
 
-  public ${eName}WriterImpl(${name}Vector vector, AbstractFieldWriter parent) {
-    super(parent);
+  public ${eName}WriterImpl(Nullable${name}Vector vector) {
     this.mutator = vector.getMutator();
     this.vector = vector;
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return vector.getField();
   }
 

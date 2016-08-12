@@ -17,7 +17,7 @@
  */
 
 <@pp.dropOutputFile />
-<#list ["Single", "Repeated"] as mode>
+<#list ["Single"] as mode>
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
@@ -51,16 +51,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   <#if mode == "Repeated">private int currentChildIndex = 0;</#if>
 
-  private final boolean unionEnabled;
-
-  public ${mode}MapWriter(${containerClass} container, FieldWriter parent, boolean unionEnabled) {
-    super(parent);
+  public ${mode}MapWriter(${containerClass} container) {
     this.container = container;
-    this.unionEnabled = unionEnabled;
-  }
-
-  public ${mode}MapWriter(${containerClass} container, FieldWriter parent) {
-    this(container, parent, false);
   }
 
   @Override
@@ -74,7 +66,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
       return container.getField();
   }
 
@@ -83,12 +75,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       FieldWriter writer = fields.get(name.toLowerCase());
     if(writer == null){
       int vectorCount=container.size();
-        MapVector vector = container.addOrGet(name, MapVector.TYPE, MapVector.class);
-      if(!unionEnabled){
-        writer = new SingleMapWriter(vector, this);
-      } else {
-        writer = new PromotableWriter(vector, container);
-      }
+      MapVector vector = container.addOrGet(name, MinorType.MAP, MapVector.class);
+      writer = new PromotableWriter(vector, container);
       if(vectorCount != container.size()) {
         writer.allocate();
       }
@@ -125,11 +113,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(name.toLowerCase());
     int vectorCount = container.size();
     if(writer == null) {
-      if (!unionEnabled){
-        writer = new SingleListWriter(name,container,this);
-      } else{
-        writer = new PromotableWriter(container.addOrGet(name, Types.optional(MinorType.LIST), ListVector.class), container);
-      }
+      writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container);
       if (container.size() > vectorCount) {
         writer.allocate();
       }
@@ -206,9 +190,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   }
 
   public ${minor.class}Writer ${lowerName}(String name, int scale, int precision) {
-    final MajorType ${upperName}_TYPE = new MajorType(MinorType.${upperName}, DataMode.OPTIONAL, precision, scale, 0, null);
   <#else>
-  private static final MajorType ${upperName}_TYPE = Types.optional(MinorType.${upperName});
   @Override
   public ${minor.class}Writer ${lowerName}(String name) {
   </#if>
@@ -216,15 +198,9 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
-      if (unionEnabled){
-        ${vectName}Vector v = container.addOrGet(name, ${upperName}_TYPE, ${vectName}Vector.class);
-        writer = new PromotableWriter(v, container);
-        vector = v;
-      } else {
-        ${vectName}Vector v = container.addOrGet(name, ${upperName}_TYPE, ${vectName}Vector.class);
-        writer = new ${vectName}WriterImpl(v, this);
-        vector = v;
-      }
+      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class);
+      writer = new PromotableWriter(v, container);
+      vector = v;
       if (currentVector == null || currentVector != vector) {
         vector.allocateNewSafe();
       } 

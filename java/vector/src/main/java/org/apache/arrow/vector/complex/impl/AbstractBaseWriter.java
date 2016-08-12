@@ -23,25 +23,11 @@ import org.apache.arrow.vector.complex.writer.FieldWriter;
 abstract class AbstractBaseWriter implements FieldWriter {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseWriter.class);
 
-  final FieldWriter parent;
   private int index;
-
-  public AbstractBaseWriter(FieldWriter parent) {
-    this.parent = parent;
-  }
 
   @Override
   public String toString() {
-    return super.toString() + "[index = " + index + ", parent = " + parent + "]";
-  }
-
-  @Override
-  public FieldWriter getParent() {
-    return parent;
-  }
-
-  public boolean isRoot() {
-    return parent == null;
+    return super.toString() + "[index = " + index + "]";
   }
 
   int idx() {

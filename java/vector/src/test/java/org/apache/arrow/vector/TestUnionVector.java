@@ -22,8 +22,6 @@ import static org.junit.Assert.assertEquals;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
-import org.apache.arrow.vector.holders.UInt4Holder;
-import org.apache.arrow.vector.types.MaterializedField;
 import org.apache.arrow.vector.types.Types;
 import org.junit.After;
 import org.junit.Before;
@@ -46,13 +44,12 @@ public class TestUnionVector {
 
   @Test
   public void testUnionVector() throws Exception {
-    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
 
     final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
 
-    try (UnionVector unionVector = new UnionVector(field, allocator, null)) {
+    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
       unionVector.allocateNew();
 
       // write some data

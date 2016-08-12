@@ -37,17 +37,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   private UnionListWriter listWriter;
   private List<BaseWriter> writers = Lists.newArrayList();
 
-  public UnionWriter(BufferAllocator allocator) {
-    super(null);
-  }
-
   public UnionWriter(UnionVector vector) {
-    super(null);
-    data = vector;
-  }
-
-  public UnionWriter(UnionVector vector, FieldWriter parent) {
-    super(null);
     data = vector;
   }
 
@@ -84,7 +74,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private MapWriter getMapWriter() {
     if (mapWriter == null) {
-      mapWriter = new SingleMapWriter(data.getMap(), null, true);
+      mapWriter = new SingleMapWriter(data.getMap());
       mapWriter.setPosition(idx());
       writers.add(mapWriter);
     }
@@ -120,7 +110,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private ${name}Writer get${name}Writer() {
     if (${uncappedName}Writer == null) {
-      ${uncappedName}Writer = new Nullable${name}WriterImpl(data.get${name}Vector(), null);
+      ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
       ${uncappedName}Writer.setPosition(idx());
       writers.add(${uncappedName}Writer);
     }
@@ -217,7 +207,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   @Override
-  public MaterializedField getField() {
+  public Field getField() {
     return data.getField();
   }
 

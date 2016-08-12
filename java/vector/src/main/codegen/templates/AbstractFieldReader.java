@@ -41,7 +41,13 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
     return true;
   }
 
-  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean", 
+  @Override
+  public Field getField() {
+    fail("getField");
+    return null;
+  }
+
+  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean",
           "Character", "DateTime", "Period", "Double", "Float",
           "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />

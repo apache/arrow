@@ -42,13 +42,7 @@ public class ComplexCopier {
   }
 
   private static void writeValue(FieldReader reader, FieldWriter writer) {
-    final DataMode m = reader.getType().getMode();
-    final MinorType mt = reader.getType().getMinorType();
-
-    switch(m){
-    case OPTIONAL:
-    case REQUIRED:
-
+    final MinorType mt = reader.getMinorType();
 
       switch (mt) {
 
@@ -89,12 +83,10 @@ public class ComplexCopier {
   </#if>
   </#list></#list>
       }
-              break;
-    }
  }
 
   private static FieldWriter getMapWriterForReader(FieldReader reader, MapWriter writer, String name) {
-    switch (reader.getType().getMinorType()) {
+    switch (reader.getMinorType()) {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
@@ -108,12 +100,12 @@ public class ComplexCopier {
     case LIST:
       return (FieldWriter) writer.list(name);
     default:
-      throw new UnsupportedOperationException(reader.getType().toString());
+      throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
   }
 
   private static FieldWriter getListWriterForReader(FieldReader reader, ListWriter writer) {
-    switch (reader.getType().getMinorType()) {
+    switch (reader.getMinorType()) {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
@@ -127,7 +119,7 @@ public class ComplexCopier {
     case LIST:
       return (FieldWriter) writer.list();
     default:
-      throw new UnsupportedOperationException(reader.getType().toString());
+      throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
   }
 }

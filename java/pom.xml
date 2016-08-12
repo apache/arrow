@@ -462,6 +462,7 @@
   </dependencies>
 
   <modules>
+    <module>format</module>
     <module>memory</module>
     <module>vector</module>
   </modules>

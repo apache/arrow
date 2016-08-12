@@ -31,12 +31,11 @@ package org.apache.arrow.vector.complex.writer;
  */
 @SuppressWarnings("unused")
   public interface BaseWriter extends AutoCloseable, Positionable {
-  FieldWriter getParent();
   int getValueCapacity();
 
   public interface MapWriter extends BaseWriter {
 
-    MaterializedField getField();
+    Field getField();
 
     /**
      * Whether this writer is a map writer and is empty (has no children).

@@ -27,7 +27,7 @@ import org.apache.arrow.vector.complex.AbstractMapVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.UInt4Holder;
-import org.apache.arrow.vector.types.MaterializedField;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,10 +49,9 @@ public class TestPromotableWriter {
 
   @Test
   public void testPromoteToUnion() throws Exception {
-    final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
 
-    try (final AbstractMapVector container = new MapVector(field, allocator, null);
-         final MapVector v = container.addOrGet("test", MapVector.TYPE, MapVector.class);
+    try (final AbstractMapVector container = new MapVector(EMPTY_SCHEMA_PATH, allocator, null);
+         final MapVector v = container.addOrGet("test", MinorType.MAP, MapVector.class);
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
       container.allocateNew();

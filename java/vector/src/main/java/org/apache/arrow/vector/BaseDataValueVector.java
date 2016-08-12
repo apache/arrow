@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.types.MaterializedField;
 
 
 public abstract class BaseDataValueVector extends BaseValueVector {
@@ -29,8 +28,8 @@ public abstract class BaseDataValueVector extends BaseValueVector {
 
   protected ArrowBuf data;
 
-  public BaseDataValueVector(MaterializedField field, BufferAllocator allocator) {
-    super(field, allocator);
+  public BaseDataValueVector(String name, BufferAllocator allocator) {
+    super(name, allocator);
     data = allocator.getEmpty();
   }
 

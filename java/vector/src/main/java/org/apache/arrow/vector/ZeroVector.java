@@ -17,18 +17,20 @@
  */
 package org.apache.arrow.vector;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import io.netty.buffer.ArrowBuf;
 
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.impl.NullReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.types.MaterializedField;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 
 import com.google.common.collect.Iterators;
@@ -36,7 +38,7 @@ import com.google.common.collect.Iterators;
 public class ZeroVector implements ValueVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
 
-  private final MaterializedField field = MaterializedField.create("[DEFAULT]", Types.required(MinorType.LATE));
+  private final String name = "[DEFAULT]";
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -91,23 +93,20 @@ public class ZeroVector implements ValueVector {
   public void clear() { }
 
   @Override
-  public MaterializedField getField() {
-    return field;
+  public Field getField() {
+    return new Field(name, true, new Null(), null);
   }
+
+  @Override
+  public MinorType getMinorType() {
+    return MinorType.NULL;
+  }
+
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
     return defaultPair;
   }
-
-//  @Override
-//  public UserBitShared.SerializedField getMetadata() {
-//    return getField()
-//        .getAsBuilder()
-//        .setBufferLength(getBufferSize())
-//        .setValueCount(getAccessor().getValueCount())
-//        .build();
-//  }
 
   @Override
   public Iterator<ValueVector> iterator() {
@@ -176,7 +175,4 @@ public class ZeroVector implements ValueVector {
   public FieldReader getReader() {
     return NullReader.INSTANCE;
   }
-
-//  @Override
-//  public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) { }
 }
