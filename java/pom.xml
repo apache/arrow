@@ -303,6 +303,7 @@
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
             </systemPropertyVariables>
+            <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
         <plugin>
