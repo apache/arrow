@@ -303,6 +303,9 @@
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
             </systemPropertyVariables>
+            <!-- Note: changing the below configuration might increase the max allocation size for a vector
+            which in turn can cause OOM. -->
+            <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
         <plugin>
