@@ -53,17 +53,16 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-
-template<class TypeClass, class T>
+template <class TypeClass, class T>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
  public:
   using value_type = T;
-   NumericArray(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+  NumericArray(int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(
             std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {}
-   NumericArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
-       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+  NumericArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
   bool EqualsExact(const NumericArray<TypeClass, T>& other) const {
@@ -78,8 +77,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     const auto other = static_cast<NumericArray<TypeClass, T>*>(arr.get());
     for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
       const bool is_null = IsNull(i);
-      if (is_null != arr->IsNull(o_i) ||
-          (!is_null && Value(i) != other->Value(o_i))) {
+      if (is_null != arr->IsNull(o_i) || (!is_null && Value(i) != other->Value(o_i))) {
         return false;
       }
     }
@@ -90,8 +88,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   T Value(int i) const { return raw_data()[i]; }
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)   \
-  using NAME = NumericArray<TypeClass, T>;
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T) using NAME = NumericArray<TypeClass, T>;
 
 NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type, uint8_t);
 NUMERIC_ARRAY_DECL(Int8Array, Int8Type, int8_t);
