@@ -53,43 +53,45 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)                                         \
-  class ARROW_EXPORT NAME : public PrimitiveArray {                                    \
-   public:                                                                             \
-    using value_type = T;                                                              \
-                                                                                       \
-    NAME(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,  \
-        const std::shared_ptr<Buffer>& null_bitmap = nullptr)                          \
-        : PrimitiveArray(                                                              \
-              std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {} \
-    NAME(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,     \
-        int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)  \
-        : PrimitiveArray(type, length, data, null_count, null_bitmap) {}               \
-                                                                                       \
-    bool EqualsExact(const NAME& other) const {                                        \
-      return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other)); \
-    }                                                                                  \
-                                                                                       \
-    bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,      \
-        const ArrayPtr& arr) const override {                                          \
-      if (this == arr.get()) { return true; }                                          \
-      if (!arr) { return false; }                                                      \
-      if (this->type_enum() != arr->type_enum()) { return false; }                     \
-      const auto other = static_cast<NAME*>(arr.get());                                \
-      for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {    \
-        const bool is_null = IsNull(i);                                                \
-        if (is_null != arr->IsNull(o_i) ||                                             \
-            (!is_null && Value(i) != other->Value(o_i))) {                             \
-          return false;                                                                \
-        }                                                                              \
-      }                                                                                \
-      return true;                                                                     \
-    }                                                                                  \
-                                                                                       \
-    const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }        \
-                                                                                       \
-    T Value(int i) const { return raw_data()[i]; }                                     \
-  };
+
+template<class TypeClass, class T>
+class ARROW_EXPORT NumericArray : public PrimitiveArray {
+ public:
+  using value_type = T;
+   NumericArray(int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+      : PrimitiveArray(
+            std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {}
+   NumericArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
+       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+      : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
+
+  bool EqualsExact(const NumericArray<TypeClass, T>& other) const {
+    return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other));
+  }
+
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const ArrayPtr& arr) const override {
+    if (this == arr.get()) { return true; }
+    if (!arr) { return false; }
+    if (this->type_enum() != arr->type_enum()) { return false; }
+    const auto other = static_cast<NumericArray<TypeClass, T>*>(arr.get());
+    for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
+      const bool is_null = IsNull(i);
+      if (is_null != arr->IsNull(o_i) ||
+          (!is_null && Value(i) != other->Value(o_i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  const T* raw_data() const { return reinterpret_cast<const T*>(raw_data_); }
+
+  T Value(int i) const { return raw_data()[i]; }
+};
+
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass, T)   \
+  using NAME = NumericArray<TypeClass, T>;
 
 NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type, uint8_t);
 NUMERIC_ARRAY_DECL(Int8Array, Int8Type, int8_t);
