@@ -30,6 +30,11 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * This class tests that OversizedAllocationException occurs when a large memory is allocated for a vector.
+ * Typically, arrow allows the allocation of the size of at most Integer.MAX_VALUE, but this might cause OOM in tests.
+ * Thus, the max allocation size is limited to 1 KB in this class. Please see the surefire option in pom.xml.
+ */
 public class TestOversizedAllocationForValueVector {
 
   private final static String EMPTY_SCHEMA_PATH = "";
