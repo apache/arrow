@@ -55,11 +55,11 @@ const std::shared_ptr<DataType> DOUBLE = std::make_shared<DoubleType>();
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
-  if (int_data->bitWidth() % 8 != 0) {
-    return Status::NotImplemented("Integers not in cstdint are not implemented");
-  }
   if (int_data->bitWidth() > 64) {
     return Status::NotImplemented("Integers with more than 64 bits not implemented");
+  }
+  if (int_data->bitWidth() < 8) {
+    return Status::NotImplemented("Integers with less than 8 bits not implemented");
   }
 
   switch (int_data->bitWidth()) {
@@ -76,8 +76,7 @@ static Status IntFromFlatbuffer(
       *out = int_data->is_signed() ? INT64 : UINT64;
       break;
     default:
-      *out = nullptr;
-      break;
+      return Status::NotImplemented("Integers not in cstdint are not implemented");
   }
   return Status::OK();
 }
@@ -99,8 +98,6 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::Invalid("Type metadata cannot be none");
     case flatbuf::Type_Int:
       return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
-    case flatbuf::Type_Bit:
-      return Status::NotImplemented("Type is not implemented");
     case flatbuf::Type_FloatingPoint:
       return FloatFromFlatuffer(
           static_cast<const flatbuf::FloatingPoint*>(type_data), out);
