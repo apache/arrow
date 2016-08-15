@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <glog/logging.h>
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include "arrow/util/status.h"
 #include "arrow/test-util.h"
