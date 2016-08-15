@@ -7,3 +7,8 @@ The Apache Software Foundation (http://www.apache.org/).
 This product includes software from the SFrame project (BSD, 3-clause).
 * Copyright (C) 2015 Dato, Inc.
 * Copyright (c) 2009 Carnegie Mellon University.
+
+This product includes software from the Numpy project (BSD-new)
+ https://github.com/numpy/numpy/blob/e1f191c46f2eebd6cb892a4bfe14d9dd43a06c4e/numpy/core/src/multiarray/multiarraymodule.c#L2910
+ * Copyright (c) 1995, 1996, 1997 Jim Hugunin, hugunin@mit.edu
+ * Copyright (c) 2005 Travis E. Oliphant oliphant@ee.byu.edu Brigham Young University

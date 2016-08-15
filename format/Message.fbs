@@ -88,9 +88,20 @@ table Field {
 }
 
 /// ----------------------------------------------------------------------
+/// Endianness of the platform that produces the RecordBatch
+
+enum Endianness:int { Little, Big }
+
+/// ----------------------------------------------------------------------
 /// A Schema describes the columns in a row batch
 
 table Schema {
+
+  /// endianness of the buffer
+  /// it is Little Endian by default
+  /// if endianness doesn't match the underlying system then the vectors need to be converted
+  endianness: Endianness=Little;
+
   fields: [Field];
 }
 

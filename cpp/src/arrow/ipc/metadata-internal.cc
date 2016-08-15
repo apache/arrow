@@ -243,6 +243,17 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* 
 
 // Implement MessageBuilder
 
+// will return the endianness of the system we are running on
+// based the NUMPY_API function. See NOTICE.txt
+flatbuf::Endianness endianness() {
+  union {
+    uint32_t i;
+    char c[4];
+  } bint = {0x01020304};
+
+  return bint.c[0] == 1 ? flatbuf::Endianness_Big : flatbuf::Endianness_Little;
+}
+
 Status MessageBuilder::SetSchema(const Schema* schema) {
   header_type_ = flatbuf::MessageHeader_Schema;
 
@@ -254,7 +265,11 @@ Status MessageBuilder::SetSchema(const Schema* schema) {
     field_offsets.push_back(offset);
   }
 
-  header_ = flatbuf::CreateSchema(fbb_, fbb_.CreateVector(field_offsets)).Union();
+  header_ = flatbuf::CreateSchema(
+                fbb_,
+                endianness(),
+                fbb_.CreateVector(field_offsets))
+                .Union();
   body_length_ = 0;
   return Status::OK();
 }
@@ -263,7 +278,8 @@ Status MessageBuilder::SetRecordBatch(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers) {
   header_type_ = flatbuf::MessageHeader_RecordBatch;
-  header_ = flatbuf::CreateRecordBatch(fbb_, length, fbb_.CreateVectorOfStructs(nodes),
+  header_ = flatbuf::CreateRecordBatch(fbb_, length,
+                fbb_.CreateVectorOfStructs(nodes),
                 fbb_.CreateVectorOfStructs(buffers))
                 .Union();
   body_length_ = body_length;
