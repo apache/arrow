@@ -265,7 +265,11 @@ Status MessageBuilder::SetSchema(const Schema* schema) {
     field_offsets.push_back(offset);
   }
 
-  header_ = flatbuf::CreateSchema(fbb_, endianness(), fbb_.CreateVector(field_offsets)).Union();
+  header_ = flatbuf::CreateSchema(
+                fbb_,
+                endianness(),
+                fbb_.CreateVector(field_offsets))
+                .Union();
   body_length_ = 0;
   return Status::OK();
 }
