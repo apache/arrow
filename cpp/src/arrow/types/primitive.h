@@ -83,7 +83,9 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     }
     return true;
   }
-  const value_type* raw_data() const { return reinterpret_cast<const value_type*>(raw_data_); }
+  const value_type* raw_data() const {
+    return reinterpret_cast<const value_type*>(raw_data_);
+  }
 
   value_type Value(int i) const { return raw_data()[i]; }
 };
