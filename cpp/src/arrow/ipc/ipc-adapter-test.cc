@@ -32,6 +32,7 @@
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
+#include "arrow/types/struct.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
@@ -205,15 +206,16 @@ Status MakeNonNullRowBatch(std::shared_ptr<RowBatch>* out) {
 
   // Example data
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
+  const int length = 50;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
 
   RETURN_NOT_OK(MakeRandomInt32Array(1000, true, pool, &leaf_values));
   bool include_nulls = false;
-  RETURN_NOT_OK(MakeRandomListArray(leaf_values, 50, include_nulls, pool, &list_array));
   RETURN_NOT_OK(
-      MakeRandomListArray(list_array, 50, include_nulls, pool, &list_list_array));
-  RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
+      MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
+  RETURN_NOT_OK(
+      MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
   out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
   return Status::OK();
 }
@@ -238,10 +240,40 @@ Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
   return Status::OK();
 }
 
-INSTANTIATE_TEST_CASE_P(
-    RoundTripTests, TestWriteRowBatch,
+Status MakeStruct(std::shared_ptr<RowBatch>* out) {
+  // reuse constructed list columns
+  std::shared_ptr<RowBatch> list_batch;
+  RETURN_NOT_OK(MakeListRowBatch(&list_batch));
+  std::vector<ArrayPtr> columns = {
+      list_batch->column(0), list_batch->column(1), list_batch->column(2)};
+  auto list_schema = list_batch->schema();
+
+  // Define schema
+  std::shared_ptr<DataType> type(new StructType(
+      {list_schema->field(0), list_schema->field(1), list_schema->field(2)}));
+  auto f0 = std::make_shared<Field>("non_null_struct", type);
+  auto f1 = std::make_shared<Field>("null_struct", type);
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  // construct individual nullable/non-nullable struct arrays
+  ArrayPtr no_nulls(new StructArray(type, list_batch->num_rows(), columns));
+  std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
+  null_bytes[0] = 0;
+  std::shared_ptr<Buffer> null_bitmask;
+  RETURN_NOT_OK(util::bytes_to_bits(null_bytes, &null_bitmask));
+  ArrayPtr with_nulls(
+      new StructArray(type, list_batch->num_rows(), columns, 1, null_bitmask));
+
+  // construct batch
+  std::vector<ArrayPtr> arrays = {no_nulls, with_nulls};
+  out->reset(new RowBatch(schema, list_batch->num_rows(), arrays));
+  return Status::OK();
+}
+
+INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
     ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
-        &MakeZeroLengthRowBatch, &MakeDeeplyNestedList, &MakeStringTypesRowBatch));
+                            &MakeZeroLengthRowBatch, &MakeDeeplyNestedList,
+                            &MakeStringTypesRowBatch, &MakeStruct));
 
 void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
   MockMemorySource mock_source(1 << 16);

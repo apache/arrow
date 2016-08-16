@@ -34,6 +34,7 @@
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
+#include "arrow/types/struct.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
@@ -118,8 +119,11 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
     RETURN_NOT_OK(VisitArray(
         list_arr->values().get(), field_nodes, buffers, max_recursion_depth - 1));
   } else if (arr->type_enum() == Type::STRUCT) {
-    // TODO(wesm)
-    return Status::NotImplemented("Struct type");
+    const auto struct_arr = static_cast<const StructArray*>(arr);
+    for (auto& field : struct_arr->fields()) {
+      RETURN_NOT_OK(
+          VisitArray(field.get(), field_nodes, buffers, max_recursion_depth - 1));
+    }
   } else {
     return Status::NotImplemented("Unrecognized type");
   }
@@ -313,6 +317,22 @@ class RowBatchReader::Impl {
       return MakeListArray(type, field_meta.length, offsets, values_array,
           field_meta.null_count, null_bitmap, out);
     }
+
+    if (type->type == Type::STRUCT) {
+      const int num_children = type->num_children();
+      std::vector<ArrayPtr> fields;
+      fields.reserve(num_children);
+      for (int child_idx = 0; child_idx < num_children; ++child_idx) {
+        std::shared_ptr<Array> field_array;
+        RETURN_NOT_OK(NextArray(
+            type->child(child_idx).get(), max_recursion_depth - 1, &field_array));
+        fields.push_back(field_array);
+      }
+      out->reset(new StructArray(
+          type, field_meta.length, fields, field_meta.null_count, null_bitmap));
+      return Status::OK();
+    }
+
     return Status::NotImplemented("Non-primitive types not complete yet");
   }
 
