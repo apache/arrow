@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.flatbuf.Field;
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 import java.util.Objects;
@@ -102,6 +104,26 @@ public abstract class ArrowType {
     }
   }
   </#list>
+
+  public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.Field field) {
+    switch(field.typeType()) {
+    <#list arrowTypes.types as type>
+    <#assign name = type.name>
+    <#assign nameLower = type.name?lower_case>
+    <#assign fields = type.fields>
+    case Type.${type.name}:
+      org.apache.arrow.flatbuf.${type.name} ${nameLower}Type = (org.apache.arrow.flatbuf.${type.name}) field.type(new org.apache.arrow.flatbuf.${type.name}());
+      return new ${type.name}(<#list type.fields as field>${nameLower}Type.${field.name}()<#if field_has_next>, </#if></#list>);
+    </#list>
+    default:
+      throw new UnsupportedOperationException("Unsupported type: " + field.typeType());
+    }
+  }
+
+  public static Int getInt(org.apache.arrow.flatbuf.Field field) {
+    org.apache.arrow.flatbuf.Int intType = (org.apache.arrow.flatbuf.Int) field.type(new org.apache.arrow.flatbuf.Int());
+    return new Int(intType.bitWidth(), intType.isSigned());
+  }
 }
 
 
