@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.1-decimal</version>
+    <version>0.1-SNAPSHOT</version>
   </parent>
   <artifactId>vector</artifactId>
   <name>vectors</name>
@@ -25,7 +25,7 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-format</artifactId>
-      <version>0.1-decimal</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
