@@ -37,7 +37,7 @@ typedef flatbuffers::Offset<void> Offset;
 
 namespace arrow {
 
-namespace flatbuf = apache::arrow::flatbuf;
+namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 

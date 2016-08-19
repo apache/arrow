@@ -28,7 +28,7 @@
 
 namespace arrow {
 
-namespace flatbuf = apache::arrow::flatbuf;
+namespace flatbuf = org::apache::arrow::flatbuf;
 
 class Buffer;
 struct Field;
