@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.util.DecimalUtility;
+
 import java.lang.Override;
 
 <@pp.dropOutputFile />
@@ -444,11 +446,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     @Override
     public ${friendlyType} getObject(int index) {
-      byte[] bytes = new byte[${type.width}];
-      int start = ${type.width} * index;
-      data.getBytes(start, bytes, 0, ${type.width});
-      ${friendlyType} value = new BigDecimal(new BigInteger(bytes), scale);
-      return value;
+      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(data, index, scale);
     }
 
     <#else>

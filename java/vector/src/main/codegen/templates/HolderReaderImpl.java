@@ -156,9 +156,11 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 </#if>
 
 <#if type.major == "VarLen">
+      <#if minor.class != "Decimal">
       int length = holder.end - holder.start;
       byte[] value = new byte [length];
       holder.buffer.getBytes(holder.start, value, 0, length);
+      </#if>
 
 <#if minor.class == "VarBinary">
       return value;
@@ -169,8 +171,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
       text.set(value);
       return text;
 <#elseif minor.class == "Decimal" >
-        return new BigDecimal(new BigInteger(value), holder.scale);
-
+      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(holder.buffer, holder.start, holder.scale);
 </#if>
 
 <#elseif minor.class == "Interval">

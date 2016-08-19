@@ -33,9 +33,10 @@ public class TestDecimalVector {
   private static long[] intValues;
 
   static {
-    intValues = new long[30];
-    for (int i = 0; i < intValues.length; i++) {
+    intValues = new long[60];
+    for (int i = 0; i < intValues.length / 2; i++) {
       intValues[i] = 1 << i + 1;
+      intValues[2 * i] = -1 * (1 << i + 1);
     }
   }
   private int scale = 3;
@@ -50,7 +51,7 @@ public class TestDecimalVector {
       BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
       values[i] = decimal;
       decimalVector.getMutator().setIndexDefined(i);
-      DecimalUtility.writeBigDecimalToArrowBuf(decimalVector.getBuffer(), i * 16, decimal);
+      DecimalUtility.writeBigDecimalToArrowBuf(decimal, decimalVector.getBuffer(), i);
     }
 
     decimalVector.getMutator().setValueCount(intValues.length);
