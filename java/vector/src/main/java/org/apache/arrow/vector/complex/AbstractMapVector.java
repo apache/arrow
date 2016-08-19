@@ -17,14 +17,10 @@
  */
 package org.apache.arrow.vector.complex;
 
-import com.google.common.collect.ImmutableList;
-import io.netty.buffer.ArrowBuf;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.arrow.flatbuf.Field;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -32,12 +28,15 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import io.netty.buffer.ArrowBuf;
 
 /*
  * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
  */
-public abstract class AbstractMapVector extends AbstractContainerVector {
+public abstract class AbstractMapVector extends AbstractContainerVector implements NestedVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
@@ -115,13 +114,13 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     if (existing == null) {
       create = true;
     } else if (clazz.isAssignableFrom(existing.getClass())) {
-      return (T) existing;
+      return clazz.cast(existing);
     } else if (nullFilled(existing)) {
       existing.clear();
       create = true;
     }
     if (create) {
-      final T vector = (T) minorType.getNewVector(name, allocator, callBack, precisionScale);
+      final T vector = clazz.cast(minorType.getNewVector(name, allocator, callBack, precisionScale));
       putChild(name, vector);
       if (callBack!=null) {
         callBack.doWork();
@@ -159,6 +158,20 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       return null;
     }
     return typeify(v, clazz);
+  }
+
+  @Override
+  public ValueVector add(String name, MinorType minorType, int... precisionScale) {
+    final ValueVector existing = getChild(name);
+    if (existing == null) {
+      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));
+    }
+    ValueVector vector = minorType.getNewVector(name, allocator, callBack, precisionScale);
+    putChild(name, vector);
+    if (callBack!=null) {
+      callBack.doWork();
+    }
+    return vector;
   }
 
   /**

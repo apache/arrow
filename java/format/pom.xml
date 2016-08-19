@@ -106,6 +106,7 @@
               <argument>-o</argument>
               <argument>target/generated-sources/</argument>
               <argument>../../format/Message.fbs</argument>
+              <argument>../../format/File.fbs</argument>
             </arguments>
           </configuration>
         </execution>

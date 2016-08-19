@@ -17,7 +17,12 @@
  */
 package org.apache.arrow.vector.types;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.arrow.flatbuf.Precision;
 import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.NullableBigIntVector;
 import org.apache.arrow.vector.NullableBitVector;
@@ -85,9 +90,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class Types {
 
   public static final Field NULL_FIELD = new Field("", true, Null.INSTANCE, null);
@@ -104,8 +106,8 @@ public class Types {
   public static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(""), null);
   public static final Field INTERVALDAY_FIELD = new Field("", true, IntervalDay.INSTANCE, null);
   public static final Field INTERVALYEAR_FIELD = new Field("", true, IntervalYear.INSTANCE, null);
-  public static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(0), null);
-  public static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(1), null);
+  public static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
+  public static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(Precision.DOUBLE), null);
   public static final Field LIST_FIELD = new Field("", true, List.INSTANCE, null);
   public static final Field VARCHAR_FIELD = new Field("", true, Utf8.INSTANCE, null);
   public static final Field VARBINARY_FIELD = new Field("", true, Binary.INSTANCE, null);
@@ -470,7 +472,7 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
-    UNION(Union.INSTANCE) {
+    UNION(new Union(UnionMode.Sparse)) {
       @Override
       public Field getField() {
         throw new UnsupportedOperationException("Cannot get simple field for Union type");

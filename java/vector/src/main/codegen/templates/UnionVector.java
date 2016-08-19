@@ -43,6 +43,8 @@ import java.util.Iterator;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 
+import static org.apache.arrow.flatbuf.UnionMode.Sparse;
+
 /*
  * This class is generated using freemarker and the ${.template_name} template.
  */
@@ -203,7 +205,7 @@ public class UnionVector implements ValueVector {
     for (ValueVector v : internalMap.getChildren()) {
       childFields.add(v.getField());
     }
-    return new Field(name, true, new ArrowType.Union(), childFields);
+    return new Field(name, true, new ArrowType.Union(Sparse), childFields);
   }
 
   @Override

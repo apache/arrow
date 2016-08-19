@@ -18,10 +18,6 @@
  ******************************************************************************/
 package org.apache.arrow.vector.complex;
 
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.netty.buffer.ArrowBuf;
-
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -42,11 +38,14 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 
 public class ListVector extends BaseRepeatedValueVector {
 
-  UInt4Vector offsets;
+  UInt4Vector offsets;// TODO: THis masks the same vector in the parent
   final UInt1Vector bits;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();

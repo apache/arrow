@@ -17,8 +17,6 @@
  */
 package org.apache.arrow.vector.complex;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -34,7 +32,6 @@ import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -44,6 +41,8 @@ import org.apache.arrow.vector.util.TransferPair;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
+
+import io.netty.buffer.ArrowBuf;
 
 public class MapVector extends AbstractMapVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
@@ -120,7 +119,7 @@ public class MapVector extends AbstractMapVector {
     int expectedSize = getBufferSize();
     int actualSize   = super.getBufferSize();
 
-    Preconditions.checkArgument(expectedSize == actualSize);
+    Preconditions.checkArgument(expectedSize == actualSize, expectedSize + " != " + actualSize);
     return super.getBuffers(clear);
   }
 

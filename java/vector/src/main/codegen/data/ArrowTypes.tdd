@@ -30,7 +30,7 @@
     },
     {
       name: "Union",
-      fields: []
+      fields: [{name: "mode", type: int}]
     },
     {
       name: "Int",
