@@ -148,7 +148,8 @@ struct ARROW_EXPORT Field {
   // 0 means it's not dictionary encoded
   int64_t dictionary;
 
-  Field(const std::string& name, const TypePtr& type, bool nullable = true, int64_t dictionary = 0)
+  Field(const std::string& name, const TypePtr& type, bool nullable = true,
+        int64_t dictionary = 0)
       : name(name), type(type), nullable(nullable), dictionary(dictionary) {}
 
   bool operator==(const Field& other) const { return this->Equals(other); }
