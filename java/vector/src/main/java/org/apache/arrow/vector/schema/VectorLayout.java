@@ -17,21 +17,24 @@
  */
 package org.apache.arrow.vector.schema;
 
+import static org.apache.arrow.vector.schema.ArrowVectorType.DATA;
 import static org.apache.arrow.vector.schema.ArrowVectorType.OFFSET;
 import static org.apache.arrow.vector.schema.ArrowVectorType.TYPE;
 import static org.apache.arrow.vector.schema.ArrowVectorType.VALIDITY;
-import static org.apache.arrow.vector.schema.ArrowVectorType.VALUES;
 
-public class VectorLayout {
+import com.google.common.base.Preconditions;
+import com.google.flatbuffers.FlatBufferBuilder;
+
+public class VectorLayout implements FBSerializable {
 
   private static final VectorLayout VALIDITY_VECTOR = new VectorLayout(VALIDITY, 1);
   private static final VectorLayout OFFSET_VECTOR = new VectorLayout(OFFSET, 32);
   private static final VectorLayout TYPE_VECTOR = new VectorLayout(TYPE, 32);
-  private static final VectorLayout BOOLEAN_VECTOR = new VectorLayout(VALUES, 1);
-  private static final VectorLayout VALUES_64 = new VectorLayout(VALUES, 64);
-  private static final VectorLayout VALUES_32 = new VectorLayout(VALUES, 32);
-  private static final VectorLayout VALUES_16 = new VectorLayout(VALUES, 16);
-  private static final VectorLayout VALUES_8 = new VectorLayout(VALUES, 8);
+  private static final VectorLayout BOOLEAN_VECTOR = new VectorLayout(DATA, 1);
+  private static final VectorLayout VALUES_64 = new VectorLayout(DATA, 64);
+  private static final VectorLayout VALUES_32 = new VectorLayout(DATA, 32);
+  private static final VectorLayout VALUES_16 = new VectorLayout(DATA, 16);
+  private static final VectorLayout VALUES_8 = new VectorLayout(DATA, 8);
 
   public static VectorLayout typeVector() {
     return TYPE_VECTOR;
@@ -68,14 +71,21 @@ public class VectorLayout {
     return dataVector(8);
   }
 
-  private final int typeBitWidth;
+  private final short typeBitWidth;
 
   private final ArrowVectorType type;
 
   private VectorLayout(ArrowVectorType type, int typeBitWidth) {
     super();
-    this.type = type;
-    this.typeBitWidth = typeBitWidth;
+    this.type = Preconditions.checkNotNull(type);
+    this.typeBitWidth = (short)typeBitWidth;
+    if (typeBitWidth <= 0) {
+      throw new IllegalArgumentException("bitWidth invalid: " + typeBitWidth);
+    }
+  }
+
+  public VectorLayout(org.apache.arrow.flatbuf.VectorLayout layout) {
+    this(new ArrowVectorType(layout.type()), layout.bitWidth());
   }
 
   public int getTypeBitWidth() {
@@ -90,4 +100,28 @@ public class VectorLayout {
   public String toString() {
     return String.format("{width=%s,type=%s}", typeBitWidth, type);
   }
+
+  @Override
+  public int hashCode() {
+    return 31 * (31 + type.hashCode()) + typeBitWidth;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    VectorLayout other = (VectorLayout) obj;
+    return type.equals(other.type) && (typeBitWidth == other.typeBitWidth);
+  }
+
+  @Override
+  public int writeTo(FlatBufferBuilder builder) {;
+    return org.apache.arrow.flatbuf.VectorLayout.createVectorLayout(builder, typeBitWidth, type.getType());
+  }
+
+
 }

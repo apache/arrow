@@ -20,12 +20,11 @@ package org.apache.arrow.vector.types.pojo;
 
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.schema.TypeLayout;
+import org.apache.arrow.vector.schema.VectorLayout;
 
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -37,7 +36,7 @@ public class Field {
   private final List<Field> children;
   private final TypeLayout typeLayout;
 
-  public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
+  private Field(String name, boolean nullable, ArrowType type, List<Field> children, TypeLayout typeLayout) {
     this.name = name;
     this.nullable = nullable;
     this.type = type;
@@ -46,32 +45,35 @@ public class Field {
     } else {
       this.children = children;
     }
-    this.typeLayout = TypeLayout.getTypeLayout(type);
+    this.typeLayout = typeLayout;
+  }
+
+  public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
+    this(name, nullable, type, children, TypeLayout.getTypeLayout(type));
   }
 
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     String name = field.name();
     boolean nullable = field.nullable();
     ArrowType type = getTypeForField(field);
-    List<ArrowVectorType> buffers = new ArrayList<>();
-    for (int i = 0; i < field.buffersLength(); ++i) {
-      buffers.add(new ArrowVectorType(field.buffers(i)));
+    ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
+    for (int i = 0; i < field.layoutLength(); ++i) {
+      layout.add(new org.apache.arrow.vector.schema.VectorLayout(field.layout(i)));
     }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
       childrenBuilder.add(convertField(field.children(i)));
     }
     List<Field> children = childrenBuilder.build();
-    Field result = new Field(name, nullable, type, children);
-    TypeLayout typeLayout = result.getTypeLayout();
-    if (typeLayout.getVectors().size() != field.buffersLength()) {
-      List<ArrowVectorType> types = new ArrayList<>();
-      for (int i = 0; i < field.buffersLength(); i++) {
-        types.add(new ArrowVectorType(field.buffers(i)));
-      }
-      throw new IllegalArgumentException("Deserialized field does not match expected vectors. expected: " + typeLayout.getVectorTypes() + " got " + types);
-    }
+    Field result = new Field(name, nullable, type, children, new TypeLayout(layout.build()));
     return result;
+  }
+
+  public void validate() {
+    TypeLayout expectedLayout = TypeLayout.getTypeLayout(type);
+    if (!expectedLayout.equals(typeLayout)) {
+      throw new IllegalArgumentException("Deserialized field does not match expected vectors. expected: " + expectedLayout + " got " + typeLayout);
+    }
   }
 
   public int getField(FlatBufferBuilder builder) {
@@ -82,18 +84,19 @@ public class Field {
       childrenData[i] = children.get(i).getField(builder);
     }
     int childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, childrenData);
-    short[] buffersData = new short[typeLayout.getVectors().size()];
+    int[] buffersData = new int[typeLayout.getVectors().size()];
     for (int i = 0; i < buffersData.length; i++) {
-      buffersData[i] = typeLayout.getVectors().get(i).getType().getType();
+      VectorLayout vectorLayout = typeLayout.getVectors().get(i);
+      buffersData[i] = vectorLayout.writeTo(builder);
     }
-    int buffersOffset =  org.apache.arrow.flatbuf.Field.createBuffersVector(builder, buffersData );
+    int layoutOffset =  org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
     org.apache.arrow.flatbuf.Field.startField(builder);
     org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
     org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeType());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
-    org.apache.arrow.flatbuf.Field.addBuffers(builder, buffersOffset);
+    org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
     return org.apache.arrow.flatbuf.Field.endField(builder);
   }
 

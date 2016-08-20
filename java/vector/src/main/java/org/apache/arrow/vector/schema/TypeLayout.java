@@ -49,6 +49,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
+import com.google.common.base.Preconditions;
+
 /**
  * The layout of vectors for a given type
  * It defines its own vectors followed by the vectors for the children
@@ -182,7 +184,7 @@ public class TypeLayout {
 
   public TypeLayout(List<VectorLayout> vectors) {
     super();
-    this.vectors = vectors;
+    this.vectors = Preconditions.checkNotNull(vectors);
   }
 
   public TypeLayout(VectorLayout... vectors) {
@@ -205,4 +207,22 @@ public class TypeLayout {
   public String toString() {
     return "TypeLayout{" + vectors + "}";
   }
+
+  @Override
+  public int hashCode() {
+    return vectors.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    TypeLayout other = (TypeLayout) obj;
+    return vectors.equals(other.vectors);
+  }
+
 }
