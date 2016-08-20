@@ -583,6 +583,43 @@ even if the null bitmap of the parent union array indicates the slot is
 null.  Additionally, a child array may have a non-null slot even if
 the the types array indicates that a slot contains a different type at the index.
 
+## Dictionary encoding
+
+When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
+The Dictionary is received as a DictionaryBacth whose id is referenced by a dictionary attribute defined in the metadata (Message.fbs) in the Field table.
+The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatch.
+When a Schema references a Dictionary id, it must send a DictionaryBatch for this id before any RecordBatch.
+
+As an example, you could have the following data:
+```
+type: List<String>
+
+[
+ ['a', 'b'],
+ ['a', 'b'],
+ ['a', 'b'],
+ ['c', 'd', 'e'],
+ ['c', 'd', 'e'],
+ ['c', 'd', 'e'],
+ ['c', 'd', 'e'],
+ ['a', 'b']
+]
+```
+In dictionary-encoded form, this could appear as:
+```
+data List<String> (dictionary-encoded, dictionary id i)
+indices: [0, 0, 0, 1, 1, 1, 0]
+
+dictionary i
+
+type: List<String>
+
+[
+ ['a', 'b'],
+ ['c', 'd', 'e'],
+]
+```
+
 ## References
 
 Apache Drill Documentation - [Value Vectors][6] 

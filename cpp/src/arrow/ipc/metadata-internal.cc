@@ -220,7 +220,8 @@ static Status FieldToFlatbuffer(
   auto fb_children = fbb.CreateVector(children);
 
   *offset = flatbuf::CreateField(
-      fbb, fb_name, field->nullable, type_enum, type_data, fb_children);
+      fbb, fb_name, field->nullable, type_enum, type_data, field->dictionary,
+      fb_children);
 
   return Status::OK();
 }
