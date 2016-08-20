@@ -169,8 +169,8 @@ table RecordBatch {
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
+/// There is one dictionary batch per dictionary
 ///
-/// TODO(wesm): To be documented in more detail
 
 table DictionaryBatch {
   id: long;
