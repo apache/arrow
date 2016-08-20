@@ -135,9 +135,8 @@ public class DecimalUtility {
     return str;
   }
 
-  public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale) {
+  public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int startIndex, int scale) {
     byte[] value = new byte[DECIMAL_BYTE_LENGTH];
-    final int startIndex = index * DECIMAL_BYTE_LENGTH;
     bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
     BigInteger unscaledValue = new BigInteger(value);
     return new BigDecimal(unscaledValue, scale);

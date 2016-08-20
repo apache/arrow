@@ -446,7 +446,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     @Override
     public ${friendlyType} getObject(int index) {
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(data, index, scale);
+      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(data, ${type.width} * index, scale);
     }
 
     <#else>

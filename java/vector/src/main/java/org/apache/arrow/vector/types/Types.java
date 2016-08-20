@@ -47,6 +47,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateWriterImpl;
+import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
@@ -386,7 +387,7 @@ public class Types {
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new VarBinaryWriterImpl((NullableVarBinaryVector) vector);
+        return new DecimalWriterImpl((NullableDecimalVector) vector);
       }
     },   //  variable length binary
     UINT1(new Int(8, false)) {

@@ -82,7 +82,18 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
+  <#else>
+  @Override
+  public void write(DecimalHolder holder) {
+    getWriter(MinorType.DECIMAL).write(holder);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
+  }
+
   </#if>
+
   </#list></#list>
 
   public void writeNull() {
@@ -113,8 +124,11 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.class?starts_with("Decimal") >
-
+  <#if minor.class?starts_with("Decimal") >
+  public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
+    return getWriter(MinorType.MAP).${lowerName}(name, scale, precision);
+  }
+  </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     return getWriter(MinorType.MAP).${lowerName}(name);
@@ -125,7 +139,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     return getWriter(MinorType.LIST).${lowerName}();
   }
 
-  </#if>
   </#list></#list>
 
   public void copyReader(FieldReader reader) {

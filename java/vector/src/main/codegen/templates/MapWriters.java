@@ -198,7 +198,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
-      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class);
+      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class<#if minor.class == "Decimal"> , new int[] {precision, scale}</#if>);
       writer = new PromotableWriter(v, container);
       vector = v;
       if (currentVector == null || currentVector != vector) {
