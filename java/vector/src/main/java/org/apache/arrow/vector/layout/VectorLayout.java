@@ -2,17 +2,17 @@ package org.apache.arrow.vector.layout;
 
 public class VectorLayout {
 
-  public static ByteAlignedVectorLayout newOffsetVectorLayout() {
+  public static VectorLayout newOffsetVectorLayout() {
     return newIntVectorLayout(32);
   }
 
-  public static ByteAlignedVectorLayout newIntVectorLayout(int typeBitWidth) {
+  public static VectorLayout newIntVectorLayout(int typeBitWidth) {
     switch (typeBitWidth) {
     case 8:
     case 16:
     case 32:
     case 64:
-      return new ByteAlignedVectorLayout(typeBitWidth / 8);
+      return new VectorLayout(typeBitWidth);
     default:
       throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
     }
@@ -26,7 +26,7 @@ public class VectorLayout {
     return newBooleanVectorLayout();
   }
 
-  public static ByteAlignedVectorLayout newByteVectorLayout() {
+  public static VectorLayout newByteVectorLayout() {
     return newIntVectorLayout(8);
   }
 

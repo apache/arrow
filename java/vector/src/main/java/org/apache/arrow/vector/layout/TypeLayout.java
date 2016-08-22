@@ -45,7 +45,7 @@ public class TypeLayout {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
 
       @Override public TypeLayout visit(Int type) {
-        return new FixedWidthTypeLayout(
+        return newFixedWidthTypeLayout(
             arrowType,
             newIntVectorLayout(type.getBitWidth()));
       }
@@ -109,7 +109,7 @@ public class TypeLayout {
         default:
           throw new UnsupportedOperationException("Unsupported Precision: " + type.getPrecision());
         }
-        return new FixedWidthTypeLayout(
+        return newFixedWidthTypeLayout(
             arrowType,
             newIntVectorLayout(bitWidth));
       }
@@ -119,19 +119,29 @@ public class TypeLayout {
       }
 
       @Override public TypeLayout visit(Bool type) {
-        return new FixedWidthTypeLayout(
+        return newFixedWidthTypeLayout(
             arrowType,
             newBooleanVectorLayout());
       }
 
       @Override public TypeLayout visit(Binary type) {
-        return new VariableWidthTypeLayout(
-            arrowType,
-            newByteVectorLayout());
+        return newVariableWidthTypeLayout(arrowType, newByteVectorLayout());
+      }
+
+      private TypeLayout newVariableWidthTypeLayout(ArrowType arrowType, VectorLayout values) {
+        return newPrimitiveTypeLayout(arrowType, newValidityVectorLayout(), newOffsetVectorLayout(), values);
+      }
+
+      private TypeLayout newPrimitiveTypeLayout(ArrowType type, VectorLayout... vectors) {
+        return new TypeLayout(type, asList(vectors), Collections.<TypeLayout>emptyList());
+      }
+
+      public TypeLayout newFixedWidthTypeLayout(ArrowType type, VectorLayout dataVector) {
+        return newPrimitiveTypeLayout(type, newValidityVectorLayout(), dataVector);
       }
 
       @Override public TypeLayout visit(Utf8 type) {
-        return new VariableWidthTypeLayout(
+        return newVariableWidthTypeLayout(
             arrowType,
             newByteVectorLayout());
       }

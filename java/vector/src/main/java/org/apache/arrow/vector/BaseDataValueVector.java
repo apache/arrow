@@ -17,15 +17,17 @@
  */
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
-
 import org.apache.arrow.memory.BufferAllocator;
+
+import io.netty.buffer.ArrowBuf;
 
 
 public abstract class BaseDataValueVector extends BaseValueVector {
 
   protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
 
+  // TODO: Nullable vectors extend BaseDataValueVector but do not use the data field
+  // We should fix the inheritance tree
   protected ArrowBuf data;
 
   public BaseDataValueVector(String name, BufferAllocator allocator) {
