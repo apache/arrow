@@ -18,19 +18,23 @@
 package org.apache.arrow.vector.types.pojo;
 
 
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
+import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
+import org.apache.arrow.schema.ArrowVectorType;
+
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
 
 public class Field {
   private final String name;
   private final boolean nullable;
   private final ArrowType type;
   private final List<Field> children;
+  private final List<ArrowVectorType> buffers;
 
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
     this.name = name;
@@ -41,12 +45,21 @@ public class Field {
     } else {
       this.children = children;
     }
+    this.buffers = getBuffersForType(type);
+  }
+
+  protected static List<ArrowVectorType> getBuffersForType(ArrowType type) {
+    type.accept(visitor)
   }
 
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     String name = field.name();
     boolean nullable = field.nullable();
     ArrowType type = getTypeForField(field);
+    List<ArrowVectorType> buffers = new ArrayList<>();
+    for (int i = 0; i < field.buffersLength(); ++i) {
+      buffers.add(new ArrowVectorType(field.buffers(i)));
+    }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
       childrenBuilder.add(convertField(field.children(i)));
@@ -86,6 +99,10 @@ public class Field {
 
   public List<Field> getChildren() {
     return children;
+  }
+
+  public List<ArrowVectorType> getBuffers() {
+    return buffers;
   }
 
   @Override

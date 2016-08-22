@@ -92,6 +92,21 @@ union Type {
 }
 
 /// ----------------------------------------------------------------------
+/// Data structures for describing a table row batch (a collection of
+/// equal-length Arrow arrays)
+
+enum VectorType: short {
+  /// used in List type Dense Union and variable length primitive types (String, Binary)
+  OFFSET,
+  /// fixed length primitive values
+  VALUES,
+  /// Bit vector indicated if each value is null
+  VALIDITY,
+  /// Type vector used in Union type
+  TYPE
+}
+
+/// ----------------------------------------------------------------------
 /// A field represents a named column in a record / row batch or child of a
 /// nested type.
 ///
@@ -107,12 +122,12 @@ table Field {
   // present only if the field is dictionary encoded
   // will point to a dictionary provided by a DictionaryBatch message
   dictionary: long;
+  // children apply only to Nested data types like Struct, List and Union
+  children: [Field];
   /// the buffers produced for this type (as derived from the Type)
   /// does not include children
   /// each recordbatch will return instances of those Buffers.
   buffers: [ VectorType ];
-  // children apply only to Nested data types like Struct, List and Union
-  children: [Field];
 }
 
 /// ----------------------------------------------------------------------
@@ -131,21 +146,6 @@ table Schema {
   endianness: Endianness=Little;
 
   fields: [Field];
-}
-
-/// ----------------------------------------------------------------------
-/// Data structures for describing a table row batch (a collection of
-/// equal-length Arrow arrays)
-
-enum VectorType: short {
-  /// used in List type Dense Union and variable length primitive types (String, Binary)
-  OFFSET,
-  /// fixed length primitive values
-  VALUES,
-  /// Bit vector indicated if each value is null
-  VALIDITY,
-  /// Type vector used in Union type
-  TYPE
 }
 
 /// A Buffer represents a single contiguous memory segment

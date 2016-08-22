@@ -219,6 +219,7 @@ static Status FieldToFlatbuffer(
   RETURN_NOT_OK(TypeToFlatbuffer(fbb, field->type, &children, &type_enum, &type_data));
   auto fb_children = fbb.CreateVector(children);
 
+  // TODO: produce the list of VectorTypes
   *offset = flatbuf::CreateField(
       fbb, fb_name, field->nullable, type_enum, type_data, field->dictionary,
       fb_children);
