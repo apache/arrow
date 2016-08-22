@@ -16,7 +16,9 @@
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Field;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.flatbuf.Union;
@@ -35,6 +37,7 @@ import java.util.List;
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
@@ -219,6 +222,7 @@ public class UnionVector implements ValueVector {
   }
 
   public void transferTo(org.apache.arrow.vector.complex.UnionVector target) {
+    typeVector.makeTransferPair(target.typeVector).transfer();
     internalMap.makeTransferPair(target.internalMap).transfer();
     target.valueCount = valueCount;
   }
@@ -307,20 +311,9 @@ public class UnionVector implements ValueVector {
     return mutator.writer;
   }
 
-//  @Override
-//  public UserBitShared.SerializedField getMetadata() {
-//    SerializedField.Builder b = getField() //
-//            .getAsBuilder() //
-//            .setBufferLength(getBufferSize()) //
-//            .setValueCount(valueCount);
-//
-//    b.addChild(internalMap.getMetadata());
-//    return b.build();
-//  }
-
   @Override
   public int getBufferSize() {
-    return internalMap.getBufferSize();
+    return typeVector.getBufferSize() + internalMap.getBufferSize();
   }
 
   @Override
@@ -339,7 +332,11 @@ public class UnionVector implements ValueVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    return internalMap.getBuffers(clear);
+    ImmutableList.Builder<ArrowBuf> builder = ImmutableList.builder();
+    builder.add(typeVector.getBuffers(clear));
+    builder.add(internalMap.getBuffers(clear));
+    List<ArrowBuf> list = builder.build();
+    return list.toArray(new ArrowBuf[list.size()]);
   }
 
   @Override
@@ -411,6 +408,7 @@ public class UnionVector implements ValueVector {
     @Override
     public void setValueCount(int valueCount) {
       UnionVector.this.valueCount = valueCount;
+      typeVector.getMutator().setValueCount(valueCount);
       internalMap.getMutator().setValueCount(valueCount);
     }
 
