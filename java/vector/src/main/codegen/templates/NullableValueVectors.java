@@ -42,7 +42,7 @@ import java.util.Collections;
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
 @SuppressWarnings("unused")
-public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector, FieldVector{
+public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector, FieldVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   private final FieldReader reader = new ${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
@@ -141,7 +141,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     values.getBuffer().readerIndex(0);
     return Arrays.asList(bits.getBuffer(), values.getBuffer());
   }
-  
+
   @Override
   public Field getField() {
     return field;

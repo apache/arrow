@@ -87,7 +87,7 @@ public abstract class ArrowType {
       return ${field.name};
     }
     </#list>
-    
+
     public String toString() {
       return "${name}{"
       <#list fields as field>
