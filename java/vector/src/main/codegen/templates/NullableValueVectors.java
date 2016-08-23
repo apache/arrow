@@ -130,7 +130,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       throw new IllegalArgumentException("Illegal buffer count, expected 2, got: " + ownBuffers.size());
     }
     bits.data = ownBuffers.get(0);
+    bits.data.retain(allocator);
     values.data = ownBuffers.get(1);
+    values.data.retain(allocator);
     // TODO: do something with the sizes in fieldNode?
   }
 
