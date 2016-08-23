@@ -24,8 +24,6 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 
 import org.apache.arrow.flatbuf.Footer;
-import org.apache.arrow.vector.file.ArrowBlock;
-import org.apache.arrow.vector.file.ArrowFooter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -51,9 +49,7 @@ public class TestArrowFooter {
     int i = footer.writeTo(builder);
     builder.finish(i);
     ByteBuffer dataBuffer = builder.dataBuffer();
-    System.out.println(dataBuffer);
     ArrowFooter newFooter = new ArrowFooter(Footer.getRootAsFooter(dataBuffer));
-    System.out.println(dataBuffer);
     return newFooter;
   }
 

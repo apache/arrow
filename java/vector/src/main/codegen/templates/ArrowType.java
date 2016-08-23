@@ -41,7 +41,7 @@ public abstract class ArrowType {
 
   public static interface ArrowTypeVisitor<T> {
   <#list arrowTypes.types as type>
-    T visit(${type.name} type); 
+    T visit(${type.name} type);
   </#list>
   }
 

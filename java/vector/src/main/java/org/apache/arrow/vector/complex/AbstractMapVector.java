@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
 /*
  * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
  */
-public abstract class AbstractMapVector extends AbstractContainerVector implements NestedVector {
+public abstract class AbstractMapVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
@@ -160,8 +160,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector implemen
     return typeify(v, clazz);
   }
 
-  @Override
-  public ValueVector add(String name, MinorType minorType, int... precisionScale) {
+  protected ValueVector add(String name, MinorType minorType, int... precisionScale) {
     final ValueVector existing = getChild(name);
     if (existing != null) {
       throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));

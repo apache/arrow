@@ -91,10 +91,6 @@ union Type {
   JSONScalar
 }
 
-/// ----------------------------------------------------------------------
-/// Data structures for describing a table row batch (a collection of
-/// equal-length Arrow arrays)
-
 enum VectorType: short {
   /// used in List type Dense Union and variable length primitive types (String, Binary)
   OFFSET,
@@ -147,6 +143,10 @@ table Schema {
 
   fields: [Field];
 }
+
+/// ----------------------------------------------------------------------
+/// Data structures for describing a table row batch (a collection of
+/// equal-length Arrow arrays)
 
 /// A Buffer represents a single contiguous memory segment
 struct Buffer {
