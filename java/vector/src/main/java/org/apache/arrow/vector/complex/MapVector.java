@@ -332,11 +332,11 @@ public class MapVector extends AbstractMapVector {
     if (fieldChildren != null) {
       throw new IllegalArgumentException(children.toString()); //TODO
     }
+    fieldChildren = new ArrayList<>();
     for (Field field : children) {
       MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
       FieldVector vector = (FieldVector)this.add(field.getName(), minorType);
       fieldChildren.add(vector);
-      // TODO: clean this up
       vector.initializeChildrenFromFields(field.getChildren());
     }
   }

@@ -163,7 +163,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector implemen
   @Override
   public ValueVector add(String name, MinorType minorType, int... precisionScale) {
     final ValueVector existing = getChild(name);
-    if (existing == null) {
+    if (existing != null) {
       throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));
     }
     ValueVector vector = minorType.getNewVector(name, allocator, callBack, precisionScale);

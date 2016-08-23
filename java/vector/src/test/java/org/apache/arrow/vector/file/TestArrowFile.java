@@ -20,6 +20,7 @@ package org.apache.arrow.vector.file;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,20 +76,25 @@ public class TestArrowFile {
       parent.close();
     }
 
+    System.out.println(file.length());
     {
       try (
-          FileOutputStream fileOutputStream = new FileOutputStream(file);
-          ArrowReader arrowReader = new ArrowReader(fileOutputStream.getChannel(), allocator)
+          FileInputStream fileInputStream = new FileInputStream(file);
+          ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), allocator)
           ) {
         ArrowFooter footer = arrowReader.readFooter();
         org.apache.arrow.vector.types.pojo.Schema schema = footer.getSchema();
+        System.out.println("reading schema: " + schema);
 
         // initialize vectors
         MapVector parent = new MapVector("parent", allocator, null);
+        ComplexWriter writer = new ComplexWriterImpl("root", parent);
+        MapWriter rootWriter = writer.rootAsMap();
+        MapVector root = (MapVector)parent.getChild("root");
 
         List<Field> fields = schema.getFields();
-        parent.initializeChildren(fields);
-        List<FieldVector> fieldVectors = parent.getFieldVectors();
+        root.initializeChildren(fields);
+        List<FieldVector> fieldVectors = root.getFieldVectors();
         if (fieldVectors.size() != fields.size()) {
           throw new IllegalArgumentException(); //TODO
         }
@@ -100,7 +106,8 @@ public class TestArrowFile {
 
           Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
           Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-
+          System.out.println(recordBatch.getNodes().size() + " nodes");
+          System.out.println(recordBatch.getBuffers().size() + " buffers");
           for (int i = 0; i < fields.size(); ++i) {
             Field field = fields.get(i);
             FieldVector fieldVector = fieldVectors.get(i);
@@ -179,6 +186,7 @@ public class TestArrowFile {
   private void write(MapVector parent, File file) throws FileNotFoundException, IOException {
     Field rootField = parent.getField();
     Schema schema = new Schema(rootField.getChildren());
+    System.out.println("writing schema: " + schema);
     try (
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema)

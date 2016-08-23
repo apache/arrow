@@ -116,7 +116,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
    * @param children
    */
   public void initializeChildrenFromFields(List<Field> children) {
-    throw new UnsupportedOperationException();
+    if (!children.isEmpty()) {
+      throw new IllegalArgumentException("primitive type vector ${className} can not have children: " + children);
+    }
   }
 
   public List<FieldVector> getChildrenFromFields() {
@@ -124,7 +126,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    throw new UnsupportedOperationException();
+    if (ownBuffers.size() != 2) {
+      throw new IllegalArgumentException("Illegal buffer count, expected 2, got: " + ownBuffers.size());
+    }
+    bits.data = ownBuffers.get(0);
+    values.data = ownBuffers.get(1);
+    // TODO: do something with the sizes in fieldNode?
   }
 
   public List<ArrowBuf> getFieldBuffers() {

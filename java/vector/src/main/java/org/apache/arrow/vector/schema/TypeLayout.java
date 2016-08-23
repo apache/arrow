@@ -77,7 +77,7 @@ public class TypeLayout {
       }
 
       @Override public TypeLayout visit(Timestamp type) {
-        throw new UnsupportedOperationException("NYI");
+        return newFixedWidthTypeLayout(dataVector(64));
       }
 
       @Override public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
@@ -103,7 +103,8 @@ public class TypeLayout {
       }
 
       @Override public TypeLayout visit(Decimal type) {
-        throw new UnsupportedOperationException("NYI");
+        // TODO: check size
+        return newFixedWidthTypeLayout(dataVector(64)); // actually depends on the type fields
       }
 
       @Override public TypeLayout visit(Bool type) {
@@ -137,22 +138,22 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Date type) {
-        throw new UnsupportedOperationException("NYI");
+        return newFixedWidthTypeLayout(dataVector(64));
       }
 
       @Override
       public TypeLayout visit(Time type) {
-        throw new UnsupportedOperationException("NYI");
+        return newFixedWidthTypeLayout(dataVector(64));
       }
 
       @Override
-      public TypeLayout visit(IntervalDay type) {
-        throw new UnsupportedOperationException("NYI");
+      public TypeLayout visit(IntervalDay type) { // TODO: check size
+        return newFixedWidthTypeLayout(dataVector(64));
       }
 
       @Override
-      public TypeLayout visit(IntervalYear type) {
-        throw new UnsupportedOperationException("NYI");
+      public TypeLayout visit(IntervalYear type) { // TODO: check size
+        return newFixedWidthTypeLayout(dataVector(64));
       }
     });
     return layout;
