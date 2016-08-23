@@ -1,13 +1,14 @@
-package org.apache.arrow.vector.layout;
+package org.apache.arrow.vector.schema;
 
 import static java.util.Arrays.asList;
 import static org.apache.arrow.flatbuf.Precision.DOUBLE;
 import static org.apache.arrow.flatbuf.Precision.SINGLE;
-import static org.apache.arrow.vector.layout.VectorLayout.newBooleanVectorLayout;
-import static org.apache.arrow.vector.layout.VectorLayout.newByteVectorLayout;
-import static org.apache.arrow.vector.layout.VectorLayout.newIntVectorLayout;
-import static org.apache.arrow.vector.layout.VectorLayout.newOffsetVectorLayout;
-import static org.apache.arrow.vector.layout.VectorLayout.newValidityVectorLayout;
+import static org.apache.arrow.vector.schema.VectorLayout.booleanVector;
+import static org.apache.arrow.vector.schema.VectorLayout.byteVector;
+import static org.apache.arrow.vector.schema.VectorLayout.dataVector;
+import static org.apache.arrow.vector.schema.VectorLayout.offsetVector;
+import static org.apache.arrow.vector.schema.VectorLayout.typeVector;
+import static org.apache.arrow.vector.schema.VectorLayout.validityVector;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +31,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
-import org.apache.arrow.vector.types.pojo.Field;
 
 /**
  * The layout of vectors for a given type
@@ -39,47 +39,41 @@ import org.apache.arrow.vector.types.pojo.Field;
  */
 public class TypeLayout {
 
-  public static TypeLayout newTypeLayout(Field field) {
-    final org.apache.arrow.vector.types.pojo.ArrowType arrowType = field.getType();
-    final List<Field> children = field.getChildren();
+  public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
 
       @Override public TypeLayout visit(Int type) {
-        return newFixedWidthTypeLayout(
-            arrowType,
-            newIntVectorLayout(type.getBitWidth()));
+        return newFixedWidthTypeLayout(dataVector(type.getBitWidth()));
       }
 
       @Override public TypeLayout visit(Union type) {
-        List<TypeLayout> childLayouts = childrenLayout(children);
         List<VectorLayout> vectors;
         switch (type.getMode()) {
           case UnionMode.Dense:
             vectors = asList(
                 // TODO: validate this
-                newValidityVectorLayout(),
-                newIntVectorLayout(8), // type vector
-                newOffsetVectorLayout() // offset to find the vector
+                validityVector(),
+                typeVector(),
+                offsetVector() // offset to find the vector
                 );
             break;
           case UnionMode.Sparse:
             vectors = asList(
-                newValidityVectorLayout(),
-                newIntVectorLayout(8) // type vector
+                validityVector(),
+                typeVector()
                 );
             break;
           default:
             throw new UnsupportedOperationException("Unsupported Union Mode: " + type.getMode());
         }
-        return new TypeLayout(arrowType, vectors, childLayouts);
+        return new TypeLayout(vectors);
       }
 
       @Override public TypeLayout visit(Tuple type) {
-        List<TypeLayout> childLayouts = childrenLayout(children);
         List<VectorLayout> vectors = asList(
-            newValidityVectorLayout()
+            validityVector()
             );
-        return new TypeLayout(arrowType, vectors, childLayouts);
+        return new TypeLayout(vectors);
       }
 
       @Override public TypeLayout visit(Timestamp type) {
@@ -87,14 +81,10 @@ public class TypeLayout {
       }
 
       @Override public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
-        if (children.size() != 1) {
-          throw new IllegalArgumentException("Lists should have exactly one child. Found " + children);
-        }
-        List<TypeLayout> childLayouts = childrenLayout(children);
         List<VectorLayout> vectors = asList(
-            newValidityVectorLayout()
+            validityVector()
             );
-        return new TypeLayout(arrowType, vectors, childLayouts);
+        return new TypeLayout(vectors);
       }
 
       @Override public TypeLayout visit(FloatingPoint type) {
@@ -109,9 +99,7 @@ public class TypeLayout {
         default:
           throw new UnsupportedOperationException("Unsupported Precision: " + type.getPrecision());
         }
-        return newFixedWidthTypeLayout(
-            arrowType,
-            newIntVectorLayout(bitWidth));
+        return newFixedWidthTypeLayout(dataVector(bitWidth));
       }
 
       @Override public TypeLayout visit(Decimal type) {
@@ -119,36 +107,32 @@ public class TypeLayout {
       }
 
       @Override public TypeLayout visit(Bool type) {
-        return newFixedWidthTypeLayout(
-            arrowType,
-            newBooleanVectorLayout());
+        return newFixedWidthTypeLayout(booleanVector());
       }
 
       @Override public TypeLayout visit(Binary type) {
-        return newVariableWidthTypeLayout(arrowType, newByteVectorLayout());
-      }
-
-      private TypeLayout newVariableWidthTypeLayout(ArrowType arrowType, VectorLayout values) {
-        return newPrimitiveTypeLayout(arrowType, newValidityVectorLayout(), newOffsetVectorLayout(), values);
-      }
-
-      private TypeLayout newPrimitiveTypeLayout(ArrowType type, VectorLayout... vectors) {
-        return new TypeLayout(type, asList(vectors), Collections.<TypeLayout>emptyList());
-      }
-
-      public TypeLayout newFixedWidthTypeLayout(ArrowType type, VectorLayout dataVector) {
-        return newPrimitiveTypeLayout(type, newValidityVectorLayout(), dataVector);
+        return newVariableWidthTypeLayout();
       }
 
       @Override public TypeLayout visit(Utf8 type) {
-        return newVariableWidthTypeLayout(
-            arrowType,
-            newByteVectorLayout());
+        return newVariableWidthTypeLayout();
+      }
+
+      private TypeLayout newVariableWidthTypeLayout() {
+        return newPrimitiveTypeLayout(validityVector(), offsetVector(), byteVector());
+      }
+
+      private TypeLayout newPrimitiveTypeLayout(VectorLayout... vectors) {
+        return new TypeLayout(asList(vectors));
+      }
+
+      public TypeLayout newFixedWidthTypeLayout(VectorLayout dataVector) {
+        return newPrimitiveTypeLayout(validityVector(), dataVector);
       }
 
       @Override
       public TypeLayout visit(Null type) {
-        return new TypeLayout(type, Collections.<VectorLayout>emptyList(), Collections.<TypeLayout>emptyList());
+        return new TypeLayout(Collections.<VectorLayout>emptyList());
       }
 
       @Override
@@ -170,38 +154,30 @@ public class TypeLayout {
       public TypeLayout visit(IntervalYear type) {
         throw new UnsupportedOperationException("NYI");
       }
-
-      private List<TypeLayout> childrenLayout(final List<Field> children) {
-        List<TypeLayout> childLayouts = new ArrayList<TypeLayout>();
-        for (Field child : children) {
-          childLayouts.add(newTypeLayout(child));
-        }
-        return childLayouts;
-      }
     });
     return layout;
   }
 
-  private final ArrowType type;
   private final List<VectorLayout> vectors;
-  private final List<TypeLayout> children;
 
-  public TypeLayout(ArrowType type, List<VectorLayout> vectors, List<TypeLayout> children) {
+  public TypeLayout(List<VectorLayout> vectors) {
     super();
-    this.type = type;
     this.vectors = vectors;
-    this.children = children;
-  }
-
-  public ArrowType getType() {
-    return type;
   }
 
   public List<VectorLayout> getVectors() {
     return vectors;
   }
 
-  public List<TypeLayout> getChildren() {
-    return children;
+  public List<ArrowVectorType> getVectorTypes() {
+    List<ArrowVectorType> types = new ArrayList<>(vectors.size());
+    for (VectorLayout vector : vectors) {
+      types.add(vector.getType());
+    }
+    return types;
+  }
+
+  public String toString() {
+    return "TypeLayout{" + vectors + "}";
   }
 }

@@ -29,6 +29,9 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import java.util.Collections;
+
 <#include "/@includes/vv_imports.ftl" />
 
 /**
@@ -39,7 +42,7 @@ package org.apache.arrow.vector;
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
 @SuppressWarnings("unused")
-public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector{
+public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector, FieldVector{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   private final FieldReader reader = new ${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
@@ -88,9 +91,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Time">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
   <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(0), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.SINGLE), null);
   <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(1), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.DOUBLE), null);
   <#elseif minor.class == "TimeStamp">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
   <#elseif minor.class == "IntervalDay">
@@ -107,6 +110,29 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
   </#if>
 
+    /**
+   * Initializes the child vectors
+   * to be later loaded with loadBuffers
+   * @param children
+   */
+  public void initializeChildrenFromFields(List<Field> children) {
+    throw new UnsupportedOperationException();
+  }
+
+  public List<FieldVector> getChildrenFromFields() {
+    return Collections.emptyList();
+  }
+
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    throw new UnsupportedOperationException();
+  }
+
+  public List<ArrowBuf> getFieldBuffers() {
+    bits.getBuffer().readerIndex(0);
+    values.getBuffer().readerIndex(0);
+    return Arrays.asList(bits.getBuffer(), values.getBuffer());
+  }
+  
   @Override
   public Field getField() {
     return field;

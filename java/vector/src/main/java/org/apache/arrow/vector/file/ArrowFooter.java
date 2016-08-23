@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.file;
+package org.apache.arrow.vector.file;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.Block;
 import org.apache.arrow.flatbuf.Footer;
-import org.apache.arrow.schema.FBSerializable;
+import org.apache.arrow.vector.schema.FBSerializable;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.flatbuffers.FlatBufferBuilder;

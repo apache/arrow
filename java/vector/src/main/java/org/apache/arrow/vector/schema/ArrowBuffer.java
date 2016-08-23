@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.schema;
+package org.apache.arrow.vector.schema;
 
 import org.apache.arrow.flatbuf.Buffer;
 

@@ -18,15 +18,13 @@
 package org.apache.arrow.vector.types.pojo;
 
 
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
+import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 
-import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
-import static org.apache.arrow.vector.types.pojo.Field.convertField;
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
 
 public class Schema {
   private List<Field> fields;
@@ -70,5 +68,10 @@ public class Schema {
     }
     List<Field> fields = childrenBuilder.build();
     return new Schema(fields);
+  }
+
+  @Override
+  public String toString() {
+    return "Schema" + fields;
   }
 }

@@ -15,9 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.file;
+package org.apache.arrow.vector.file;
 
-import static java.util.Arrays.asList;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -29,11 +29,8 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.schema.ArrowFieldNode;
-import org.apache.arrow.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
@@ -42,6 +39,9 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
@@ -71,7 +71,7 @@ public class TestArrowFile {
       }
       writer.setValueCount(count);
 
-      write(parent, file);
+      write((MapVector)parent.getChild("root"), file);
       parent.close();
     }
 
@@ -82,16 +82,47 @@ public class TestArrowFile {
           ) {
         ArrowFooter footer = arrowReader.readFooter();
         org.apache.arrow.vector.types.pojo.Schema schema = footer.getSchema();
+
+        // initialize vectors
+        MapVector parent = new MapVector("parent", allocator, null);
+
+        List<Field> fields = schema.getFields();
+        parent.initializeChildren(fields);
+        List<FieldVector> fieldVectors = parent.getFieldVectors();
+        if (fieldVectors.size() != fields.size()) {
+          throw new IllegalArgumentException(); //TODO
+        }
+
+//        validateLayout(fields, parent);
         List<ArrowBlock> recordBatches = footer.getRecordBatches();
         for (ArrowBlock rbBlock : recordBatches) {
           ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock);
-          Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+
           Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
-          MapVector parent = new MapVector("parent", allocator, null);
-          List<Field> fields = schema.getFields();
-          for (Field field : fields) {
-            VectorLoader.addChild(parent, field, nodes, buffers);
+          Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+
+          for (int i = 0; i < fields.size(); ++i) {
+            Field field = fields.get(i);
+            FieldVector fieldVector = fieldVectors.get(i);
+            loadBuffers(fieldVector, field, buffers, nodes);
           }
+
+//          public void load(List<Field> fields, int length, Iterator<ArrowFieldNode> nodes, Iterator<ArrowBuf> buffers) {
+//
+//            for (Field field : fields) {
+//              MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+//              ValueVector vector = this.add(field.getName(), minorType);
+//
+//
+//              vector.loadBuffers(typeLayout, ownBuffers);
+//              List<Field> children = field.getChildren();
+//              for (Field child : children) {
+//                addChild((NestedVector)vector, child, nodes, buffers);
+//                vector.loadChild()
+//              }
+//            }
+//          }
+//          parent.load(fields, recordBatch.getLength(), nodes, buffers);
 
           MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
           for (int i = 0; i < count; i++) {
@@ -107,6 +138,44 @@ public class TestArrowFile {
     }
   }
 
+  private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
+    ArrowFieldNode fieldNode = nodes.next();
+    List<VectorLayout> typeLayout = field.getTypeLayout().getVectors();
+    List<ArrowBuf> ownBuffers = new ArrayList<>(typeLayout.size());
+    for (int j = 0; j < typeLayout.size(); j++) {
+      ownBuffers.add(buffers.next());
+    }
+    vector.loadFieldBuffers(fieldNode, ownBuffers);
+    List<Field> children = field.getChildren();
+    if (children.size() > 0) {
+      List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
+      int i = 0;
+      checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: found " + childrenFromFields.size() + " expected " + children.size());
+      for (Field child : children) {
+        FieldVector fieldVector = childrenFromFields.get(i);
+        loadBuffers(fieldVector, child, buffers, nodes);
+        ++i;
+      }
+    }
+  }
+
+//  private void validateLayout(List<Field> fields, Iterable<ValueVector> childVectors) {
+//    int i = 0;
+//    for (ValueVector valueVector : childVectors) {
+//      Field field = fields.get(i);
+//      TypeLayout typeLayout = field.getTypeLayout();
+//      TypeLayout expectedTypeLayout = valueVector.getTypeLayout();
+//      if (!expectedTypeLayout.equals(typeLayout)) {
+//        throw new InvalidArrowFileException("The type layout does not match the expected layout: expected " + expectedTypeLayout + " found " + typeLayout);
+//      }
+//      if (field.getChildren().size() > 0) {
+//        validateLayout(field.getChildren(), valueVector);
+//      }
+//      ++i;
+//    }
+//    Preconditions.checkArgument(i == fields.size(), "should have as many children as in the schema: found " + i + " expected " + fields.size());
+//  }
+
   private void write(MapVector parent, File file) throws FileNotFoundException, IOException {
     Field rootField = parent.getField();
     Schema schema = new Schema(rootField.getChildren());
@@ -115,15 +184,15 @@ public class TestArrowFile {
         ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema)
             ) {
       List<ArrowFieldNode> nodes = new ArrayList<>();
-      for (ValueVector vector : parent) {
-        appendNodes(vector, nodes);
+      List<ArrowBuf> buffers = new ArrayList<>();
+      for (FieldVector vector : parent.getFieldVectors()) {
+        appendNodes(vector, nodes, buffers);
       }
-      List<ArrowBuf> buffers = new ArrayList<>(asList(parent.getBuffers(false)));
       arrowWriter.writeRecordBatch(new ArrowRecordBatch(parent.getAccessor().getValueCount(), nodes, buffers));
     }
   }
 
-  private void appendNodes(ValueVector vector, List<ArrowFieldNode> nodes) {
+  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     Accessor accessor = vector.getAccessor();
     int nullCount = 0;
     // TODO: should not have to do that
@@ -134,8 +203,10 @@ public class TestArrowFile {
       }
     }
     nodes.add(new ArrowFieldNode(accessor.getValueCount(), nullCount));
-    for (ValueVector child : vector) {
-      appendNodes(child, nodes);
+    // TODO: validate buffer count
+    buffers.addAll(vector.getFieldBuffers());
+    for (FieldVector child : vector.getChildrenFromFields()) {
+      appendNodes(child, nodes, buffers);
     }
   }
 

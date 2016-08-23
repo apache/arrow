@@ -15,9 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.schema;
+package org.apache.arrow.vector.schema;
 
-import static org.apache.arrow.schema.FBSerializables.writeAllStructsToVector;
+import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
 
 import java.util.ArrayList;
 import java.util.List;

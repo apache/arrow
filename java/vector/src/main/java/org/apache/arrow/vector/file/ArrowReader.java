@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.file;
+package org.apache.arrow.vector.file;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,8 +29,8 @@ import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.schema.ArrowFieldNode;
-import org.apache.arrow.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +82,9 @@ public class ArrowReader implements AutoCloseable {
 
   public ArrowFooter readFooter() throws IOException {
     if (footer == null) {
+      if (in.size() <= (MAGIC.length * 2 + 4)) {
+        throw new InvalidArrowFileException("file too small: " + in.size());
+      }
       ByteBuffer buffer = ByteBuffer.allocate(4 + MAGIC.length);
       long footerLengthOffset = in.size() - buffer.remaining();
       in.position(footerLengthOffset);

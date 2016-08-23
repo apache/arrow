@@ -27,10 +27,12 @@ import javax.annotation.Nullable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -323,4 +325,25 @@ public class MapVector extends AbstractMapVector {
 
     super.close();
  }
+
+  private List<FieldVector> fieldChildren;
+
+  public void initializeChildren(List<Field> children) {
+    if (fieldChildren != null) {
+      throw new IllegalArgumentException(children.toString()); //TODO
+    }
+    for (Field field : children) {
+      MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+      FieldVector vector = (FieldVector)this.add(field.getName(), minorType);
+      fieldChildren.add(vector);
+      // TODO: clean this up
+      vector.initializeChildrenFromFields(field.getChildren());
+    }
+  }
+
+  public List<FieldVector> getFieldVectors() {
+    // TODO: clean this up
+    return (List<FieldVector>)(List<?>)getChildren();
+  }
+
 }

@@ -292,7 +292,7 @@ public class Types {
         return new IntervalYearWriterImpl((NullableIntervalYearVector) vector);
       }
     },
-    FLOAT4(new FloatingPoint(0)) {
+    FLOAT4(new FloatingPoint(Precision.SINGLE)) {
       @Override
       public Field getField() {
         return FLOAT4_FIELD;
@@ -308,7 +308,7 @@ public class Types {
         return new Float4WriterImpl((NullableFloat4Vector) vector);
       }
     },   //  4 byte ieee 754
-    FLOAT8(new FloatingPoint(1)) {
+    FLOAT8(new FloatingPoint(Precision.DOUBLE)) {
       @Override
       public Field getField() {
         return FLOAT8_FIELD;

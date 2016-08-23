@@ -21,11 +21,11 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.Precision;
-import org.apache.arrow.schema.ArrowFieldNode;
 import org.apache.arrow.vector.complex.ComplexVectorLoader;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NestedVector;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;

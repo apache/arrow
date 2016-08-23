@@ -19,8 +19,8 @@ package org.apache.arrow.vector.complex;
 
 import java.util.Iterator;
 
-import org.apache.arrow.schema.ArrowFieldNode;
 import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
 

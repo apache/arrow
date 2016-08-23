@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.file;
+package org.apache.arrow.vector.file;
 
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
@@ -24,6 +24,8 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 
 import org.apache.arrow.flatbuf.Footer;
+import org.apache.arrow.vector.file.ArrowBlock;
+import org.apache.arrow.vector.file.ArrowFooter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;

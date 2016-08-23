@@ -17,8 +17,9 @@
  */
 package org.apache.arrow.vector.pojo;
 
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
+import static org.apache.arrow.flatbuf.Precision.SINGLE;
+import static org.junit.Assert.assertEquals;
+
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
@@ -27,9 +28,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
-import java.util.List;
-
-import static org.junit.Assert.assertEquals;
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
  * Test conversion between Flatbuf and Pojo field representations
@@ -46,7 +46,7 @@ public class TestConvert {
   public void complex() {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
-    childrenBuilder.add(new Field("child2", true, new FloatingPoint(0), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
 
     Field initialField = new Field("a", true, Tuple.INSTANCE, childrenBuilder.build());
     run(initialField);
@@ -56,7 +56,7 @@ public class TestConvert {
   public void schema() {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
-    childrenBuilder.add(new Field("child2", true, new FloatingPoint(0), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);
 

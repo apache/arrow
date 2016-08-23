@@ -15,13 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.file;
+package org.apache.arrow.vector.schema;
 
-public class InvalidArrowFileException extends RuntimeException {
-  private static final long serialVersionUID = 1L;
+import com.google.flatbuffers.FlatBufferBuilder;
 
-  public InvalidArrowFileException(String message) {
-    super(message);
-  }
-
+public interface FBSerializable {
+  int writeTo(FlatBufferBuilder builder);
 }

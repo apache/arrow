@@ -15,34 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.schema;
+package org.apache.arrow.vector.file;
 
-import org.apache.arrow.flatbuf.FieldNode;
+public class InvalidArrowFileException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-public class ArrowFieldNode implements FBSerializable {
-
-  private final int length;
-  private final int nullCount;
-
-  public ArrowFieldNode(int length, int nullCount) {
-    super();
-    this.length = length;
-    this.nullCount = nullCount;
-  }
-
-  @Override
-  public int writeTo(FlatBufferBuilder builder) {
-    return FieldNode.createFieldNode(builder, length, nullCount);
-  }
-
-  public int getNullCount() {
-    return nullCount;
-  }
-
-  public int getLength() {
-    return length;
+  public InvalidArrowFileException(String message) {
+    super(message);
   }
 
 }
