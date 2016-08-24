@@ -53,12 +53,11 @@ public class VectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      int i = 0;
       checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: found " + childrenFromFields.size() + " expected " + children.size());
-      for (Field child : children) {
+      for (int i = 0; i < childrenFromFields.size(); i++) {
+        Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);
         loadBuffers(fieldVector, child, buffers, nodes);
-        ++i;
       }
     }
   }
