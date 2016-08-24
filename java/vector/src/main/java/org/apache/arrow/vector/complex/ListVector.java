@@ -18,11 +18,15 @@
  ******************************************************************************/
 package org.apache.arrow.vector.complex;
 
+import static java.util.Arrays.asList;
+
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
@@ -32,6 +36,8 @@ import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -43,7 +49,7 @@ import com.google.common.collect.ObjectArrays;
 
 import io.netty.buffer.ArrowBuf;
 
-public class ListVector extends BaseRepeatedValueVector {
+public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   UInt4Vector offsets;// TODO: THis masks the same vector in the parent
   final UInt1Vector bits;
@@ -60,6 +66,41 @@ public class ListVector extends BaseRepeatedValueVector {
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
     this.callBack = callBack;
+  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    if (children.size() != 1) {
+      throw new IllegalArgumentException("Lists have only one child. Found: " + children);
+    }
+    Field field = children.get(0);
+    MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(minorType);
+    if (!addOrGetVector.isCreated()) {
+      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    // TODO: data vector should be that type
+    return Arrays.asList((FieldVector)getDataVector());
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    if (ownBuffers.size() != 2) {
+      throw new IllegalArgumentException("Lists have a validity and offset vector. Found: " + ownBuffers);
+    }
+    this.bits.load(ownBuffers.get(0));
+    this.offsets.load(ownBuffers.get(0));
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    bits.getBuffer().readerIndex(0);
+    offsets.getBuffer().readerIndex(0);
+    return asList(bits.getBuffer(), offsets.getBuffer());
   }
 
   public UnionListWriter getWriter() {
@@ -297,4 +338,5 @@ public class ListVector extends BaseRepeatedValueVector {
       bits.getMutator().setValueCount(valueCount);
     }
   }
+
 }

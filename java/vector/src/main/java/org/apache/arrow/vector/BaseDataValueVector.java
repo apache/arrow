@@ -84,6 +84,10 @@ public abstract class BaseDataValueVector extends BaseValueVector {
     return data;
   }
 
+  public void load(ArrowBuf data) {
+    this.data = data.retain(allocator);
+  }
+
   /**
    * This method has a similar effect of allocateNew() without actually clearing and reallocating
    * the value vector. The purpose is to move the value vector to a "mutate" state

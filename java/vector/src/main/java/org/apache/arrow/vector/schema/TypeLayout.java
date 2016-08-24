@@ -82,7 +82,8 @@ public class TypeLayout {
 
       @Override public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
         List<VectorLayout> vectors = asList(
-            validityVector()
+            validityVector(),
+            offsetVector()
             );
         return new TypeLayout(vectors);
       }
@@ -165,6 +166,11 @@ public class TypeLayout {
     super();
     this.vectors = vectors;
   }
+
+  public TypeLayout(VectorLayout... vectors) {
+    this(asList(vectors));
+  }
+
 
   public List<VectorLayout> getVectors() {
     return vectors;

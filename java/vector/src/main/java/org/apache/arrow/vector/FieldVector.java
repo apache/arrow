@@ -25,4 +25,5 @@ public interface FieldVector extends ValueVector {
    * @return the
    */
   List<ArrowBuf> getFieldBuffers();
+
 }

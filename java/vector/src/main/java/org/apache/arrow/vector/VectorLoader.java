@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.VectorLayout;
@@ -19,11 +18,11 @@ public class VectorLoader {
   private final List<FieldVector> fieldVectors;
   private final List<Field> fields;
 
-  public VectorLoader(Schema schema, MapVector root) {
+  public VectorLoader(Schema schema, FieldVector root) {
     super();
     this.fields = schema.getFields();
-    root.initializeChildren(fields);
-    this.fieldVectors = root.getFieldVectors();
+    root.initializeChildrenFromFields(fields);
+    this.fieldVectors = root.getChildrenFromFields();
     if (this.fieldVectors.size() != fields.size()) {
       throw new IllegalArgumentException(); //TODO
     }
@@ -46,7 +45,11 @@ public class VectorLoader {
     for (int j = 0; j < typeLayout.size(); j++) {
       ownBuffers.add(buffers.next());
     }
-    vector.loadFieldBuffers(fieldNode, ownBuffers);
+    try {
+      vector.loadFieldBuffers(fieldNode, ownBuffers);
+    } catch (RuntimeException e) {
+      throw new IllegalArgumentException("Could not load buffers for field " + field);
+    }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();

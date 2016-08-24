@@ -4,35 +4,37 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.vector.ValueVector.Accessor;
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import io.netty.buffer.ArrowBuf;
 
 public class VectorUnloader {
 
-  private final MapVector parent;
+  private final Schema schema;
+  private final int valueCount;
+  private final List<FieldVector> vectors;
 
-  public VectorUnloader(MapVector parent) {
+  public VectorUnloader(FieldVector parent) {
     super();
-    this.parent = parent;
+    this.schema = new Schema(parent.getField().getChildren());
+    this.valueCount = parent.getAccessor().getValueCount();
+    this.vectors = parent.getChildrenFromFields();
   }
 
   public Schema getSchema() {
-    Field rootField = parent.getField();
-    return new Schema(rootField.getChildren());
+    return schema;
   }
 
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
-    for (FieldVector vector : parent.getFieldVectors()) {
+    for (FieldVector vector : vectors) {
       appendNodes(vector, nodes, buffers);
     }
-    return new ArrowRecordBatch(parent.getAccessor().getValueCount(), nodes, buffers);
+    return new ArrowRecordBatch(valueCount, nodes, buffers);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
@@ -46,8 +48,12 @@ public class VectorUnloader {
       }
     }
     nodes.add(new ArrowFieldNode(accessor.getValueCount(), nullCount));
-    // TODO: validate buffer count
-    buffers.addAll(vector.getFieldBuffers());
+    List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
+    List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
+    if (fieldBuffers.size() != expectedBuffers.size()) {
+      throw new IllegalArgumentException("wrong number of buffers for field " + vector.getField() + ". found: " + fieldBuffers);
+    }
+    buffers.addAll(fieldBuffers);
     for (FieldVector child : vector.getChildrenFromFields()) {
       appendNodes(child, nodes, buffers);
     }

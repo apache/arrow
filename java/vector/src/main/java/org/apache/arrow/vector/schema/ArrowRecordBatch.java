@@ -30,7 +30,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import io.netty.buffer.ArrowBuf;
 
-public class ArrowRecordBatch implements FBSerializable {
+public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowRecordBatch.class);
 
   /** number of records */
@@ -79,6 +79,12 @@ public class ArrowRecordBatch implements FBSerializable {
     RecordBatch.addNodes(builder, nodesOffset);
     RecordBatch.addBuffers(builder, buffersOffset);
     return RecordBatch.endRecordBatch(builder);
+  }
+
+  public void close() {
+    for (ArrowBuf arrowBuf : buffers) {
+      arrowBuf.release();
+    }
   }
 
 }

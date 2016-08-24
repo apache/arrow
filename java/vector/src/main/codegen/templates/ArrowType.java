@@ -75,9 +75,14 @@ public abstract class ArrowType {
 
     @Override
     public int getType(FlatBufferBuilder builder) {
+      <#list type.fields as field>
+      <#if field.type == "String">
+      int ${field.name} = builder.createString(this.${field.name});
+      </#if>
+      </#list>
       org.apache.arrow.flatbuf.${type.name}.start${type.name}(builder);
       <#list type.fields as field>
-      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, <#if field.type == "String">builder.createString(${field.name})<#else>${field.name}</#if>);
+      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, ${field.name});
       </#list>
       return org.apache.arrow.flatbuf.${type.name}.end${type.name}(builder);
     }

@@ -33,93 +33,212 @@ import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.complex.writer.TimeStampWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
+import io.netty.buffer.ArrowBuf;
+
 public class TestArrowFile {
-  static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+  private BufferAllocator allocator;
+
+  @Before
+  public void init() {
+    allocator = new RootAllocator(Integer.MAX_VALUE);
+  }
+
+  @After
+  public void tearDown() {
+    allocator.close();
+  }
 
   @Test
-  public void test() throws IOException {
-    File file = new File("target/mytest.arrow");
+  public void testWrite() throws IOException {
+    File file = new File("target/mytest_write.arrow");
     int count = 10000;
-
-    {
-      MapVector parent = new MapVector("parent", allocator, null);
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
-      IntWriter intWriter = rootWriter.integer("int");
-      BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
-      for (int i = 0; i < count; i++) {
-        intWriter.setPosition(i);
-        intWriter.writeInt(i);
-        bigIntWriter.setPosition(i);
-        bigIntWriter.writeBigInt(i);
-      }
-      writer.setValueCount(count);
-
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+      writeData(count, parent);
       write((MapVector)parent.getChild("root"), file);
-      parent.close();
-    }
-
-    {
-      try (
-          FileInputStream fileInputStream = new FileInputStream(file);
-          ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), allocator)
-          ) {
-        ArrowFooter footer = arrowReader.readFooter();
-        Schema schema = footer.getSchema();
-        System.out.println("reading schema: " + schema);
-
-        // initialize vectors
-        MapVector parent = new MapVector("parent", allocator, null);
-        ComplexWriter writer = new ComplexWriterImpl("root", parent);
-        MapWriter rootWriter = writer.rootAsMap();
-        MapVector root = (MapVector)parent.getChild("root");
-
-        VectorLoader vectorLoader = new VectorLoader(schema, root);
-
-        List<ArrowBlock> recordBatches = footer.getRecordBatches();
-        for (ArrowBlock rbBlock : recordBatches) {
-          ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock);
-
-          vectorLoader.load(recordBatch);
-
-          MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
-          for (int i = 0; i < count; i++) {
-            rootReader.setPosition(i);
-            Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-            Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
-          }
-
-        }
-        parent.close();
-      }
-
     }
   }
 
-//  private void validateLayout(List<Field> fields, Iterable<ValueVector> childVectors) {
-//    int i = 0;
-//    for (ValueVector valueVector : childVectors) {
-//      Field field = fields.get(i);
-//      TypeLayout typeLayout = field.getTypeLayout();
-//      TypeLayout expectedTypeLayout = valueVector.getTypeLayout();
-//      if (!expectedTypeLayout.equals(typeLayout)) {
-//        throw new InvalidArrowFileException("The type layout does not match the expected layout: expected " + expectedTypeLayout + " found " + typeLayout);
-//      }
-//      if (field.getChildren().size() > 0) {
-//        validateLayout(field.getChildren(), valueVector);
-//      }
-//      ++i;
-//    }
-//    Preconditions.checkArgument(i == fields.size(), "should have as many children as in the schema: found " + i + " expected " + fields.size());
-//  }
+  @Test
+  public void testWriteComplex() throws IOException {
+    File file = new File("target/mytest_write_complex.arrow");
+    int count = 10000;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+      writeComplexData(count, parent);
+      write((MapVector)parent.getChild("root"), file);
+    }
+  }
+
+  private void writeComplexData(int count, MapVector parent) {
+    ArrowBuf varchar = allocator.buffer(3);
+    varchar.readerIndex(0);
+    varchar.setByte(0, 'a');
+    varchar.setByte(1, 'b');
+    varchar.setByte(2, 'c');
+    varchar.writerIndex(3);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("int");
+    BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
+    ListWriter listWriter = rootWriter.list("list");
+    MapWriter mapWriter = rootWriter.map("map");
+    TimeStampWriter timeStampNested = mapWriter.timeStamp("timestamp");
+    for (int i = 0; i < count; i++) {
+      intWriter.setPosition(i);
+      intWriter.writeInt(i);
+      bigIntWriter.setPosition(i);
+      bigIntWriter.writeBigInt(i);
+      listWriter.setPosition(i);
+      listWriter.startList();
+      for (int j = 0; j < i % 3; j++) {
+        listWriter.varChar().writeVarChar(0, 3, varchar);
+      }
+      listWriter.endList();
+      mapWriter.setPosition(i);
+      mapWriter.start();
+      mapWriter.timeStamp("timestamp").writeTimeStamp(123456789L);
+      mapWriter.end();
+    }
+    writer.setValueCount(count);
+    varchar.release();
+  }
+
+
+  private void writeData(int count, MapVector parent) {
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("int");
+    BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
+    for (int i = 0; i < count; i++) {
+      intWriter.setPosition(i);
+      intWriter.writeInt(i);
+      bigIntWriter.setPosition(i);
+      bigIntWriter.writeBigInt(i);
+    }
+    writer.setValueCount(count);
+  }
+
+
+  @Test
+  public void testWriteRead() throws IOException {
+    File file = new File("target/mytest.arrow");
+    int count = 10000;
+
+    // write
+    try (
+        BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
+      writeData(count, parent);
+      write((MapVector)parent.getChild("root"), file);
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      ArrowFooter footer = arrowReader.readFooter();
+      Schema schema = footer.getSchema();
+      System.out.println("reading schema: " + schema);
+
+      // initialize vectors
+
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter rootWriter = writer.rootAsMap();
+      MapVector root = (MapVector)parent.getChild("root");
+
+      VectorLoader vectorLoader = new VectorLoader(schema, root);
+
+      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      for (ArrowBlock rbBlock : recordBatches) {
+        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+          vectorLoader.load(recordBatch);
+        }
+        validateContent(count, parent);
+      }
+    }
+  }
+
+  private void validateContent(int count, MapVector parent) {
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    for (int i = 0; i < count; i++) {
+      rootReader.setPosition(i);
+      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
+      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+    }
+  }
+
+  @Test
+  public void testWriteReadComplex() throws IOException {
+    File file = new File("target/mytest.arrow");
+    int count = 10000;
+
+    // write
+    try (
+        BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
+      writeComplexData(count, parent);
+      write((MapVector)parent.getChild("root"), file);
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      ArrowFooter footer = arrowReader.readFooter();
+      Schema schema = footer.getSchema();
+      System.out.println("reading schema: " + schema);
+
+      // initialize vectors
+
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter rootWriter = writer.rootAsMap();
+      MapVector root = (MapVector)parent.getChild("root");
+
+      VectorLoader vectorLoader = new VectorLoader(schema, root);
+
+      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      for (ArrowBlock rbBlock : recordBatches) {
+        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+          vectorLoader.load(recordBatch);
+        }
+        validateComplexContent(count, parent);
+      }
+    }
+  }
+
+  private void validateComplexContent(int count, MapVector parent) {
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    for (int i = 0; i < count; i++) {
+      rootReader.setPosition(i);
+      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
+      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+      Assert.assertEquals(i % 3, rootReader.reader("list").size());
+      Assert.assertEquals(123456789L, rootReader.reader("map").reader("timestamp").readDateTime().getMillis());
+    }
+  }
 
   private void write(MapVector parent, File file) throws FileNotFoundException, IOException {
     VectorUnloader vectorUnloader = new VectorUnloader(parent);

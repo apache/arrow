@@ -17,12 +17,17 @@
  */
 package org.apache.arrow.vector.pojo;
 
+import static org.apache.arrow.flatbuf.Precision.DOUBLE;
 import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.ArrowType.List;
+import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
+import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -59,7 +64,26 @@ public class TestConvert {
     childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);
+  }
 
+  @Test
+  public void nestedSchema() {
+    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
+    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child3", true, new Tuple(), ImmutableList.<Field>of(
+        new Field("child3.1", true, Utf8.INSTANCE, null),
+        new Field("child3.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
+        )));
+    childrenBuilder.add(new Field("child4", true, new List(), ImmutableList.<Field>of(
+        new Field("child4.1", true, Utf8.INSTANCE, null)
+        )));
+    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse), ImmutableList.<Field>of(
+        new Field("child5.1", true, new Timestamp("UTC"), null),
+        new Field("child5.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
+        )));
+    Schema initialSchema = new Schema(childrenBuilder.build());
+    run(initialSchema);
   }
 
   private void run(Field initialField) {

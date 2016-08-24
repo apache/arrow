@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector.complex;
 
+import static java.util.Arrays.asList;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -32,6 +34,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
@@ -46,7 +49,7 @@ import com.google.common.primitives.Ints;
 
 import io.netty.buffer.ArrowBuf;
 
-public class MapVector extends AbstractMapVector {
+public class MapVector extends AbstractMapVector implements FieldVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(MapVector.this);
@@ -326,24 +329,34 @@ public class MapVector extends AbstractMapVector {
     super.close();
  }
 
-  private List<FieldVector> fieldChildren;
-
-  public void initializeChildren(List<Field> children) {
-    if (fieldChildren != null) {
-      throw new IllegalArgumentException(children.toString()); //TODO
-    }
-    fieldChildren = new ArrayList<>();
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
     for (Field field : children) {
       MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
       FieldVector vector = (FieldVector)this.add(field.getName(), minorType);
-      fieldChildren.add(vector);
       vector.initializeChildrenFromFields(field.getChildren());
     }
   }
 
-  public List<FieldVector> getFieldVectors() {
-    // TODO: clean this up
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    // TODO: children should be the right type
     return (List<FieldVector>)(List<?>)getChildren();
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    if (ownBuffers.size() != 1) {
+      throw new IllegalArgumentException("Tuples have a validity. Found: " + ownBuffers);
+    }
+//    this.bits.load(ownBuffers.get(0));
+    // TODO: add validity vector to make maps nullable
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    // TODO: add validity vector to make maps nullable
+    return asList(allocator.getEmpty());
   }
 
 }

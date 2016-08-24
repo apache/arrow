@@ -126,20 +126,32 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (ownBuffers.size() != 2) {
-      throw new IllegalArgumentException("Illegal buffer count, expected 2, got: " + ownBuffers.size());
+    int expectedSize = <#if type.major = "VarLen">3<#else>2</#if>;
+    if (ownBuffers.size() != expectedSize) {
+      throw new IllegalArgumentException("Illegal buffer count, expected " + expectedSize + ", got: " + ownBuffers.size());
     }
-    bits.data = ownBuffers.get(0);
-    bits.data.retain(allocator);
-    values.data = ownBuffers.get(1);
-    values.data.retain(allocator);
+    bits.load(ownBuffers.get(0));
+    <#if type.major = "VarLen">
+    values.offsetVector.load(ownBuffers.get(1));
+    values.load(ownBuffers.get(2));
+    <#else>
+    values.load(ownBuffers.get(1));
+    </#if>
     // TODO: do something with the sizes in fieldNode?
   }
 
   public List<ArrowBuf> getFieldBuffers() {
     bits.getBuffer().readerIndex(0);
+    <#if type.major = "VarLen">
+    values.offsetVector.getBuffer().readerIndex(0);
+    </#if>
     values.getBuffer().readerIndex(0);
-    return Arrays.asList(bits.getBuffer(), values.getBuffer());
+    return Arrays.asList(
+      bits.getBuffer(),
+      <#if type.major = "VarLen">
+      values.offsetVector.getBuffer(),
+      </#if> 
+      values.getBuffer());
   }
 
   @Override
