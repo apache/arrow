@@ -17,10 +17,10 @@
  */
 package org.apache.arrow.vector.complex;
 
-import static java.util.Arrays.asList;
-
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +28,11 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -56,6 +59,10 @@ public class MapVector extends AbstractMapVector implements FieldVector {
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
   int valueCount;
+
+  // TODO: validity vector
+  private final UInt1Vector bits = new UInt1Vector("$bits$", allocator);
+  private final List<BufferBacked> innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
 
   public MapVector(String name, BufferAllocator allocator, CallBack callBack){
     super(name, allocator, callBack);
@@ -300,6 +307,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     for (final ValueVector v : getChildren()) {
       v.clear();
     }
+    bits.clear();
     valueCount = 0;
   }
 
@@ -324,6 +332,8 @@ public class MapVector extends AbstractMapVector implements FieldVector {
       v.close();
     }
     vectors.clear();
+    bits.close();
+
     valueCount = 0;
 
     super.close();
@@ -345,17 +355,18 @@ public class MapVector extends AbstractMapVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (ownBuffers.size() != 1) {
-      throw new IllegalArgumentException("Tuples have a validity. Found: " + ownBuffers);
-    }
-//    this.bits.load(ownBuffers.get(0));
-    // TODO: add validity vector to make maps nullable
+    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    // TODO: something with fieldNode?
   }
 
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    // TODO: add validity vector to make maps nullable
-    return asList(allocator.getEmpty());
+    return BaseDataValueVector.unload(getFieldInnerVectors());
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
   }
 
 }

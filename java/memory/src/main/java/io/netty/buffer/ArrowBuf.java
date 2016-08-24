@@ -17,8 +17,6 @@
  */
 package io.netty.buffer;
 
-import io.netty.util.internal.PlatformDependent;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,15 +28,17 @@ import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferManager;
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
-import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.HistoricalLog;
 
 import com.google.common.base.Preconditions;
+
+import io.netty.util.internal.PlatformDependent;
 
 public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
@@ -307,7 +307,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf order(ByteOrder endianness) {
+  public ArrowBuf order(ByteOrder endianness) {
     return this;
   }
 
@@ -344,7 +344,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf slice() {
+  public ArrowBuf slice() {
     return slice(readerIndex(), readableBytes());
   }
 
@@ -467,7 +467,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf retain(int increment) {
+  public ArrowBuf retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%d) argument is not positive", increment);
 
     if (isEmpty) {
@@ -484,7 +484,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf retain() {
+  public ArrowBuf retain() {
     return retain(1);
   }
 
@@ -535,49 +535,49 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf setShort(int index, int value) {
+  public ArrowBuf setShort(int index, int value) {
     chk(index, 2);
     PlatformDependent.putShort(addr(index), (short) value);
     return this;
   }
 
   @Override
-  public ByteBuf setInt(int index, int value) {
+  public ArrowBuf setInt(int index, int value) {
     chk(index, 4);
     PlatformDependent.putInt(addr(index), value);
     return this;
   }
 
   @Override
-  public ByteBuf setLong(int index, long value) {
+  public ArrowBuf setLong(int index, long value) {
     chk(index, 8);
     PlatformDependent.putLong(addr(index), value);
     return this;
   }
 
   @Override
-  public ByteBuf setChar(int index, int value) {
+  public ArrowBuf setChar(int index, int value) {
     chk(index, 2);
     PlatformDependent.putShort(addr(index), (short) value);
     return this;
   }
 
   @Override
-  public ByteBuf setFloat(int index, float value) {
+  public ArrowBuf setFloat(int index, float value) {
     chk(index, 4);
     PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
     return this;
   }
 
   @Override
-  public ByteBuf setDouble(int index, double value) {
+  public ArrowBuf setDouble(int index, double value) {
     chk(index, 8);
     PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
     return this;
   }
 
   @Override
-  public ByteBuf writeShort(int value) {
+  public ArrowBuf writeShort(int value) {
     ensure(2);
     PlatformDependent.putShort(addr(writerIndex), (short) value);
     writerIndex += 2;
@@ -585,7 +585,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf writeInt(int value) {
+  public ArrowBuf writeInt(int value) {
     ensure(4);
     PlatformDependent.putInt(addr(writerIndex), value);
     writerIndex += 4;
@@ -593,7 +593,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf writeLong(long value) {
+  public ArrowBuf writeLong(long value) {
     ensure(8);
     PlatformDependent.putLong(addr(writerIndex), value);
     writerIndex += 8;
@@ -601,7 +601,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf writeChar(int value) {
+  public ArrowBuf writeChar(int value) {
     ensure(2);
     PlatformDependent.putShort(addr(writerIndex), (short) value);
     writerIndex += 2;
@@ -609,7 +609,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf writeFloat(float value) {
+  public ArrowBuf writeFloat(float value) {
     ensure(4);
     PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
     writerIndex += 4;
@@ -617,7 +617,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf writeDouble(double value) {
+  public ArrowBuf writeDouble(double value) {
     ensure(8);
     PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
     writerIndex += 8;
@@ -625,19 +625,19 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
+  public ArrowBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
     udle.getBytes(index + offset, dst, dstIndex, length);
     return this;
   }
 
   @Override
-  public ByteBuf getBytes(int index, ByteBuffer dst) {
+  public ArrowBuf getBytes(int index, ByteBuffer dst) {
     udle.getBytes(index + offset, dst);
     return this;
   }
 
   @Override
-  public ByteBuf setByte(int index, int value) {
+  public ArrowBuf setByte(int index, int value) {
     chk(index, 1);
     PlatformDependent.putByte(addr(index), (byte) value);
     return this;
@@ -699,13 +699,13 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
+  public ArrowBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
     udle.getBytes(index + offset, dst, dstIndex, length);
     return this;
   }
 
   @Override
-  public ByteBuf getBytes(int index, OutputStream out, int length) throws IOException {
+  public ArrowBuf getBytes(int index, OutputStream out, int length) throws IOException {
     udle.getBytes(index + offset, out, length);
     return this;
   }
@@ -724,12 +724,12 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
+  public ArrowBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
     udle.setBytes(index + offset, src, srcIndex, length);
     return this;
   }
 
-  public ByteBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
+  public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
     if (src.isDirect()) {
       checkIndex(index, length);
       PlatformDependent.copyMemory(PlatformDependent.directBufferAddress(src) + srcIndex, this.memoryAddress() + index,
@@ -749,13 +749,13 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBuf setBytes(int index, byte[] src, int srcIndex, int length) {
+  public ArrowBuf setBytes(int index, byte[] src, int srcIndex, int length) {
     udle.setBytes(index + offset, src, srcIndex, length);
     return this;
   }
 
   @Override
-  public ByteBuf setBytes(int index, ByteBuffer src) {
+  public ArrowBuf setBytes(int index, ByteBuffer src) {
     udle.setBytes(index + offset, src);
     return this;
   }
@@ -859,5 +859,18 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
   }
+
+  @Override
+  public ArrowBuf readerIndex(int readerIndex) {
+    super.readerIndex(readerIndex);
+    return this;
+  }
+
+  @Override
+  public ArrowBuf writerIndex(int writerIndex) {
+    super.writerIndex(writerIndex);
+    return this;
+  }
+
 
 }

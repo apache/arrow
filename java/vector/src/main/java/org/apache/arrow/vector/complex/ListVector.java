@@ -18,14 +18,17 @@
  ******************************************************************************/
 package org.apache.arrow.vector.complex;
 
-import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BaseDataValueVector;
+import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt4Vector;
@@ -53,6 +56,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   final UInt4Vector offsets;// TODO: THis masks the same vector in the parent which is assigned to this in the constructor.
   final UInt1Vector bits;
+  private final List<BufferBacked> innerVectors;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
   private UnionListWriter writer;
@@ -63,6 +67,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     super(name, allocator);
     this.bits = new UInt1Vector("$bits$", allocator);
     this.offsets = getOffsetVector();
+    this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, offsets));
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
     this.callBack = callBack;
@@ -88,18 +93,17 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (ownBuffers.size() != 2) {
-      throw new IllegalArgumentException("Lists have a validity and offset vector. Found: " + ownBuffers);
-    }
-    this.bits.load(ownBuffers.get(0));
-    this.offsets.load(ownBuffers.get(1));
+    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
   }
 
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    bits.getBuffer().readerIndex(0);
-    offsets.getBuffer().readerIndex(0);
-    return asList(bits.getBuffer(), offsets.getBuffer());
+    return BaseDataValueVector.unload(getFieldInnerVectors());
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
   }
 
   public UnionListWriter getWriter() {

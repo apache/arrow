@@ -197,4 +197,9 @@ public class ZeroVector implements FieldVector {
   public List<ArrowBuf> getFieldBuffers() {
     return Collections.emptyList();
   }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return Collections.emptyList();
+  }
 }

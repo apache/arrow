@@ -121,6 +121,12 @@ public class UnionVector implements FieldVector {
     throw new UnsupportedOperationException();
   }
 
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    // TODO
+    throw new UnsupportedOperationException();
+  }
+  
   public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();

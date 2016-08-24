@@ -57,6 +57,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final Mutator mutator;
   private final Accessor accessor;
 
+  private final List<BufferBacked> innerVectors;
+
   <#if minor.class == "Decimal">
   private final int precision;
   private final int scale;
@@ -69,6 +71,10 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator = new Mutator();
     accessor = new Accessor();
     field = new Field(name, true, new Decimal(precision, scale), null);
+    innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
+        bits,
+        values
+    ));
   }
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
@@ -107,51 +113,41 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Bit">
     field = new Field(name, true, new Bool(), null);
   </#if>
+    innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
+        bits,
+        <#if type.major = "VarLen">
+        values.offsetVector,
+        </#if>
+        values
+    ));
   }
   </#if>
 
-    /**
-   * Initializes the child vectors
-   * to be later loaded with loadBuffers
-   * @param children
-   */
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
+  }
+
+  @Override
   public void initializeChildrenFromFields(List<Field> children) {
     if (!children.isEmpty()) {
       throw new IllegalArgumentException("primitive type vector ${className} can not have children: " + children);
     }
   }
 
+  @Override
   public List<FieldVector> getChildrenFromFields() {
     return Collections.emptyList();
   }
 
+  @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    int expectedSize = <#if type.major = "VarLen">3<#else>2</#if>;
-    if (ownBuffers.size() != expectedSize) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " + expectedSize + ", got: " + ownBuffers.size());
-    }
-    bits.load(ownBuffers.get(0));
-    <#if type.major = "VarLen">
-    values.offsetVector.load(ownBuffers.get(1));
-    values.load(ownBuffers.get(2));
-    <#else>
-    values.load(ownBuffers.get(1));
-    </#if>
+    org.apache.arrow.vector.BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
     // TODO: do something with the sizes in fieldNode?
   }
 
   public List<ArrowBuf> getFieldBuffers() {
-    bits.getBuffer().readerIndex(0);
-    <#if type.major = "VarLen">
-    values.offsetVector.getBuffer().readerIndex(0);
-    </#if>
-    values.getBuffer().readerIndex(0);
-    return Arrays.asList(
-      bits.getBuffer(),
-      <#if type.major = "VarLen">
-      values.offsetVector.getBuffer(),
-      </#if> 
-      values.getBuffer());
+    return org.apache.arrow.vector.BaseDataValueVector.unload(getFieldInnerVectors());
   }
 
   @Override

@@ -24,23 +24,42 @@ import org.apache.arrow.vector.types.pojo.Field;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A vector corresponding to a Field in the schema
+ * It has inner vectors backed by buffers (validity, offsets, data, ...)
+ */
 public interface FieldVector extends ValueVector {
 
   /**
    * Initializes the child vectors
    * to be later loaded with loadBuffers
-   * @param children
+   * @param children the schema
    */
   void initializeChildrenFromFields(List<Field> children);
 
+  /**
+   * the returned list is the same size as the list passed to initializeChildrenFromFields
+   * @return the children according to schema (empty for primitive types)
+   */
   List<FieldVector> getChildrenFromFields();
 
+  /**
+   * loads data in the vectors
+   * (ownBuffers must be the same size as getFieldVectors())
+   * @param fieldNode the fieldNode
+   * @param ownBuffers the buffers for this Field (own buffers only, children not included)
+   */
   void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers);
 
   /**
-   * Returns the own buffers for this vector
-   * @return the
+   * (same size as getFieldVectors() since it is their content)
+   * @return the buffers containing the data for this vector (ready for reading)
    */
   List<ArrowBuf> getFieldBuffers();
+
+  /**
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
+  List<BufferBacked> getFieldInnerVectors();
 
 }
