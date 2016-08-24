@@ -19,8 +19,8 @@
 package org.apache.arrow.vector.complex;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -83,8 +83,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   @Override
   public List<FieldVector> getChildrenFromFields() {
-    // TODO: data vector should be that type
-    return Arrays.asList((FieldVector)getDataVector());
+    return singletonList(getDataVector());
   }
 
   @Override
@@ -126,7 +125,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   @Override
-  public ValueVector getDataVector() {
+  public FieldVector getDataVector() {
     return vector;
   }
 

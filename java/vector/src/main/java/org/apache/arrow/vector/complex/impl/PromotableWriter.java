@@ -17,6 +17,7 @@
  */
 package org.apache.arrow.vector.complex.impl;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractMapVector;
@@ -129,7 +130,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
     }
-    unionVector.addVector(tp.getTo());
+    unionVector.addVector((FieldVector)tp.getTo());
     writer = new UnionWriter(unionVector);
     writer.setPosition(idx());
     for (int i = 0; i < idx(); i++) {

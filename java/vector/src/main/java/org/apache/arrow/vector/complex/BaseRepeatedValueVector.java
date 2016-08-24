@@ -17,8 +17,6 @@
  */
 package org.apache.arrow.vector.complex;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -26,29 +24,32 @@ import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ObjectArrays;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
+
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
-  public final static ValueVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
+  public final static FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
   public final static String DATA_VECTOR_NAME = "$data$";
 
   protected final UInt4Vector offsets;
-  protected ValueVector vector;
+  protected FieldVector vector;
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator) {
     this(name, allocator, DEFAULT_DATA_VECTOR);
   }
 
-  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, ValueVector vector) {
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector) {
     super(name, allocator);
     this.offsets = new UInt4Vector(OFFSETS_VECTOR_NAME, allocator);
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
@@ -83,7 +84,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   @Override
-  public ValueVector getDataVector() {
+  public FieldVector getDataVector() {
     return vector;
   }
 
@@ -121,7 +122,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public Iterator<ValueVector> iterator() {
-    return Collections.singleton(getDataVector()).iterator();
+    return Collections.<ValueVector>singleton(getDataVector()).iterator();
   }
 
   @Override
@@ -167,7 +168,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return new AddOrGetResult<>((T)vector, created);
   }
 
-  protected void replaceDataVector(ValueVector v) {
+  protected void replaceDataVector(FieldVector v) {
     vector.clear();
     vector = v;
   }

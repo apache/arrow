@@ -163,7 +163,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
       this.to.ephPair = null;
 
       int i = 0;
-      ValueVector vector;
+      FieldVector vector;
       for (String child:from.getChildFieldNames()) {
         int preSize = to.size();
         vector = from.getChild(child);
@@ -179,7 +179,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
         // (This is similar to what happens in ScanBatch where the children cannot be added till they are
         // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
         // include the hashCode of the children but is based only on MaterializedField$key.
-        final ValueVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass());
+        final FieldVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass());
         if (allocate && to.size() != preSize) {
           newVector.allocateNew();
         }
@@ -319,8 +319,8 @@ public class MapVector extends AbstractMapVector implements FieldVector {
 
   @Override
   public void close() {
-    final Collection<ValueVector> vectors = getChildren();
-    for (final ValueVector v : vectors) {
+    final Collection<FieldVector> vectors = getChildren();
+    for (final FieldVector v : vectors) {
       v.close();
     }
     vectors.clear();
@@ -340,8 +340,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
 
   @Override
   public List<FieldVector> getChildrenFromFields() {
-    // TODO: children should be the right type
-    return (List<FieldVector>)(List<?>)getChildren();
+    return getChildren();
   }
 
   @Override

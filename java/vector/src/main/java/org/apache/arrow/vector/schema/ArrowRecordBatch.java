@@ -41,11 +41,16 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
 
   private final List<ArrowBuf> buffers;
 
+  private boolean closed = false;
+
   public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     super();
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
+    for (ArrowBuf arrowBuf : buffers) {
+      arrowBuf.retain();
+    }
   }
 
   public int getLength() {
@@ -57,6 +62,9 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
   }
 
   public List<ArrowBuf> getBuffers() {
+    if (closed) {
+      throw new IllegalStateException("already closed");
+    }
     return buffers;
   }
 
@@ -82,8 +90,11 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
   }
 
   public void close() {
-    for (ArrowBuf arrowBuf : buffers) {
-      arrowBuf.release();
+    if (!closed) {
+      closed = true;
+      for (ArrowBuf arrowBuf : buffers) {
+        arrowBuf.release();
+      }
     }
   }
 

@@ -26,6 +26,8 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.MapVector;
@@ -37,8 +39,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
-import org.apache.arrow.vector.complex.writer.TimeStampWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
@@ -48,6 +50,7 @@ import org.junit.Test;
 import io.netty.buffer.ArrowBuf;
 
 public class TestArrowFile {
+  private static final int COUNT = 10;
   private BufferAllocator allocator;
 
   @Before
@@ -63,7 +66,7 @@ public class TestArrowFile {
   @Test
   public void testWrite() throws IOException {
     File file = new File("target/mytest_write.arrow");
-    int count = 10000;
+    int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", vectorAllocator, null)) {
@@ -75,11 +78,12 @@ public class TestArrowFile {
   @Test
   public void testWriteComplex() throws IOException {
     File file = new File("target/mytest_write_complex.arrow");
-    int count = 10000;
+    int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", vectorAllocator, null)) {
       writeComplexData(count, parent);
+      validateComplexContent(count, parent);
       write((MapVector)parent.getChild("root"), file);
     }
   }
@@ -97,7 +101,6 @@ public class TestArrowFile {
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     ListWriter listWriter = rootWriter.list("list");
     MapWriter mapWriter = rootWriter.map("map");
-    TimeStampWriter timeStampNested = mapWriter.timeStamp("timestamp");
     for (int i = 0; i < count; i++) {
       intWriter.setPosition(i);
       intWriter.writeInt(i);
@@ -111,7 +114,7 @@ public class TestArrowFile {
       listWriter.endList();
       mapWriter.setPosition(i);
       mapWriter.start();
-      mapWriter.timeStamp("timestamp").writeTimeStamp(123456789L);
+      mapWriter.timeStamp("timestamp").writeTimeStamp(i);
       mapWriter.end();
     }
     writer.setValueCount(count);
@@ -137,7 +140,7 @@ public class TestArrowFile {
   @Test
   public void testWriteRead() throws IOException {
     File file = new File("target/mytest.arrow");
-    int count = 10000;
+    int count = COUNT;
 
     // write
     try (
@@ -161,16 +164,25 @@ public class TestArrowFile {
 
       // initialize vectors
 
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
-      MapVector root = (MapVector)parent.getChild("root");
+      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
 
       VectorLoader vectorLoader = new VectorLoader(schema, root);
 
       List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      List<ArrowBuf> buffers;
       for (ArrowBlock rbBlock : recordBatches) {
         try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
           vectorLoader.load(recordBatch);
+          buffers = recordBatch.getBuffers();
+          for (ArrowBuf arrowBuf : buffers) {
+            System.out.println(arrowBuf + " " + arrowBuf.refCnt());
+//            arrowBuf.release();
+          }
+        }
+        System.out.println("after");
+        for (ArrowBuf arrowBuf : buffers) {
+          System.out.println(arrowBuf + " " + arrowBuf.refCnt());
+//          arrowBuf.release();
         }
         validateContent(count, parent);
       }
@@ -189,7 +201,7 @@ public class TestArrowFile {
   @Test
   public void testWriteReadComplex() throws IOException {
     File file = new File("target/mytest.arrow");
-    int count = 10000;
+    int count = COUNT;
 
     // write
     try (
@@ -213,9 +225,7 @@ public class TestArrowFile {
 
       // initialize vectors
 
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
-      MapVector root = (MapVector)parent.getChild("root");
+      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
 
       VectorLoader vectorLoader = new VectorLoader(schema, root);
 
@@ -229,14 +239,27 @@ public class TestArrowFile {
     }
   }
 
+  public void printVectors(List<FieldVector> vectors) {
+    for (FieldVector vector : vectors) {
+      System.out.println(vector.getField().getName());
+      Accessor accessor = vector.getAccessor();
+      int valueCount = accessor.getValueCount();
+      for (int i = 0; i < valueCount; i++) {
+        System.out.println(accessor.getObject(i));
+      }
+    }
+  }
+
   private void validateComplexContent(int count, MapVector parent) {
+    printVectors(parent.getChildrenFromFields());
+
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < count; i++) {
       rootReader.setPosition(i);
       Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
       Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
       Assert.assertEquals(i % 3, rootReader.reader("list").size());
-      Assert.assertEquals(123456789L, rootReader.reader("map").reader("timestamp").readDateTime().getMillis());
+      Assert.assertEquals(i, rootReader.reader("map").reader("timestamp").readDateTime().getMillis() % COUNT);
     }
   }
 
@@ -246,9 +269,10 @@ public class TestArrowFile {
     System.out.println("writing schema: " + schema);
     try (
         FileOutputStream fileOutputStream = new FileOutputStream(file);
-        ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema)
+        ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
+        ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
             ) {
-      arrowWriter.writeRecordBatch(vectorUnloader.getRecordBatch());
+      arrowWriter.writeRecordBatch(recordBatch);
     }
   }
 

@@ -18,10 +18,12 @@
 package org.apache.arrow.vector.complex;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
@@ -40,7 +42,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
-  private final MapWithOrdinal<String, ValueVector> vectors =  new MapWithOrdinal<>();
+  private final MapWithOrdinal<String, FieldVector> vectors =  new MapWithOrdinal<>();
 
   protected AbstractMapVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator, callBack);
@@ -108,7 +110,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    */
   @Override
-  public <T extends ValueVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, int... precisionScale) {
+  public <T extends FieldVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, int... precisionScale) {
     final ValueVector existing = getChild(name);
     boolean create = false;
     if (existing == null) {
@@ -152,7 +154,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * field name if exists or null.
    */
   @Override
-  public <T extends ValueVector> T getChild(String name, Class<T> clazz) {
+  public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
     final ValueVector v = vectors.get(name.toLowerCase());
     if (v == null) {
       return null;
@@ -165,7 +167,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     if (existing != null) {
       throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));
     }
-    ValueVector vector = minorType.getNewVector(name, allocator, callBack, precisionScale);
+    FieldVector vector = minorType.getNewVector(name, allocator, callBack, precisionScale);
     putChild(name, vector);
     if (callBack!=null) {
       callBack.doWork();
@@ -178,7 +180,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    *
    * Note that this method does not enforce any vector type check nor throws a schema change exception.
    */
-  protected void putChild(String name, ValueVector vector) {
+  protected void putChild(String name, FieldVector vector) {
     putVector(name, vector);
   }
 
@@ -187,7 +189,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * @param name  field name
    * @param vector  vector to be inserted
    */
-  protected void putVector(String name, ValueVector vector) {
+  protected void putVector(String name, FieldVector vector) {
     final ValueVector old = vectors.put(
         Preconditions.checkNotNull(name, "field name cannot be null").toLowerCase(),
         Preconditions.checkNotNull(vector, "vector cannot be null")
@@ -201,9 +203,9 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   /**
    * Returns a sequence of underlying child vectors.
    */
-  protected List<ValueVector> getChildren() {
+  protected List<FieldVector> getChildren() {
     int size = vectors.size();
-    List<ValueVector> children = new ArrayList<>();
+    List<FieldVector> children = new ArrayList<>();
     for (int i = 0; i < size; i++) {
       children.add(vectors.getByOrdinal(i));
     }
@@ -228,7 +230,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   @Override
   public Iterator<ValueVector> iterator() {
-    return vectors.values().iterator();
+    return Collections.<ValueVector>unmodifiableCollection(vectors.values()).iterator();
   }
 
   /**

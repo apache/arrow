@@ -24,6 +24,7 @@ import org.apache.arrow.flatbuf.Precision;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableBigIntVector;
 import org.apache.arrow.vector.NullableBitVector;
 import org.apache.arrow.vector.NullableDateVector;
@@ -43,7 +44,6 @@ import org.apache.arrow.vector.NullableUInt4Vector;
 import org.apache.arrow.vector.NullableUInt8Vector;
 import org.apache.arrow.vector.NullableVarBinaryVector;
 import org.apache.arrow.vector.NullableVarCharVector;
-import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -122,7 +122,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return ZeroVector.INSTANCE;
       }
 
@@ -138,7 +138,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
          return new MapVector(name, allocator, callBack);
       }
 
@@ -155,7 +155,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableTinyIntVector(name, allocator);
       }
 
@@ -171,8 +171,8 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
-        return new SmallIntVector(name, allocator);
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+        return new NullableSmallIntVector(name, allocator);
       }
 
       @Override
@@ -187,7 +187,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableIntVector(name, allocator);
       }
 
@@ -203,7 +203,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableBigIntVector(name, allocator);
       }
 
@@ -219,7 +219,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableDateVector(name, allocator);
       }
 
@@ -235,7 +235,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableTimeVector(name, allocator);
       }
 
@@ -251,7 +251,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableTimeStampVector(name, allocator);
       }
 
@@ -267,7 +267,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableIntervalDayVector(name, allocator);
       }
 
@@ -283,7 +283,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableIntervalDayVector(name, allocator);
       }
 
@@ -299,7 +299,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableFloat4Vector(name, allocator);
       }
 
@@ -315,7 +315,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableFloat8Vector(name, allocator);
       }
 
@@ -331,7 +331,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableBitVector(name, allocator);
       }
 
@@ -347,7 +347,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableVarCharVector(name, allocator);
       }
 
@@ -363,7 +363,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableVarBinaryVector(name, allocator);
       }
 
@@ -383,7 +383,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableDecimalVector(name, allocator, precisionScale[0], precisionScale[1]);
       }
 
@@ -399,7 +399,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableUInt1Vector(name, allocator);
       }
 
@@ -415,7 +415,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableUInt2Vector(name, allocator);
       }
 
@@ -431,7 +431,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableUInt4Vector(name, allocator);
       }
 
@@ -447,7 +447,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new NullableUInt8Vector(name, allocator);
       }
 
@@ -463,7 +463,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new ListVector(name, allocator, callBack);
       }
 
@@ -479,7 +479,7 @@ public class Types {
       }
 
       @Override
-      public ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
         return new UnionVector(name, allocator, callBack);
       }
 
@@ -501,7 +501,7 @@ public class Types {
 
     public abstract Field getField();
 
-    public abstract ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale);
+    public abstract FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale);
 
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }

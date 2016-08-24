@@ -126,7 +126,6 @@ public class ArrowReader implements AutoCloseable {
     RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(buffer.nioBuffer().asReadOnlyBuffer());
     int nodesLength = recordBatchFB.nodesLength();
     final ArrowBuf body = buffer.slice(recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
-    LOGGER.debug("sliced body " + body);
     List<ArrowFieldNode> nodes = new ArrayList<>();
     for (int i = 0; i < nodesLength; ++i) {
       FieldNode node = recordBatchFB.nodes(i);
@@ -137,12 +136,12 @@ public class ArrowReader implements AutoCloseable {
       Buffer bufferFB = recordBatchFB.buffers(i);
       LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", bufferFB.offset(), bufferFB.length()));
       ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
-      LOGGER.debug("sliced vectorBuffer " + vectorBuffer);
-      vectorBuffer.retain();
       buffers.add(vectorBuffer);
     }
+    ArrowRecordBatch arrowRecordBatch = new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);
+    LOGGER.debug("released buffer " + buffer);
     buffer.release();
-    return new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);
+    return arrowRecordBatch;
   }
 
   public void close() throws IOException {
