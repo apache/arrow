@@ -20,6 +20,7 @@ package org.apache.arrow.vector.schema;
 import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.RecordBatch;
@@ -41,26 +42,49 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
 
   private final List<ArrowBuf> buffers;
 
+  private final List<ArrowBuffer> buffersLayout;
+
   private boolean closed = false;
 
+  /**
+   * @param length how many rows in this batch
+   * @param nodes field level info
+   * @param buffers will be retained until this recordBatch is closed
+   */
   public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     super();
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
       arrowBuf.retain();
+      long size = arrowBuf.readableBytes();
+      arrowBuffers.add(new ArrowBuffer(0, offset, size));
+      LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", offset, size));
+      offset += size;
+      if (offset % 8 != 0) { // align on 8 byte boundaries
+        offset += 8 - (offset % 8);
+      }
     }
+    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
   public int getLength() {
     return length;
   }
 
+  /**
+   * @return the FieldNodes corresponding to the schema
+   */
   public List<ArrowFieldNode> getNodes() {
     return nodes;
   }
 
+  /**
+   * @return the buffers containing the data
+   */
   public List<ArrowBuf> getBuffers() {
     if (closed) {
       throw new IllegalStateException("already closed");
@@ -68,20 +92,19 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
     return buffers;
   }
 
+  /**
+   * @return the serialized layout if we send the buffers on the wire
+   */
+  public List<ArrowBuffer> getBuffersLayout() {
+    return buffersLayout;
+  }
+
   @Override
   public int writeTo(FlatBufferBuilder builder) {
     RecordBatch.startNodesVector(builder, nodes.size());
     int nodesOffset = writeAllStructsToVector(builder, nodes);
-    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
-    long offset = 0;
-    for (ArrowBuf buffer : buffers) {;
-      long size = buffer.readableBytes();
-      arrowBuffers.add(new ArrowBuffer(0, offset, size));
-      LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", offset, size));
-      offset += size;
-    }
     RecordBatch.startBuffersVector(builder, buffers.size());
-    int buffersOffset = writeAllStructsToVector(builder, arrowBuffers);
+    int buffersOffset = writeAllStructsToVector(builder, buffersLayout);
     RecordBatch.startRecordBatch(builder);
     RecordBatch.addLength(builder, length);
     RecordBatch.addNodes(builder, nodesOffset);
@@ -89,6 +112,9 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
     return RecordBatch.endRecordBatch(builder);
   }
 
+  /**
+   * releases the buffers
+   */
   public void close() {
     if (!closed) {
       closed = true;

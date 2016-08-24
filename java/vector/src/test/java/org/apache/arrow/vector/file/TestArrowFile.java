@@ -39,6 +39,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -136,7 +137,6 @@ public class TestArrowFile {
     writer.setValueCount(count);
   }
 
-
   @Test
   public void testWriteRead() throws IOException {
     File file = new File("target/mytest.arrow");
@@ -169,21 +169,17 @@ public class TestArrowFile {
       VectorLoader vectorLoader = new VectorLoader(schema, root);
 
       List<ArrowBlock> recordBatches = footer.getRecordBatches();
-      List<ArrowBuf> buffers;
       for (ArrowBlock rbBlock : recordBatches) {
+        Assert.assertEquals(0, rbBlock.getOffset() % 8);
+        Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
         try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-          vectorLoader.load(recordBatch);
-          buffers = recordBatch.getBuffers();
-          for (ArrowBuf arrowBuf : buffers) {
-            System.out.println(arrowBuf + " " + arrowBuf.refCnt());
-//            arrowBuf.release();
+          List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+          for (ArrowBuffer arrowBuffer : buffersLayout) {
+            Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
           }
+          vectorLoader.load(recordBatch);
         }
-        System.out.println("after");
-        for (ArrowBuf arrowBuf : buffers) {
-          System.out.println(arrowBuf + " " + arrowBuf.refCnt());
-//          arrowBuf.release();
-        }
+
         validateContent(count, parent);
       }
     }
@@ -200,7 +196,7 @@ public class TestArrowFile {
 
   @Test
   public void testWriteReadComplex() throws IOException {
-    File file = new File("target/mytest.arrow");
+    File file = new File("target/mytest_complex.arrow");
     int count = COUNT;
 
     // write
@@ -276,5 +272,60 @@ public class TestArrowFile {
     }
   }
 
+  @Test
+  public void testWriteReadMultipleRBs() throws IOException {
+    File file = new File("target/mytest_multiple.arrow");
+    int count = COUNT;
+
+    // write
+    try (
+        BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", originalVectorAllocator, null);
+        FileOutputStream fileOutputStream = new FileOutputStream(file);) {
+      writeData(count, parent);
+      VectorUnloader vectorUnloader = new VectorUnloader(parent.getChild("root"));
+      Schema schema = vectorUnloader.getSchema();
+      Assert.assertEquals(2, schema.getFields().size());
+      try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);) {
+        try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch()) {
+          arrowWriter.writeRecordBatch(recordBatch);
+        }
+        parent.allocateNew();
+        writeData(count, parent);
+        try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch()) {
+          arrowWriter.writeRecordBatch(recordBatch);
+        }
+      }
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null);
+        ) {
+      ArrowFooter footer = arrowReader.readFooter();
+      Schema schema = footer.getSchema();
+      System.out.println("reading schema: " + schema);
+      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
+      VectorLoader vectorLoader = new VectorLoader(schema, root);
+      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      Assert.assertEquals(2, recordBatches.size());
+      for (ArrowBlock rbBlock : recordBatches) {
+        Assert.assertEquals(0, rbBlock.getOffset() % 8);
+        Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
+        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+          List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+          for (ArrowBuffer arrowBuffer : buffersLayout) {
+            Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+          }
+          vectorLoader.load(recordBatch);
+          validateContent(count, parent);
+        }
+      }
+    }
+  }
 
 }

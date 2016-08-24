@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.FBSerializable;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -62,6 +63,17 @@ public class ArrowWriter implements AutoCloseable {
     return write(ByteBuffer.wrap(buffer));
   }
 
+  private long writeZeros(int zeroCount) throws IOException {
+    return write(new byte[zeroCount]);
+  }
+
+  private long align() throws IOException {
+    if (currentPosition % 8 != 0) { // align on 8 byte boundaries
+      return writeZeros(8 - (int)(currentPosition % 8));
+    }
+    return 0;
+  }
+
   private long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
     out.write(buffer);
@@ -86,13 +98,29 @@ public class ArrowWriter implements AutoCloseable {
 
   public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
     checkStarted();
+    align();
     // write metadata header
     long offset = currentPosition;
     write(recordBatch);
+    align();
     // write body
     long bodyOffset = currentPosition;
-    for (ArrowBuf buffer : recordBatch.getBuffers()) {
+    List<ArrowBuf> buffers = recordBatch.getBuffers();
+    List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+    if (buffers.size() != buffersLayout.size()) {
+      throw new IllegalStateException("the layout does not match: " + buffers.size() + " != " + buffersLayout.size());
+    }
+    for (int i = 0; i < buffers.size(); i++) {
+      ArrowBuf buffer = buffers.get(i);
+      ArrowBuffer layout = buffersLayout.get(i);
+      long startPosition = bodyOffset + layout.getOffset();
+      if (startPosition != currentPosition) {
+        writeZeros((int)(startPosition - currentPosition));
+      }
       write(buffer);
+      if (currentPosition != startPosition + layout.getSize()) {
+        throw new IllegalStateException("wrong buffer size: " + currentPosition + " != " + startPosition + layout.getSize());
+      }
     }
     int metadataLength = (int)(bodyOffset - offset);
     if (metadataLength <= 0) {
