@@ -51,7 +51,7 @@ import io.netty.buffer.ArrowBuf;
 
 public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
-  UInt4Vector offsets;// TODO: THis masks the same vector in the parent
+  final UInt4Vector offsets;// TODO: THis masks the same vector in the parent which is assigned to this in the constructor.
   final UInt1Vector bits;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
@@ -62,7 +62,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator);
     this.bits = new UInt1Vector("$bits$", allocator);
-    offsets = getOffsetVector();
+    this.offsets = getOffsetVector();
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
     this.callBack = callBack;
@@ -92,7 +92,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
       throw new IllegalArgumentException("Lists have a validity and offset vector. Found: " + ownBuffers);
     }
     this.bits.load(ownBuffers.get(0));
-    this.offsets.load(ownBuffers.get(0));
+    this.offsets.load(ownBuffers.get(1));
   }
 
   @Override

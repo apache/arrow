@@ -29,22 +29,37 @@ import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+import com.google.common.collect.Iterators;
+
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * Loads buffers into vectors
+ */
 public class VectorLoader {
   private final List<FieldVector> fieldVectors;
   private final List<Field> fields;
 
+  /**
+   * will create children in root based on schema
+   * @param schema the expected schema
+   * @param root the root to add vectors to based on schema
+   */
   public VectorLoader(Schema schema, FieldVector root) {
     super();
     this.fields = schema.getFields();
     root.initializeChildrenFromFields(fields);
     this.fieldVectors = root.getChildrenFromFields();
     if (this.fieldVectors.size() != fields.size()) {
-      throw new IllegalArgumentException(); //TODO
+      throw new IllegalArgumentException("The root vector did not create the right number of children. found " + fieldVectors.size() + " expected " + fields.size());
     }
   }
 
+  /**
+   * Loads the record batch in the vectors
+   * will not close the record batch
+   * @param recordBatch
+   */
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
@@ -52,6 +67,9 @@ public class VectorLoader {
       Field field = fields.get(i);
       FieldVector fieldVector = fieldVectors.get(i);
       loadBuffers(fieldVector, field, buffers, nodes);
+    }
+    if (nodes.hasNext() || buffers.hasNext()) {
+      throw new IllegalArgumentException("not all nodes and buffers where consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
     }
   }
 
