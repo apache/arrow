@@ -54,7 +54,7 @@ import io.netty.buffer.ArrowBuf;
 
 public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
-  final UInt4Vector offsets;// TODO: THis masks the same vector in the parent which is assigned to this in the constructor.
+  final UInt4Vector offsets;
   final UInt1Vector bits;
   private final List<BufferBacked> innerVectors;
   private Mutator mutator = new Mutator();
