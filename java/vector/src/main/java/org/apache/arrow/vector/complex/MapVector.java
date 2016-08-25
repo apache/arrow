@@ -32,7 +32,6 @@ import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -61,8 +60,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
   int valueCount;
 
   // TODO: validity vector
-  private final UInt1Vector bits = new UInt1Vector("$bits$", allocator);
-  private final List<BufferBacked> innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
+  private final List<BufferBacked> innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList());
 
   public MapVector(String name, BufferAllocator allocator, CallBack callBack){
     super(name, allocator, callBack);
@@ -307,7 +305,6 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     for (final ValueVector v : getChildren()) {
       v.clear();
     }
-    bits.clear();
     valueCount = 0;
   }
 
@@ -332,7 +329,6 @@ public class MapVector extends AbstractMapVector implements FieldVector {
       v.close();
     }
     vectors.clear();
-    bits.close();
 
     valueCount = 0;
 
