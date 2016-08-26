@@ -18,7 +18,9 @@
 package org.apache.arrow.vector.pojo;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
@@ -28,6 +30,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 
@@ -36,10 +39,22 @@ import static org.junit.Assert.assertEquals;
  */
 public class TestConvert {
 
+  private static final Set<MinorType> NO_SIMPLE = ImmutableSet.of(
+          MinorType.MAP,
+          MinorType.LIST,
+          MinorType.UNION,
+          MinorType.DECIMAL
+  );
+
   @Test
   public void simple() {
-    Field initialField = new Field("a", true, new Int(32, true), null);
-    run(initialField);
+    for (MinorType minorType : MinorType.values()) {
+      if (NO_SIMPLE.contains(minorType)) {
+        continue;
+      }
+      Field field = minorType.getField(minorType.name());
+      run(field);
+    }
   }
 
   @Test

@@ -102,4 +102,8 @@ public class Field {
                     (this.children.size() == 0 && that.children == null));
 
   }
+
+  public Field newFieldWithName(String name) {
+    return new Field(name, this.nullable, this.type, ImmutableList.copyOf(this.children));
+  }
 }

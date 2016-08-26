@@ -115,8 +115,8 @@ public class Types {
   public enum MinorType {
     NULL(Null.INSTANCE) {
       @Override
-      public Field getField() {
-        return NULL_FIELD;
+      public Field getField(String name) {
+        return NULL_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -131,7 +131,7 @@ public class Types {
     },
     MAP(Tuple.INSTANCE) {
       @Override
-      public Field getField() {
+      public Field getField(String name) {
         throw new UnsupportedOperationException("Cannot get simple field for Map type");
       }
 
@@ -148,8 +148,8 @@ public class Types {
 
     TINYINT(new Int(8, true)) {
       @Override
-      public Field getField() {
-        return TINYINT_FIELD;
+      public Field getField(String name) {
+        return TINYINT_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -164,8 +164,8 @@ public class Types {
     },   //  single byte signed integer
     SMALLINT(new Int(16, true)) {
       @Override
-      public Field getField() {
-        return SMALLINT_FIELD;
+      public Field getField(String name) {
+        return SMALLINT_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -180,8 +180,8 @@ public class Types {
     },   //  two byte signed integer
     INT(new Int(32, true)) {
       @Override
-      public Field getField() {
-        return INT_FIELD;
+      public Field getField(String name) {
+        return INT_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -196,8 +196,8 @@ public class Types {
     },   //  four byte signed integer
     BIGINT(new Int(64, true)) {
       @Override
-      public Field getField() {
-        return BIGINT_FIELD;
+      public Field getField(String name) {
+        return BIGINT_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -212,8 +212,8 @@ public class Types {
     },   //  eight byte signed integer
     DATE(Date.INSTANCE) {
       @Override
-      public Field getField() {
-        return DATE_FIELD;
+      public Field getField(String name) {
+        return DATE_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -228,8 +228,8 @@ public class Types {
     },   //  days since 4713bc
     TIME(Time.INSTANCE) {
       @Override
-      public Field getField() {
-        return TIME_FIELD;
+      public Field getField(String name) {
+        return TIME_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -244,8 +244,8 @@ public class Types {
     },   //  time in micros before or after 2000/1/1
     TIMESTAMP(new Timestamp("")) {
       @Override
-      public Field getField() {
-        return TIMESTAMP_FIELD;
+      public Field getField(String name) {
+        return TIMESTAMP_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -260,8 +260,8 @@ public class Types {
     },
     INTERVALDAY(IntervalDay.INSTANCE) {
       @Override
-      public Field getField() {
-        return INTERVALDAY_FIELD;
+      public Field getField(String name) {
+        return INTERVALDAY_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -276,8 +276,8 @@ public class Types {
     },
     INTERVALYEAR(IntervalYear.INSTANCE) {
       @Override
-      public Field getField() {
-        return INTERVALYEAR_FIELD;
+      public Field getField(String name) {
+        return INTERVALYEAR_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -292,8 +292,8 @@ public class Types {
     },
     FLOAT4(new FloatingPoint(0)) {
       @Override
-      public Field getField() {
-        return FLOAT4_FIELD;
+      public Field getField(String name) {
+        return FLOAT4_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -308,8 +308,8 @@ public class Types {
     },   //  4 byte ieee 754
     FLOAT8(new FloatingPoint(1)) {
       @Override
-      public Field getField() {
-        return FLOAT8_FIELD;
+      public Field getField(String name) {
+        return FLOAT8_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -324,8 +324,8 @@ public class Types {
     },   //  8 byte ieee 754
     BIT(Bool.INSTANCE) {
       @Override
-      public Field getField() {
-        return BIT_FIELD;
+      public Field getField(String name) {
+        return BIT_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -340,8 +340,8 @@ public class Types {
     },  //  single bit value (boolean)
     VARCHAR(Utf8.INSTANCE) {
       @Override
-      public Field getField() {
-        return VARCHAR_FIELD;
+      public Field getField(String name) {
+        return VARCHAR_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -356,8 +356,8 @@ public class Types {
     },   //  utf8 variable length string
     VARBINARY(Binary.INSTANCE) {
       @Override
-      public Field getField() {
-        return VARBINARY_FIELD;
+      public Field getField(String name) {
+        return VARBINARY_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -376,7 +376,7 @@ public class Types {
         throw new UnsupportedOperationException("Cannot get simple type for Decimal type");
       }
       @Override
-      public Field getField() {
+      public Field getField(String name) {
         throw new UnsupportedOperationException("Cannot get simple field for Decimal type");
       }
 
@@ -392,8 +392,8 @@ public class Types {
     },   //  variable length binary
     UINT1(new Int(8, false)) {
       @Override
-      public Field getField() {
-        return UINT1_FIELD;
+      public Field getField(String name) {
+        return UINT1_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -408,8 +408,8 @@ public class Types {
     },  //  unsigned 1 byte integer
     UINT2(new Int(16, false)) {
       @Override
-      public Field getField() {
-        return UINT2_FIELD;
+      public Field getField(String name) {
+        return UINT2_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -424,8 +424,8 @@ public class Types {
     },  //  unsigned 2 byte integer
     UINT4(new Int(32, false)) {
       @Override
-      public Field getField() {
-        return UINT8_FIELD;
+      public Field getField(String name) {
+        return UINT8_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -440,8 +440,8 @@ public class Types {
     },   //  unsigned 4 byte integer
     UINT8(new Int(64, false)) {
       @Override
-      public Field getField() {
-        return UINT8_FIELD;
+      public Field getField(String name) {
+        return UINT8_FIELD.newFieldWithName(name);
       }
 
       @Override
@@ -456,7 +456,7 @@ public class Types {
     },   //  unsigned 8 byte integer
     LIST(List.INSTANCE) {
       @Override
-      public Field getField() {
+      public Field getField(String name) {
         throw new UnsupportedOperationException("Cannot get simple field for List type");
       }
 
@@ -472,7 +472,7 @@ public class Types {
     },
     UNION(Union.INSTANCE) {
       @Override
-      public Field getField() {
+      public Field getField(String name) {
         throw new UnsupportedOperationException("Cannot get simple field for Union type");
       }
 
@@ -497,7 +497,7 @@ public class Types {
       return type;
     }
 
-    public abstract Field getField();
+    public abstract Field getField(String name);
 
     public abstract ValueVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale);
 
