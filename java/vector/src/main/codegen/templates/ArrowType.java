@@ -24,9 +24,8 @@ import java.util.Objects;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/types/pojo/ArrowType.java" />
-
-
 <#include "/@includes/license.ftl" />
+
 package org.apache.arrow.vector.types.pojo;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -38,7 +37,13 @@ public abstract class ArrowType {
 
   public abstract byte getTypeType();
   public abstract int getType(FlatBufferBuilder builder);
+  public abstract <T> T accept(ArrowTypeVisitor<T> visitor);
 
+  public static interface ArrowTypeVisitor<T> {
+  <#list arrowTypes.types as type>
+    T visit(${type.name} type);
+  </#list>
+  }
 
   <#list arrowTypes.types as type>
   <#assign name = type.name>
@@ -70,9 +75,14 @@ public abstract class ArrowType {
 
     @Override
     public int getType(FlatBufferBuilder builder) {
+      <#list type.fields as field>
+      <#if field.type == "String">
+      int ${field.name} = builder.createString(this.${field.name});
+      </#if>
+      </#list>
       org.apache.arrow.flatbuf.${type.name}.start${type.name}(builder);
       <#list type.fields as field>
-      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, <#if field.type == "String">builder.createString(${field.name})<#else>${field.name}</#if>);
+      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, ${field.name});
       </#list>
       return org.apache.arrow.flatbuf.${type.name}.end${type.name}(builder);
     }
@@ -82,6 +92,14 @@ public abstract class ArrowType {
       return ${field.name};
     }
     </#list>
+
+    public String toString() {
+      return "${name}{"
+      <#list fields as field>
+      + ", " + ${field.name}
+      </#list>
+      + "}";
+    }
 
     @Override
     public int hashCode() {
@@ -101,6 +119,11 @@ public abstract class ArrowType {
       <#list type.fields as field>Objects.equals(this.${field.name}, that.${field.name}) <#if field_has_next>&&<#else>;</#if>
       </#list>
       </#if>
+    }
+
+    @Override
+    public <T> T accept(ArrowTypeVisitor<T> visitor) {
+      return visitor.visit(this);
     }
   }
   </#list>

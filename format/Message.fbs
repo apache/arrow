@@ -17,7 +17,7 @@ table Tuple {
 table List {
 }
 
-enum UnionMode:int { Sparse, Dense }
+enum UnionMode:short { Sparse, Dense }
 
 table Union {
   mode: UnionMode;
@@ -28,7 +28,7 @@ table Int {
   is_signed: bool;
 }
 
-enum Precision:int {SINGLE, DOUBLE}
+enum Precision:short {SINGLE, DOUBLE}
 
 table FloatingPoint {
   precision: Precision;
@@ -91,6 +91,17 @@ union Type {
   JSONScalar
 }
 
+enum VectorType: short {
+  /// used in List type Dense Union and variable length primitive types (String, Binary)
+  OFFSET,
+  /// fixed length primitive values
+  VALUES,
+  /// Bit vector indicated if each value is null
+  VALIDITY,
+  /// Type vector used in Union type
+  TYPE
+}
+
 /// ----------------------------------------------------------------------
 /// A field represents a named column in a record / row batch or child of a
 /// nested type.
@@ -109,12 +120,16 @@ table Field {
   dictionary: long;
   // children apply only to Nested data types like Struct, List and Union
   children: [Field];
+  /// the buffers produced for this type (as derived from the Type)
+  /// does not include children
+  /// each recordbatch will return instances of those Buffers.
+  buffers: [ VectorType ];
 }
 
 /// ----------------------------------------------------------------------
 /// Endianness of the platform that produces the RecordBatch
 
-enum Endianness:int { Little, Big }
+enum Endianness:short { Little, Big }
 
 /// ----------------------------------------------------------------------
 /// A Schema describes the columns in a row batch

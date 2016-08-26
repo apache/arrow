@@ -30,7 +30,7 @@
     },
     {
       name: "Union",
-      fields: []
+      fields: [{name: "mode", type: short}]
     },
     {
       name: "Int",
@@ -38,7 +38,7 @@
     },
     {
       name: "FloatingPoint",
-      fields: [{name: precision, type: int}]
+      fields: [{name: precision, type: short}]
     },
     {
       name: "Utf8",

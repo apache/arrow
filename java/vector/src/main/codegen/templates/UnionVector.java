@@ -42,6 +42,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+
+import static org.apache.arrow.flatbuf.UnionMode.Sparse;
+
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -57,7 +61,7 @@ import org.apache.arrow.vector.util.CallBack;
  * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the map lookup
  * each time the vector is accessed.
  */
-public class UnionVector implements ValueVector {
+public class UnionVector implements FieldVector {
 
   private String name;
   private BufferAllocator allocator;
@@ -95,6 +99,34 @@ public class UnionVector implements ValueVector {
     return MinorType.UNION;
   }
 
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    getMap().initializeChildrenFromFields(children);
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return getMap().getChildrenFromFields();
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    // TODO
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    // TODO
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    // TODO
+    throw new UnsupportedOperationException();
+  }
+  
   public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
@@ -203,7 +235,7 @@ public class UnionVector implements ValueVector {
     for (ValueVector v : internalMap.getChildren()) {
       childFields.add(v.getField());
     }
-    return new Field(name, true, new ArrowType.Union(), childFields);
+    return new Field(name, true, new ArrowType.Union(Sparse), childFields);
   }
 
   @Override
@@ -237,10 +269,10 @@ public class UnionVector implements ValueVector {
     copyFrom(inIndex, outIndex, from);
   }
 
-  public ValueVector addVector(ValueVector v) {
+  public FieldVector addVector(FieldVector v) {
     String name = v.getMinorType().name().toLowerCase();
     Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final ValueVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass());
+    final FieldVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
     internalMap.putChild(name, newVector);
     if (callBack != null) {

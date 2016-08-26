@@ -18,15 +18,18 @@
  ******************************************************************************/
 package org.apache.arrow.vector.complex;
 
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.netty.buffer.ArrowBuf;
+import static java.util.Collections.singletonList;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BaseDataValueVector;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
@@ -36,18 +39,24 @@ import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 
-public class ListVector extends BaseRepeatedValueVector {
+import io.netty.buffer.ArrowBuf;
 
-  UInt4Vector offsets;
+public class ListVector extends BaseRepeatedValueVector implements FieldVector {
+
+  final UInt4Vector offsets;
   final UInt1Vector bits;
+  private final List<BufferBacked> innerVectors;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
   private UnionListWriter writer;
@@ -57,10 +66,44 @@ public class ListVector extends BaseRepeatedValueVector {
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator);
     this.bits = new UInt1Vector("$bits$", allocator);
-    offsets = getOffsetVector();
+    this.offsets = getOffsetVector();
+    this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, offsets));
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
     this.callBack = callBack;
+  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    if (children.size() != 1) {
+      throw new IllegalArgumentException("Lists have only one child. Found: " + children);
+    }
+    Field field = children.get(0);
+    MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(minorType);
+    if (!addOrGetVector.isCreated()) {
+      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return singletonList(getDataVector());
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    return BaseDataValueVector.unload(getFieldInnerVectors());
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
   }
 
   public UnionListWriter getWriter() {
@@ -86,7 +129,7 @@ public class ListVector extends BaseRepeatedValueVector {
   }
 
   @Override
-  public ValueVector getDataVector() {
+  public FieldVector getDataVector() {
     return vector;
   }
 
@@ -298,4 +341,5 @@ public class ListVector extends BaseRepeatedValueVector {
       bits.getMutator().setValueCount(valueCount);
     }
   }
+
 }

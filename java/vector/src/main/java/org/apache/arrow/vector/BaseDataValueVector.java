@@ -17,15 +17,38 @@
  */
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 
+import io.netty.buffer.ArrowBuf;
 
-public abstract class BaseDataValueVector extends BaseValueVector {
+
+public abstract class BaseDataValueVector extends BaseValueVector implements BufferBacked {
 
   protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
 
+  public static void load(List<BufferBacked> vectors, List<ArrowBuf> buffers) {
+    int expectedSize = vectors.size();
+    if (buffers.size() != expectedSize) {
+      throw new IllegalArgumentException("Illegal buffer count, expected " + expectedSize + ", got: " + buffers.size());
+    }
+    for (int i = 0; i < expectedSize; i++) {
+      vectors.get(i).load(buffers.get(i));
+    }
+  }
+
+  public static List<ArrowBuf> unload(List<BufferBacked> vectors) {
+    List<ArrowBuf> result = new ArrayList<>(vectors.size());
+    for (BufferBacked vector : vectors) {
+      result.add(vector.unLoad());
+    }
+    return result;
+  }
+
+  // TODO: Nullable vectors extend BaseDataValueVector but do not use the data field
+  // We should fix the inheritance tree
   protected ArrowBuf data;
 
   public BaseDataValueVector(String name, BufferAllocator allocator) {
@@ -80,6 +103,17 @@ public abstract class BaseDataValueVector extends BaseValueVector {
 
   public ArrowBuf getBuffer() {
     return data;
+  }
+
+  @Override
+  public void load(ArrowBuf data) {
+    this.data.release();
+    this.data = data.retain(allocator);
+  }
+
+  @Override
+  public ArrowBuf unLoad() {
+    return this.data.readerIndex(0);
   }
 
   /**

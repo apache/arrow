@@ -17,25 +17,23 @@
  */
 package org.apache.arrow.vector;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.netty.buffer.ArrowBuf;
-
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
-import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.impl.NullReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.collect.Iterators;
+import io.netty.buffer.ArrowBuf;
 
-public class ZeroVector implements ValueVector {
+public class ZeroVector implements FieldVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
 
   private final String name = "[DEFAULT]";
@@ -174,5 +172,34 @@ public class ZeroVector implements ValueVector {
   @Override
   public FieldReader getReader() {
     return NullReader.INSTANCE;
+  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    if (!children.isEmpty()) {
+      throw new IllegalArgumentException("Zero vector has no children");
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    if (!ownBuffers.isEmpty()) {
+      throw new IllegalArgumentException("Zero vector has no buffers");
+    }
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return Collections.emptyList();
   }
 }

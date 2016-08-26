@@ -17,10 +17,10 @@
  */
 package org.apache.arrow.vector.complex;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +28,17 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
@@ -45,13 +49,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
-public class MapVector extends AbstractMapVector {
+import io.netty.buffer.ArrowBuf;
+
+public class MapVector extends AbstractMapVector implements FieldVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(MapVector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
   int valueCount;
+
+  // TODO: validity vector
+  private final List<BufferBacked> innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList());
 
   public MapVector(String name, BufferAllocator allocator, CallBack callBack){
     super(name, allocator, callBack);
@@ -120,7 +129,7 @@ public class MapVector extends AbstractMapVector {
     int expectedSize = getBufferSize();
     int actualSize   = super.getBufferSize();
 
-    Preconditions.checkArgument(expectedSize == actualSize);
+    Preconditions.checkArgument(expectedSize == actualSize, expectedSize + " != " + actualSize);
     return super.getBuffers(clear);
   }
 
@@ -159,7 +168,7 @@ public class MapVector extends AbstractMapVector {
       this.to.ephPair = null;
 
       int i = 0;
-      ValueVector vector;
+      FieldVector vector;
       for (String child:from.getChildFieldNames()) {
         int preSize = to.size();
         vector = from.getChild(child);
@@ -175,7 +184,7 @@ public class MapVector extends AbstractMapVector {
         // (This is similar to what happens in ScanBatch where the children cannot be added till they are
         // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
         // include the hashCode of the children but is based only on MaterializedField$key.
-        final ValueVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass());
+        final FieldVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass());
         if (allocate && to.size() != preSize) {
           newVector.allocateNew();
         }
@@ -315,13 +324,45 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public void close() {
-    final Collection<ValueVector> vectors = getChildren();
-    for (final ValueVector v : vectors) {
+    final Collection<FieldVector> vectors = getChildren();
+    for (final FieldVector v : vectors) {
       v.close();
     }
     vectors.clear();
+
     valueCount = 0;
 
     super.close();
  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    for (Field field : children) {
+      MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+      FieldVector vector = (FieldVector)this.add(field.getName(), minorType);
+      vector.initializeChildrenFromFields(field.getChildren());
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return getChildren();
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    // TODO: something with fieldNode?
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() {
+    return BaseDataValueVector.unload(getFieldInnerVectors());
+  }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
+  }
+
 }

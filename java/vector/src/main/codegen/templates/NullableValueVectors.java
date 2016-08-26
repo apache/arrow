@@ -29,6 +29,9 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import java.util.Collections;
+
 <#include "/@includes/vv_imports.ftl" />
 
 /**
@@ -39,7 +42,7 @@ package org.apache.arrow.vector;
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
 @SuppressWarnings("unused")
-public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector{
+public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector, FieldVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   private final FieldReader reader = new ${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
@@ -54,6 +57,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final Mutator mutator;
   private final Accessor accessor;
 
+  private final List<BufferBacked> innerVectors;
+
   <#if minor.class == "Decimal">
   private final int precision;
   private final int scale;
@@ -66,6 +71,10 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator = new Mutator();
     accessor = new Accessor();
     field = new Field(name, true, new Decimal(precision, scale), null);
+    innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
+        bits,
+        values
+    ));
   }
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
@@ -88,9 +97,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Time">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
   <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(0), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.SINGLE), null);
   <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(1), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.DOUBLE), null);
   <#elseif minor.class == "TimeStamp">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
   <#elseif minor.class == "IntervalDay">
@@ -104,8 +113,42 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Bit">
     field = new Field(name, true, new Bool(), null);
   </#if>
+    innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
+        bits,
+        <#if type.major = "VarLen">
+        values.offsetVector,
+        </#if>
+        values
+    ));
   }
   </#if>
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() {
+    return innerVectors;
+  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    if (!children.isEmpty()) {
+      throw new IllegalArgumentException("primitive type vector ${className} can not have children: " + children);
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    org.apache.arrow.vector.BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    // TODO: do something with the sizes in fieldNode?
+  }
+
+  public List<ArrowBuf> getFieldBuffers() {
+    return org.apache.arrow.vector.BaseDataValueVector.unload(getFieldInnerVectors());
+  }
 
   @Override
   public Field getField() {

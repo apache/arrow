@@ -1,0 +1,28 @@
+include "Message.fbs";
+
+namespace org.apache.arrow.flatbuf;
+
+/// ----------------------------------------------------------------------
+/// Arrow File metadata
+///
+
+table Footer {
+
+  schema: org.apache.arrow.flatbuf.Schema;
+
+  dictionaries: [ Block ];
+
+  recordBatches: [ Block ];
+}
+
+struct Block {
+
+  offset: long;
+
+  metaDataLength: int;
+
+  bodyLength: long;
+
+}
+
+root_type Footer;
