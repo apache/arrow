@@ -28,7 +28,7 @@ table Int {
   is_signed: bool;
 }
 
-enum Precision:int {HALF, SINGLE, DOUBLE}
+enum Precision:short {HALF, SINGLE, DOUBLE}
 
 table FloatingPoint {
   precision: Precision;
