@@ -28,12 +28,13 @@ table Int {
   is_signed: bool;
 }
 
-enum Precision:short {SINGLE, DOUBLE}
+enum Precision:short {HALF, SINGLE, DOUBLE}
 
 table FloatingPoint {
   precision: Precision;
 }
 
+/// Unicode with UTF-8 encoding
 table Utf8 {
 }
 

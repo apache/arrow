@@ -6,6 +6,7 @@
 
 Currently, the Arrow specification consists of these pieces:
 
+- Metadata specification (see Metadata.md)
 - Physical memory layout specification (see Layout.md)
 - Metadata serialized representation (see Message.fbs)
 
