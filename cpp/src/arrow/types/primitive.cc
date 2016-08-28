@@ -158,6 +158,7 @@ template class PrimitiveBuilder<Int8Type>;
 template class PrimitiveBuilder<Int16Type>;
 template class PrimitiveBuilder<Int32Type>;
 template class PrimitiveBuilder<Int64Type>;
+template class PrimitiveBuilder<TimestampType>;
 template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
 template class PrimitiveBuilder<BooleanType>;

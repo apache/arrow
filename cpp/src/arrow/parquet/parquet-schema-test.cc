@@ -22,6 +22,7 @@
 
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/types/datetime.h"
 #include "arrow/types/decimal.h"
 #include "arrow/util/status.h"
 
@@ -45,6 +46,9 @@ const auto INT64 = std::make_shared<Int64Type>();
 const auto FLOAT = std::make_shared<FloatType>();
 const auto DOUBLE = std::make_shared<DoubleType>();
 const auto UTF8 = std::make_shared<StringType>();
+const auto TIMESTAMP_MS = std::make_shared<TimestampType>(TimestampType::Unit::MILLI);
+// TODO: This requires parquet-cpp implementing the MICROS enum value
+// const auto TIMESTAMP_US = std::make_shared<TimestampType>(TimestampType::Unit::MICRO);
 const auto BINARY = std::make_shared<ListType>(std::make_shared<Field>("", UINT8));
 const auto DECIMAL_8_4 = std::make_shared<DecimalType>(8, 4);
 
@@ -88,6 +92,14 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   parquet_fields.push_back(
       PrimitiveNode::Make("int64", Repetition::REQUIRED, ParquetType::INT64));
   arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
+
+  parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
+      ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
+  arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_MS, false));
+
+  // parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
+  //     ParquetType::INT64, LogicalType::TIMESTAMP_MICROS));
+  // arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_US, false));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("float", Repetition::OPTIONAL, ParquetType::FLOAT));
@@ -153,9 +165,6 @@ TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   unsupported_nodes.push_back(PrimitiveNode::Make(
       "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));
 
-  unsupported_nodes.push_back(PrimitiveNode::Make(
-      "int64", Repetition::OPTIONAL, ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
-
   for (const NodePtr& node : unsupported_nodes) {
     ASSERT_RAISES(NotImplemented, ConvertSchema({node}));
   }
@@ -208,6 +217,14 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
   parquet_fields.push_back(
       PrimitiveNode::Make("int64", Repetition::REQUIRED, ParquetType::INT64));
   arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
+
+  parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
+      ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
+  arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_MS, false));
+
+  // parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
+  //     ParquetType::INT64, LogicalType::TIMESTAMP_MICROS));
+  // arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_US, false));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("float", Repetition::OPTIONAL, ParquetType::FLOAT));

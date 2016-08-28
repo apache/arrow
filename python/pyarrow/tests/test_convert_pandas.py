@@ -33,8 +33,9 @@ class TestPandasConversion(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _check_pandas_roundtrip(self, df, expected=None):
-        table = A.from_pandas_dataframe(df)
+    def _check_pandas_roundtrip(self, df, expected=None,
+                                timestamps_to_ms=False):
+        table = A.from_pandas_dataframe(df, timestamps_to_ms=timestamps_to_ms)
         result = table.to_pandas()
         if expected is None:
             expected = df
@@ -163,6 +164,25 @@ class TestPandasConversion(unittest.TestCase):
         values = ['foo', None, u'bar', 'qux', None]
         expected = pd.DataFrame({'strings': values * repeats})
         self._check_pandas_roundtrip(df, expected)
+
+    def test_timestamps_notimezone(self):
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123',
+                '2006-01-13T12:34:56.432',
+                '2010-08-13T05:46:57.437'],
+                dtype='datetime64[ms]')
+            })
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
+
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123456789',
+                '2006-01-13T12:34:56.432539784',
+                '2010-08-13T05:46:57.437699912'],
+                dtype='datetime64[ns]')
+            })
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
 
     # def test_category(self):
     #     repeats = 1000

@@ -51,6 +51,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(INT32, Int32Builder);
     BUILDER_CASE(UINT64, UInt64Builder);
     BUILDER_CASE(INT64, Int64Builder);
+    BUILDER_CASE(TIMESTAMP, TimestampBuilder);
 
     BUILDER_CASE(BOOL, BooleanBuilder);
 
@@ -105,7 +106,7 @@ Status MakePrimitiveArray(const TypePtr& type, int32_t length,
     MAKE_PRIMITIVE_ARRAY_CASE(UINT64, UInt64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(INT64, Int64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, Int64Array);
+    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, TimestampArray);
     MAKE_PRIMITIVE_ARRAY_CASE(FLOAT, FloatArray);
     MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
     MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP_DOUBLE, DoubleArray);

@@ -138,6 +138,15 @@ struct test_traits<Int64Type> {
 const int64_t test_traits<Int64Type>::value(-1024);
 
 template <>
+struct test_traits<TimestampType> {
+  static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
+  static constexpr LogicalType::type logical_enum = LogicalType::TIMESTAMP_MILLIS;
+  static int64_t const value;
+};
+
+const int64_t test_traits<TimestampType>::value(14695634030000);
+
+template <>
 struct test_traits<FloatType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FLOAT;
   static constexpr LogicalType::type logical_enum = LogicalType::NONE;
@@ -248,7 +257,8 @@ class TestParquetIO : public ::testing::Test {
 // Parquet version 1.0.
 
 typedef ::testing::Types<BooleanType, UInt8Type, Int8Type, UInt16Type, Int16Type,
-    Int32Type, UInt64Type, Int64Type, FloatType, DoubleType, StringType> TestTypes;
+    Int32Type, UInt64Type, Int64Type, TimestampType, FloatType, DoubleType,
+    StringType> TestTypes;
 
 TYPED_TEST_CASE(TestParquetIO, TestTypes);
 

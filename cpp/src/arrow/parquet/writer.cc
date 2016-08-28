@@ -240,6 +240,7 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
       TYPED_BATCH_CASE(INT32, Int32Type, ::parquet::Int32Type)
       TYPED_BATCH_CASE(UINT64, UInt64Type, ::parquet::Int64Type)
       TYPED_BATCH_CASE(INT64, Int64Type, ::parquet::Int64Type)
+      TYPED_BATCH_CASE(TIMESTAMP, TimestampType, ::parquet::Int64Type)
       TYPED_BATCH_CASE(FLOAT, FloatType, ::parquet::FloatType)
       TYPED_BATCH_CASE(DOUBLE, DoubleType, ::parquet::DoubleType)
     default:
