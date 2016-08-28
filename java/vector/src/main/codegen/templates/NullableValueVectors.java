@@ -34,6 +34,8 @@ import java.util.Collections;
 
 <#include "/@includes/vv_imports.ftl" />
 
+import org.apache.arrow.flatbuf.Precision;
+
 /**
  * Nullable${minor.class} implements a vector of values which could be null.  Elements in the vector
  * are first checked against a fixed length vector of boolean values.  Then the element is retrieved
@@ -97,9 +99,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Time">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
   <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.SINGLE), null);
+    field = new Field(name, true, new FloatingPoint(Precision.SINGLE), null);
   <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.flatbuf.Precision.DOUBLE), null);
+    field = new Field(name, true, new FloatingPoint(Precision.DOUBLE), null);
   <#elseif minor.class == "TimeStamp">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
   <#elseif minor.class == "IntervalDay">
