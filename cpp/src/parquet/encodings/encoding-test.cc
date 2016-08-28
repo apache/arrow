@@ -50,10 +50,9 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   PlainEncoder<BooleanType> encoder(nullptr);
   PlainDecoder<BooleanType> decoder(nullptr);
 
-  InMemoryOutputStream dst;
-  encoder.Encode(draws, nvalues, &dst);
+  encoder.Put(draws, nvalues);
 
-  std::shared_ptr<Buffer> encode_buffer = dst.GetBuffer();
+  std::shared_ptr<Buffer> encode_buffer = encoder.FlushValues();
   ASSERT_EQ(nbytes, encode_buffer->size());
 
   vector<uint8_t> decode_buffer(nbytes);
@@ -125,13 +124,14 @@ void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
 // ----------------------------------------------------------------------
 // Create some column descriptors
 
-template <typename T>
+template <typename DType>
 std::shared_ptr<ColumnDescriptor> ExampleDescr() {
-  return nullptr;
+  auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL, DType::type_num);
+  return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 
 template <>
-std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBA>() {
+std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
   auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, flba_length, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
@@ -147,8 +147,8 @@ class TestEncodingBase : public ::testing::Test {
   static constexpr int TYPE = Type::type_num;
 
   void SetUp() {
-    descr_ = ExampleDescr<T>();
-    if (descr_) { type_length_ = descr_->type_length(); }
+    descr_ = ExampleDescr<Type>();
+    type_length_ = descr_->type_length();
     allocator_ = default_allocator();
   }
 
@@ -215,10 +215,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   virtual void CheckRoundtrip() {
     PlainEncoder<Type> encoder(descr_.get());
     PlainDecoder<Type> decoder(descr_.get());
-    InMemoryOutputStream dst;
-    encoder.Encode(draws_, num_values_, &dst);
-
-    encode_buffer_ = dst.GetBuffer();
+    encoder.Put(draws_, num_values_);
+    encode_buffer_ = encoder.FlushValues();
 
     decoder.SetData(num_values_, encode_buffer_->data(), encode_buffer_->size());
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
@@ -249,22 +247,15 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    DictEncoder<T> encoder(&pool_, allocator_, type_length_);
+    DictEncoder<Type> encoder(descr_.get(), &pool_);
 
     dict_buffer_ = std::make_shared<OwnedMutableBuffer>();
-    auto indices = std::make_shared<OwnedMutableBuffer>();
 
-    ASSERT_NO_THROW({
-      for (int i = 0; i < num_values_; ++i) {
-        encoder.Put(draws_[i]);
-      }
-    });
+    ASSERT_NO_THROW(encoder.Put(draws_, num_values_));
     dict_buffer_->Resize(encoder.dict_encoded_size());
     encoder.WriteDict(dict_buffer_->mutable_data());
 
-    indices->Resize(encoder.EstimatedDataEncodedSize());
-    int actual_bytes = encoder.WriteIndices(indices->mutable_data(), indices->size());
-    indices->Resize(actual_bytes);
+    std::shared_ptr<Buffer> indices = encoder.FlushValues();
 
     PlainDecoder<Type> dict_decoder(descr_.get());
     dict_decoder.SetData(

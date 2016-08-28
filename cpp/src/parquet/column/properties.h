@@ -77,9 +77,8 @@ class PARQUET_EXPORT ReaderProperties {
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
 
-static int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
+static int64_t DEFAULT_PAGE_SIZE = 64 * 1024 * 1024;
 static int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
-static bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
@@ -93,7 +92,6 @@ class PARQUET_EXPORT WriterProperties {
    public:
     Builder()
         : allocator_(default_allocator()),
-          dictionary_enabled_(DEFAULT_IS_DICTIONARY_ENABLED),
           dictionary_pagesize_(DEFAULT_DICTIONARY_PAGE_SIZE),
           default_encoding_(DEFAULT_ENCODING),
           pagesize_(DEFAULT_PAGE_SIZE),
@@ -113,16 +111,6 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
-      return this;
-    }
-
-    Builder* enable_dictionary() {
-      dictionary_enabled_ = true;
-      return this;
-    }
-
-    Builder* disable_dictionary() {
-      dictionary_enabled_ = false;
       return this;
     }
 
@@ -162,14 +150,13 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     std::shared_ptr<WriterProperties> build() {
-      return std::shared_ptr<WriterProperties>(new WriterProperties(allocator_,
-          dictionary_enabled_, dictionary_pagesize_, default_encoding_, encodings_,
-          pagesize_, version_, default_codec_, codecs_));
+      return std::shared_ptr<WriterProperties>(
+          new WriterProperties(allocator_, dictionary_pagesize_, default_encoding_,
+              encodings_, pagesize_, version_, default_codec_, codecs_));
     }
 
    private:
     MemoryAllocator* allocator_;
-    bool dictionary_enabled_;
     int64_t dictionary_pagesize_;
     // Encoding used for each column if not a specialized one is defined as
     // part of encodings_
@@ -185,8 +172,6 @@ class PARQUET_EXPORT WriterProperties {
 
   MemoryAllocator* allocator() const { return allocator_; }
 
-  bool dictionary_enabled() const { return dictionary_enabled_; }
-
   int64_t dictionary_pagesize() const { return dictionary_pagesize_; }
 
   int64_t data_pagesize() const { return pagesize_; }
@@ -194,9 +179,19 @@ class PARQUET_EXPORT WriterProperties {
   ParquetVersion::type version() const { return parquet_version_; }
 
   Encoding::type encoding(const std::shared_ptr<schema::ColumnPath>& path) const {
+    Encoding::type coding = default_encoding_;
     auto it = encodings_.find(path->ToDotString());
-    if (it != encodings_.end()) { return it->second; }
-    return default_encoding_;
+    if (it != encodings_.end()) { coding = it->second; }
+
+    // Use the correct enum value for dictionary coding based on the used Parquet version
+    if (coding == Encoding::PLAIN_DICTIONARY || coding == Encoding::RLE_DICTIONARY) {
+      if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
+        return Encoding::PLAIN_DICTIONARY;
+      } else {
+        return Encoding::RLE_DICTIONARY;
+      }
+    }
+    return coding;
   }
 
   Compression::type compression(const std::shared_ptr<schema::ColumnPath>& path) const {
@@ -206,26 +201,21 @@ class PARQUET_EXPORT WriterProperties {
   }
 
  private:
-  explicit WriterProperties(MemoryAllocator* allocator, bool dictionary_enabled,
-      int64_t dictionary_pagesize, Encoding::type default_encoding,
+  explicit WriterProperties(MemoryAllocator* allocator, int64_t dictionary_pagesize,
+      Encoding::type default_encoding,
       const std::unordered_map<std::string, Encoding::type>& encodings, int64_t pagesize,
       ParquetVersion::type version, Compression::type default_codec,
       const ColumnCodecs& codecs)
       : allocator_(allocator),
-        dictionary_enabled_(dictionary_enabled),
         dictionary_pagesize_(dictionary_pagesize),
         default_encoding_(default_encoding),
         encodings_(encodings),
         pagesize_(pagesize),
         parquet_version_(version),
         default_codec_(default_codec),
-        codecs_(codecs) {
-    pagesize_ = DEFAULT_PAGE_SIZE;
-    dictionary_enabled_ = DEFAULT_IS_DICTIONARY_ENABLED;
-  }
+        codecs_(codecs) {}
 
   MemoryAllocator* allocator_;
-  bool dictionary_enabled_;
   int64_t dictionary_pagesize_;
   Encoding::type default_encoding_;
   std::unordered_map<std::string, Encoding::type> encodings_;

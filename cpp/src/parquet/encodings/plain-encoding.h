@@ -163,9 +163,16 @@ class PlainEncoder : public Encoder<DType> {
 
   explicit PlainEncoder(
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
-      : Encoder<DType>(descr, Encoding::PLAIN, allocator) {}
+      : Encoder<DType>(descr, Encoding::PLAIN, allocator),
+        values_sink_(new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, allocator)) {}
 
-  void Encode(const T* src, int num_values, OutputStream* dst) override;
+  int64_t EstimatedDataEncodedSize() override { return values_sink_->Tell(); }
+
+  std::shared_ptr<Buffer> FlushValues() override;
+  void Put(const T* src, int num_values) override;
+
+ protected:
+  std::shared_ptr<InMemoryOutputStream> values_sink_;
 };
 
 template <>
@@ -173,9 +180,27 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  public:
   explicit PlainEncoder(
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
-      : Encoder<BooleanType>(descr, Encoding::PLAIN, allocator) {}
+      : Encoder<BooleanType>(descr, Encoding::PLAIN, allocator),
+        values_sink_(new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, allocator)) {}
 
-  virtual void Encode(const bool* src, int num_values, OutputStream* dst) {
+  int64_t EstimatedDataEncodedSize() override { return values_sink_->Tell(); }
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
+    values_sink_.reset(
+        new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, this->allocator_));
+    return buffer;
+  }
+
+  void Put(const bool* src, int num_values) override {
+    Encode(src, num_values, values_sink_.get());
+  }
+
+  void Put(const std::vector<bool>& src, int num_values) {
+    Encode(src, num_values, values_sink_.get());
+  }
+
+  void Encode(const bool* src, int num_values, OutputStream* dst) {
     int bytes_required = BitUtil::Ceil(num_values, 8);
     OwnedMutableBuffer tmp_buffer(bytes_required, allocator_);
 
@@ -207,30 +232,39 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
     // Write the result to the output stream
     dst->Write(bit_writer.buffer(), bit_writer.bytes_written());
   }
+
+ protected:
+  std::shared_ptr<InMemoryOutputStream> values_sink_;
 };
 
 template <typename DType>
-inline void PlainEncoder<DType>::Encode(
-    const T* buffer, int num_values, OutputStream* dst) {
-  dst->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
+inline std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
+  std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
+  values_sink_.reset(
+      new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, this->allocator_));
+  return buffer;
+}
+
+template <typename DType>
+inline void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
+  values_sink_->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
 }
 
 template <>
-inline void PlainEncoder<ByteArrayType>::Encode(
-    const ByteArray* src, int num_values, OutputStream* dst) {
+inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
-    dst->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
-    dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
+    values_sink_->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
+    values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
   }
 }
 
 template <>
-inline void PlainEncoder<FLBAType>::Encode(
-    const FixedLenByteArray* src, int num_values, OutputStream* dst) {
+inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
-    dst->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
+    values_sink_->Write(
+        reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
   }
 }
 }  // namespace parquet

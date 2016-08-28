@@ -69,6 +69,7 @@ class TestPrimitiveWriter : public ::testing::Test {
 
   void SetUp() {
     SetupValuesOut();
+    writer_properties_ = default_writer_properties();
     definition_levels_out_.resize(SMALL_SIZE);
     repetition_levels_out_.resize(SMALL_SIZE);
 
@@ -88,8 +89,9 @@ class TestPrimitiveWriter : public ::testing::Test {
     sink_.reset(new InMemoryOutputStream());
     std::unique_ptr<SerializedPageWriter> pager(
         new SerializedPageWriter(sink_.get(), Compression::UNCOMPRESSED, &metadata_));
-    return std::unique_ptr<TypedColumnWriter<TestType>>(new TypedColumnWriter<TestType>(
-        schema_.get(), std::move(pager), output_size, encoding));
+    return std::unique_ptr<TypedColumnWriter<TestType>>(
+        new TypedColumnWriter<TestType>(schema_.get(), std::move(pager), output_size,
+            encoding, writer_properties_.get()));
   }
 
   void SyncValuesOut();
@@ -139,6 +141,7 @@ class TestPrimitiveWriter : public ::testing::Test {
   format::ColumnChunk metadata_;
   std::shared_ptr<ColumnDescriptor> schema_;
   std::unique_ptr<InMemoryOutputStream> sink_;
+  std::shared_ptr<WriterProperties> writer_properties_;
 };
 
 template <typename TestType>
@@ -186,15 +189,24 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
+// Dictionary encoding for booleans is not supported.
+typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
+    ByteArrayType, FLBAType> TestDictionaryTypes;
+
+template <typename T>
+class TestPrimitiveDictionaryWriter : public TestPrimitiveWriter<T> {};
+
+TYPED_TEST_CASE(TestPrimitiveDictionaryWriter, TestDictionaryTypes);
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
 
-/*
-TYPED_TEST(TestPrimitiveWriter, RequiredDictionary) {
+TYPED_TEST(TestPrimitiveDictionaryWriter, RequiredDictionary) {
   this->TestRequiredWithEncoding(Encoding::PLAIN_DICTIONARY);
 }
 
+/*
 TYPED_TEST(TestPrimitiveWriter, RequiredRLE) {
   this->TestRequiredWithEncoding(Encoding::RLE);
 }

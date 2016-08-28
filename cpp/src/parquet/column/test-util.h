@@ -132,7 +132,9 @@ class DataPageBuilder {
   void AppendValues(const ColumnDescriptor* d, const vector<T>& values,
       Encoding::type encoding = Encoding::PLAIN) {
     PlainEncoder<Type> encoder(d);
-    encoder.Encode(&values[0], values.size(), sink_);
+    encoder.Put(&values[0], values.size());
+    std::shared_ptr<Buffer> values_sink = encoder.FlushValues();
+    sink_->Write(values_sink->data(), values_sink->size());
 
     num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
     encoding_ = encoding;
@@ -191,7 +193,9 @@ void DataPageBuilder<BooleanType>::AppendValues(
     ParquetException::NYI("only plain encoding currently implemented");
   }
   PlainEncoder<BooleanType> encoder(d);
-  encoder.Encode(values, values.size(), sink_);
+  encoder.Put(values, values.size());
+  std::shared_ptr<Buffer> buffer = encoder.FlushValues();
+  sink_->Write(buffer->data(), buffer->size());
 
   num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
   encoding_ = encoding;
@@ -234,9 +238,7 @@ class DictionaryPageBuilder {
   // This class writes data and metadata to the passed inputs
   explicit DictionaryPageBuilder(const ColumnDescriptor* d)
       : num_dict_values_(0), have_values_(false) {
-    int type_length = 0;
-    if (TN == Type::FIXED_LEN_BYTE_ARRAY) { type_length = d->type_length(); }
-    encoder_.reset(new DictEncoder<TC>(&pool_, default_allocator(), type_length));
+    encoder_.reset(new DictEncoder<TYPE>(d, &pool_));
   }
 
   ~DictionaryPageBuilder() { pool_.FreeAll(); }
@@ -244,18 +246,10 @@ class DictionaryPageBuilder {
   shared_ptr<Buffer> AppendValues(const vector<TC>& values) {
     int num_values = values.size();
     // Dictionary encoding
-    for (int i = 0; i < num_values; ++i) {
-      encoder_->Put(values[i]);
-    }
+    encoder_->Put(values.data(), num_values);
     num_dict_values_ = encoder_->num_entries();
     have_values_ = true;
-    shared_ptr<OwnedMutableBuffer> rle_indices = std::make_shared<OwnedMutableBuffer>(
-        sizeof(int) * encoder_->EstimatedDataEncodedSize());
-    int actual_bytes =
-        encoder_->WriteIndices(rle_indices->mutable_data(), rle_indices->size());
-    rle_indices->Resize(actual_bytes);
-    encoder_->ClearIndices();
-    return rle_indices;
+    return encoder_->FlushValues();
   }
 
   shared_ptr<Buffer> WriteDict() {
@@ -269,7 +263,7 @@ class DictionaryPageBuilder {
 
  private:
   MemPool pool_;
-  shared_ptr<DictEncoder<TC>> encoder_;
+  shared_ptr<DictEncoder<TYPE>> encoder_;
   int32_t num_dict_values_;
   bool have_values_;
 };

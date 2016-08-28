@@ -45,6 +45,8 @@ class Page {
 
   PageType::type type() const { return type_; }
 
+  std::shared_ptr<Buffer> buffer() const { return buffer_; }
+
   // @returns: a pointer to the page's data
   const uint8_t* data() const { return buffer_->data(); }
 
@@ -171,12 +173,9 @@ class PageWriter {
 
   virtual void Close() = 0;
 
-  virtual int64_t WriteDataPage(int32_t num_rows, int32_t num_values,
-      const std::shared_ptr<Buffer>& definition_levels,
-      Encoding::type definition_level_encoding,
-      const std::shared_ptr<Buffer>& repetition_levels,
-      Encoding::type repetition_level_encoding, const std::shared_ptr<Buffer>& values,
-      Encoding::type encoding) = 0;
+  virtual int64_t WriteDataPage(const DataPage& page) = 0;
+
+  virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 };
 
 }  // namespace parquet

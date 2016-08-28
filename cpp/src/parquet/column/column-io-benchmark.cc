@@ -31,11 +31,11 @@ using schema::PrimitiveNode;
 namespace benchmark {
 
 std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
-    ColumnChunk* metadata, ColumnDescriptor* schema) {
+    ColumnChunk* metadata, ColumnDescriptor* schema, const WriterProperties* properties) {
   std::unique_ptr<SerializedPageWriter> pager(
       new SerializedPageWriter(dst, Compression::UNCOMPRESSED, metadata));
-  return std::unique_ptr<Int64Writer>(
-      new Int64Writer(schema, std::move(pager), output_size, Encoding::PLAIN));
+  return std::unique_ptr<Int64Writer>(new Int64Writer(
+      schema, std::move(pager), output_size, Encoding::PLAIN, properties));
 }
 
 std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
@@ -62,11 +62,12 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
   std::vector<int16_t> definition_levels(state.range_x(), 1);
   std::vector<int16_t> repetition_levels(state.range_x(), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
+  std::shared_ptr<parquet::WriterProperties> properties = default_writer_properties();
 
   while (state.KeepRunning()) {
     InMemoryOutputStream dst;
     std::unique_ptr<Int64Writer> writer =
-        BuildWriter(state.range_x(), &dst, &metadata, schema.get());
+        BuildWriter(state.range_x(), &dst, &metadata, schema.get(), properties.get());
     writer->WriteBatch(
         values.size(), definition_levels.data(), repetition_levels.data(), values.data());
     writer->Close();
@@ -97,8 +98,9 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
 
   InMemoryOutputStream dst;
+  std::shared_ptr<parquet::WriterProperties> properties = default_writer_properties();
   std::unique_ptr<Int64Writer> writer =
-      BuildWriter(state.range_x(), &dst, &metadata, schema.get());
+      BuildWriter(state.range_x(), &dst, &metadata, schema.get(), properties.get());
   writer->WriteBatch(
       values.size(), definition_levels.data(), repetition_levels.data(), values.data());
   writer->Close();

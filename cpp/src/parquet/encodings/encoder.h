@@ -19,12 +19,14 @@
 #define PARQUET_ENCODINGS_ENCODER_H
 
 #include <cstdint>
+#include <memory>
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
 namespace parquet {
 
+class Buffer;
 class ColumnDescriptor;
 class OutputStream;
 
@@ -39,7 +41,9 @@ class Encoder {
 
   virtual ~Encoder() {}
 
-  virtual void Encode(const T* src, int num_values, OutputStream* dst) = 0;
+  virtual int64_t EstimatedDataEncodedSize() = 0;
+  virtual std::shared_ptr<Buffer> FlushValues() = 0;
+  virtual void Put(const T* src, int num_values) = 0;
 
   const Encoding::type encoding() const { return encoding_; }
 

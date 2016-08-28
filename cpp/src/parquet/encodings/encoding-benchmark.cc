@@ -39,8 +39,8 @@ static void BM_PlainEncodingBoolean(::benchmark::State& state) {
   PlainEncoder<BooleanType> encoder(nullptr);
 
   while (state.KeepRunning()) {
-    InMemoryOutputStream dst;
-    encoder.Encode(values, values.size(), &dst);
+    encoder.Put(values, values.size());
+    encoder.FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(bool));
 }
@@ -51,9 +51,8 @@ static void BM_PlainDecodingBoolean(::benchmark::State& state) {
   std::vector<bool> values(state.range_x(), 64);
   bool* output = new bool[state.range_x()];
   PlainEncoder<BooleanType> encoder(nullptr);
-  InMemoryOutputStream dst;
-  encoder.Encode(values, values.size(), &dst);
-  std::shared_ptr<Buffer> buf = dst.GetBuffer();
+  encoder.Put(values, values.size());
+  std::shared_ptr<Buffer> buf = encoder.FlushValues();
 
   while (state.KeepRunning()) {
     PlainDecoder<BooleanType> decoder(nullptr);
@@ -72,8 +71,8 @@ static void BM_PlainEncodingInt64(::benchmark::State& state) {
   PlainEncoder<Int64Type> encoder(nullptr);
 
   while (state.KeepRunning()) {
-    InMemoryOutputStream dst;
-    encoder.Encode(values.data(), values.size(), &dst);
+    encoder.Put(values.data(), values.size());
+    encoder.FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int64_t));
 }
@@ -83,9 +82,8 @@ BENCHMARK(BM_PlainEncodingInt64)->Range(1024, 65536);
 static void BM_PlainDecodingInt64(::benchmark::State& state) {
   std::vector<int64_t> values(state.range_x(), 64);
   PlainEncoder<Int64Type> encoder(nullptr);
-  InMemoryOutputStream dst;
-  encoder.Encode(values.data(), values.size(), &dst);
-  std::shared_ptr<Buffer> buf = dst.GetBuffer();
+  encoder.Put(values.data(), values.size());
+  std::shared_ptr<Buffer> buf = encoder.FlushValues();
 
   while (state.KeepRunning()) {
     PlainDecoder<Int64Type> decoder(nullptr);
@@ -110,7 +108,7 @@ static void DecodeDict(
       std::make_shared<OwnedMutableBuffer>();
   auto indices = std::make_shared<OwnedMutableBuffer>();
 
-  DictEncoder<T> encoder(&pool, allocator, descr->type_length());
+  DictEncoder<Type> encoder(descr.get(), &pool, allocator);
   for (int i = 0; i < num_values; ++i) {
     encoder.Put(values[i]);
   }

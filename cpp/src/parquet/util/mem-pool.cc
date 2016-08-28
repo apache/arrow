@@ -28,6 +28,7 @@
 #include <string>
 
 #include "parquet/util/bit-util.h"
+#include "parquet/util/logging.h"
 
 namespace parquet {
 
@@ -53,6 +54,40 @@ MemPool::~MemPool() {
   }
 
   DCHECK(chunks_.empty()) << "Must call FreeAll() or AcquireData() for this pool";
+}
+
+void MemPool::ReturnPartialAllocation(int byte_size) {
+  DCHECK_GE(byte_size, 0);
+  DCHECK(current_chunk_idx_ != -1);
+  ChunkInfo& info = chunks_[current_chunk_idx_];
+  DCHECK_GE(info.allocated_bytes, byte_size);
+  info.allocated_bytes -= byte_size;
+  total_allocated_bytes_ -= byte_size;
+}
+
+template <bool CHECK_LIMIT_FIRST>
+uint8_t* MemPool::Allocate(int size) {
+  if (size == 0) return NULL;
+
+  int64_t num_bytes = BitUtil::RoundUp(size, 8);
+  if (current_chunk_idx_ == -1 ||
+      num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
+          chunks_[current_chunk_idx_].size) {
+    // If we couldn't allocate a new chunk, return NULL.
+    if (UNLIKELY(!FindChunk(num_bytes))) return NULL;
+  }
+  ChunkInfo& info = chunks_[current_chunk_idx_];
+  uint8_t* result = info.data + info.allocated_bytes;
+  DCHECK_LE(info.allocated_bytes + num_bytes, info.size);
+  info.allocated_bytes += num_bytes;
+  total_allocated_bytes_ += num_bytes;
+  DCHECK_LE(current_chunk_idx_, static_cast<int>(chunks_.size()) - 1);
+  peak_allocated_bytes_ = std::max(total_allocated_bytes_, peak_allocated_bytes_);
+  return result;
+}
+
+uint8_t* MemPool::Allocate(int size) {
+  return Allocate<false>(size);
 }
 
 void MemPool::Clear() {

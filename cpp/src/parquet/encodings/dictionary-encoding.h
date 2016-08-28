@@ -153,23 +153,36 @@ static constexpr double MAX_HASH_LOAD = 0.7;
 /// the dictionary is being constructed. At any time, the buffered values can be
 /// written out with the current dictionary size. More values can then be added to
 /// the encoder, including new dictionary entries.
-class DictEncoderBase {
+template <typename DType>
+class DictEncoder : public Encoder<DType> {
  public:
-  virtual ~DictEncoderBase() { DCHECK(buffered_indices_.empty()); }
+  typedef typename DType::c_type T;
 
-  /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
-  /// dict_encoded_size() bytes.
-  virtual void WriteDict(uint8_t* buffer) = 0;
+  explicit DictEncoder(const ColumnDescriptor* desc, MemPool* pool = nullptr,
+      MemoryAllocator* allocator = default_allocator())
+      : Encoder<DType>(desc, Encoding::PLAIN_DICTIONARY, allocator),
+        allocator_(allocator),
+        pool_(pool),
+        hash_table_size_(INITIAL_HASH_TABLE_SIZE),
+        mod_bitmask_(hash_table_size_ - 1),
+        hash_slots_(0, allocator),
+        dict_encoded_size_(0),
+        type_length_(desc->type_length()) {
+    hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
+    if (!CpuInfo::initialized()) { CpuInfo::Init(); }
+  }
 
-  /// The number of entries in the dictionary.
-  virtual int num_entries() const = 0;
+  virtual ~DictEncoder() { DCHECK(buffered_indices_.empty()); }
 
-  /// Clears all the indices (but leaves the dictionary).
-  void ClearIndices() { buffered_indices_.clear(); }
+  // TODO(wesm): think about how to address the construction semantics in
+  // encodings/dictionary-encoding.h
+  void set_mem_pool(MemPool* pool) { pool_ = pool; }
+
+  void set_type_length(int type_length) { type_length_ = type_length; }
 
   /// Returns a conservative estimate of the number of bytes needed to encode the buffered
   /// indices. Used to size the buffer passed to WriteIndices().
-  int EstimatedDataEncodedSize() {
+  int64_t EstimatedDataEncodedSize() override {
     // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
     // reserve
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
@@ -194,18 +207,42 @@ class DictEncoderBase {
 
   int hash_table_size() { return hash_table_size_; }
   int dict_encoded_size() { return dict_encoded_size_; }
+  /// Clears all the indices (but leaves the dictionary).
+  void ClearIndices() { buffered_indices_.clear(); }
 
- protected:
-  explicit DictEncoderBase(MemPool* pool, MemoryAllocator* allocator)
-      : hash_table_size_(INITIAL_HASH_TABLE_SIZE),
-        mod_bitmask_(hash_table_size_ - 1),
-        hash_slots_(0, allocator),
-        allocator_(allocator),
-        pool_(pool),
-        dict_encoded_size_(0) {
-    hash_slots_.Assign(hash_table_size_, HASH_SLOT_EMPTY);
-    if (!CpuInfo::initialized()) { CpuInfo::Init(); }
+  /// Encode value. Note that this does not actually write any data, just
+  /// buffers the value's index to be written later.
+  void Put(const T& value);
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    auto buffer = std::make_shared<OwnedMutableBuffer>(
+        EstimatedDataEncodedSize(), this->allocator_);
+    int result_size = WriteIndices(buffer->mutable_data(), EstimatedDataEncodedSize());
+    ClearIndices();
+    buffer->Resize(result_size);
+    return buffer;
+  };
+
+  void Put(const T* values, int num_values) override {
+    for (int i = 0; i < num_values; i++) {
+      Put(values[i]);
+    }
   }
+
+  /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
+  /// dict_encoded_size() bytes.
+  void WriteDict(uint8_t* buffer);
+
+  MemPool* mem_pool() { return pool_; }
+
+  /// The number of entries in the dictionary.
+  int num_entries() const { return uniques_.size(); }
+
+ private:
+  MemoryAllocator* allocator_;
+
+  // For ByteArray / FixedLenByteArray data. Not owned
+  MemPool* pool_;
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;
@@ -218,40 +255,13 @@ class DictEncoderBase {
   //
   // These values correspond to the uniques_ array
   Vector<hash_slot_t> hash_slots_;
-  MemoryAllocator* allocator_;
-
-  // For ByteArray / FixedLenByteArray data. Not owned
-  MemPool* pool_;
 
   /// Indices that have not yet be written out by WriteIndices().
   std::vector<int> buffered_indices_;
 
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
-};
 
-template <typename T>
-class DictEncoder : public DictEncoderBase {
- public:
-  explicit DictEncoder(MemPool* pool = nullptr,
-      MemoryAllocator* allocator = default_allocator(), int type_length = -1)
-      : DictEncoderBase(pool, allocator), type_length_(type_length) {}
-
-  // TODO(wesm): think about how to address the construction semantics in
-  // encodings/dictionary-encoding.h
-  void set_mem_pool(MemPool* pool) { pool_ = pool; }
-
-  void set_type_length(int type_length) { type_length_ = type_length; }
-
-  /// Encode value. Note that this does not actually write any data, just
-  /// buffers the value's index to be written later.
-  void Put(const T& value);
-
-  virtual void WriteDict(uint8_t* buffer);
-
-  virtual int num_entries() const { return uniques_.size(); }
-
- private:
   // The unique observed values
   std::vector<T> uniques_;
 
@@ -268,34 +278,35 @@ class DictEncoder : public DictEncoderBase {
   void AddDictKey(const T& value);
 };
 
-template <typename T>
-inline int DictEncoder<T>::Hash(const T& value) const {
+template <typename DType>
+inline int DictEncoder<DType>::Hash(const typename DType::c_type& value) const {
   return HashUtil::Hash(&value, sizeof(value), 0);
 }
 
 template <>
-inline int DictEncoder<ByteArray>::Hash(const ByteArray& value) const {
+inline int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) const {
   return HashUtil::Hash(value.ptr, value.len, 0);
 }
 
 template <>
-inline int DictEncoder<FixedLenByteArray>::Hash(const FixedLenByteArray& value) const {
+inline int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) const {
   return HashUtil::Hash(value.ptr, type_length_, 0);
 }
 
-template <typename T>
-inline bool DictEncoder<T>::SlotDifferent(const T& v, hash_slot_t slot) {
+template <typename DType>
+inline bool DictEncoder<DType>::SlotDifferent(
+    const typename DType::c_type& v, hash_slot_t slot) {
   return v != uniques_[slot];
 }
 
 template <>
-inline bool DictEncoder<FixedLenByteArray>::SlotDifferent(
+inline bool DictEncoder<FLBAType>::SlotDifferent(
     const FixedLenByteArray& v, hash_slot_t slot) {
   return 0 != memcmp(v.ptr, uniques_[slot].ptr, type_length_);
 }
 
-template <typename T>
-inline void DictEncoder<T>::Put(const T& v) {
+template <typename DType>
+inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
   int j = Hash(v) & mod_bitmask_;
   hash_slot_t index = hash_slots_[j];
 
@@ -321,8 +332,8 @@ inline void DictEncoder<T>::Put(const T& v) {
   buffered_indices_.push_back(index);
 }
 
-template <typename T>
-inline void DictEncoder<T>::DoubleTableSize() {
+template <typename DType>
+inline void DictEncoder<DType>::DoubleTableSize() {
   int new_size = hash_table_size_ * 2;
   Vector<hash_slot_t> new_hash_slots(0, allocator_);
   new_hash_slots.Assign(new_size, HASH_SLOT_EMPTY);
@@ -335,7 +346,7 @@ inline void DictEncoder<T>::DoubleTableSize() {
 
     // Compute the hash value mod the new table size to start looking for an
     // empty slot
-    const T& v = uniques_[index];
+    const typename DType::c_type& v = uniques_[index];
 
     // Find an empty slot in the new hash table
     j = Hash(v) & (new_size - 1);
@@ -356,14 +367,14 @@ inline void DictEncoder<T>::DoubleTableSize() {
   hash_slots_.Swap(new_hash_slots);
 }
 
-template <typename T>
-inline void DictEncoder<T>::AddDictKey(const T& v) {
+template <typename DType>
+inline void DictEncoder<DType>::AddDictKey(const typename DType::c_type& v) {
   uniques_.push_back(v);
-  dict_encoded_size_ += sizeof(T);
+  dict_encoded_size_ += sizeof(typename DType::c_type);
 }
 
 template <>
-inline void DictEncoder<ByteArray>::AddDictKey(const ByteArray& v) {
+inline void DictEncoder<ByteArrayType>::AddDictKey(const ByteArray& v) {
   uint8_t* heap = pool_->Allocate(v.len);
   if (UNLIKELY(v.len > 0 && heap == nullptr)) { throw ParquetException("out of memory"); }
   memcpy(heap, v.ptr, v.len);
@@ -372,7 +383,7 @@ inline void DictEncoder<ByteArray>::AddDictKey(const ByteArray& v) {
 }
 
 template <>
-inline void DictEncoder<FixedLenByteArray>::AddDictKey(const FixedLenByteArray& v) {
+inline void DictEncoder<FLBAType>::AddDictKey(const FixedLenByteArray& v) {
   uint8_t* heap = pool_->Allocate(type_length_);
   if (UNLIKELY(type_length_ > 0 && heap == nullptr)) {
     throw ParquetException("out of memory");
@@ -383,15 +394,24 @@ inline void DictEncoder<FixedLenByteArray>::AddDictKey(const FixedLenByteArray& 
   dict_encoded_size_ += type_length_;
 }
 
-template <typename T>
-inline void DictEncoder<T>::WriteDict(uint8_t* buffer) {
+template <typename DType>
+inline void DictEncoder<DType>::WriteDict(uint8_t* buffer) {
   // For primitive types, only a memcpy
-  memcpy(buffer, &uniques_[0], sizeof(T) * uniques_.size());
+  memcpy(buffer, uniques_.data(), sizeof(typename DType::c_type) * uniques_.size());
+}
+
+template <>
+inline void DictEncoder<BooleanType>::WriteDict(uint8_t* buffer) {
+  // For primitive types, only a memcpy
+  // memcpy(buffer, uniques_.data(), sizeof(typename DType::c_type) * uniques_.size());
+  for (size_t i = 0; i < uniques_.size(); i++) {
+    buffer[i] = uniques_[i];
+  }
 }
 
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
-inline void DictEncoder<ByteArray>::WriteDict(uint8_t* buffer) {
+inline void DictEncoder<ByteArrayType>::WriteDict(uint8_t* buffer) {
   for (const ByteArray& v : uniques_) {
     memcpy(buffer, reinterpret_cast<const void*>(&v.len), sizeof(uint32_t));
     buffer += sizeof(uint32_t);
@@ -401,14 +421,15 @@ inline void DictEncoder<ByteArray>::WriteDict(uint8_t* buffer) {
 }
 
 template <>
-inline void DictEncoder<FixedLenByteArray>::WriteDict(uint8_t* buffer) {
+inline void DictEncoder<FLBAType>::WriteDict(uint8_t* buffer) {
   for (const FixedLenByteArray& v : uniques_) {
     memcpy(buffer, v.ptr, type_length_);
     buffer += type_length_;
   }
 }
 
-inline int DictEncoderBase::WriteIndices(uint8_t* buffer, int buffer_len) {
+template <typename DType>
+inline int DictEncoder<DType>::WriteIndices(uint8_t* buffer, int buffer_len) {
   // Write bit width in first byte
   *buffer = bit_width();
   ++buffer;

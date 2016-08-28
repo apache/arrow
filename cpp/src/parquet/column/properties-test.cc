@@ -38,7 +38,6 @@ TEST(TestWriterProperties, Basics) {
 
   ASSERT_EQ(DEFAULT_PAGE_SIZE, props->data_pagesize());
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE, props->dictionary_pagesize());
-  ASSERT_EQ(DEFAULT_IS_DICTIONARY_ENABLED, props->dictionary_enabled());
   ASSERT_EQ(DEFAULT_WRITER_VERSION, props->version());
 }
 

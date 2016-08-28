@@ -27,8 +27,6 @@
 #include <vector>
 #include <string>
 
-#include "parquet/util/logging.h"
-#include "parquet/util/bit-util.h"
 #include "parquet/util/mem-allocator.h"
 
 namespace parquet {
@@ -85,19 +83,12 @@ class MemPool {
   /// Allocates 8-byte aligned section of memory of 'size' bytes at the end
   /// of the the current chunk. Creates a new chunk if there aren't any chunks
   /// with enough capacity.
-  uint8_t* Allocate(int size) { return Allocate<false>(size); }
+  uint8_t* Allocate(int size);
 
   /// Returns 'byte_size' to the current chunk back to the mem pool. This can
   /// only be used to return either all or part of the previous allocation returned
   /// by Allocate().
-  void ReturnPartialAllocation(int byte_size) {
-    DCHECK_GE(byte_size, 0);
-    DCHECK(current_chunk_idx_ != -1);
-    ChunkInfo& info = chunks_[current_chunk_idx_];
-    DCHECK_GE(info.allocated_bytes, byte_size);
-    info.allocated_bytes -= byte_size;
-    total_allocated_bytes_ -= byte_size;
-  }
+  void ReturnPartialAllocation(int byte_size);
 
   /// Makes all allocated chunks available for re-use, but doesn't delete any chunks.
   void Clear();
@@ -180,25 +171,7 @@ class MemPool {
   }
 
   template <bool CHECK_LIMIT_FIRST>
-  uint8_t* Allocate(int size) {
-    if (size == 0) return NULL;
-
-    int64_t num_bytes = BitUtil::RoundUp(size, 8);
-    if (current_chunk_idx_ == -1 ||
-        num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
-            chunks_[current_chunk_idx_].size) {
-      // If we couldn't allocate a new chunk, return NULL.
-      if (UNLIKELY(!FindChunk(num_bytes))) return NULL;
-    }
-    ChunkInfo& info = chunks_[current_chunk_idx_];
-    uint8_t* result = info.data + info.allocated_bytes;
-    DCHECK_LE(info.allocated_bytes + num_bytes, info.size);
-    info.allocated_bytes += num_bytes;
-    total_allocated_bytes_ += num_bytes;
-    DCHECK_LE(current_chunk_idx_, static_cast<int>(chunks_.size()) - 1);
-    peak_allocated_bytes_ = std::max(total_allocated_bytes_, peak_allocated_bytes_);
-    return result;
-  }
+  uint8_t* Allocate(int size);
 };
 
 }  // namespace parquet
