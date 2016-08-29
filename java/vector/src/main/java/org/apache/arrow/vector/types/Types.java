@@ -47,7 +47,7 @@ import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
@@ -139,12 +139,12 @@ public class Types {
 
       @Override
       public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
-         return new MapVector(name, allocator, callBack);
+         return new NullableMapVector(name, allocator, callBack);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new SingleMapWriter((MapVector) vector);
+        return new SingleMapWriter((NullableMapVector) vector);
       }
     },   //  an empty map column.  Useful for conceptual setup.  Children listed within here
 

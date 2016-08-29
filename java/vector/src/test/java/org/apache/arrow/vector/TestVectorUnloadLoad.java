@@ -22,6 +22,7 @@ import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
@@ -60,14 +61,14 @@ public class TestVectorUnloadLoad {
       }
       writer.setValueCount(count);
 
-      VectorUnloader vectorUnloader = new VectorUnloader((MapVector)parent.getChild("root"));
+      VectorUnloader vectorUnloader = new VectorUnloader(parent.getChild("root"));
       schema = vectorUnloader.getSchema();
 
       try (
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
           BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
           MapVector newParent = new MapVector("parent", finalVectorsAllocator, null)) {
-        MapVector root = newParent.addOrGet("root", MinorType.MAP, MapVector.class);
+        FieldVector root = newParent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
         VectorLoader vectorLoader = new VectorLoader(schema, root);
 
         vectorLoader.load(recordBatch);

@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -121,7 +122,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      MapVector map = (MapVector) container;
+      NullableMapVector map = (NullableMapVector) container;
       mapRoot = new SingleMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
@@ -142,7 +143,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      MapVector map = container.addOrGet(name, MinorType.MAP, MapVector.class);
+      NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
       mapRoot = new SingleMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;

@@ -90,8 +90,7 @@ public class TypeLayout {
 
       @Override public TypeLayout visit(Tuple type) {
         List<VectorLayout> vectors = asList(
-            // TODO: add validity vector in Map
-//            validityVector()
+            validityVector()
             );
         return new TypeLayout(vectors);
       }

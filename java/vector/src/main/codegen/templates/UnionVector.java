@@ -72,7 +72,7 @@ public class UnionVector implements FieldVector {
   MapVector internalMap;
   UInt1Vector typeVector;
 
-  private MapVector mapVector;
+  private NullableMapVector mapVector;
   private ListVector listVector;
 
   private FieldReader reader;
@@ -127,10 +127,10 @@ public class UnionVector implements FieldVector {
     throw new UnsupportedOperationException();
   }
   
-  public MapVector getMap() {
+  public NullableMapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MinorType.MAP, MapVector.class);
+      mapVector = internalMap.addOrGet("map", MinorType.MAP, NullableMapVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
         if (callBack != null) {

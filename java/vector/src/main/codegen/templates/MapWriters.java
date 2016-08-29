@@ -20,7 +20,7 @@
 <#list ["Single"] as mode>
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#if mode == "Single">
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "NullableMapVector" />
 <#assign index = "idx()">
 <#else>
 <#assign containerClass = "RepeatedMapVector" />
@@ -75,7 +75,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       FieldWriter writer = fields.get(name.toLowerCase());
     if(writer == null){
       int vectorCount=container.size();
-      MapVector vector = container.addOrGet(name, MinorType.MAP, MapVector.class);
+      MapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
       writer = new PromotableWriter(vector, container);
       if(vectorCount != container.size()) {
         writer.allocate();
@@ -165,6 +165,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
+    container.getMutator().setIndexDefined(idx());
   }
 
   @Override

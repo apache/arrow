@@ -68,7 +68,9 @@ public class VectorUnloader {
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
     if (fieldBuffers.size() != expectedBuffers.size()) {
-      throw new IllegalArgumentException("wrong number of buffers for field " + vector.getField() + ". found: " + fieldBuffers);
+      throw new IllegalArgumentException(String.format(
+          "wrong number of buffers for field %s in vector %s. found: %s",
+          vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
     buffers.addAll(fieldBuffers);
     for (FieldVector child : vector.getChildrenFromFields()) {
