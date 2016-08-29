@@ -17,8 +17,8 @@
     <artifactId>arrow-java-root</artifactId>
     <version>0.1-SNAPSHOT</version>
   </parent>
-  <artifactId>vector</artifactId>
-  <name>vectors</name>
+  <artifactId>arrow-vector</artifactId>
+  <name>Arrow Vectors</name>
 
   <dependencies>
 
