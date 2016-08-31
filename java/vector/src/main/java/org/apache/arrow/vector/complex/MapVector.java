@@ -49,7 +49,7 @@ import io.netty.buffer.ArrowBuf;
 public class MapVector extends AbstractMapVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
-  private final SingleMapReaderImpl reader = new SingleMapReaderImpl(MapVector.this);
+  private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
   int valueCount;
@@ -60,7 +60,6 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public FieldReader getReader() {
-    //return new SingleMapReaderImpl(MapVector.this);
     return reader;
   }
 
@@ -118,16 +117,16 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    int expectedSize = getBufferSize();
-    int actualSize   = super.getBufferSize();
-
-    Preconditions.checkArgument(expectedSize == actualSize, expectedSize + " != " + actualSize);
+//    int expectedSize = getBufferSize();
+//    int actualSize   = super.getBufferSize();
+//
+//    Preconditions.checkArgument(expectedSize == actualSize, expectedSize + " != " + actualSize);
     return super.getBuffers(clear);
   }
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new MapTransferPair(this, name, allocator);
+    return new MapTransferPair(this, new MapVector(name, allocator, callBack), false);
   }
 
   @Override
@@ -137,17 +136,13 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new MapTransferPair(this, ref, allocator);
+    return new MapTransferPair(this, new MapVector(ref, allocator, callBack), false);
   }
 
   protected static class MapTransferPair implements TransferPair{
     private final TransferPair[] pairs;
     private final MapVector from;
     private final MapVector to;
-
-    public MapTransferPair(MapVector from, String name, BufferAllocator allocator) {
-      this(from, new MapVector(name, allocator, from.callBack), false);
-    }
 
     public MapTransferPair(MapVector from, MapVector to) {
       this(from, to, true);

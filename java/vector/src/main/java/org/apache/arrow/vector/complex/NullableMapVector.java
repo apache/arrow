@@ -29,9 +29,13 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVectorDefinitionSetter;
 import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.TransferPair;
 
 import com.google.common.collect.ObjectArrays;
 
@@ -39,7 +43,9 @@ import io.netty.buffer.ArrowBuf;
 
 public class NullableMapVector extends MapVector implements FieldVector {
 
-  private final UInt1Vector bits;
+  private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
+
+  protected final UInt1Vector bits;
 
   private final List<BufferBacked> innerVectors;
 
@@ -71,6 +77,54 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   @Override
+  public FieldReader getReader() {
+    return reader;
+  }
+
+  @Override
+  public TransferPair getTransferPair(BufferAllocator allocator) {
+    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, callBack), false);
+  }
+
+  @Override
+  public TransferPair makeTransferPair(ValueVector to) {
+    return new NullableMapTransferPair(this, (NullableMapVector) to, true);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, callBack), false);
+  }
+
+  protected class NullableMapTransferPair extends MapTransferPair {
+
+    private NullableMapVector target;
+
+    protected NullableMapTransferPair(NullableMapVector from, NullableMapVector to, boolean allocate) {
+      super(from, to, allocate);
+      this.target = to;
+    }
+
+    @Override
+    public void transfer() {
+      bits.transferTo(target.bits);
+      super.transfer();
+    }
+
+    @Override
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      target.bits.copyFromSafe(fromIndex, toIndex, bits);
+      super.copyValueSafe(fromIndex, toIndex);
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      bits.splitAndTransferTo(startIndex, length, target.bits);
+      super.splitAndTransfer(startIndex, length);
+    }
+  }
+
+  @Override
   public int getValueCapacity() {
     return Math.min(bits.getValueCapacity(), super.getValueCapacity());
   }
@@ -91,6 +145,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
     bits.clear();
     super.clear();
   }
+
 
   @Override
   public int getBufferSize(){
@@ -166,15 +221,11 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
     @Override
     public void setIndexDefined(int index){
-      bits.getMutator().set(index, 1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     public void setNull(int index){
       bits.getMutator().setSafe(index, 0);
-    }
-
-    public boolean isSafe(int outIndex) {
-      return outIndex < NullableMapVector.this.getValueCapacity();
     }
 
     @Override

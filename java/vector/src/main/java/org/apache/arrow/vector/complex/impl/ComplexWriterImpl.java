@@ -30,7 +30,7 @@ import com.google.common.base.Preconditions;
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
-  private SingleMapWriter mapRoot;
+  private NullableMapWriter mapRoot;
   private UnionListWriter listRoot;
   private final MapVector container;
 
@@ -123,7 +123,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       NullableMapVector map = (NullableMapVector) container;
-      mapRoot = new SingleMapWriter(map);
+      mapRoot = new NullableMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -144,7 +144,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      mapRoot = new SingleMapWriter(map);
+      mapRoot = new NullableMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;

@@ -58,7 +58,7 @@ import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
-import org.apache.arrow.vector.complex.impl.SingleMapWriter;
+import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeWriterImpl;
@@ -144,7 +144,7 @@ public class Types {
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new SingleMapWriter((NullableMapVector) vector);
+        return new NullableMapWriter((NullableMapVector) vector);
       }
     },   //  an empty map column.  Useful for conceptual setup.  Children listed within here
 

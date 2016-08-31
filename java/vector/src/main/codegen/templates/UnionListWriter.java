@@ -160,11 +160,13 @@ public class UnionListWriter extends AbstractFieldWriter {
     vector.getMutator().setNotNull(idx());
     offsets.getMutator().setSafe(idx() + 1, nextOffset);
     writer.setPosition(nextOffset);
+    writer.start();
   }
 
   @Override
   public void end() {
 //    if (inMap) {
+      writer.end();
       inMap = false;
       final int nextOffset = offsets.getAccessor().get(idx() + 1);
       offsets.getMutator().setSafe(idx() + 1, nextOffset + 1);

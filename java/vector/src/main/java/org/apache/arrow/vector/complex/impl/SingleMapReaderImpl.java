@@ -1,5 +1,3 @@
-
-
 /*******************************************************************************
 
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -27,9 +25,9 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.types.Types.MinorType;
 
 import com.google.common.collect.Maps;
-import org.apache.arrow.vector.types.Types.MinorType;
 
 @SuppressWarnings("unused")
 public class SingleMapReaderImpl extends AbstractFieldReader{
