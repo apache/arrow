@@ -16,9 +16,11 @@
 # under the License.
 
 install(FILES
+  metadata.h
   reader.h
   writer.h
   DESTINATION include/parquet/file)
 
 ADD_PARQUET_TEST(file-deserialize-test)
+ADD_PARQUET_TEST(file-metadata-test)
 ADD_PARQUET_TEST(file-serialize-test)

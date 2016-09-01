@@ -23,6 +23,9 @@
 #include "parquet/exception.h"
 #include "parquet/file/reader.h"
 
+// Metadata reader API
+#include "parquet/file/metadata.h"
+
 // Schemas
 #include "parquet/api/schema.h"
 

@@ -13,6 +13,8 @@
 #ifndef PARQUET_UTIL_BPACKING_H
 #define PARQUET_UTIL_BPACKING_H
 
+#include <stdexcept>
+
 namespace parquet {
 
 inline const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {

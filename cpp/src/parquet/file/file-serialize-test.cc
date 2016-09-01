@@ -79,13 +79,13 @@ class TestSerialize : public ::testing::Test {
     auto buffer = sink->GetBuffer();
     std::unique_ptr<RandomAccessSource> source(new BufferReader(buffer));
     auto file_reader = ParquetFileReader::Open(std::move(source));
-    ASSERT_EQ(1, file_reader->num_columns());
-    ASSERT_EQ(1, file_reader->num_row_groups());
-    ASSERT_EQ(100, file_reader->num_rows());
+    ASSERT_EQ(1, file_reader->metadata()->num_columns());
+    ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+    ASSERT_EQ(100, file_reader->metadata()->num_rows());
 
     auto rg_reader = file_reader->RowGroup(0);
-    ASSERT_EQ(1, rg_reader->num_columns());
-    ASSERT_EQ(100, rg_reader->num_rows());
+    ASSERT_EQ(1, rg_reader->metadata()->num_columns());
+    ASSERT_EQ(100, rg_reader->metadata()->num_rows());
 
     auto col_reader = std::static_pointer_cast<Int64Reader>(rg_reader->Column(0));
     std::vector<int64_t> values_out(100);

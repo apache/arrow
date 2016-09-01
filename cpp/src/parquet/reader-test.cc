@@ -68,11 +68,11 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   int32_t values[4];
 
   // This file only has 8 rows
-  ASSERT_EQ(8, reader_->num_rows());
+  ASSERT_EQ(8, reader_->metadata()->num_rows());
   // This file only has 1 row group
-  ASSERT_EQ(1, reader_->num_row_groups());
+  ASSERT_EQ(1, reader_->metadata()->num_row_groups());
   // This row group must have 8 rows
-  ASSERT_EQ(8, group->num_rows());
+  ASSERT_EQ(8, group->metadata()->num_rows());
 
   ASSERT_TRUE(col->HasNext());
   int64_t values_read;

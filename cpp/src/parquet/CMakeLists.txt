@@ -21,8 +21,6 @@ install(FILES
   types.h
   DESTINATION include/parquet)
 
-ADD_PARQUET_TEST(public-api-test
-  LINKAGE shared)
-
+ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)

@@ -182,9 +182,8 @@ void TypedColumnWriter<Type>::WriteDictionaryPage() {
   // TODO Get rid of this deep call
   dict_encoder->mem_pool()->FreeAll();
 
-  Encoding::type dict_encoding = Encoding::PLAIN_DICTIONARY;
-  if (encoding_ == Encoding::RLE_DICTIONARY) { dict_encoding = Encoding::PLAIN; }
-  DictionaryPage page(buffer, dict_encoder->num_entries(), dict_encoding);
+  DictionaryPage page(
+      buffer, dict_encoder->num_entries(), properties_->dictionary_index_encoding());
   total_bytes_written_ += pager_->WriteDictionaryPage(page);
 }
 
@@ -195,6 +194,9 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(const ColumnDescriptor* descr,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows,
     const WriterProperties* properties) {
   Encoding::type encoding = properties->encoding(descr->path());
+  if (properties->dictionary_enabled(descr->path())) {
+    encoding = properties->dictionary_page_encoding();
+  }
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<BoolWriter>(
