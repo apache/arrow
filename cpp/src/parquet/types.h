@@ -68,7 +68,9 @@ struct LogicalType {
     DECIMAL,
     DATE,
     TIME_MILLIS,
+    TIME_MICROS,
     TIMESTAMP_MILLIS,
+    TIMESTAMP_MICROS,
     UINT_8,
     UINT_16,
     UINT_32,
@@ -104,7 +106,7 @@ struct Encoding {
 
 // Compression, mirrors parquet::CompressionCodec
 struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO };
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI };
 };
 
 // parquet::PageType

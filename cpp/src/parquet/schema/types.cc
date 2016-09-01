@@ -143,7 +143,9 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         throw ParquetException(ss.str());
       }
       break;
+    case LogicalType::TIME_MICROS:
     case LogicalType::TIMESTAMP_MILLIS:
+    case LogicalType::TIMESTAMP_MICROS:
     case LogicalType::UINT_64:
     case LogicalType::INT_64:
       if (type != Type::INT64) {

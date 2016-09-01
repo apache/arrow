@@ -45,8 +45,11 @@ TEST(TestLogicalTypeToString, LogicalTypes) {
   ASSERT_STREQ("DECIMAL", logical_type_to_string(LogicalType::DECIMAL).c_str());
   ASSERT_STREQ("DATE", logical_type_to_string(LogicalType::DATE).c_str());
   ASSERT_STREQ("TIME_MILLIS", logical_type_to_string(LogicalType::TIME_MILLIS).c_str());
+  ASSERT_STREQ("TIME_MICROS", logical_type_to_string(LogicalType::TIME_MICROS).c_str());
   ASSERT_STREQ(
       "TIMESTAMP_MILLIS", logical_type_to_string(LogicalType::TIMESTAMP_MILLIS).c_str());
+  ASSERT_STREQ(
+      "TIMESTAMP_MICROS", logical_type_to_string(LogicalType::TIMESTAMP_MICROS).c_str());
   ASSERT_STREQ("UINT_8", logical_type_to_string(LogicalType::UINT_8).c_str());
   ASSERT_STREQ("UINT_16", logical_type_to_string(LogicalType::UINT_16).c_str());
   ASSERT_STREQ("UINT_32", logical_type_to_string(LogicalType::UINT_32).c_str());

@@ -93,7 +93,14 @@ enum ConvertedType {
    * as an INT32 physical type.
    */
   TIME_MILLIS = 7;
-  // RESERVED = 8;
+
+  /**
+   * A time.
+   *
+   * The total number of microseconds since midnight.  The value is stored as
+   * an INT64 physical type.
+   */
+  TIME_MICROS = 8;
 
   /**
    * A date/time combination
@@ -102,7 +109,14 @@ enum ConvertedType {
    * a physical type of INT64.
    */
   TIMESTAMP_MILLIS = 9;
-  // RESERVED = 10;
+
+  /**
+   * A date/time combination
+   *
+   * Date and time recorded as microseconds since the Unix epoch.  The value is
+   * stored as an INT64 physical type.
+   */
+  TIMESTAMP_MICROS = 10;
 
 
   /**
@@ -308,6 +322,7 @@ enum CompressionCodec {
   SNAPPY = 1;
   GZIP = 2;
   LZO = 3;
+  BROTLI = 4;
 }
 
 enum PageType {
@@ -509,6 +524,9 @@ struct ColumnChunk {
 }
 
 struct RowGroup {
+  /** Metadata for each column chunk in this row group.
+   * This list must have the same order as the SchemaElement list in FileMetaData.
+   **/
   1: required list<ColumnChunk> columns
 
   /** Total byte size of all the uncompressed column data in this row group **/
@@ -553,3 +571,4 @@ struct FileMetaData {
    **/
   6: optional string created_by
 }
+
