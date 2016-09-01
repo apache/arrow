@@ -109,6 +109,8 @@ class TestPrimitiveWriter : public ::testing::Test {
     std::unique_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(SMALL_SIZE, encoding);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    // The behaviour should be independent from the number of Close() calls
+    writer->Close();
     writer->Close();
 
     this->ReadColumn();

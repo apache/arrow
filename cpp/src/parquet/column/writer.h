@@ -101,6 +101,7 @@ class PARQUET_EXPORT ColumnWriter {
   int num_rows_;
 
   int total_bytes_written_;
+  bool closed_;
 
   std::unique_ptr<InMemoryOutputStream> definition_levels_sink_;
   std::unique_ptr<InMemoryOutputStream> repetition_levels_sink_;

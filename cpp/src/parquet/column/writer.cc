@@ -46,7 +46,8 @@ ColumnWriter::ColumnWriter(const ColumnDescriptor* descr,
       num_buffered_values_(0),
       num_buffered_encoded_values_(0),
       num_rows_(0),
-      total_bytes_written_(0) {
+      total_bytes_written_(0),
+      closed_(false) {
   InitSinks();
 }
 
@@ -56,11 +57,13 @@ void ColumnWriter::InitSinks() {
 }
 
 void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
+  DCHECK(!closed_);
   definition_levels_sink_->Write(
       reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
 }
 
 void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
+  DCHECK(!closed_);
   repetition_levels_sink_->Write(
       reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
 }
@@ -129,12 +132,15 @@ void ColumnWriter::WriteDataPage(const DataPage& page) {
 }
 
 int64_t ColumnWriter::Close() {
-  if (has_dictionary_) { WriteDictionaryPage(); }
-  // Write all outstanding data to a new page
-  if (num_buffered_values_ > 0) { AddDataPage(); }
+  if (!closed_) {
+    closed_ = true;
+    if (has_dictionary_) { WriteDictionaryPage(); }
+    // Write all outstanding data to a new page
+    if (num_buffered_values_ > 0) { AddDataPage(); }
 
-  for (size_t i = 0; i < data_pages_.size(); i++) {
-    WriteDataPage(data_pages_[i]);
+    for (size_t i = 0; i < data_pages_.size(); i++) {
+      WriteDataPage(data_pages_[i]);
+    }
   }
 
   if (num_rows_ != expected_rows_) {
