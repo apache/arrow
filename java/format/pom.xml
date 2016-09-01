@@ -25,6 +25,8 @@
 
   <properties>
     <fbs.version>1.2.0-3f79e055</fbs.version>
+    <flatc.download.skip>false</flatc.download.skip>
+    <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</flatc.executable>
     <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
     <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
@@ -71,6 +73,7 @@
                 <outputDirectory>${project.build.directory}</outputDirectory>
               </artifactItem>
             </artifactItems>
+            <skip>${flatc.download.skip}</skip>
           </configuration>
         </execution>
       </executions>
@@ -92,6 +95,7 @@
               <argument>+x</argument>
               <argument>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</argument>
             </arguments>
+            <skip>${flatc.download.skip}</skip>
           </configuration>
         </execution>
         <execution>
@@ -100,11 +104,11 @@
           </goals>
           <phase>generate-sources</phase>
           <configuration>
-            <executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</executable>
+            <executable>${flatc.executable}</executable>
             <arguments>
               <argument>-j</argument>
               <argument>-o</argument>
-              <argument>target/generated-sources/</argument>
+              <argument>target/generated-sources/flatc</argument>
               <argument>../../format/Message.fbs</argument>
               <argument>../../format/File.fbs</argument>
             </arguments>
