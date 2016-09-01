@@ -77,7 +77,7 @@ class PARQUET_EXPORT ReaderProperties {
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
 
-static int64_t DEFAULT_PAGE_SIZE = 64 * 1024 * 1024;
+static int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
 static int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 static Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
