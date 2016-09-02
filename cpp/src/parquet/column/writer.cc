@@ -200,7 +200,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(const ColumnDescriptor* descr,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows,
     const WriterProperties* properties) {
   Encoding::type encoding = properties->encoding(descr->path());
-  if (properties->dictionary_enabled(descr->path())) {
+  if (properties->dictionary_enabled(descr->path()) &&
+      descr->physical_type() != Type::BOOLEAN) {
     encoding = properties->dictionary_page_encoding();
   }
   switch (descr->physical_type()) {

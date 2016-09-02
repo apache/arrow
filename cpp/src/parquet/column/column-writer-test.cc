@@ -84,14 +84,22 @@ class TestPrimitiveWriter : public ::testing::Test {
     reader_.reset(new TypedColumnReader<TestType>(schema_.get(), std::move(page_reader)));
   }
 
-  std::unique_ptr<TypedColumnWriter<TestType>> BuildWriter(
+  std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE, Encoding::type encoding = Encoding::PLAIN) {
     sink_.reset(new InMemoryOutputStream());
     std::unique_ptr<SerializedPageWriter> pager(
         new SerializedPageWriter(sink_.get(), Compression::UNCOMPRESSED, &metadata_));
-    return std::unique_ptr<TypedColumnWriter<TestType>>(
-        new TypedColumnWriter<TestType>(schema_.get(), std::move(pager), output_size,
-            encoding, writer_properties_.get()));
+    WriterProperties::Builder wp_builder;
+    if (encoding == Encoding::PLAIN_DICTIONARY || encoding == Encoding::RLE_DICTIONARY) {
+      wp_builder.enable_dictionary();
+    } else {
+      wp_builder.disable_dictionary();
+      wp_builder.encoding(encoding);
+    }
+    writer_properties_ = wp_builder.build();
+    std::shared_ptr<ColumnWriter> writer = ColumnWriter::Make(
+        schema_.get(), std::move(pager), output_size, writer_properties_.get());
+    return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
   void SyncValuesOut();
@@ -106,7 +114,7 @@ class TestPrimitiveWriter : public ::testing::Test {
     this->GenerateData(SMALL_SIZE);
 
     // Test case 1: required and non-repeated, so no definition or repetition levels
-    std::unique_ptr<TypedColumnWriter<TestType>> writer =
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(SMALL_SIZE, encoding);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
@@ -191,20 +199,11 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
-// Dictionary encoding for booleans is not supported.
-typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType> TestDictionaryTypes;
-
-template <typename T>
-class TestPrimitiveDictionaryWriter : public TestPrimitiveWriter<T> {};
-
-TYPED_TEST_CASE(TestPrimitiveDictionaryWriter, TestDictionaryTypes);
-
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
 
-TYPED_TEST(TestPrimitiveDictionaryWriter, RequiredDictionary) {
+TYPED_TEST(TestPrimitiveWriter, RequiredDictionary) {
   this->TestRequiredWithEncoding(Encoding::PLAIN_DICTIONARY);
 }
 
