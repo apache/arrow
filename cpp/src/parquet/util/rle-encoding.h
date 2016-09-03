@@ -174,7 +174,14 @@ class RleEncoder {
     int bytes_per_run = BitUtil::Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
     int num_runs = BitUtil::Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
-    return std::max(MinBufferSize(bit_width), literal_max_size);
+
+    // In the very worst case scenario, the data is a concatenation of repeated
+    // runs of 8 values. Repeated run has a 1 byte varint followed by the
+    // bit-packed repeated value
+    int min_repeated_run_size = 1 + BitUtil::Ceil(bit_width, 8);
+    int repeated_max_size = BitUtil::Ceil(num_values, 8) * min_repeated_run_size;
+
+    return std::max(literal_max_size, repeated_max_size);
   }
 
   /// Encode value.  Returns true if the value fits in buffer, false otherwise.

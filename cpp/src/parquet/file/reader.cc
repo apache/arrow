@@ -162,8 +162,7 @@ void ParquetFileReader::DebugPrint(
       const ColumnStatistics stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema_descriptor()->Column(i);
-      stream << "Column " << i << std::endl
-             << ", values: " << column_chunk->num_values();
+      stream << "Column " << i << std::endl << ", values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         stream << ", null values: " << stats.null_count
                << ", distinct values: " << stats.distinct_count << std::endl
@@ -174,17 +173,15 @@ void ParquetFileReader::DebugPrint(
         stream << "  Statistics Not Set";
       }
       stream << std::endl
-             << "  compression: "
-             << compression_to_string(column_chunk->compression())
+             << "  compression: " << compression_to_string(column_chunk->compression())
              << ", encodings: ";
       for (auto encoding : column_chunk->encodings()) {
         stream << encoding_to_string(encoding) << " ";
       }
       stream << std::endl
-             << "  uncompressed size: "
-             << column_chunk->total_uncompressed_size()
-             << ", compressed size: "
-             << column_chunk->total_compressed_size() << std::endl;
+             << "  uncompressed size: " << column_chunk->total_uncompressed_size()
+             << ", compressed size: " << column_chunk->total_compressed_size()
+             << std::endl;
     }
 
     if (!print_values) { continue; }

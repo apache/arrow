@@ -183,4 +183,27 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
   }
 }
 
+TEST(TestLevelEncoder, MinimumBufferSize) {
+  // PARQUET-676, PARQUET-698
+  const int kNumToEncode = 1024;
+
+  std::vector<int16_t> levels;
+  for (int i = 0; i < kNumToEncode; ++i) {
+    if (i % 9 == 0) {
+      levels.push_back(0);
+    } else {
+      levels.push_back(1);
+    }
+  }
+
+  std::vector<uint8_t> output(
+      LevelEncoder::MaxBufferSize(Encoding::RLE, 1, kNumToEncode));
+
+  LevelEncoder encoder;
+  encoder.Init(Encoding::RLE, 1, kNumToEncode, output.data(), output.size());
+  int encode_count = encoder.Encode(kNumToEncode, levels.data());
+
+  ASSERT_EQ(kNumToEncode, encode_count);
+}
+
 }  // namespace parquet
