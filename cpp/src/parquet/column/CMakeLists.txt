@@ -17,10 +17,11 @@
 
 # Headers: top level
 install(FILES
-  page.h
   levels.h
+  page.h
   properties.h
   reader.h
+  scan-all.h
   scanner.h
   writer.h
   DESTINATION include/parquet/column)
