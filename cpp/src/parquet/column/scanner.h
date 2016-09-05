@@ -48,7 +48,6 @@ class PARQUET_EXPORT Scanner {
         value_offset_(0),
         values_buffered_(0),
         reader_(reader) {
-    // TODO: don't allocate for required fields
     def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
     rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
   }

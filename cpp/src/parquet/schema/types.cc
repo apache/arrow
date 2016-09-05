@@ -101,7 +101,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case LogicalType::JSON:
     case LogicalType::BSON:
       if (type != Type::BYTE_ARRAY) {
-        ss << logical_type_to_string(logical_type);
+        ss << LogicalTypeToString(logical_type);
         ss << " can only annotate BYTE_ARRAY fields";
         throw ParquetException(ss.str());
       }
@@ -138,7 +138,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case LogicalType::INT_16:
     case LogicalType::INT_32:
       if (type != Type::INT32) {
-        ss << logical_type_to_string(logical_type);
+        ss << LogicalTypeToString(logical_type);
         ss << " can only annotate INT32";
         throw ParquetException(ss.str());
       }
@@ -149,7 +149,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case LogicalType::UINT_64:
     case LogicalType::INT_64:
       if (type != Type::INT64) {
-        ss << logical_type_to_string(logical_type);
+        ss << LogicalTypeToString(logical_type);
         ss << " can only annotate INT64";
         throw ParquetException(ss.str());
       }
@@ -167,7 +167,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       }
       break;
     default:
-      ss << logical_type_to_string(logical_type);
+      ss << LogicalTypeToString(logical_type);
       ss << " can not be applied to a primitive type";
       throw ParquetException(ss.str());
   }

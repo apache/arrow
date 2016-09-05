@@ -67,7 +67,6 @@ class PARQUET_EXPORT ColumnReader {
   int64_t ReadDefinitionLevels(int64_t batch_size, int16_t* levels);
 
   // Read multiple repetition levels into preallocated memory
-  //
   // Returns the number of decoded repetition levels
   int64_t ReadRepetitionLevels(int64_t batch_size, int16_t* levels);
 

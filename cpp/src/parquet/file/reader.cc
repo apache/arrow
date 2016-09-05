@@ -144,7 +144,7 @@ void ParquetFileReader::DebugPrint(
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema_descriptor()->Column(i);
     stream << "Column " << i << ": " << descr->name() << " ("
-           << type_to_string(descr->physical_type()) << ")" << std::endl;
+           << TypeToString(descr->physical_type()) << ")" << std::endl;
   }
 
   for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
@@ -173,10 +173,10 @@ void ParquetFileReader::DebugPrint(
         stream << "  Statistics Not Set";
       }
       stream << std::endl
-             << "  compression: " << compression_to_string(column_chunk->compression())
+             << "  compression: " << CompressionToString(column_chunk->compression())
              << ", encodings: ";
       for (auto encoding : column_chunk->encodings()) {
-        stream << encoding_to_string(encoding) << " ";
+        stream << EncodingToString(encoding) << " ";
       }
       stream << std::endl
              << "  uncompressed size: " << column_chunk->total_uncompressed_size()

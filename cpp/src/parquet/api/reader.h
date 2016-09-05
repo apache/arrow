@@ -20,6 +20,7 @@
 
 // Column reader API
 #include "parquet/column/reader.h"
+#include "parquet/column/scan-all.h"
 #include "parquet/exception.h"
 #include "parquet/file/reader.h"
 

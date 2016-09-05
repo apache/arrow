@@ -62,7 +62,7 @@ std::string FormatStatValue(Type::type parquet_type, const char* val) {
   return result.str();
 }
 
-std::string encoding_to_string(Encoding::type t) {
+std::string EncodingToString(Encoding::type t) {
   switch (t) {
     case Encoding::PLAIN:
       return "PLAIN";
@@ -94,7 +94,7 @@ std::string encoding_to_string(Encoding::type t) {
   }
 }
 
-std::string compression_to_string(Compression::type t) {
+std::string CompressionToString(Compression::type t) {
   switch (t) {
     case Compression::UNCOMPRESSED:
       return "UNCOMPRESSED";
@@ -114,7 +114,7 @@ std::string compression_to_string(Compression::type t) {
   }
 }
 
-std::string type_to_string(Type::type t) {
+std::string TypeToString(Type::type t) {
   switch (t) {
     case Type::BOOLEAN:
       return "BOOLEAN";
@@ -146,7 +146,7 @@ std::string type_to_string(Type::type t) {
   }
 }
 
-std::string logical_type_to_string(LogicalType::type t) {
+std::string LogicalTypeToString(LogicalType::type t) {
   switch (t) {
     case LogicalType::NONE:
       return "NONE";
@@ -196,4 +196,29 @@ std::string logical_type_to_string(LogicalType::type t) {
       return "UNKNOWN";
   }
 }
+
+int GetTypeByteSize(Type::type parquet_type) {
+  switch (parquet_type) {
+    case Type::BOOLEAN:
+      return type_traits<BooleanType::type_num>::value_byte_size;
+    case Type::INT32:
+      return type_traits<Int32Type::type_num>::value_byte_size;
+    case Type::INT64:
+      return type_traits<Int64Type::type_num>::value_byte_size;
+    case Type::INT96:
+      return type_traits<Int96Type::type_num>::value_byte_size;
+    case Type::DOUBLE:
+      return type_traits<DoubleType::type_num>::value_byte_size;
+    case Type::FLOAT:
+      return type_traits<FloatType::type_num>::value_byte_size;
+    case Type::BYTE_ARRAY:
+      return type_traits<ByteArrayType::type_num>::value_byte_size;
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return type_traits<FLBAType::type_num>::value_byte_size;
+    default:
+      return 0;
+  }
+  return 0;
+}
+
 }  // namespace parquet
