@@ -26,7 +26,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
-import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -53,7 +53,7 @@ public class TestConvert {
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
     childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
 
-    Field initialField = new Field("a", true, Tuple.INSTANCE, childrenBuilder.build());
+    Field initialField = new Field("a", true, Struct_.INSTANCE, childrenBuilder.build());
     run(initialField);
   }
 
@@ -71,7 +71,7 @@ public class TestConvert {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
     childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
-    childrenBuilder.add(new Field("child3", true, new Tuple(), ImmutableList.<Field>of(
+    childrenBuilder.add(new Field("child3", true, new Struct_(), ImmutableList.<Field>of(
         new Field("child3.1", true, Utf8.INSTANCE, null),
         new Field("child3.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
         )));
