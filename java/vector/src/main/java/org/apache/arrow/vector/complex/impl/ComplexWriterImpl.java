@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -29,7 +30,7 @@ import com.google.common.base.Preconditions;
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
-  private SingleMapWriter mapRoot;
+  private NullableMapWriter mapRoot;
   private UnionListWriter listRoot;
   private final MapVector container;
 
@@ -121,8 +122,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      MapVector map = (MapVector) container;
-      mapRoot = new SingleMapWriter(map);
+      NullableMapVector map = (NullableMapVector) container;
+      mapRoot = new NullableMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -142,8 +143,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      MapVector map = container.addOrGet(name, MinorType.MAP, MapVector.class);
-      mapRoot = new SingleMapWriter(map);
+      NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
+      mapRoot = new NullableMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;

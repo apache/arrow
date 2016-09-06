@@ -22,8 +22,6 @@ import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.flatbuf.UnionMode;
-import static org.junit.Assert.assertEquals;
-
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;

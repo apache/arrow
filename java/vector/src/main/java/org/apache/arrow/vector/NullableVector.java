@@ -17,7 +17,7 @@
  */
 package org.apache.arrow.vector;
 
-public interface NullableVector extends ValueVector{
+public interface NullableVector extends ValueVector {
 
   ValueVector getValuesVector();
 }

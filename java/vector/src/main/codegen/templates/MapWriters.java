@@ -17,14 +17,13 @@
  */
 
 <@pp.dropOutputFile />
-<#list ["Single"] as mode>
+<#list ["Nullable", "Single"] as mode>
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
+<#assign index = "idx()">
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
-<#assign index = "idx()">
 <#else>
-<#assign containerClass = "RepeatedMapVector" />
-<#assign index = "currentChildIndex">
+<#assign containerClass = "NullableMapVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -49,9 +48,13 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
-  <#if mode == "Repeated">private int currentChildIndex = 0;</#if>
 
   public ${mode}MapWriter(${containerClass} container) {
+    <#if mode == "Single">
+    if (container instanceof NullableMapVector) {
+      throw new IllegalArgumentException("Invalid container: " + container);
+    }
+    </#if>
     this.container = container;
   }
 
@@ -75,12 +78,12 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       FieldWriter writer = fields.get(name.toLowerCase());
     if(writer == null){
       int vectorCount=container.size();
-      MapVector vector = container.addOrGet(name, MinorType.MAP, MapVector.class);
+      NullableMapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
       writer = new PromotableWriter(vector, container);
       if(vectorCount != container.size()) {
         writer.allocate();
       }
-      writer.setPosition(${index});
+      writer.setPosition(idx());
       fields.put(name.toLowerCase(), writer);
     }
     return writer;
@@ -117,39 +120,11 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       if (container.size() > vectorCount) {
         writer.allocate();
       }
-      writer.setPosition(${index});
+      writer.setPosition(idx());
       fields.put(name.toLowerCase(), writer);
     }
     return writer;
   }
-
-  <#if mode == "Repeated">
-  public void start() {
-      // update the repeated vector to state that there is current+1 objects.
-    final RepeatedMapHolder h = new RepeatedMapHolder();
-    final RepeatedMapVector map = (RepeatedMapVector) container;
-    final RepeatedMapVector.Mutator mutator = map.getMutator();
-
-    // Make sure that the current vector can support the end position of this list.
-    if(container.getValueCapacity() <= idx()) {
-      mutator.setValueCount(idx()+1);
-    }
-
-    map.getAccessor().get(idx(), h);
-    if (h.start >= h.end) {
-      container.getMutator().startNewValue(idx());
-    }
-    currentChildIndex = container.getMutator().add(idx());
-    for(final FieldWriter w : fields.values()) {
-      w.setPosition(currentChildIndex);
-    }
-  }
-
-
-  public void end() {
-    // noop
-  }
-  <#else>
 
   public void setValueCount(int count) {
     container.getMutator().setValueCount(count);
@@ -165,13 +140,15 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
+    <#if mode == "Single">
+    <#else>
+    container.getMutator().setIndexDefined(idx());
+    </#if>
   }
 
   @Override
   public void end() {
   }
-
-  </#if>
 
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
@@ -204,7 +181,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       if (currentVector == null || currentVector != vector) {
         vector.allocateNewSafe();
       } 
-      writer.setPosition(${index});
+      writer.setPosition(idx());
       fields.put(name.toLowerCase(), writer);
     }
     return writer;

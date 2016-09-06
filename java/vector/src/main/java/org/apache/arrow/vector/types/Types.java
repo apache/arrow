@@ -47,7 +47,7 @@ import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
@@ -58,7 +58,7 @@ import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
-import org.apache.arrow.vector.complex.impl.SingleMapWriter;
+import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeWriterImpl;
@@ -139,12 +139,12 @@ public class Types {
 
       @Override
       public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
-         return new MapVector(name, allocator, callBack);
+         return new NullableMapVector(name, allocator, callBack);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new SingleMapWriter((MapVector) vector);
+        return new NullableMapWriter((NullableMapVector) vector);
       }
     },   //  an empty map column.  Useful for conceptual setup.  Children listed within here
 

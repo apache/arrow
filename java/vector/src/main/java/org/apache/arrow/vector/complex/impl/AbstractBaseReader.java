@@ -19,15 +19,10 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.util.Iterator;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-import org.apache.arrow.flatbuf.Type;
-import org.apache.arrow.flatbuf.Union;
-import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
-import org.apache.arrow.vector.types.pojo.Field;
 
 
 abstract class AbstractBaseReader implements FieldReader{
@@ -44,7 +39,7 @@ abstract class AbstractBaseReader implements FieldReader{
     this.index = index;
   }
 
-  int idx(){
+  protected int idx(){
     return index;
   }
 

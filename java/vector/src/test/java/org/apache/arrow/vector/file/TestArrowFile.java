@@ -31,6 +31,7 @@ import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
@@ -47,10 +48,13 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
 public class TestArrowFile {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestArrowFile.class);
   private static final int COUNT = 10;
   private BufferAllocator allocator;
 
@@ -72,7 +76,7 @@ public class TestArrowFile {
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", vectorAllocator, null)) {
       writeData(count, parent);
-      write((MapVector)parent.getChild("root"), file);
+      write(parent.getChild("root"), file);
     }
   }
 
@@ -82,10 +86,10 @@ public class TestArrowFile {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
       writeComplexData(count, parent);
       validateComplexContent(count, parent);
-      write((MapVector)parent.getChild("root"), file);
+      write(parent.getChild("root"), file);
     }
   }
 
@@ -147,7 +151,7 @@ public class TestArrowFile {
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
       writeData(count, parent);
-      write((MapVector)parent.getChild("root"), file);
+      write(parent.getChild("root"), file);
     }
 
     // read
@@ -160,11 +164,11 @@ public class TestArrowFile {
         ) {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
-      System.out.println("reading schema: " + schema);
+      LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
 
-      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
+      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
 
       VectorLoader vectorLoader = new VectorLoader(schema, root);
 
@@ -204,7 +208,7 @@ public class TestArrowFile {
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
       writeComplexData(count, parent);
-      write((MapVector)parent.getChild("root"), file);
+      write(parent.getChild("root"), file);
     }
 
     // read
@@ -213,16 +217,15 @@ public class TestArrowFile {
         FileInputStream fileInputStream = new FileInputStream(file);
         ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
         BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)
         ) {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
-      System.out.println("reading schema: " + schema);
+      LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
 
-      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
-
+      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
       VectorLoader vectorLoader = new VectorLoader(schema, root);
 
       List<ArrowBlock> recordBatches = footer.getRecordBatches();
@@ -237,16 +240,16 @@ public class TestArrowFile {
 
   public void printVectors(List<FieldVector> vectors) {
     for (FieldVector vector : vectors) {
-      System.out.println(vector.getField().getName());
+      LOGGER.debug(vector.getField().getName());
       Accessor accessor = vector.getAccessor();
       int valueCount = accessor.getValueCount();
       for (int i = 0; i < valueCount; i++) {
-        System.out.println(accessor.getObject(i));
+        LOGGER.debug(String.valueOf(accessor.getObject(i)));
       }
     }
   }
 
-  private void validateComplexContent(int count, MapVector parent) {
+  private void validateComplexContent(int count, NullableMapVector parent) {
     printVectors(parent.getChildrenFromFields());
 
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
@@ -259,10 +262,10 @@ public class TestArrowFile {
     }
   }
 
-  private void write(MapVector parent, File file) throws FileNotFoundException, IOException {
+  private void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
     VectorUnloader vectorUnloader = new VectorUnloader(parent);
     Schema schema = vectorUnloader.getSchema();
-    System.out.println("writing schema: " + schema);
+    LOGGER.debug("writing schema: " + schema);
     try (
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
@@ -308,8 +311,8 @@ public class TestArrowFile {
         ) {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
-      System.out.println("reading schema: " + schema);
-      MapVector root = parent.addOrGet("root", MinorType.MAP, MapVector.class);
+      LOGGER.debug("reading schema: " + schema);
+      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
       VectorLoader vectorLoader = new VectorLoader(schema, root);
       List<ArrowBlock> recordBatches = footer.getRecordBatches();
       Assert.assertEquals(2, recordBatches.size());
