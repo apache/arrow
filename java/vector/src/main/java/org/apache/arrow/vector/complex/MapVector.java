@@ -44,8 +44,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
-import io.netty.buffer.ArrowBuf;
-
 public class MapVector extends AbstractMapVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
@@ -113,15 +111,6 @@ public class MapVector extends AbstractMapVector {
     }
 
     return (int) bufferSize;
-  }
-
-  @Override
-  public ArrowBuf[] getBuffers(boolean clear) {
-//    int expectedSize = getBufferSize();
-//    int actualSize   = super.getBufferSize();
-//
-//    Preconditions.checkArgument(expectedSize == actualSize, expectedSize + " != " + actualSize);
-    return super.getBuffers(clear);
   }
 
   @Override

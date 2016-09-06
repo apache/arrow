@@ -235,6 +235,17 @@ public class NullableMapVector extends MapVector implements FieldVector {
       bits.getMutator().setValueCount(valueCount);
     }
 
+    @Override
+    public void generateTestData(int valueCount){
+      super.generateTestData(valueCount);
+      bits.getMutator().generateTestDataAlt(valueCount);
+    }
+
+    @Override
+    public void reset(){
+      bits.getMutator().setValueCount(0);
+    }
+
   }
 
   @Override
