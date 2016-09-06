@@ -171,8 +171,12 @@ class RleEncoder {
 
   /// Returns the maximum byte size it could take to encode 'num_values'.
   static int MaxBufferSize(int bit_width, int num_values) {
-    int bytes_per_run = BitUtil::Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
-    int num_runs = BitUtil::Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
+    // For a bit_width > 1, the worst case is the repetition of "literal run of length 8
+    // and then a repeated run of length 8".
+    // 8 values per smallest run, 8 bits per byte
+    // int bytes_per_run = BitUtil::Ceil(bit_width * 8, 8);
+    int bytes_per_run = bit_width;
+    int num_runs = BitUtil::Ceil(num_values, 8);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
 
     // In the very worst case scenario, the data is a concatenation of repeated

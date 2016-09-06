@@ -206,4 +206,36 @@ TEST(TestLevelEncoder, MinimumBufferSize) {
   ASSERT_EQ(kNumToEncode, encode_count);
 }
 
+TEST(TestLevelEncoder, MinimumBufferSize2) {
+  // PARQUET-708
+  // Test the worst case for bit_width=2 consisting of
+  // LiteralRun(size=8)
+  // RepeatedRun(size=8)
+  // LiteralRun(size=8)
+  // ...
+  const int kNumToEncode = 1024;
+
+  std::vector<int16_t> levels;
+  for (int i = 0; i < kNumToEncode; ++i) {
+    // This forces a literal run of 00000001
+    // followed by eight 1s
+    if ((i % 16) < 7) {
+      levels.push_back(0);
+    } else {
+      levels.push_back(1);
+    }
+  }
+
+  for (int bit_width = 1; bit_width <= 8; bit_width++) {
+    std::vector<uint8_t> output(
+        LevelEncoder::MaxBufferSize(Encoding::RLE, bit_width, kNumToEncode));
+
+    LevelEncoder encoder;
+    encoder.Init(Encoding::RLE, bit_width, kNumToEncode, output.data(), output.size());
+    int encode_count = encoder.Encode(kNumToEncode, levels.data());
+
+    ASSERT_EQ(kNumToEncode, encode_count);
+  }
+}
+
 }  // namespace parquet
