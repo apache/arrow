@@ -76,6 +76,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   virtual const RowGroupMetaData* metadata() const;
 
+  virtual const ReaderProperties* properties() const;
+
   virtual std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
  private:

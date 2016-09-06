@@ -145,6 +145,10 @@ const RowGroupMetaData* SerializedRowGroup::metadata() const {
   return row_group_metadata_.get();
 }
 
+const ReaderProperties* SerializedRowGroup::properties() const {
+  return &properties_;
+}
+
 std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
   // Read column chunk from the file
   auto col = row_group_metadata_->ColumnChunk(i);
@@ -195,8 +199,7 @@ std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
       source_.get(), std::move(file_metadata_->RowGroup(i)), properties_));
 
-  return std::make_shared<RowGroupReader>(
-      file_metadata_->schema_descriptor(), std::move(contents), properties_.allocator());
+  return std::make_shared<RowGroupReader>(std::move(contents));
 }
 
 const FileMetaData* SerializedFile::metadata() const {

@@ -35,6 +35,9 @@ class OutputStream;
 
 class PARQUET_EXPORT RowGroupWriter {
  public:
+  // Forward declare a virtual class 'Contents' to aid dependency injection and more
+  // easily create test fixtures
+  // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     virtual int num_columns() const = 0;
     virtual int64_t num_rows() const = 0;
@@ -75,8 +78,7 @@ class PARQUET_EXPORT RowGroupWriter {
   // Owned by the parent ParquetFileWriter
   const SchemaDescriptor* schema_;
 
-  // This is declared in the .cc file so that we can hide compiled Thrift
-  // headers from the public API and also more easily create test fixtures.
+  // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
 
   MemoryAllocator* allocator_;
@@ -84,6 +86,9 @@ class PARQUET_EXPORT RowGroupWriter {
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:
+  // Forward declare a virtual class 'Contents' to aid dependency injection and more
+  // easily create test fixtures
+  // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     virtual ~Contents() {}
     // Perform any cleanup associated with the file contents
@@ -155,8 +160,7 @@ class PARQUET_EXPORT ParquetFileWriter {
   const ColumnDescriptor* column_schema(int i) const { return schema_->Column(i); }
 
  private:
-  // This is declared in the .cc file so that we can hide compiled Thrift
-  // headers from the public API and also more easily create test fixtures.
+  // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
 
   // The SchemaDescriptor is provided by the Contents impl

@@ -75,7 +75,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 class PARQUET_EXPORT RowGroupMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::unique_ptr<RowGroupMetaData> Make(const uint8_t* metadata);
+  static std::unique_ptr<RowGroupMetaData> Make(
+      const uint8_t* metadata, const SchemaDescriptor* schema);
 
   ~RowGroupMetaData();
 
@@ -83,10 +84,12 @@ class PARQUET_EXPORT RowGroupMetaData {
   int num_columns() const;
   int64_t num_rows() const;
   int64_t total_byte_size() const;
+  // Return const-pointer to make it clear that this object is not to be copied
+  const SchemaDescriptor* schema() const;
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
  private:
-  explicit RowGroupMetaData(const uint8_t* metadata);
+  explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
