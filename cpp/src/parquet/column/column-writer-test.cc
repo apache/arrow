@@ -126,6 +126,10 @@ class TestPrimitiveWriter : public ::testing::Test {
     ASSERT_EQ(this->values_, this->values_out_);
   }
 
+  int64_t metadata_num_values() const {
+    return metadata_.meta_data.num_values;
+  }
+
  protected:
   int64_t values_read_;
   // Keep the reader alive as for ByteArray the lifetime of the ByteArray
@@ -246,6 +250,9 @@ TYPED_TEST(TestPrimitiveWriter, Optional) {
   writer->WriteBatch(
       this->values_.size(), definition_levels.data(), nullptr, this->values_ptr_);
   writer->Close();
+
+  // PARQUET-703
+  ASSERT_EQ(100, this->metadata_num_values());
 
   this->ReadColumn();
   ASSERT_EQ(99, this->values_read_);
