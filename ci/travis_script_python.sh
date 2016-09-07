@@ -5,7 +5,7 @@ set -e
 PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
 # Re-use conda installation from C++
-export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
+export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export PARQUET_HOME=$MINICONDA
 

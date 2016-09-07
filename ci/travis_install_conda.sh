@@ -9,7 +9,9 @@ else
 fi
 
 wget -O miniconda.sh $MINICONDA_URL
-export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
+
+export MINICONDA=$HOME/miniconda
+
 bash miniconda.sh -b -p $MINICONDA
 export PATH="$MINICONDA/bin:$PATH"
 conda update -y -q conda
