@@ -115,7 +115,7 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
-    case flatbuf::Type_Tuple:
+    case flatbuf::Type_Struct_:
       *out = std::make_shared<StructType>(children);
       return Status::OK();
     case flatbuf::Type_Union:
@@ -153,7 +153,7 @@ static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type
     RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(i), &field));
     out_children->push_back(field);
   }
-  *offset = flatbuf::CreateTuple(fbb).Union();
+  *offset = flatbuf::CreateStruct_(fbb).Union();
   return Status::OK();
 }
 
@@ -197,7 +197,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_List;
       return ListToFlatbuffer(fbb, type, children, offset);
     case Type::STRUCT:
-      *out_type = flatbuf::Type_Tuple;
+      *out_type = flatbuf::Type_Struct_;
       return StructToFlatbuffer(fbb, type, children, offset);
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy

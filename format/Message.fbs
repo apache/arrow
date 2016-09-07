@@ -8,10 +8,10 @@ namespace org.apache.arrow.flatbuf;
 table Null {
 }
 
-/// A Tuple in the flatbuffer metadata is the same as an Arrow Struct
-/// (according to the physical memory layout). We used Tuple here as Struct is
-/// a reserved word in Flatbuffers
-table Tuple {
+/// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
+/// (according to the physical memory layout). We used Struct_ here as
+/// Struct is a reserved word in Flatbuffers
+table Struct_ {
 }
 
 table List {
@@ -87,7 +87,7 @@ union Type {
   IntervalDay,
   IntervalYear,
   List,
-  Tuple,
+  Struct_,
   Union,
   JSONScalar
 }

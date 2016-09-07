@@ -45,7 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.IntervalYear;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
-import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
@@ -54,7 +54,7 @@ import com.google.common.base.Preconditions;
 /**
  * The layout of vectors for a given type
  * It defines its own vectors followed by the vectors for the children
- * if it is a nested type (Tuple, List, Union)
+ * if it is a nested type (Struct_, List, Union)
  */
 public class TypeLayout {
 
@@ -88,7 +88,7 @@ public class TypeLayout {
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(Tuple type) {
+      @Override public TypeLayout visit(Struct_ type) {
         List<VectorLayout> vectors = asList(
             validityVector()
             );

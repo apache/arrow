@@ -84,7 +84,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
-import org.apache.arrow.vector.types.pojo.ArrowType.Tuple;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -131,7 +131,7 @@ public class Types {
         return null;
       }
     },
-    MAP(Tuple.INSTANCE) {
+    MAP(Struct_.INSTANCE) {
       @Override
       public Field getField() {
         throw new UnsupportedOperationException("Cannot get simple field for Map type");
