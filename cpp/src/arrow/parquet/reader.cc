@@ -149,11 +149,13 @@ bool FileReader::Impl::CheckForFlatColumn(const ::parquet::ColumnDescriptor* des
 }
 
 Status FileReader::Impl::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) {
-  if (!CheckForFlatColumn(reader_->descr()->Column(i))) {
+  const ::parquet::SchemaDescriptor* schema = reader_->metadata()->schema_descriptor();
+
+  if (!CheckForFlatColumn(schema->Column(i))) {
     return Status::Invalid("The requested column is not flat");
   }
   std::unique_ptr<FlatColumnReader::Impl> impl(
-      new FlatColumnReader::Impl(pool_, reader_->descr()->Column(i), reader_.get(), i));
+      new FlatColumnReader::Impl(pool_, schema->Column(i), reader_.get(), i));
   *out = std::unique_ptr<FlatColumnReader>(new FlatColumnReader(std::move(impl)));
   return Status::OK();
 }
@@ -161,16 +163,20 @@ Status FileReader::Impl::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>*
 Status FileReader::Impl::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
   std::unique_ptr<FlatColumnReader> flat_column_reader;
   RETURN_NOT_OK(GetFlatColumn(i, &flat_column_reader));
-  return flat_column_reader->NextBatch(reader_->num_rows(), out);
+  return flat_column_reader->NextBatch(reader_->metadata()->num_rows(), out);
 }
 
 Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
-  const std::string& name = reader_->descr()->schema()->name();
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(FromParquetSchema(reader_->descr(), &schema));
+  auto descr = reader_->metadata()->schema_descriptor();
 
-  std::vector<std::shared_ptr<Column>> columns(reader_->num_columns());
-  for (int i = 0; i < reader_->num_columns(); i++) {
+  const std::string& name = descr->schema()->name();
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(FromParquetSchema(descr, &schema));
+
+  int num_columns = reader_->metadata()->num_columns();
+
+  std::vector<std::shared_ptr<Column>> columns(num_columns);
+  for (int i = 0; i < num_columns; i++) {
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(ReadFlatColumn(i, &array));
     columns[i] = std::make_shared<Column>(schema->field(i), array);
@@ -375,7 +381,7 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
 }
 
 void FlatColumnReader::Impl::NextRowGroup() {
-  if (next_row_group_ < reader_->num_row_groups()) {
+  if (next_row_group_ < reader_->metadata()->num_row_groups()) {
     column_reader_ = reader_->RowGroup(next_row_group_)->Column(column_index_);
     next_row_group_++;
   } else {
