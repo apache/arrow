@@ -52,7 +52,7 @@ find_library(ARROW_IO_LIB_PATH NAMES arrow_io
   ${ARROW_SEARCH_LIB_PATH}
   NO_DEFAULT_PATH)
 
-if (ARROW_INCLUDE_DIR AND ARROW_LIB_PATH AND ARROW_PARQUET_LIB_PATH)
+if (ARROW_INCLUDE_DIR AND ARROW_LIB_PATH)
   set(ARROW_FOUND TRUE)
   set(ARROW_LIB_NAME libarrow)
   set(ARROW_IO_LIB_NAME libarrow_io)
@@ -64,18 +64,9 @@ if (ARROW_INCLUDE_DIR AND ARROW_LIB_PATH AND ARROW_PARQUET_LIB_PATH)
 
   set(ARROW_IO_STATIC_LIB ${ARROW_SEARCH_LIB_PATH}/${ARROW_IO_LIB_NAME}.a)
   set(ARROW_IO_SHARED_LIB ${ARROW_LIBS}/${ARROW_IO_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-
-  set(ARROW_PARQUET_STATIC_LIB ${ARROW_SEARCH_LIB_PATH}/${ARROW_PARQUET_LIB_NAME}.a)
-  set(ARROW_PARQUET_SHARED_LIB ${ARROW_LIBS}/${ARROW_PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-else ()
-  set(ARROW_FOUND FALSE)
-endif ()
-
-if (ARROW_FOUND)
   if (NOT Arrow_FIND_QUIETLY)
     message(STATUS "Found the Arrow core library: ${ARROW_LIB_PATH}")
     message(STATUS "Found the Arrow IO library: ${ARROW_IO_LIB_PATH}")
-    message(STATUS "Found the Arrow Parquet library: ${ARROW_PARQUET_LIB_PATH}")
   endif ()
 else ()
   if (NOT Arrow_FIND_QUIETLY)
@@ -88,7 +79,22 @@ else ()
       message(STATUS "${ARROW_ERR_MSG}")
     endif (Arrow_FIND_REQUIRED)
   endif ()
+  set(ARROW_FOUND FALSE)
 endif ()
+
+if(ARROW_PARQUET_LIB_PATH)
+  set(ARROW_PARQUET_FOUND TRUE)
+  set(ARROW_PARQUET_STATIC_LIB ${ARROW_SEARCH_LIB_PATH}/${ARROW_PARQUET_LIB_NAME}.a)
+  set(ARROW_PARQUET_SHARED_LIB ${ARROW_LIBS}/${ARROW_PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  if (NOT Arrow_FIND_QUIETLY)
+    message(STATUS "Found the Arrow Parquet library: ${ARROW_PARQUET_LIB_PATH}")
+  endif ()
+else()
+  if (NOT Arrow_FIND_QUIETLY)
+    message(STATUS "Could not find Arrow Parquet library")
+  endif()
+  set(ARROW_PARQUET_FOUND FALSE)
+endif()
 
 mark_as_advanced(
   ARROW_INCLUDE_DIR

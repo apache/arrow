@@ -5,7 +5,7 @@ set -e
 PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
 # Re-use conda installation from C++
-export MINICONDA=$TRAVIS_BUILD_DIR/miniconda
+export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export PARQUET_HOME=$MINICONDA
 
@@ -31,7 +31,9 @@ python_version_tests() {
   # Expensive dependencies install from Continuum package repo
   conda install -y pip numpy pandas cython
 
-  conda install -y parquet-cpp arrow-cpp -c apache/channel/dev
+  # conda install -y parquet-cpp
+
+  conda install -y arrow-cpp -c apache/channel/dev
 
   # Other stuff pip install
   pip install -r requirements.txt

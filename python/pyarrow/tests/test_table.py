@@ -16,11 +16,7 @@
 # under the License.
 
 from pyarrow.compat import unittest
-import pyarrow as arrow
-
-A = arrow
-
-import pandas as pd
+import pyarrow as A
 
 
 class TestRowBatch(unittest.TestCase):
@@ -76,4 +72,3 @@ class TestTable(unittest.TestCase):
         assert set(df.columns) == set(('a', 'b'))
         assert df.shape == (5, 2)
         assert df.ix[0, 'b'] == -10
-

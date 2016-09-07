@@ -97,6 +97,18 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = ''
 
+    CYTHON_MODULE_NAMES = [
+        'array',
+        'config',
+        'error',
+        'io',
+        'parquet',
+        'scalar',
+        'schema',
+        'table']
+
+    CYTHON_ALLOWED_FAILURES = ['parquet']
+
     def _run_cmake(self):
         # The directory containing this setup.py
         source = osp.dirname(osp.abspath(__file__))
@@ -172,10 +184,13 @@ class build_ext(_build_ext):
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
-        for name in self.get_cmake_cython_names():
+        for name in self.CYTHON_MODULE_NAMES:
             built_path = self.get_ext_built(name)
             if not os.path.exists(built_path):
                 print(built_path)
+                if name in self.CYTHON_ALLOWED_FAILURES:
+                    print('Cython module {0} failure permitted'.format(name))
+                    continue
                 raise RuntimeError('libpyarrow C-extension failed to build:',
                                    os.path.abspath(built_path))
 
@@ -212,16 +227,6 @@ class build_ext(_build_ext):
         else:
             suffix = sysconfig.get_config_var('SO')
             return name + suffix
-
-    def get_cmake_cython_names(self):
-        return ['array',
-                'config',
-                'error',
-                'io',
-                'parquet',
-                'scalar',
-                'schema',
-                'table']
 
     def get_names(self):
         return self._found_names
