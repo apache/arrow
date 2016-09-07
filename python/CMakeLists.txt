@@ -340,8 +340,10 @@ if (PYARROW_BUILD_TESTS)
 endif()
 
 ## Parquet
-find_package(Parquet REQUIRED)
-include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+find_package(Parquet)
+if(PARQUET_FOUND)
+  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+endif()
 
 ## Arrow
 find_package(Arrow REQUIRED)
@@ -350,8 +352,6 @@ ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_io
   SHARED_LIB ${ARROW_IO_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_parquet
-  SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -418,6 +418,16 @@ endif()
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
+set(CYTHON_EXTENSIONS
+  array
+  config
+  error
+  io
+  scalar
+  schema
+  table
+)
+
 set(PYARROW_SRCS
   src/pyarrow/common.cc
   src/pyarrow/config.cc
@@ -431,8 +441,18 @@ set(PYARROW_SRCS
 set(LINK_LIBS
   arrow
   arrow_io
-  arrow_parquet
 )
+
+if(PARQUET_FOUND AND ARROW_PARQUET_FOUND)
+  ADD_THIRDPARTY_LIB(arrow_parquet
+    SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
+  set(LINK_LIBS
+    ${LINK_LIBS}
+    arrow_parquet)
+  set(CYTHON_EXTENSIONS
+    ${CYTHON_EXTENSIONS}
+    parquet)
+endif()
 
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
@@ -447,17 +467,6 @@ endif()
 ############################################################
 # Setup and build Cython modules
 ############################################################
-
-set(CYTHON_EXTENSIONS
-  array
-  config
-  error
-  io
-  parquet
-  scalar
-  schema
-  table
-)
 
 foreach(module ${CYTHON_EXTENSIONS})
     string(REPLACE "." ";" directories ${module})

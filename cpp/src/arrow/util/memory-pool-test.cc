@@ -46,6 +46,10 @@ TEST(DefaultMemoryPool, OOM) {
   ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
 }
 
+// Death tests and valgrind are known to not play well 100% of the time. See
+// googletest documentation
+#ifndef ARROW_VALGRIND
+
 TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
   MemoryPool* pool = default_memory_pool();
 
@@ -59,5 +63,7 @@ TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
 
   pool->Free(data, 100);
 }
+
+#endif // ARROW_VALGRIND
 
 }  // namespace arrow

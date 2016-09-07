@@ -72,6 +72,7 @@ else ()
 endif ()
 
 mark_as_advanced(
+  PARQUET_FOUND
   PARQUET_INCLUDE_DIR
   PARQUET_LIBS
   PARQUET_LIBRARIES

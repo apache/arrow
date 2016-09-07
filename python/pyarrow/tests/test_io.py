@@ -46,6 +46,7 @@ libhdfs = pytest.mark.skipif(not io.have_libhdfs(),
 
 HDFS_TMP_PATH = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
 
+
 @pytest.fixture(scope='session')
 def hdfs(request):
     fixture = hdfs_test_client()
