@@ -128,7 +128,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(bag.get(), descr_.GetColumnRoot(4).get());
   ASSERT_EQ(bag.get(), descr_.GetColumnRoot(5).get());
 
-  ASSERT_EQ(schema.get(), descr_.group());
+  ASSERT_EQ(schema.get(), descr_.group_node());
 
   // Init clears the leaves
   descr_.Init(schema);

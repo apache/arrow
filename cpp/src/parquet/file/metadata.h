@@ -117,7 +117,7 @@ class PARQUET_EXPORT FileMetaData {
   void WriteTo(OutputStream* dst);
 
   // Return const-pointer to make it clear that this object is not to be copied
-  const SchemaDescriptor* schema_descriptor() const;
+  const SchemaDescriptor* schema() const;
 
  private:
   friend FileMetaDataBuilder;
@@ -144,7 +144,8 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column metadata
   // ownership of min/max is with ColumnChunkMetadata
   void SetStatistics(const ColumnStatistics& stats);
-
+  // get the column descriptor
+  const ColumnDescriptor* descr() const;
   // commit the metadata
   void Finish(int64_t num_values, int64_t dictonary_page_offset,
       int64_t index_page_offset, int64_t data_page_offset, int64_t compressed_size,
@@ -161,20 +162,22 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 class PARQUET_EXPORT RowGroupMetaDataBuilder {
  public:
   // API convenience to get a MetaData reader
-  static std::unique_ptr<RowGroupMetaDataBuilder> Make(
+  static std::unique_ptr<RowGroupMetaDataBuilder> Make(int64_t num_rows,
       const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
       uint8_t* contents);
 
   ~RowGroupMetaDataBuilder();
 
   ColumnChunkMetaDataBuilder* NextColumnChunk();
+  int num_columns();
 
   // commit the metadata
-  void Finish(int64_t num_rows);
+  void Finish(int64_t total_bytes_written);
 
  private:
-  explicit RowGroupMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
-      const SchemaDescriptor* schema_, uint8_t* contents);
+  explicit RowGroupMetaDataBuilder(int64_t num_rows,
+      const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
+      uint8_t* contents);
   // PIMPL Idiom
   class RowGroupMetaDataBuilderImpl;
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
@@ -188,7 +191,7 @@ class PARQUET_EXPORT FileMetaDataBuilder {
 
   ~FileMetaDataBuilder();
 
-  RowGroupMetaDataBuilder* AppendRowGroup();
+  RowGroupMetaDataBuilder* AppendRowGroup(int64_t num_rows);
 
   // commit the metadata
   std::unique_ptr<FileMetaData> Finish();

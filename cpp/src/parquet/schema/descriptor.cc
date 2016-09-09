@@ -39,11 +39,11 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
     throw ParquetException("Must initialize with a schema group");
   }
 
-  group_ = static_cast<const GroupNode*>(schema_.get());
+  group_node_ = static_cast<const GroupNode*>(schema_.get());
   leaves_.clear();
 
-  for (int i = 0; i < group_->field_count(); ++i) {
-    BuildTree(group_->field(i), 0, 0, group_->field(i));
+  for (int i = 0; i < group_node_->field_count(); ++i) {
+    BuildTree(group_node_->field(i), 0, 0, group_node_->field(i));
   }
 }
 

@@ -54,8 +54,8 @@ TEST(Metadata, TestBuildAccess) {
   stats_float.max = &float_max;
 
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
-  auto rg1_builder = f_builder->AppendRowGroup();
-  auto rg2_builder = f_builder->AppendRowGroup();
+  auto rg1_builder = f_builder->AppendRowGroup(nrows / 2);
+  auto rg2_builder = f_builder->AppendRowGroup(nrows / 2);
 
   // Write the metadata
   // rowgroup1 metadata
@@ -66,7 +66,7 @@ TEST(Metadata, TestBuildAccess) {
   col2_builder->SetStatistics(stats_float);
   col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, false);
   col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, false);
-  rg1_builder->Finish(nrows / 2);
+  rg1_builder->Finish(1024);
 
   // rowgroup2 metadata
   col1_builder = rg2_builder->NextColumnChunk();
@@ -76,7 +76,7 @@ TEST(Metadata, TestBuildAccess) {
   col2_builder->SetStatistics(stats_float);
   col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, false);
   col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, false);
-  rg2_builder->Finish(nrows / 2);
+  rg2_builder->Finish(1024);
 
   // Read the metadata
   auto f_accessor = f_builder->Finish();

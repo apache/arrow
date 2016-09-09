@@ -100,18 +100,20 @@ class PARQUET_EXPORT SchemaDescriptor {
   // The number of physical columns appearing in the file
   int num_columns() const { return leaves_.size(); }
 
-  const schema::NodePtr& schema() const { return schema_; }
+  const schema::NodePtr& schema_root() const { return schema_; }
 
-  const schema::GroupNode* group() const { return group_; }
+  const schema::GroupNode* group_node() const { return group_node_; }
 
   // Returns the root (child of the schema root) node of the leaf(column) node
   const schema::NodePtr& GetColumnRoot(int i) const;
+
+  const std::string& name() const { return group_node_->name(); }
 
  private:
   friend class ColumnDescriptor;
 
   schema::NodePtr schema_;
-  const schema::GroupNode* group_;
+  const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
       int16_t max_rep_level, const schema::NodePtr& base);

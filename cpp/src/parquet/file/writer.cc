@@ -27,11 +27,8 @@ namespace parquet {
 // ----------------------------------------------------------------------
 // RowGroupWriter public API
 
-RowGroupWriter::RowGroupWriter(
-    std::unique_ptr<Contents> contents, MemoryAllocator* allocator)
-    : contents_(std::move(contents)), allocator_(allocator) {
-  schema_ = contents_->schema();
-}
+RowGroupWriter::RowGroupWriter(std::unique_ptr<Contents> contents)
+    : contents_(std::move(contents)) {}
 
 void RowGroupWriter::Close() {
   if (contents_) {
@@ -64,9 +61,16 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
+const SchemaDescriptor* ParquetFileWriter::schema() const {
+  return contents_->schema();
+}
+
+const ColumnDescriptor* ParquetFileWriter::descr(int i) const {
+  return contents_->schema()->Column(i);
+}
+
 void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> contents) {
   contents_ = std::move(contents);
-  schema_ = contents_->schema();
 }
 
 void ParquetFileWriter::Close() {

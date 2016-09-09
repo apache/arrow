@@ -180,8 +180,12 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
-    DCHECK(i < num_columns()) << "The file only has " << num_columns()
-                              << " columns, requested metadata for column: " << i;
+    if (!(i < num_columns())) {
+      std::stringstream ss;
+      ss << "The file only has " << num_columns()
+         << " columns, requested metadata for column: " << i;
+      throw ParquetException(ss.str());
+    }
     return ColumnChunkMetaData::Make(
         reinterpret_cast<const uint8_t*>(&row_group_->columns[i]));
   }
@@ -244,14 +248,17 @@ class FileMetaData::FileMetaDataImpl {
   void WriteTo(OutputStream* dst) { SerializeThriftMsg(metadata_.get(), 1024, dst); }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
-    DCHECK(i < num_row_groups())
-        << "The file only has " << num_row_groups()
-        << " row groups, requested metadata for row group: " << i;
+    if (!(i < num_row_groups())) {
+      std::stringstream ss;
+      ss << "The file only has " << num_row_groups()
+         << " row groups, requested metadata for row group: " << i;
+      throw ParquetException(ss.str());
+    }
     return RowGroupMetaData::Make(
         reinterpret_cast<const uint8_t*>(&metadata_->row_groups[i]), &schema_);
   }
 
-  const SchemaDescriptor* schema_descriptor() const { return &schema_; }
+  const SchemaDescriptor* schema() const { return &schema_; }
 
  private:
   friend FileMetaDataBuilder;
@@ -306,8 +313,8 @@ int FileMetaData::num_schema_elements() const {
   return impl_->num_schema_elements();
 }
 
-const SchemaDescriptor* FileMetaData::schema_descriptor() const {
-  return impl_->schema_descriptor();
+const SchemaDescriptor* FileMetaData::schema() const {
+  return impl_->schema();
 }
 
 void FileMetaData::WriteTo(OutputStream* dst) {
@@ -374,6 +381,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
+  const ColumnDescriptor* descr() const { return column_; }
+
  private:
   format::ColumnChunk* column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
@@ -406,24 +415,33 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
       compressed_size, uncompressed_size, dictionary_fallback);
 }
 
+const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
+  return impl_->descr();
+}
+
 void ColumnChunkMetaDataBuilder::SetStatistics(const ColumnStatistics& result) {
   impl_->SetStatistics(result);
 }
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
  public:
-  explicit RowGroupMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
-      const SchemaDescriptor* schema, uint8_t* contents)
+  explicit RowGroupMetaDataBuilderImpl(int64_t num_rows,
+      const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema,
+      uint8_t* contents)
       : properties_(props), schema_(schema), current_column_(0) {
     row_group_ = reinterpret_cast<format::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
+    row_group_->__set_num_rows(num_rows);
   }
   ~RowGroupMetaDataBuilderImpl() {}
 
   ColumnChunkMetaDataBuilder* NextColumnChunk() {
-    DCHECK(current_column_ < num_columns())
-        << "The schema only has " << num_columns()
-        << " columns, requested metadata for column: " << current_column_;
+    if (!(current_column_ < num_columns())) {
+      std::stringstream ss;
+      ss << "The schema only has " << num_columns()
+         << " columns, requested metadata for column: " << current_column_;
+      throw ParquetException(ss.str());
+    }
     auto column = schema_->Column(current_column_);
     auto column_builder = ColumnChunkMetaDataBuilder::Make(properties_, column,
         reinterpret_cast<uint8_t*>(&row_group_->columns[current_column_++]));
@@ -432,25 +450,32 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     return column_builder_ptr;
   }
 
-  void Finish(int64_t num_rows) {
-    DCHECK(current_column_ == schema_->num_columns())
-        << "Only " << current_column_ - 1 << " out of " << schema_->num_columns()
-        << " columns are initialized";
-    size_t total_byte_size = 0;
+  void Finish(int64_t total_bytes_written) {
+    if (!(current_column_ == schema_->num_columns())) {
+      std::stringstream ss;
+      ss << "Only " << current_column_ - 1 << " out of " << schema_->num_columns()
+         << " columns are initialized";
+      throw ParquetException(ss.str());
+    }
+    int64_t total_byte_size = 0;
 
     for (int i = 0; i < schema_->num_columns(); i++) {
-      DCHECK(row_group_->columns[i].file_offset > 0) << "Column " << i
-                                                     << " is not complete.";
+      if (!(row_group_->columns[i].file_offset > 0)) {
+        std::stringstream ss;
+        ss << "Column " << i << " is not complete.";
+        throw ParquetException(ss.str());
+      }
       total_byte_size += row_group_->columns[i].meta_data.total_compressed_size;
     }
+    DCHECK(total_bytes_written == total_byte_size)
+        << "Total bytes in this RowGroup does not match with compressed sizes of columns";
 
     row_group_->__set_total_byte_size(total_byte_size);
-    row_group_->__set_num_rows(num_rows);
   }
 
- private:
   int num_columns() { return row_group_->columns.size(); }
 
+ private:
   void InitializeColumns(int ncols) { row_group_->columns.resize(ncols); }
 
   format::RowGroup* row_group_;
@@ -460,18 +485,18 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
   int current_column_;
 };
 
-std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(
+std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(int64_t num_rows,
     const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
     uint8_t* contents) {
   return std::unique_ptr<RowGroupMetaDataBuilder>(
-      new RowGroupMetaDataBuilder(props, schema_, contents));
+      new RowGroupMetaDataBuilder(num_rows, props, schema_, contents));
 }
 
-RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(
+RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(int64_t num_rows,
     const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
     uint8_t* contents)
     : impl_{std::unique_ptr<RowGroupMetaDataBuilderImpl>(
-          new RowGroupMetaDataBuilderImpl(props, schema_, contents))} {}
+          new RowGroupMetaDataBuilderImpl(num_rows, props, schema_, contents))} {}
 
 RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() {}
 
@@ -479,11 +504,16 @@ ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
 }
 
-void RowGroupMetaDataBuilder::Finish(int64_t num_rows) {
-  impl_->Finish(num_rows);
+int RowGroupMetaDataBuilder::num_columns() {
+  return impl_->num_columns();
+}
+
+void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written) {
+  impl_->Finish(total_bytes_written);
 }
 
 // file metadata
+// TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
   explicit FileMetaDataBuilderImpl(
@@ -493,10 +523,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   }
   ~FileMetaDataBuilderImpl() {}
 
-  RowGroupMetaDataBuilder* AppendRowGroup() {
+  RowGroupMetaDataBuilder* AppendRowGroup(int64_t num_rows) {
     auto row_group = std::unique_ptr<format::RowGroup>(new format::RowGroup());
     auto row_group_builder = RowGroupMetaDataBuilder::Make(
-        properties_, schema_, reinterpret_cast<uint8_t*>(row_group.get()));
+        num_rows, properties_, schema_, reinterpret_cast<uint8_t*>(row_group.get()));
     RowGroupMetaDataBuilder* row_group_ptr = row_group_builder.get();
     row_group_builders_.push_back(std::move(row_group_builder));
     row_groups_.push_back(std::move(row_group));
@@ -517,7 +547,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_version(properties_->version());
     metadata_->__set_created_by(properties_->created_by());
     parquet::schema::SchemaFlattener flattener(
-        static_cast<parquet::schema::GroupNode*>(schema_->schema().get()),
+        static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
         &metadata_->schema);
     flattener.Flatten();
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
@@ -548,8 +578,8 @@ FileMetaDataBuilder::FileMetaDataBuilder(
 
 FileMetaDataBuilder::~FileMetaDataBuilder() {}
 
-RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
-  return impl_->AppendRowGroup();
+RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup(int64_t num_rows) {
+  return impl_->AppendRowGroup(num_rows);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() {

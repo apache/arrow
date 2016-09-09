@@ -126,7 +126,7 @@ void ParquetFileReader::DebugPrint(
   stream << "Total rows: " << file_metadata->num_rows() << "\n";
   stream << "Number of RowGroups: " << file_metadata->num_row_groups() << "\n";
   stream << "Number of Real Columns: "
-         << file_metadata->schema_descriptor()->group()->field_count() << "\n";
+         << file_metadata->schema()->group_node()->field_count() << "\n";
 
   if (selected_columns.size() == 0) {
     for (int i = 0; i < file_metadata->num_columns(); i++) {
@@ -143,7 +143,7 @@ void ParquetFileReader::DebugPrint(
   stream << "Number of Columns: " << file_metadata->num_columns() << "\n";
   stream << "Number of Selected Columns: " << selected_columns.size() << "\n";
   for (auto i : selected_columns) {
-    const ColumnDescriptor* descr = file_metadata->schema_descriptor()->Column(i);
+    const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "Column " << i << ": " << descr->name() << " ("
            << TypeToString(descr->physical_type()) << ")" << std::endl;
   }
@@ -162,7 +162,7 @@ void ParquetFileReader::DebugPrint(
       auto column_chunk = group_metadata->ColumnChunk(i);
       const ColumnStatistics stats = column_chunk->statistics();
 
-      const ColumnDescriptor* descr = file_metadata->schema_descriptor()->Column(i);
+      const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
       stream << "Column " << i << std::endl << ", values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         stream << ", null values: " << stats.null_count
@@ -201,7 +201,7 @@ void ParquetFileReader::DebugPrint(
       std::string fmt = ss.str();
 
       snprintf(buffer, bufsize, fmt.c_str(),
-          file_metadata->schema_descriptor()->Column(i)->name().c_str());
+          file_metadata->schema()->Column(i)->name().c_str());
       stream << buffer;
 
       // This is OK in this method as long as the RowGroupReader does not get
