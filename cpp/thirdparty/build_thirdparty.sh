@@ -62,7 +62,7 @@ if [ -n "$F_ALL" -o -n "$F_GTEST" ]; then
     CXXFLAGS=-fPIC cmake . || { echo "cmake $GOOGLETEST_ERROR"; exit  1; }
   fi
 
-  make VERBOSE=1 || { echo "Make $GOOGLETEST_ERROR" ; exit  1; }
+  make -j$PARALLEL VERBOSE=1 || { echo "Make $GOOGLETEST_ERROR" ; exit  1; }
 fi
 
 # build google benchmark
@@ -76,7 +76,7 @@ if [ -n "$F_ALL" -o -n "$F_GBENCHMARK" ]; then
   fi
   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_CXX_FLAGS="-fPIC $CMAKE_CXX_FLAGS" . || { echo "cmake $GBENCHMARK_ERROR" ; exit 1; }
 
-  make VERBOSE=1 install || { echo "make $GBENCHMARK_ERROR" ; exit 1; }
+  make -j$PARALLEL VERBOSE=1 install || { echo "make $GBENCHMARK_ERROR" ; exit 1; }
 fi
 
 FLATBUFFERS_ERROR="failed for flatbuffers"
