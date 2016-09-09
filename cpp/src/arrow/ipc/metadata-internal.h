@@ -37,7 +37,8 @@ class Status;
 
 namespace ipc {
 
-static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V1;
+static constexpr flatbuf::MetadataVersion kMetadataVersion =
+  flatbuf::MetadataVersion_V1_SNAPSHOT;
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
 
