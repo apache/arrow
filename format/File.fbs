@@ -7,6 +7,7 @@ namespace org.apache.arrow.flatbuf;
 ///
 
 table Footer {
+  version: org.apache.arrow.flatbuf.MetadataVersion;
 
   schema: org.apache.arrow.flatbuf.Schema;
 

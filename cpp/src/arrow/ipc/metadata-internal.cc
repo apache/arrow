@@ -295,7 +295,8 @@ Status WriteDataHeader(int32_t length, int64_t body_length,
 }
 
 Status MessageBuilder::Finish() {
-  auto message = flatbuf::CreateMessage(fbb_, header_type_, header_, body_length_);
+  auto message = flatbuf::CreateMessage(fbb_, kMetadataVersion,
+      header_type_, header_, body_length_);
   fbb_.Finish(message);
   return Status::OK();
 }

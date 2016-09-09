@@ -1,5 +1,9 @@
 namespace org.apache.arrow.flatbuf;
 
+enum MetadataVersion:short {
+  V1_SNAPSHOT
+}
+
 /// ----------------------------------------------------------------------
 /// Logical types and their metadata (if any)
 ///
@@ -237,6 +241,7 @@ union MessageHeader {
 }
 
 table Message {
+  version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
   bodyLength: long;
 }
