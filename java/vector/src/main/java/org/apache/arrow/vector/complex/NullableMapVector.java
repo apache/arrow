@@ -25,10 +25,10 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseDataValueVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVectorDefinitionSetter;
-import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -45,7 +45,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
 
-  protected final UInt1Vector bits;
+  protected final BitVector bits;
 
   private final List<BufferBacked> innerVectors;
 
@@ -54,7 +54,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, checkNotNull(allocator), callBack);
-    this.bits = new UInt1Vector("$bits$", allocator);
+    this.bits = new BitVector("$bits$", allocator);
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
     this.accessor = new Accessor();
     this.mutator = new Mutator();
@@ -186,7 +186,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
     return success;
   }
   public final class Accessor extends MapVector.Accessor  {
-    final UInt1Vector.Accessor bAccessor = bits.getAccessor();
+    final BitVector.Accessor bAccessor = bits.getAccessor();
 
     @Override
     public Object getObject(int index) {

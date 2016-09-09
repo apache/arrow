@@ -53,7 +53,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final String valuesField = "$values$";
   private final Field field;
 
-  final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
+  final BitVector bits = new BitVector(bitsField, allocator);
   final ${valuesName} values;
 
   private final Mutator mutator;
@@ -446,7 +446,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   public final class Accessor extends BaseDataValueVector.BaseAccessor <#if type.major = "VarLen">implements VariableWidthVector.VariableWidthAccessor</#if> {
-    final UInt1Vector.Accessor bAccessor = bits.getAccessor();
+    final BitVector.Accessor bAccessor = bits.getAccessor();
     final ${valuesName}.Accessor vAccessor = values.getAccessor();
 
     /**
@@ -545,7 +545,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setCount++;
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
-      final UInt1Vector.Mutator bitsMutator = bits.getMutator();
+      final BitVector.Mutator bitsMutator = bits.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {
         valuesMutator.set(i, emptyByteArray);
