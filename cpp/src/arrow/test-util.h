@@ -40,22 +40,22 @@
 
 #define ASSERT_RAISES(ENUM, expr)                  \
   do {                                             \
-    Status s = (expr);                             \
+    ::arrow::Status s = (expr);                    \
     if (!s.Is##ENUM()) { FAIL() << s.ToString(); } \
   } while (0)
 
 #define ASSERT_OK(expr)                      \
   do {                                       \
-    Status s = (expr);                       \
+    ::arrow::Status s = (expr);              \
     if (!s.ok()) { FAIL() << s.ToString(); } \
   } while (0)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define EXPECT_OK(expr)  \
-  do {                   \
-    Status s = (expr);   \
-    EXPECT_TRUE(s.ok()); \
+#define EXPECT_OK(expr)         \
+  do {                          \
+    ::arrow::Status s = (expr); \
+    EXPECT_TRUE(s.ok());        \
   } while (0)
 
 namespace arrow {

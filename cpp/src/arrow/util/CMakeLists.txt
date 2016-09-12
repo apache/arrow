@@ -26,6 +26,7 @@ install(FILES
   logging.h
   macros.h
   memory-pool.h
+  random.h
   status.h
   visibility.h
   DESTINATION include/arrow/util)
