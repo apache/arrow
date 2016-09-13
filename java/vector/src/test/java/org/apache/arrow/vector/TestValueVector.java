@@ -17,17 +17,23 @@
  */
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.nio.charset.Charset;
+import java.util.List;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.nio.charset.Charset;
-
-import static org.junit.Assert.*;
+import io.netty.buffer.ArrowBuf;
 
 
 public class TestValueVector {
@@ -222,6 +228,59 @@ public class TestValueVector {
       }
     }
   }
+
+  @Test
+  public void testNullableInt() {
+    // Create a new value vector for 1024 integers
+    try (final NullableIntVector vector = (NullableIntVector) MinorType.INT.getNewVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      final NullableIntVector.Mutator m = vector.getMutator();
+      vector.allocateNew(1024);
+
+      // Put and set a few values.
+      m.set(0, 1);
+      m.set(1, 2);
+      m.set(100, 3);
+      m.set(1022, 4);
+      m.set(1023, 5);
+
+      m.setValueCount(1024);
+
+      final NullableIntVector.Accessor accessor = vector.getAccessor();
+      assertEquals(1, accessor.get(0));
+      assertEquals(2, accessor.get(1));
+      assertEquals(3, accessor.get(100));
+      assertEquals(4, accessor.get(1022));
+      assertEquals(5, accessor.get(1023));
+
+      // Ensure null values.
+      assertTrue(vector.getAccessor().isNull(3));
+
+      Field field = vector.getField();
+      TypeLayout typeLayout = field.getTypeLayout();
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+
+      assertEquals(2, typeLayout.getVectors().size());
+      assertEquals(2, buffers.size());
+
+      ArrowBuf validityVectorBuf = buffers.get(0);
+      assertEquals(128, validityVectorBuf.readableBytes());
+      assertEquals(3, validityVectorBuf.getByte(0)); // 1st and second bit defined
+      for (int i = 1; i < 12; i++) {
+        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined until 100
+      }
+      assertEquals(16, validityVectorBuf.getByte(12)); // 100th bit is defined (12 * 8 + 4)
+      for (int i = 13; i < 127; i++) {
+        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined between 100th and 1022nd
+      }
+      assertEquals(-64, validityVectorBuf.getByte(127)); // 1022nd and 1023rd bit defined
+
+      vector.allocateNew(2048);
+      // vector has been erased
+      assertTrue(vector.getAccessor().isNull(0));
+    }
+  }
+
 
   @Test
   public void testBitVector() {
