@@ -24,6 +24,7 @@ install(FILES
   schema.h
   table.h
   type.h
+  test-util.h
   DESTINATION include/arrow)
 
 #######################################

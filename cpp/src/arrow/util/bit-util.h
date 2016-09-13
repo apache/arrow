@@ -22,6 +22,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Buffer;
@@ -76,7 +78,7 @@ static inline bool is_multiple_of_64(int64_t n) {
 }
 
 void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
-Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
+ARROW_EXPORT Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 }  // namespace util
 
