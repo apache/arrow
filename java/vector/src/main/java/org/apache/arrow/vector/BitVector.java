@@ -17,8 +17,6 @@
  */
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,6 +26,8 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Bit implements a vector of bit-width values. Elements in the vector are accessed by position from the logical start
@@ -435,6 +435,18 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       setValueCount(values);
     }
 
+    public void generateTestDataAlt(int size) {
+      setValueCount(size);
+      boolean even = true;
+      final int valueCount = getAccessor().getValueCount();
+      for(int i = 0; i < valueCount; i++, even = !even) {
+        if(even){
+          set(i, (byte) 1);
+        }else{
+          set(i, (byte) 0);
+        }
+      }
+    }
   }
 
   @Override

@@ -28,9 +28,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseDataValueVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -55,7 +55,7 @@ import io.netty.buffer.ArrowBuf;
 public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   final UInt4Vector offsets;
-  final UInt1Vector bits;
+  final BitVector bits;
   private final List<BufferBacked> innerVectors;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
@@ -65,7 +65,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator);
-    this.bits = new UInt1Vector("$bits$", allocator);
+    this.bits = new BitVector("$bits$", allocator);
     this.offsets = getOffsetVector();
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, offsets));
     this.writer = new UnionListWriter(this);
