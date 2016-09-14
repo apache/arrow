@@ -20,6 +20,9 @@ package io.netty.buffer;
 
 import io.netty.util.internal.PlatformDependent;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -91,11 +94,6 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public ByteBuf slice(int index, int length) {
     return new SlicedByteBuf(this, index, length);
-  }
-
-  @Override
-  public ByteOrder order() {
-    return ByteOrder.LITTLE_ENDIAN;
   }
 
   @Override
@@ -252,6 +250,28 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
       bufferSize.addAndGet(-initCap);
     }
     return released;
+  }
+
+  @Override
+  public int setBytes(int index, InputStream in, int length) throws IOException {
+    wrapped.checkIndex(index, length);
+    byte[] tmp = new byte[length];
+    int readBytes = in.read(tmp);
+    if (readBytes > 0) {
+      PlatformDependent.copyMemory(tmp, 0, addr(index), readBytes);
+    }
+    return readBytes;
+  }
+
+  @Override
+  public ByteBuf getBytes(int index, OutputStream out, int length) throws IOException {
+    wrapped.checkIndex(index, length);
+    if (length != 0) {
+      byte[] tmp = new byte[length];
+      PlatformDependent.copyMemory(addr(index), tmp, 0, length);
+      out.write(tmp);
+    }
+    return this;
   }
 
   @Override
