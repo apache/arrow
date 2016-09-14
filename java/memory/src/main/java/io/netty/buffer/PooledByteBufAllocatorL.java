@@ -145,7 +145,7 @@ public class PooledByteBufAllocatorL {
     }
 
     private UnsafeDirectLittleEndian newDirectBufferL(int initialCapacity, int maxCapacity) {
-      PoolThreadCache cache = threadCache.get();
+      PoolThreadCache cache = threadCache();
       PoolArena<ByteBuffer> directArena = cache.directArena;
 
       if (directArena != null) {
