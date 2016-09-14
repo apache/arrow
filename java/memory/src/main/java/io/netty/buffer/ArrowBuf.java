@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
+import org.apache.arrow.memory.ArrowByteBufAllocator;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.BoundsChecking;
@@ -52,7 +53,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   private final int offset;
   private final BufferLedger ledger;
   private final BufferManager bufManager;
-  private final ByteBufAllocator alloc;
+  private final ArrowByteBufAllocator alloc;
   private final boolean isEmpty;
   private volatile int length;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
@@ -63,7 +64,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       final BufferLedger ledger,
       final UnsafeDirectLittleEndian byteBuf,
       final BufferManager manager,
-      final ByteBufAllocator alloc,
+      final ArrowByteBufAllocator alloc,
       final int offset,
       final int length,
       boolean isEmpty) {
@@ -297,8 +298,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ByteBufAllocator alloc() {
-    return udle.alloc();
+  public ArrowByteBufAllocator alloc() {
+    return alloc;
   }
 
   @Override
