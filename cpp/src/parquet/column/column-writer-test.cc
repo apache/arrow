@@ -43,39 +43,17 @@ const int LARGE_SIZE = 10000;
 const int VERY_LARGE_SIZE = 400000;
 
 template <typename TestType>
-class TestPrimitiveWriter : public ::testing::Test {
+class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
  public:
   typedef typename TestType::c_type T;
 
-  void SetUpSchemaRequired() {
-    node_ = PrimitiveNode::Make("column", Repetition::REQUIRED, TestType::type_num,
-        LogicalType::NONE, FLBA_LENGTH);
-    schema_ = std::make_shared<ColumnDescriptor>(node_, 0, 0);
-  }
-
-  void SetUpSchemaOptional() {
-    node_ = PrimitiveNode::Make("column", Repetition::OPTIONAL, TestType::type_num,
-        LogicalType::NONE, FLBA_LENGTH);
-    schema_ = std::make_shared<ColumnDescriptor>(node_, 1, 0);
-  }
-
-  void SetUpSchemaRepeated() {
-    node_ = PrimitiveNode::Make("column", Repetition::REPEATED, TestType::type_num,
-        LogicalType::NONE, FLBA_LENGTH);
-    schema_ = std::make_shared<ColumnDescriptor>(node_, 1, 1);
-  }
-
-  void GenerateData(int64_t num_values);
-
-  void SetupValuesOut();
-
   void SetUp() {
-    SetupValuesOut();
+    this->SetupValuesOut(SMALL_SIZE);
     writer_properties_ = default_writer_properties();
     definition_levels_out_.resize(SMALL_SIZE);
     repetition_levels_out_.resize(SMALL_SIZE);
 
-    SetUpSchemaRequired();
+    this->SetUpSchemaRequired();
   }
 
   Type::type type_num() { return TestType::type_num; }
@@ -85,14 +63,15 @@ class TestPrimitiveWriter : public ::testing::Test {
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<SerializedPageReader> page_reader(
         new SerializedPageReader(std::move(source), Compression::UNCOMPRESSED));
-    reader_.reset(new TypedColumnReader<TestType>(schema_.get(), std::move(page_reader)));
+    reader_.reset(
+        new TypedColumnReader<TestType>(this->descr_.get(), std::move(page_reader)));
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE, Encoding::type encoding = Encoding::PLAIN) {
     sink_.reset(new InMemoryOutputStream());
-    metadata_ = ColumnChunkMetaDataBuilder::Make(
-        writer_properties_, schema_.get(), reinterpret_cast<uint8_t*>(&thrift_metadata_));
+    metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_.get(),
+        reinterpret_cast<uint8_t*>(&thrift_metadata_));
     std::unique_ptr<SerializedPageWriter> pager(new SerializedPageWriter(
         sink_.get(), Compression::UNCOMPRESSED, metadata_.get()));
     WriterProperties::Builder wp_builder;
@@ -104,16 +83,15 @@ class TestPrimitiveWriter : public ::testing::Test {
     }
     writer_properties_ = wp_builder.build();
     std::shared_ptr<ColumnWriter> writer = ColumnWriter::Make(
-        schema_.get(), std::move(pager), output_size, writer_properties_.get());
+        this->descr_.get(), std::move(pager), output_size, writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
-  void SyncValuesOut();
   void ReadColumn() {
     BuildReader();
-    reader_->ReadBatch(values_out_.size(), definition_levels_out_.data(),
-        repetition_levels_out_.data(), values_out_ptr_, &values_read_);
-    SyncValuesOut();
+    reader_->ReadBatch(this->values_out_.size(), definition_levels_out_.data(),
+        repetition_levels_out_.data(), this->values_out_ptr_, &values_read_);
+    this->SyncValuesOut();
   }
 
   void TestRequiredWithEncoding(Encoding::type encoding) {
@@ -156,68 +134,16 @@ class TestPrimitiveWriter : public ::testing::Test {
   // content is bound to the reader.
   std::unique_ptr<TypedColumnReader<TestType>> reader_;
 
-  // Input buffers
-  std::vector<T> values_;
-  std::vector<uint8_t> buffer_;
-  // Pointer to the values, needed as we cannot use vector<bool>::data()
-  T* values_ptr_;
-  std::vector<uint8_t> bool_buffer_;
-
-  // Output buffers
-  std::vector<T> values_out_;
-  std::vector<uint8_t> bool_buffer_out_;
-  T* values_out_ptr_;
   std::vector<int16_t> definition_levels_out_;
   std::vector<int16_t> repetition_levels_out_;
 
  private:
-  NodePtr node_;
   format::ColumnChunk thrift_metadata_;
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::shared_ptr<ColumnDescriptor> schema_;
   std::unique_ptr<InMemoryOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
 };
-
-template <typename TestType>
-void TestPrimitiveWriter<TestType>::SetupValuesOut() {
-  values_out_.resize(SMALL_SIZE);
-  values_out_ptr_ = values_out_.data();
-}
-
-template <>
-void TestPrimitiveWriter<BooleanType>::SetupValuesOut() {
-  values_out_.resize(SMALL_SIZE);
-  bool_buffer_out_.resize(SMALL_SIZE);
-  // Write once to all values so we can copy it without getting Valgrind errors
-  // about uninitialised values.
-  std::fill(bool_buffer_out_.begin(), bool_buffer_out_.end(), true);
-  values_out_ptr_ = reinterpret_cast<bool*>(bool_buffer_out_.data());
-}
-
-template <typename TestType>
-void TestPrimitiveWriter<TestType>::SyncValuesOut() {}
-
-template <>
-void TestPrimitiveWriter<BooleanType>::SyncValuesOut() {
-  std::copy(bool_buffer_out_.begin(), bool_buffer_out_.end(), values_out_.begin());
-}
-
-template <typename TestType>
-void TestPrimitiveWriter<TestType>::GenerateData(int64_t num_values) {
-  values_.resize(num_values);
-  InitValues<T>(num_values, values_, buffer_);
-  values_ptr_ = values_.data();
-}
-
-template <>
-void TestPrimitiveWriter<BooleanType>::GenerateData(int64_t num_values) {
-  values_.resize(num_values);
-  InitValues<T>(num_values, values_, buffer_);
-  bool_buffer_.resize(num_values);
-  std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
-  values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
-}
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
     BooleanType, ByteArrayType, FLBAType> TestTypes;

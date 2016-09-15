@@ -22,6 +22,7 @@
 #ifndef PARQUET_COLUMN_TEST_SPECIALIZATION_H
 #define PARQUET_COLUMN_TEST_SPECIALIZATION_H
 
+#include <algorithm>
 #include <limits>
 #include <vector>
 
@@ -59,6 +60,102 @@ void InitValues<Int96>(int num_values, vector<Int96>& values, vector<uint8_t>& b
       std::numeric_limits<int32_t>::max(), values.data());
 }
 
+// This class lives here because of its dependency on the InitValues specializations.
+template <typename TestType>
+class PrimitiveTypedTest : public ::testing::Test {
+ public:
+  typedef typename TestType::c_type T;
+
+  void SetUpSchemaRequired() {
+    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::REQUIRED,
+        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
+    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 0, 0);
+    node_ = schema::GroupNode::Make(
+        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
+    schema_.Init(node_);
+  }
+
+  void SetUpSchemaOptional() {
+    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::OPTIONAL,
+        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
+    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 1, 0);
+    node_ = schema::GroupNode::Make(
+        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
+    schema_.Init(node_);
+  }
+
+  void SetUpSchemaRepeated() {
+    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::REPEATED,
+        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
+    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 1, 1);
+    node_ = schema::GroupNode::Make(
+        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values);
+  void SetupValuesOut(int64_t num_values);
+  void SyncValuesOut();
+  void SetUp() { SetUpSchemaRequired(); }
+
+ protected:
+  schema::NodePtr primitive_node_;
+  schema::NodePtr node_;
+  SchemaDescriptor schema_;
+  std::shared_ptr<ColumnDescriptor> descr_;
+
+  // Input buffers
+  std::vector<T> values_;
+  std::vector<uint8_t> buffer_;
+  // Pointer to the values, needed as we cannot use vector<bool>::data()
+  T* values_ptr_;
+  std::vector<uint8_t> bool_buffer_;
+
+  // Output buffers
+  std::vector<T> values_out_;
+  std::vector<uint8_t> bool_buffer_out_;
+  T* values_out_ptr_;
+};
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
+  std::copy(bool_buffer_out_.begin(), bool_buffer_out_.end(), values_out_.begin());
+}
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
+  values_out_.resize(num_values);
+  values_out_ptr_ = values_out_.data();
+}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
+  values_out_.resize(num_values);
+  bool_buffer_out_.resize(num_values);
+  // Write once to all values so we can copy it without getting Valgrind errors
+  // about uninitialised values.
+  std::fill(bool_buffer_out_.begin(), bool_buffer_out_.end(), true);
+  values_out_ptr_ = reinterpret_cast<bool*>(bool_buffer_out_.data());
+}
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
+  values_.resize(num_values);
+  InitValues<T>(num_values, values_, buffer_);
+  values_ptr_ = values_.data();
+}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
+  values_.resize(num_values);
+  InitValues<T>(num_values, values_, buffer_);
+  bool_buffer_.resize(num_values);
+  std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
+  values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
+}
 }  // namespace test
 
 }  // namespace parquet

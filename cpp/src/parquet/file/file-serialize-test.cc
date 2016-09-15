@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 
 #include "parquet/column/reader.h"
+#include "parquet/column/test-util.h"
+#include "parquet/column/test-specialization.h"
 #include "parquet/column/writer.h"
 #include "parquet/file/reader.h"
 #include "parquet/file/writer.h"
@@ -33,45 +35,23 @@ using schema::PrimitiveNode;
 
 namespace test {
 
-class TestSerialize : public ::testing::Test {
+template <typename TestType>
+class TestSerialize : public PrimitiveTypedTest<TestType> {
  public:
-  void SetUpSchemaRequired() {
-    auto pnode = PrimitiveNode::Make("int64", Repetition::REQUIRED, Type::INT64);
-    node_ =
-        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-    schema_.Init(node_);
-  }
-
-  void SetUpSchemaOptional() {
-    auto pnode = PrimitiveNode::Make("int64", Repetition::OPTIONAL, Type::INT64);
-    node_ =
-        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-    schema_.Init(node_);
-  }
-
-  void SetUpSchemaRepeated() {
-    auto pnode = PrimitiveNode::Make("int64", Repetition::REPEATED, Type::INT64);
-    node_ =
-        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-    schema_.Init(node_);
-  }
-
-  void SetUp() { SetUpSchemaRequired(); }
+  typedef typename TestType::c_type T;
 
  protected:
-  NodePtr node_;
-  SchemaDescriptor schema_;
-
   void FileSerializeTest(Compression::type codec_type) {
     std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
-    auto gnode = std::static_pointer_cast<GroupNode>(node_);
+    auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
     std::shared_ptr<WriterProperties> writer_properties =
-        WriterProperties::Builder().compression("schema.int64", codec_type)->build();
+        WriterProperties::Builder().compression("column", codec_type)->build();
     auto file_writer = ParquetFileWriter::Open(sink, gnode, writer_properties);
     auto row_group_writer = file_writer->AppendRowGroup(100);
-    auto column_writer = static_cast<Int64Writer*>(row_group_writer->NextColumn());
-    std::vector<int64_t> values(100, 128);
-    column_writer->WriteBatch(values.size(), nullptr, nullptr, values.data());
+    auto column_writer =
+        static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
+    this->GenerateData(100);
+    column_writer->WriteBatch(100, nullptr, nullptr, this->values_ptr_);
     column_writer->Close();
     row_group_writer->Close();
     file_writer->Close();
@@ -86,29 +66,38 @@ class TestSerialize : public ::testing::Test {
     auto rg_reader = file_reader->RowGroup(0);
     ASSERT_EQ(1, rg_reader->metadata()->num_columns());
     ASSERT_EQ(100, rg_reader->metadata()->num_rows());
+    // Check that the specified compression was actually used.
+    ASSERT_EQ(codec_type, rg_reader->metadata()->ColumnChunk(0)->compression());
 
-    auto col_reader = std::static_pointer_cast<Int64Reader>(rg_reader->Column(0));
-    std::vector<int64_t> values_out(100);
+    auto col_reader =
+        std::static_pointer_cast<TypedColumnReader<TestType>>(rg_reader->Column(0));
     std::vector<int16_t> def_levels_out(100);
     std::vector<int16_t> rep_levels_out(100);
     int64_t values_read;
-    col_reader->ReadBatch(values_out.size(), def_levels_out.data(), rep_levels_out.data(),
-        values_out.data(), &values_read);
+    this->SetupValuesOut(100);
+    col_reader->ReadBatch(100, def_levels_out.data(), rep_levels_out.data(),
+        this->values_out_ptr_, &values_read);
+    this->SyncValuesOut();
     ASSERT_EQ(100, values_read);
-    ASSERT_EQ(values, values_out);
+    ASSERT_EQ(this->values_, this->values_out_);
   }
 };
 
-TEST_F(TestSerialize, SmallFileUncompressed) {
-  FileSerializeTest(Compression::UNCOMPRESSED);
+typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
+    BooleanType, ByteArrayType, FLBAType> TestTypes;
+
+TYPED_TEST_CASE(TestSerialize, TestTypes);
+
+TYPED_TEST(TestSerialize, SmallFileUncompressed) {
+  this->FileSerializeTest(Compression::UNCOMPRESSED);
 }
 
-TEST_F(TestSerialize, SmallFileSnappy) {
-  FileSerializeTest(Compression::SNAPPY);
+TYPED_TEST(TestSerialize, SmallFileSnappy) {
+  this->FileSerializeTest(Compression::SNAPPY);
 }
 
-TEST_F(TestSerialize, SmallFileGzip) {
-  FileSerializeTest(Compression::GZIP);
+TYPED_TEST(TestSerialize, SmallFileGzip) {
+  this->FileSerializeTest(Compression::GZIP);
 }
 
 }  // namespace test
