@@ -141,8 +141,6 @@ class TestFlatScanner : public ::testing::Test {
   vector<uint8_t> data_buffer_;  // For BA and FLBA
 };
 
-typedef TestFlatScanner<FLBAType> TestFlatFLBAScanner;
-
 static int num_levels_per_page = 100;
 static int num_pages = 20;
 static int batch_size = 32;
@@ -150,8 +148,8 @@ static int batch_size = 32;
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
     ByteArrayType> TestTypes;
 
-typedef TestFlatScanner<BooleanType> TestBooleanFlatScanner;
-typedef TestFlatScanner<FLBAType> TestFLBAFlatScanner;
+using TestBooleanFlatScanner = TestFlatScanner<BooleanType>;
+using TestFLBAFlatScanner = TestFlatScanner<FLBAType>;
 
 TYPED_TEST_CASE(TestFlatScanner, TestTypes);
 
@@ -183,7 +181,7 @@ TEST_F(TestFLBAFlatScanner, TestPlainDictScanner) {
 }
 
 // PARQUET 502
-TEST_F(TestFlatFLBAScanner, TestSmallBatch) {
+TEST_F(TestFLBAFlatScanner, TestSmallBatch) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 0, 0);
@@ -194,7 +192,7 @@ TEST_F(TestFlatFLBAScanner, TestSmallBatch) {
   CheckResults(1, &d);
 }
 
-TEST_F(TestFlatFLBAScanner, TestDescriptorAPI) {
+TEST_F(TestFLBAFlatScanner, TestDescriptorAPI) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);
@@ -209,7 +207,7 @@ TEST_F(TestFlatFLBAScanner, TestDescriptorAPI) {
   ASSERT_EQ(FLBA_LENGTH, scanner->descr()->type_length());
 }
 
-TEST_F(TestFlatFLBAScanner, TestFLBAPrinterNext) {
+TEST_F(TestFLBAFlatScanner, TestFLBAPrinterNext) {
   NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
       Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);

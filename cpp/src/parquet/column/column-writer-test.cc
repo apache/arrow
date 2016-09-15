@@ -150,6 +150,8 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
+using TestNullValuesWriter = TestPrimitiveWriter<Int32Type>;
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
@@ -301,6 +303,27 @@ TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
   } else {
     ASSERT_EQ(Encoding::PLAIN, encodings[1]);
   }
+}
+
+// PARQUET-719
+// Test case for NULL values
+TEST_F(TestNullValuesWriter, OptionalNullValueChunk) {
+  this->SetUpSchemaOptional();
+
+  this->GenerateData(LARGE_SIZE);
+
+  std::vector<int16_t> definition_levels(LARGE_SIZE, 0);
+  std::vector<int16_t> repetition_levels(LARGE_SIZE, 0);
+
+  auto writer = this->BuildWriter(LARGE_SIZE);
+  // All values being written are NULL
+  writer->WriteBatch(
+      this->values_.size(), definition_levels.data(), repetition_levels.data(), NULL);
+  writer->Close();
+
+  // Just read the first SMALL_SIZE rows to ensure we could read it back in
+  this->ReadColumn();
+  ASSERT_EQ(0, this->values_read_);
 }
 
 }  // namespace test

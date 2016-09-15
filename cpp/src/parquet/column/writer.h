@@ -156,7 +156,7 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   void CheckDictionarySizeLimit() override;
 
  private:
-  void WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
+  int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const T* values);
 
   typedef Encoder<DType> EncoderType;
@@ -167,7 +167,7 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
 };
 
 template <typename DType>
-inline void TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
+inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
   int64_t values_to_write = 0;
   // If the field is required and non-repeated, there are no definition levels
@@ -209,6 +209,8 @@ inline void TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     AddDataPage();
   }
   if (has_dictionary_ && !fallback_) { CheckDictionarySizeLimit(); }
+
+  return values_to_write;
 }
 
 template <typename DType>
@@ -222,15 +224,17 @@ inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
   int64_t write_batch_size = properties_->write_batch_size();
   int num_batches = num_values / write_batch_size;
   int64_t num_remaining = num_values % write_batch_size;
+  int64_t value_offset = 0;
   for (int round = 0; round < num_batches; round++) {
     int64_t offset = round * write_batch_size;
-    WriteMiniBatch(
-        write_batch_size, &def_levels[offset], &rep_levels[offset], &values[offset]);
+    int64_t num_values = WriteMiniBatch(write_batch_size, &def_levels[offset],
+        &rep_levels[offset], &values[value_offset]);
+    value_offset += num_values;
   }
   // Write the remaining values
   int64_t offset = num_batches * write_batch_size;
   WriteMiniBatch(
-      num_remaining, &def_levels[offset], &rep_levels[offset], &values[offset]);
+      num_remaining, &def_levels[offset], &rep_levels[offset], &values[value_offset]);
 }
 
 template <typename DType>
