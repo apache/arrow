@@ -80,7 +80,8 @@ ReaderProperties PARQUET_EXPORT default_reader_properties();
 
 static constexpr int64_t DEFAULT_PAGE_SIZE = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
-static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
+static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = DEFAULT_PAGE_SIZE;
+static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
@@ -96,7 +97,8 @@ class PARQUET_EXPORT WriterProperties {
     Builder()
         : allocator_(default_allocator()),
           dictionary_enabled_default_(DEFAULT_IS_DICTIONARY_ENABLED),
-          dictionary_pagesize_(DEFAULT_DICTIONARY_PAGE_SIZE),
+          dictionary_pagesize_limit_(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT),
+          write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           pagesize_(DEFAULT_PAGE_SIZE),
           version_(DEFAULT_WRITER_VERSION),
           created_by_(DEFAULT_CREATED_BY),
@@ -137,8 +139,13 @@ class PARQUET_EXPORT WriterProperties {
       return this->enable_dictionary(path->ToDotString());
     }
 
-    Builder* dictionary_pagesize(int64_t dictionary_psize) {
-      dictionary_pagesize_ = dictionary_psize;
+    Builder* dictionary_pagesize_limit(int64_t dictionary_psize_limit) {
+      dictionary_pagesize_limit_ = dictionary_psize_limit;
+      return this;
+    }
+
+    Builder* write_batch_size(int64_t write_batch_size) {
+      write_batch_size_ = write_batch_size;
       return this;
     }
 
@@ -214,17 +221,18 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     std::shared_ptr<WriterProperties> build() {
-      return std::shared_ptr<WriterProperties>(
-          new WriterProperties(allocator_, dictionary_enabled_default_,
-              dictionary_enabled_, dictionary_pagesize_, pagesize_, version_, created_by_,
-              default_encoding_, encodings_, default_codec_, codecs_));
+      return std::shared_ptr<WriterProperties>(new WriterProperties(allocator_,
+          dictionary_enabled_default_, dictionary_enabled_, dictionary_pagesize_limit_,
+          write_batch_size_, pagesize_, version_, created_by_, default_encoding_,
+          encodings_, default_codec_, codecs_));
     }
 
    private:
     MemoryAllocator* allocator_;
     bool dictionary_enabled_default_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
-    int64_t dictionary_pagesize_;
+    int64_t dictionary_pagesize_limit_;
+    int64_t write_batch_size_;
     int64_t pagesize_;
     ParquetVersion::type version_;
     std::string created_by_;
@@ -246,7 +254,9 @@ class PARQUET_EXPORT WriterProperties {
     return dictionary_enabled_default_;
   }
 
-  inline int64_t dictionary_pagesize() const { return dictionary_pagesize_; }
+  inline int64_t dictionary_pagesize_limit() const { return dictionary_pagesize_limit_; }
+
+  inline int64_t write_batch_size() const { return write_batch_size_; }
 
   inline int64_t data_pagesize() const { return pagesize_; }
 
@@ -286,14 +296,16 @@ class PARQUET_EXPORT WriterProperties {
  private:
   explicit WriterProperties(MemoryAllocator* allocator, bool dictionary_enabled_default,
       std::unordered_map<std::string, bool> dictionary_enabled,
-      int64_t dictionary_pagesize, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by, Encoding::type default_encoding,
+      int64_t dictionary_pagesize, int64_t write_batch_size, int64_t pagesize,
+      ParquetVersion::type version, const std::string& created_by,
+      Encoding::type default_encoding,
       std::unordered_map<std::string, Encoding::type> encodings,
       Compression::type default_codec, const ColumnCodecs& codecs)
       : allocator_(allocator),
         dictionary_enabled_default_(dictionary_enabled_default),
         dictionary_enabled_(dictionary_enabled),
-        dictionary_pagesize_(dictionary_pagesize),
+        dictionary_pagesize_limit_(dictionary_pagesize),
+        write_batch_size_(write_batch_size),
         pagesize_(pagesize),
         parquet_version_(version),
         parquet_created_by_(created_by),
@@ -304,7 +316,8 @@ class PARQUET_EXPORT WriterProperties {
   MemoryAllocator* allocator_;
   bool dictionary_enabled_default_;
   std::unordered_map<std::string, bool> dictionary_enabled_;
-  int64_t dictionary_pagesize_;
+  int64_t dictionary_pagesize_limit_;
+  int64_t write_batch_size_;
   int64_t pagesize_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;

@@ -47,7 +47,8 @@ ColumnWriter::ColumnWriter(const ColumnDescriptor* descr,
       num_buffered_encoded_values_(0),
       num_rows_(0),
       total_bytes_written_(0),
-      closed_(false) {
+      closed_(false),
+      fallback_(false) {
   InitSinks();
 }
 
@@ -118,7 +119,13 @@ void ColumnWriter::AddDataPage() {
   DataPage page(
       uncompressed_data, num_buffered_values_, encoding_, Encoding::RLE, Encoding::RLE);
 
-  data_pages_.push_back(std::move(page));
+  // Write the page to OutputStream eagerly if there is no dictionary or
+  // if dictionary encoding has fallen back to PLAIN
+  if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
+    data_pages_.push_back(std::move(page));
+  } else {  // Eagerly write pages
+    WriteDataPage(page);
+  }
 
   // Re-initialize the sinks as GetBuffer made them invalid.
   InitSinks();
@@ -134,49 +141,68 @@ void ColumnWriter::WriteDataPage(const DataPage& page) {
 int64_t ColumnWriter::Close() {
   if (!closed_) {
     closed_ = true;
-    if (has_dictionary_) { WriteDictionaryPage(); }
-    // Write all outstanding data to a new page
-    if (num_buffered_values_ > 0) { AddDataPage(); }
+    if (has_dictionary_ && !fallback_) { WriteDictionaryPage(); }
 
-    for (size_t i = 0; i < data_pages_.size(); i++) {
-      WriteDataPage(data_pages_[i]);
-    }
+    FlushBufferedDataPages();
+
+    pager_->Close(has_dictionary_, fallback_);
   }
 
   if (num_rows_ != expected_rows_) {
     throw ParquetException(
-        "Less then the number of expected rows written in"
+        "Less than the number of expected rows written in"
         " the current column chunk");
   }
 
-  pager_->Close();
-
   return total_bytes_written_;
+}
+
+void ColumnWriter::FlushBufferedDataPages() {
+  // Write all outstanding data to a new page
+  if (num_buffered_values_ > 0) { AddDataPage(); }
+  for (size_t i = 0; i < data_pages_.size(); i++) {
+    WriteDataPage(data_pages_[i]);
+  }
+  data_pages_.clear();
 }
 
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
 template <typename Type>
-TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* schema,
+TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* descr,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
     const WriterProperties* properties)
-    : ColumnWriter(schema, std::move(pager), expected_rows,
+    : ColumnWriter(descr, std::move(pager), expected_rows,
           (encoding == Encoding::PLAIN_DICTIONARY ||
                        encoding == Encoding::RLE_DICTIONARY),
           encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:
-      current_encoder_ = std::unique_ptr<EncoderType>(
-          new PlainEncoder<Type>(schema, properties->allocator()));
+      current_encoder_.reset(new PlainEncoder<Type>(descr, properties->allocator()));
       break;
     case Encoding::PLAIN_DICTIONARY:
     case Encoding::RLE_DICTIONARY:
-      current_encoder_ = std::unique_ptr<EncoderType>(
-          new DictEncoder<Type>(schema, &pool_, properties->allocator()));
+      current_encoder_.reset(
+          new DictEncoder<Type>(descr, &pool_, properties->allocator()));
       break;
     default:
       ParquetException::NYI("Selected encoding is not supported");
+  }
+}
+
+// Only one Dictionary Page is written.
+// Fallback to PLAIN if dictionary page limit is reached.
+template <typename Type>
+void TypedColumnWriter<Type>::CheckDictionarySizeLimit() {
+  auto dict_encoder = static_cast<DictEncoder<Type>*>(current_encoder_.get());
+  if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+    WriteDictionaryPage();
+    // Serialize the buffered Dictionary Indicies
+    FlushBufferedDataPages();
+    fallback_ = true;
+    // Only PLAIN encoding is supported for fallback in V1
+    current_encoder_.reset(new PlainEncoder<Type>(descr_, properties_->allocator()));
   }
 }
 

@@ -353,7 +353,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
       int64_t index_page_offset, int64_t data_page_offset, int64_t compressed_size,
-      int64_t uncompressed_size, bool dictionary_fallback = false) {
+      int64_t uncompressed_size, bool has_dictionary, bool dictionary_fallback) {
     if (dictionary_page_offset > 0) {
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
     } else {
@@ -368,16 +368,18 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
     std::vector<format::Encoding::type> thrift_encodings;
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
-    if (properties_->dictionary_enabled(column_->path())) {
+    if (has_dictionary) {
       thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
       // add the encoding only if it is unique
       if (properties_->version() == ParquetVersion::PARQUET_2_0) {
         thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
       }
-    }
-    if (!properties_->dictionary_enabled(column_->path()) || dictionary_fallback) {
+    } else {  // Dictionary not enabled
       thrift_encodings.push_back(ToThrift(properties_->encoding(column_->path())));
     }
+    // Only PLAIN encoding is supported for fallback in V1
+    // TODO(majetideepak): Use user specified encoding for V2
+    if (dictionary_fallback) { thrift_encodings.push_back(ToThrift(Encoding::PLAIN)); }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
@@ -410,9 +412,10 @@ void ColumnChunkMetaDataBuilder::set_file_path(const std::string& path) {
 
 void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
     int64_t dictionary_page_offset, int64_t index_page_offset, int64_t data_page_offset,
-    int64_t compressed_size, int64_t uncompressed_size, bool dictionary_fallback) {
+    int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
+    bool dictionary_fallback) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
-      compressed_size, uncompressed_size, dictionary_fallback);
+      compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
 }
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {

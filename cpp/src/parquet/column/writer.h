@@ -33,6 +33,7 @@
 
 namespace parquet {
 
+static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
   ColumnWriter(const ColumnDescriptor*, std::unique_ptr<PageWriter>,
@@ -56,9 +57,21 @@ class PARQUET_EXPORT ColumnWriter {
 
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
+
+  // Serializes Dictionary Page if enabled
   virtual void WriteDictionaryPage() = 0;
 
+  // Checks if the Dictionary Page size limit is reached
+  // If the limit is reached, the Dictionary and Data Pages are serialized
+  // The encoding is switched to PLAIN
+
+  virtual void CheckDictionarySizeLimit() = 0;
+
+  // Adds Data Pages to an in memory buffer in dictionary encoding mode
+  // Serializes the Data Pages in other encoding modes
   void AddDataPage();
+
+  // Serializes Data Pages
   void WriteDataPage(const DataPage& page);
 
   // Write multiple definition levels
@@ -69,6 +82,9 @@ class PARQUET_EXPORT ColumnWriter {
 
   std::shared_ptr<Buffer> RleEncodeLevels(
       const std::shared_ptr<Buffer>& buffer, int16_t max_level);
+
+  // Serialize the buffered Data Pages
+  void FlushBufferedDataPages();
 
   const ColumnDescriptor* descr_;
 
@@ -100,16 +116,22 @@ class PARQUET_EXPORT ColumnWriter {
   // Total number of rows written with this ColumnWriter
   int num_rows_;
 
+  // Records the total number of bytes written by the serializer
   int total_bytes_written_;
+
+  // Flag to check if the Writer has been closed
   bool closed_;
+
+  // Flag to infer if dictionary encoding has fallen back to PLAIN
+  bool fallback_;
 
   std::unique_ptr<InMemoryOutputStream> definition_levels_sink_;
   std::unique_ptr<InMemoryOutputStream> repetition_levels_sink_;
 
+  std::vector<DataPage> data_pages_;
+
  private:
   void InitSinks();
-
-  std::vector<DataPage> data_pages_;
 };
 
 // API to write values to a single column. This is the main client facing API.
@@ -131,26 +153,23 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
     return current_encoder_->FlushValues();
   }
   void WriteDictionaryPage() override;
+  void CheckDictionarySizeLimit() override;
 
  private:
+  void WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
+      const int16_t* rep_levels, const T* values);
+
   typedef Encoder<DType> EncoderType;
 
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, const T* values);
-
-  // Map of encoding type to the respective encoder object. For example, a
-  // column chunk's data pages may include both dictionary-encoded and
-  // plain-encoded data.
-  std::unordered_map<int, std::shared_ptr<EncoderType>> encoders_;
-
   std::unique_ptr<EncoderType> current_encoder_;
 };
 
 template <typename DType>
-inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
+inline void TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
   int64_t values_to_write = 0;
-
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
     for (int64_t i = 0; i < num_values; ++i) {
@@ -178,7 +197,7 @@ inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
   }
 
   if (num_rows_ > expected_rows_) {
-    throw ParquetException("More rows were written in the column chunk then expected");
+    throw ParquetException("More rows were written in the column chunk than expected");
   }
 
   WriteValues(values_to_write, values);
@@ -189,6 +208,29 @@ inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
   if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
     AddDataPage();
   }
+  if (has_dictionary_ && !fallback_) { CheckDictionarySizeLimit(); }
+}
+
+template <typename DType>
+inline void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
+    const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
+  // We check for DataPage limits only after we have inserted the values. If a user
+  // writes a large number of values, the DataPage size can be much above the limit.
+  // The purpose of this chunking is to bound this. Even if a user writes large number
+  // of values, the chunking will ensure the AddDataPage() is called at a reasonable
+  // pagesize limit
+  int64_t write_batch_size = properties_->write_batch_size();
+  int num_batches = num_values / write_batch_size;
+  int64_t num_remaining = num_values % write_batch_size;
+  for (int round = 0; round < num_batches; round++) {
+    int64_t offset = round * write_batch_size;
+    WriteMiniBatch(
+        write_batch_size, &def_levels[offset], &rep_levels[offset], &values[offset]);
+  }
+  // Write the remaining values
+  int64_t offset = num_batches * write_batch_size;
+  WriteMiniBatch(
+      num_remaining, &def_levels[offset], &rep_levels[offset], &values[offset]);
 }
 
 template <typename DType>

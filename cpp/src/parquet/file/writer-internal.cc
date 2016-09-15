@@ -46,11 +46,9 @@ SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type
   compressor_ = Codec::Create(codec);
 }
 
-void SerializedPageWriter::Close() {
-  // index_page_offset = 0 since they are not supported
-  // TODO: Remove default fallback = 'false' when implemented
+void SerializedPageWriter::Close(bool has_dictionary, bool fallback) {
   metadata_->Finish(num_values_, dictionary_page_offset_, 0, data_page_offset_,
-      total_compressed_size_, total_uncompressed_size_, false);
+      total_compressed_size_, total_uncompressed_size_, has_dictionary, fallback);
 }
 
 std::shared_ptr<Buffer> SerializedPageWriter::Compress(

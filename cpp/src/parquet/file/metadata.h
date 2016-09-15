@@ -149,7 +149,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // commit the metadata
   void Finish(int64_t num_values, int64_t dictonary_page_offset,
       int64_t index_page_offset, int64_t data_page_offset, int64_t compressed_size,
-      int64_t uncompressed_size, bool dictionary_fallback);
+      int64_t uncompressed_size, bool has_dictionary, bool dictionary_fallback);
 
  private:
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,

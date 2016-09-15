@@ -64,8 +64,8 @@ TEST(Metadata, TestBuildAccess) {
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, false);
-  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, false);
+  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false);
+  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false);
   rg1_builder->Finish(1024);
 
   // rowgroup2 metadata
@@ -74,8 +74,8 @@ TEST(Metadata, TestBuildAccess) {
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, false);
-  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, false);
+  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false);
+  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false);
   rg2_builder->Finish(1024);
 
   // Read the metadata

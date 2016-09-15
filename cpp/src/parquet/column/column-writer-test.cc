@@ -39,6 +39,8 @@ namespace test {
 const int SMALL_SIZE = 100;
 // Larger size to test some corner cases, only used in some specific cases.
 const int LARGE_SIZE = 10000;
+// Very large size to test dictionary fallback.
+const int VERY_LARGE_SIZE = 400000;
 
 template <typename TestType>
 class TestPrimitiveWriter : public ::testing::Test {
@@ -74,9 +76,9 @@ class TestPrimitiveWriter : public ::testing::Test {
     repetition_levels_out_.resize(SMALL_SIZE);
 
     SetUpSchemaRequired();
-    metadata_accessor_ =
-        ColumnChunkMetaData::Make(reinterpret_cast<uint8_t*>(&thrift_metadata_));
   }
+
+  Type::type type_num() { return TestType::type_num; }
 
   void BuildReader() {
     auto buffer = sink_->GetBuffer();
@@ -130,7 +132,23 @@ class TestPrimitiveWriter : public ::testing::Test {
     ASSERT_EQ(this->values_, this->values_out_);
   }
 
-  int64_t metadata_num_values() const { return metadata_accessor_->num_values(); }
+  int64_t metadata_num_values() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(reinterpret_cast<const uint8_t*>(&thrift_metadata_));
+    return metadata_accessor->num_values();
+  }
+
+  std::vector<Encoding::type> metadata_encodings() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(reinterpret_cast<const uint8_t*>(&thrift_metadata_));
+    return metadata_accessor->encodings();
+  }
 
  protected:
   int64_t values_read_;
@@ -156,7 +174,6 @@ class TestPrimitiveWriter : public ::testing::Test {
   NodePtr node_;
   format::ColumnChunk thrift_metadata_;
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-  std::unique_ptr<ColumnChunkMetaData> metadata_accessor_;
   std::shared_ptr<ColumnDescriptor> schema_;
   std::unique_ptr<InMemoryOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
@@ -332,6 +349,32 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
   ASSERT_EQ(SMALL_SIZE, this->values_read_);
   this->values_.resize(SMALL_SIZE);
   ASSERT_EQ(this->values_, this->values_out_);
+}
+
+// Test case for dictionary fallback encoding
+TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
+  this->GenerateData(VERY_LARGE_SIZE);
+
+  auto writer = this->BuildWriter(VERY_LARGE_SIZE, Encoding::PLAIN_DICTIONARY);
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+  writer->Close();
+
+  // Just read the first SMALL_SIZE rows to ensure we could read it back in
+  this->ReadColumn();
+  ASSERT_EQ(SMALL_SIZE, this->values_read_);
+  this->values_.resize(SMALL_SIZE);
+  ASSERT_EQ(this->values_, this->values_out_);
+  std::vector<Encoding::type> encodings = this->metadata_encodings();
+  // There are 3 encodings (RLE, PLAIN_DICTIONARY, PLAIN) in a fallback case
+  // Dictionary encoding is not allowed for boolean type
+  // There are 2 encodings (RLE, PLAIN) in a non dictionary encoding case
+  ASSERT_EQ(Encoding::RLE, encodings[0]);
+  if (this->type_num() != Type::BOOLEAN) {
+    ASSERT_EQ(Encoding::PLAIN_DICTIONARY, encodings[1]);
+    ASSERT_EQ(Encoding::PLAIN, encodings[2]);
+  } else {
+    ASSERT_EQ(Encoding::PLAIN, encodings[1]);
+  }
 }
 
 }  // namespace test
