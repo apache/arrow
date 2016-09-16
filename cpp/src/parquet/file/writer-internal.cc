@@ -66,9 +66,9 @@ std::shared_ptr<Buffer> SerializedPageWriter::Compress(
   return compression_buffer_;
 }
 
-int64_t SerializedPageWriter::WriteDataPage(const DataPage& page) {
-  int64_t uncompressed_size = page.size();
-  std::shared_ptr<Buffer> compressed_data = Compress(page.buffer());
+int64_t SerializedPageWriter::WriteDataPage(const CompressedDataPage& page) {
+  int64_t uncompressed_size = page.uncompressed_size();
+  std::shared_ptr<Buffer> compressed_data = page.buffer();
 
   format::DataPageHeader data_page_header;
   data_page_header.__set_num_values(page.num_values());

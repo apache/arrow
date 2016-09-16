@@ -95,6 +95,21 @@ class DataPage : public Page {
   std::string min_;
 };
 
+class CompressedDataPage : public DataPage {
+ public:
+  CompressedDataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
+      Encoding::type encoding, Encoding::type definition_level_encoding,
+      Encoding::type repetition_level_encoding, int64_t uncompressed_size)
+      : DataPage(buffer, num_values, encoding, definition_level_encoding,
+            repetition_level_encoding),
+        uncompressed_size_(uncompressed_size) {}
+
+  int64_t uncompressed_size() const { return uncompressed_size_; }
+
+ private:
+  int64_t uncompressed_size_;
+};
+
 class DataPageV2 : public Page {
  public:
   DataPageV2(const std::shared_ptr<Buffer>& buffer, int32_t num_values, int32_t num_nulls,
@@ -176,9 +191,11 @@ class PageWriter {
   // page limit
   virtual void Close(bool has_dictionary, bool fallback) = 0;
 
-  virtual int64_t WriteDataPage(const DataPage& page) = 0;
+  virtual int64_t WriteDataPage(const CompressedDataPage& page) = 0;
 
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
+
+  virtual std::shared_ptr<Buffer> Compress(const std::shared_ptr<Buffer>& buffer) = 0;
 };
 
 }  // namespace parquet

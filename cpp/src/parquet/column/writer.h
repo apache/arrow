@@ -72,7 +72,7 @@ class PARQUET_EXPORT ColumnWriter {
   void AddDataPage();
 
   // Serializes Data Pages
-  void WriteDataPage(const DataPage& page);
+  void WriteDataPage(const CompressedDataPage& page);
 
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels);
@@ -128,7 +128,7 @@ class PARQUET_EXPORT ColumnWriter {
   std::unique_ptr<InMemoryOutputStream> definition_levels_sink_;
   std::unique_ptr<InMemoryOutputStream> repetition_levels_sink_;
 
-  std::vector<DataPage> data_pages_;
+  std::vector<CompressedDataPage> data_pages_;
 
  private:
   void InitSinks();

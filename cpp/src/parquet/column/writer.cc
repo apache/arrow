@@ -116,8 +116,10 @@ void ColumnWriter::AddDataPage() {
   memcpy(uncompressed_ptr, definition_levels->data(), definition_levels->size());
   uncompressed_ptr += definition_levels->size();
   memcpy(uncompressed_ptr, values->data(), values->size());
-  DataPage page(
-      uncompressed_data, num_buffered_values_, encoding_, Encoding::RLE, Encoding::RLE);
+
+  std::shared_ptr<Buffer> compressed_data = pager_->Compress(uncompressed_data);
+  CompressedDataPage page(compressed_data, num_buffered_values_, encoding_, Encoding::RLE,
+      Encoding::RLE, uncompressed_size);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -133,7 +135,7 @@ void ColumnWriter::AddDataPage() {
   num_buffered_encoded_values_ = 0;
 }
 
-void ColumnWriter::WriteDataPage(const DataPage& page) {
+void ColumnWriter::WriteDataPage(const CompressedDataPage& page) {
   int64_t bytes_written = pager_->WriteDataPage(page);
   total_bytes_written_ += bytes_written;
 }

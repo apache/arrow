@@ -40,9 +40,17 @@ class SerializedPageWriter : public PageWriter {
 
   virtual ~SerializedPageWriter() {}
 
-  int64_t WriteDataPage(const DataPage& page) override;
+  int64_t WriteDataPage(const CompressedDataPage& page) override;
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override;
+
+  /**
+   * Compress a buffer.
+   *
+   * This method may return compression_buffer_ and thus the resulting memory
+   * is only valid until the next call to Compress().
+   */
+  std::shared_ptr<Buffer> Compress(const std::shared_ptr<Buffer>& buffer) override;
 
   void Close(bool has_dictionary, bool fallback) override;
 
@@ -58,14 +66,6 @@ class SerializedPageWriter : public PageWriter {
   // Compression codec to use.
   std::unique_ptr<Codec> compressor_;
   std::shared_ptr<OwnedMutableBuffer> compression_buffer_;
-
-  /**
-   * Compress a buffer.
-   *
-   * This method may return compression_buffer_ and thus the resulting memory
-   * is only valid until the next call to Compress().
-   */
-  std::shared_ptr<Buffer> Compress(const std::shared_ptr<Buffer>& buffer);
 };
 
 // RowGroupWriter::Contents implementation for the Parquet file specification
