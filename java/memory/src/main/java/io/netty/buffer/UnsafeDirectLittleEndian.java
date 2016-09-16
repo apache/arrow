@@ -26,6 +26,8 @@ import java.io.OutputStream;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.netty.util.internal.PlatformDependent;
+
 /**
  * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to abstract away the
  * Netty classes and underlying Netty memory management.

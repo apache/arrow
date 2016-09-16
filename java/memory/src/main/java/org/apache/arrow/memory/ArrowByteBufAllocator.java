@@ -39,6 +39,10 @@ public class ArrowByteBufAllocator implements ByteBufAllocator {
     this.allocator = allocator;
   }
 
+  public BufferAllocator unwrap() {
+    return allocator;
+  }
+
   @Override
   public ByteBuf buffer() {
     return buffer(DEFAULT_BUFFER_SIZE);

@@ -17,10 +17,6 @@
  */
 package org.apache.arrow.memory;
 
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -32,6 +28,9 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 
 import com.google.common.base.Preconditions;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 public abstract class BaseAllocator extends Accountant implements BufferAllocator {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
@@ -47,7 +46,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
 
   private final BaseAllocator parentAllocator;
-  private final ByteBufAllocator thisAsByteBufAllocator;
+  private final ArrowByteBufAllocator thisAsByteBufAllocator;
   private final IdentityHashMap<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
 
@@ -247,7 +246,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public ByteBufAllocator getAsByteBufAllocator() {
+  public ArrowByteBufAllocator getAsByteBufAllocator() {
     return thisAsByteBufAllocator;
   }
 
