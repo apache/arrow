@@ -21,7 +21,7 @@
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.parquet cimport *
-from pyarrow.includes.libarrow_io cimport RandomAccessFile, WriteableFile
+from pyarrow.includes.libarrow_io cimport ReadableFileInterface
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import tobytes
@@ -55,7 +55,7 @@ cdef class ParquetReader:
                            ParquetFileReader.OpenFile(path)))
 
     cdef open_native_file(self, NativeFileInterface file):
-        cdef shared_ptr[RandomAccessFile] cpp_handle
+        cdef shared_ptr[ReadableFileInterface] cpp_handle
         file.read_handle(&cpp_handle)
 
         check_cstatus(OpenFile(cpp_handle, &self.allocator, &self.reader))
@@ -105,7 +105,7 @@ def write_table(table, filename, chunk_size=None, version=None):
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
-    cdef shared_ptr[OutputStream] sink
+    cdef shared_ptr[ParquetOutputStream] sink
     cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:

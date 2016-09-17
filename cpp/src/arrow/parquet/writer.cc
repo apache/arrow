@@ -334,7 +334,7 @@ Status WriteFlatTable(const Table* table, MemoryPool* pool,
   std::shared_ptr<::parquet::SchemaDescriptor> parquet_schema;
   RETURN_NOT_OK(
       ToParquetSchema(table->schema().get(), *properties.get(), &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema());
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
   std::unique_ptr<ParquetFileWriter> parquet_writer =
       ParquetFileWriter::Open(sink, schema_node, properties);
   FileWriter writer(pool, std::move(parquet_writer));

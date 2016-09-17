@@ -29,25 +29,41 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
 
-    cdef cppclass FileBase:
+    cdef cppclass FileInterface:
         CStatus Close()
         CStatus Tell(int64_t* position)
+        FileMode mode()
 
-    cdef cppclass ReadableFile(FileBase):
+    cdef cppclass Readable:
+        CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
+
+    cdef cppclass Seekable:
+        CStatus Seek(int64_t position)
+
+    cdef cppclass Writeable:
+        CStatus Write(const uint8_t* data, int64_t nbytes)
+
+    cdef cppclass OutputStream(FileInterface, Writeable):
+        pass
+
+    cdef cppclass InputStream(FileInterface, Readable):
+        pass
+
+    cdef cppclass ReadableFileInterface(InputStream, Seekable):
         CStatus GetSize(int64_t* size)
-        CStatus Read(int64_t nbytes, int64_t* bytes_read,
-                     uint8_t* buffer)
 
         CStatus ReadAt(int64_t position, int64_t nbytes,
                        int64_t* bytes_read, uint8_t* buffer)
+        CStatus ReadAt(int64_t position, int64_t nbytes,
+                       int64_t* bytes_read, shared_ptr[Buffer]* out)
 
-    cdef cppclass RandomAccessFile(ReadableFile):
-        CStatus Seek(int64_t position)
+    cdef cppclass WriteableFileInterface(OutputStream, Seekable):
+        CStatus WriteAt(int64_t position, const uint8_t* data,
+                        int64_t nbytes)
 
-    cdef cppclass WriteableFile(FileBase):
-        CStatus Write(const uint8_t* buffer, int64_t nbytes)
-        # CStatus Write(const uint8_t* buffer, int64_t nbytes,
-        #               int64_t* bytes_written)
+    cdef cppclass ReadWriteFileInterface(ReadableFileInterface,
+                                         WriteableFileInterface):
+        pass
 
 
 cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
@@ -70,10 +86,10 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         int64_t block_size
         int16_t permissions
 
-    cdef cppclass HdfsReadableFile(RandomAccessFile):
+    cdef cppclass HdfsReadableFile(ReadableFileInterface):
         pass
 
-    cdef cppclass HdfsWriteableFile(WriteableFile):
+    cdef cppclass HdfsOutputStream(OutputStream):
         pass
 
     cdef cppclass CHdfsClient" arrow::io::HdfsClient":
@@ -103,4 +119,4 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus OpenWriteable(const c_string& path, c_bool append,
                               int32_t buffer_size, int16_t replication,
                               int64_t default_block_size,
-                              shared_ptr[HdfsWriteableFile]* handle)
+                              shared_ptr[HdfsOutputStream]* handle)

@@ -202,7 +202,7 @@ Status FromParquetSchema(
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
   // from the root Parquet node
   const GroupNode* schema_node =
-      static_cast<const GroupNode*>(parquet_schema->schema().get());
+      static_cast<const GroupNode*>(parquet_schema->group_node());
 
   std::vector<std::shared_ptr<Field>> fields(schema_node->field_count());
   for (int i = 0; i < schema_node->field_count(); i++) {

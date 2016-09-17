@@ -24,20 +24,20 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/ipc/memory.h"
-#include "arrow/ipc/test-common.h"
+#include "arrow/io/memory.h"
+#include "arrow/io/test-common.h"
 
 namespace arrow {
-namespace ipc {
+namespace io {
 
-class TestMemoryMappedSource : public ::testing::Test, public MemoryMapFixture {
+class TestMemoryMappedFile : public ::testing::Test, public MemoryMapFixture {
  public:
   void TearDown() { MemoryMapFixture::TearDown(); }
 };
 
-TEST_F(TestMemoryMappedSource, InvalidUsages) {}
+TEST_F(TestMemoryMappedFile, InvalidUsages) {}
 
-TEST_F(TestMemoryMappedSource, WriteRead) {
+TEST_F(TestMemoryMappedFile, WriteRead) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
@@ -48,14 +48,13 @@ TEST_F(TestMemoryMappedSource, WriteRead) {
   std::string path = "ipc-write-read-test";
   CreateFile(path, reps * buffer_size);
 
-  std::shared_ptr<MemoryMappedSource> result;
-  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_WRITE, &result));
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &result));
 
   int64_t position = 0;
-
   std::shared_ptr<Buffer> out_buffer;
   for (int i = 0; i < reps; ++i) {
-    ASSERT_OK(result->Write(position, buffer.data(), buffer_size));
+    ASSERT_OK(result->Write(buffer.data(), buffer_size));
     ASSERT_OK(result->ReadAt(position, buffer_size, &out_buffer));
 
     ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
@@ -64,7 +63,7 @@ TEST_F(TestMemoryMappedSource, WriteRead) {
   }
 }
 
-TEST_F(TestMemoryMappedSource, ReadOnly) {
+TEST_F(TestMemoryMappedFile, ReadOnly) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
@@ -75,19 +74,18 @@ TEST_F(TestMemoryMappedSource, ReadOnly) {
   std::string path = "ipc-read-only-test";
   CreateFile(path, reps * buffer_size);
 
-  std::shared_ptr<MemoryMappedSource> rwmmap;
-  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_WRITE, &rwmmap));
+  std::shared_ptr<MemoryMappedFile> rwmmap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
 
   int64_t position = 0;
   for (int i = 0; i < reps; ++i) {
-    ASSERT_OK(rwmmap->Write(position, buffer.data(), buffer_size));
-
+    ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
     position += buffer_size;
   }
   rwmmap->Close();
 
-  std::shared_ptr<MemoryMappedSource> rommap;
-  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
 
   position = 0;
   std::shared_ptr<Buffer> out_buffer;
@@ -100,7 +98,7 @@ TEST_F(TestMemoryMappedSource, ReadOnly) {
   rommap->Close();
 }
 
-TEST_F(TestMemoryMappedSource, InvalidMode) {
+TEST_F(TestMemoryMappedFile, InvalidMode) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
@@ -109,19 +107,19 @@ TEST_F(TestMemoryMappedSource, InvalidMode) {
   std::string path = "ipc-invalid-mode-test";
   CreateFile(path, buffer_size);
 
-  std::shared_ptr<MemoryMappedSource> rommap;
-  ASSERT_OK(MemoryMappedSource::Open(path, MemorySource::READ_ONLY, &rommap));
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
 
-  ASSERT_RAISES(IOError, rommap->Write(0, buffer.data(), buffer_size));
+  ASSERT_RAISES(IOError, rommap->Write(buffer.data(), buffer_size));
 }
 
-TEST_F(TestMemoryMappedSource, InvalidFile) {
+TEST_F(TestMemoryMappedFile, InvalidFile) {
   std::string non_existent_path = "invalid-file-name-asfd";
 
-  std::shared_ptr<MemoryMappedSource> result;
-  ASSERT_RAISES(IOError,
-      MemoryMappedSource::Open(non_existent_path, MemorySource::READ_ONLY, &result));
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_RAISES(
+      IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
 }
 
-}  // namespace ipc
+}  // namespace io
 }  // namespace arrow

@@ -34,31 +34,6 @@
 namespace arrow {
 namespace ipc {
 
-class MemoryMapFixture {
- public:
-  void TearDown() {
-    for (auto path : tmp_files_) {
-      std::remove(path.c_str());
-    }
-  }
-
-  void CreateFile(const std::string path, int64_t size) {
-    FILE* file = fopen(path.c_str(), "w");
-    if (file != nullptr) { tmp_files_.push_back(path); }
-    ftruncate(fileno(file), size);
-    fclose(file);
-  }
-
-  Status InitMemoryMap(
-      int64_t size, const std::string& path, std::shared_ptr<MemoryMappedSource>* mmap) {
-    CreateFile(path, size);
-    return MemoryMappedSource::Open(path, MemorySource::READ_WRITE, mmap);
-  }
-
- private:
-  std::vector<std::string> tmp_files_;
-};
-
 Status MakeRandomInt32Array(
     int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* array) {
   std::shared_ptr<PoolBuffer> data;

@@ -178,8 +178,7 @@ class TestConvertArrowSchema : public ::testing::Test {
     NodePtr schema_node = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     const GroupNode* expected_schema_node =
         static_cast<const GroupNode*>(schema_node.get());
-    const GroupNode* result_schema_node =
-        static_cast<const GroupNode*>(result_schema_->schema().get());
+    const GroupNode* result_schema_node = result_schema_->group_node();
 
     ASSERT_EQ(expected_schema_node->field_count(), result_schema_node->field_count());
 

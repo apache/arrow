@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Buffer;
@@ -36,6 +38,7 @@ namespace ipc {
 // Message read/write APIs
 
 // Serialize arrow::Schema as a Flatbuffer
+ARROW_EXPORT
 Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out);
 
 //----------------------------------------------------------------------
@@ -47,7 +50,7 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out);
 class Message;
 
 // Container for serialized Schema metadata contained in an IPC message
-class SchemaMessage {
+class ARROW_EXPORT SchemaMessage {
  public:
   // Accepts an opaque flatbuffer pointer
   SchemaMessage(const std::shared_ptr<Message>& message, const void* schema);
@@ -82,7 +85,7 @@ struct BufferMetadata {
 };
 
 // Container for serialized record batch metadata contained in an IPC message
-class RecordBatchMessage {
+class ARROW_EXPORT RecordBatchMessage {
  public:
   // Accepts an opaque flatbuffer pointer
   RecordBatchMessage(const std::shared_ptr<Message>& message, const void* batch_meta);
@@ -102,13 +105,13 @@ class RecordBatchMessage {
   std::unique_ptr<Impl> impl_;
 };
 
-class DictionaryBatchMessage {
+class ARROW_EXPORT DictionaryBatchMessage {
  public:
   int64_t id() const;
   std::unique_ptr<RecordBatchMessage> data() const;
 };
 
-class Message : public std::enable_shared_from_this<Message> {
+class ARROW_EXPORT Message : public std::enable_shared_from_this<Message> {
  public:
   enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
 

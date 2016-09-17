@@ -142,6 +142,15 @@ Status HdfsReadableFile::ReadAt(
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
 }
 
+Status HdfsReadableFile::ReadAt(
+    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  return Status::NotImplemented("Not yet implemented");
+}
+
+bool HdfsReadableFile::supports_zero_copy() const {
+  return false;
+}
+
 Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
 }
@@ -162,9 +171,9 @@ Status HdfsReadableFile::Tell(int64_t* position) {
 // File writing
 
 // Private implementation for writeable-only files
-class HdfsWriteableFile::HdfsWriteableFileImpl : public HdfsAnyFileImpl {
+class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
  public:
-  HdfsWriteableFileImpl() {}
+  HdfsOutputStreamImpl() {}
 
   Status Close() {
     if (is_open_) {
@@ -185,29 +194,29 @@ class HdfsWriteableFile::HdfsWriteableFileImpl : public HdfsAnyFileImpl {
   }
 };
 
-HdfsWriteableFile::HdfsWriteableFile() {
-  impl_.reset(new HdfsWriteableFileImpl());
+HdfsOutputStream::HdfsOutputStream() {
+  impl_.reset(new HdfsOutputStreamImpl());
 }
 
-HdfsWriteableFile::~HdfsWriteableFile() {
+HdfsOutputStream::~HdfsOutputStream() {
   impl_->Close();
 }
 
-Status HdfsWriteableFile::Close() {
+Status HdfsOutputStream::Close() {
   return impl_->Close();
 }
 
-Status HdfsWriteableFile::Write(
+Status HdfsOutputStream::Write(
     const uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);
 }
 
-Status HdfsWriteableFile::Write(const uint8_t* buffer, int64_t nbytes) {
+Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes) {
   int64_t bytes_written_dummy = 0;
   return Write(buffer, nbytes, &bytes_written_dummy);
 }
 
-Status HdfsWriteableFile::Tell(int64_t* position) {
+Status HdfsOutputStream::Tell(int64_t* position) {
   return impl_->Tell(position);
 }
 
@@ -347,7 +356,7 @@ class HdfsClient::HdfsClientImpl {
 
   Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
       int16_t replication, int64_t default_block_size,
-      std::shared_ptr<HdfsWriteableFile>* file) {
+      std::shared_ptr<HdfsOutputStream>* file) {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
@@ -362,7 +371,7 @@ class HdfsClient::HdfsClientImpl {
     }
 
     // std::make_shared does not work with private ctors
-    *file = std::shared_ptr<HdfsWriteableFile>(new HdfsWriteableFile());
+    *file = std::shared_ptr<HdfsOutputStream>(new HdfsOutputStream());
     (*file)->impl_->set_members(path, fs_, handle);
 
     return Status::OK();
@@ -440,13 +449,13 @@ Status HdfsClient::OpenReadable(
 
 Status HdfsClient::OpenWriteable(const std::string& path, bool append,
     int32_t buffer_size, int16_t replication, int64_t default_block_size,
-    std::shared_ptr<HdfsWriteableFile>* file) {
+    std::shared_ptr<HdfsOutputStream>* file) {
   return impl_->OpenWriteable(
       path, append, buffer_size, replication, default_block_size, file);
 }
 
 Status HdfsClient::OpenWriteable(
-    const std::string& path, bool append, std::shared_ptr<HdfsWriteableFile>* file) {
+    const std::string& path, bool append, std::shared_ptr<HdfsOutputStream>* file) {
   return OpenWriteable(path, append, 0, 0, 0, file);
 }
 

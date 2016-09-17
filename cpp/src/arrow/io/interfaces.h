@@ -21,8 +21,11 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 
+class Buffer;
 class Status;
 
 namespace io {
@@ -40,30 +43,78 @@ class FileSystemClient {
   virtual ~FileSystemClient() {}
 };
 
-class FileBase {
+class FileInterface {
  public:
+  virtual ~FileInterface() {}
   virtual Status Close() = 0;
   virtual Status Tell(int64_t* position) = 0;
+
+  FileMode::type mode() const { return mode_; }
+
+ protected:
+  FileInterface() {}
+  FileMode::type mode_;
+
+  void set_mode(FileMode::type mode) { mode_ = mode; }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(FileInterface);
 };
 
-class ReadableFile : public FileBase {
- public:
-  virtual Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) = 0;
-
-  virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) = 0;
-
-  virtual Status GetSize(int64_t* size) = 0;
-};
-
-class RandomAccessFile : public ReadableFile {
+class Seekable {
  public:
   virtual Status Seek(int64_t position) = 0;
 };
 
-class WriteableFile : public FileBase {
+class Writeable {
  public:
-  virtual Status Write(const uint8_t* buffer, int64_t nbytes) = 0;
+  virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
+};
+
+class Readable {
+ public:
+  virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
+};
+
+class OutputStream : public FileInterface, public Writeable {
+ protected:
+  OutputStream() {}
+};
+
+class InputStream : public FileInterface, public Readable {
+ protected:
+  InputStream() {}
+};
+
+class ReadableFileInterface : public InputStream, public Seekable {
+ public:
+  virtual Status ReadAt(
+      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
+
+  virtual Status GetSize(int64_t* size) = 0;
+
+  // Does not copy if not necessary
+  virtual Status ReadAt(
+      int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
+
+  virtual bool supports_zero_copy() const = 0;
+
+ protected:
+  ReadableFileInterface() { set_mode(FileMode::READ); }
+};
+
+class WriteableFileInterface : public OutputStream, public Seekable {
+ public:
+  virtual Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) = 0;
+
+ protected:
+  WriteableFileInterface() { set_mode(FileMode::READ); }
+};
+
+class ReadWriteFileInterface : public ReadableFileInterface,
+                               public WriteableFileInterface {
+ protected:
+  ReadWriteFileInterface() { ReadableFileInterface::set_mode(FileMode::READWRITE); }
 };
 
 }  // namespace io

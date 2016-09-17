@@ -220,9 +220,8 @@ static Status FieldToFlatbuffer(
   auto fb_children = fbb.CreateVector(children);
 
   // TODO: produce the list of VectorTypes
-  *offset = flatbuf::CreateField(
-      fbb, fb_name, field->nullable, type_enum, type_data, field->dictionary,
-      fb_children);
+  *offset = flatbuf::CreateField(fbb, fb_name, field->nullable, type_enum, type_data,
+      field->dictionary, fb_children);
 
   return Status::OK();
 }
@@ -295,8 +294,8 @@ Status WriteDataHeader(int32_t length, int64_t body_length,
 }
 
 Status MessageBuilder::Finish() {
-  auto message = flatbuf::CreateMessage(fbb_, kMetadataVersion,
-      header_type_, header_, body_length_);
+  auto message =
+      flatbuf::CreateMessage(fbb_, kMetadataVersion, header_type_, header_, body_length_);
   fbb_.Finish(message);
   return Status::OK();
 }
