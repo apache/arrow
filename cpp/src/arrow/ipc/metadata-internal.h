@@ -24,7 +24,9 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+#include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/metadata.h"
 
 namespace arrow {
 
@@ -37,10 +39,17 @@ class Status;
 
 namespace ipc {
 
+using FBB = flatbuffers::FlatBufferBuilder;
+using FieldOffset = flatbuffers::Offset<arrow::flatbuf::Field>;
+using Offset = flatbuffers::Offset<void>;
+
 static constexpr flatbuf::MetadataVersion kMetadataVersion =
     flatbuf::MetadataVersion_V1_SNAPSHOT;
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
+
+Status SchemaToFlatbuffer(
+    FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out);
 
 class MessageBuilder {
  public:

@@ -70,14 +70,20 @@ set_source_files_properties(Metadata_generated.h PROPERTIES GENERATED TRUE)
 set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/arrow/ipc)
 set(FBS_OUTPUT_FILES "${OUTPUT_DIR}/Message_generated.h")
 
-set(FBS_SRC ${CMAKE_SOURCE_DIR}/../format/Message.fbs)
-get_filename_component(ABS_FBS_SRC ${FBS_SRC} ABSOLUTE)
+set(FBS_SRC
+  ${CMAKE_SOURCE_DIR}/../format/Message.fbs
+  ${CMAKE_SOURCE_DIR}/../format/File.fbs)
+
+foreach(FIL ${FBS_SRC})
+  get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
+  list(APPEND ABS_FBS_SRC ${ABS_FIL})
+endforeach()
 
 add_custom_command(
   OUTPUT ${FBS_OUTPUT_FILES}
   COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
   DEPENDS ${ABS_FBS_SRC}
-  COMMENT "Running flatc compiler on ${FBS_SRC}"
+  COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
   VERBATIM
 )
 

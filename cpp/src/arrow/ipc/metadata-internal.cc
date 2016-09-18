@@ -31,10 +31,6 @@
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
-typedef flatbuffers::FlatBufferBuilder FBB;
-typedef flatbuffers::Offset<arrow::flatbuf::Field> FieldOffset;
-typedef flatbuffers::Offset<void> Offset;
-
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
@@ -255,19 +251,26 @@ flatbuf::Endianness endianness() {
   return bint.c[0] == 1 ? flatbuf::Endianness_Big : flatbuf::Endianness_Little;
 }
 
-Status MessageBuilder::SetSchema(const Schema* schema) {
-  header_type_ = flatbuf::MessageHeader_Schema;
-
+Status SchemaToFlatbuffer(
+    FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out) {
   std::vector<FieldOffset> field_offsets;
   for (int i = 0; i < schema->num_fields(); ++i) {
     const std::shared_ptr<Field>& field = schema->field(i);
     FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb_, field, &offset));
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, &offset));
     field_offsets.push_back(offset);
   }
 
-  header_ =
-      flatbuf::CreateSchema(fbb_, endianness(), fbb_.CreateVector(field_offsets)).Union();
+  *out = flatbuf::CreateSchema(fbb, endianness(), fbb.CreateVector(field_offsets));
+  return Status::OK();
+}
+
+Status MessageBuilder::SetSchema(const Schema* schema) {
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, &fb_schema));
+
+  header_type_ = flatbuf::MessageHeader_Schema;
+  header_ = fb_schema.Union();
   body_length_ = 0;
   return Status::OK();
 }

@@ -9,6 +9,7 @@ Currently, the Arrow specification consists of these pieces:
 - Metadata specification (see Metadata.md)
 - Physical memory layout specification (see Layout.md)
 - Metadata serialized representation (see Message.fbs)
+- Mechanics of messaging between Arrow systems (IPC, RPC, etc.) (see IPC.md)
 
 The metadata currently uses Google's [flatbuffers library][1] for serializing a
 couple related pieces of information:
