@@ -18,6 +18,7 @@ else
       "gtest")      F_GTEST=1 ;;
       "gbenchmark")      F_GBENCHMARK=1 ;;
       "flatbuffers")      F_FLATBUFFERS=1 ;;
+      "libhdfs3")      F_LIBHDFS3=1 ;;
       *)            echo "Unknown module: $arg"; exit 1 ;;
     esac
   done
@@ -87,6 +88,20 @@ if [ -n "$F_ALL" -o -n "$F_FLATBUFFERS" ]; then
   make VERBOSE=1 -j$PARALLEL || { echo "make $FLATBUFFERS_ERROR" ; exit 1; }
   make install || { echo "install $FLATBUFFERS_ERROR" ; exit 1; }
 fi
+
+LIBHDFS3_ERROR="failed for libhdfs3"
+if [ -n "$F_ALL" -o -n "$F_LIBHDFS3" ]; then
+  cd $TP_DIR/$LIBHDFS3_BASEDIR
+  rm -rf build
+  mkdir build
+  cd build
+  pwd
+  ../bootstrap --prefix=$PREFIX
+  make install || { echo "install $LIBHDFS3_ERROR" ; exit 1; }
+fi
+
+
+
 
 echo "---------------------"
 echo "Thirdparty dependencies built and installed into $PREFIX successfully"
