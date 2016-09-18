@@ -20,6 +20,8 @@
 
 #include "parquet/column/reader.h"
 
+namespace parquet {
+
 template <typename RType>
 int64_t ScanAll(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
     uint8_t* values, int64_t* values_buffered, parquet::ColumnReader* reader) {
@@ -30,38 +32,10 @@ int64_t ScanAll(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
       batch_size, def_levels, rep_levels, vals, values_buffered);
 }
 
-int64_t ScanAllValues(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-    uint8_t* values, int64_t* values_buffered, parquet::ColumnReader* reader) {
-  switch (reader->type()) {
-    case parquet::Type::BOOLEAN:
-      return ScanAll<parquet::BoolReader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::INT32:
-      return ScanAll<parquet::Int32Reader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::INT64:
-      return ScanAll<parquet::Int64Reader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::INT96:
-      return ScanAll<parquet::Int96Reader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::FLOAT:
-      return ScanAll<parquet::FloatReader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::DOUBLE:
-      return ScanAll<parquet::DoubleReader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::BYTE_ARRAY:
-      return ScanAll<parquet::ByteArrayReader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-      return ScanAll<parquet::FixedLenByteArrayReader>(
-          batch_size, def_levels, rep_levels, values, values_buffered, reader);
-    default:
-      parquet::ParquetException::NYI("type reader not implemented");
-  }
-  // Unreachable code, but supress compiler warning
-  return 0;
-}
+int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
+    int16_t* rep_levels, uint8_t* values, int64_t* values_buffered,
+    parquet::ColumnReader* reader);
+
+}  // namespace parquet
 
 #endif  // PARQUET_SCAN_ALL_H
