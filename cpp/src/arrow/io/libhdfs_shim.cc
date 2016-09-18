@@ -51,8 +51,7 @@ extern "C" {
 #include <type_traits>
 #include <vector>
 
-#include <boost/filesystem.hpp>        // NOLINT
-#include <boost/algorithm/string.hpp>  // NOLINT
+#include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/util/status.h"
 #include "arrow/util/visibility.h"

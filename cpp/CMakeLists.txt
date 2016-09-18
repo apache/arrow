@@ -626,12 +626,6 @@ set(ARROW_SRCS
   src/arrow/table.cc
   src/arrow/type.cc
 
-  # IPC / Shared memory library; to be turned into an optional component
-  src/arrow/ipc/adapter.cc
-  src/arrow/ipc/memory.cc
-  src/arrow/ipc/metadata.cc
-  src/arrow/ipc/metadata-internal.cc
-
   src/arrow/types/construct.cc
   src/arrow/types/decimal.cc
   src/arrow/types/json.cc

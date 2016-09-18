@@ -33,9 +33,15 @@ class RowBatch;
 class Schema;
 class Status;
 
+namespace io {
+
+class ReadableFileInterface;
+class OutputStream;
+
+}  // namespace io
+
 namespace ipc {
 
-class MemorySource;
 class RecordBatchMessage;
 
 // ----------------------------------------------------------------------
@@ -43,22 +49,21 @@ class RecordBatchMessage;
 // We have trouble decoding flatbuffers if the size i > 70, so 64 is a nice round number
 // TODO(emkornfield) investigate this more
 constexpr int kMaxIpcRecursionDepth = 64;
-// Write the RowBatch (collection of equal-length Arrow arrays) to the memory
-// source at the indicated position
+
+// Write the RowBatch (collection of equal-length Arrow arrays) to the output
+// stream
 //
-// First, each of the memory buffers are written out end-to-end in starting at
-// the indicated position.
+// First, each of the memory buffers are written out end-to-end
 //
 // Then, this function writes the batch metadata as a flatbuffer (see
 // format/Message.fbs -- the RecordBatch message type) like so:
 //
 // <int32: metadata size> <uint8*: metadata>
 //
-// Finally, the memory offset to the start of the metadata / data header is
-// returned in an out-variable
-ARROW_EXPORT Status WriteRowBatch(MemorySource* dst, const RowBatch* batch,
-    int64_t position, int64_t* header_offset,
-    int max_recursion_depth = kMaxIpcRecursionDepth);
+// Finally, the absolute offset (relative to the start of the output stream) to
+// the start of the metadata / data header is returned in an out-variable
+ARROW_EXPORT Status WriteRowBatch(io::OutputStream* dst, const RowBatch* batch,
+    int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRowBatchMetadata(const RowBatch* batch);
 
@@ -68,15 +73,15 @@ ARROW_EXPORT Status WriteRowBatch(MemorySource* dst, const RowBatch* batch,
 ARROW_EXPORT Status GetRowBatchSize(const RowBatch* batch, int64_t* size);
 
 // ----------------------------------------------------------------------
-// "Read" path; does not copy data if the MemorySource does not
+// "Read" path; does not copy data if the input supports zero copy reads
 
 class ARROW_EXPORT RowBatchReader {
  public:
-  static Status Open(
-      MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out);
-
-  static Status Open(MemorySource* source, int64_t position, int max_recursion_depth,
+  static Status Open(io::ReadableFileInterface* file, int64_t position,
       std::shared_ptr<RowBatchReader>* out);
+
+  static Status Open(io::ReadableFileInterface* file, int64_t position,
+      int max_recursion_depth, std::shared_ptr<RowBatchReader>* out);
 
   virtual ~RowBatchReader();
 
@@ -86,8 +91,8 @@ class ARROW_EXPORT RowBatchReader {
       const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out);
 
  private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  class RowBatchReaderImpl;
+  std::unique_ptr<RowBatchReaderImpl> impl_;
 };
 
 }  // namespace ipc

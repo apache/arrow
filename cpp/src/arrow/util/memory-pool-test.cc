@@ -64,6 +64,6 @@ TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
   pool->Free(data, 100);
 }
 
-#endif // ARROW_VALGRIND
+#endif  // ARROW_VALGRIND
 
 }  // namespace arrow

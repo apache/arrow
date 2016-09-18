@@ -149,7 +149,7 @@ struct ARROW_EXPORT Field {
   int64_t dictionary;
 
   Field(const std::string& name, const TypePtr& type, bool nullable = true,
-        int64_t dictionary = 0)
+      int64_t dictionary = 0)
       : name(name), type(type), nullable(nullable), dictionary(dictionary) {}
 
   bool operator==(const Field& other) const { return this->Equals(other); }
@@ -159,7 +159,7 @@ struct ARROW_EXPORT Field {
   bool Equals(const Field& other) const {
     return (this == &other) ||
            (this->name == other.name && this->nullable == other.nullable &&
-            this->dictionary == dictionary && this->type->Equals(other.type.get()));
+               this->dictionary == dictionary && this->type->Equals(other.type.get()));
   }
 
   bool Equals(const std::shared_ptr<Field>& other) const { return Equals(*other.get()); }

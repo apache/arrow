@@ -19,7 +19,8 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_io cimport RandomAccessFile, WriteableFile
+from pyarrow.includes.libarrow_io cimport (ReadableFileInterface,
+                                           OutputStream)
 
 
 cdef class NativeFileInterface:
@@ -28,5 +29,5 @@ cdef class NativeFileInterface:
     # extension classes are technically virtual in the C++ sense)m we can
     # expose the arrow::io abstract file interfaces to other components
     # throughout the suite of Arrow C++ libraries
-    cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
-    cdef write_handle(self, shared_ptr[WriteableFile]* file)
+    cdef read_handle(self, shared_ptr[ReadableFileInterface]* file)
+    cdef write_handle(self, shared_ptr[OutputStream]* file)

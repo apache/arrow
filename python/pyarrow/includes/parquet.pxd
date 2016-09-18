@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CSchema, CStatus, CTable, MemoryPool
-from pyarrow.includes.libarrow_io cimport RandomAccessFile
+from pyarrow.includes.libarrow_io cimport ReadableFileInterface
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -78,10 +78,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
-    cdef cppclass OutputStream:
+    cdef cppclass ParquetOutputStream" parquet::OutputStream":
         pass
 
-    cdef cppclass LocalFileOutputStream(OutputStream):
+    cdef cppclass LocalFileOutputStream(ParquetOutputStream):
         LocalFileOutputStream(const c_string& path)
         void Close()
 
@@ -100,11 +100,11 @@ cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
 
     cdef cppclass ParquetReadSource:
         ParquetReadSource(ParquetAllocator* allocator)
-        Open(const shared_ptr[RandomAccessFile]& file)
+        Open(const shared_ptr[ReadableFileInterface]& file)
 
 
 cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:
-    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
+    CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
                      ParquetAllocator* allocator,
                      unique_ptr[FileReader]* reader)
 
@@ -121,6 +121,8 @@ cdef extern from "arrow/parquet/schema.h" namespace "arrow::parquet" nogil:
 
 
 cdef extern from "arrow/parquet/writer.h" namespace "arrow::parquet" nogil:
-    cdef CStatus WriteFlatTable(const CTable* table, MemoryPool* pool,
-            const shared_ptr[OutputStream]& sink, int64_t chunk_size,
-            const shared_ptr[WriterProperties]& properties)
+    cdef CStatus WriteFlatTable(
+        const CTable* table, MemoryPool* pool,
+        const shared_ptr[ParquetOutputStream]& sink,
+        int64_t chunk_size,
+        const shared_ptr[WriterProperties]& properties)

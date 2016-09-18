@@ -149,7 +149,7 @@ bool FileReader::Impl::CheckForFlatColumn(const ::parquet::ColumnDescriptor* des
 }
 
 Status FileReader::Impl::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) {
-  const ::parquet::SchemaDescriptor* schema = reader_->metadata()->schema_descriptor();
+  const ::parquet::SchemaDescriptor* schema = reader_->metadata()->schema();
 
   if (!CheckForFlatColumn(schema->Column(i))) {
     return Status::Invalid("The requested column is not flat");
@@ -167,9 +167,9 @@ Status FileReader::Impl::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
 }
 
 Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
-  auto descr = reader_->metadata()->schema_descriptor();
+  auto descr = reader_->metadata()->schema();
 
-  const std::string& name = descr->schema()->name();
+  const std::string& name = descr->name();
   std::shared_ptr<Schema> schema;
   RETURN_NOT_OK(FromParquetSchema(descr, &schema));
 
@@ -193,7 +193,7 @@ FileReader::FileReader(
 FileReader::~FileReader() {}
 
 // Static ctor
-Status OpenFile(const std::shared_ptr<io::RandomAccessFile>& file,
+Status OpenFile(const std::shared_ptr<io::ReadableFileInterface>& file,
     ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<ParquetReadSource> source(new ParquetReadSource(allocator));
   RETURN_NOT_OK(source->Open(file));

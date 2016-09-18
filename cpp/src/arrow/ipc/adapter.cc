@@ -24,9 +24,11 @@
 
 #include "arrow/array.h"
 #include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/memory.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
+#include "arrow/ipc/util.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -144,10 +146,15 @@ class RowBatchWriter {
     return Status::OK();
   }
 
-  Status Write(MemorySource* dst, int64_t position, int64_t* data_header_offset) {
+  Status Write(io::OutputStream* dst, int64_t* data_header_offset) {
     // Write out all the buffers contiguously and compute the total size of the
     // memory payload
     int64_t offset = 0;
+
+    // Get the starting position
+    int64_t position;
+    RETURN_NOT_OK(dst->Tell(&position));
+
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
       int64_t size = 0;
@@ -171,7 +178,7 @@ class RowBatchWriter {
       buffer_meta_.push_back(flatbuf::Buffer(0, position + offset, size));
 
       if (size > 0) {
-        RETURN_NOT_OK(dst->Write(position + offset, buffer->data(), size));
+        RETURN_NOT_OK(dst->Write(buffer->data(), size));
         offset += size;
       }
     }
@@ -180,7 +187,7 @@ class RowBatchWriter {
     // memory, the data header can be converted to a flatbuffer and written out
     //
     // Note: The memory written here is prefixed by the size of the flatbuffer
-    // itself as an int32_t. On reading from a MemorySource, you will have to
+    // itself as an int32_t. On reading from a input, you will have to
     // determine the data header size then request a buffer such that you can
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
@@ -188,8 +195,7 @@ class RowBatchWriter {
         batch_->num_rows(), offset, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end
-    RETURN_NOT_OK(
-        dst->Write(position + offset, data_header->data(), data_header->size()));
+    RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
 
     *data_header_offset = position + offset;
     return Status::OK();
@@ -199,9 +205,9 @@ class RowBatchWriter {
   Status GetTotalSize(int64_t* size) {
     // emulates the behavior of Write without actually writing
     int64_t data_header_offset;
-    MockMemorySource source(0);
-    RETURN_NOT_OK(Write(&source, 0, &data_header_offset));
-    *size = source.GetExtentBytesWritten();
+    MockOutputStream dst;
+    RETURN_NOT_OK(Write(&dst, &data_header_offset));
+    *size = dst.GetExtentBytesWritten();
     return Status::OK();
   }
 
@@ -214,12 +220,12 @@ class RowBatchWriter {
   int max_recursion_depth_;
 };
 
-Status WriteRowBatch(MemorySource* dst, const RowBatch* batch, int64_t position,
-    int64_t* header_offset, int max_recursion_depth) {
+Status WriteRowBatch(io::OutputStream* dst, const RowBatch* batch, int64_t* header_offset,
+    int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
   RowBatchWriter serializer(batch, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
-  return serializer.Write(dst, position, header_offset);
+  return serializer.Write(dst, header_offset);
 }
 
 Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
@@ -234,11 +240,11 @@ Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
 
 static constexpr int64_t INIT_METADATA_SIZE = 4096;
 
-class RowBatchReader::Impl {
+class RowBatchReader::RowBatchReaderImpl {
  public:
-  Impl(MemorySource* source, const std::shared_ptr<RecordBatchMessage>& metadata,
-      int max_recursion_depth)
-      : source_(source), metadata_(metadata), max_recursion_depth_(max_recursion_depth) {
+  RowBatchReaderImpl(io::ReadableFileInterface* file,
+      const std::shared_ptr<RecordBatchMessage>& metadata, int max_recursion_depth)
+      : file_(file), metadata_(metadata), max_recursion_depth_(max_recursion_depth) {
     num_buffers_ = metadata->num_buffers();
     num_flattened_fields_ = metadata->num_fields();
   }
@@ -339,10 +345,11 @@ class RowBatchReader::Impl {
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
     RETURN_NOT_OK(CheckMultipleOf64(metadata.length));
-    return source_->ReadAt(metadata.offset, metadata.length, out);
+    return file_->ReadAt(metadata.offset, metadata.length, out);
   }
 
-  MemorySource* source_;
+ private:
+  io::ReadableFileInterface* file_;
   std::shared_ptr<RecordBatchMessage> metadata_;
 
   int field_index_;
@@ -352,22 +359,22 @@ class RowBatchReader::Impl {
   int num_flattened_fields_;
 };
 
-Status RowBatchReader::Open(
-    MemorySource* source, int64_t position, std::shared_ptr<RowBatchReader>* out) {
-  return Open(source, position, kMaxIpcRecursionDepth, out);
+Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
+    std::shared_ptr<RowBatchReader>* out) {
+  return Open(file, position, kMaxIpcRecursionDepth, out);
 }
 
-Status RowBatchReader::Open(MemorySource* source, int64_t position,
+Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
     int max_recursion_depth, std::shared_ptr<RowBatchReader>* out) {
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(source->ReadAt(position, INIT_METADATA_SIZE, &metadata));
+  RETURN_NOT_OK(file->ReadAt(position, INIT_METADATA_SIZE, &metadata));
 
   int32_t metadata_size = *reinterpret_cast<const int32_t*>(metadata->data());
 
-  // We may not need to call source->ReadAt again
+  // We may not need to call ReadAt again
   if (metadata_size > static_cast<int>(INIT_METADATA_SIZE - sizeof(int32_t))) {
     // We don't have enough data, read the indicated metadata size.
-    RETURN_NOT_OK(source->ReadAt(position + sizeof(int32_t), metadata_size, &metadata));
+    RETURN_NOT_OK(file->ReadAt(position + sizeof(int32_t), metadata_size, &metadata));
   }
 
   // TODO(wesm): buffer slicing here would be better in case ReadAt returns
@@ -383,14 +390,14 @@ Status RowBatchReader::Open(MemorySource* source, int64_t position,
   std::shared_ptr<RecordBatchMessage> batch_meta = message->GetRecordBatch();
 
   std::shared_ptr<RowBatchReader> result(new RowBatchReader());
-  result->impl_.reset(new Impl(source, batch_meta, max_recursion_depth));
+  result->impl_.reset(new RowBatchReaderImpl(file, batch_meta, max_recursion_depth));
   *out = result;
 
   return Status::OK();
 }
 
 // Here the explicit destructor is required for compilers to be aware of
-// the complete information of RowBatchReader::Impl class
+// the complete information of RowBatchReader::RowBatchReaderImpl class
 RowBatchReader::~RowBatchReader() {}
 
 Status RowBatchReader::GetRowBatch(

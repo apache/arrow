@@ -22,6 +22,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/io/memory.h"
 #include "arrow/parquet/io.h"
 #include "arrow/test-util.h"
 #include "arrow/util/memory-pool.h"
@@ -96,61 +97,13 @@ TEST(TestParquetAllocator, CustomPool) {
 // ----------------------------------------------------------------------
 // Read source tests
 
-class BufferReader : public io::RandomAccessFile {
- public:
-  BufferReader(const uint8_t* buffer, int buffer_size)
-      : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
-
-  Status Close() override {
-    // no-op
-    return Status::OK();
-  }
-
-  Status Tell(int64_t* position) override {
-    *position = position_;
-    return Status::OK();
-  }
-
-  Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override {
-    RETURN_NOT_OK(Seek(position));
-    return Read(nbytes, bytes_read, buffer);
-  }
-
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override {
-    memcpy(buffer, buffer_ + position_, nbytes);
-    *bytes_read = std::min(nbytes, buffer_size_ - position_);
-    position_ += *bytes_read;
-    return Status::OK();
-  }
-
-  Status GetSize(int64_t* size) override {
-    *size = buffer_size_;
-    return Status::OK();
-  }
-
-  Status Seek(int64_t position) override {
-    if (position < 0 || position >= buffer_size_) {
-      return Status::IOError("position out of bounds");
-    }
-
-    position_ = position;
-    return Status::OK();
-  }
-
- private:
-  const uint8_t* buffer_;
-  int buffer_size_;
-  int64_t position_;
-};
-
 TEST(TestParquetReadSource, Basics) {
   std::string data = "this is the data";
   auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
 
   ParquetAllocator allocator(default_memory_pool());
 
-  auto file = std::make_shared<BufferReader>(data_buffer, data.size());
+  auto file = std::make_shared<io::BufferReader>(data_buffer, data.size());
   auto source = std::make_shared<ParquetReadSource>(&allocator);
 
   ASSERT_OK(source->Open(file));

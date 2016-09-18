@@ -29,13 +29,14 @@
 
 namespace arrow {
 
+class Buffer;
 class Status;
 
 namespace io {
 
 class HdfsClient;
 class HdfsReadableFile;
-class HdfsWriteableFile;
+class HdfsOutputStream;
 
 struct HdfsPathInfo {
   ObjectType::type kind;
@@ -139,14 +140,14 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // @param default_block_size, 0 for default
   Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
       int16_t replication, int64_t default_block_size,
-      std::shared_ptr<HdfsWriteableFile>* file);
+      std::shared_ptr<HdfsOutputStream>* file);
 
   Status OpenWriteable(
-      const std::string& path, bool append, std::shared_ptr<HdfsWriteableFile>* file);
+      const std::string& path, bool append, std::shared_ptr<HdfsOutputStream>* file);
 
  private:
   friend class HdfsReadableFile;
-  friend class HdfsWriteableFile;
+  friend class HdfsOutputStream;
 
   class ARROW_NO_EXPORT HdfsClientImpl;
   std::unique_ptr<HdfsClientImpl> impl_;
@@ -155,7 +156,7 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   DISALLOW_COPY_AND_ASSIGN(HdfsClient);
 };
 
-class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
+class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
  public:
   ~HdfsReadableFile();
 
@@ -165,6 +166,10 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   Status ReadAt(
       int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  bool supports_zero_copy() const override;
 
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) override;
@@ -183,9 +188,11 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
 
-class ARROW_EXPORT HdfsWriteableFile : public WriteableFile {
+// Naming this file OutputStream because it does not support seeking (like the
+// WriteableFile interface)
+class ARROW_EXPORT HdfsOutputStream : public OutputStream {
  public:
-  ~HdfsWriteableFile();
+  ~HdfsOutputStream();
 
   Status Close() override;
 
@@ -196,14 +203,14 @@ class ARROW_EXPORT HdfsWriteableFile : public WriteableFile {
   Status Tell(int64_t* position) override;
 
  private:
-  class ARROW_NO_EXPORT HdfsWriteableFileImpl;
-  std::unique_ptr<HdfsWriteableFileImpl> impl_;
+  class ARROW_NO_EXPORT HdfsOutputStreamImpl;
+  std::unique_ptr<HdfsOutputStreamImpl> impl_;
 
   friend class HdfsClient::HdfsClientImpl;
 
-  HdfsWriteableFile();
+  HdfsOutputStream();
 
-  DISALLOW_COPY_AND_ASSIGN(HdfsWriteableFile);
+  DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
 Status ARROW_EXPORT ConnectLibHdfs();

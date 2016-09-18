@@ -27,7 +27,7 @@
 #include "arrow/util/status.h"
 
 // To assist with readability
-using ArrowROFile = arrow::io::RandomAccessFile;
+using ArrowROFile = arrow::io::ReadableFileInterface;
 
 namespace arrow {
 namespace parquet {
@@ -58,7 +58,7 @@ void ParquetAllocator::Free(uint8_t* buffer, int64_t size) {
 ParquetReadSource::ParquetReadSource(ParquetAllocator* allocator)
     : file_(nullptr), allocator_(allocator) {}
 
-Status ParquetReadSource::Open(const std::shared_ptr<io::RandomAccessFile>& file) {
+Status ParquetReadSource::Open(const std::shared_ptr<io::ReadableFileInterface>& file) {
   int64_t file_size;
   RETURN_NOT_OK(file->GetSize(&file_size));
 

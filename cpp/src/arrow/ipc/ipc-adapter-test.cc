@@ -24,9 +24,11 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/io/memory.h"
+#include "arrow/io/test-common.h"
 #include "arrow/ipc/adapter.h"
-#include "arrow/ipc/memory.h"
 #include "arrow/ipc/test-common.h"
+#include "arrow/ipc/util.h"
 
 #include "arrow/test-util.h"
 #include "arrow/types/list.h"
@@ -49,17 +51,18 @@ const auto LIST_LIST_INT32 = std::make_shared<ListType>(LIST_INT32);
 typedef Status MakeRowBatch(std::shared_ptr<RowBatch>* out);
 
 class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
-                          public MemoryMapFixture {
+                          public io::MemoryMapFixture {
  public:
   void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { MemoryMapFixture::TearDown(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   Status RoundTripHelper(const RowBatch& batch, int memory_map_size,
       std::shared_ptr<RowBatch>* batch_result) {
     std::string path = "test-write-row-batch";
-    MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+    io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
     int64_t header_location;
-    RETURN_NOT_OK(WriteRowBatch(mmap_.get(), &batch, 0, &header_location));
+
+    RETURN_NOT_OK(WriteRowBatch(mmap_.get(), &batch, &header_location));
 
     std::shared_ptr<RowBatchReader> reader;
     RETURN_NOT_OK(RowBatchReader::Open(mmap_.get(), header_location, &reader));
@@ -69,7 +72,7 @@ class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
   }
 
  protected:
-  std::shared_ptr<MemoryMappedSource> mmap_;
+  std::shared_ptr<io::MemoryMappedFile> mmap_;
   MemoryPool* pool_;
 };
 
@@ -276,12 +279,12 @@ INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
                             &MakeStringTypesRowBatch, &MakeStruct));
 
 void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
-  MockMemorySource mock_source(1 << 16);
+  ipc::MockOutputStream mock;
   int64_t mock_header_location = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRowBatch(&mock_source, batch.get(), 0, &mock_header_location));
+  ASSERT_OK(WriteRowBatch(&mock, batch.get(), &mock_header_location));
   ASSERT_OK(GetRowBatchSize(batch.get(), &size));
-  ASSERT_EQ(mock_source.GetExtentBytesWritten(), size);
+  ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
 
 TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
@@ -303,10 +306,10 @@ TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
   TestGetRowBatchSize(batch);
 }
 
-class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
+class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
  public:
   void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { MemoryMapFixture::TearDown(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   Status WriteToMmap(int recursion_level, bool override_level,
       int64_t* header_out = nullptr, std::shared_ptr<Schema>* schema_out = nullptr) {
@@ -329,19 +332,19 @@ class RecursionLimits : public ::testing::Test, public MemoryMapFixture {
 
     std::string path = "test-write-past-max-recursion";
     const int memory_map_size = 1 << 16;
-    MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+    io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
     int64_t header_location;
     int64_t* header_out_param = header_out == nullptr ? &header_location : header_out;
     if (override_level) {
       return WriteRowBatch(
-          mmap_.get(), batch.get(), 0, header_out_param, recursion_level + 1);
+          mmap_.get(), batch.get(), header_out_param, recursion_level + 1);
     } else {
-      return WriteRowBatch(mmap_.get(), batch.get(), 0, header_out_param);
+      return WriteRowBatch(mmap_.get(), batch.get(), header_out_param);
     }
   }
 
  protected:
-  std::shared_ptr<MemoryMappedSource> mmap_;
+  std::shared_ptr<io::MemoryMappedFile> mmap_;
   MemoryPool* pool_;
 };
 

@@ -27,6 +27,7 @@ set(PARQUET_SRCS
 
 set(PARQUET_LIBS
   arrow_shared
+  arrow_io
   parquet_shared
 )
 

@@ -20,6 +20,7 @@
 
 set(ARROW_IO_LINK_LIBS
   arrow_shared
+  dl
 )
 
 if (ARROW_BOOST_USE_SHARED)
@@ -37,6 +38,7 @@ set(ARROW_IO_TEST_LINK_LIBS
   ${ARROW_IO_PRIVATE_LINK_LIBS})
 
 set(ARROW_IO_SRCS
+  memory.cc
 )
 
 if(ARROW_HDFS)
@@ -71,8 +73,8 @@ if(ARROW_HDFS)
     ${ARROW_HDFS_SRCS}
     ${ARROW_IO_SRCS})
 
-  ADD_ARROW_TEST(hdfs-io-test)
-  ARROW_TEST_LINK_LIBRARIES(hdfs-io-test
+  ADD_ARROW_TEST(io-hdfs-test)
+  ARROW_TEST_LINK_LIBRARIES(io-hdfs-test
     ${ARROW_IO_TEST_LINK_LIBS})
 endif()
 
@@ -101,10 +103,15 @@ if (APPLE)
     INSTALL_NAME_DIR "@rpath")
 endif()
 
+ADD_ARROW_TEST(io-memory-test)
+ARROW_TEST_LINK_LIBRARIES(io-memory-test
+  ${ARROW_IO_TEST_LINK_LIBS})
+
 # Headers: top level
 install(FILES
   hdfs.h
   interfaces.h
+  memory.h
   DESTINATION include/arrow/io)
 
 install(TARGETS arrow_io
