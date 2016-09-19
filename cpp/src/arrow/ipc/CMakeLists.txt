@@ -33,7 +33,7 @@ set(ARROW_IPC_TEST_LINK_LIBS
 
 set(ARROW_IPC_SRCS
   adapter.cc
-  # file.cc
+  file.cc
   metadata.cc
   metadata-internal.cc
 )

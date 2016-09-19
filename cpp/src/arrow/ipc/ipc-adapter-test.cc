@@ -62,7 +62,8 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
     int64_t header_location;
 
-    RETURN_NOT_OK(WriteRecordBatch(mmap_.get(), &batch, &header_location));
+    RETURN_NOT_OK(WriteRecordBatch(
+        batch.columns(), batch.num_rows(), mmap_.get(), &header_location));
 
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(RecordBatchReader::Open(mmap_.get(), header_location, &reader));
@@ -282,7 +283,8 @@ void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
   int64_t mock_header_location = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRecordBatch(&mock, batch.get(), &mock_header_location));
+  ASSERT_OK(WriteRecordBatch(
+      batch->columns(), batch->num_rows(), &mock, &mock_header_location));
   ASSERT_OK(GetRecordBatchSize(batch.get(), &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -336,10 +338,11 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     int64_t header_location;
     int64_t* header_out_param = header_out == nullptr ? &header_location : header_out;
     if (override_level) {
-      return WriteRecordBatch(
-          mmap_.get(), batch.get(), header_out_param, recursion_level + 1);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
+          header_out_param, recursion_level + 1);
     } else {
-      return WriteRecordBatch(mmap_.get(), batch.get(), header_out_param);
+      return WriteRecordBatch(
+          batch->columns(), batch->num_rows(), mmap_.get(), header_out_param);
     }
   }
 

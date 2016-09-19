@@ -134,13 +134,16 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
 
 class RecordBatchWriter {
  public:
-  RecordBatchWriter(const RecordBatch* batch, int max_recursion_depth)
-      : batch_(batch), max_recursion_depth_(max_recursion_depth) {}
+  RecordBatchWriter(const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows,
+      int max_recursion_depth)
+      : columns_(&columns),
+        num_rows_(num_rows),
+        max_recursion_depth_(max_recursion_depth) {}
 
   Status AssemblePayload() {
     // Perform depth-first traversal of the row-batch
-    for (int i = 0; i < batch_->num_columns(); ++i) {
-      const Array* arr = batch_->column(i).get();
+    for (int i = 0; i < columns_->size(); ++i) {
+      const Array* arr = (*columns_)[i].get();
       RETURN_NOT_OK(VisitArray(arr, &field_nodes_, &buffers_, max_recursion_depth_));
     }
     return Status::OK();
@@ -191,8 +194,8 @@ class RecordBatchWriter {
     // determine the data header size then request a buffer such that you can
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
-    RETURN_NOT_OK(WriteDataHeader(
-        batch_->num_rows(), offset, field_nodes_, buffer_meta_, &data_header));
+    RETURN_NOT_OK(
+        WriteDataHeader(num_rows_, offset, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
@@ -212,7 +215,9 @@ class RecordBatchWriter {
   }
 
  private:
-  const RecordBatch* batch_;
+  // Do not copy this vector. Ownership must be retained elsewhere
+  const std::vector<std::shared_ptr<Array>>* columns_;
+  int32_t num_rows_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
@@ -220,16 +225,18 @@ class RecordBatchWriter {
   int max_recursion_depth_;
 };
 
-Status WriteRecordBatch(io::OutputStream* dst, const RecordBatch* batch,
-    int64_t* header_offset, int max_recursion_depth) {
+Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
+    int32_t num_rows, io::OutputStream* dst, int64_t* header_offset,
+    int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RecordBatchWriter serializer(batch, max_recursion_depth);
+  RecordBatchWriter serializer(columns, num_rows, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, header_offset);
 }
 
 Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
-  RecordBatchWriter serializer(batch, kMaxIpcRecursionDepth);
+  RecordBatchWriter serializer(
+      batch->columns(), batch->num_rows(), kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();

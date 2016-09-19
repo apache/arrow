@@ -32,6 +32,7 @@ namespace arrow {
 class Array;
 class Buffer;
 struct Field;
+class RecordBatch;
 class Schema;
 class Status;
 
@@ -46,18 +47,18 @@ namespace ipc {
 
 class ARROW_EXPORT FileWriter {
  public:
-  Status Open(OutputStream* sink, const std::shared_ptr<Schema>& schema,
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
 
   // TODO(wesm): Write dictionaries
 
   Status WriteRecordBatch(
-      int32_t num_rows, const std::vector<std::shared_ptr<Array>>& columns);
+      const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows);
 
   Status Close();
 
  private:
-  FileWriter(OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   Status CheckStarted();
   Status Start();
@@ -74,7 +75,7 @@ class ARROW_EXPORT FileWriter {
   // Write and align
   Status WriteAligned(const uint8_t* data, int64_t nbytes);
 
-  OutputStream* sink_;
+  io::OutputStream* sink_;
   std::shared_ptr<Schema> schema_;
   int64_t position_;
   bool started_;
@@ -90,7 +91,7 @@ class ARROW_EXPORT FileReader {
   // can be any amount of data preceding the Arrow-formatted data, because we
   // need only locate the end of the Arrow file stream to discover the metadata
   // and then proceed to read the data into memory.
-  static Open(const std::shared_ptr<ReadableFileInterface>& file);
+  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file);
 
   // If the file is embedded within some larger file or memory region, you can
   // pass the absolute memory offset to the end of the file (which contains the
@@ -99,7 +100,8 @@ class ARROW_EXPORT FileReader {
   //
   // @param file: the data source
   // @param footer_offset: the position of the end of the Arrow "file"
-  static Open(const std::shared_ptr<ReadableFileInterface>& file, int64_t footer_offset);
+  static Status Open(
+      const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset);
 
   // The Arrow schema shared by all of the record batches
   // @param schema (out): arrow::Schema
@@ -120,9 +122,9 @@ class ARROW_EXPORT FileReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  FileReader(const std::shared_ptr<ReadableFileInterface>& file);
+  FileReader(const std::shared_ptr<io::ReadableFileInterface>& file);
 
-  std::shared_ptr<ReadableFileInterface> file_;
+  std::shared_ptr<io::ReadableFileInterface> file_;
 
   // The location where the Arrow file layout ends. May be the end of the file
   // or some other location if embedded in a larger file.

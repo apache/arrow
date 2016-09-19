@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/util/visibility.h"
 
@@ -62,8 +63,9 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // Finally, the absolute offset (relative to the start of the output stream) to
 // the start of the metadata / data header is returned in an out-variable
-ARROW_EXPORT Status WriteRecordBatch(io::OutputStream* dst, const RecordBatch* batch,
-    int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
+ARROW_EXPORT Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
+    int32_t num_rows, io::OutputStream* dst, int64_t* header_offset,
+    int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRecordBatchMetadata(const RecordBatch* batch);
 

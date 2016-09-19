@@ -44,17 +44,16 @@ static inline int64_t PaddedLength(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // Writer implementation
 
-FileWriter::FileWriter(
-    OutputStream* sink, int64_t initial_position, const std::shared_ptr<Schema>& schema)
+FileWriter::FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
     : sink_(sink), schema_(schema), position_(-1), started_(false) {}
 
 Status FileWriter::UpdatePosition() {
   return sink_->Tell(&position_);
 }
 
-Status FileWriter::Open(OutputStream* sink, const std::shared_ptr<Schema>& schema,
+Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     std::shared_ptr<FileWriter>* out) {
-  *out = std::make_shared<FileWriter>(sink, schema);
+  *out = std::shared_ptr<FileWriter>(new FileWriter(sink, schema));  // ctor is private
   RETURN_NOT_OK((*out)->UpdatePosition());
   return Status::OK();
 }
@@ -90,8 +89,25 @@ Status FileWriter::CheckStarted() {
 
 Status FileWriter::Close() {
   // Write metadata
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(WriteFileFooter
+  int64_t initial_position = position_;
+  RETURN_NOT_OK(WriteFileFooter(schema_.get(), dictionaries_, record_batches_, sink_));
+  RETURN_NOT_OK(UpdatePosition());
+
+  // Write footer length
+  int32_t footer_length = position_ - initial_position;
+
+  if (footer_length <= 0) { return Status::Invalid("Invalid file footer"); }
+
+  RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(&footer_length), sizeof(int32_t)));
+
+  // Write magic bytes to end file
+  return Write(
+      reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes));
+}
+
+Status FileWriter::WriteRecordBatch(
+    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

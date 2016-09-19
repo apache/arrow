@@ -50,6 +50,8 @@ class ARROW_EXPORT RecordBatch {
   // Note: Does not boundscheck
   const std::shared_ptr<Array>& column(int i) const { return columns_[i]; }
 
+  const std::vector<std::shared_ptr<Array>>& columns() const { return columns_; }
+
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
