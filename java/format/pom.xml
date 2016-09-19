@@ -27,6 +27,7 @@
     <fbs.version>1.2.0-3f79e055</fbs.version>
     <flatc.download.skip>false</flatc.download.skip>
     <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</flatc.executable>
+    <flatc.generated.files>${project.build.directory}/generated-sources/flatc</flatc.generated.files>
     <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
     <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
@@ -51,7 +52,7 @@
   </extensions>
 
   <plugins>
-    <plugin>
+    <plugin> <!-- download the flatbuffer compiler -->
       <groupId>org.apache.maven.plugins</groupId>
       <artifactId>maven-dependency-plugin</artifactId>
       <version>${maven-dependency-plugin.version}</version>
@@ -83,7 +84,7 @@
       <artifactId>exec-maven-plugin</artifactId>
       <version>1.4.0</version>
       <executions>
-        <execution>
+        <execution> <!-- make the flatbuffer compiler executable -->
           <id>script-chmod</id>
           <goals>
             <goal>exec</goal>
@@ -98,7 +99,7 @@
             <skip>${flatc.download.skip}</skip>
           </configuration>
         </execution>
-        <execution>
+        <execution> <!-- generate sources by executing the flatbuffer compiler -->
           <goals>
             <goal>exec</goal>
           </goals>
@@ -108,7 +109,7 @@
             <arguments>
               <argument>-j</argument>
               <argument>-o</argument>
-              <argument>target/generated-sources/flatc</argument>
+              <argument>${flatc.generated.files}</argument>
               <argument>../../format/Message.fbs</argument>
               <argument>../../format/File.fbs</argument>
             </arguments>
@@ -116,7 +117,7 @@
         </execution>
       </executions>
     </plugin>
-    <plugin>
+    <plugin> <!-- add the license header to the generated files -->
       <groupId>com.mycila</groupId>
       <artifactId>license-maven-plugin</artifactId>
       <version>2.3</version>
@@ -135,26 +136,26 @@
         </execution>
       </executions>
     </plugin>
-    <plugin>
+    <plugin> <!-- add generated sources to classpath -->
       <groupId>org.codehaus.mojo</groupId>
       <artifactId>build-helper-maven-plugin</artifactId>
       <version>1.9.1</version>
       <executions>
         <execution>
-          <id>add-sources-as-resources</id>
+          <id>add-generated-sources-to-classpath</id>
           <phase>generate-sources</phase>
           <goals>
             <goal>add-source</goal>
           </goals>
           <configuration>
             <sources>
-              <source>${project.build.directory}/generated-sources</source>
+              <source>${flatc.generated.files}</source>
             </sources>
           </configuration>
         </execution>
       </executions>
     </plugin>
-    <plugin>
+    <plugin> <!-- no checkstyle on the generated code -->
       <groupId>org.apache.maven.plugins</groupId>
       <artifactId>maven-checkstyle-plugin</artifactId>
       <configuration>
