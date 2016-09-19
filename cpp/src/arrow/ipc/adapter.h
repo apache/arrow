@@ -29,7 +29,7 @@
 namespace arrow {
 
 class Array;
-class RowBatch;
+class RecordBatch;
 class Schema;
 class Status;
 
@@ -50,7 +50,7 @@ class RecordBatchMessage;
 // TODO(emkornfield) investigate this more
 constexpr int kMaxIpcRecursionDepth = 64;
 
-// Write the RowBatch (collection of equal-length Arrow arrays) to the output
+// Write the RecordBatch (collection of equal-length Arrow arrays) to the output
 // stream
 //
 // First, each of the memory buffers are written out end-to-end
@@ -62,37 +62,37 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // Finally, the absolute offset (relative to the start of the output stream) to
 // the start of the metadata / data header is returned in an out-variable
-ARROW_EXPORT Status WriteRowBatch(io::OutputStream* dst, const RowBatch* batch,
+ARROW_EXPORT Status WriteRecordBatch(io::OutputStream* dst, const RecordBatch* batch,
     int64_t* header_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
 
-// int64_t GetRowBatchMetadata(const RowBatch* batch);
+// int64_t GetRecordBatchMetadata(const RecordBatch* batch);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
-// write the row batch. This involves generating the complete serialized
+// write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-ARROW_EXPORT Status GetRowBatchSize(const RowBatch* batch, int64_t* size);
+ARROW_EXPORT Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size);
 
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the input supports zero copy reads
 
-class ARROW_EXPORT RowBatchReader {
+class ARROW_EXPORT RecordBatchReader {
  public:
   static Status Open(io::ReadableFileInterface* file, int64_t position,
-      std::shared_ptr<RowBatchReader>* out);
+      std::shared_ptr<RecordBatchReader>* out);
 
   static Status Open(io::ReadableFileInterface* file, int64_t position,
-      int max_recursion_depth, std::shared_ptr<RowBatchReader>* out);
+      int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out);
 
-  virtual ~RowBatchReader();
+  virtual ~RecordBatchReader();
 
-  // Reassemble the row batch. A Schema is required to be able to construct the
-  // right array containers
-  Status GetRowBatch(
-      const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out);
+  // Reassemble the record batch. A Schema is required to be able to construct
+  // the right array containers
+  Status GetRecordBatch(
+      const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out);
 
  private:
-  class RowBatchReaderImpl;
-  std::unique_ptr<RowBatchReaderImpl> impl_;
+  class RecordBatchReaderImpl;
+  std::unique_ptr<RecordBatchReaderImpl> impl_;
 };
 
 }  // namespace ipc

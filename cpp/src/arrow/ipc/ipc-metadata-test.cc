@@ -21,6 +21,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/io/memory.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/schema.h"
 #include "arrow/test-util.h"
@@ -102,8 +103,10 @@ class TestFileFooter : public ::testing::Test {
 
   void CheckRoundtrip(const Schema* schema, const std::vector<FileBlock>& dictionaries,
       const std::vector<FileBlock>& record_batches) {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &buffer));
+    auto buffer = std::make_shared<PoolBuffer>();
+    io::BufferOutputStream stream(buffer);
+
+    ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &stream));
 
     std::shared_ptr<FileFooter> footer;
     ASSERT_OK(FileFooter::Open(buffer, &footer));

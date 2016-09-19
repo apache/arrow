@@ -30,7 +30,7 @@ namespace arrow {
 class Array;
 class MemoryPool;
 class PrimitiveArray;
-class RowBatch;
+class RecordBatch;
 class Status;
 class StringArray;
 class Table;

@@ -95,7 +95,7 @@ static bool IsListType(const DataType* type) {
 }
 
 // ----------------------------------------------------------------------
-// Row batch write path
+// Record batch write path
 
 Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes,
     std::vector<std::shared_ptr<Buffer>>* buffers, int max_recursion_depth) {
@@ -132,9 +132,9 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   return Status::OK();
 }
 
-class RowBatchWriter {
+class RecordBatchWriter {
  public:
-  RowBatchWriter(const RowBatch* batch, int max_recursion_depth)
+  RecordBatchWriter(const RecordBatch* batch, int max_recursion_depth)
       : batch_(batch), max_recursion_depth_(max_recursion_depth) {}
 
   Status AssemblePayload() {
@@ -212,7 +212,7 @@ class RowBatchWriter {
   }
 
  private:
-  const RowBatch* batch_;
+  const RecordBatch* batch_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
@@ -220,29 +220,29 @@ class RowBatchWriter {
   int max_recursion_depth_;
 };
 
-Status WriteRowBatch(io::OutputStream* dst, const RowBatch* batch, int64_t* header_offset,
-    int max_recursion_depth) {
+Status WriteRecordBatch(io::OutputStream* dst, const RecordBatch* batch,
+    int64_t* header_offset, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RowBatchWriter serializer(batch, max_recursion_depth);
+  RecordBatchWriter serializer(batch, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   return serializer.Write(dst, header_offset);
 }
 
-Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
-  RowBatchWriter serializer(batch, kMaxIpcRecursionDepth);
+Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
+  RecordBatchWriter serializer(batch, kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
-// Row batch read path
+// Record batch read path
 
 static constexpr int64_t INIT_METADATA_SIZE = 4096;
 
-class RowBatchReader::RowBatchReaderImpl {
+class RecordBatchReader::RecordBatchReaderImpl {
  public:
-  RowBatchReaderImpl(io::ReadableFileInterface* file,
+  RecordBatchReaderImpl(io::ReadableFileInterface* file,
       const std::shared_ptr<RecordBatchMessage>& metadata, int max_recursion_depth)
       : file_(file), metadata_(metadata), max_recursion_depth_(max_recursion_depth) {
     num_buffers_ = metadata->num_buffers();
@@ -250,7 +250,7 @@ class RowBatchReader::RowBatchReaderImpl {
   }
 
   Status AssembleBatch(
-      const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
+      const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out) {
     std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
 
     // The field_index and buffer_index are incremented in NextArray based on
@@ -263,7 +263,7 @@ class RowBatchReader::RowBatchReaderImpl {
       RETURN_NOT_OK(NextArray(field, max_recursion_depth_, &arrays[i]));
     }
 
-    *out = std::make_shared<RowBatch>(schema, metadata_->length(), arrays);
+    *out = std::make_shared<RecordBatch>(schema, metadata_->length(), arrays);
     return Status::OK();
   }
 
@@ -359,13 +359,13 @@ class RowBatchReader::RowBatchReaderImpl {
   int num_flattened_fields_;
 };
 
-Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
-    std::shared_ptr<RowBatchReader>* out) {
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
+    std::shared_ptr<RecordBatchReader>* out) {
   return Open(file, position, kMaxIpcRecursionDepth, out);
 }
 
-Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
-    int max_recursion_depth, std::shared_ptr<RowBatchReader>* out) {
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
+    int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(file->ReadAt(position, INIT_METADATA_SIZE, &metadata));
 
@@ -389,19 +389,19 @@ Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
 
   std::shared_ptr<RecordBatchMessage> batch_meta = message->GetRecordBatch();
 
-  std::shared_ptr<RowBatchReader> result(new RowBatchReader());
-  result->impl_.reset(new RowBatchReaderImpl(file, batch_meta, max_recursion_depth));
+  std::shared_ptr<RecordBatchReader> result(new RecordBatchReader());
+  result->impl_.reset(new RecordBatchReaderImpl(file, batch_meta, max_recursion_depth));
   *out = result;
 
   return Status::OK();
 }
 
 // Here the explicit destructor is required for compilers to be aware of
-// the complete information of RowBatchReader::RowBatchReaderImpl class
-RowBatchReader::~RowBatchReader() {}
+// the complete information of RecordBatchReader::RecordBatchReaderImpl class
+RecordBatchReader::~RecordBatchReader() {}
 
-Status RowBatchReader::GetRowBatch(
-    const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
+Status RecordBatchReader::GetRecordBatch(
+    const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out) {
   return impl_->AssembleBatch(schema, out);
 }
 

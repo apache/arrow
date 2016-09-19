@@ -32,15 +32,15 @@ class Column;
 class Schema;
 class Status;
 
-// A row batch is a simpler and more rigid table data structure intended for
+// A record batch is a simpler and more rigid table data structure intended for
 // use primarily in shared memory IPC. It contains a schema (metadata) and a
-// corresponding vector of equal-length Arrow arrays
-class ARROW_EXPORT RowBatch {
+// corresponding sequence of equal-length Arrow arrays
+class ARROW_EXPORT RecordBatch {
  public:
-  // num_rows is a parameter to allow for row batches of a particular size not
+  // num_rows is a parameter to allow for record batches of a particular size not
   // having any materialized columns. Each array should have the same length as
   // num_rows
-  RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+  RecordBatch(const std::shared_ptr<Schema>& schema, int num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
   // @returns: the table's schema

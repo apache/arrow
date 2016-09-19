@@ -33,6 +33,12 @@ struct Field;
 class Schema;
 class Status;
 
+namespace io {
+
+class OutputStream;
+
+}  // namespace io
+
 namespace ipc {
 
 struct MetadataVersion {
@@ -153,7 +159,7 @@ struct FileBlock {
 
 ARROW_EXPORT
 Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, std::shared_ptr<Buffer>* out);
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out);
 
 class ARROW_EXPORT FileFooter {
  public:

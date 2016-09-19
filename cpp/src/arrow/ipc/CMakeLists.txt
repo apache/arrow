@@ -33,6 +33,7 @@ set(ARROW_IPC_TEST_LINK_LIBS
 
 set(ARROW_IPC_SRCS
   adapter.cc
+  # file.cc
   metadata.cc
   metadata-internal.cc
 )
@@ -93,6 +94,7 @@ add_dependencies(arrow_objlib metadata_fbs)
 # Headers: top level
 install(FILES
   adapter.h
+  file.h
   metadata.h
   DESTINATION include/arrow/ipc)
 

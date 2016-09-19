@@ -23,7 +23,7 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-// Generated C++ flatbuffer IDL
+#include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata-internal.h"
@@ -236,7 +236,7 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
 }
 
 Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, std::shared_ptr<Buffer>* out) {
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out) {
   FBB fbb;
 
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
@@ -252,14 +252,7 @@ Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dicti
 
   int32_t size = fbb.GetSize();
 
-  // TODO(wesm): this is using the default allocator
-  auto buffer = std::make_shared<PoolBuffer>();
-  RETURN_NOT_OK(buffer->Resize(size));
-
-  memcpy(buffer->mutable_data(), fbb.GetBufferPointer(), size);
-
-  *out = buffer;
-  return Status::OK();
+  return out->Write(fbb.GetBufferPointer(), size);
 }
 
 static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
