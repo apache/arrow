@@ -142,7 +142,7 @@ class RecordBatchWriter {
 
   Status AssemblePayload() {
     // Perform depth-first traversal of the row-batch
-    for (int i = 0; i < columns_->size(); ++i) {
+    for (size_t i = 0; i < columns_->size(); ++i) {
       const Array* arr = (*columns_)[i].get();
       RETURN_NOT_OK(VisitArray(arr, &field_nodes_, &buffers_, max_recursion_depth_));
     }
@@ -150,13 +150,13 @@ class RecordBatchWriter {
   }
 
   Status Write(io::OutputStream* dst, int64_t* data_header_offset) {
-    // Write out all the buffers contiguously and compute the total size of the
-    // memory payload
-    int64_t offset = 0;
-
     // Get the starting position
-    int64_t position;
-    RETURN_NOT_OK(dst->Tell(&position));
+    int64_t start_position;
+    RETURN_NOT_OK(dst->Tell(&start_position));
+
+    // Keep track of the current position so we can determine the size of the
+    // message body
+    int64_t position = start_position;
 
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
@@ -178,11 +178,11 @@ class RecordBatchWriter {
       // are using from any OS-level shared memory. The thought is that systems
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back(flatbuf::Buffer(0, position + offset, size));
+      buffer_meta_.push_back(flatbuf::Buffer(0, position, size));
 
       if (size > 0) {
         RETURN_NOT_OK(dst->Write(buffer->data(), size));
-        offset += size;
+        position += size;
       }
     }
 
@@ -194,13 +194,24 @@ class RecordBatchWriter {
     // determine the data header size then request a buffer such that you can
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
-    RETURN_NOT_OK(
-        WriteDataHeader(num_rows_, offset, field_nodes_, buffer_meta_, &data_header));
+    RETURN_NOT_OK(WriteDataHeader(
+        num_rows_, position - start_position, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
+    *data_header_offset = position;
 
-    *data_header_offset = position + offset;
+    return Align(dst, &position);
+  }
+
+  Status Align(io::OutputStream* dst, int64_t* position) {
+    // Write all buffers here on word boundaries
+    // TODO(wesm): Is there benefit to 64-byte padding in IPC?
+    int64_t remainder = PaddedLength(*position) - *position;
+    if (remainder > 0) {
+      RETURN_NOT_OK(dst->Write(kPaddingBytes, remainder));
+      *position += remainder;
+    }
     return Status::OK();
   }
 

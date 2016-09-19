@@ -22,7 +22,9 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
+#include "arrow/ipc/util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
@@ -32,14 +34,6 @@ namespace arrow {
 namespace ipc {
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
-
-// Align on 8-byte boundaries
-static constexpr int kArrowAlignment = 8;
-static constexpr uint8_t kPaddingBytes[kArrowAlignment] = {0};
-
-static inline int64_t PaddedLength(int64_t nbytes) {
-  return ((nbytes + kArrowAlignment - 1) / kArrowAlignment) * kArrowAlignment;
-}
 
 // ----------------------------------------------------------------------
 // Writer implementation
@@ -87,6 +81,30 @@ Status FileWriter::CheckStarted() {
   return Status::OK();
 }
 
+Status FileWriter::WriteRecordBatch(
+    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
+  RETURN_NOT_OK(CheckStarted());
+
+  int64_t offset = position_;
+
+  int64_t header_offset;
+  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(columns, num_rows, sink_, &header_offset));
+  RETURN_NOT_OK(UpdatePosition());
+
+  DCHECK(position_ % 8 == 0) << "ipc::WriteRecordBatch did not perform aligned writes";
+
+  // We can infer the metadata length and length of the record batch body (the
+  // concatenated buffers) from the heade offset and the new output stream
+  // position
+  int32_t metadata_length = position_ - header_offset;
+  int32_t body_length = position_ - offset - metadata_length;
+
+  // Append metadata, to be written in the footer latera
+  record_batches_.emplace_back(offset, metadata_length, body_length);
+
+  return Status::OK();
+}
+
 Status FileWriter::Close() {
   // Write metadata
   int64_t initial_position = position_;
@@ -103,11 +121,6 @@ Status FileWriter::Close() {
   // Write magic bytes to end file
   return Write(
       reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes));
-}
-
-Status FileWriter::WriteRecordBatch(
-    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
-  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
