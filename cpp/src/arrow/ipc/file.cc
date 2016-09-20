@@ -100,7 +100,7 @@ Status FileWriter::WriteRecordBatch(
   int32_t metadata_length = body_end_offset - header_end_offset;
   int32_t body_length = body_end_offset - offset;
 
-  // Append metadata, to be written in the footer latera
+  // Append metadata, to be written in the footer later
   record_batches_.emplace_back(offset, metadata_length, body_length);
 
   return Status::OK();
