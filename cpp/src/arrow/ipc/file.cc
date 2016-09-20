@@ -126,5 +126,86 @@ Status FileWriter::Close() {
 // ----------------------------------------------------------------------
 // Reader implementation
 
+FileReader::FileReader(
+    const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset)
+    : file_(file), footer_offset_(footer_offset) {}
+
+FileReader::~FileReader() {}
+
+Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+    std::shared_ptr<FileReader>* reader) {
+  int64_t footer_offset;
+  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  return Open(file, footer_offset, reader);
+}
+
+Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+    int64_t footer_offset, std::shared_ptr<FileReader>* reader) {
+  *reader = std::shared_ptr<FileReader>(new FileReader(file, footer_offset));
+  return Status::OK();
+}
+
+Status FileReader::ReadFooter() {
+  int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
+
+  if (footer_offset_ <= magic_size * 2 + 4) {
+    std::stringstream ss;
+    ss << "File is too small: " << footer_offset_;
+    return Status::Invalid(ss.str());
+  }
+
+  RETURN_NOT_OK(file_->Seek(footer_offset_));
+
+  std::shared_ptr<Buffer> buffer;
+
+  int file_end_size = magic_size + sizeof(int32_t);
+
+  RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+
+  if (memcmp(buffer->data(), kArrowMagicBytes, magic_size)) {
+    return Status::Invalid("Not an Arrow file");
+  }
+
+  int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+  if (footer_length <= 0 || footer_length + magic_size * 2 + 4 > footer_offset_) {
+    return Status::Invalid("File is smaller than indicated metadata size");
+  }
+
+  // Now read the footer
+  RETURN_NOT_OK(file_->ReadAt(
+      footer_offset_ - footer_length - file_end_size, footer_length, &buffer));
+  RETURN_NOT_OK(FileFooter::Open(buffer, &footer_));
+
+  return Status::OK();
+}
+
+Status FileReader::GetSchema(std::shared_ptr<Schema>* schema) const {
+  return footer_->GetSchema(schema);
+}
+
+int FileReader::num_dictionaries() const {
+  return footer_->num_dictionaries();
+}
+
+int FileReader::num_record_batches() const {
+  return footer_->num_record_batches();
+}
+
+MetadataVersion::type FileReader::version() const {
+  return footer_->version();
+}
+
+Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
+  DCHECK_GT(i, 0);
+  DCHECK_LT(i, num_record_batches());
+  // FileBlock block = footer_->record_batch(i);
+
+  //
+  std::shared_ptr<Buffer> buffer;
+  // RETURN_NOT_OK(file_->ReadAt
+  return Status::OK();
+}
+
 }  // namespace ipc
 }  // namespace arrow

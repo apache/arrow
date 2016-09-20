@@ -84,9 +84,7 @@ Status Message::Open(
     const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out) {
   std::shared_ptr<Message> result(new Message());
 
-  // The buffer is prefixed by its size as int32_t
-  const uint8_t* fb_head = buffer->data() + sizeof(int32_t);
-  const flatbuf::Message* message = flatbuf::GetMessage(fb_head);
+  const flatbuf::Message* message = flatbuf::GetMessage(buffer->data());
 
   // TODO(wesm): verify message
   result->impl_.reset(new MessageImpl(buffer, message));
@@ -300,11 +298,13 @@ class FileFooter::FileFooterImpl {
 
 FileFooter::FileFooter() {}
 
+FileFooter::~FileFooter() {}
+
 Status FileFooter::Open(
-    const std::shared_ptr<Buffer>& buffer, std::shared_ptr<FileFooter>* out) {
+    const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out) {
   const flatbuf::Footer* footer = flatbuf::GetFooter(buffer->data());
 
-  *out = std::shared_ptr<FileFooter>(new FileFooter());
+  *out = std::unique_ptr<FileFooter>(new FileFooter());
 
   // TODO(wesm): Verify the footer
   (*out)->impl_.reset(new FileFooterImpl(buffer, footer));
@@ -318,7 +318,7 @@ int FileFooter::num_dictionaries() const {
 
 int FileFooter::num_record_batches() const {
   return impl_->num_record_batches();
-};
+}
 
 MetadataVersion::type FileFooter::version() const {
   return impl_->version();

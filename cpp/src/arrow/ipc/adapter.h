@@ -62,7 +62,8 @@ constexpr int kMaxIpcRecursionDepth = 64;
 // <int32: metadata size> <uint8*: metadata>
 //
 // Finally, the absolute offset (relative to the start of the output stream) to
-// the start of the metadata / data header is returned in an out-variable
+// the end of the metadata / data header (suffixed by the header size) is
+// returned in an out-variable
 ARROW_EXPORT Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
     int32_t num_rows, io::OutputStream* dst, int64_t* header_offset,
     int max_recursion_depth = kMaxIpcRecursionDepth);
@@ -79,10 +80,12 @@ ARROW_EXPORT Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size);
 
 class ARROW_EXPORT RecordBatchReader {
  public:
-  static Status Open(io::ReadableFileInterface* file, int64_t position,
+  // The offset is the absolute position to the *end* of the record batch data
+  // header
+  static Status Open(io::ReadableFileInterface* file, int64_t offset,
       std::shared_ptr<RecordBatchReader>* out);
 
-  static Status Open(io::ReadableFileInterface* file, int64_t position,
+  static Status Open(io::ReadableFileInterface* file, int64_t offset,
       int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out);
 
   virtual ~RecordBatchReader();

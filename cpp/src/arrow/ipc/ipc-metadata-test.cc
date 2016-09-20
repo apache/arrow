@@ -108,7 +108,7 @@ class TestFileFooter : public ::testing::Test {
 
     ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &stream));
 
-    std::shared_ptr<FileFooter> footer;
+    std::unique_ptr<FileFooter> footer;
     ASSERT_OK(FileFooter::Open(buffer, &footer));
 
     ASSERT_EQ(MetadataVersion::V1_SNAPSHOT, footer->version());

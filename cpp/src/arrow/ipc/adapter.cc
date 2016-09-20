@@ -199,7 +199,7 @@ class RecordBatchWriter {
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
-    *data_header_offset = position;
+    *data_header_offset = position + data_header->size();
 
     return Align(dst, &position);
   }
@@ -255,8 +255,6 @@ Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
 
 // ----------------------------------------------------------------------
 // Record batch read path
-
-static constexpr int64_t INIT_METADATA_SIZE = 4096;
 
 class RecordBatchReader::RecordBatchReaderImpl {
  public:
@@ -377,29 +375,31 @@ class RecordBatchReader::RecordBatchReaderImpl {
   int num_flattened_fields_;
 };
 
-Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t offset,
     std::shared_ptr<RecordBatchReader>* out) {
-  return Open(file, position, kMaxIpcRecursionDepth, out);
+  return Open(file, offset, kMaxIpcRecursionDepth, out);
 }
 
-Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t offset,
     int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out) {
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(file->ReadAt(position, INIT_METADATA_SIZE, &metadata));
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(file->ReadAt(offset - sizeof(int32_t), sizeof(int32_t), &buffer));
 
-  int32_t metadata_size = *reinterpret_cast<const int32_t*>(metadata->data());
+  int32_t metadata_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
-  // We may not need to call ReadAt again
-  if (metadata_size > static_cast<int>(INIT_METADATA_SIZE - sizeof(int32_t))) {
-    // We don't have enough data, read the indicated metadata size.
-    RETURN_NOT_OK(file->ReadAt(position + sizeof(int32_t), metadata_size, &metadata));
+  if (metadata_size + static_cast<int>(sizeof(int32_t)) > offset) {
+    return Status::Invalid("metadata size invalid");
   }
+
+  // Read the metadata
+  RETURN_NOT_OK(
+      file->ReadAt(offset - metadata_size - sizeof(int32_t), metadata_size, &buffer));
 
   // TODO(wesm): buffer slicing here would be better in case ReadAt returns
   // allocated memory
 
   std::shared_ptr<Message> message;
-  RETURN_NOT_OK(Message::Open(metadata, &message));
+  RETURN_NOT_OK(Message::Open(buffer, &message));
 
   if (message->type() != Message::RECORD_BATCH) {
     return Status::Invalid("Metadata message is not a record batch");

@@ -86,12 +86,15 @@ class ARROW_EXPORT FileWriter {
 
 class ARROW_EXPORT FileReader {
  public:
+  ~FileReader();
+
   // Open a file-like object that is assumed to be self-contained; i.e., the
   // end of the file interface is the end of the Arrow file. Note that there
   // can be any amount of data preceding the Arrow-formatted data, because we
   // need only locate the end of the Arrow file stream to discover the metadata
   // and then proceed to read the data into memory.
-  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file);
+  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+      std::shared_ptr<FileReader>* reader);
 
   // If the file is embedded within some larger file or memory region, you can
   // pass the absolute memory offset to the end of the file (which contains the
@@ -100,12 +103,12 @@ class ARROW_EXPORT FileReader {
   //
   // @param file: the data source
   // @param footer_offset: the position of the end of the Arrow "file"
-  static Status Open(
-      const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset);
+  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+      int64_t footer_offset, std::shared_ptr<FileReader>* reader);
 
   // The Arrow schema shared by all of the record batches
   // @param schema (out): arrow::Schema
-  Status GetSchema(std::shared_ptr<Schema>* schema);
+  Status GetSchema(std::shared_ptr<Schema>* schema) const;
 
   // Shared dictionaries for dictionary-encoding cross record batches
   // TODO(wesm): Implement dictionary reading when we also have dictionary
@@ -113,6 +116,8 @@ class ARROW_EXPORT FileReader {
   int num_dictionaries() const;
 
   int num_record_batches() const;
+
+  MetadataVersion::type version() const;
 
   // Read a record batch from the file. Does not copy memory if the input
   // source supports zero-copy.
@@ -122,13 +127,18 @@ class ARROW_EXPORT FileReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  FileReader(const std::shared_ptr<io::ReadableFileInterface>& file);
+  FileReader(
+      const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset);
+
+  Status ReadFooter();
 
   std::shared_ptr<io::ReadableFileInterface> file_;
 
   // The location where the Arrow file layout ends. May be the end of the file
   // or some other location if embedded in a larger file.
   int64_t footer_offset_;
+
+  std::unique_ptr<FileFooter> footer_;
 };
 
 }  // namespace ipc

@@ -163,8 +163,10 @@ Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dicti
 
 class ARROW_EXPORT FileFooter {
  public:
+  ~FileFooter();
+
   static Status Open(
-      const std::shared_ptr<Buffer>& buffer, std::shared_ptr<FileFooter>* out);
+      const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out);
 
   int num_dictionaries() const;
   int num_record_batches() const;

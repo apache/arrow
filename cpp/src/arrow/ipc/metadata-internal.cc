@@ -304,17 +304,17 @@ Status MessageBuilder::Finish() {
 }
 
 Status MessageBuilder::GetBuffer(std::shared_ptr<Buffer>* out) {
-  // The message buffer is prefixed by the size of the complete flatbuffer as
+  // The message buffer is suffixed by the size of the complete flatbuffer as
   // int32_t
-  // <int32_t: flatbuffer size><uint8_t*: flatbuffer data>
+  // <uint8_t*: flatbuffer data><int32_t: flatbuffer size>
   int32_t size = fbb_.GetSize();
 
   auto result = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(result->Resize(size + sizeof(int32_t)));
 
   uint8_t* dst = result->mutable_data();
-  memcpy(dst, reinterpret_cast<int32_t*>(&size), sizeof(int32_t));
-  memcpy(dst + sizeof(int32_t), fbb_.GetBufferPointer(), size);
+  memcpy(dst, fbb_.GetBufferPointer(), size);
+  memcpy(dst + size, reinterpret_cast<int32_t*>(&size), sizeof(int32_t));
 
   *out = result;
   return Status::OK();
