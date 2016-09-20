@@ -55,7 +55,6 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
   Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
       std::vector<std::shared_ptr<RecordBatch>>* out_batches) {
-
     // Write the file
     RETURN_NOT_OK(FileWriter::Open(sink_.get(), batch.schema(), &file_writer_));
     int num_batches = 3;
@@ -85,11 +84,11 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   void CompareBatch(const RecordBatch* left, const RecordBatch* right) {
     ASSERT_TRUE(left->schema()->Equals(right->schema()));
     ASSERT_EQ(left->num_columns(), right->num_columns())
-      << left->schema()->ToString() << " result: " << right->schema()->ToString();
+        << left->schema()->ToString() << " result: " << right->schema()->ToString();
     EXPECT_EQ(left->num_rows(), right->num_rows());
     for (int i = 0; i < left->num_columns(); ++i) {
       EXPECT_TRUE(left->column(i)->Equals(right->column(i)))
-        << "Idx: " << i << " Name: " << left->column_name(i);
+          << "Idx: " << i << " Name: " << left->column_name(i);
     }
   }
 
@@ -102,7 +101,6 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   std::shared_ptr<FileWriter> file_writer_;
   std::shared_ptr<FileReader> file_reader_;
 };
-
 
 TEST_P(TestFileFormat, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
