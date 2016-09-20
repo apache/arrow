@@ -106,9 +106,7 @@ class ARROW_EXPORT FileReader {
   static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
       int64_t footer_offset, std::shared_ptr<FileReader>* reader);
 
-  // The Arrow schema shared by all of the record batches
-  // @param schema (out): arrow::Schema
-  Status GetSchema(std::shared_ptr<Schema>* schema) const;
+  const std::shared_ptr<Schema>& schema() const;
 
   // Shared dictionaries for dictionary-encoding cross record batches
   // TODO(wesm): Implement dictionary reading when we also have dictionary
@@ -139,6 +137,7 @@ class ARROW_EXPORT FileReader {
   int64_t footer_offset_;
 
   std::unique_ptr<FileFooter> footer_;
+  std::shared_ptr<Schema> schema_;
 };
 
 }  // namespace ipc

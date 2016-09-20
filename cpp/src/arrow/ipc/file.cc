@@ -87,17 +87,18 @@ Status FileWriter::WriteRecordBatch(
 
   int64_t offset = position_;
 
-  int64_t header_offset;
-  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(columns, num_rows, sink_, &header_offset));
+  int64_t body_end_offset;
+  int64_t header_end_offset;
+  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
+      columns, num_rows, sink_, &body_end_offset, &header_end_offset));
   RETURN_NOT_OK(UpdatePosition());
 
   DCHECK(position_ % 8 == 0) << "ipc::WriteRecordBatch did not perform aligned writes";
 
-  // We can infer the metadata length and length of the record batch body (the
-  // concatenated buffers) from the heade offset and the new output stream
-  // position
-  int32_t metadata_length = position_ - header_offset;
-  int32_t body_length = position_ - offset - metadata_length;
+  // There may be padding ever the end of the metadata, so we cannot rely on
+  // position_
+  int32_t metadata_length = body_end_offset - header_end_offset;
+  int32_t body_length = body_end_offset - offset;
 
   // Append metadata, to be written in the footer latera
   record_batches_.emplace_back(offset, metadata_length, body_length);
@@ -177,11 +178,12 @@ Status FileReader::ReadFooter() {
       footer_offset_ - footer_length - file_end_size, footer_length, &buffer));
   RETURN_NOT_OK(FileFooter::Open(buffer, &footer_));
 
-  return Status::OK();
+  // Get the schema
+  return footer_->GetSchema(&schema_);
 }
 
-Status FileReader::GetSchema(std::shared_ptr<Schema>* schema) const {
-  return footer_->GetSchema(schema);
+const std::shared_ptr<Schema>& FileReader::schema() const {
+  return schema_;
 }
 
 int FileReader::num_dictionaries() const {
@@ -199,12 +201,13 @@ MetadataVersion::type FileReader::version() const {
 Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   DCHECK_GT(i, 0);
   DCHECK_LT(i, num_record_batches());
-  // FileBlock block = footer_->record_batch(i);
+  FileBlock block = footer_->record_batch(i);
+  int64_t metadata_end_offset = block.offset + block.body_length + block.metadata_length;
 
-  //
-  std::shared_ptr<Buffer> buffer;
-  // RETURN_NOT_OK(file_->ReadAt
-  return Status::OK();
+  std::shared_ptr<RecordBatchReader> reader;
+  RETURN_NOT_OK(RecordBatchReader::Open(file_.get(), metadata_end_offset, &reader));
+
+  return reader->GetRecordBatch(schema_, batch);
 }
 
 }  // namespace ipc

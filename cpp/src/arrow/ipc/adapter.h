@@ -61,12 +61,12 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // <int32: metadata size> <uint8*: metadata>
 //
-// Finally, the absolute offset (relative to the start of the output stream) to
-// the end of the metadata / data header (suffixed by the header size) is
-// returned in an out-variable
+// Finally, the absolute offsets (relative to the start of the output stream)
+// to the end of the body and end of the metadata / data header (suffixed by
+// the header size) is returned in out-variables
 ARROW_EXPORT Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
-    int32_t num_rows, io::OutputStream* dst, int64_t* header_offset,
-    int max_recursion_depth = kMaxIpcRecursionDepth);
+    int32_t num_rows, io::OutputStream* dst, int64_t* body_end_offset,
+    int64_t* header_end_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRecordBatchMetadata(const RecordBatch* batch);
 

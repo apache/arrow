@@ -60,13 +60,15 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
       std::shared_ptr<RecordBatch>* batch_result) {
     std::string path = "test-write-row-batch";
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
-    int64_t header_offset;
 
-    RETURN_NOT_OK(
-        WriteRecordBatch(batch.columns(), batch.num_rows(), mmap_.get(), &header_offset));
+    int64_t body_end_offset;
+    int64_t header_end_offset;
+
+    RETURN_NOT_OK(WriteRecordBatch(batch.columns(), batch.num_rows(), mmap_.get(),
+        &body_end_offset, &header_end_offset));
 
     std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(RecordBatchReader::Open(mmap_.get(), header_offset, &reader));
+    RETURN_NOT_OK(RecordBatchReader::Open(mmap_.get(), header_end_offset, &reader));
 
     RETURN_NOT_OK(reader->GetRecordBatch(batch.schema(), batch_result));
     return Status::OK();
@@ -282,9 +284,10 @@ INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
   int64_t mock_header_offset = -1;
+  int64_t mock_body_offset = -1;
   int64_t size = -1;
-  ASSERT_OK(
-      WriteRecordBatch(batch->columns(), batch->num_rows(), &mock, &mock_header_offset));
+  ASSERT_OK(WriteRecordBatch(batch->columns(), batch->num_rows(), &mock,
+      &mock_body_offset, &mock_header_offset));
   ASSERT_OK(GetRecordBatchSize(batch.get(), &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -335,14 +338,17 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::string path = "test-write-past-max-recursion";
     const int memory_map_size = 1 << 16;
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+
+    int64_t body_offset;
     int64_t header_offset;
+
     int64_t* header_out_param = header_out == nullptr ? &header_offset : header_out;
     if (override_level) {
       return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
-          header_out_param, recursion_level + 1);
+          &body_offset, header_out_param, recursion_level + 1);
     } else {
-      return WriteRecordBatch(
-          batch->columns(), batch->num_rows(), mmap_.get(), header_out_param);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
+          &body_offset, header_out_param);
     }
   }
 

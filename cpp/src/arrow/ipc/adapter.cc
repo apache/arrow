@@ -149,7 +149,8 @@ class RecordBatchWriter {
     return Status::OK();
   }
 
-  Status Write(io::OutputStream* dst, int64_t* data_header_offset) {
+  Status Write(
+      io::OutputStream* dst, int64_t* body_end_offset, int64_t* header_end_offset) {
     // Get the starting position
     int64_t start_position;
     RETURN_NOT_OK(dst->Tell(&start_position));
@@ -186,6 +187,8 @@ class RecordBatchWriter {
       }
     }
 
+    *body_end_offset = position;
+
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out
     //
@@ -199,7 +202,7 @@ class RecordBatchWriter {
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
-    *data_header_offset = position + data_header->size();
+    *header_end_offset = position + data_header->size();
 
     return Align(dst, &position);
   }
@@ -218,9 +221,10 @@ class RecordBatchWriter {
   // This must be called after invoking AssemblePayload
   Status GetTotalSize(int64_t* size) {
     // emulates the behavior of Write without actually writing
+    int64_t body_offset;
     int64_t data_header_offset;
     MockOutputStream dst;
-    RETURN_NOT_OK(Write(&dst, &data_header_offset));
+    RETURN_NOT_OK(Write(&dst, &body_offset, &data_header_offset));
     *size = dst.GetExtentBytesWritten();
     return Status::OK();
   }
@@ -237,12 +241,12 @@ class RecordBatchWriter {
 };
 
 Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
-    int32_t num_rows, io::OutputStream* dst, int64_t* header_offset,
-    int max_recursion_depth) {
+    int32_t num_rows, io::OutputStream* dst, int64_t* body_end_offset,
+    int64_t* header_end_offset, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
   RecordBatchWriter serializer(columns, num_rows, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
-  return serializer.Write(dst, header_offset);
+  return serializer.Write(dst, body_end_offset, header_end_offset);
 }
 
 Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
