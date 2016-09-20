@@ -61,6 +61,10 @@ ADD_ARROW_TEST(ipc-adapter-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-adapter-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
+ADD_ARROW_TEST(ipc-file-test)
+ARROW_TEST_LINK_LIBRARIES(ipc-file-test
+  ${ARROW_IPC_TEST_LINK_LIBS})
+
 ADD_ARROW_TEST(ipc-metadata-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-metadata-test
   ${ARROW_IPC_TEST_LINK_LIBS})
