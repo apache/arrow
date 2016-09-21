@@ -35,7 +35,7 @@ namespace arrow {
 #define ARROW_ERROR 2
 #define ARROW_FATAL 3
 
-#define ARROW_LOG_INTERNAL(level) arrow::internal::CerrLog(level)
+#define ARROW_LOG_INTERNAL(level) ::arrow::internal::CerrLog(level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
 
 #define ARROW_CHECK(condition)                               \
@@ -47,25 +47,25 @@ namespace arrow {
 
 #define DCHECK(condition) \
   while (false)           \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_NE(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_LE(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_LT(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_GE(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 #define DCHECK_GT(val1, val2) \
   while (false)               \
-  arrow::internal::NullLog()
+  ::arrow::internal::NullLog()
 
 #else
 #define ARROW_DFATAL ARROW_FATAL
