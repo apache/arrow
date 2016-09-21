@@ -31,10 +31,6 @@
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
-typedef flatbuffers::FlatBufferBuilder FBB;
-typedef flatbuffers::Offset<arrow::flatbuf::Field> FieldOffset;
-typedef flatbuffers::Offset<void> Offset;
-
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
@@ -52,6 +48,8 @@ const std::shared_ptr<DataType> UINT32 = std::make_shared<UInt32Type>();
 const std::shared_ptr<DataType> UINT64 = std::make_shared<UInt64Type>();
 const std::shared_ptr<DataType> FLOAT = std::make_shared<FloatType>();
 const std::shared_ptr<DataType> DOUBLE = std::make_shared<DoubleType>();
+const std::shared_ptr<DataType> STRING = std::make_shared<StringType>();
+const std::shared_ptr<DataType> BINARY = std::make_shared<BinaryType>();
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -102,8 +100,11 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return FloatFromFlatuffer(
           static_cast<const flatbuf::FloatingPoint*>(type_data), out);
     case flatbuf::Type_Binary:
+      *out = BINARY;
+      return Status::OK();
     case flatbuf::Type_Utf8:
-      return Status::NotImplemented("Type is not implemented");
+      *out = STRING;
+      return Status::OK();
     case flatbuf::Type_Bool:
       *out = BOOL;
       return Status::OK();
@@ -193,6 +194,14 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
       break;
+    case Type::BINARY:
+      *out_type = flatbuf::Type_Binary;
+      *offset = flatbuf::CreateBinary(fbb).Union();
+      break;
+    case Type::STRING:
+      *out_type = flatbuf::Type_Utf8;
+      *offset = flatbuf::CreateUtf8(fbb).Union();
+      break;
     case Type::LIST:
       *out_type = flatbuf::Type_List;
       return ListToFlatbuffer(fbb, type, children, offset);
@@ -255,19 +264,26 @@ flatbuf::Endianness endianness() {
   return bint.c[0] == 1 ? flatbuf::Endianness_Big : flatbuf::Endianness_Little;
 }
 
-Status MessageBuilder::SetSchema(const Schema* schema) {
-  header_type_ = flatbuf::MessageHeader_Schema;
-
+Status SchemaToFlatbuffer(
+    FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out) {
   std::vector<FieldOffset> field_offsets;
   for (int i = 0; i < schema->num_fields(); ++i) {
     const std::shared_ptr<Field>& field = schema->field(i);
     FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb_, field, &offset));
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, &offset));
     field_offsets.push_back(offset);
   }
 
-  header_ =
-      flatbuf::CreateSchema(fbb_, endianness(), fbb_.CreateVector(field_offsets)).Union();
+  *out = flatbuf::CreateSchema(fbb, endianness(), fbb.CreateVector(field_offsets));
+  return Status::OK();
+}
+
+Status MessageBuilder::SetSchema(const Schema* schema) {
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, &fb_schema));
+
+  header_type_ = flatbuf::MessageHeader_Schema;
+  header_ = fb_schema.Union();
   body_length_ = 0;
   return Status::OK();
 }
@@ -301,17 +317,17 @@ Status MessageBuilder::Finish() {
 }
 
 Status MessageBuilder::GetBuffer(std::shared_ptr<Buffer>* out) {
-  // The message buffer is prefixed by the size of the complete flatbuffer as
+  // The message buffer is suffixed by the size of the complete flatbuffer as
   // int32_t
-  // <int32_t: flatbuffer size><uint8_t*: flatbuffer data>
+  // <uint8_t*: flatbuffer data><int32_t: flatbuffer size>
   int32_t size = fbb_.GetSize();
 
   auto result = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(result->Resize(size + sizeof(int32_t)));
 
   uint8_t* dst = result->mutable_data();
-  memcpy(dst, reinterpret_cast<int32_t*>(&size), sizeof(int32_t));
-  memcpy(dst + sizeof(int32_t), fbb_.GetBufferPointer(), size);
+  memcpy(dst, fbb_.GetBufferPointer(), size);
+  memcpy(dst + size, reinterpret_cast<int32_t*>(&size), sizeof(int32_t));
 
   *out = result;
   return Status::OK();

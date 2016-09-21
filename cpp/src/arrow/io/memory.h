@@ -32,32 +32,30 @@
 namespace arrow {
 
 class Buffer;
-class MutableBuffer;
+class ResizableBuffer;
 class Status;
 
 namespace io {
 
 // An output stream that writes to a MutableBuffer, such as one obtained from a
 // memory map
-//
-// TODO(wesm): Implement this class
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
-  explicit BufferOutputStream(const std::shared_ptr<MutableBuffer>& buffer)
-      : buffer_(buffer) {}
+  explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
   // Implement the OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) override;
-  Status Write(const uint8_t* data, int64_t length) override;
-
-  // Returns the number of bytes remaining in the buffer
-  int64_t bytes_remaining() const;
+  Status Write(const uint8_t* data, int64_t nbytes) override;
 
  private:
-  std::shared_ptr<MutableBuffer> buffer_;
+  // Ensures there is sufficient space available to write nbytes
+  Status Reserve(int64_t nbytes);
+
+  std::shared_ptr<ResizableBuffer> buffer_;
   int64_t capacity_;
   int64_t position_;
+  uint8_t* mutable_data_;
 };
 
 // A memory source that uses memory-mapped files for memory interactions

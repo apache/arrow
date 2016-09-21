@@ -43,31 +43,27 @@
 namespace arrow {
 namespace ipc {
 
-// TODO(emkornfield) convert to google style kInt32, etc?
-const auto INT32 = std::make_shared<Int32Type>();
-const auto LIST_INT32 = std::make_shared<ListType>(INT32);
-const auto LIST_LIST_INT32 = std::make_shared<ListType>(LIST_INT32);
-
-typedef Status MakeRowBatch(std::shared_ptr<RowBatch>* out);
-
-class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
-                          public io::MemoryMapFixture {
+class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
+                             public io::MemoryMapFixture {
  public:
   void SetUp() { pool_ = default_memory_pool(); }
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
-  Status RoundTripHelper(const RowBatch& batch, int memory_map_size,
-      std::shared_ptr<RowBatch>* batch_result) {
+  Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
+      std::shared_ptr<RecordBatch>* batch_result) {
     std::string path = "test-write-row-batch";
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
-    int64_t header_location;
 
-    RETURN_NOT_OK(WriteRowBatch(mmap_.get(), &batch, &header_location));
+    int64_t body_end_offset;
+    int64_t header_end_offset;
 
-    std::shared_ptr<RowBatchReader> reader;
-    RETURN_NOT_OK(RowBatchReader::Open(mmap_.get(), header_location, &reader));
+    RETURN_NOT_OK(WriteRecordBatch(batch.columns(), batch.num_rows(), mmap_.get(),
+        &body_end_offset, &header_end_offset));
 
-    RETURN_NOT_OK(reader->GetRowBatch(batch.schema(), batch_result));
+    std::shared_ptr<RecordBatchReader> reader;
+    RETURN_NOT_OK(RecordBatchReader::Open(mmap_.get(), header_end_offset, &reader));
+
+    RETURN_NOT_OK(reader->GetRecordBatch(batch.schema(), batch_result));
     return Status::OK();
   }
 
@@ -76,10 +72,10 @@ class TestWriteRowBatch : public ::testing::TestWithParam<MakeRowBatch*>,
   MemoryPool* pool_;
 };
 
-TEST_P(TestWriteRowBatch, RoundTrip) {
-  std::shared_ptr<RowBatch> batch;
+TEST_P(TestWriteRecordBatch, RoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
-  std::shared_ptr<RowBatch> batch_result;
+  std::shared_ptr<RecordBatch> batch_result;
   ASSERT_OK(RoundTripHelper(*batch, 1 << 16, &batch_result));
 
   // do checks
@@ -93,217 +89,39 @@ TEST_P(TestWriteRowBatch, RoundTrip) {
   }
 }
 
-Status MakeIntRowBatch(std::shared_ptr<RowBatch>* out) {
-  const int length = 1000;
+INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
+    ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,
+                            &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,
+                            &MakeStringTypesRecordBatch, &MakeStruct));
 
-  // Make the schema
-  auto f0 = std::make_shared<Field>("f0", INT32);
-  auto f1 = std::make_shared<Field>("f1", INT32);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
-
-  // Example data
-  std::shared_ptr<Array> a0, a1;
-  MemoryPool* pool = default_memory_pool();
-  RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1));
-  out->reset(new RowBatch(schema, length, {a0, a1}));
-  return Status::OK();
-}
-
-template <class Builder, class RawType>
-Status MakeRandomBinaryArray(
-    const TypePtr& type, int32_t length, MemoryPool* pool, ArrayPtr* array) {
-  const std::vector<std::string> values = {
-      "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
-  Builder builder(pool, type);
-  const auto values_len = values.size();
-  for (int32_t i = 0; i < length; ++i) {
-    int values_index = i % values_len;
-    if (values_index == 0) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      const std::string& value = values[values_index];
-      RETURN_NOT_OK(
-          builder.Append(reinterpret_cast<const RawType*>(value.data()), value.size()));
-    }
-  }
-  *array = builder.Finish();
-  return Status::OK();
-}
-
-Status MakeStringTypesRowBatch(std::shared_ptr<RowBatch>* out) {
-  const int32_t length = 500;
-  auto string_type = std::make_shared<StringType>();
-  auto binary_type = std::make_shared<BinaryType>();
-  auto f0 = std::make_shared<Field>("f0", string_type);
-  auto f1 = std::make_shared<Field>("f1", binary_type);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
-
-  std::shared_ptr<Array> a0, a1;
-  MemoryPool* pool = default_memory_pool();
-
-  {
-    auto status =
-        MakeRandomBinaryArray<StringBuilder, char>(string_type, length, pool, &a0);
-    RETURN_NOT_OK(status);
-  }
-  {
-    auto status =
-        MakeRandomBinaryArray<BinaryBuilder, uint8_t>(binary_type, length, pool, &a1);
-    RETURN_NOT_OK(status);
-  }
-  out->reset(new RowBatch(schema, length, {a0, a1}));
-  return Status::OK();
-}
-
-Status MakeListRowBatch(std::shared_ptr<RowBatch>* out) {
-  // Make the schema
-  auto f0 = std::make_shared<Field>("f0", LIST_INT32);
-  auto f1 = std::make_shared<Field>("f1", LIST_LIST_INT32);
-  auto f2 = std::make_shared<Field>("f2", INT32);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
-
-  // Example data
-
-  MemoryPool* pool = default_memory_pool();
-  const int length = 200;
-  std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
-  const bool include_nulls = true;
-  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
-  RETURN_NOT_OK(
-      MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(
-      MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
-  out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
-  return Status::OK();
-}
-
-Status MakeZeroLengthRowBatch(std::shared_ptr<RowBatch>* out) {
-  // Make the schema
-  auto f0 = std::make_shared<Field>("f0", LIST_INT32);
-  auto f1 = std::make_shared<Field>("f1", LIST_LIST_INT32);
-  auto f2 = std::make_shared<Field>("f2", INT32);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
-
-  // Example data
-  MemoryPool* pool = default_memory_pool();
-  const int length = 200;
-  const bool include_nulls = true;
-  std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
-  RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &leaf_values));
-  RETURN_NOT_OK(MakeRandomListArray(leaf_values, 0, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(
-      MakeRandomListArray(list_array, 0, include_nulls, pool, &list_list_array));
-  RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
-  out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
-  return Status::OK();
-}
-
-Status MakeNonNullRowBatch(std::shared_ptr<RowBatch>* out) {
-  // Make the schema
-  auto f0 = std::make_shared<Field>("f0", LIST_INT32);
-  auto f1 = std::make_shared<Field>("f1", LIST_LIST_INT32);
-  auto f2 = std::make_shared<Field>("f2", INT32);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
-
-  // Example data
-  MemoryPool* pool = default_memory_pool();
-  const int length = 50;
-  std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
-
-  RETURN_NOT_OK(MakeRandomInt32Array(1000, true, pool, &leaf_values));
-  bool include_nulls = false;
-  RETURN_NOT_OK(
-      MakeRandomListArray(leaf_values, length, include_nulls, pool, &list_array));
-  RETURN_NOT_OK(
-      MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
-  out->reset(new RowBatch(schema, length, {list_array, list_list_array, flat_array}));
-  return Status::OK();
-}
-
-Status MakeDeeplyNestedList(std::shared_ptr<RowBatch>* out) {
-  const int batch_length = 5;
-  TypePtr type = INT32;
-
-  MemoryPool* pool = default_memory_pool();
-  ArrayPtr array;
-  const bool include_nulls = true;
-  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
-  for (int i = 0; i < 63; ++i) {
-    type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
-    RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool, &array));
-  }
-
-  auto f0 = std::make_shared<Field>("f0", type);
-  std::shared_ptr<Schema> schema(new Schema({f0}));
-  std::vector<ArrayPtr> arrays = {array};
-  out->reset(new RowBatch(schema, batch_length, arrays));
-  return Status::OK();
-}
-
-Status MakeStruct(std::shared_ptr<RowBatch>* out) {
-  // reuse constructed list columns
-  std::shared_ptr<RowBatch> list_batch;
-  RETURN_NOT_OK(MakeListRowBatch(&list_batch));
-  std::vector<ArrayPtr> columns = {
-      list_batch->column(0), list_batch->column(1), list_batch->column(2)};
-  auto list_schema = list_batch->schema();
-
-  // Define schema
-  std::shared_ptr<DataType> type(new StructType(
-      {list_schema->field(0), list_schema->field(1), list_schema->field(2)}));
-  auto f0 = std::make_shared<Field>("non_null_struct", type);
-  auto f1 = std::make_shared<Field>("null_struct", type);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
-
-  // construct individual nullable/non-nullable struct arrays
-  ArrayPtr no_nulls(new StructArray(type, list_batch->num_rows(), columns));
-  std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
-  null_bytes[0] = 0;
-  std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(util::bytes_to_bits(null_bytes, &null_bitmask));
-  ArrayPtr with_nulls(
-      new StructArray(type, list_batch->num_rows(), columns, 1, null_bitmask));
-
-  // construct batch
-  std::vector<ArrayPtr> arrays = {no_nulls, with_nulls};
-  out->reset(new RowBatch(schema, list_batch->num_rows(), arrays));
-  return Status::OK();
-}
-
-INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRowBatch,
-    ::testing::Values(&MakeIntRowBatch, &MakeListRowBatch, &MakeNonNullRowBatch,
-                            &MakeZeroLengthRowBatch, &MakeDeeplyNestedList,
-                            &MakeStringTypesRowBatch, &MakeStruct));
-
-void TestGetRowBatchSize(std::shared_ptr<RowBatch> batch) {
+void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
-  int64_t mock_header_location = -1;
+  int64_t mock_header_offset = -1;
+  int64_t mock_body_offset = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRowBatch(&mock, batch.get(), &mock_header_location));
-  ASSERT_OK(GetRowBatchSize(batch.get(), &size));
+  ASSERT_OK(WriteRecordBatch(batch->columns(), batch->num_rows(), &mock,
+      &mock_body_offset, &mock_header_offset));
+  ASSERT_OK(GetRecordBatchSize(batch.get(), &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
 
-TEST_F(TestWriteRowBatch, IntegerGetRowBatchSize) {
-  std::shared_ptr<RowBatch> batch;
+TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
+  std::shared_ptr<RecordBatch> batch;
 
-  ASSERT_OK(MakeIntRowBatch(&batch));
-  TestGetRowBatchSize(batch);
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  TestGetRecordBatchSize(batch);
 
-  ASSERT_OK(MakeListRowBatch(&batch));
-  TestGetRowBatchSize(batch);
+  ASSERT_OK(MakeListRecordBatch(&batch));
+  TestGetRecordBatchSize(batch);
 
-  ASSERT_OK(MakeZeroLengthRowBatch(&batch));
-  TestGetRowBatchSize(batch);
+  ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
+  TestGetRecordBatchSize(batch);
 
-  ASSERT_OK(MakeNonNullRowBatch(&batch));
-  TestGetRowBatchSize(batch);
+  ASSERT_OK(MakeNonNullRecordBatch(&batch));
+  TestGetRecordBatchSize(batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
-  TestGetRowBatchSize(batch);
+  TestGetRecordBatchSize(batch);
 }
 
 class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
@@ -314,7 +132,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
   Status WriteToMmap(int recursion_level, bool override_level,
       int64_t* header_out = nullptr, std::shared_ptr<Schema>* schema_out = nullptr) {
     const int batch_length = 5;
-    TypePtr type = INT32;
+    TypePtr type = kInt32;
     ArrayPtr array;
     const bool include_nulls = true;
     RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool_, &array));
@@ -328,18 +146,22 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::shared_ptr<Schema> schema(new Schema({f0}));
     if (schema_out != nullptr) { *schema_out = schema; }
     std::vector<ArrayPtr> arrays = {array};
-    auto batch = std::make_shared<RowBatch>(schema, batch_length, arrays);
+    auto batch = std::make_shared<RecordBatch>(schema, batch_length, arrays);
 
     std::string path = "test-write-past-max-recursion";
     const int memory_map_size = 1 << 16;
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
-    int64_t header_location;
-    int64_t* header_out_param = header_out == nullptr ? &header_location : header_out;
+
+    int64_t body_offset;
+    int64_t header_offset;
+
+    int64_t* header_out_param = header_out == nullptr ? &header_offset : header_out;
     if (override_level) {
-      return WriteRowBatch(
-          mmap_.get(), batch.get(), header_out_param, recursion_level + 1);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
+          &body_offset, header_out_param, recursion_level + 1);
     } else {
-      return WriteRowBatch(mmap_.get(), batch.get(), header_out_param);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
+          &body_offset, header_out_param);
     }
   }
 
@@ -353,14 +175,14 @@ TEST_F(RecursionLimits, WriteLimit) {
 }
 
 TEST_F(RecursionLimits, ReadLimit) {
-  int64_t header_location = -1;
+  int64_t header_offset = -1;
   std::shared_ptr<Schema> schema;
-  ASSERT_OK(WriteToMmap(64, true, &header_location, &schema));
+  ASSERT_OK(WriteToMmap(64, true, &header_offset, &schema));
 
-  std::shared_ptr<RowBatchReader> reader;
-  ASSERT_OK(RowBatchReader::Open(mmap_.get(), header_location, &reader));
-  std::shared_ptr<RowBatch> batch_result;
-  ASSERT_RAISES(Invalid, reader->GetRowBatch(schema, &batch_result));
+  std::shared_ptr<RecordBatchReader> reader;
+  ASSERT_OK(RecordBatchReader::Open(mmap_.get(), header_offset, &reader));
+  std::shared_ptr<RecordBatch> batch_result;
+  ASSERT_RAISES(Invalid, reader->GetRecordBatch(schema, &batch_result));
 }
 
 }  // namespace ipc

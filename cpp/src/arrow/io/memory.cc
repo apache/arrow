@@ -207,6 +207,43 @@ Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
 }
 
 // ----------------------------------------------------------------------
+// OutputStream that writes to resizable buffer
+
+static constexpr int64_t kBufferMinimumSize = 256;
+
+BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
+    : buffer_(buffer),
+      capacity_(buffer->size()),
+      position_(0),
+      mutable_data_(buffer->mutable_data()) {}
+
+Status BufferOutputStream::Close() {
+  return Status::OK();
+}
+
+Status BufferOutputStream::Tell(int64_t* position) {
+  *position = position_;
+  return Status::OK();
+}
+
+Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+  RETURN_NOT_OK(Reserve(nbytes));
+  std::memcpy(mutable_data_ + position_, data, nbytes);
+  position_ += nbytes;
+  return Status::OK();
+}
+
+Status BufferOutputStream::Reserve(int64_t nbytes) {
+  while (position_ + nbytes > capacity_) {
+    int64_t new_capacity = std::max(kBufferMinimumSize, capacity_ * 2);
+    RETURN_NOT_OK(buffer_->Resize(new_capacity));
+    capacity_ = new_capacity;
+  }
+  mutable_data_ = buffer_->mutable_data();
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // In-memory buffer reader
 
 Status BufferReader::Close() {

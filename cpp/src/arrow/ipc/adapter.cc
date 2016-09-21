@@ -95,7 +95,7 @@ static bool IsListType(const DataType* type) {
 }
 
 // ----------------------------------------------------------------------
-// Row batch write path
+// Record batch write path
 
 Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes,
     std::vector<std::shared_ptr<Buffer>>* buffers, int max_recursion_depth) {
@@ -132,28 +132,32 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   return Status::OK();
 }
 
-class RowBatchWriter {
+class RecordBatchWriter {
  public:
-  RowBatchWriter(const RowBatch* batch, int max_recursion_depth)
-      : batch_(batch), max_recursion_depth_(max_recursion_depth) {}
+  RecordBatchWriter(const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows,
+      int max_recursion_depth)
+      : columns_(&columns),
+        num_rows_(num_rows),
+        max_recursion_depth_(max_recursion_depth) {}
 
   Status AssemblePayload() {
     // Perform depth-first traversal of the row-batch
-    for (int i = 0; i < batch_->num_columns(); ++i) {
-      const Array* arr = batch_->column(i).get();
+    for (size_t i = 0; i < columns_->size(); ++i) {
+      const Array* arr = (*columns_)[i].get();
       RETURN_NOT_OK(VisitArray(arr, &field_nodes_, &buffers_, max_recursion_depth_));
     }
     return Status::OK();
   }
 
-  Status Write(io::OutputStream* dst, int64_t* data_header_offset) {
-    // Write out all the buffers contiguously and compute the total size of the
-    // memory payload
-    int64_t offset = 0;
-
+  Status Write(
+      io::OutputStream* dst, int64_t* body_end_offset, int64_t* header_end_offset) {
     // Get the starting position
-    int64_t position;
-    RETURN_NOT_OK(dst->Tell(&position));
+    int64_t start_position;
+    RETURN_NOT_OK(dst->Tell(&start_position));
+
+    // Keep track of the current position so we can determine the size of the
+    // message body
+    int64_t position = start_position;
 
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
@@ -175,13 +179,15 @@ class RowBatchWriter {
       // are using from any OS-level shared memory. The thought is that systems
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back(flatbuf::Buffer(0, position + offset, size));
+      buffer_meta_.push_back(flatbuf::Buffer(0, position, size));
 
       if (size > 0) {
         RETURN_NOT_OK(dst->Write(buffer->data(), size));
-        offset += size;
+        position += size;
       }
     }
+
+    *body_end_offset = position;
 
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out
@@ -192,27 +198,43 @@ class RowBatchWriter {
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
     RETURN_NOT_OK(WriteDataHeader(
-        batch_->num_rows(), offset, field_nodes_, buffer_meta_, &data_header));
+        num_rows_, position - start_position, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
 
-    *data_header_offset = position + offset;
+    position += data_header->size();
+    *header_end_offset = position;
+
+    return Align(dst, &position);
+  }
+
+  Status Align(io::OutputStream* dst, int64_t* position) {
+    // Write all buffers here on word boundaries
+    // TODO(wesm): Is there benefit to 64-byte padding in IPC?
+    int64_t remainder = PaddedLength(*position) - *position;
+    if (remainder > 0) {
+      RETURN_NOT_OK(dst->Write(kPaddingBytes, remainder));
+      *position += remainder;
+    }
     return Status::OK();
   }
 
   // This must be called after invoking AssemblePayload
   Status GetTotalSize(int64_t* size) {
     // emulates the behavior of Write without actually writing
+    int64_t body_offset;
     int64_t data_header_offset;
     MockOutputStream dst;
-    RETURN_NOT_OK(Write(&dst, &data_header_offset));
+    RETURN_NOT_OK(Write(&dst, &body_offset, &data_header_offset));
     *size = dst.GetExtentBytesWritten();
     return Status::OK();
   }
 
  private:
-  const RowBatch* batch_;
+  // Do not copy this vector. Ownership must be retained elsewhere
+  const std::vector<std::shared_ptr<Array>>* columns_;
+  int32_t num_rows_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
@@ -220,29 +242,29 @@ class RowBatchWriter {
   int max_recursion_depth_;
 };
 
-Status WriteRowBatch(io::OutputStream* dst, const RowBatch* batch, int64_t* header_offset,
-    int max_recursion_depth) {
+Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
+    int32_t num_rows, io::OutputStream* dst, int64_t* body_end_offset,
+    int64_t* header_end_offset, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RowBatchWriter serializer(batch, max_recursion_depth);
+  RecordBatchWriter serializer(columns, num_rows, max_recursion_depth);
   RETURN_NOT_OK(serializer.AssemblePayload());
-  return serializer.Write(dst, header_offset);
+  return serializer.Write(dst, body_end_offset, header_end_offset);
 }
 
-Status GetRowBatchSize(const RowBatch* batch, int64_t* size) {
-  RowBatchWriter serializer(batch, kMaxIpcRecursionDepth);
+Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
+  RecordBatchWriter serializer(
+      batch->columns(), batch->num_rows(), kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.AssemblePayload());
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
-// Row batch read path
+// Record batch read path
 
-static constexpr int64_t INIT_METADATA_SIZE = 4096;
-
-class RowBatchReader::RowBatchReaderImpl {
+class RecordBatchReader::RecordBatchReaderImpl {
  public:
-  RowBatchReaderImpl(io::ReadableFileInterface* file,
+  RecordBatchReaderImpl(io::ReadableFileInterface* file,
       const std::shared_ptr<RecordBatchMessage>& metadata, int max_recursion_depth)
       : file_(file), metadata_(metadata), max_recursion_depth_(max_recursion_depth) {
     num_buffers_ = metadata->num_buffers();
@@ -250,7 +272,7 @@ class RowBatchReader::RowBatchReaderImpl {
   }
 
   Status AssembleBatch(
-      const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
+      const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out) {
     std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
 
     // The field_index and buffer_index are incremented in NextArray based on
@@ -263,7 +285,7 @@ class RowBatchReader::RowBatchReaderImpl {
       RETURN_NOT_OK(NextArray(field, max_recursion_depth_, &arrays[i]));
     }
 
-    *out = std::make_shared<RowBatch>(schema, metadata_->length(), arrays);
+    *out = std::make_shared<RecordBatch>(schema, metadata_->length(), arrays);
     return Status::OK();
   }
 
@@ -359,29 +381,31 @@ class RowBatchReader::RowBatchReaderImpl {
   int num_flattened_fields_;
 };
 
-Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
-    std::shared_ptr<RowBatchReader>* out) {
-  return Open(file, position, kMaxIpcRecursionDepth, out);
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t offset,
+    std::shared_ptr<RecordBatchReader>* out) {
+  return Open(file, offset, kMaxIpcRecursionDepth, out);
 }
 
-Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
-    int max_recursion_depth, std::shared_ptr<RowBatchReader>* out) {
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(file->ReadAt(position, INIT_METADATA_SIZE, &metadata));
+Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t offset,
+    int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(file->ReadAt(offset - sizeof(int32_t), sizeof(int32_t), &buffer));
 
-  int32_t metadata_size = *reinterpret_cast<const int32_t*>(metadata->data());
+  int32_t metadata_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
-  // We may not need to call ReadAt again
-  if (metadata_size > static_cast<int>(INIT_METADATA_SIZE - sizeof(int32_t))) {
-    // We don't have enough data, read the indicated metadata size.
-    RETURN_NOT_OK(file->ReadAt(position + sizeof(int32_t), metadata_size, &metadata));
+  if (metadata_size + static_cast<int>(sizeof(int32_t)) > offset) {
+    return Status::Invalid("metadata size invalid");
   }
+
+  // Read the metadata
+  RETURN_NOT_OK(
+      file->ReadAt(offset - metadata_size - sizeof(int32_t), metadata_size, &buffer));
 
   // TODO(wesm): buffer slicing here would be better in case ReadAt returns
   // allocated memory
 
   std::shared_ptr<Message> message;
-  RETURN_NOT_OK(Message::Open(metadata, &message));
+  RETURN_NOT_OK(Message::Open(buffer, &message));
 
   if (message->type() != Message::RECORD_BATCH) {
     return Status::Invalid("Metadata message is not a record batch");
@@ -389,19 +413,19 @@ Status RowBatchReader::Open(io::ReadableFileInterface* file, int64_t position,
 
   std::shared_ptr<RecordBatchMessage> batch_meta = message->GetRecordBatch();
 
-  std::shared_ptr<RowBatchReader> result(new RowBatchReader());
-  result->impl_.reset(new RowBatchReaderImpl(file, batch_meta, max_recursion_depth));
+  std::shared_ptr<RecordBatchReader> result(new RecordBatchReader());
+  result->impl_.reset(new RecordBatchReaderImpl(file, batch_meta, max_recursion_depth));
   *out = result;
 
   return Status::OK();
 }
 
 // Here the explicit destructor is required for compilers to be aware of
-// the complete information of RowBatchReader::RowBatchReaderImpl class
-RowBatchReader::~RowBatchReader() {}
+// the complete information of RecordBatchReader::RecordBatchReaderImpl class
+RecordBatchReader::~RecordBatchReader() {}
 
-Status RowBatchReader::GetRowBatch(
-    const std::shared_ptr<Schema>& schema, std::shared_ptr<RowBatch>* out) {
+Status RecordBatchReader::GetRecordBatch(
+    const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out) {
   return impl_->AssembleBatch(schema, out);
 }
 

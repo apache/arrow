@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/util/visibility.h"
 
@@ -32,16 +33,23 @@ struct Field;
 class Schema;
 class Status;
 
+namespace io {
+
+class OutputStream;
+
+}  // namespace io
+
 namespace ipc {
 
+struct MetadataVersion {
+  enum type { V1_SNAPSHOT };
+};
+
 //----------------------------------------------------------------------
-// Message read/write APIs
 
 // Serialize arrow::Schema as a Flatbuffer
 ARROW_EXPORT
 Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out);
-
-//----------------------------------------------------------------------
 
 // Read interface classes. We do not fully deserialize the flatbuffers so that
 // individual fields metadata can be retrieved from very large schema without
@@ -68,8 +76,8 @@ class ARROW_EXPORT SchemaMessage {
   // Parent, owns the flatbuffer data
   std::shared_ptr<Message> message_;
 
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  class SchemaMessageImpl;
+  std::unique_ptr<SchemaMessageImpl> impl_;
 };
 
 // Field metadata
@@ -101,8 +109,8 @@ class ARROW_EXPORT RecordBatchMessage {
   // Parent, owns the flatbuffer data
   std::shared_ptr<Message> message_;
 
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  class RecordBatchMessageImpl;
+  std::unique_ptr<RecordBatchMessageImpl> impl_;
 };
 
 class ARROW_EXPORT DictionaryBatchMessage {
@@ -133,8 +141,46 @@ class ARROW_EXPORT Message : public std::enable_shared_from_this<Message> {
   Message();
 
   // Hide serialization details from user API
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  class MessageImpl;
+  std::unique_ptr<MessageImpl> impl_;
+};
+
+// ----------------------------------------------------------------------
+// File footer for file-like representation
+
+struct FileBlock {
+  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
+      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
+
+  int64_t offset;
+  int32_t metadata_length;
+  int64_t body_length;
+};
+
+ARROW_EXPORT
+Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out);
+
+class ARROW_EXPORT FileFooter {
+ public:
+  ~FileFooter();
+
+  static Status Open(
+      const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out);
+
+  int num_dictionaries() const;
+  int num_record_batches() const;
+  MetadataVersion::type version() const;
+
+  FileBlock record_batch(int i) const;
+  FileBlock dictionary(int i) const;
+
+  Status GetSchema(std::shared_ptr<Schema>* out) const;
+
+ private:
+  FileFooter();
+  class FileFooterImpl;
+  std::unique_ptr<FileFooterImpl> impl_;
 };
 
 }  // namespace ipc

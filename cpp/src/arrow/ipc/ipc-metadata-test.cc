@@ -21,6 +21,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/io/memory.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/schema.h"
 #include "arrow/test-util.h"
@@ -30,6 +31,8 @@
 namespace arrow {
 
 class Buffer;
+
+namespace ipc {
 
 static inline void assert_schema_equal(const Schema* lhs, const Schema* rhs) {
   if (!lhs->Equals(*rhs)) {
@@ -46,14 +49,14 @@ class TestSchemaMessage : public ::testing::Test {
 
   void CheckRoundtrip(const Schema* schema) {
     std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(ipc::WriteSchema(schema, &buffer));
+    ASSERT_OK(WriteSchema(schema, &buffer));
 
-    std::shared_ptr<ipc::Message> message;
-    ASSERT_OK(ipc::Message::Open(buffer, &message));
+    std::shared_ptr<Message> message;
+    ASSERT_OK(Message::Open(buffer, &message));
 
-    ASSERT_EQ(ipc::Message::SCHEMA, message->type());
+    ASSERT_EQ(Message::SCHEMA, message->type());
 
-    std::shared_ptr<ipc::SchemaMessage> schema_msg = message->GetSchema();
+    std::shared_ptr<SchemaMessage> schema_msg = message->GetSchema();
     ASSERT_EQ(schema->num_fields(), schema_msg->num_fields());
 
     std::shared_ptr<Schema> schema2;
@@ -94,4 +97,68 @@ TEST_F(TestSchemaMessage, NestedFields) {
   CheckRoundtrip(&schema);
 }
 
+class TestFileFooter : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void CheckRoundtrip(const Schema* schema, const std::vector<FileBlock>& dictionaries,
+      const std::vector<FileBlock>& record_batches) {
+    auto buffer = std::make_shared<PoolBuffer>();
+    io::BufferOutputStream stream(buffer);
+
+    ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &stream));
+
+    std::unique_ptr<FileFooter> footer;
+    ASSERT_OK(FileFooter::Open(buffer, &footer));
+
+    ASSERT_EQ(MetadataVersion::V1_SNAPSHOT, footer->version());
+
+    // Check schema
+    std::shared_ptr<Schema> schema2;
+    ASSERT_OK(footer->GetSchema(&schema2));
+    assert_schema_equal(schema, schema2.get());
+
+    // Check blocks
+    ASSERT_EQ(dictionaries.size(), footer->num_dictionaries());
+    ASSERT_EQ(record_batches.size(), footer->num_record_batches());
+
+    for (int i = 0; i < footer->num_dictionaries(); ++i) {
+      CheckBlocks(dictionaries[i], footer->dictionary(i));
+    }
+
+    for (int i = 0; i < footer->num_record_batches(); ++i) {
+      CheckBlocks(record_batches[i], footer->record_batch(i));
+    }
+  }
+
+  void CheckBlocks(const FileBlock& left, const FileBlock& right) {
+    ASSERT_EQ(left.offset, right.offset);
+    ASSERT_EQ(left.metadata_length, right.metadata_length);
+    ASSERT_EQ(left.body_length, right.body_length);
+  }
+
+ private:
+  std::shared_ptr<Schema> example_schema_;
+};
+
+TEST_F(TestFileFooter, Basics) {
+  auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
+  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>());
+  Schema schema({f0, f1});
+
+  std::vector<FileBlock> dictionaries;
+  dictionaries.emplace_back(8, 92, 900);
+  dictionaries.emplace_back(1000, 100, 1900);
+  dictionaries.emplace_back(3000, 100, 2900);
+
+  std::vector<FileBlock> record_batches;
+  record_batches.emplace_back(6000, 100, 900);
+  record_batches.emplace_back(7000, 100, 1900);
+  record_batches.emplace_back(9000, 100, 2900);
+  record_batches.emplace_back(12000, 100, 3900);
+
+  CheckRoundtrip(&schema, dictionaries, record_batches);
+}
+
+}  // namespace ipc
 }  // namespace arrow

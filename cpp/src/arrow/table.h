@@ -32,15 +32,15 @@ class Column;
 class Schema;
 class Status;
 
-// A row batch is a simpler and more rigid table data structure intended for
+// A record batch is a simpler and more rigid table data structure intended for
 // use primarily in shared memory IPC. It contains a schema (metadata) and a
-// corresponding vector of equal-length Arrow arrays
-class ARROW_EXPORT RowBatch {
+// corresponding sequence of equal-length Arrow arrays
+class ARROW_EXPORT RecordBatch {
  public:
-  // num_rows is a parameter to allow for row batches of a particular size not
+  // num_rows is a parameter to allow for record batches of a particular size not
   // having any materialized columns. Each array should have the same length as
   // num_rows
-  RowBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+  RecordBatch(const std::shared_ptr<Schema>& schema, int32_t num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
   // @returns: the table's schema
@@ -50,17 +50,19 @@ class ARROW_EXPORT RowBatch {
   // Note: Does not boundscheck
   const std::shared_ptr<Array>& column(int i) const { return columns_[i]; }
 
+  const std::vector<std::shared_ptr<Array>>& columns() const { return columns_; }
+
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
   int num_columns() const { return columns_.size(); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int64_t num_rows() const { return num_rows_; }
+  int32_t num_rows() const { return num_rows_; }
 
  private:
   std::shared_ptr<Schema> schema_;
-  int num_rows_;
+  int32_t num_rows_;
   std::vector<std::shared_ptr<Array>> columns_;
 };
 

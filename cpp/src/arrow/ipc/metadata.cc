@@ -23,7 +23,8 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-// Generated C++ flatbuffer IDL
+#include "arrow/io/interfaces.h"
+#include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata-internal.h"
 
@@ -47,9 +48,10 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out) {
 //----------------------------------------------------------------------
 // Message reader
 
-class Message::Impl {
+class Message::MessageImpl {
  public:
-  explicit Impl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Message* message)
+  explicit MessageImpl(
+      const std::shared_ptr<Buffer>& buffer, const flatbuf::Message* message)
       : buffer_(buffer), message_(message) {}
 
   Message::Type type() const {
@@ -76,31 +78,16 @@ class Message::Impl {
   const flatbuf::Message* message_;
 };
 
-class SchemaMessage::Impl {
- public:
-  explicit Impl(const void* schema)
-      : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
-
-  const flatbuf::Field* field(int i) const { return schema_->fields()->Get(i); }
-
-  int num_fields() const { return schema_->fields()->size(); }
-
- private:
-  const flatbuf::Schema* schema_;
-};
-
 Message::Message() {}
 
 Status Message::Open(
     const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out) {
   std::shared_ptr<Message> result(new Message());
 
-  // The buffer is prefixed by its size as int32_t
-  const uint8_t* fb_head = buffer->data() + sizeof(int32_t);
-  const flatbuf::Message* message = flatbuf::GetMessage(fb_head);
+  const flatbuf::Message* message = flatbuf::GetMessage(buffer->data());
 
   // TODO(wesm): verify message
-  result->impl_.reset(new Impl(buffer, message));
+  result->impl_.reset(new MessageImpl(buffer, message));
   *out = result;
 
   return Status::OK();
@@ -122,10 +109,26 @@ std::shared_ptr<SchemaMessage> Message::GetSchema() {
   return std::make_shared<SchemaMessage>(this->shared_from_this(), impl_->header());
 }
 
+// ----------------------------------------------------------------------
+// SchemaMessage
+
+class SchemaMessage::SchemaMessageImpl {
+ public:
+  explicit SchemaMessageImpl(const void* schema)
+      : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
+
+  const flatbuf::Field* field(int i) const { return schema_->fields()->Get(i); }
+
+  int num_fields() const { return schema_->fields()->size(); }
+
+ private:
+  const flatbuf::Schema* schema_;
+};
+
 SchemaMessage::SchemaMessage(
     const std::shared_ptr<Message>& message, const void* schema) {
   message_ = message;
-  impl_.reset(new Impl(schema));
+  impl_.reset(new SchemaMessageImpl(schema));
 }
 
 int SchemaMessage::num_fields() const {
@@ -146,9 +149,12 @@ Status SchemaMessage::GetSchema(std::shared_ptr<Schema>* out) const {
   return Status::OK();
 }
 
-class RecordBatchMessage::Impl {
+// ----------------------------------------------------------------------
+// RecordBatchMessage
+
+class RecordBatchMessage::RecordBatchMessageImpl {
  public:
-  explicit Impl(const void* batch)
+  explicit RecordBatchMessageImpl(const void* batch)
       : batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
     nodes_ = batch_->nodes();
     buffers_ = batch_->buffers();
@@ -177,7 +183,7 @@ std::shared_ptr<RecordBatchMessage> Message::GetRecordBatch() {
 RecordBatchMessage::RecordBatchMessage(
     const std::shared_ptr<Message>& message, const void* batch) {
   message_ = message;
-  impl_.reset(new Impl(batch));
+  impl_.reset(new RecordBatchMessageImpl(batch));
 }
 
 // TODO(wesm): Copying the flatbuffer data isn't great, but this will do for
@@ -211,6 +217,123 @@ int RecordBatchMessage::num_buffers() const {
 
 int RecordBatchMessage::num_fields() const {
   return impl_->num_fields();
+}
+
+// ----------------------------------------------------------------------
+// File footer
+
+static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
+FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
+  std::vector<flatbuf::Block> fb_blocks;
+
+  for (const FileBlock& block : blocks) {
+    fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
+  }
+
+  return fbb.CreateVectorOfStructs(fb_blocks);
+}
+
+Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out) {
+  FBB fbb;
+
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, &fb_schema));
+
+  auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
+  auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
+
+  auto footer = flatbuf::CreateFooter(
+      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
+
+  fbb.Finish(footer);
+
+  int32_t size = fbb.GetSize();
+
+  return out->Write(fbb.GetBufferPointer(), size);
+}
+
+static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
+  return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
+}
+
+class FileFooter::FileFooterImpl {
+ public:
+  FileFooterImpl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Footer* footer)
+      : buffer_(buffer), footer_(footer) {}
+
+  int num_dictionaries() const { return footer_->dictionaries()->size(); }
+
+  int num_record_batches() const { return footer_->recordBatches()->size(); }
+
+  MetadataVersion::type version() const {
+    switch (footer_->version()) {
+      case flatbuf::MetadataVersion_V1_SNAPSHOT:
+        return MetadataVersion::V1_SNAPSHOT;
+      // Add cases as other versions become available
+      default:
+        return MetadataVersion::V1_SNAPSHOT;
+    }
+  }
+
+  FileBlock record_batch(int i) const {
+    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
+  }
+
+  FileBlock dictionary(int i) const {
+    return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
+  }
+
+  Status GetSchema(std::shared_ptr<Schema>* out) const {
+    auto schema_msg = std::make_shared<SchemaMessage>(nullptr, footer_->schema());
+    return schema_msg->GetSchema(out);
+  }
+
+ private:
+  // Retain reference to memory
+  std::shared_ptr<Buffer> buffer_;
+
+  const flatbuf::Footer* footer_;
+};
+
+FileFooter::FileFooter() {}
+
+FileFooter::~FileFooter() {}
+
+Status FileFooter::Open(
+    const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out) {
+  const flatbuf::Footer* footer = flatbuf::GetFooter(buffer->data());
+
+  *out = std::unique_ptr<FileFooter>(new FileFooter());
+
+  // TODO(wesm): Verify the footer
+  (*out)->impl_.reset(new FileFooterImpl(buffer, footer));
+
+  return Status::OK();
+}
+
+int FileFooter::num_dictionaries() const {
+  return impl_->num_dictionaries();
+}
+
+int FileFooter::num_record_batches() const {
+  return impl_->num_record_batches();
+}
+
+MetadataVersion::type FileFooter::version() const {
+  return impl_->version();
+}
+
+FileBlock FileFooter::record_batch(int i) const {
+  return impl_->record_batch(i);
+}
+
+FileBlock FileFooter::dictionary(int i) const {
+  return impl_->dictionary(i);
+}
+
+Status FileFooter::GetSchema(std::shared_ptr<Schema>* out) const {
+  return impl_->GetSchema(out);
 }
 
 }  // namespace ipc
