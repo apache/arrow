@@ -202,7 +202,9 @@ class RecordBatchWriter {
 
     // Write the data header at the end
     RETURN_NOT_OK(dst->Write(data_header->data(), data_header->size()));
-    *header_end_offset = position + data_header->size();
+
+    position += data_header->size();
+    *header_end_offset = position;
 
     return Align(dst, &position);
   }

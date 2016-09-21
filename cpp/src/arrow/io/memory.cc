@@ -228,7 +228,7 @@ Status BufferOutputStream::Tell(int64_t* position) {
 
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   RETURN_NOT_OK(Reserve(nbytes));
-  std::memcpy(mutable_data_, data, nbytes);
+  std::memcpy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;
   return Status::OK();
 }

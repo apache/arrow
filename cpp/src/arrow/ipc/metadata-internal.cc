@@ -48,6 +48,8 @@ const std::shared_ptr<DataType> UINT32 = std::make_shared<UInt32Type>();
 const std::shared_ptr<DataType> UINT64 = std::make_shared<UInt64Type>();
 const std::shared_ptr<DataType> FLOAT = std::make_shared<FloatType>();
 const std::shared_ptr<DataType> DOUBLE = std::make_shared<DoubleType>();
+const std::shared_ptr<DataType> STRING = std::make_shared<StringType>();
+const std::shared_ptr<DataType> BINARY = std::make_shared<BinaryType>();
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -98,8 +100,11 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return FloatFromFlatuffer(
           static_cast<const flatbuf::FloatingPoint*>(type_data), out);
     case flatbuf::Type_Binary:
+      *out = BINARY;
+      return Status::OK();
     case flatbuf::Type_Utf8:
-      return Status::NotImplemented("Type is not implemented");
+      *out = STRING;
+      return Status::OK();
     case flatbuf::Type_Bool:
       *out = BOOL;
       return Status::OK();
@@ -188,6 +193,14 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::DOUBLE:
       *out_type = flatbuf::Type_FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
+      break;
+    case Type::BINARY:
+      *out_type = flatbuf::Type_Binary;
+      *offset = flatbuf::CreateBinary(fbb).Union();
+      break;
+    case Type::STRING:
+      *out_type = flatbuf::Type_Utf8;
+      *offset = flatbuf::CreateUtf8(fbb).Union();
       break;
     case Type::LIST:
       *out_type = flatbuf::Type_List;

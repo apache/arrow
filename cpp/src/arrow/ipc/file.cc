@@ -65,7 +65,7 @@ Status FileWriter::Align() {
 }
 
 Status FileWriter::WriteAligned(const uint8_t* data, int64_t nbytes) {
-  RETURN_NOT_OK(sink_->Write(data, nbytes));
+  RETURN_NOT_OK(Write(data, nbytes));
   return Align();
 }
 
@@ -97,7 +97,7 @@ Status FileWriter::WriteRecordBatch(
 
   // There may be padding ever the end of the metadata, so we cannot rely on
   // position_
-  int32_t metadata_length = body_end_offset - header_end_offset;
+  int32_t metadata_length = header_end_offset - body_end_offset;
   int32_t body_length = body_end_offset - offset;
 
   // Append metadata, to be written in the footer later
@@ -143,7 +143,7 @@ Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
 Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
     int64_t footer_offset, std::shared_ptr<FileReader>* reader) {
   *reader = std::shared_ptr<FileReader>(new FileReader(file, footer_offset));
-  return Status::OK();
+  return (*reader)->ReadFooter();
 }
 
 Status FileReader::ReadFooter() {
@@ -155,15 +155,11 @@ Status FileReader::ReadFooter() {
     return Status::Invalid(ss.str());
   }
 
-  RETURN_NOT_OK(file_->Seek(footer_offset_));
-
   std::shared_ptr<Buffer> buffer;
-
   int file_end_size = magic_size + sizeof(int32_t);
-
   RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
 
-  if (memcmp(buffer->data(), kArrowMagicBytes, magic_size)) {
+  if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
     return Status::Invalid("Not an Arrow file");
   }
 
@@ -199,7 +195,7 @@ MetadataVersion::type FileReader::version() const {
 }
 
 Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
-  DCHECK_GT(i, 0);
+  DCHECK_GE(i, 0);
   DCHECK_LT(i, num_record_batches());
   FileBlock block = footer_->record_batch(i);
   int64_t metadata_end_offset = block.offset + block.body_length + block.metadata_length;

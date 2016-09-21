@@ -53,8 +53,8 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   }
   void TearDown() {}
 
-  Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
-      std::vector<std::shared_ptr<RecordBatch>>* out_batches) {
+  Status RoundTripHelper(
+      const RecordBatch& batch, std::vector<std::shared_ptr<RecordBatch>>* out_batches) {
     // Write the file
     RETURN_NOT_OK(FileWriter::Open(sink_.get(), batch.schema(), &file_writer_));
     int num_batches = 3;
@@ -108,7 +108,7 @@ TEST_P(TestFileFormat, RoundTrip) {
 
   std::vector<std::shared_ptr<RecordBatch>> out_batches;
 
-  ASSERT_OK(RoundTripHelper(*batch, 1 << 16, &out_batches));
+  ASSERT_OK(RoundTripHelper(*batch, &out_batches));
 
   // Compare batches. Same
   for (size_t i = 0; i < out_batches.size(); ++i) {
