@@ -22,11 +22,12 @@ import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.flatbuf.UnionMode;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
-import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
+import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -78,7 +79,7 @@ public class TestConvert {
     childrenBuilder.add(new Field("child4", true, new List(), ImmutableList.<Field>of(
         new Field("child4.1", true, Utf8.INSTANCE, null)
         )));
-    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse), ImmutableList.<Field>of(
+    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMP.ordinal(), MinorType.FLOAT8.ordinal() } ), ImmutableList.<Field>of(
         new Field("child5.1", true, new Timestamp("UTC"), null),
         new Field("child5.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
         )));

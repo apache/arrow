@@ -232,10 +232,13 @@ public class UnionVector implements FieldVector {
   @Override
   public Field getField() {
     List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>();
-    for (ValueVector v : internalMap.getChildren()) {
+    List<FieldVector> children = internalMap.getChildren();
+    int[] typeIds = new int[children.size()];
+    for (ValueVector v : children) {
+      typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, true, new ArrowType.Union(Sparse), childFields);
+    return new Field(name, true, new ArrowType.Union(Sparse, typeIds), childFields);
   }
 
   @Override

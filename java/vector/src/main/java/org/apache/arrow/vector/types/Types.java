@@ -472,7 +472,7 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
-    UNION(new Union(UnionMode.Sparse)) {
+    UNION(new Union(UnionMode.Sparse, null)) {
       @Override
       public Field getField() {
         throw new UnsupportedOperationException("Cannot get simple field for Union type");

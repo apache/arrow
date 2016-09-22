@@ -23,8 +23,13 @@ table List {
 
 enum UnionMode:short { Sparse, Dense }
 
+/// A union is a complex type with children in Field
+/// By default ids in the type vector refer to the offsets in the children
+/// optionally typeIds provides an indirection between the child offset and the type id
+/// for each child typeIds[offset] is the id used in the type vector
 table Union {
   mode: UnionMode;
+  typeIds: [ int ]; // optional, describes typeid of each child.
 }
 
 table Int {
