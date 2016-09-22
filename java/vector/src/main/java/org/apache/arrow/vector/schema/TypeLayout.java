@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
@@ -40,12 +41,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.apache.arrow.vector.types.pojo.ArrowType.IntervalDay;
-import org.apache.arrow.vector.types.pojo.ArrowType.IntervalYear;
+import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
@@ -167,14 +167,17 @@ public class TypeLayout {
       }
 
       @Override
-      public TypeLayout visit(IntervalDay type) { // TODO: check size
-        return newFixedWidthTypeLayout(dataVector(64));
+      public TypeLayout visit(Interval type) { // TODO: check size
+        switch (type.getUnit()) {
+        case IntervalUnit.DAY_TIME:
+          return newFixedWidthTypeLayout(dataVector(64));
+        case IntervalUnit.YEAR_MONTH:
+          return newFixedWidthTypeLayout(dataVector(64));
+        default:
+          throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
+        }
       }
 
-      @Override
-      public TypeLayout visit(IntervalYear type) { // TODO: check size
-        return newFixedWidthTypeLayout(dataVector(64));
-      }
     });
     return layout;
   }

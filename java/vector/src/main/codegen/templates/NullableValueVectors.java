@@ -105,9 +105,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "TimeStamp">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
   <#elseif minor.class == "IntervalDay">
-    field = new Field(name, true, new IntervalDay(), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME), null);
   <#elseif minor.class == "IntervalYear">
-    field = new Field(name, true, new IntervalYear(), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.flatbuf.IntervalUnit.YEAR_MONTH), null);
   <#elseif minor.class == "VarChar">
     field = new Field(name, true, new Utf8(), null);
   <#elseif minor.class == "VarBinary">
