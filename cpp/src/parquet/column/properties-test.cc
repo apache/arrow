@@ -24,6 +24,8 @@
 
 namespace parquet {
 
+using schema::ColumnPath;
+
 namespace test {
 
 TEST(TestReaderProperties, Basics) {
@@ -39,6 +41,23 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(DEFAULT_PAGE_SIZE, props->data_pagesize());
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT, props->dictionary_pagesize_limit());
   ASSERT_EQ(DEFAULT_WRITER_VERSION, props->version());
+}
+
+TEST(TestWriterProperties, AdvancedHandling) {
+  WriterProperties::Builder builder;
+  builder.compression("gzip", Compression::GZIP);
+  builder.compression(Compression::SNAPPY);
+  builder.encoding(Encoding::DELTA_BINARY_PACKED);
+  builder.encoding("delta-length", Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  std::shared_ptr<WriterProperties> props = builder.build();
+
+  ASSERT_EQ(Compression::GZIP, props->compression(ColumnPath::FromDotString("gzip")));
+  ASSERT_EQ(
+      Compression::SNAPPY, props->compression(ColumnPath::FromDotString("delta-length")));
+  ASSERT_EQ(
+      Encoding::DELTA_BINARY_PACKED, props->encoding(ColumnPath::FromDotString("gzip")));
+  ASSERT_EQ(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+      props->encoding(ColumnPath::FromDotString("delta-length")));
 }
 
 }  // namespace test
