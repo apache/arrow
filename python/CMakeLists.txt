@@ -1,5 +1,5 @@
 # Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
+# or more cod ntributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
 # to you under the Apache License, Version 2.0 (the
@@ -294,12 +294,12 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${LIB_NAME} STATIC IMPORTED)
     set_target_properties(${LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+    message(STATUS "Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
   else()
     add_library(${LIB_NAME} SHARED IMPORTED)
     set_target_properties(${LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+    message(STATUS "Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   endif()
 
   if(ARG_DEPS)
@@ -443,12 +443,12 @@ set(LINK_LIBS
   arrow_io
 )
 
-if(PARQUET_FOUND AND ARROW_PARQUET_FOUND)
-  ADD_THIRDPARTY_LIB(arrow_parquet
-    SHARED_LIB ${ARROW_PARQUET_SHARED_LIB})
+if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
+  ADD_THIRDPARTY_LIB(parquet_arrow
+    SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
   set(LINK_LIBS
     ${LINK_LIBS}
-    arrow_parquet)
+    parquet_arrow)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     parquet)

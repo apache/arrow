@@ -64,7 +64,7 @@ Status StringArray::Validate() const {
 // This used to be a static member variable of BinaryBuilder, but it can cause
 // valgrind to report a (spurious?) memory leak when needed in other shared
 // libraries. The problem came up while adding explicit visibility to libarrow
-// and libarrow_parquet
+// and libparquet_arrow
 static TypePtr kBinaryValueType = TypePtr(new UInt8Type());
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool, const TypePtr& type)
