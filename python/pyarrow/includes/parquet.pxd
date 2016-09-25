@@ -44,6 +44,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
   cdef cppclass ColumnDescriptor:
     pass
 
+
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
         pass
@@ -77,6 +78,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
 
+
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass ParquetOutputStream" parquet::OutputStream":
         pass
@@ -91,7 +93,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             shared_ptr[WriterProperties] build()
 
 
-cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
+cdef extern from "parquet/arrow/io.h" namespace "parquet::arrow" nogil:
     cdef cppclass ParquetAllocator:
         ParquetAllocator()
         ParquetAllocator(MemoryPool* pool)
@@ -103,7 +105,7 @@ cdef extern from "arrow/parquet/io.h" namespace "arrow::parquet" nogil:
         Open(const shared_ptr[ReadableFileInterface]& file)
 
 
-cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:
+cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
                      ParquetAllocator* allocator,
                      unique_ptr[FileReader]* reader)
@@ -113,14 +115,14 @@ cdef extern from "arrow/parquet/reader.h" namespace "arrow::parquet" nogil:
         CStatus ReadFlatTable(shared_ptr[CTable]* out);
 
 
-cdef extern from "arrow/parquet/schema.h" namespace "arrow::parquet" nogil:
+cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema,
                               shared_ptr[CSchema]* out)
     CStatus ToParquetSchema(const CSchema* arrow_schema,
                             shared_ptr[SchemaDescriptor]* out)
 
 
-cdef extern from "arrow/parquet/writer.h" namespace "arrow::parquet" nogil:
+cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef CStatus WriteFlatTable(
         const CTable* table, MemoryPool* pool,
         const shared_ptr[ParquetOutputStream]& sink,

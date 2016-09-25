@@ -29,15 +29,20 @@ endif()
 
 # Try the parameterized roots, if they exist
 if ( _parquet_roots )
-    find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h
-        PATHS ${_parquet_roots} NO_DEFAULT_PATH
-        PATH_SUFFIXES "include" )
-    find_library( PARQUET_LIBRARIES NAMES parquet
-        PATHS ${_parquet_roots} NO_DEFAULT_PATH
-        PATH_SUFFIXES "lib" )
+  find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h
+    PATHS ${_parquet_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "include" )
+  find_library( PARQUET_LIBRARIES NAMES parquet
+    PATHS ${_parquet_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib" )
+
+  find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
+    PATHS ${_parquet_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib")
 else ()
-    find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
-    find_library( PARQUET_LIBRARIES NAMES parquet )
+    find_path(PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
+    find_library(PARQUET_LIBRARIES NAMES parquet)
+    find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow)
 endif ()
 
 
@@ -49,6 +54,18 @@ if (PARQUET_INCLUDE_DIR AND PARQUET_LIBRARIES)
   set(PARQUET_SHARED_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 else ()
   set(PARQUET_FOUND FALSE)
+endif ()
+
+if (PARQUET_INCLUDE_DIR AND PARQUET_ARROW_LIBRARIES)
+  set(PARQUET_ARROW_FOUND TRUE)
+  get_filename_component(PARQUET_ARROW_LIBS ${PARQUET_ARROW_LIBRARIES} PATH)
+  set(PARQUET_ARROW_LIB_NAME libparquet_arrow)
+  set(PARQUET_ARROW_STATIC_LIB
+    ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}.a)
+  set(PARQUET_ARROW_SHARED_LIB
+    ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+else ()
+  set(PARQUET_ARROW_FOUND FALSE)
 endif ()
 
 if (PARQUET_FOUND)
@@ -71,6 +88,12 @@ else ()
   endif ()
 endif ()
 
+if (PARQUET_ARROW_FOUND)
+  if (NOT Parquet_FIND_QUIETLY)
+    message(STATUS "Found the Parquet Arrow library: ${PARQUET_ARROW_LIBS}")
+  endif()
+endif()
+
 mark_as_advanced(
   PARQUET_FOUND
   PARQUET_INCLUDE_DIR
@@ -78,4 +101,9 @@ mark_as_advanced(
   PARQUET_LIBRARIES
   PARQUET_STATIC_LIB
   PARQUET_SHARED_LIB
+
+  PARQUET_ARROW_FOUND
+  PARQUET_ARROW_LIBS
+  PARQUET_ARROW_STATIC_LIB
+  PARQUET_ARROW_SHARED_LIB
 )

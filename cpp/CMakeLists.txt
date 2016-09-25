@@ -52,10 +52,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the libarrow shared libraries"
     ON)
 
-  option(ARROW_PARQUET
-    "Build the Parquet adapter and link to libparquet"
-    OFF)
-
   option(ARROW_TEST_MEMCHECK
     "Run the test suite using valgrind --tool=memcheck"
     OFF)
@@ -701,20 +697,6 @@ add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
 add_subdirectory(src/arrow/types)
-
-#----------------------------------------------------------------------
-# Parquet adapter library
-
-if(ARROW_PARQUET)
-  find_package(Parquet REQUIRED)
-  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(parquet
-    STATIC_LIB ${PARQUET_STATIC_LIB}
-    SHARED_LIB ${PARQUET_SHARED_LIB})
-
-  add_subdirectory(src/arrow/parquet)
-  list(APPEND LINK_LIBS arrow_parquet parquet)
-endif()
 
 #----------------------------------------------------------------------
 # IPC library
