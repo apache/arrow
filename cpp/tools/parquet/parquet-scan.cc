@@ -17,8 +17,8 @@
 
 #include <ctime>
 #include <iostream>
-#include <memory>
 #include <list>
+#include <memory>
 
 #include "parquet/api/reader.h"
 
