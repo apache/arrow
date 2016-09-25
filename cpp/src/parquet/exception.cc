@@ -33,6 +33,10 @@ void ParquetException::NYI(const std::string& msg) {
   throw ParquetException(ss.str());
 }
 
+void ParquetException::Throw(const std::string& msg) {
+  throw ParquetException(msg);
+}
+
 ParquetException::ParquetException(const char* msg) : msg_(msg) {}
 
 ParquetException::ParquetException(const std::string& msg) : msg_(msg) {}

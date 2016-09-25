@@ -17,9 +17,9 @@
 
 // Schema / column descriptor correctness tests (from flat Parquet schemas)
 
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
+#include <gtest/gtest.h>
 #include <string>
 #include <vector>
 

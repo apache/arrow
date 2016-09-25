@@ -18,10 +18,10 @@
 #ifndef PARQUET_COLUMN_SCANNER_H
 #define PARQUET_COLUMN_SCANNER_H
 
-#include <stdio.h>
 #include <cstdint>
 #include <memory>
 #include <ostream>
+#include <stdio.h>
 #include <string>
 #include <vector>
 

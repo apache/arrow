@@ -18,15 +18,15 @@
 #ifndef PARQUET_SCHEMA_DESCRIPTOR_H
 #define PARQUET_SCHEMA_DESCRIPTOR_H
 
+#include "parquet/schema/types.h"
+#include "parquet/types.h"
+#include "parquet/util/visibility.h"
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "parquet/schema/types.h"
-#include "parquet/types.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 

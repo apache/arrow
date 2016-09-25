@@ -21,8 +21,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#include <iostream>
 #include <ctime>
+#include <iostream>
 
 namespace parquet {
 

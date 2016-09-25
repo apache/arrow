@@ -20,13 +20,13 @@
 #ifndef PARQUET_UTIL_BIT_STREAM_UTILS_H
 #define PARQUET_UTIL_BIT_STREAM_UTILS_H
 
-#include <string.h>
 #include <algorithm>
 #include <cstdint>
+#include <string.h>
 
+#include "parquet/util/bit-util.h"
 #include "parquet/util/compiler-util.h"
 #include "parquet/util/logging.h"
-#include "parquet/util/bit-util.h"
 
 namespace parquet {
 

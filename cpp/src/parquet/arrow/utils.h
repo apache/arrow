@@ -38,14 +38,14 @@ namespace arrow {
     (s);                         \
   } catch (const ::parquet::ParquetException& e) {}
 
-#define PARQUET_THROW_NOT_OK(s)                    \
-  do {                                             \
-    ::arrow::Status _s = (s);                      \
-    if (!_s.ok()) {                                \
-      std::stringstream ss;                        \
-      ss << "Arrow error: " << _s.ToString();      \
-      throw ::parquet::ParquetException(ss.str()); \
-    }                                              \
+#define PARQUET_THROW_NOT_OK(s)               \
+  do {                                        \
+    ::arrow::Status _s = (s);                 \
+    if (!_s.ok()) {                           \
+      std::stringstream ss;                   \
+      ss << "Arrow error: " << _s.ToString(); \
+      ParquetException::Throw(ss.str());      \
+    }                                         \
   } while (0);
 
 }  // namespace arrow

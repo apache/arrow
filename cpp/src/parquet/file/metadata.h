@@ -18,9 +18,9 @@
 #ifndef PARQUET_FILE_METADATA_H
 #define PARQUET_FILE_METADATA_H
 
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 #include "parquet/column/properties.h"
 #include "parquet/compression/codec.h"

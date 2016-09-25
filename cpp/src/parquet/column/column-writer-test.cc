@@ -17,16 +17,16 @@
 
 #include <gtest/gtest.h>
 
-#include "parquet/column/test-util.h"
 #include "parquet/column/test-specialization.h"
+#include "parquet/column/test-util.h"
 
-#include "parquet/file/reader-internal.h"
-#include "parquet/file/writer-internal.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/writer.h"
+#include "parquet/file/reader-internal.h"
+#include "parquet/file/writer-internal.h"
+#include "parquet/types.h"
 #include "parquet/util/input.h"
 #include "parquet/util/output.h"
-#include "parquet/types.h"
 
 namespace parquet {
 
@@ -53,7 +53,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     definition_levels_out_.resize(SMALL_SIZE);
     repetition_levels_out_.resize(SMALL_SIZE);
 
-    this->SetUpSchemaRequired();
+    this->SetUpSchema(Repetition::REQUIRED);
+
+    descr_ = this->schema_.Column(0);
   }
 
   Type::type type_num() { return TestType::type_num; }
@@ -63,15 +65,14 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<SerializedPageReader> page_reader(
         new SerializedPageReader(std::move(source), Compression::UNCOMPRESSED));
-    reader_.reset(
-        new TypedColumnReader<TestType>(this->descr_.get(), std::move(page_reader)));
+    reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE, Encoding::type encoding = Encoding::PLAIN) {
     sink_.reset(new InMemoryOutputStream());
-    metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_.get(),
-        reinterpret_cast<uint8_t*>(&thrift_metadata_));
+    metadata_ = ColumnChunkMetaDataBuilder::Make(
+        writer_properties_, this->descr_, reinterpret_cast<uint8_t*>(&thrift_metadata_));
     std::unique_ptr<SerializedPageWriter> pager(new SerializedPageWriter(
         sink_.get(), Compression::UNCOMPRESSED, metadata_.get()));
     WriterProperties::Builder wp_builder;
@@ -83,7 +84,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     }
     writer_properties_ = wp_builder.build();
     std::shared_ptr<ColumnWriter> writer = ColumnWriter::Make(
-        this->descr_.get(), std::move(pager), output_size, writer_properties_.get());
+        this->descr_, std::move(pager), output_size, writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
@@ -137,16 +138,18 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   std::vector<int16_t> definition_levels_out_;
   std::vector<int16_t> repetition_levels_out_;
 
+  const ColumnDescriptor* descr_;
+
  private:
   format::ColumnChunk thrift_metadata_;
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-  std::shared_ptr<ColumnDescriptor> schema_;
   std::unique_ptr<InMemoryOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    BooleanType, ByteArrayType, FLBAType> TestTypes;
+    BooleanType, ByteArrayType, FLBAType>
+    TestTypes;
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
@@ -189,7 +192,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
 TYPED_TEST(TestPrimitiveWriter, Optional) {
   // Optional and non-repeated, with definition levels
   // but no repetition levels
-  this->SetUpSchemaOptional();
+  this->SetUpSchema(Repetition::OPTIONAL);
 
   this->GenerateData(SMALL_SIZE);
   std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
@@ -212,7 +215,7 @@ TYPED_TEST(TestPrimitiveWriter, Optional) {
 
 TYPED_TEST(TestPrimitiveWriter, Repeated) {
   // Optional and repeated, so definition and repetition levels
-  this->SetUpSchemaRepeated();
+  this->SetUpSchema(Repetition::REPEATED);
 
   this->GenerateData(SMALL_SIZE);
   std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
@@ -250,7 +253,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredTooMany) {
 
 TYPED_TEST(TestPrimitiveWriter, RepeatedTooFewRows) {
   // Optional and repeated, so definition and repetition levels
-  this->SetUpSchemaRepeated();
+  this->SetUpSchema(Repetition::REPEATED);
 
   this->GenerateData(SMALL_SIZE);
   std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
@@ -308,7 +311,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
 // PARQUET-719
 // Test case for NULL values
 TEST_F(TestNullValuesWriter, OptionalNullValueChunk) {
-  this->SetUpSchemaOptional();
+  this->SetUpSchema(Repetition::OPTIONAL);
 
   this->GenerateData(LARGE_SIZE);
 

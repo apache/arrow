@@ -18,8 +18,8 @@
 #ifndef PARQUET_COLUMN_LEVELS_H
 #define PARQUET_COLUMN_LEVELS_H
 
-#include <memory>
 #include <algorithm>
+#include <memory>
 
 #include "parquet/exception.h"
 #include "parquet/types.h"

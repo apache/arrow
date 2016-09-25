@@ -21,11 +21,11 @@
 #ifndef PARQUET_UTIL_MEM_POOL_H
 #define PARQUET_UTIL_MEM_POOL_H
 
-#include <stdio.h>
 #include <algorithm>
 #include <cstdint>
-#include <vector>
+#include <stdio.h>
 #include <string>
+#include <vector>
 
 #include "parquet/util/mem-allocator.h"
 

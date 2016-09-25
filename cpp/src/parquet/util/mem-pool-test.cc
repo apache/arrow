@@ -18,13 +18,13 @@
 // Initially imported from Apache Impala on 2016-02-23, and has been modified
 // since for parquet-cpp
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <limits>
 #include <string>
 
-#include "parquet/util/mem-pool.h"
 #include "parquet/util/bit-util.h"
+#include "parquet/util/mem-pool.h"
 
 namespace parquet {
 

@@ -24,6 +24,8 @@
 
 #include <algorithm>
 #include <limits>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "parquet/column/test-util.h"
@@ -60,52 +62,43 @@ void InitValues<Int96>(int num_values, vector<Int96>& values, vector<uint8_t>& b
       std::numeric_limits<int32_t>::max(), values.data());
 }
 
+inline std::string TestColumnName(int i) {
+  std::stringstream col_name;
+  col_name << "column_" << i;
+  return col_name.str();
+}
+
 // This class lives here because of its dependency on the InitValues specializations.
 template <typename TestType>
 class PrimitiveTypedTest : public ::testing::Test {
  public:
   typedef typename TestType::c_type T;
 
-  void SetUpSchemaRequired() {
-    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::REQUIRED,
-        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
-    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 0, 0);
-    node_ = schema::GroupNode::Make(
-        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
-    schema_.Init(node_);
-  }
+  void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
+    std::vector<schema::NodePtr> fields;
 
-  void SetUpSchemaOptional() {
-    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::OPTIONAL,
-        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
-    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 1, 0);
-    node_ = schema::GroupNode::Make(
-        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
-    schema_.Init(node_);
-  }
-
-  void SetUpSchemaRepeated() {
-    primitive_node_ = schema::PrimitiveNode::Make("column", Repetition::REPEATED,
-        TestType::type_num, LogicalType::NONE, FLBA_LENGTH);
-    descr_ = std::make_shared<ColumnDescriptor>(primitive_node_, 1, 1);
-    node_ = schema::GroupNode::Make(
-        "schema", Repetition::REQUIRED, std::vector<schema::NodePtr>({primitive_node_}));
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      fields.push_back(schema::PrimitiveNode::Make(
+          name, repetition, TestType::type_num, LogicalType::NONE, FLBA_LENGTH));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);
   }
 
   void GenerateData(int64_t num_values);
   void SetupValuesOut(int64_t num_values);
   void SyncValuesOut();
-  void SetUp() { SetUpSchemaRequired(); }
 
  protected:
-  schema::NodePtr primitive_node_;
   schema::NodePtr node_;
   SchemaDescriptor schema_;
-  std::shared_ptr<ColumnDescriptor> descr_;
 
   // Input buffers
   std::vector<T> values_;
+
+  std::vector<int16_t> def_levels_;
+
   std::vector<uint8_t> buffer_;
   // Pointer to the values, needed as we cannot use vector<bool>::data()
   T* values_ptr_;
@@ -127,13 +120,17 @@ void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
 
 template <typename TestType>
 void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
+  values_out_.clear();
   values_out_.resize(num_values);
   values_out_ptr_ = values_out_.data();
 }
 
 template <>
 void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
+  values_out_.clear();
   values_out_.resize(num_values);
+
+  bool_buffer_out_.clear();
   bool_buffer_out_.resize(num_values);
   // Write once to all values so we can copy it without getting Valgrind errors
   // about uninitialised values.
@@ -143,18 +140,26 @@ void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
 
 template <typename TestType>
 void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
+  def_levels_.resize(num_values);
   values_.resize(num_values);
+
   InitValues<T>(num_values, values_, buffer_);
   values_ptr_ = values_.data();
+
+  std::fill(def_levels_.begin(), def_levels_.end(), 1);
 }
 
 template <>
 void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
+  def_levels_.resize(num_values);
   values_.resize(num_values);
+
   InitValues<T>(num_values, values_, buffer_);
   bool_buffer_.resize(num_values);
   std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
+
+  std::fill(def_levels_.begin(), def_levels_.end(), 1);
 }
 }  // namespace test
 

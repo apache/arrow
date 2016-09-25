@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>

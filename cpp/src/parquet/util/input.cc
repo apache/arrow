@@ -17,10 +17,10 @@
 
 #include "parquet/util/input.h"
 
-#include <sys/mman.h>
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include <sys/mman.h>
 
 #include "parquet/exception.h"
 #include "parquet/util/buffer.h"

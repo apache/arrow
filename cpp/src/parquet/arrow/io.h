@@ -60,7 +60,7 @@ class PARQUET_EXPORT ParquetReadSource : public RandomAccessSource {
   explicit ParquetReadSource(ParquetAllocator* allocator);
 
   // We need to ask for the file size on opening the file, and this can fail
-  ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file);
+  ::arrow::Status Open(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file);
 
   void Close() override;
   int64_t Tell() const override;
@@ -70,7 +70,7 @@ class PARQUET_EXPORT ParquetReadSource : public RandomAccessSource {
 
  private:
   // An Arrow readable file of some kind
-  std::shared_ptr<::arrow::io::RandomAccessFile> file_;
+  std::shared_ptr<::arrow::io::ReadableFileInterface> file_;
 
   // The allocator is required for creating managed buffers
   ParquetAllocator* allocator_;

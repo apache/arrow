@@ -139,7 +139,7 @@ class PARQUET_EXPORT FlatColumnReader {
 // Helper function to create a file reader from an implementation of an Arrow
 // readable file
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
     ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader);
 
 }  // namespace arrow

@@ -21,8 +21,8 @@
 #include <algorithm>
 
 #include "parquet/encodings/decoder.h"
-#include "parquet/encodings/delta-length-byte-array-encoding.h"
 #include "parquet/encodings/delta-bit-pack-encoding.h"
+#include "parquet/encodings/delta-length-byte-array-encoding.h"
 
 namespace parquet {
 

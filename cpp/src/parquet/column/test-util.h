@@ -25,15 +25,15 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
 
 // Depended on by SerializedPageReader test utilities for now
-#include "parquet/encodings/plain-encoding.h"
 #include "parquet/encodings/dictionary-encoding.h"
+#include "parquet/encodings/plain-encoding.h"
 #include "parquet/util/input.h"
 #include "parquet/util/test-common.h"
 

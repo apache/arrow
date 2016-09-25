@@ -17,10 +17,10 @@
 
 #include "parquet/file/reader-internal.h"
 
-#include <string.h>
 #include <algorithm>
 #include <exception>
 #include <ostream>
+#include <string.h>
 #include <string>
 #include <vector>
 
@@ -196,8 +196,8 @@ SerializedFile::~SerializedFile() {
 }
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
-  std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
-      source_.get(), std::move(file_metadata_->RowGroup(i)), properties_));
+  std::unique_ptr<SerializedRowGroup> contents(
+      new SerializedRowGroup(source_.get(), file_metadata_->RowGroup(i), properties_));
 
   return std::make_shared<RowGroupReader>(std::move(contents));
 }

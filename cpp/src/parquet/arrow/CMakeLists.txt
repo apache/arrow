@@ -48,6 +48,10 @@ if (PARQUET_BUILD_SHARED)
         BUILD_WITH_INSTALL_RPATH ON
         INSTALL_NAME_DIR "@rpath")
     endif()
+
+  install(TARGETS parquet_arrow_shared
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib)
 endif()
 
 if (PARQUET_BUILD_STATIC)
@@ -58,7 +62,7 @@ if (PARQUET_BUILD_STATIC)
       OUTPUT_NAME "parquet_arrow")
   target_link_libraries(parquet_arrow_static
       arrow_static
-      arrow_static
+      arrow_io
       parquet_static)
   install(TARGETS parquet_arrow_static
       ARCHIVE DESTINATION lib
@@ -87,4 +91,3 @@ install(FILES
   utils.h
   writer.h
   DESTINATION include/parquet/arrow)
-

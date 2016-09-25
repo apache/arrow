@@ -29,9 +29,9 @@
 #include "parquet/column/scanner.h"
 #include "parquet/exception.h"
 #include "parquet/file/reader-internal.h"
+#include "parquet/types.h"
 #include "parquet/util/input.h"
 #include "parquet/util/logging.h"
-#include "parquet/types.h"
 
 using std::string;
 using std::vector;

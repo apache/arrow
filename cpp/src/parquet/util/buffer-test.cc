@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
+#include <gtest/gtest.h>
 #include <limits>
 #include <memory>
 #include <string>

@@ -24,14 +24,14 @@
 #include <string>
 #include <vector>
 
-#include "parquet/types.h"
 #include "parquet/column/page.h"
 #include "parquet/column/scanner.h"
+#include "parquet/column/test-specialization.h"
 #include "parquet/column/test-util.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/schema/types.h"
+#include "parquet/types.h"
 #include "parquet/util/test-common.h"
-#include "parquet/column/test-specialization.h"
 
 using std::string;
 using std::vector;
@@ -146,7 +146,8 @@ static int num_pages = 20;
 static int batch_size = 32;
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType> TestTypes;
+    ByteArrayType>
+    TestTypes;
 
 using TestBooleanFlatScanner = TestFlatScanner<BooleanType>;
 using TestFLBAFlatScanner = TestFlatScanner<FLBAType>;

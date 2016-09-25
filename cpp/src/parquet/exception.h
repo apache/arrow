@@ -29,6 +29,7 @@ class PARQUET_EXPORT ParquetException : public std::exception {
  public:
   static void EofException();
   static void NYI(const std::string& msg);
+  static void Throw(const std::string& msg);
 
   explicit ParquetException(const char* msg);
   explicit ParquetException(const std::string& msg);

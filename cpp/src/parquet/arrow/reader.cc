@@ -78,8 +78,8 @@ class FileReader::Impl {
 
 class FlatColumnReader::Impl {
  public:
-  Impl(MemoryPool* pool, const ColumnDescriptor* descr,
-      ParquetFileReader* reader, int column_index);
+  Impl(MemoryPool* pool, const ColumnDescriptor* descr, ParquetFileReader* reader,
+      int column_index);
   virtual ~Impl() {}
 
   Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
@@ -139,8 +139,7 @@ class FlatColumnReader::Impl {
   PoolBuffer valid_bytes_buffer_;
 };
 
-FileReader::Impl::Impl(
-    MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+FileReader::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
     : pool_(pool), reader_(std::move(reader)) {}
 
 bool FileReader::Impl::CheckForFlatColumn(const ColumnDescriptor* descr) {
@@ -191,14 +190,13 @@ Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
   return Status::OK();
 }
 
-FileReader::FileReader(
-    MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
     : impl_(new FileReader::Impl(pool, std::move(reader))) {}
 
 FileReader::~FileReader() {}
 
 // Static ctor
-Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
     ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<ParquetReadSource> source(new ParquetReadSource(allocator));
   RETURN_NOT_OK(source->Open(file));
@@ -320,8 +318,7 @@ Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType
     if (descr_->max_definition_level() > 0) {
       def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
     }
-    auto reader =
-        dynamic_cast<TypedColumnReader<ByteArrayType>*>(column_reader_.get());
+    auto reader = dynamic_cast<TypedColumnReader<ByteArrayType>*>(column_reader_.get());
     int64_t values_read;
     int64_t levels_read;
     int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());

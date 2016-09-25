@@ -17,17 +17,17 @@
 
 // From Apache Impala as of 2016-01-29
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
 #include <gtest/gtest.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <boost/utility.hpp>
 
 #include <iostream>
 
-#include "parquet/util/bit-util.h"
 #include "parquet/util/bit-stream-utils.inline.h"
+#include "parquet/util/bit-util.h"
 #include "parquet/util/cpu-info.h"
 
 namespace parquet {

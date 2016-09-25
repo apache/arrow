@@ -51,8 +51,8 @@ class FileWriter::Impl {
 
   Status NewRowGroup(int64_t chunk_size);
   template <typename ParquetType, typename ArrowType>
-  Status TypedWriteBatch(ColumnWriter* writer, const PrimitiveArray* data,
-      int64_t offset, int64_t length);
+  Status TypedWriteBatch(
+      ColumnWriter* writer, const PrimitiveArray* data, int64_t offset, int64_t length);
 
   // TODO(uwe): Same code as in reader.cc the only difference is the name of the temporary
   // buffer
@@ -100,8 +100,7 @@ class FileWriter::Impl {
   RowGroupWriter* row_group_writer_;
 };
 
-FileWriter::Impl::Impl(
-    MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
+FileWriter::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
     : pool_(pool),
       data_buffer_(pool),
       writer_(std::move(writer)),
@@ -121,8 +120,7 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
 
   DCHECK((offset + length) <= data->length());
   auto data_ptr = reinterpret_cast<const ArrowCType*>(data->data()->data()) + offset;
-  auto writer =
-      reinterpret_cast<TypedColumnWriter<ParquetType>*>(column_writer);
+  auto writer = reinterpret_cast<TypedColumnWriter<ParquetType>*>(column_writer);
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
     const ParquetCType* data_writer_ptr = nullptr;
@@ -174,8 +172,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
   RETURN_NOT_OK(data_buffer_.Resize(length));
   auto data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
   auto buffer_ptr = reinterpret_cast<bool*>(data_buffer_.mutable_data());
-  auto writer = reinterpret_cast<TypedColumnWriter<BooleanType>*>(
-      column_writer);
+  auto writer = reinterpret_cast<TypedColumnWriter<BooleanType>*>(column_writer);
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < length; i++) {
@@ -266,8 +263,7 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
   auto values = std::dynamic_pointer_cast<PrimitiveArray>(data->values());
   auto data_ptr = reinterpret_cast<const uint8_t*>(values->data()->data());
   DCHECK(values != nullptr);
-  auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(
-      column_writer);
+  auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
   if (writer->descr()->max_definition_level() > 0) {
     RETURN_NOT_OK(def_levels_buffer_.Resize(length * sizeof(int16_t)));
   }
@@ -275,8 +271,8 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
   if (writer->descr()->max_definition_level() == 0 || data->null_count() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < length; i++) {
-      buffer_ptr[i] = ByteArray(
-          data->value_length(i + offset), data_ptr + data->value_offset(i));
+      buffer_ptr[i] =
+          ByteArray(data->value_length(i + offset), data_ptr + data->value_offset(i));
     }
     if (writer->descr()->max_definition_level() > 0) {
       std::fill(def_levels_ptr, def_levels_ptr + length, 1);
@@ -301,8 +297,7 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
   return Status::OK();
 }
 
-FileWriter::FileWriter(
-    MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
+FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
     : impl_(new FileWriter::Impl(pool, std::move(writer))) {}
 
 Status FileWriter::NewRowGroup(int64_t chunk_size) {

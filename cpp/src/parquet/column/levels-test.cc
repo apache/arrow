@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "parquet/column/levels.h"
 #include "parquet/types.h"

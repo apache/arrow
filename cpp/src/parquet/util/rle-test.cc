@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 #include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <boost/utility.hpp>
 
@@ -29,8 +29,8 @@
 #include <random>
 #include <vector>
 
-#include "parquet/util/rle-encoding.h"
 #include "parquet/util/bit-stream-utils.inline.h"
+#include "parquet/util/rle-encoding.h"
 
 using std::vector;
 

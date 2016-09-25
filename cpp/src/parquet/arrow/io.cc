@@ -29,7 +29,7 @@ using arrow::Status;
 using arrow::MemoryPool;
 
 // To assist with readability
-using ArrowROFile = arrow::io::RandomAccessFile;
+using ArrowROFile = arrow::io::ReadableFileInterface;
 
 namespace parquet {
 namespace arrow {

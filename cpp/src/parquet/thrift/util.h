@@ -9,13 +9,13 @@
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
 #define ARITHMETIC_RIGHT_SHIFT 1
+#include <thrift/TApplicationException.h>
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/protocol/TDebugProtocol.h>
-#include <thrift/TApplicationException.h>
 
+#include <sstream>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
-#include <sstream>
 
 #include "parquet/exception.h"
 #include "parquet/thrift/parquet_types.h"
@@ -82,7 +82,8 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
   boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
       new apache::thrift::transport::TMemoryBuffer(const_cast<uint8_t*>(buf), *len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
-      apache::thrift::transport::TMemoryBuffer> tproto_factory;
+      apache::thrift::transport::TMemoryBuffer>
+      tproto_factory;
   boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(tmem_transport);
   try {
@@ -104,7 +105,8 @@ inline void SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
   boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
       new apache::thrift::transport::TMemoryBuffer(len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
-      apache::thrift::transport::TMemoryBuffer> tproto_factory;
+      apache::thrift::transport::TMemoryBuffer>
+      tproto_factory;
   boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(mem_buffer);
   try {

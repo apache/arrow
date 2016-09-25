@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <snappy.h>
 #include <cstdint>
 #include <cstdlib>
+#include <snappy.h>
 
 #include "parquet/compression/codec.h"
 #include "parquet/exception.h"
