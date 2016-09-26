@@ -28,6 +28,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/test-common.h"
+#include "arrow/util/memory-pool.h"
 
 namespace arrow {
 namespace io {
@@ -130,7 +131,8 @@ class TestReadableFile : public FileTestFixture {
  public:
   void OpenFile() { ASSERT_OK(ReadableFile::Open(path_, &file_)); }
 
-  void MakeTestFile(const std::string& data) {
+  void MakeTestFile() {
+    std::string data = "testdata";
     std::ofstream stream;
     stream.open(path_.c_str());
     stream << data;
@@ -140,8 +142,148 @@ class TestReadableFile : public FileTestFixture {
   std::shared_ptr<ReadableFile> file_;
 };
 
+TEST_F(TestReadableFile, DestructorClosesFile) {
+  MakeTestFile();
+
+  int fd;
+  {
+    std::shared_ptr<ReadableFile> file;
+    ASSERT_OK(ReadableFile::Open(path_, &file));
+    fd = file->file_descriptor();
+  }
+  ASSERT_TRUE(FileIsClosed(fd));
+}
+
+TEST_F(TestReadableFile, Close) {
+  MakeTestFile();
+  OpenFile();
+
+  int fd = file_->file_descriptor();
+  file_->Close();
+
+  ASSERT_TRUE(FileIsClosed(fd));
+
+  // Idempotent
+  file_->Close();
+}
+
+TEST_F(TestReadableFile, SeekTellSize) {
+  MakeTestFile();
+  OpenFile();
+
+  int64_t position;
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(0, position);
+
+  ASSERT_OK(file_->Seek(4));
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(4, position);
+
+  ASSERT_OK(file_->Seek(100));
+  ASSERT_OK(file_->Tell(&position));
+
+  // now at EOF
+  ASSERT_EQ(8, position);
+
+  int64_t size;
+  ASSERT_OK(file_->GetSize(&size));
+  ASSERT_EQ(8, size);
+
+  // does not support zero copy
+  ASSERT_FALSE(file_->supports_zero_copy());
+}
+
+TEST_F(TestReadableFile, Read) {
+  uint8_t buffer[50];
+
+  MakeTestFile();
+  OpenFile();
+
+  int64_t bytes_read;
+  ASSERT_OK(file_->Read(4, &bytes_read, buffer));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
+
+  ASSERT_OK(file_->Read(10, &bytes_read, buffer));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
+}
+
+TEST_F(TestReadableFile, ReadAt) {
+  uint8_t buffer[50];
+  const char* test_data = "testdata";
+
+  MakeTestFile();
+  OpenFile();
+
+  int64_t bytes_read;
+  int64_t position;
+
+  ASSERT_OK(file_->ReadAt(0, 4, &bytes_read, buffer));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
+
+  // position advanced
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(4, position);
+
+  ASSERT_OK(file_->ReadAt(4, 10, &bytes_read, buffer));
+  ASSERT_EQ(4, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
+
+  // position advanced to EOF
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(8, position);
+
+  // Check buffer API
+  std::shared_ptr<Buffer> buffer2;
+
+  ASSERT_OK(file_->ReadAt(0, 4, &buffer2));
+  ASSERT_EQ(4, buffer2->size());
+
+  Buffer expected(reinterpret_cast<const uint8_t*>(test_data), 4);
+  ASSERT_TRUE(buffer2->Equals(expected));
+
+  // position advanced
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(4, position);
+}
+
 TEST_F(TestReadableFile, NonExistentFile) {
   ASSERT_RAISES(IOError, ReadableFile::Open("0xDEADBEEF.txt", &file_));
+}
+
+class MyMemoryPool : public MemoryPool {
+ public:
+  MyMemoryPool() : num_allocations_(0) {}
+
+  Status Allocate(int64_t size, uint8_t** out) override {
+    *out = reinterpret_cast<uint8_t*>(std::malloc(size));
+    ++num_allocations_;
+    return Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override { std::free(buffer); }
+
+  int64_t bytes_allocated() const override { return -1; }
+
+  int64_t num_allocations() const { return num_allocations_; }
+
+ private:
+  int64_t num_allocations_;
+};
+
+TEST_F(TestReadableFile, CustomMemoryPool) {
+  MakeTestFile();
+
+  MyMemoryPool pool;
+  ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(file_->ReadAt(0, 4, &buffer));
+  ASSERT_OK(file_->ReadAt(4, 8, &buffer));
+
+  ASSERT_EQ(2, pool.num_allocations());
 }
 
 }  // namespace io

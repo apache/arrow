@@ -326,11 +326,17 @@ class OSFile {
     return FileRead(fd_, out, nbytes, bytes_read);
   }
 
-  Status Seek(int64_t pos) { return FileSeek(fd_, pos); }
+  Status Seek(int64_t pos) {
+    if (pos > size_) { pos = size_; }
+    return FileSeek(fd_, pos);
+  }
 
   Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
 
   Status Write(const uint8_t* data, int64_t length) {
+    if (length < 0) {
+      return Status::IOError("Length must be non-negative");
+    }
     return FileWrite(fd_, data, length);
   }
 
