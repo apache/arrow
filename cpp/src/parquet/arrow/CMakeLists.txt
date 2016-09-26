@@ -83,6 +83,15 @@ else()
   ADD_PARQUET_LINK_LIBRARIES(arrow-reader-writer-test parquet_arrow_shared)
 endif()
 
+if(PARQUET_BUILD_BENCHMARKS)
+  ADD_PARQUET_BENCHMARK(arrow-reader-writer-benchmark)
+  if (PARQUET_BUILD_STATIC)
+    ADD_PARQUET_LINK_LIBRARIES(arrow-reader-writer-benchmark parquet_arrow_static)
+  else()
+    ADD_PARQUET_LINK_LIBRARIES(arrow-reader-writer-benchmark parquet_arrow_shared)
+  endif()
+endif()
+
 # Headers: top level
 install(FILES
   io.h
