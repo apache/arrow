@@ -117,8 +117,8 @@ class CerrLog {
 // return so we create a new class to give it a hint.
 class FatalLog : public CerrLog {
  public:
-  FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL){}
+  explicit FatalLog(int /* severity */)  // NOLINT
+      : CerrLog(ARROW_FATAL){}           // NOLINT
 
             [[noreturn]] ~FatalLog() {
     if (has_logged_) { std::cerr << std::endl; }

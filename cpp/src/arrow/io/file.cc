@@ -334,9 +334,7 @@ class OSFile {
   Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
 
   Status Write(const uint8_t* data, int64_t length) {
-    if (length < 0) {
-      return Status::IOError("Length must be non-negative");
-    }
+    if (length < 0) { return Status::IOError("Length must be non-negative"); }
     return FileWrite(fd_, data, length);
   }
 
@@ -362,7 +360,7 @@ class OSFile {
 
 class ReadableFile::ReadableFileImpl : public OSFile {
  public:
-  ReadableFileImpl(MemoryPool* pool) : OSFile(), pool_(pool) {}
+  explicit ReadableFileImpl(MemoryPool* pool) : OSFile(), pool_(pool) {}
 
   Status Open(const std::string& path) { return OpenReadable(path); }
 

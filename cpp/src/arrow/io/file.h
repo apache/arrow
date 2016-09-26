@@ -84,7 +84,7 @@ class ARROW_EXPORT ReadableFile : public ReadableFileInterface {
   int file_descriptor() const;
 
  private:
-  ReadableFile(MemoryPool* pool);
+  explicit ReadableFile(MemoryPool* pool);
 
   class ARROW_NO_EXPORT ReadableFileImpl;
   std::unique_ptr<ReadableFileImpl> impl_;
