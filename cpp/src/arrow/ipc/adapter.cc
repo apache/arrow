@@ -23,12 +23,12 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

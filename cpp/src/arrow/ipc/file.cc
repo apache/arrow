@@ -22,10 +22,10 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/io/interfaces.h"
 #include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
-#include "arrow/io/interfaces.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
