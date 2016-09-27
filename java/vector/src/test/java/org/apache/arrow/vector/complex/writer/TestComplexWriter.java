@@ -85,15 +85,16 @@ public class TestComplexWriter {
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
-    MapWriter mapWriter = rootWriter.map("map");
-    BigIntWriter nested = mapWriter.bigInt("nested");
     for (int i = 0; i < COUNT; i++) {
+      rootWriter.start();
       if (i % 2 == 0) {
+        MapWriter mapWriter = rootWriter.map("map");
         mapWriter.setPosition(i);
         mapWriter.start();
-        nested.writeBigInt(i);
+        mapWriter.bigInt("nested").writeBigInt(i);
         mapWriter.end();
       }
+      rootWriter.end();
     }
     writer.setValueCount(COUNT);
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
@@ -109,7 +110,6 @@ public class TestComplexWriter {
         assertNull("index is not set: " + i, map.readObject());
       }
     }
-
     parent.close();
   }
 
