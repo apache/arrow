@@ -38,6 +38,7 @@ set(ARROW_IO_TEST_LINK_LIBS
   ${ARROW_IO_PRIVATE_LINK_LIBS})
 
 set(ARROW_IO_SRCS
+  file.cc
   memory.cc
 )
 
@@ -103,12 +104,17 @@ if (APPLE)
     INSTALL_NAME_DIR "@rpath")
 endif()
 
+ADD_ARROW_TEST(io-file-test)
+ARROW_TEST_LINK_LIBRARIES(io-file-test
+  ${ARROW_IO_TEST_LINK_LIBS})
+
 ADD_ARROW_TEST(io-memory-test)
 ARROW_TEST_LINK_LIBRARIES(io-memory-test
   ${ARROW_IO_TEST_LINK_LIBS})
 
 # Headers: top level
 install(FILES
+  file.h
   hdfs.h
   interfaces.h
   memory.h

@@ -94,7 +94,7 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   Status WriteInternal(const uint8_t* data, int64_t nbytes);
 
   // Hide the internal details of this class for now
-  class MemoryMappedFileImpl;
+  class ARROW_NO_EXPORT MemoryMappedFileImpl;
   std::unique_ptr<MemoryMappedFileImpl> impl_;
 };
 
