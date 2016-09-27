@@ -41,7 +41,7 @@ public class UnionListReader extends AbstractFieldReader {
 
   @Override
   public boolean isSet() {
-    return true;
+    return !vector.getAccessor().isNull(idx());
   }
 
   private int currentOffset;

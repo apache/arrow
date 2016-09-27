@@ -42,4 +42,9 @@ public class NullableMapReaderImpl extends SingleMapReaderImpl {
     NullableMapWriter impl = (NullableMapWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
   }
+
+  @Override
+  public boolean isSet(){
+    return !nullableMapVector.getAccessor().isNull(idx());
+  }
 }

@@ -17,6 +17,14 @@
  */
 package org.apache.arrow.vector.complex.writer;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
@@ -77,28 +85,33 @@ public class TestComplexWriter {
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
-    MapWriter mapWriter = rootWriter.map("map");
-    BigIntWriter nested = mapWriter.bigInt("nested");
     for (int i = 0; i < COUNT; i++) {
+      rootWriter.setPosition(i);
+      rootWriter.start();
       if (i % 2 == 0) {
+        MapWriter mapWriter = rootWriter.map("map");
         mapWriter.setPosition(i);
         mapWriter.start();
-        nested.writeBigInt(i);
+        mapWriter.bigInt("nested").writeBigInt(i);
         mapWriter.end();
       }
+      rootWriter.end();
     }
     writer.setValueCount(COUNT);
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
+      assertTrue("index is set: " + i, rootReader.isSet());
+      FieldReader map = rootReader.reader("map");
       if (i % 2 == 0) {
-        Assert.assertNotNull(rootReader.reader("map").readObject());
-        Assert.assertEquals(i, rootReader.reader("map").reader("nested").readLong().longValue());
+        assertTrue("index is set: " + i, map.isSet());
+        assertNotNull("index is set: " + i, map.readObject());
+        assertEquals(i, map.reader("nested").readLong().longValue());
       } else {
-        Assert.assertNull(rootReader.reader("map").readObject());
+        assertFalse("index is not set: " + i, map.isSet());
+        assertNull("index is not set: " + i, map.readObject());
       }
     }
-
     parent.close();
   }
 
@@ -121,11 +134,39 @@ public class TestComplexWriter {
       listReader.setPosition(i);
       for (int j = 0; j < i % 7; j++) {
         listReader.next();
-        Assert.assertEquals(j, listReader.reader().readInteger().intValue());
+        assertEquals(j, listReader.reader().readInteger().intValue());
       }
     }
   }
 
+  @Test
+  public void listScalarTypeNullable() {
+    ListVector listVector = new ListVector("list", allocator, null);
+    listVector.allocateNew();
+    UnionListWriter listWriter = new UnionListWriter(listVector);
+    for (int i = 0; i < COUNT; i++) {
+      if (i % 2 == 0) {
+        listWriter.setPosition(i);
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          listWriter.writeInt(j);
+        }
+        listWriter.endList();
+      }
+    }
+    listWriter.setValueCount(COUNT);
+    UnionListReader listReader = new UnionListReader(listVector);
+    for (int i = 0; i < COUNT; i++) {
+      listReader.setPosition(i);
+      if (i % 2 == 0) {
+        assertTrue("index is set: " + i, listReader.isSet());
+        assertEquals("correct length at: " + i, i % 7, ((List<?>)listReader.readObject()).size());
+      } else {
+        assertFalse("index is not set: " + i, listReader.isSet());
+        assertNull("index is not set: " + i, listReader.readObject());
+      }
+    }
+  }
 
   @Test
   public void listMapType() {
