@@ -86,6 +86,7 @@ public class TestComplexWriter {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     for (int i = 0; i < COUNT; i++) {
+      rootWriter.setPosition(i);
       rootWriter.start();
       if (i % 2 == 0) {
         MapWriter mapWriter = rootWriter.map("map");
@@ -100,6 +101,7 @@ public class TestComplexWriter {
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
+      assertTrue("index is set: " + i, rootReader.isSet());
       FieldReader map = rootReader.reader("map");
       if (i % 2 == 0) {
         assertTrue("index is set: " + i, map.isSet());
