@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.Precision;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.flatbuf.UnionMode;
@@ -78,13 +79,12 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.apache.arrow.vector.types.pojo.ArrowType.IntervalDay;
-import org.apache.arrow.vector.types.pojo.ArrowType.IntervalYear;
+import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -104,8 +104,8 @@ public class Types {
   public static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
   public static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
   public static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(""), null);
-  public static final Field INTERVALDAY_FIELD = new Field("", true, IntervalDay.INSTANCE, null);
-  public static final Field INTERVALYEAR_FIELD = new Field("", true, IntervalYear.INSTANCE, null);
+  public static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
+  public static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
   public static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
   public static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(Precision.DOUBLE), null);
   public static final Field LIST_FIELD = new Field("", true, List.INSTANCE, null);
@@ -260,7 +260,7 @@ public class Types {
         return new TimeStampWriterImpl((NullableTimeStampVector) vector);
       }
     },
-    INTERVALDAY(IntervalDay.INSTANCE) {
+    INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
       @Override
       public Field getField() {
         return INTERVALDAY_FIELD;
@@ -276,7 +276,7 @@ public class Types {
         return new IntervalDayWriterImpl((NullableIntervalDayVector) vector);
       }
     },
-    INTERVALYEAR(IntervalYear.INSTANCE) {
+    INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
       @Override
       public Field getField() {
         return INTERVALYEAR_FIELD;

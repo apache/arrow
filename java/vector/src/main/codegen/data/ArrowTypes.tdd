@@ -69,12 +69,8 @@
       fields: [{name: "timezone", type: "String"}]
     },
     {
-      name: "IntervalDay",
-      fields: []
-    },
-    {
-      name: "IntervalYear",
-      fields: []
+      name: "Interval",
+      fields: [{name: "unit", type: short}]
     }
   ]
 }

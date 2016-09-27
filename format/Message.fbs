@@ -63,10 +63,9 @@ table Timestamp {
   timezone: string;
 }
 
-table IntervalDay {
-}
-
-table IntervalYear {
+enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
+table Interval {
+  unit: IntervalUnit;
 }
 
 table JSONScalar {
@@ -88,8 +87,7 @@ union Type {
   Date,
   Time,
   Timestamp,
-  IntervalDay,
-  IntervalYear,
+  Interval,
   List,
   Struct_,
   Union,
