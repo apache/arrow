@@ -33,12 +33,23 @@ import org.apache.arrow.flatbuf.Type;
 
 import java.util.Objects;
 
+/**
+ * Arrow types
+ **/
 public abstract class ArrowType {
 
   public abstract byte getTypeType();
   public abstract int getType(FlatBufferBuilder builder);
   public abstract <T> T accept(ArrowTypeVisitor<T> visitor);
 
+  /**
+   * to visit the ArrowTypes
+   * <code>
+   *   type.accept(new ArrowTypeVisitor<Type>() {
+   *   ...
+   *   });
+   * </code>
+   */
   public static interface ArrowTypeVisitor<T> {
   <#list arrowTypes.types as type>
     T visit(${type.name} type);
@@ -55,9 +66,7 @@ public abstract class ArrowType {
     </#if>
 
     <#list fields as field>
-    <#assign fieldName = field.name>
-    <#assign fieldType = field.type>
-    ${fieldType} ${fieldName};
+    ${field.type} ${field.name};
     </#list>
 
     <#if type.fields?size != 0>
@@ -79,6 +88,9 @@ public abstract class ArrowType {
       <#if field.type == "String">
       int ${field.name} = builder.createString(this.${field.name});
       </#if>
+      <#if field.type == "int[]">
+      int ${field.name} = org.apache.arrow.flatbuf.${type.name}.create${field.name?cap_first}Vector(builder, this.${field.name});
+      </#if>
       </#list>
       org.apache.arrow.flatbuf.${type.name}.start${type.name}(builder);
       <#list type.fields as field>
@@ -96,7 +108,7 @@ public abstract class ArrowType {
     public String toString() {
       return "${name}{"
       <#list fields as field>
-      + ", " + ${field.name}
+        + <#if field.type == "int[]">java.util.Arrays.toString(${field.name})<#else>${field.name}</#if><#if field_has_next> + ", " </#if>
       </#list>
       + "}";
     }
@@ -115,8 +127,7 @@ public abstract class ArrowType {
       return true;
       <#else>
       ${type.name} that = (${type.name}) obj;
-      return
-      <#list type.fields as field>Objects.equals(this.${field.name}, that.${field.name}) <#if field_has_next>&&<#else>;</#if>
+      return <#list type.fields as field>Objects.deepEquals(this.${field.name}, that.${field.name}) <#if field_has_next>&&<#else>;</#if>
       </#list>
       </#if>
     }
@@ -134,9 +145,20 @@ public abstract class ArrowType {
     <#assign name = type.name>
     <#assign nameLower = type.name?lower_case>
     <#assign fields = type.fields>
-    case Type.${type.name}:
+    case Type.${type.name}: {
       org.apache.arrow.flatbuf.${type.name} ${nameLower}Type = (org.apache.arrow.flatbuf.${type.name}) field.type(new org.apache.arrow.flatbuf.${type.name}());
-      return new ${type.name}(<#list type.fields as field>${nameLower}Type.${field.name}()<#if field_has_next>, </#if></#list>);
+      <#list type.fields as field>
+      <#if field.type == "int[]">
+      ${field.type} ${field.name} = new int[${nameLower}Type.${field.name}Length()];
+      for (int i = 0; i< ${field.name}.length; ++i) {
+        ${field.name}[i] = ${nameLower}Type.${field.name}(i);
+      }
+      <#else>
+      ${field.type} ${field.name} = ${nameLower}Type.${field.name}();
+      </#if>
+      </#list>
+      return new ${type.name}(<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+    }
     </#list>
     default:
       throw new UnsupportedOperationException("Unsupported type: " + field.typeType());
