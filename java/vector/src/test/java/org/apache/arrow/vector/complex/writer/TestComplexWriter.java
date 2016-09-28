@@ -52,7 +52,7 @@ import io.netty.buffer.ArrowBuf;
 
 public class TestComplexWriter {
 
-  static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+  private static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
 
   private static final int COUNT = 100;
 
@@ -113,6 +113,36 @@ public class TestComplexWriter {
       }
     }
     parent.close();
+  }
+
+  @Test
+  public void listOfLists() {
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(0);
+    rootWriter.list("list").startList();
+    rootWriter.list("list").bigInt().writeBigInt(0);
+    rootWriter.list("list").endList();
+    rootWriter.end();
+
+    rootWriter.setPosition(1);
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(1);
+    rootWriter.end();
+
+    writer.setValueCount(2);
+
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+
+    rootReader.setPosition(0);
+    assertTrue("row 0 list is not set", rootReader.reader("list").isSet());
+    assertEquals(Long.valueOf(0), rootReader.reader("list").reader().readLong());
+
+    rootReader.setPosition(1);
+    assertFalse("row 1 list is set", rootReader.reader("list").isSet());
   }
 
   @Test

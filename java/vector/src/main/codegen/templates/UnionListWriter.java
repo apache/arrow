@@ -84,7 +84,6 @@ public class UnionListWriter extends AbstractFieldWriter {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    startList();
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
