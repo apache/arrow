@@ -37,6 +37,13 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
       PARQUET_1_0" parquet::ParquetVersion::PARQUET_1_0"
       PARQUET_2_0" parquet::ParquetVersion::PARQUET_2_0"
 
+  enum Compression" parquet::Compression::type":
+      UNCOMPRESSED" parquet::Compression::UNCOMPRESSED"
+      SNAPPY" parquet::Compression::SNAPPY"
+      GZIP" parquet::Compression::GZIP"
+      LZO" parquet::Compression::LZO"
+      BROTLI" parquet::Compression::BROTLI"
+
   cdef cppclass SchemaDescriptor:
     shared_ptr[Node] schema()
     GroupNode* group()
@@ -90,6 +97,11 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass WriterProperties:
         cppclass Builder:
             Builder* version(ParquetVersion version)
+            Builder* compression(Compression codec)
+            Builder* compression(const c_string& path, Compression codec)
+            Builder* disable_dictionary()
+            Builder* enable_dictionary()
+            Builder* enable_dictionary(const c_string& path)
             shared_ptr[WriterProperties] build()
 
 

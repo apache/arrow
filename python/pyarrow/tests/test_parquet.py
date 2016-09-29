@@ -110,3 +110,43 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     df['uint32'] = df['uint32'].values.astype(np.int64)
 
     pdt.assert_frame_equal(df, df_read)
+
+@parquet
+def test_pandas_parquet_configuration_options(tmpdir):
+    size = 10000
+    np.random.seed(0)
+    df = pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16),
+        'uint32': np.arange(size, dtype=np.uint32),
+        'uint64': np.arange(size, dtype=np.uint64),
+        'int8': np.arange(size, dtype=np.int16),
+        'int16': np.arange(size, dtype=np.int16),
+        'int32': np.arange(size, dtype=np.int32),
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0
+    })
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = A.from_pandas_dataframe(df)
+
+    for use_dictionary in [True, False]:
+        A.parquet.write_table(
+                arrow_table,
+                filename.strpath,
+                version="2.0",
+                use_dictionary=use_dictionary)
+        table_read = pq.read_table(filename.strpath)
+        df_read = table_read.to_pandas()
+        pdt.assert_frame_equal(df, df_read)
+
+    for compression in ['NONE', 'SNAPPY', 'GZIP']:
+        A.parquet.write_table(
+                arrow_table,
+                filename.strpath,
+                version="2.0",
+                compression=compression)
+        table_read = pq.read_table(filename.strpath)
+        df_read = table_read.to_pandas()
+        pdt.assert_frame_equal(df, df_read)
