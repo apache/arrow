@@ -95,7 +95,7 @@ class build_ext(_build_ext):
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
-        self.extra_cmake_args = ''
+        self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
 
     CYTHON_MODULE_NAMES = [
         'array',
