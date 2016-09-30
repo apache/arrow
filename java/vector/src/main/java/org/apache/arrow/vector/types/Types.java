@@ -17,12 +17,8 @@
  */
 package org.apache.arrow.vector.types;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.Precision;
-import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -74,9 +70,11 @@ import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
+import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
@@ -92,26 +90,25 @@ import org.apache.arrow.vector.util.CallBack;
 
 public class Types {
 
-  public static final Field NULL_FIELD = new Field("", true, Null.INSTANCE, null);
-  public static final Field TINYINT_FIELD = new Field("", true, new Int(8, true), null);
-  public static final Field SMALLINT_FIELD = new Field("", true, new Int(16, true), null);
-  public static final Field INT_FIELD = new Field("", true, new Int(32, true), null);
-  public static final Field BIGINT_FIELD = new Field("", true, new Int(64, true), null);
-  public static final Field UINT1_FIELD = new Field("", true, new Int(8, false), null);
-  public static final Field UINT2_FIELD = new Field("", true, new Int(16, false), null);
-  public static final Field UINT4_FIELD = new Field("", true, new Int(32, false), null);
-  public static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
-  public static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
-  public static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
-  public static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(""), null);
-  public static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
-  public static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
-  public static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
-  public static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(Precision.DOUBLE), null);
-  public static final Field LIST_FIELD = new Field("", true, List.INSTANCE, null);
-  public static final Field VARCHAR_FIELD = new Field("", true, Utf8.INSTANCE, null);
-  public static final Field VARBINARY_FIELD = new Field("", true, Binary.INSTANCE, null);
-  public static final Field BIT_FIELD = new Field("", true, Bool.INSTANCE, null);
+  private static final Field NULL_FIELD = new Field("", true, Null.INSTANCE, null);
+  private static final Field TINYINT_FIELD = new Field("", true, new Int(8, true), null);
+  private static final Field SMALLINT_FIELD = new Field("", true, new Int(16, true), null);
+  private static final Field INT_FIELD = new Field("", true, new Int(32, true), null);
+  private static final Field BIGINT_FIELD = new Field("", true, new Int(64, true), null);
+  private static final Field UINT1_FIELD = new Field("", true, new Int(8, false), null);
+  private static final Field UINT2_FIELD = new Field("", true, new Int(16, false), null);
+  private static final Field UINT4_FIELD = new Field("", true, new Int(32, false), null);
+  private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
+  private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
+  private static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
+  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(""), null);
+  private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
+  private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
+  private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
+  private static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(Precision.DOUBLE), null);
+  private static final Field VARCHAR_FIELD = new Field("", true, Utf8.INSTANCE, null);
+  private static final Field VARBINARY_FIELD = new Field("", true, Binary.INSTANCE, null);
+  private static final Field BIT_FIELD = new Field("", true, Bool.INSTANCE, null);
 
 
   public enum MinorType {
@@ -427,7 +424,7 @@ public class Types {
     UINT4(new Int(32, false)) {
       @Override
       public Field getField() {
-        return UINT8_FIELD;
+        return UINT4_FIELD;
       }
 
       @Override
@@ -506,22 +503,94 @@ public class Types {
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }
 
-  private static final Map<ArrowType,MinorType> ARROW_TYPE_MINOR_TYPE_MAP;
-
   public static MinorType getMinorTypeForArrowType(ArrowType arrowType) {
-    if (arrowType.getTypeType() == Type.Decimal) {
-      return MinorType.DECIMAL;
-    }
-    return ARROW_TYPE_MINOR_TYPE_MAP.get(arrowType);
-  }
-
-  static {
-    ARROW_TYPE_MINOR_TYPE_MAP = new HashMap<>();
-    for (MinorType minorType : MinorType.values()) {
-      if (minorType != MinorType.DECIMAL) {
-        ARROW_TYPE_MINOR_TYPE_MAP.put(minorType.getType(), minorType);
+    return arrowType.accept(new ArrowTypeVisitor<MinorType>() {
+      @Override public MinorType visit(Null type) {
+        return MinorType.NULL;
       }
-    }
+
+      @Override public MinorType visit(Struct_ type) {
+        return MinorType.MAP;
+      }
+
+      @Override public MinorType visit(List type) {
+        return MinorType.LIST;
+      }
+
+      @Override public MinorType visit(Union type) {
+        return MinorType.UNION;
+      }
+
+      @Override
+      public MinorType visit(Int type) {
+        switch (type.getBitWidth()) {
+        case 8:
+          return type.getIsSigned() ? MinorType.TINYINT : MinorType.UINT1;
+        case 16:
+          return type.getIsSigned() ? MinorType.SMALLINT : MinorType.UINT2;
+        case 32:
+          return type.getIsSigned() ? MinorType.INT : MinorType.UINT4;
+        case 64:
+          return type.getIsSigned() ? MinorType.BIGINT : MinorType.UINT8;
+        default:
+          throw new IllegalArgumentException("only 8, 16, 32, 64 supported: " + type);
+        }
+      }
+
+      @Override
+      public MinorType visit(FloatingPoint type) {
+        switch (type.getPrecision()) {
+        case Precision.HALF:
+          throw new UnsupportedOperationException("NYI: " + type);
+        case Precision.SINGLE:
+          return MinorType.FLOAT4;
+        case Precision.DOUBLE:
+          return MinorType.FLOAT8;
+        default:
+          throw new IllegalArgumentException("unknown precision: " + type);
+        }
+      }
+
+      @Override public MinorType visit(Utf8 type) {
+        return MinorType.VARCHAR;
+      }
+
+      @Override public MinorType visit(Binary type) {
+        return MinorType.VARBINARY;
+      }
+
+      @Override public MinorType visit(Bool type) {
+        return MinorType.BIT;
+      }
+
+      @Override public MinorType visit(Decimal type) {
+        return MinorType.DECIMAL;
+      }
+
+      @Override public MinorType visit(Date type) {
+        return MinorType.DATE;
+      }
+
+      @Override public MinorType visit(Time type) {
+        return MinorType.TIME;
+      }
+
+      @Override public MinorType visit(Timestamp type) {
+        return MinorType.TIMESTAMP;
+      }
+
+      @Override
+      public MinorType visit(Interval type) {
+        switch (type.getUnit()) {
+        case IntervalUnit.DAY_TIME:
+          return MinorType.INTERVALDAY;
+        case IntervalUnit.YEAR_MONTH:
+          return MinorType.INTERVALYEAR;
+        default:
+          throw new IllegalArgumentException("unknown unit: " + type);
+        }
+      }
+    });
   }
 
 }
