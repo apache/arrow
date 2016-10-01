@@ -19,9 +19,7 @@
 #define PYARROW_COMMON_H
 
 #include "pyarrow/config.h"
-
 #include "arrow/util/buffer.h"
-
 #include "pyarrow/visibility.h"
 
 namespace arrow { class MemoryPool; }
