@@ -20,6 +20,7 @@
 
 #include "pyarrow/config.h"
 #include "arrow/util/buffer.h"
+#include "arrow/util/macros.h"
 #include "pyarrow/visibility.h"
 
 namespace arrow { class MemoryPool; }
@@ -81,6 +82,20 @@ struct PyObjectStringify {
   }
 };
 
+class PyAcquireGIL_RAII {
+ public:
+  PyAcquireGIL_RAII() {
+    state_ = PyGILState_Ensure();
+  }
+
+  ~PyAcquireGIL_RAII() {
+    PyGILState_Release(state_);
+  }
+ private:
+  PyGILState_STATE state_;
+  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL_RAII);
+};
+
 // TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR()                         \
   if (PyErr_Occurred()) {                           \
@@ -98,8 +113,8 @@ PYARROW_EXPORT arrow::MemoryPool* GetMemoryPool();
 
 class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
  public:
-  NumPyBuffer(PyArrayObject* arr) :
-      Buffer(nullptr, 0) {
+  NumPyBuffer(PyArrayObject* arr)
+    : Buffer(nullptr, 0) {
     arr_ = arr;
     Py_INCREF(arr);
 
@@ -113,6 +128,15 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
 
  private:
   PyArrayObject* arr_;
+};
+
+class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
+ public:
+  PyBytesBuffer(PyObject* obj);
+  virtual ~PyBytesBuffer();
+
+ private:
+  PyObject* obj_;
 };
 
 } // namespace pyarrow

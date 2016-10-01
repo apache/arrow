@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_COMMON_H
-#define PYARROW_COMMON_H
+#ifndef PYARROW_IO_H
+#define PYARROW_IO_H
 
 #include "arrow/io/interfaces.h"
 
@@ -39,7 +39,9 @@ public:
 
   // Does not copy if not necessary
   arrow::Status ReadAt(
-      int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+      int64_t position, int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) override;
+
+  arrow::Status Seek(int64_t position) override;
 
   bool supports_zero_copy() const override;
 
@@ -61,3 +63,5 @@ private:
 };
 
 } // namespace pyarrow
+
+#endif  // PYARROW_IO_H
