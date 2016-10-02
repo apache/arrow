@@ -406,7 +406,7 @@ cdef class NativeFile:
 
         with nogil:
             check_cstatus(self.rd_file.get()
-                          .Read(nbytes, &out))
+                          .ReadB(nbytes, &out))
 
         result = cp.PyBytes_FromStringAndSize(
             <const char*>out.get().data(), out.get().size())
@@ -425,11 +425,15 @@ cdef class PythonFileInterface(NativeFile):
         self.handle = handle
 
         if mode.startswith('w'):
-            self.wr_file.reset(new PyOutputStream(handle))
+            self.wr_file.reset(new pyarrow.PyOutputStream(handle))
+            self.is_readonly = 0
         elif mode.startswith('r'):
-            self.wr_file.reset(new PyReadableFile(handle))
+            self.rd_file.reset(new pyarrow.PyReadableFile(handle))
+            self.is_readonly = 1
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        self.is_open = True
 
 
 # ----------------------------------------------------------------------

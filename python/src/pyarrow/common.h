@@ -82,18 +82,18 @@ struct PyObjectStringify {
   }
 };
 
-class PyAcquireGIL_RAII {
+class PyGILGuard {
  public:
-  PyAcquireGIL_RAII() {
+  PyGILGuard() {
     state_ = PyGILState_Ensure();
   }
 
-  ~PyAcquireGIL_RAII() {
+  ~PyGILGuard() {
     PyGILState_Release(state_);
   }
  private:
   PyGILState_STATE state_;
-  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL_RAII);
+  DISALLOW_COPY_AND_ASSIGN(PyGILGuard);
 };
 
 // TODO(wesm): We can just let errors pass through. To be explored later

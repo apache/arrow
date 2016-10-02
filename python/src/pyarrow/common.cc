@@ -72,14 +72,14 @@ arrow::MemoryPool* GetMemoryPool() {
 // PyBytesBuffer
 
 PyBytesBuffer::PyBytesBuffer(PyObject* obj)
-    : Buffer(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj_)),
-        PyBytes_GET_SIZE(obj_)),
+    : Buffer(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
+        PyBytes_GET_SIZE(obj)),
       obj_(obj) {
   Py_INCREF(obj_);
 }
 
 PyBytesBuffer::~PyBytesBuffer() {
-  PyAcquireGIL_RAII lock;
+  PyGILGuard lock;
   Py_DECREF(obj_);
 }
 

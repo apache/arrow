@@ -51,16 +51,14 @@ public:
 
   arrow::Status Close() override;
 
-  arrow::Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
+  arrow::Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
+  arrow::Status Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) override;
 
   arrow::Status GetSize(int64_t* size) override;
 
-  // Does not copy if not necessary
-  arrow::Status ReadAt(
-      int64_t position, int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) override;
-
   arrow::Status Seek(int64_t position) override;
+
+  arrow::Status Tell(int64_t* position) override;
 
   bool supports_zero_copy() const override;
 

@@ -36,6 +36,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         FileMode mode()
 
     cdef cppclass Readable:
+        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[Buffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
