@@ -27,10 +27,29 @@ namespace arrow { class MemoryPool; }
 
 namespace pyarrow {
 
+// A common interface to a Python file-like object. Must acquire GIL before
+// calling any methods
+class PythonFile {
+ public:
+  PythonFile(PyObject* file);
+  ~PythonFile();
+
+  arrow::Status Close();
+  arrow::Status Seek(int64_t position, int whence);
+  arrow::Status Read(int64_t nbytes, PyObject** out);
+  arrow::Status Tell(int64_t* position);
+  arrow::Status Write(const uint8_t* data, int64_t nbytes);
+
+ private:
+  PyObject* file_;
+};
+
 class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
 public:
   explicit PyReadableFile(PyObject* file);
   ~PyReadableFile();
+
+  arrow::Status Close() override;
 
   arrow::Status ReadAt(
       int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
@@ -46,7 +65,7 @@ public:
   bool supports_zero_copy() const override;
 
 private:
-  PyObject* file_;
+  std::unique_ptr<PythonFile> file_;
 };
 
 class PYARROW_EXPORT PyOutputStream : public arrow::io::OutputStream {
@@ -59,8 +78,10 @@ public:
   arrow::Status Write(const uint8_t* data, int64_t nbytes) override;
 
 private:
-  PyObject* file_;
+  std::unique_ptr<PythonFile> file_;
 };
+
+// TODO(wesm): seekable output files
 
 } // namespace pyarrow
 

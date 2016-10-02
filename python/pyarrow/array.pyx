@@ -35,7 +35,6 @@ from pyarrow.scalar import NA
 from pyarrow.schema cimport Schema
 import pyarrow.schema as schema
 
-from pyarrow.table cimport Table
 
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
@@ -254,35 +253,6 @@ def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
     return box_arrow_array(out)
 
 
-def from_pandas_dataframe(object df, name=None, timestamps_to_ms=False):
-    """
-    Convert pandas.DataFrame to an Arrow Table
-
-    Parameters
-    ----------
-    df: pandas.DataFrame
-
-    name: str
-
-    timestamps_to_ms: bool
-        Convert datetime columns to ms resolution. This is needed for
-        compability with other functionality like Parquet I/O which
-        only supports milliseconds.
-    """
-    cdef:
-        list names = []
-        list arrays = []
-
-    for name in df.columns:
-        col = df[name]
-        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
-
-        names.append(name)
-        arrays.append(arr)
-
-    return Table.from_arrays(names, arrays, name=name)
-
-
 cdef object series_as_ndarray(object obj):
     import pandas as pd
 
@@ -324,4 +294,3 @@ cdef class RowBatch:
 
     def __getitem__(self, i):
         return self.arrays[i]
-

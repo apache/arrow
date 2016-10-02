@@ -25,9 +25,11 @@ cimport pyarrow.includes.pyarrow as pyarrow
 import pyarrow.config
 
 from pyarrow.array cimport Array, box_arrow_array
-from pyarrow.compat import frombytes, tobytes
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport box_data_type, box_schema
+
+from pyarrow.compat import frombytes, tobytes
+
 
 cdef class ChunkedArray:
     '''
@@ -161,7 +163,7 @@ cdef class Table:
 
     @staticmethod
     def from_pandas(df, name=None):
-        pass
+        return from_pandas_dataframe(df, name=name)
 
     @staticmethod
     def from_arrays(names, arrays, name=None):
@@ -264,3 +266,34 @@ cdef class Table:
         def __get__(self):
             return (self.num_rows, self.num_columns)
 
+
+
+def from_pandas_dataframe(object df, name=None, timestamps_to_ms=False):
+    """
+    Convert pandas.DataFrame to an Arrow Table
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+
+    name: str
+
+    timestamps_to_ms: bool
+        Convert datetime columns to ms resolution. This is needed for
+        compability with other functionality like Parquet I/O which
+        only supports milliseconds.
+    """
+    from pyarrow.array import from_pandas_series
+
+    cdef:
+        list names = []
+        list arrays = []
+
+    for name in df.columns:
+        col = df[name]
+        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
+
+        names.append(name)
+        arrays.append(arr)
+
+    return Table.from_arrays(names, arrays, name=name)

@@ -18,6 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport MemoryPool
 
 cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
@@ -64,6 +65,24 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(ReadableFileInterface,
                                          WriteableFileInterface):
         pass
+
+
+cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
+    cdef cppclass FileOutputStream(OutputStream):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
+
+        int file_descriptor()
+
+    cdef cppclass ReadableFile(ReadableFileInterface):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
+
+        @staticmethod
+        CStatus Open(const c_string& path, MemoryPool* memory_pool,
+                     shared_ptr[ReadableFile]* file)
+
+        int file_descriptor()
 
 
 cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:

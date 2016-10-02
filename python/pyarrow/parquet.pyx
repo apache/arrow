@@ -27,10 +27,10 @@ cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.compat import tobytes
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_cstatus
-from pyarrow.io import NativeFileInterface
+from pyarrow.io import NativeFile
 from pyarrow.table cimport Table
 
-from pyarrow.io cimport NativeFileInterface
+from pyarrow.io cimport NativeFile
 
 import six
 
@@ -54,7 +54,7 @@ cdef class ParquetReader:
             new FileReader(default_memory_pool(),
                            ParquetFileReader.OpenFile(path)))
 
-    cdef open_native_file(self, NativeFileInterface file):
+    cdef open_native_file(self, NativeFile file):
         cdef shared_ptr[ReadableFileInterface] cpp_handle
         file.read_handle(&cpp_handle)
 
@@ -84,7 +84,7 @@ def read_table(source, columns=None):
 
     if isinstance(source, six.string_types):
         reader.open_local_file(source)
-    elif isinstance(source, NativeFileInterface):
+    elif isinstance(source, NativeFile):
         reader.open_native_file(source)
 
     return reader.read_all()

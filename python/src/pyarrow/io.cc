@@ -29,70 +29,104 @@
 namespace pyarrow {
 
 // ----------------------------------------------------------------------
-// Seekable input stream
+// Python file
 
-PyReadableFile::PyReadableFile(PyObject* file)
-    : file_(file) {
+PythonFile::PythonFile(PyObject* file) {
   Py_INCREF(file_);
 }
 
-PyReadableFile::~PyReadableFile() {
+PythonFile::~PythonFile() {
   Py_DECREF(file_);
 }
 
-#define ARROW_RETURN_IF_PYERROR()                   \
-  if (PyErr_Occurred()) {                           \
-    PyObject *exc_type, *exc_value, *traceback;     \
-    PyErr_Fetch(&exc_type, &exc_value, &traceback); \
-    PyObjectStringify stringified(exc_value);       \
-    std::string message(stringified.bytes);         \
-    Py_DECREF(exc_type);                            \
-    Py_DECREF(exc_value);                           \
-    Py_DECREF(traceback);                           \
-    PyErr_Clear();                                  \
-    return arrow::Status::IOError(message);    \
+static arrow::Status CheckPyError() {
+  if (PyErr_Occurred()) {
+    PyObject *exc_type, *exc_value, *traceback;
+    PyErr_Fetch(&exc_type, &exc_value, &traceback);
+    PyObjectStringify stringified(exc_value);
+    std::string message(stringified.bytes);
+    Py_DECREF(exc_type);
+    Py_DECREF(exc_value);
+    Py_DECREF(traceback);
+    PyErr_Clear();
+    return arrow::Status::IOError(message);
   }
-
-static arrow::Status SeekNoGIL(PyObject* file, int64_t position, int whence) {
-  // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = PyObject_CallMethod(file, "seek", "(i)", position);
-  Py_XDECREF(result);
-  ARROW_RETURN_IF_PYERROR();
   return arrow::Status::OK();
 }
 
-static arrow::Status ReadNoGIL(PyObject* file, int64_t nbytes, PyObject** out) {
-  PyObject* result = PyObject_CallMethod(file, "read", "(i)", nbytes);
-  ARROW_RETURN_IF_PYERROR();
+arrow::Status PythonFile::Close() {
+  // whence: 0 for relative to start of file, 2 for end of file
+  PyObject* result = PyObject_CallMethod(file_, "close", "()");
+  Py_XDECREF(result);
+  ARROW_RETURN_NOT_OK(CheckPyError());
+  return arrow::Status::OK();
+}
+
+arrow::Status PythonFile::Seek(int64_t position, int whence) {
+  // whence: 0 for relative to start of file, 2 for end of file
+  PyObject* result = PyObject_CallMethod(file_, "seek", "(i)", position);
+  Py_XDECREF(result);
+  ARROW_RETURN_NOT_OK(CheckPyError());
+  return arrow::Status::OK();
+}
+
+arrow::Status PythonFile::Read(int64_t nbytes, PyObject** out) {
+  PyObject* result = PyObject_CallMethod(file_, "read", "(i)", nbytes);
+  ARROW_RETURN_NOT_OK(CheckPyError());
   *out = result;
   return arrow::Status::OK();
 }
 
-static arrow::Status TellNoGIL(PyObject* file, int64_t* position) {
-  PyObject* result = PyObject_CallMethod(file, "tell", "()");
-  ARROW_RETURN_IF_PYERROR();
+arrow::Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
+  PyObject* py_data = PyBytes_FromStringAndSize(
+      reinterpret_cast<const char*>(data), nbytes);
+  ARROW_RETURN_NOT_OK(CheckPyError());
+
+  PyObject* result = PyObject_CallMethod(file_, "write", "(O)", py_data);
+  Py_DECREF(py_data);
+  ARROW_RETURN_NOT_OK(CheckPyError());
+  return arrow::Status::OK();
+}
+
+arrow::Status PythonFile::Tell(int64_t* position) {
+  PyObject* result = PyObject_CallMethod(file_, "tell", "()");
+  ARROW_RETURN_NOT_OK(CheckPyError());
 
   *position = PyLong_AsLongLong(result);
   Py_DECREF(result);
 
   // PyLong_AsLongLong can raise OverflowError
-  ARROW_RETURN_IF_PYERROR();
+  ARROW_RETURN_NOT_OK(CheckPyError());
 
  return arrow::Status::OK();
 }
 
+// ----------------------------------------------------------------------
+// Seekable input stream
+
+PyReadableFile::PyReadableFile(PyObject* file) {
+  file_.reset(new PythonFile(file));
+}
+
+PyReadableFile::~PyReadableFile() {}
+
+arrow::Status PyReadableFile::Close() {
+  PyAcquireGIL_RAII lock;
+  return file_->Close();
+}
+
 arrow::Status PyReadableFile::Seek(int64_t position) {
   PyAcquireGIL_RAII lock;
-  return SeekNoGIL(file_, position, 0);
+  return file_->Seek(position, 0);
 }
 
 arrow::Status PyReadableFile::ReadAt(
     int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   PyAcquireGIL_RAII lock;
-  ARROW_RETURN_NOT_OK(SeekNoGIL(file_, position, 0));
+  ARROW_RETURN_NOT_OK(file_->Seek(position, 0));
 
   PyObject* bytes_obj;
-  ARROW_RETURN_NOT_OK(ReadNoGIL(file_, nbytes, &bytes_obj));
+  ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
 
   *bytes_read = PyBytes_GET_SIZE(bytes_obj);
   std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
@@ -105,15 +139,15 @@ arrow::Status PyReadableFile::GetSize(int64_t* size) {
   PyAcquireGIL_RAII lock;
 
   int64_t current_position;;
-  ARROW_RETURN_NOT_OK(TellNoGIL(file_, &current_position));
+  ARROW_RETURN_NOT_OK(file_->Tell(&current_position));
 
-  ARROW_RETURN_NOT_OK(SeekNoGIL(file_, 0, 2));
+  ARROW_RETURN_NOT_OK(file_->Seek(0, 2));
 
   int64_t file_size;
-  ARROW_RETURN_NOT_OK(TellNoGIL(file_, &file_size));
+  ARROW_RETURN_NOT_OK(file_->Tell(&file_size));
 
   // Restore previous file position
-  ARROW_RETURN_NOT_OK(SeekNoGIL(file_, current_position, 0));
+  ARROW_RETURN_NOT_OK(file_->Seek(current_position, 0));
 
   *size = file_size;
   return arrow::Status::OK();
@@ -123,10 +157,10 @@ arrow::Status PyReadableFile::GetSize(int64_t* size) {
 arrow::Status PyReadableFile::ReadAt(
     int64_t position, int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
   PyAcquireGIL_RAII lock;
-  ARROW_RETURN_NOT_OK(SeekNoGIL(file_, position, 0));
+  ARROW_RETURN_NOT_OK(file_->Seek(position, 0));
 
   PyObject* bytes_obj;
-  ARROW_RETURN_NOT_OK(ReadNoGIL(file_, nbytes, &bytes_obj));
+  ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
 
   *out = std::make_shared<PyBytesBuffer>(bytes_obj);
   Py_DECREF(bytes_obj);
@@ -141,14 +175,11 @@ bool PyReadableFile::supports_zero_copy() const {
 // ----------------------------------------------------------------------
 // Output stream
 
-PyOutputStream::PyOutputStream(PyObject* file)
-    : file_(file) {
-  Py_INCREF(file);
+PyOutputStream::PyOutputStream(PyObject* file) {
+  file_.reset(new PythonFile(file));
 }
 
-PyOutputStream::~PyOutputStream() {
-  Py_DECREF(file_);
-}
+PyOutputStream::~PyOutputStream() {}
 
 arrow::Status PyOutputStream::Close() {
   return arrow::Status::OK();
