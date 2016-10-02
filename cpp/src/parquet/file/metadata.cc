@@ -229,15 +229,18 @@ std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const 
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
-  FileMetaDataImpl() {}
+  FileMetaDataImpl() : metadata_len_(0) {}
 
-  explicit FileMetaDataImpl(const uint8_t* metadata, uint32_t* metadata_len) {
+  explicit FileMetaDataImpl(const uint8_t* metadata, uint32_t* metadata_len)
+      : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(metadata, metadata_len, metadata_.get());
+    metadata_len_ = *metadata_len;
     InitSchema();
   }
   ~FileMetaDataImpl() {}
 
+  inline uint32_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
   inline int64_t num_rows() const { return metadata_->num_rows; }
   inline int num_row_groups() const { return metadata_->row_groups.size(); }
@@ -262,6 +265,7 @@ class FileMetaData::FileMetaDataImpl {
 
  private:
   friend FileMetaDataBuilder;
+  uint32_t metadata_len_;
   std::unique_ptr<format::FileMetaData> metadata_;
   void InitSchema() {
     schema::FlatSchemaConverter converter(
@@ -287,6 +291,10 @@ FileMetaData::~FileMetaData() {}
 
 std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
+}
+
+uint32_t FileMetaData::size() const {
+  return impl_->size();
 }
 
 int FileMetaData::num_columns() const {

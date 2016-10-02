@@ -106,6 +106,7 @@ class PARQUET_EXPORT FileMetaData {
   ~FileMetaData();
 
   // file metadata
+  uint32_t size() const;
   int num_columns() const;
   int64_t num_rows() const;
   int num_row_groups() const;

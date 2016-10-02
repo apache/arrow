@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
@@ -124,8 +125,12 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   // This API is the same for both V1 and V2 of the DataPage
   //
   // @returns: actual number of levels read (see values_read for number of values read)
-  int64_t ReadBatch(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-      T* values, int64_t* values_read);
+  int64_t ReadBatch(int batch_size, int16_t* def_levels, int16_t* rep_levels, T* values,
+      int64_t* values_read);
+
+  // Skip reading levels
+  // Returns the number of levels skipped
+  int64_t Skip(int64_t num_rows_to_skip);
 
  private:
   typedef Decoder<DType> DecoderType;
@@ -166,7 +171,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
 
   // TODO(wesm): keep reading data pages until batch_size is reached, or the
   // row group is finished
-  batch_size = std::min(batch_size, num_buffered_values_);
+  batch_size = std::min(batch_size, num_buffered_values_ - num_decoded_values_);
 
   int64_t num_def_levels = 0;
   int64_t num_rep_levels = 0;
@@ -199,6 +204,39 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
   num_decoded_values_ += total_values;
 
   return total_values;
+}
+
+template <typename DType>
+inline int64_t TypedColumnReader<DType>::Skip(int64_t num_rows_to_skip) {
+  int64_t rows_to_skip = num_rows_to_skip;
+  while (HasNext() && rows_to_skip > 0) {
+    // If the number of rows to skip is more than the number of undecoded values, skip the
+    // Page.
+    if (rows_to_skip > (num_buffered_values_ - num_decoded_values_)) {
+      rows_to_skip -= num_buffered_values_ - num_decoded_values_;
+      num_decoded_values_ = num_buffered_values_;
+    } else {
+      // We need to read this Page
+      // Jump to the right offset in the Page
+      int64_t batch_size = 1024;  // ReadBatch with a smaller memory footprint
+      int64_t values_read = 0;
+      auto vals = std::make_shared<OwnedMutableBuffer>(
+          batch_size * type_traits<DType::type_num>::value_byte_size, this->allocator_);
+      auto def_levels = std::make_shared<OwnedMutableBuffer>(
+          batch_size * sizeof(int16_t), this->allocator_);
+      auto rep_levels = std::make_shared<OwnedMutableBuffer>(
+          batch_size * sizeof(int16_t), this->allocator_);
+      do {
+        batch_size = std::min(batch_size, rows_to_skip);
+        values_read =
+            ReadBatch(batch_size, reinterpret_cast<int16_t*>(def_levels->mutable_data()),
+                reinterpret_cast<int16_t*>(rep_levels->mutable_data()),
+                reinterpret_cast<T*>(vals->mutable_data()), &values_read);
+        rows_to_skip -= values_read;
+      } while (values_read > 0 && rows_to_skip > 0);
+    }
+  }
+  return num_rows_to_skip - rows_to_skip;
 }
 
 typedef TypedColumnReader<BooleanType> BoolReader;

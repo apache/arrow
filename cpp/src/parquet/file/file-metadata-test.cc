@@ -83,6 +83,7 @@ TEST(Metadata, TestBuildAccess) {
 
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
+  ASSERT_LE(0, f_accessor->size());
   ASSERT_EQ(2, f_accessor->num_row_groups());
   ASSERT_EQ(DEFAULT_WRITER_VERSION, f_accessor->version());
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());

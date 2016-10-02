@@ -151,6 +151,64 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   ExecuteDict(num_pages, levels_per_page, &descr);
 }
 
+TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
+  int levels_per_page = 100;
+  int num_pages = 5;
+  max_def_level_ = 0;
+  max_rep_level_ = 0;
+  NodePtr type = schema::Int32("b", Repetition::REQUIRED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels_, rep_levels_,
+      values_, data_buffer_, pages_, Encoding::PLAIN);
+  InitReader(&descr);
+  vector<int32_t> vresult(levels_per_page / 2, -1);
+  vector<int16_t> dresult(levels_per_page / 2, -1);
+  vector<int16_t> rresult(levels_per_page / 2, -1);
+
+  Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
+  int64_t values_read = 0;
+
+  // 1) skip_size > page_size (multiple pages skipped)
+  // Skip first 2 pages
+  int64_t levels_skipped = reader->Skip(2 * levels_per_page);
+  ASSERT_EQ(2 * levels_per_page, levels_skipped);
+  // Read half a page
+  reader->ReadBatch(
+      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
+  vector<int32_t> sub_values(
+      values_.begin() + 2 * levels_per_page, values_.begin() + 2.5 * levels_per_page);
+  ASSERT_TRUE(vector_equal(sub_values, vresult));
+
+  // 2) skip_size == page_size (skip across two pages)
+  levels_skipped = reader->Skip(levels_per_page);
+  ASSERT_EQ(levels_per_page, levels_skipped);
+  // Read half a page
+  reader->ReadBatch(
+      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
+  sub_values.clear();
+  sub_values.insert(sub_values.end(), values_.begin() + 3.5 * levels_per_page,
+      values_.begin() + 4 * levels_per_page);
+  ASSERT_TRUE(vector_equal(sub_values, vresult));
+
+  // 3) skip_size < page_size (skip limited to a single page)
+  // Skip half a page
+  levels_skipped = reader->Skip(levels_per_page / 2);
+  ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
+  // Read half a page
+  reader->ReadBatch(
+      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
+  sub_values.clear();
+  sub_values.insert(
+      sub_values.end(), values_.begin() + 4.5 * levels_per_page, values_.end());
+  ASSERT_TRUE(vector_equal(sub_values, vresult));
+
+  values_.clear();
+  def_levels_.clear();
+  rep_levels_.clear();
+  pages_.clear();
+  reader_.reset();
+}
+
 TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   max_def_level_ = 0;
   max_rep_level_ = 0;
