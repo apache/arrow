@@ -61,6 +61,8 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 // A memory source that uses memory-mapped files for memory interactions
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
+  ~MemoryMappedFile();
+
   static Status Open(const std::string& path, FileMode::type mode,
       std::shared_ptr<MemoryMappedFile>* out);
 
@@ -73,11 +75,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   // Required by ReadableFileInterface, copies memory into out
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
 
-  Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
-
-  // Read into a buffer, zero copy if possible
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  // Zero copy read
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   bool supports_zero_copy() const override;
 
@@ -100,17 +99,17 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
 class ARROW_EXPORT BufferReader : public ReadableFileInterface {
  public:
-  BufferReader(const uint8_t* buffer, int buffer_size)
-      : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
+  BufferReader(const uint8_t* buffer, int buffer_size);
+  ~BufferReader();
 
   Status Close() override;
   Status Tell(int64_t* position) override;
 
-  Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+
+  // Zero copy read
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
 

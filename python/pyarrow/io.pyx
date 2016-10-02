@@ -396,6 +396,45 @@ cdef class NativeFile:
         with nogil:
             check_cstatus(self.wr_file.get().Write(buf, bufsize))
 
+    def read(self, int nbytes):
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+            shared_ptr[Buffer] out
+
+        self._assert_readable()
+
+        with nogil:
+            check_cstatus(self.rd_file.get()
+                          .Read(nbytes, &out))
+
+        result = cp.PyBytes_FromStringAndSize(
+            <const char*>out.get().data(), out.get().size())
+
+        return result
+
+
+# ----------------------------------------------------------------------
+# Python file-like objects
+
+cdef class PythonFileInterface(NativeFile):
+    cdef:
+        object handle
+
+    def __cinit__(self, handle, mode='w'):
+        self.handle = handle
+
+        if mode.startswith('w'):
+            self.wr_file.reset(new PyOutputStream(handle))
+        elif mode.startswith('r'):
+            self.wr_file.reset(new PyReadableFile(handle))
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+
+# ----------------------------------------------------------------------
+# Specialization for HDFS
+
 
 cdef class HdfsFile(NativeFile):
     cdef readonly:

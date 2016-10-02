@@ -164,6 +164,12 @@ class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
 
   Status GetSize(int64_t* size) override;
 
+  // NOTE: If you wish to read a particular range of a file in a multithreaded
+  // context, you may prefer to use ReadAt to avoid locking issues
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
   Status ReadAt(
       int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
 
@@ -174,9 +180,7 @@ class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) override;
 
-  // NOTE: If you wish to read a particular range of a file in a multithreaded
-  // context, you may prefer to use ReadAt to avoid locking issues
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  void set_memory_pool(MemoryPool* pool);
 
  private:
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
@@ -184,7 +188,7 @@ class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
 
   friend class HdfsClient::HdfsClientImpl;
 
-  HdfsReadableFile();
+  HdfsReadableFile(MemoryPool* pool = nullptr);
   DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
 
