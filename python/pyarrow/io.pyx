@@ -436,6 +436,20 @@ cdef class PythonFileInterface(NativeFile):
         self.is_open = True
 
 
+cdef class BytesReader(NativeFile):
+    cdef:
+        object obj
+
+    def __cinit__(self, obj):
+        if not isinstance(obj, bytes):
+            raise ValueError('Must pass bytes object')
+
+        self.obj = obj
+        self.is_readonly = 1
+        self.is_open = True
+
+        self.rd_file.reset(new pyarrow.PyBytesReader(obj))
+
 # ----------------------------------------------------------------------
 # Specialization for HDFS
 

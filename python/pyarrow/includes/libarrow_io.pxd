@@ -140,3 +140,12 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
                               int32_t buffer_size, int16_t replication,
                               int64_t default_block_size,
                               shared_ptr[HdfsOutputStream]* handle)
+
+
+cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
+    cdef cppclass BufferReader(ReadableFileInterface):
+        BufferReader(const uint8_t* data, int64_t nbytes)
+
+    cdef cppclass BufferOutputStream(OutputStream):
+        # TODO(wesm)
+        pass

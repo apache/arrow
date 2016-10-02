@@ -16,10 +16,6 @@
 # under the License.
 
 from io import BytesIO
-from os.path import join as pjoin
-import os
-import random
-
 import pytest
 
 import pyarrow.io as io
@@ -70,3 +66,28 @@ def test_python_file_read():
     assert f.read(50) == b'sample data'
 
     f.close()
+
+
+def test_bytes_reader():
+    # Like a BytesIO, but zero-copy underneath for C++ consumers
+    f = io.BytesReader(b'some sample data')
+
+    assert f.tell() == 0
+
+    assert f.read(4) == b'some'
+    assert f.tell() == 4
+
+    f.seek(0)
+    assert f.tell() == 0
+
+    f.seek(5)
+    assert f.tell() == 5
+
+    assert f.read(50) == b'sample data'
+
+    f.close()
+
+
+def test_bytes_reader_non_bytes():
+    with pytest.raises(ValueError):
+        io.BytesReader('some sample data')

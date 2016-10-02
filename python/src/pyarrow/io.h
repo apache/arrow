@@ -19,6 +19,7 @@
 #define PYARROW_IO_H
 
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 
 #include "pyarrow/config.h"
 #include "pyarrow/visibility.h"
@@ -45,7 +46,7 @@ class PythonFile {
 };
 
 class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
-public:
+ public:
   explicit PyReadableFile(PyObject* file);
   ~PyReadableFile();
 
@@ -62,12 +63,12 @@ public:
 
   bool supports_zero_copy() const override;
 
-private:
+ private:
   std::unique_ptr<PythonFile> file_;
 };
 
 class PYARROW_EXPORT PyOutputStream : public arrow::io::OutputStream {
-public:
+ public:
   explicit PyOutputStream(PyObject* file);
   ~PyOutputStream();
 
@@ -75,8 +76,18 @@ public:
   arrow::Status Tell(int64_t* position) override;
   arrow::Status Write(const uint8_t* data, int64_t nbytes) override;
 
-private:
+ private:
   std::unique_ptr<PythonFile> file_;
+};
+
+// A zero-copy reader backed by a PyBytes object
+class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
+ public:
+  explicit PyBytesReader(PyObject* obj);
+  ~PyBytesReader();
+
+ private:
+  PyObject* obj_;
 };
 
 // TODO(wesm): seekable output files
