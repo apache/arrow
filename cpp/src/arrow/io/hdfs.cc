@@ -91,7 +91,7 @@ class HdfsAnyFileImpl {
 // Private implementation for read-only files
 class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
  public:
-  HdfsReadableFileImpl(MemoryPool* pool)
+  explicit HdfsReadableFileImpl(MemoryPool* pool)
       : pool_(pool) {}
 
   Status Close() {

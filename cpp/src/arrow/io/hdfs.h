@@ -183,12 +183,13 @@ class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
   void set_memory_pool(MemoryPool* pool);
 
  private:
+  explicit HdfsReadableFile(MemoryPool* pool = nullptr);
+
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;
 
   friend class HdfsClient::HdfsClientImpl;
 
-  HdfsReadableFile(MemoryPool* pool = nullptr);
   DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
 
