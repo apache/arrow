@@ -17,8 +17,8 @@
 
 #include "pyarrow/io.h"
 
+#include <cstdint>
 #include <cstdlib>
-#include <sstream>
 
 #include <arrow/io/memory.h>
 #include <arrow/util/memory-pool.h>

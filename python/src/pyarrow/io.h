@@ -48,7 +48,7 @@ class PythonFile {
 class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
  public:
   explicit PyReadableFile(PyObject* file);
-  ~PyReadableFile();
+  virtual ~PyReadableFile();
 
   arrow::Status Close() override;
 
@@ -70,7 +70,7 @@ class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
 class PYARROW_EXPORT PyOutputStream : public arrow::io::OutputStream {
  public:
   explicit PyOutputStream(PyObject* file);
-  ~PyOutputStream();
+  virtual ~PyOutputStream();
 
   arrow::Status Close() override;
   arrow::Status Tell(int64_t* position) override;
@@ -84,7 +84,7 @@ class PYARROW_EXPORT PyOutputStream : public arrow::io::OutputStream {
 class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
  public:
   explicit PyBytesReader(PyObject* obj);
-  ~PyBytesReader();
+  virtual ~PyBytesReader();
 
  private:
   PyObject* obj_;

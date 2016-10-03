@@ -91,8 +91,7 @@ class HdfsAnyFileImpl {
 // Private implementation for read-only files
 class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
  public:
-  explicit HdfsReadableFileImpl(MemoryPool* pool)
-      : pool_(pool) {}
+  explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
 
   Status Close() {
     if (is_open_) {
@@ -118,8 +117,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     int64_t bytes_read = 0;
     RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
 
-    // XXX: heuristic
-    if (bytes_read < nbytes / 2) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
 
     *out = buffer;
     return Status::OK();
@@ -139,8 +137,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
 
-    // XXX: heuristic
-    if (bytes_read < nbytes / 2) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
 
     *out = buffer;
     return Status::OK();
@@ -155,18 +152,14 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  void set_memory_pool(MemoryPool* pool) {
-    pool_ = pool;
-  }
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
 
  private:
   MemoryPool* pool_;
 };
 
 HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
+  if (pool == nullptr) { pool = default_memory_pool(); }
   impl_.reset(new HdfsReadableFileImpl(pool));
 }
 

@@ -241,7 +241,7 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // In-memory buffer reader
 
 BufferReader::BufferReader(const uint8_t* buffer, int buffer_size)
-      : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
+    : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
 
 BufferReader::~BufferReader() {}
 
