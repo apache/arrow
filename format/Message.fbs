@@ -119,6 +119,16 @@ table VectorLayout {
   type: VectorType;
 }
 
+
+/// ----------------------------------------------------------------------
+/// user defined key value pairs to add custom metadata to arrow
+/// key namespacing is the responsibility of the user
+
+table KeyValue {
+  key: string;
+  value: [ubyte];
+}
+
 /// ----------------------------------------------------------------------
 /// A field represents a named column in a record / row batch or child of a
 /// nested type.
@@ -141,6 +151,8 @@ table Field {
   /// does not include children
   /// each recordbatch will return instances of those Buffers.
   layout: [ VectorLayout ];
+  // User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 
 /// ----------------------------------------------------------------------
@@ -159,6 +171,8 @@ table Schema {
   endianness: Endianness=Little;
 
   fields: [Field];
+  // User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 
 /// ----------------------------------------------------------------------
