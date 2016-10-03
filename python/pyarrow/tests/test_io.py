@@ -18,6 +18,7 @@
 from io import BytesIO
 import pytest
 
+from pyarrow.compat import u
 import pyarrow.io as io
 
 # ----------------------------------------------------------------------
@@ -96,4 +97,4 @@ def test_bytes_reader():
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(ValueError):
-        io.BytesReader('some sample data')
+        io.BytesReader(u('some sample data'))
