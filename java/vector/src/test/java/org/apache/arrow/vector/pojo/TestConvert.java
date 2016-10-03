@@ -21,6 +21,7 @@ import static org.apache.arrow.flatbuf.Precision.DOUBLE;
 import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.flatbuf.TimeUnit;
 import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
@@ -80,7 +81,7 @@ public class TestConvert {
         new Field("child4.1", true, Utf8.INSTANCE, null)
         )));
     childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMP.ordinal(), MinorType.FLOAT8.ordinal() } ), ImmutableList.<Field>of(
-        new Field("child5.1", true, new Timestamp("UTC"), null),
+        new Field("child5.1", true, new Timestamp(TimeUnit.MILLISECOND), null),
         new Field("child5.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
         )));
     Schema initialSchema = new Schema(childrenBuilder.build());

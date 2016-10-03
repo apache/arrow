@@ -66,7 +66,7 @@
     },
     {
       name: "Timestamp",
-      fields: [{name: "timezone", type: "String"}]
+      fields: [{name: "unit", type: short}]
     },
     {
       name: "Interval",
