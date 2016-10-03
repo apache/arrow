@@ -73,10 +73,6 @@ table Interval {
   unit: IntervalUnit;
 }
 
-table JSONScalar {
-  dense:bool=true;
-}
-
 /// ----------------------------------------------------------------------
 /// Top-level Type value, enabling extensible type-specific metadata. We can
 /// add new logical types to Type without breaking backwards compatibility
@@ -95,8 +91,7 @@ union Type {
   Interval,
   List,
   Struct_,
-  Union,
-  JSONScalar
+  Union
 }
 
 /// ----------------------------------------------------------------------
