@@ -66,7 +66,7 @@ arrow::Status PythonFile::Close() {
 
 arrow::Status PythonFile::Seek(int64_t position, int whence) {
   // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = PyObject_CallMethod(file_, "seek", "(i)", position);
+  PyObject* result = PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
   return arrow::Status::OK();

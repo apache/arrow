@@ -133,7 +133,7 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
 class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
  public:
   PyBytesBuffer(PyObject* obj);
-  virtual ~PyBytesBuffer();
+  ~PyBytesBuffer();
 
  private:
   PyObject* obj_;

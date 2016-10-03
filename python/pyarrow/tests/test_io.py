@@ -48,9 +48,12 @@ def test_python_file_write():
 
 
 def test_python_file_read():
-    buf = BytesIO(b'some sample data')
+    data = b'some sample data'
 
+    buf = BytesIO(data)
     f = io.PythonFileInterface(buf, mode='r')
+
+    assert f.size() == len(data)
 
     assert f.tell() == 0
 
@@ -70,9 +73,12 @@ def test_python_file_read():
 
 def test_bytes_reader():
     # Like a BytesIO, but zero-copy underneath for C++ consumers
-    f = io.BytesReader(b'some sample data')
+    data = b'some sample data'
+    f = io.BytesReader(data)
 
     assert f.tell() == 0
+
+    assert f.size() == len(data)
 
     assert f.read(4) == b'some'
     assert f.tell() == 4
