@@ -23,6 +23,8 @@
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
+#include "parquet/column/statistics.h"
+#include "parquet/file/metadata.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
@@ -36,11 +38,11 @@ namespace parquet {
 static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
-  ColumnWriter(const ColumnDescriptor*, std::unique_ptr<PageWriter>,
+  ColumnWriter(ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
       int64_t expected_rows, bool has_dictionary, Encoding::type encoding,
       const WriterProperties* properties);
 
-  static std::shared_ptr<ColumnWriter> Make(const ColumnDescriptor*,
+  static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
       std::unique_ptr<PageWriter>, int64_t expected_rows,
       const WriterProperties* properties);
 
@@ -67,6 +69,15 @@ class PARQUET_EXPORT ColumnWriter {
 
   virtual void CheckDictionarySizeLimit() = 0;
 
+  // Plain-encoded statistics of the current page
+  virtual EncodedStatistics GetPageStatistics() = 0;
+
+  // Plain-encoded statistics of the whole chunk
+  virtual EncodedStatistics GetChunkStatistics() = 0;
+
+  // Merges page statistics into chunk statistics, then resets the values
+  virtual void ResetPageStatistics() = 0;
+
   // Adds Data Pages to an in memory buffer in dictionary encoding mode
   // Serializes the Data Pages in other encoding modes
   void AddDataPage();
@@ -86,6 +97,7 @@ class PARQUET_EXPORT ColumnWriter {
   // Serialize the buffered Data Pages
   void FlushBufferedDataPages();
 
+  ColumnChunkMetaDataBuilder* metadata_;
   const ColumnDescriptor* descr_;
 
   std::unique_ptr<PageWriter> pager_;
@@ -140,8 +152,9 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
  public:
   typedef typename DType::c_type T;
 
-  TypedColumnWriter(const ColumnDescriptor* schema, std::unique_ptr<PageWriter> pager,
-      int64_t expected_rows, Encoding::type encoding, const WriterProperties* properties);
+  TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
+      std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
+      const WriterProperties* properties);
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
@@ -154,6 +167,9 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   }
   void WriteDictionaryPage() override;
   void CheckDictionarySizeLimit() override;
+  EncodedStatistics GetPageStatistics() override;
+  EncodedStatistics GetChunkStatistics() override;
+  void ResetPageStatistics() override;
 
  private:
   int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
@@ -164,6 +180,10 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, const T* values);
   std::unique_ptr<EncoderType> current_encoder_;
+
+  typedef TypedRowGroupStatistics<DType> TypedStats;
+  std::unique_ptr<TypedStats> page_statistics_;
+  std::unique_ptr<TypedStats> chunk_statistics_;
 };
 
 template <typename DType>
@@ -201,6 +221,10 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
   }
 
   WriteValues(values_to_write, values);
+
+  if (page_statistics_ != nullptr) {
+    page_statistics_->Update(values, values_to_write, num_values - values_to_write);
+  }
 
   num_buffered_values_ += num_values;
   num_buffered_encoded_values_ += values_to_write;

@@ -71,6 +71,7 @@ endif()
 
 ADD_PARQUET_TEST(bit-util-test)
 ADD_PARQUET_TEST(buffer-test)
+ADD_PARQUET_TEST(comparison-test)
 ADD_PARQUET_TEST(input-output-test)
 ADD_PARQUET_TEST(mem-allocator-test)
 ADD_PARQUET_TEST(mem-pool-test)

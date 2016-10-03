@@ -42,8 +42,6 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int num_columns() const = 0;
     virtual int64_t num_rows() const = 0;
 
-    // TODO: PARQUET-579
-    // virtual void WriteRowGroupStatitics();
     virtual ColumnWriter* NextColumn() = 0;
     virtual void Close() = 0;
   };
@@ -67,9 +65,6 @@ class PARQUET_EXPORT RowGroupWriter {
    * Number of rows that shall be written as part of this RowGroup.
    */
   int64_t num_rows() const;
-
-  // TODO: PARQUET-579
-  // virtual void WriteRowGroupStatitics();
 
  private:
   // Holds a pointer to an instance of Contents implementation

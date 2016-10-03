@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "parquet/column/properties.h"
+#include "parquet/column/statistics.h"
 #include "parquet/compression/codec.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
@@ -31,18 +32,11 @@
 
 namespace parquet {
 
-// ColumnStatistics does not own the min/max values
-struct ColumnStatistics {
-  int64_t null_count;
-  int64_t distinct_count;
-  const std::string* min;
-  const std::string* max;
-};
-
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::unique_ptr<ColumnChunkMetaData> Make(const uint8_t* metadata);
+  static std::unique_ptr<ColumnChunkMetaData> Make(
+      const uint8_t* metadata, const ColumnDescriptor* descr);
 
   ~ColumnChunkMetaData();
 
@@ -55,7 +49,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
-  const ColumnStatistics& statistics() const;
+  std::shared_ptr<RowGroupStatistics> statistics() const;
   Compression::type compression() const;
   const std::vector<Encoding::type>& encodings() const;
   int64_t has_dictionary_page() const;
@@ -66,7 +60,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_uncompressed_size() const;
 
  private:
-  explicit ColumnChunkMetaData(const uint8_t* metadata);
+  explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -143,8 +137,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
   // column metadata
-  // ownership of min/max is with ColumnChunkMetadata
-  void SetStatistics(const ColumnStatistics& stats);
+  void SetStatistics(const EncodedStatistics& stats);
   // get the column descriptor
   const ColumnDescriptor* descr() const;
   // commit the metadata

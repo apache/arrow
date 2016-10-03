@@ -117,7 +117,7 @@ struct PageType {
 // ----------------------------------------------------------------------
 
 struct ByteArray {
-  ByteArray() {}
+  ByteArray() : len(0), ptr(nullptr) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
   uint32_t len;
   const uint8_t* ptr;
@@ -132,7 +132,7 @@ struct ByteArray {
 };
 
 struct FixedLenByteArray {
-  FixedLenByteArray() {}
+  FixedLenByteArray() : ptr(nullptr) {}
   explicit FixedLenByteArray(const uint8_t* ptr) : ptr(ptr) {}
   const uint8_t* ptr;
 };

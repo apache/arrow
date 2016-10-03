@@ -60,53 +60,62 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   Type::type type_num() { return TestType::type_num; }
 
-  void BuildReader() {
+  void BuildReader(Compression::type compression = Compression::UNCOMPRESSED) {
     auto buffer = sink_->GetBuffer();
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<SerializedPageReader> page_reader(
-        new SerializedPageReader(std::move(source), Compression::UNCOMPRESSED));
+        new SerializedPageReader(std::move(source), compression));
     reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
-      int64_t output_size = SMALL_SIZE, Encoding::type encoding = Encoding::PLAIN) {
+      int64_t output_size = SMALL_SIZE,
+      const ColumnProperties& column_properties = ColumnProperties()) {
     sink_.reset(new InMemoryOutputStream());
     metadata_ = ColumnChunkMetaDataBuilder::Make(
         writer_properties_, this->descr_, reinterpret_cast<uint8_t*>(&thrift_metadata_));
-    std::unique_ptr<SerializedPageWriter> pager(new SerializedPageWriter(
-        sink_.get(), Compression::UNCOMPRESSED, metadata_.get()));
+    std::unique_ptr<SerializedPageWriter> pager(
+        new SerializedPageWriter(sink_.get(), column_properties.codec, metadata_.get()));
     WriterProperties::Builder wp_builder;
-    if (encoding == Encoding::PLAIN_DICTIONARY || encoding == Encoding::RLE_DICTIONARY) {
+    if (column_properties.encoding == Encoding::PLAIN_DICTIONARY ||
+        column_properties.encoding == Encoding::RLE_DICTIONARY) {
       wp_builder.enable_dictionary();
     } else {
       wp_builder.disable_dictionary();
-      wp_builder.encoding(encoding);
+      wp_builder.encoding(column_properties.encoding);
     }
     writer_properties_ = wp_builder.build();
     std::shared_ptr<ColumnWriter> writer = ColumnWriter::Make(
-        this->descr_, std::move(pager), output_size, writer_properties_.get());
+        metadata_.get(), std::move(pager), output_size, writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
-  void ReadColumn() {
-    BuildReader();
+  void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED) {
+    BuildReader(compression);
     reader_->ReadBatch(this->values_out_.size(), definition_levels_out_.data(),
         repetition_levels_out_.data(), this->values_out_ptr_, &values_read_);
     this->SyncValuesOut();
   }
 
   void TestRequiredWithEncoding(Encoding::type encoding) {
+    return TestRequiredWithSettings(encoding, Compression::UNCOMPRESSED, false, false);
+  }
+
+  void TestRequiredWithSettings(Encoding::type encoding, Compression::type compression,
+      bool enable_dictionary, bool enable_statistics) {
     this->GenerateData(SMALL_SIZE);
 
     // Test case 1: required and non-repeated, so no definition or repetition levels
+    ColumnProperties column_properties(
+        encoding, compression, enable_dictionary, enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
-        this->BuildWriter(SMALL_SIZE, encoding);
+        this->BuildWriter(SMALL_SIZE, column_properties);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
 
-    this->ReadColumn();
+    this->ReadColumn(compression);
     ASSERT_EQ(SMALL_SIZE, this->values_read_);
     ASSERT_EQ(this->values_, this->values_out_);
   }
@@ -115,8 +124,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // Metadata accessor must be created lazily.
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
-    auto metadata_accessor =
-        ColumnChunkMetaData::Make(reinterpret_cast<const uint8_t*>(&thrift_metadata_));
+    auto metadata_accessor = ColumnChunkMetaData::Make(
+        reinterpret_cast<const uint8_t*>(&thrift_metadata_), this->descr_);
     return metadata_accessor->num_values();
   }
 
@@ -124,8 +133,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // Metadata accessor must be created lazily.
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
-    auto metadata_accessor =
-        ColumnChunkMetaData::Make(reinterpret_cast<const uint8_t*>(&thrift_metadata_));
+    auto metadata_accessor = ColumnChunkMetaData::Make(
+        reinterpret_cast<const uint8_t*>(&thrift_metadata_), this->descr_);
     return metadata_accessor->encodings();
   }
 
@@ -148,8 +157,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    BooleanType, ByteArrayType, FLBAType>
-    TestTypes;
+    BooleanType, ByteArrayType, FLBAType> TestTypes;
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
 
@@ -188,6 +196,26 @@ TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
   this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);
 }
 */
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithSnappyCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, false);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, true);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true);
+}
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
   // Optional and non-repeated, with definition levels

@@ -26,6 +26,7 @@
 #include <memory>
 #include <string>
 
+#include "parquet/column/statistics.h"
 #include "parquet/types.h"
 #include "parquet/util/buffer.h"
 
@@ -62,12 +63,14 @@ class DataPage : public Page {
  public:
   DataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
       Encoding::type encoding, Encoding::type definition_level_encoding,
-      Encoding::type repetition_level_encoding)
+      Encoding::type repetition_level_encoding,
+      const EncodedStatistics& statistics = EncodedStatistics())
       : Page(buffer, PageType::DATA_PAGE),
         num_values_(num_values),
         encoding_(encoding),
         definition_level_encoding_(definition_level_encoding),
-        repetition_level_encoding_(repetition_level_encoding) {}
+        repetition_level_encoding_(repetition_level_encoding),
+        statistics_(statistics) {}
 
   int32_t num_values() const { return num_values_; }
 
@@ -77,31 +80,24 @@ class DataPage : public Page {
 
   Encoding::type definition_level_encoding() const { return definition_level_encoding_; }
 
-  // DataPageHeader::statistics::max field, if it was set
-  const uint8_t* max() const { return reinterpret_cast<const uint8_t*>(max_.c_str()); }
-
-  // DataPageHeader::statistics::min field, if it was set
-  const uint8_t* min() const { return reinterpret_cast<const uint8_t*>(min_.c_str()); }
+  const EncodedStatistics& statistics() const { return statistics_; }
 
  private:
   int32_t num_values_;
   Encoding::type encoding_;
   Encoding::type definition_level_encoding_;
   Encoding::type repetition_level_encoding_;
-
-  // So max/min can be populated privately
-  friend class SerializedPageReader;
-  std::string max_;
-  std::string min_;
+  EncodedStatistics statistics_;
 };
 
 class CompressedDataPage : public DataPage {
  public:
   CompressedDataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
       Encoding::type encoding, Encoding::type definition_level_encoding,
-      Encoding::type repetition_level_encoding, int64_t uncompressed_size)
+      Encoding::type repetition_level_encoding, int64_t uncompressed_size,
+      const EncodedStatistics& statistics = EncodedStatistics())
       : DataPage(buffer, num_values, encoding, definition_level_encoding,
-            repetition_level_encoding),
+            repetition_level_encoding, statistics),
         uncompressed_size_(uncompressed_size) {}
 
   int64_t uncompressed_size() const { return uncompressed_size_; }

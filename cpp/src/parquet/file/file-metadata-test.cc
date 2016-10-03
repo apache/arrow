@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "parquet/column/statistics.h"
 #include "parquet/file/metadata.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/schema/types.h"
@@ -38,20 +39,18 @@ TEST(Metadata, TestBuildAccess) {
   schema.Init(root);
 
   int64_t nrows = 1000;
-  ColumnStatistics stats_int;
-  stats_int.null_count = 0;
-  stats_int.distinct_count = nrows;
-  std::string int_min = std::string("100");
-  std::string int_max = std::string("200");
-  stats_int.min = &int_min;
-  stats_int.max = &int_max;
-  ColumnStatistics stats_float;
-  stats_float.null_count = 0;
-  stats_float.distinct_count = nrows;
-  std::string float_min = std::string("100.100");
-  std::string float_max = std::string("200.200");
-  stats_float.min = &float_min;
-  stats_float.max = &float_max;
+  int32_t int_min = 100, int_max = 200;
+  EncodedStatistics stats_int;
+  stats_int.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
+  EncodedStatistics stats_float;
+  float float_min = 100.100, float_max = 200.200;
+  stats_float.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
 
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup(nrows / 2);
@@ -99,14 +98,14 @@ TEST(Metadata, TestBuildAccess) {
   auto rg1_column2 = rg1_accessor->ColumnChunk(1);
   ASSERT_EQ(true, rg1_column1->is_stats_set());
   ASSERT_EQ(true, rg1_column2->is_stats_set());
-  ASSERT_EQ("100.100", *rg1_column2->statistics().min);
-  ASSERT_EQ("200.200", *rg1_column2->statistics().max);
-  ASSERT_EQ("100", *rg1_column1->statistics().min);
-  ASSERT_EQ("200", *rg1_column1->statistics().max);
-  ASSERT_EQ(0, rg1_column1->statistics().null_count);
-  ASSERT_EQ(0, rg1_column2->statistics().null_count);
-  ASSERT_EQ(nrows, rg1_column1->statistics().distinct_count);
-  ASSERT_EQ(nrows, rg1_column2->statistics().distinct_count);
+  ASSERT_EQ(stats_float.min(), rg1_column2->statistics()->EncodeMin());
+  ASSERT_EQ(stats_float.max(), rg1_column2->statistics()->EncodeMax());
+  ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+  ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+  ASSERT_EQ(0, rg1_column1->statistics()->null_count());
+  ASSERT_EQ(0, rg1_column2->statistics()->null_count());
+  ASSERT_EQ(nrows, rg1_column1->statistics()->distinct_count());
+  ASSERT_EQ(nrows, rg1_column2->statistics()->distinct_count());
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column1->compression());
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
   ASSERT_EQ(nrows / 2, rg1_column1->num_values());
@@ -131,14 +130,14 @@ TEST(Metadata, TestBuildAccess) {
   auto rg2_column2 = rg2_accessor->ColumnChunk(1);
   ASSERT_EQ(true, rg2_column1->is_stats_set());
   ASSERT_EQ(true, rg2_column2->is_stats_set());
-  ASSERT_EQ("100.100", *rg2_column2->statistics().min);
-  ASSERT_EQ("200.200", *rg2_column2->statistics().max);
-  ASSERT_EQ("100", *rg2_column1->statistics().min);
-  ASSERT_EQ("200", *rg2_column1->statistics().max);
-  ASSERT_EQ(0, rg2_column1->statistics().null_count);
-  ASSERT_EQ(0, rg2_column2->statistics().null_count);
-  ASSERT_EQ(nrows, rg2_column1->statistics().distinct_count);
-  ASSERT_EQ(nrows, rg2_column2->statistics().distinct_count);
+  ASSERT_EQ(stats_float.min(), rg2_column2->statistics()->EncodeMin());
+  ASSERT_EQ(stats_float.max(), rg2_column2->statistics()->EncodeMax());
+  ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+  ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+  ASSERT_EQ(0, rg2_column1->statistics()->null_count());
+  ASSERT_EQ(0, rg2_column2->statistics()->null_count());
+  ASSERT_EQ(nrows, rg2_column1->statistics()->distinct_count());
+  ASSERT_EQ(nrows, rg2_column2->statistics()->distinct_count());
   ASSERT_EQ(nrows / 2, rg2_column1->num_values());
   ASSERT_EQ(nrows / 2, rg2_column2->num_values());
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());

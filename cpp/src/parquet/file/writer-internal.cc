@@ -46,7 +46,20 @@ SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type
   compressor_ = Codec::Create(codec);
 }
 
+static format::Statistics ToThrift(const EncodedStatistics& row_group_statistics) {
+  format::Statistics statistics;
+  if (row_group_statistics.has_min) statistics.__set_min(row_group_statistics.min());
+  if (row_group_statistics.has_max) statistics.__set_max(row_group_statistics.max());
+  if (row_group_statistics.has_null_count)
+    statistics.__set_null_count(row_group_statistics.null_count);
+  if (row_group_statistics.has_distinct_count)
+    statistics.__set_distinct_count(row_group_statistics.distinct_count);
+  return statistics;
+}
+
 void SerializedPageWriter::Close(bool has_dictionary, bool fallback) {
+  // index_page_offset = 0 since they are not supported
+  // TODO: Remove default fallback = 'false' when implemented
   metadata_->Finish(num_values_, dictionary_page_offset_, 0, data_page_offset_,
       total_compressed_size_, total_uncompressed_size_, has_dictionary, fallback);
 }
@@ -77,7 +90,7 @@ int64_t SerializedPageWriter::WriteDataPage(const CompressedDataPage& page) {
       ToThrift(page.definition_level_encoding()));
   data_page_header.__set_repetition_level_encoding(
       ToThrift(page.repetition_level_encoding()));
-  // TODO(PARQUET-593) statistics
+  data_page_header.__set_statistics(ToThrift(page.statistics()));
 
   format::PageHeader page_header;
   page_header.__set_type(format::PageType::DATA_PAGE);
@@ -149,7 +162,7 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
       new SerializedPageWriter(sink_, properties_->compression(column_descr->path()),
           col_meta, properties_->allocator()));
   current_column_writer_ =
-      ColumnWriter::Make(col_meta->descr(), std::move(pager), num_rows_, properties_);
+      ColumnWriter::Make(col_meta, std::move(pager), num_rows_, properties_);
   return current_column_writer_.get();
 }
 

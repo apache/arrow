@@ -115,15 +115,23 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
+      EncodedStatistics page_statistics;
+      if (header.__isset.statistics) {
+        const format::Statistics& stats = header.statistics;
+        if (stats.__isset.max) { page_statistics.set_max(stats.max); }
+        if (stats.__isset.min) { page_statistics.set_min(stats.min); }
+        if (stats.__isset.null_count) {
+          page_statistics.set_null_count(stats.null_count);
+        }
+        if (stats.__isset.distinct_count) {
+          page_statistics.set_distinct_count(stats.distinct_count);
+        }
+      }
+
       auto page = std::make_shared<DataPage>(page_buffer, header.num_values,
           FromThrift(header.encoding), FromThrift(header.definition_level_encoding),
-          FromThrift(header.repetition_level_encoding));
+          FromThrift(header.repetition_level_encoding), page_statistics);
 
-      if (header.__isset.statistics) {
-        const format::Statistics stats = header.statistics;
-        if (stats.__isset.max) { page->max_ = stats.max; }
-        if (stats.__isset.min) { page->min_ = stats.min; }
-      }
       return page;
     } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
@@ -167,6 +175,14 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
       std::move(stream), col->compression(), properties_.allocator()));
 }
 
+template <typename DType>
+static std::shared_ptr<RowGroupStatistics> MakeColumnStats(
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  return std::make_shared<TypedRowGroupStatistics<DType>>(descr, metadata.statistics.min,
+      metadata.statistics.max, metadata.num_values, metadata.statistics.null_count,
+      metadata.statistics.distinct_count);
+}
+
 // ----------------------------------------------------------------------
 // SerializedFile: Parquet on-disk layout
 
@@ -198,7 +214,6 @@ SerializedFile::~SerializedFile() {
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(
       new SerializedRowGroup(source_.get(), file_metadata_->RowGroup(i), properties_));
-
   return std::make_shared<RowGroupReader>(std::move(contents));
 }
 

@@ -17,27 +17,56 @@
 
 #include <vector>
 
+#include "parquet/exception.h"
 #include "parquet/file/metadata.h"
 #include "parquet/schema/converter.h"
 #include "parquet/thrift/util.h"
 
 namespace parquet {
 
+template <typename DType>
+static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  return std::make_shared<TypedRowGroupStatistics<DType>>(descr, metadata.statistics.min,
+      metadata.statistics.max, metadata.num_values - metadata.statistics.null_count,
+      metadata.statistics.null_count, metadata.statistics.distinct_count);
+}
+
+std::shared_ptr<RowGroupStatistics> MakeColumnStats(
+    const format::ColumnMetaData& meta_data, const ColumnDescriptor* descr) {
+  switch (meta_data.type) {
+    case Type::BOOLEAN:
+      return MakeTypedColumnStats<BooleanType>(meta_data, descr);
+    case Type::INT32:
+      return MakeTypedColumnStats<Int32Type>(meta_data, descr);
+    case Type::INT64:
+      return MakeTypedColumnStats<Int64Type>(meta_data, descr);
+    case Type::INT96:
+      return MakeTypedColumnStats<Int96Type>(meta_data, descr);
+    case Type::DOUBLE:
+      return MakeTypedColumnStats<DoubleType>(meta_data, descr);
+    case Type::FLOAT:
+      return MakeTypedColumnStats<FloatType>(meta_data, descr);
+    case Type::BYTE_ARRAY:
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+  }
+  throw ParquetException("Can't decode page statistics for selected column type");
+}
+
 // MetaData Accessor
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
-  explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column) : column_(column) {
+  explicit ColumnChunkMetaDataImpl(
+      const format::ColumnChunk* column, const ColumnDescriptor* descr)
+      : column_(column), descr_(descr) {
     const format::ColumnMetaData& meta_data = column->meta_data;
     for (auto encoding : meta_data.encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
-    if (meta_data.__isset.statistics) {
-      stats_.null_count = meta_data.statistics.null_count;
-      stats_.distinct_count = meta_data.statistics.distinct_count;
-      stats_.max = &meta_data.statistics.max;
-      stats_.min = &meta_data.statistics.min;
-    }
+    if (meta_data.__isset.statistics) { stats_ = MakeColumnStats(meta_data, descr_); }
   }
   ~ColumnChunkMetaDataImpl() {}
 
@@ -56,7 +85,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline bool is_stats_set() const { return column_->meta_data.__isset.statistics; }
 
-  inline const ColumnStatistics& statistics() const { return stats_; }
+  inline std::shared_ptr<RowGroupStatistics> statistics() const { return stats_; }
 
   inline Compression::type compression() const {
     return FromThrift(column_->meta_data.codec);
@@ -87,18 +116,21 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
  private:
-  ColumnStatistics stats_;
+  std::shared_ptr<RowGroupStatistics> stats_;
   std::vector<Encoding::type> encodings_;
   const format::ColumnChunk* column_;
+  const ColumnDescriptor* descr_;
 };
 
-std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(const uint8_t* metadata) {
-  return std::unique_ptr<ColumnChunkMetaData>(new ColumnChunkMetaData(metadata));
+std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
+    const uint8_t* metadata, const ColumnDescriptor* descr) {
+  return std::unique_ptr<ColumnChunkMetaData>(new ColumnChunkMetaData(metadata, descr));
 }
 
-ColumnChunkMetaData::ColumnChunkMetaData(const uint8_t* metadata)
+ColumnChunkMetaData::ColumnChunkMetaData(
+    const uint8_t* metadata, const ColumnDescriptor* descr)
     : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
-          reinterpret_cast<const format::ColumnChunk*>(metadata)))} {}
+          reinterpret_cast<const format::ColumnChunk*>(metadata), descr))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 
 // column chunk
@@ -123,7 +155,7 @@ std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const 
   return impl_->path_in_schema();
 }
 
-const ColumnStatistics& ColumnChunkMetaData::statistics() const {
+std::shared_ptr<RowGroupStatistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
@@ -187,7 +219,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       throw ParquetException(ss.str());
     }
     return ColumnChunkMetaData::Make(
-        reinterpret_cast<const uint8_t*>(&row_group_->columns[i]));
+        reinterpret_cast<const uint8_t*>(&row_group_->columns[i]), schema_->Column(i));
   }
 
  private:
@@ -348,15 +380,18 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
 
   // column metadata
-  void SetStatistics(const ColumnStatistics& val) {
+  void SetStatistics(const EncodedStatistics& val) {
     format::Statistics stats;
     stats.null_count = val.null_count;
     stats.distinct_count = val.distinct_count;
-    stats.max = *val.max;
-    stats.min = *val.min;
+    stats.max = val.max();
+    stats.min = val.min();
+    stats.__isset.min = val.has_min;
+    stats.__isset.max = val.has_max;
+    stats.__isset.null_count = val.has_null_count;
+    stats.__isset.distinct_count = val.has_distinct_count;
 
-    column_chunk_->meta_data.statistics = stats;
-    column_chunk_->meta_data.__isset.statistics = true;
+    column_chunk_->meta_data.__set_statistics(stats);
   }
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
@@ -430,7 +465,7 @@ const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
 }
 
-void ColumnChunkMetaDataBuilder::SetStatistics(const ColumnStatistics& result) {
+void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {
   impl_->SetStatistics(result);
 }
 

@@ -18,6 +18,7 @@
 #include "parquet/column/writer.h"
 
 #include "parquet/column/properties.h"
+#include "parquet/column/statistics.h"
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
 
@@ -32,10 +33,11 @@ std::shared_ptr<WriterProperties> default_writer_properties() {
   return default_writer_properties;
 }
 
-ColumnWriter::ColumnWriter(const ColumnDescriptor* descr,
+ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows, bool has_dictionary,
     Encoding::type encoding, const WriterProperties* properties)
-    : descr_(descr),
+    : metadata_(metadata),
+      descr_(metadata->descr()),
       pager_(std::move(pager)),
       expected_rows_(expected_rows),
       has_dictionary_(has_dictionary),
@@ -117,9 +119,11 @@ void ColumnWriter::AddDataPage() {
   uncompressed_ptr += definition_levels->size();
   memcpy(uncompressed_ptr, values->data(), values->size());
 
+  EncodedStatistics page_stats = GetPageStatistics();
+  ResetPageStatistics();
   std::shared_ptr<Buffer> compressed_data = pager_->Compress(uncompressed_data);
   CompressedDataPage page(compressed_data, num_buffered_values_, encoding_, Encoding::RLE,
-      Encoding::RLE, uncompressed_size);
+      Encoding::RLE, uncompressed_size, page_stats);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -147,6 +151,8 @@ int64_t ColumnWriter::Close() {
 
     FlushBufferedDataPages();
 
+    EncodedStatistics chunk_statistics = GetChunkStatistics();
+    if (chunk_statistics.is_set()) metadata_->SetStatistics(chunk_statistics);
     pager_->Close(has_dictionary_, fallback_);
   }
 
@@ -172,24 +178,29 @@ void ColumnWriter::FlushBufferedDataPages() {
 // TypedColumnWriter
 
 template <typename Type>
-TypedColumnWriter<Type>::TypedColumnWriter(const ColumnDescriptor* descr,
+TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
     const WriterProperties* properties)
-    : ColumnWriter(descr, std::move(pager), expected_rows,
+    : ColumnWriter(metadata, std::move(pager), expected_rows,
           (encoding == Encoding::PLAIN_DICTIONARY ||
                        encoding == Encoding::RLE_DICTIONARY),
           encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:
-      current_encoder_.reset(new PlainEncoder<Type>(descr, properties->allocator()));
+      current_encoder_.reset(new PlainEncoder<Type>(descr_, properties->allocator()));
       break;
     case Encoding::PLAIN_DICTIONARY:
     case Encoding::RLE_DICTIONARY:
       current_encoder_.reset(
-          new DictEncoder<Type>(descr, &pool_, properties->allocator()));
+          new DictEncoder<Type>(descr_, &pool_, properties->allocator()));
       break;
     default:
       ParquetException::NYI("Selected encoding is not supported");
+  }
+
+  if (properties->statistics_enabled(descr_->path())) {
+    page_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
+    chunk_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
   }
 }
 
@@ -221,12 +232,35 @@ void TypedColumnWriter<Type>::WriteDictionaryPage() {
   total_bytes_written_ += pager_->WriteDictionaryPage(page);
 }
 
+template <typename Type>
+EncodedStatistics TypedColumnWriter<Type>::GetPageStatistics() {
+  EncodedStatistics result;
+  if (page_statistics_) result = page_statistics_->Encode();
+  return result;
+}
+
+template <typename Type>
+EncodedStatistics TypedColumnWriter<Type>::GetChunkStatistics() {
+  EncodedStatistics result;
+  if (chunk_statistics_) result = chunk_statistics_->Encode();
+  return result;
+}
+
+template <typename Type>
+void TypedColumnWriter<Type>::ResetPageStatistics() {
+  if (chunk_statistics_ != nullptr) {
+    chunk_statistics_->Merge(*page_statistics_);
+    page_statistics_->Reset();
+  }
+}
+
 // ----------------------------------------------------------------------
 // Dynamic column writer constructor
 
-std::shared_ptr<ColumnWriter> ColumnWriter::Make(const ColumnDescriptor* descr,
+std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
     std::unique_ptr<PageWriter> pager, int64_t expected_rows,
     const WriterProperties* properties) {
+  const ColumnDescriptor* descr = metadata->descr();
   Encoding::type encoding = properties->encoding(descr->path());
   if (properties->dictionary_enabled(descr->path()) &&
       descr->physical_type() != Type::BOOLEAN) {
@@ -235,28 +269,28 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(const ColumnDescriptor* descr,
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<BoolWriter>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::INT32:
       return std::make_shared<Int32Writer>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::INT64:
       return std::make_shared<Int64Writer>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::INT96:
       return std::make_shared<Int96Writer>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::FLOAT:
       return std::make_shared<FloatWriter>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::DOUBLE:
       return std::make_shared<DoubleWriter>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::BYTE_ARRAY:
       return std::make_shared<ByteArrayWriter>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FixedLenByteArrayWriter>(
-          descr, std::move(pager), expected_rows, encoding, properties);
+          metadata, std::move(pager), expected_rows, encoding, properties);
     default:
       ParquetException::NYI("type reader not implemented");
   }

@@ -106,8 +106,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    BooleanType, ByteArrayType, FLBAType>
-    TestTypes;
+    BooleanType, ByteArrayType, FLBAType> TestTypes;
 
 TYPED_TEST_CASE(TestSerialize, TestTypes);
 
