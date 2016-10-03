@@ -274,6 +274,7 @@ cdef class HdfsClient:
         out.buffer_size = c_buffer_size
         out.parent = self
         out.is_open = True
+        out.own_file = True
 
         return out
 
@@ -326,9 +327,10 @@ cdef class NativeFile:
 
     def __cinit__(self):
         self.is_open = False
+        self.own_file = False
 
     def __dealloc__(self):
-        if self.is_open:
+        if self.is_open and self.own_file:
             self.close()
 
     def __enter__(self):

@@ -29,6 +29,7 @@ cdef class NativeFile:
         shared_ptr[OutputStream] wr_file
         bint is_readonly
         bint is_open
+        bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
     # extension classes are technically virtual in the C++ sense) we can expose

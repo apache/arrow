@@ -149,6 +149,19 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const shared_ptr[CDataType]& type()
         const shared_ptr[CChunkedArray]& data()
 
+    cdef cppclass CRecordBatch" arrow::RecordBatch":
+        CRecordBatch(const shared_ptr[CSchema]& schema, int32_t num_rows,
+                     const vector[shared_ptr[CArray]]& columns)
+
+        const shared_ptr[CSchema]& schema()
+        const shared_ptr[CArray]& column(int i)
+        const c_string& column_name(int i)
+
+        const vector[shared_ptr[CArray]]& columns()
+
+        int num_columns()
+        int32_t num_rows()
+
     cdef cppclass CTable" arrow::Table":
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CColumn]]& columns)

@@ -262,35 +262,3 @@ cdef object series_as_ndarray(object obj):
         result = obj
 
     return result
-
-#----------------------------------------------------------------------
-# Table-like data structures
-
-cdef class RowBatch:
-    """
-
-    """
-    cdef readonly:
-        Schema schema
-        int num_rows
-        list arrays
-
-    def __cinit__(self, Schema schema, int num_rows, list arrays):
-        self.schema = schema
-        self.num_rows = num_rows
-        self.arrays = arrays
-
-        if len(self.schema) != len(arrays):
-            raise ValueError('Mismatch number of data arrays and '
-                             'schema fields')
-
-    def __len__(self):
-        return self.num_rows
-
-    property num_columns:
-
-        def __get__(self):
-            return len(self.arrays)
-
-    def __getitem__(self, i):
-        return self.arrays[i]

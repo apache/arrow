@@ -352,6 +352,8 @@ ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_io
   SHARED_LIB ${ARROW_IO_SHARED_LIB})
+ADD_THIRDPARTY_LIB(arrow_ipc
+  SHARED_LIB ${ARROW_IPC_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -423,6 +425,7 @@ set(CYTHON_EXTENSIONS
   config
   error
   io
+  ipc
   scalar
   schema
   table
@@ -442,6 +445,7 @@ set(PYARROW_SRCS
 set(LINK_LIBS
   arrow
   arrow_io
+  arrow_ipc
 )
 
 if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
