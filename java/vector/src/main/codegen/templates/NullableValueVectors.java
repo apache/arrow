@@ -103,7 +103,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Float8">
     field = new Field(name, true, new FloatingPoint(Precision.DOUBLE), null);
   <#elseif minor.class == "TimeStamp">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(""), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND), null);
   <#elseif minor.class == "IntervalDay">
     field = new Field(name, true, new Interval(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME), null);
   <#elseif minor.class == "IntervalYear">

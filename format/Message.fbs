@@ -64,8 +64,11 @@ table Date {
 table Time {
 }
 
+enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
+
+/// time from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
 table Timestamp {
-  timezone: string;
+  unit: TimeUnit;
 }
 
 enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}

@@ -19,6 +19,7 @@ package org.apache.arrow.vector.types;
 
 import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.Precision;
+import org.apache.arrow.flatbuf.TimeUnit;
 import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -101,7 +102,7 @@ public class Types {
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
   private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
   private static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
-  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(""), null);
+  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND), null);
   private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
   private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
   private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
@@ -143,8 +144,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new NullableMapWriter((NullableMapVector) vector);
       }
-    },   //  an empty map column.  Useful for conceptual setup.  Children listed within here
-
+    },
     TINYINT(new Int(8, true)) {
       @Override
       public Field getField() {
@@ -160,7 +160,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new TinyIntWriterImpl((NullableTinyIntVector) vector);
       }
-    },   //  single byte signed integer
+    },
     SMALLINT(new Int(16, true)) {
       @Override
       public Field getField() {
@@ -176,7 +176,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new SmallIntWriterImpl((NullableSmallIntVector) vector);
       }
-    },   //  two byte signed integer
+    },
     INT(new Int(32, true)) {
       @Override
       public Field getField() {
@@ -192,7 +192,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new IntWriterImpl((NullableIntVector) vector);
       }
-    },   //  four byte signed integer
+    },
     BIGINT(new Int(64, true)) {
       @Override
       public Field getField() {
@@ -208,7 +208,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new BigIntWriterImpl((NullableBigIntVector) vector);
       }
-    },   //  eight byte signed integer
+    },
     DATE(Date.INSTANCE) {
       @Override
       public Field getField() {
@@ -224,7 +224,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new DateWriterImpl((NullableDateVector) vector);
       }
-    },   //  days since 4713bc
+    },
     TIME(Time.INSTANCE) {
       @Override
       public Field getField() {
@@ -240,8 +240,9 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new TimeWriterImpl((NullableTimeVector) vector);
       }
-    },   //  time in micros before or after 2000/1/1
-    TIMESTAMP(new Timestamp("")) {
+    },
+    // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
+    TIMESTAMP(new Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND)) {
       @Override
       public Field getField() {
         return TIMESTAMP_FIELD;
@@ -289,6 +290,7 @@ public class Types {
         return new IntervalYearWriterImpl((NullableIntervalYearVector) vector);
       }
     },
+    //  4 byte ieee 754
     FLOAT4(new FloatingPoint(Precision.SINGLE)) {
       @Override
       public Field getField() {
@@ -304,7 +306,8 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new Float4WriterImpl((NullableFloat4Vector) vector);
       }
-    },   //  4 byte ieee 754
+    },
+    //  8 byte ieee 754
     FLOAT8(new FloatingPoint(Precision.DOUBLE)) {
       @Override
       public Field getField() {
@@ -320,7 +323,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new Float8WriterImpl((NullableFloat8Vector) vector);
       }
-    },   //  8 byte ieee 754
+    },
     BIT(Bool.INSTANCE) {
       @Override
       public Field getField() {
@@ -336,7 +339,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new BitWriterImpl((NullableBitVector) vector);
       }
-    },  //  single bit value (boolean)
+    },
     VARCHAR(Utf8.INSTANCE) {
       @Override
       public Field getField() {
@@ -352,7 +355,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new VarCharWriterImpl((NullableVarCharVector) vector);
       }
-    },   //  utf8 variable length string
+    },
     VARBINARY(Binary.INSTANCE) {
       @Override
       public Field getField() {
@@ -368,7 +371,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new VarBinaryWriterImpl((NullableVarBinaryVector) vector);
       }
-    },   //  variable length binary
+    },
     DECIMAL(null) {
       @Override
       public ArrowType getType() {
@@ -388,7 +391,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new DecimalWriterImpl((NullableDecimalVector) vector);
       }
-    },   //  variable length binary
+    },
     UINT1(new Int(8, false)) {
       @Override
       public Field getField() {
@@ -404,7 +407,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UInt1WriterImpl((NullableUInt1Vector) vector);
       }
-    },  //  unsigned 1 byte integer
+    },
     UINT2(new Int(16, false)) {
       @Override
       public Field getField() {
@@ -420,7 +423,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UInt2WriterImpl((NullableUInt2Vector) vector);
       }
-    },  //  unsigned 2 byte integer
+    },
     UINT4(new Int(32, false)) {
       @Override
       public Field getField() {
@@ -436,7 +439,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UInt4WriterImpl((NullableUInt4Vector) vector);
       }
-    },   //  unsigned 4 byte integer
+    },
     UINT8(new Int(64, false)) {
       @Override
       public Field getField() {
@@ -452,7 +455,7 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UInt8WriterImpl((NullableUInt8Vector) vector);
       }
-    },   //  unsigned 8 byte integer
+    },
     LIST(List.INSTANCE) {
       @Override
       public Field getField() {
@@ -576,6 +579,9 @@ public class Types {
       }
 
       @Override public MinorType visit(Timestamp type) {
+        if (type.getUnit() != TimeUnit.MILLISECOND) {
+          throw new UnsupportedOperationException("Only milliseconds supported: " + type);
+        }
         return MinorType.TIMESTAMP;
       }
 
