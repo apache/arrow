@@ -18,6 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport MemoryPool
 
 cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
@@ -35,6 +36,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         FileMode mode()
 
     cdef cppclass Readable:
+        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[Buffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
@@ -64,6 +66,24 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(ReadableFileInterface,
                                          WriteableFileInterface):
         pass
+
+
+cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
+    cdef cppclass FileOutputStream(OutputStream):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
+
+        int file_descriptor()
+
+    cdef cppclass ReadableFile(ReadableFileInterface):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
+
+        @staticmethod
+        CStatus Open(const c_string& path, MemoryPool* memory_pool,
+                     shared_ptr[ReadableFile]* file)
+
+        int file_descriptor()
 
 
 cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
@@ -120,3 +140,12 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
                               int32_t buffer_size, int16_t replication,
                               int64_t default_block_size,
                               shared_ptr[HdfsOutputStream]* handle)
+
+
+cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
+    cdef cppclass BufferReader(ReadableFileInterface):
+        BufferReader(const uint8_t* data, int64_t nbytes)
+
+    cdef cppclass BufferOutputStream(OutputStream):
+        # TODO(wesm)
+        pass

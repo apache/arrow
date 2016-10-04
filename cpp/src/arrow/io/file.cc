@@ -413,15 +413,7 @@ Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   return impl_->Read(nbytes, bytes_read, out);
 }
 
-Status ReadableFile::ReadAt(
-    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  RETURN_NOT_OK(Seek(position));
-  return impl_->Read(nbytes, bytes_read, out);
-}
-
-Status ReadableFile::ReadAt(
-    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(Seek(position));
+Status ReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->ReadBuffer(nbytes, out);
 }
 

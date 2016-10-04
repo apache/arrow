@@ -23,11 +23,16 @@ from pyarrow.includes.libarrow_io cimport (ReadableFileInterface,
                                            OutputStream)
 
 
-cdef class NativeFileInterface:
+cdef class NativeFile:
+    cdef:
+        shared_ptr[ReadableFileInterface] rd_file
+        shared_ptr[OutputStream] wr_file
+        bint is_readonly
+        bint is_open
 
     # By implementing these "virtual" functions (all functions in Cython
-    # extension classes are technically virtual in the C++ sense)m we can
-    # expose the arrow::io abstract file interfaces to other components
-    # throughout the suite of Arrow C++ libraries
+    # extension classes are technically virtual in the C++ sense) we can expose
+    # the arrow::io abstract file interfaces to other components throughout the
+    # suite of Arrow C++ libraries
     cdef read_handle(self, shared_ptr[ReadableFileInterface]* file)
     cdef write_handle(self, shared_ptr[OutputStream]* file)

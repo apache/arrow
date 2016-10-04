@@ -39,6 +39,7 @@ set(ARROW_IO_TEST_LINK_LIBS
 
 set(ARROW_IO_SRCS
   file.cc
+  interfaces.cc
   memory.cc
 )
 

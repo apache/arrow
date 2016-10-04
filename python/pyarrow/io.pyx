@@ -242,6 +242,9 @@ cdef class HdfsClient:
         cdef int16_t c_replication = replication or 0
         cdef int64_t c_default_block_size = default_block_size or 0
 
+        cdef shared_ptr[HdfsOutputStream] wr_handle
+        cdef shared_ptr[HdfsReadableFile] rd_handle
+
         if mode in ('wb', 'ab'):
             if mode == 'ab':
                 append = True
@@ -251,13 +254,17 @@ cdef class HdfsClient:
                     self.client.get()
                     .OpenWriteable(c_path, append, c_buffer_size,
                                    c_replication, c_default_block_size,
-                                   &out.wr_file))
+                                   &wr_handle))
+
+            out.wr_file = <shared_ptr[OutputStream]> wr_handle
 
             out.is_readonly = False
         else:
             with nogil:
                 check_cstatus(self.client.get()
-                              .OpenReadable(c_path, &out.rd_file))
+                              .OpenReadable(c_path, &rd_handle))
+
+            out.rd_file = <shared_ptr[ReadableFileInterface]> rd_handle
             out.is_readonly = True
 
         if c_buffer_size == 0:
@@ -314,25 +321,8 @@ cdef class HdfsClient:
         f = self.open(path, 'rb', buffer_size=buffer_size)
         f.download(stream)
 
-cdef class NativeFileInterface:
 
-    cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
-        raise NotImplementedError
-
-    cdef write_handle(self, shared_ptr[OutputStream]* file):
-        raise NotImplementedError
-
-cdef class HdfsFile(NativeFileInterface):
-    cdef:
-        shared_ptr[HdfsReadableFile] rd_file
-        shared_ptr[HdfsOutputStream] wr_file
-        bint is_readonly
-        bint is_open
-        object parent
-
-    cdef readonly:
-        int32_t buffer_size
-        object mode
+cdef class NativeFile:
 
     def __cinit__(self):
         self.is_open = False
@@ -356,14 +346,6 @@ cdef class HdfsFile(NativeFileInterface):
                     check_cstatus(self.wr_file.get().Close())
         self.is_open = False
 
-    cdef _assert_readable(self):
-        if not self.is_readonly:
-            raise IOError("only valid on readonly files")
-
-    cdef _assert_writeable(self):
-        if self.is_readonly:
-            raise IOError("only valid on writeonly files")
-
     cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
         self._assert_readable()
         file[0] = <shared_ptr[ReadableFileInterface]> self.rd_file
@@ -371,6 +353,14 @@ cdef class HdfsFile(NativeFileInterface):
     cdef write_handle(self, shared_ptr[OutputStream]* file):
         self._assert_writeable()
         file[0] = <shared_ptr[OutputStream]> self.wr_file
+
+    def _assert_readable(self):
+        if not self.is_readonly:
+            raise IOError("only valid on readonly files")
+
+    def _assert_writeable(self):
+        if self.is_readonly:
+            raise IOError("only valid on writeonly files")
 
     def size(self):
         cdef int64_t size
@@ -392,6 +382,83 @@ cdef class HdfsFile(NativeFileInterface):
         self._assert_readable()
         with nogil:
             check_cstatus(self.rd_file.get().Seek(position))
+
+    def write(self, data):
+        """
+        Write bytes-like (unicode, encoded to UTF-8) to file
+        """
+        self._assert_writeable()
+
+        data = tobytes(data)
+
+        cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
+        cdef int64_t bufsize = len(data)
+        with nogil:
+            check_cstatus(self.wr_file.get().Write(buf, bufsize))
+
+    def read(self, int nbytes):
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+            shared_ptr[Buffer] out
+
+        self._assert_readable()
+
+        with nogil:
+            check_cstatus(self.rd_file.get()
+                          .ReadB(nbytes, &out))
+
+        result = cp.PyBytes_FromStringAndSize(
+            <const char*>out.get().data(), out.get().size())
+
+        return result
+
+
+# ----------------------------------------------------------------------
+# Python file-like objects
+
+cdef class PythonFileInterface(NativeFile):
+    cdef:
+        object handle
+
+    def __cinit__(self, handle, mode='w'):
+        self.handle = handle
+
+        if mode.startswith('w'):
+            self.wr_file.reset(new pyarrow.PyOutputStream(handle))
+            self.is_readonly = 0
+        elif mode.startswith('r'):
+            self.rd_file.reset(new pyarrow.PyReadableFile(handle))
+            self.is_readonly = 1
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        self.is_open = True
+
+
+cdef class BytesReader(NativeFile):
+    cdef:
+        object obj
+
+    def __cinit__(self, obj):
+        if not isinstance(obj, bytes):
+            raise ValueError('Must pass bytes object')
+
+        self.obj = obj
+        self.is_readonly = 1
+        self.is_open = True
+
+        self.rd_file.reset(new pyarrow.PyBytesReader(obj))
+
+# ----------------------------------------------------------------------
+# Specialization for HDFS
+
+
+cdef class HdfsFile(NativeFile):
+    cdef readonly:
+        int32_t buffer_size
+        object mode
+        object parent
 
     def read(self, int nbytes):
         """
@@ -504,16 +571,3 @@ cdef class HdfsFile(NativeFileInterface):
         writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
-
-    def write(self, data):
-        """
-        Write bytes-like (unicode, encoded to UTF-8) to file
-        """
-        self._assert_writeable()
-
-        data = tobytes(data)
-
-        cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
-        cdef int64_t bufsize = len(data)
-        with nogil:
-            check_cstatus(self.wr_file.get().Write(buf, bufsize))

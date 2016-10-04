@@ -123,6 +123,8 @@ MemoryMappedFile::MemoryMappedFile(FileMode::type mode) {
   ReadableFileInterface::set_mode(mode);
 }
 
+MemoryMappedFile::~MemoryMappedFile() {}
+
 Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
     std::shared_ptr<MemoryMappedFile>* out) {
   std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile(mode));
@@ -161,16 +163,8 @@ Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
   return Status::OK();
 }
 
-Status MemoryMappedFile::ReadAt(
-    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  RETURN_NOT_OK(impl_->Seek(position));
-  return Read(nbytes, bytes_read, out);
-}
-
-Status MemoryMappedFile::ReadAt(
-    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  nbytes = std::min(nbytes, impl_->size() - position);
-  RETURN_NOT_OK(impl_->Seek(position));
+Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  nbytes = std::min(nbytes, impl_->size() - impl_->position());
   *out = std::make_shared<Buffer>(impl_->head(), nbytes);
   impl_->advance(nbytes);
   return Status::OK();
@@ -246,6 +240,11 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // In-memory buffer reader
 
+BufferReader::BufferReader(const uint8_t* buffer, int buffer_size)
+    : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
+
+BufferReader::~BufferReader() {}
+
 Status BufferReader::Close() {
   // no-op
   return Status::OK();
@@ -253,20 +252,6 @@ Status BufferReader::Close() {
 
 Status BufferReader::Tell(int64_t* position) {
   *position = position_;
-  return Status::OK();
-}
-
-Status BufferReader::ReadAt(
-    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, buffer);
-}
-
-Status BufferReader::ReadAt(
-    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  int64_t size = std::min(nbytes, buffer_size_ - position_);
-  *out = std::make_shared<Buffer>(buffer_ + position, size);
-  position_ += nbytes;
   return Status::OK();
 }
 
@@ -278,6 +263,13 @@ Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) 
   memcpy(buffer, buffer_ + position_, nbytes);
   *bytes_read = std::min(nbytes, buffer_size_ - position_);
   position_ += *bytes_read;
+  return Status::OK();
+}
+
+Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  int64_t size = std::min(nbytes, buffer_size_ - position_);
+  *out = std::make_shared<Buffer>(buffer_ + position_, size);
+  position_ += nbytes;
   return Status::OK();
 }
 

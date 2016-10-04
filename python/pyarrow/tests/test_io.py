@@ -16,112 +16,85 @@
 # under the License.
 
 from io import BytesIO
-from os.path import join as pjoin
-import os
-import random
-
 import pytest
 
+from pyarrow.compat import u
 import pyarrow.io as io
 
-#----------------------------------------------------------------------
-# HDFS tests
+# ----------------------------------------------------------------------
+# Python file-like objects
 
 
-def hdfs_test_client():
-    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
-    user = os.environ['ARROW_HDFS_TEST_USER']
-    try:
-        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 20500))
-    except ValueError:
-        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                         'an integer')
+def test_python_file_write():
+    buf = BytesIO()
 
-    return io.HdfsClient.connect(host, port, user)
+    f = io.PythonFileInterface(buf)
 
+    assert f.tell() == 0
 
-libhdfs = pytest.mark.skipif(not io.have_libhdfs(),
-                             reason='No libhdfs available on system')
+    s1 = b'enga\xc3\xb1ado'
+    s2 = b'foobar'
 
+    f.write(s1.decode('utf8'))
+    assert f.tell() == len(s1)
 
-HDFS_TMP_PATH = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
+    f.write(s2)
 
+    expected = s1 + s2
 
-@pytest.fixture(scope='session')
-def hdfs(request):
-    fixture = hdfs_test_client()
-    def teardown():
-        fixture.delete(HDFS_TMP_PATH, recursive=True)
-        fixture.close()
-    request.addfinalizer(teardown)
-    return fixture
+    result = buf.getvalue()
+    assert result == expected
+
+    f.close()
 
 
-@libhdfs
-def test_hdfs_close():
-    client = hdfs_test_client()
-    assert client.is_open
-    client.close()
-    assert not client.is_open
+def test_python_file_read():
+    data = b'some sample data'
 
-    with pytest.raises(Exception):
-        client.ls('/')
-
-
-@libhdfs
-def test_hdfs_mkdir(hdfs):
-    path = pjoin(HDFS_TMP_PATH, 'test-dir/test-dir')
-    parent_path = pjoin(HDFS_TMP_PATH, 'test-dir')
-
-    hdfs.mkdir(path)
-    assert hdfs.exists(path)
-
-    hdfs.delete(parent_path, recursive=True)
-    assert not hdfs.exists(path)
-
-
-@libhdfs
-def test_hdfs_ls(hdfs):
-    base_path = pjoin(HDFS_TMP_PATH, 'ls-test')
-    hdfs.mkdir(base_path)
-
-    dir_path = pjoin(base_path, 'a-dir')
-    f1_path = pjoin(base_path, 'a-file-1')
-
-    hdfs.mkdir(dir_path)
-
-    f = hdfs.open(f1_path, 'wb')
-    f.write('a' * 10)
-
-    contents = sorted(hdfs.ls(base_path, False))
-    assert contents == [dir_path, f1_path]
-
-
-@libhdfs
-def test_hdfs_download_upload(hdfs):
-    base_path = pjoin(HDFS_TMP_PATH, 'upload-test')
-
-    data = b'foobarbaz'
     buf = BytesIO(data)
-    buf.seek(0)
+    f = io.PythonFileInterface(buf, mode='r')
 
-    hdfs.upload(base_path, buf)
+    assert f.size() == len(data)
 
-    out_buf = BytesIO()
-    hdfs.download(base_path, out_buf)
-    out_buf.seek(0)
-    assert out_buf.getvalue() == data
+    assert f.tell() == 0
+
+    assert f.read(4) == b'some'
+    assert f.tell() == 4
+
+    f.seek(0)
+    assert f.tell() == 0
+
+    f.seek(5)
+    assert f.tell() == 5
+
+    assert f.read(50) == b'sample data'
+
+    f.close()
 
 
-@libhdfs
-def test_hdfs_file_context_manager(hdfs):
-    path = pjoin(HDFS_TMP_PATH, 'ctx-manager')
+def test_bytes_reader():
+    # Like a BytesIO, but zero-copy underneath for C++ consumers
+    data = b'some sample data'
+    f = io.BytesReader(data)
 
-    data = b'foo'
-    with hdfs.open(path, 'wb') as f:
-        f.write(data)
+    assert f.tell() == 0
 
-    with hdfs.open(path, 'rb') as f:
-        assert f.size() == 3
-        result = f.read(10)
-        assert result == data
+    assert f.size() == len(data)
+
+    assert f.read(4) == b'some'
+    assert f.tell() == 4
+
+    f.seek(0)
+    assert f.tell() == 0
+
+    f.seek(5)
+    assert f.tell() == 5
+
+    assert f.read(50) == b'sample data'
+
+    f.close()
+
+
+def test_bytes_reader_non_bytes():
+    with pytest.raises(ValueError):
+        io.BytesReader(u('some sample data'))

@@ -30,7 +30,7 @@ cdef int check_cstatus(const CStatus& status) nogil except -1:
     with gil:
         raise ArrowException(frombytes(c_message))
 
-cdef int check_status(const Status& status) nogil except -1:
+cdef int check_status(const PyStatus& status) nogil except -1:
     if status.ok():
         return 0
 

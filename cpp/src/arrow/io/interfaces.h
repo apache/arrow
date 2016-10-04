@@ -22,10 +22,12 @@
 #include <memory>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
 class Status;
 
 namespace io {
@@ -43,9 +45,9 @@ class FileSystemClient {
   virtual ~FileSystemClient() {}
 };
 
-class FileInterface {
+class ARROW_EXPORT FileInterface {
  public:
-  virtual ~FileInterface() {}
+  virtual ~FileInterface() = 0;
   virtual Status Close() = 0;
   virtual Status Tell(int64_t* position) = 0;
 
@@ -54,7 +56,6 @@ class FileInterface {
  protected:
   FileInterface() {}
   FileMode::type mode_;
-
   void set_mode(FileMode::type mode) { mode_ = mode; }
 
  private:
@@ -74,6 +75,9 @@ class Writeable {
 class Readable {
  public:
   virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
+
+  // Does not copy if not necessary
+  virtual Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 };
 
 class OutputStream : public FileInterface, public Writeable {
@@ -86,21 +90,21 @@ class InputStream : public FileInterface, public Readable {
   InputStream() {}
 };
 
-class ReadableFileInterface : public InputStream, public Seekable {
+class ARROW_EXPORT ReadableFileInterface : public InputStream, public Seekable {
  public:
-  virtual Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
-
   virtual Status GetSize(int64_t* size) = 0;
-
-  // Does not copy if not necessary
-  virtual Status ReadAt(
-      int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 
   virtual bool supports_zero_copy() const = 0;
 
+  // Read at position, provide default implementations using Read(...), but can
+  // be overridden
+  virtual Status ReadAt(
+      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out);
+
+  virtual Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+
  protected:
-  ReadableFileInterface() { set_mode(FileMode::READ); }
+  ReadableFileInterface();
 };
 
 class WriteableFileInterface : public OutputStream, public Seekable {

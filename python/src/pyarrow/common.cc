@@ -68,4 +68,19 @@ arrow::MemoryPool* GetMemoryPool() {
   return &memory_pool;
 }
 
+// ----------------------------------------------------------------------
+// PyBytesBuffer
+
+PyBytesBuffer::PyBytesBuffer(PyObject* obj)
+    : Buffer(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
+        PyBytes_GET_SIZE(obj)),
+      obj_(obj) {
+  Py_INCREF(obj_);
+}
+
+PyBytesBuffer::~PyBytesBuffer() {
+  PyGILGuard lock;
+  Py_DECREF(obj_);
+}
+
 } // namespace pyarrow

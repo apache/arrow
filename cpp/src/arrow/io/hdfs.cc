@@ -22,6 +22,8 @@
 #include <string>
 
 #include "arrow/io/hdfs.h"
+#include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -89,7 +91,7 @@ class HdfsAnyFileImpl {
 // Private implementation for read-only files
 class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
  public:
-  HdfsReadableFileImpl() {}
+  explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
 
   Status Close() {
     if (is_open_) {
@@ -108,10 +110,36 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+    auto buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(buffer->Resize(nbytes));
+
+    int64_t bytes_read = 0;
+    RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
+
+    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+
+    *out = buffer;
+    return Status::OK();
+  }
+
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
     tSize ret = hdfsRead(fs_, file_, reinterpret_cast<void*>(buffer), nbytes);
     RETURN_NOT_OK(CheckReadResult(ret));
     *bytes_read = ret;
+    return Status::OK();
+  }
+
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+    auto buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(buffer->Resize(nbytes));
+
+    int64_t bytes_read = 0;
+    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+
+    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+
+    *out = buffer;
     return Status::OK();
   }
 
@@ -123,10 +151,16 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     hdfsFreeFileInfo(entry, 1);
     return Status::OK();
   }
+
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
+
+ private:
+  MemoryPool* pool_;
 };
 
-HdfsReadableFile::HdfsReadableFile() {
-  impl_.reset(new HdfsReadableFileImpl());
+HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
+  if (pool == nullptr) { pool = default_memory_pool(); }
+  impl_.reset(new HdfsReadableFileImpl(pool));
 }
 
 HdfsReadableFile::~HdfsReadableFile() {
@@ -144,7 +178,7 @@ Status HdfsReadableFile::ReadAt(
 
 Status HdfsReadableFile::ReadAt(
     int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return Status::NotImplemented("Not yet implemented");
+  return impl_->ReadAt(position, nbytes, out);
 }
 
 bool HdfsReadableFile::supports_zero_copy() const {
@@ -153,6 +187,10 @@ bool HdfsReadableFile::supports_zero_copy() const {
 
 Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
+}
+
+Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* buffer) {
+  return impl_->Read(nbytes, buffer);
 }
 
 Status HdfsReadableFile::GetSize(int64_t* size) {

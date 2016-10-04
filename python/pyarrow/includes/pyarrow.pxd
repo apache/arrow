@@ -18,15 +18,18 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType,
+from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CStatus,
                                         Type, MemoryPool)
+
+cimport pyarrow.includes.libarrow_io as arrow_io
+
 
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     # We can later add more of the common status factory methods as needed
-    cdef Status Status_OK "Status::OK"()
+    cdef PyStatus PyStatus_OK "Status::OK"()
 
-    cdef cppclass Status:
-        Status()
+    cdef cppclass PyStatus "pyarrow::Status":
+        PyStatus()
 
         c_string ToString()
 
@@ -40,12 +43,25 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
         c_bool IsArrowError()
 
     shared_ptr[CDataType] GetPrimitiveType(Type type)
-    Status ConvertPySequence(object obj, shared_ptr[CArray]* out)
+    PyStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
-    Status PandasToArrow(MemoryPool* pool, object ao, shared_ptr[CArray]* out)
-    Status PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
-                               shared_ptr[CArray]* out)
+    PyStatus PandasToArrow(MemoryPool* pool, object ao,
+                           shared_ptr[CArray]* out)
+    PyStatus PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
+                                 shared_ptr[CArray]* out)
 
-    Status ArrowToPandas(const shared_ptr[CColumn]& arr, object py_ref, PyObject** out)
+    PyStatus ArrowToPandas(const shared_ptr[CColumn]& arr, object py_ref,
+                           PyObject** out)
 
     MemoryPool* GetMemoryPool()
+
+
+cdef extern from "pyarrow/io.h" namespace "pyarrow" nogil:
+    cdef cppclass PyReadableFile(arrow_io.ReadableFileInterface):
+        PyReadableFile(object fo)
+
+    cdef cppclass PyOutputStream(arrow_io.OutputStream):
+        PyOutputStream(object fo)
+
+    cdef cppclass PyBytesReader(arrow_io.BufferReader):
+        PyBytesReader(object fo)
