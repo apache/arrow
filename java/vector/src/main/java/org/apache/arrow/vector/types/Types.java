@@ -580,7 +580,7 @@ public class Types {
 
       @Override public MinorType visit(Timestamp type) {
         if (type.getUnit() != TimeUnit.MILLISECOND) {
-          throw new UnsupportedOperationException("Only milliseconds supported");
+          throw new UnsupportedOperationException("Only milliseconds supported: " + type);
         }
         return MinorType.TIMESTAMP;
       }
