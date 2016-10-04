@@ -60,9 +60,12 @@ def test_ipc_simple_roundtrip():
 
 def big_batch():
     df = pd.DataFrame(
-        np.random.randn(2**4, 2**23).T,
+        np.random.randn(2**4, 2**20).T,
         columns=[str(i) for i in range(2**4)]
     )
+
+    df = pd.concat([df] * 2 ** 3, ignore_index=True)
+
     return A.RecordBatch.from_pandas(df)
 
 
@@ -82,3 +85,6 @@ def read_file(source):
     reader = ipc.ArrowFileReader(source)
     return [reader.get_record_batch(i)
             for i in range(reader.num_record_batches)]
+
+batch = big_batch()
+mem = write_to_memory(batch)

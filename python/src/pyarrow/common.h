@@ -120,6 +120,7 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
 
     data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
     size_ = PyArray_SIZE(arr_);
+    capacity_ = size_;
   }
 
   virtual ~NumPyBuffer() {

@@ -165,6 +165,8 @@ class RecordBatchWriter {
 
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
+        DCHECK(buffer->capacity() >= buffer->size());
+
         // We use capacity here, because size might not reflect the padding
         // requirements of buffers but capacity always should.
         size = buffer->capacity();
