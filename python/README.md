@@ -19,25 +19,17 @@ These are the various projects that PyArrow depends on.
 1. **g++ and gcc Version >= 4.8**
 2. **cmake > 2.8.6**
 3. **boost**
-4. **Parquet-cpp**
+4. **Arrow-cpp and its dependencies***
 
-  The preferred way to install parquet-cpp is to use conda.
-  You need to set the ``PARQUET_HOME`` environment variable to where parquet-cpp is installed.
-  ```bash
-  conda install -y --channel apache/channel/dev parquet-cpp
-  ```
-5. **Arrow-cpp and its dependencies***
+The Arrow C++ library must be built with all options enabled and installed with
+``ARROW_HOME`` environment variable set to the installation location. Look at
+(https://github.com/apache/arrow/blob/master/cpp/README.md) for instructions.
 
-   The Arrow C++ library must be built with all options enabled and installed with ``ARROW_HOME`` environment variable set to
-   the installation location. Look at (https://github.com/apache/arrow/blob/master/cpp/README.md) for
-   instructions. Alternatively you could just install arrow-cpp
-   from conda.
-  ```bash
-  conda install arrow-cpp -c apache/channel/dev
-  ```
-6. **Python dependencies: numpy, pandas, cython, pytest**
+5. **Python dependencies: numpy, pandas, cython, pytest**
 
-#### Install pyarrow
-  ```bash
-  python setup.py build_ext --inplace
-  ```
+#### Build pyarrow and run the unit tests
+
+```bash
+python setup.py build_ext --inplace
+py.test pyarrow
+```
