@@ -73,13 +73,18 @@ $RAT $tarball \
   -e cpplint.py \
   -e FindGPerf.cmake \
   -e FindPythonLibsNew.cmake \
+  -e pax_global_header
+  -e MANIFEST.in
+  -e __init__.pxd
+  -e __init__.py
+  -e requirements.txt
   > rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
 if [ "0" -eq "${UNAPPROVED}" ]; then
   echo "No unnaproved licenses"
 else
-  echo "${UNAPPROVED} unapporved licences. Check rat report: rat.txt"
+  echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
   exit
 fi
 
