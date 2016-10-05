@@ -120,7 +120,7 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
 
     data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
     size_ = PyArray_SIZE(arr_);
-    capacity_ = size_;
+    capacity_ = size_ * PyArray_DESCR(arr_)->elsize;
   }
 
   virtual ~NumPyBuffer() {
@@ -138,6 +138,22 @@ class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
 
  private:
   PyObject* obj_;
+};
+
+
+class PyAcquireGIL {
+ public:
+  PyAcquireGIL() {
+    state_ = PyGILState_Ensure();
+  }
+
+  ~PyAcquireGIL() {
+    PyGILState_Release(state_);
+  }
+
+ private:
+  PyGILState_STATE state_;
+  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
 
 } // namespace pyarrow

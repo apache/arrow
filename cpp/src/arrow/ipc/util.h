@@ -29,7 +29,11 @@ namespace ipc {
 
 // Align on 8-byte boundaries
 static constexpr int kArrowAlignment = 8;
-static constexpr uint8_t kPaddingBytes[kArrowAlignment] = {0};
+
+// Buffers are padded to 64-byte boundaries (for SIMD)
+static constexpr int kArrowBufferAlignment = 64;
+
+static constexpr uint8_t kPaddingBytes[kArrowBufferAlignment] = {0};
 
 static inline int64_t PaddedLength(int64_t nbytes, int64_t alignment = kArrowAlignment) {
   return ((nbytes + alignment - 1) / alignment) * alignment;

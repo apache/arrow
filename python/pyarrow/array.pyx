@@ -243,12 +243,14 @@ def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
         series_values = series_values.astype('datetime64[ms]')
 
     if mask is None:
-        check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
-                                           series_values, &out))
+        with nogil:
+            check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
+                                               series_values, &out))
     else:
         mask = series_as_ndarray(mask)
-        check_status(pyarrow.PandasMaskedToArrow(
-            pyarrow.GetMemoryPool(), series_values, mask, &out))
+        with nogil:
+            check_status(pyarrow.PandasMaskedToArrow(
+                pyarrow.GetMemoryPool(), series_values, mask, &out))
 
     return box_arrow_array(out)
 

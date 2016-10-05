@@ -26,6 +26,8 @@ import pyarrow.ipc as ipc
 
 
 def test_ipc_simple_roundtrip():
+    # Also tests writing zero-copy NumPy array with additional padding
+
     nrows = 5
     df = pd.DataFrame({
         'one': np.random.randn(nrows),
@@ -55,8 +57,10 @@ def test_ipc_simple_roundtrip():
 
     for i in range(num_batches):
         # it works. Must convert back to DataFrame
-        reader.get_record_batch(i)
+        batch = reader.get_record_batch(i)
 
+
+# XXX: For benchmarking
 
 def big_batch():
     df = pd.DataFrame(
@@ -85,6 +89,3 @@ def read_file(source):
     reader = ipc.ArrowFileReader(source)
     return [reader.get_record_batch(i)
             for i in range(reader.num_record_batches)]
-
-batch = big_batch()
-mem = write_to_memory(batch)
