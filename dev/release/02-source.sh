@@ -71,7 +71,6 @@ $RAT $tarball \
   -e status.h \
   -e asan_symbolize.py \
   -e cpplint.py \
-  -e FindGPerf.cmake \
   -e FindPythonLibsNew.cmake \
   -e pax_global_header \
   -e MANIFEST.in \
