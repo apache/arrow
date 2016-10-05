@@ -57,44 +57,25 @@ tarball=$tag.tar.gz
 git archive $release_hash --prefix $tag/ -o $tarball
 
 # download apache rat
-curl https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
 
 RAT="java -jar apache-rat-0.12.jar -d "
 
 # generate the rat report
-$RAT cpp/src \
+$RAT $tarball \
   -e ".*" \
   -e mman.h \
   -e "*_generated.h" \
   -e random.h \
   -e status.cc \
   -e status.h \
-  ../apache-arrow-0.1.0.tar.gz > rat_cpp.txt
-UNAPPROVED_CPP=`cat rat_cpp.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
-
-$RAT format \
-  -e ".*" \
-  ../apache-arrow-0.1.0.tar.gz > rat_format.txt
-UNAPPROVED_FORMAT=`cat rat_format.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
-
-$RAT python/src \
-  -e ".*" \
-  -e status.cc \
-  -e status.h \
-  ../apache-arrow-0.1.0.tar.gz > rat_python.txt
-UNAPPROVED_PYTHON=`cat rat_python.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
-
-$RAT ci \
-  -e ".*" \
-  ../apache-arrow-0.1.0.tar.gz > rat_ci.txt
-UNAPPROVED_CI=`cat rat_ci.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
-
-UNAPPROVED=$(($UNAPPROVED_CPP + $UNAPPROVED_FORMAT + $UNAPPROVED_PYTHON + $UNAPPROVED_CI))
+  > rat.txt
+UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
 if [ "0" -eq "${UNAPPROVED}" ]; then
   echo "No unnaproved licenses"
 else
-  echo "${UNAPPROVED} unapporved licences. Check rat report: rat_*.txt"
+  echo "${UNAPPROVED} unapporved licences. Check rat report: rat.txt"
   exit
 fi
 
