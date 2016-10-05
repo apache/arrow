@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
@@ -45,8 +47,8 @@ cdef class ChunkedArray:
 
     cdef _check_nullptr(self):
         if self.chunked_array == NULL:
-            raise ReferenceError("ChunkedArray object references a NULL pointer."
-                    "Not initialized.")
+            raise ReferenceError("ChunkedArray object references a NULL "
+                                 "pointer. Not initialized.")
 
     def length(self):
         self._check_nullptr()
@@ -224,6 +226,12 @@ cdef class RecordBatch:
         cdef Array arr = Array()
         arr.init(self.batch.column(i))
         return arr
+
+    def equals(self, RecordBatch other):
+        self._check_nullptr()
+        other._check_nullptr()
+
+        return self.batch.Equals(deref(other.batch))
 
     @classmethod
     def from_pandas(cls, df):

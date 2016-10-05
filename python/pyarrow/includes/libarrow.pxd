@@ -153,6 +153,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CRecordBatch(const shared_ptr[CSchema]& schema, int32_t num_rows,
                      const vector[shared_ptr[CArray]]& columns)
 
+        c_bool Equals(const CRecordBatch& other)
+
         const shared_ptr[CSchema]& schema()
         const shared_ptr[CArray]& column(int i)
         const c_string& column_name(int i)

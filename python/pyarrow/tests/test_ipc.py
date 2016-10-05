@@ -17,7 +17,6 @@
 
 import io
 
-from pandas.util.testing import assert_frame_equal
 import numpy as np
 import pandas as pd
 
@@ -25,7 +24,7 @@ import pyarrow as A
 import pyarrow.ipc as ipc
 
 
-def test_ipc_simple_roundtrip():
+def test_ipc_file_simple_roundtrip():
     # Also tests writing zero-copy NumPy array with additional padding
 
     nrows = 5
@@ -40,6 +39,7 @@ def test_ipc_simple_roundtrip():
 
     num_batches = 5
     frames = []
+    batches = []
     for i in range(num_batches):
         unique_df = df.copy()
         unique_df['one'] = np.random.randn(nrows)
@@ -47,6 +47,7 @@ def test_ipc_simple_roundtrip():
         batch = A.RecordBatch.from_pandas(unique_df)
         writer.write_record_batch(batch)
         frames.append(unique_df)
+        batches.append(batch)
 
     writer.close()
 
@@ -58,6 +59,8 @@ def test_ipc_simple_roundtrip():
     for i in range(num_batches):
         # it works. Must convert back to DataFrame
         batch = reader.get_record_batch(i)
+
+        assert batches[i].equals(batch)
 
 
 # XXX: For benchmarking
