@@ -26,6 +26,8 @@ import java.util.Objects;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.schema.VectorLayout;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -36,7 +38,13 @@ public class Field {
   private final List<Field> children;
   private final TypeLayout typeLayout;
 
-  private Field(String name, boolean nullable, ArrowType type, List<Field> children, TypeLayout typeLayout) {
+  @JsonCreator
+  private Field(
+      @JsonProperty("name") String name,
+      @JsonProperty("nullable") boolean nullable,
+      @JsonProperty("type") ArrowType type,
+      @JsonProperty("children") List<Field> children,
+      @JsonProperty("typeLayout") TypeLayout typeLayout) {
     this.name = name;
     this.nullable = nullable;
     this.type = type;
