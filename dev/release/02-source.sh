@@ -69,6 +69,9 @@ $RAT $tarball \
   -e random.h \
   -e status.cc \
   -e status.h \
+  -e asan_symbolize.py \
+  -e cpplint.py \
+  -e FindGPerf.cmake \
   > rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
