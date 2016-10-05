@@ -72,6 +72,7 @@ $RAT $tarball \
   -e asan_symbolize.py \
   -e cpplint.py \
   -e FindGPerf.cmake \
+  -e FindPythonLibsNew.cmake \
   > rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
