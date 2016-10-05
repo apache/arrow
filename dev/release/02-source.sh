@@ -56,12 +56,50 @@ tarball=$tag.tar.gz
 # archive (identical hashes) using the scm tag
 git archive $release_hash --prefix $tag/ -o $tarball
 
+# download apache rat
+curl https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
+# generate the rat report
+java -jar apache-rat-0.12.jar \
+  -d cpp/src \
+  -e ".*" \
+  -e mman.h \
+  -e "*_generated.h" \
+  -e random.h \
+  -e status.cc \
+  -e status.h \
+  ../apache-arrow-0.1.0.tar.gz > rat_cpp.txt
+UNAPPROVED_CPP=`cat rat_cpp.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
+
+java -jar apache-rat-0.12.jar \
+  -d format \
+  -e ".*" \
+  ../apache-arrow-0.1.0.tar.gz > rat_format.txt
+UNAPPROVED_FORMAT=`cat rat_format.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
+
+java -jar apache-rat-0.12.jar \
+  -d python/src \
+  -e ".*" \
+  -e status.cc \
+  -e status.h \
+  ../apache-arrow-0.1.0.tar.gz > rat_python.txt
+UNAPPROVED_PYTHON=`cat rat_python.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
+
+
+UNAPPROVED=$(($UNAPPROVED_CPP + $UNAPPROVED_FORMAT + $UNAPPROVED_PYTHON))
+
+if [ "0" -eq "${UNAPPROVED}" ]; then
+  echo "No unnaproved licenses"
+else
+  echo "${UNAPPROVED} unapporved licences. Check rat report: rat_*.txt"
+  exit
+fi
+
 # sign the archive
 gpg --armor --output ${tarball}.asc --detach-sig $tarball
 gpg --print-md MD5 $tarball > ${tarball}.md5
 shasum $tarball > ${tarball}.sha
 
-# check out the parquet RC folder
+# check out the arrow RC folder
 svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
 
 # add the release candidate for the tag

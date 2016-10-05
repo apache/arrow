@@ -3,6 +3,9 @@ requirements:
 - a gpg key to sign the artifacts
 
 to release, run the following (replace 0.1.0 with version to release):
+
+#create a release branch
+git co -b release-0_1_0
 # prepare release v 0.1.0 (run tests, sign artifacts). Next version will be 0.1.1-SNAPSHOT
 dev/release/00-prepare.sh 0.1.0 0.1.1
 # tag and push to maven repo (repo will have to be finalized separately)
@@ -11,5 +14,12 @@ dev/release/01-perform.sh
 dev/release/02-source.sh 0.1.0 0
 
 useful commands:
-to set the mvn version in the poms
+- to set the mvn version in the poms
 mvn versions:set -DnewVersion=0.1-SNAPSHOT
+- reset your workspace
+git reset --hard
+- setup gpg agent
+eval $(gpg-agent --daemon --allow-preset-passphrase)
+gpg --use-agent -s LICENSE.txt 
+- delete tag localy
+git tag -d apache-arrow-0.1.0
