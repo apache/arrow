@@ -73,11 +73,11 @@ $RAT $tarball \
   -e cpplint.py \
   -e FindGPerf.cmake \
   -e FindPythonLibsNew.cmake \
-  -e pax_global_header
-  -e MANIFEST.in
-  -e __init__.pxd
-  -e __init__.py
-  -e requirements.txt
+  -e pax_global_header \
+  -e MANIFEST.in \
+  -e __init__.pxd \
+  -e __init__.py \
+  -e requirements.txt \
   > rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
