@@ -63,5 +63,5 @@ cdef extern from "pyarrow/io.h" namespace "pyarrow" nogil:
     cdef cppclass PyOutputStream(arrow_io.OutputStream):
         PyOutputStream(object fo)
 
-    cdef cppclass PyBytesReader(arrow_io.BufferReader):
+    cdef cppclass PyBytesReader(arrow_io.CBufferReader):
         PyBytesReader(object fo)

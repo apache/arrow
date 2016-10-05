@@ -38,7 +38,6 @@ import pyarrow.schema as schema
 
 def total_allocated_bytes():
     cdef MemoryPool* pool = pyarrow.GetMemoryPool()
-    return pool.bytes_allocated()
 
 
 cdef class Array:

@@ -22,6 +22,11 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_io cimport (ReadableFileInterface,
                                            OutputStream)
 
+cdef class Buffer:
+    cdef:
+        shared_ptr[CBuffer] buffer
+
+    cdef init(self, const shared_ptr[CBuffer]& buffer)
 
 cdef class NativeFile:
     cdef:

@@ -54,6 +54,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass MemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
+    cdef cppclass CBuffer" arrow::Buffer":
+        uint8_t* data()
+        int64_t size()
+
     cdef MemoryPool* default_memory_pool()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
@@ -201,7 +205,7 @@ cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
         MessageType_DICTIONARY_BATCH" arrow::ipc::Message::DICTIONARY_BATCH"
 
     cdef cppclass Message:
-        CStatus Open(const shared_ptr[Buffer]& buf,
+        CStatus Open(const shared_ptr[CBuffer]& buf,
                      shared_ptr[Message]* out)
         int64_t body_length()
         MessageType type()
