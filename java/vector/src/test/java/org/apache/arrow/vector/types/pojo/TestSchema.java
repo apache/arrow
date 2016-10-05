@@ -72,28 +72,34 @@ public class TestSchema {
   @Test
   public void testTS() throws IOException {
     Schema schema = new Schema(asList(
-        field("m", new ArrowType.Timestamp(TimeUnit.MILLISECOND))
+        field("a", new ArrowType.Timestamp(TimeUnit.SECOND)),
+        field("b", new ArrowType.Timestamp(TimeUnit.MILLISECOND)),
+        field("c", new ArrowType.Timestamp(TimeUnit.MICROSECOND)),
+        field("d", new ArrowType.Timestamp(TimeUnit.NANOSECOND))
         ));
     roundTrip(schema);
-    contains(schema, "MILLISECOND");
+    contains(schema, "SECOND", "MILLISECOND", "MICROSECOND", "NANOSECOND");
   }
 
   @Test
   public void testInterval() throws IOException {
     Schema schema = new Schema(asList(
-        field("n", new ArrowType.Interval(IntervalUnit.DAY_TIME))
+        field("a", new ArrowType.Interval(IntervalUnit.YEAR_MONTH)),
+        field("b", new ArrowType.Interval(IntervalUnit.DAY_TIME))
         ));
     roundTrip(schema);
-    contains(schema, "DAY_TIME");
+    contains(schema, "YEAR_MONTH", "DAY_TIME");
   }
 
   @Test
   public void testFP() throws IOException {
     Schema schema = new Schema(asList(
-        field("f", new ArrowType.FloatingPoint(Precision.SINGLE))
+        field("a", new ArrowType.FloatingPoint(Precision.HALF)),
+        field("b", new ArrowType.FloatingPoint(Precision.SINGLE)),
+        field("c", new ArrowType.FloatingPoint(Precision.DOUBLE))
         ));
     roundTrip(schema);
-    contains(schema, "SINGLE");
+    contains(schema, "HALF", "SINGLE", "DOUBLE");
   }
 
   private void roundTrip(Schema schema) throws IOException {
@@ -103,9 +109,11 @@ public class TestSchema {
     assertEquals(schema, actual);
   }
 
-  private void contains(Schema schema, String s) throws IOException {
+  private void contains(Schema schema, String... s) throws IOException {
     String json = schema.toJson();
-    assertTrue(json + " contains " + s, json.contains(s));
+    for (String string : s) {
+      assertTrue(json + " contains " + string, json.contains(string));
+    }
   }
 
 }

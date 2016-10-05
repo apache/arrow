@@ -19,6 +19,7 @@ package org.apache.arrow.vector.schema;
 
 import static java.util.Arrays.asList;
 import static org.apache.arrow.flatbuf.Precision.DOUBLE;
+import static org.apache.arrow.flatbuf.Precision.HALF;
 import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.apache.arrow.vector.schema.VectorLayout.booleanVector;
 import static org.apache.arrow.vector.schema.VectorLayout.byteVector;
@@ -113,6 +114,9 @@ public class TypeLayout {
       @Override public TypeLayout visit(FloatingPoint type) {
         int bitWidth;
         switch (type.getPrecision()) {
+        case HALF:
+          bitWidth = 16;
+          break;
         case SINGLE:
           bitWidth = 32;
           break;
