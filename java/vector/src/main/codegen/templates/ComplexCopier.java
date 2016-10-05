@@ -47,23 +47,25 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
-        writer.startList();
-        while (reader.next()) {
-          writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+        if (reader.isSet()) {
+          writer.startList();
+          while (reader.next()) {
+            writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+          }
+          writer.endList();
         }
-        writer.endList();
         break;
       case MAP:
-        writer.start();
         if (reader.isSet()) {
+          writer.start();
           for(String name : reader){
             FieldReader childReader = reader.reader(name);
             if(childReader.isSet()){
               writeValue(childReader, getMapWriterForReader(childReader, writer, name));
             }
           }
+          writer.end();
         }
-        writer.end();
         break;
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
