@@ -46,7 +46,7 @@ public class ArrowVectorType {
   public static ArrowVectorType fromName(String name) {
     ArrowVectorType type = typeByName.get(name);
     if (type == null) {
-      throw new IllegalArgumentException("Unlnown type " + name);
+      throw new IllegalArgumentException("Unknown type " + name);
     }
     return type;
   }
