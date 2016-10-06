@@ -47,3 +47,10 @@ The Arrow C++ library must be built with all options enabled and installed with
 python setup.py build_ext --inplace
 py.test pyarrow
 ```
+
+#### Build the documentation
+
+```bash
+pip install -r doc/requirements.txt
+python setup.py build_sphinx
+```
