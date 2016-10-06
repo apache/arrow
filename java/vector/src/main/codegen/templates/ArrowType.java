@@ -222,15 +222,21 @@ public abstract class ArrowType {
     public int getType(FlatBufferBuilder builder) {
       <#list type.fields as field>
       <#if field.type == "String">
-      int ${field.name} = builder.createString(this.${field.name});
+      int ${field.name} = this.${field.name} == null ? -1 : builder.createString(this.${field.name});
       </#if>
       <#if field.type == "int[]">
-      int ${field.name} = org.apache.arrow.flatbuf.${type.name}.create${field.name?cap_first}Vector(builder, this.${field.name});
+      int ${field.name} = this.${field.name} == null ? -1 : org.apache.arrow.flatbuf.${type.name}.create${field.name?cap_first}Vector(builder, this.${field.name});
       </#if>
       </#list>
       org.apache.arrow.flatbuf.${type.name}.start${type.name}(builder);
       <#list type.fields as field>
-      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, ${field.name});
+      <#if field.type == "String" || field.type == "int[]">
+      if (this.${field.name} != null) {
+        org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, ${field.name});
+      }
+      <#else>
+      org.apache.arrow.flatbuf.${type.name}.add${field.name?cap_first}(builder, this.${field.name});
+      </#if>
       </#list>
       return org.apache.arrow.flatbuf.${type.name}.end${type.name}(builder);
     }

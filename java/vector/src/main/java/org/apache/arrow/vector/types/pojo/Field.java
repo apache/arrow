@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.types.pojo;
 
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.List;
@@ -47,17 +48,17 @@ public class Field {
       @JsonProperty("typeLayout") TypeLayout typeLayout) {
     this.name = name;
     this.nullable = nullable;
-    this.type = type;
+    this.type = checkNotNull(type);
     if (children == null) {
       this.children = ImmutableList.of();
     } else {
       this.children = children;
     }
-    this.typeLayout = typeLayout;
+    this.typeLayout = checkNotNull(typeLayout);
   }
 
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
-    this(name, nullable, type, children, TypeLayout.getTypeLayout(type));
+    this(name, nullable, type, children, TypeLayout.getTypeLayout(checkNotNull(type)));
   }
 
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
@@ -85,7 +86,7 @@ public class Field {
   }
 
   public int getField(FlatBufferBuilder builder) {
-    int nameOffset = builder.createString(name);
+    int nameOffset = name == null ? -1 : builder.createString(name);
     int typeOffset = type.getType(builder);
     int[] childrenData = new int[children.size()];
     for (int i = 0; i < children.size(); i++) {
@@ -99,7 +100,9 @@ public class Field {
     }
     int layoutOffset =  org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
     org.apache.arrow.flatbuf.Field.startField(builder);
-    org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
+    if (name != null) {
+      org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
+    }
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
     org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeType());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
