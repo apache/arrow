@@ -17,7 +17,14 @@
  */
 package org.apache.arrow.vector.schema;
 
+import java.util.Map;
+
 import org.apache.arrow.flatbuf.VectorType;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 
 public class ArrowVectorType {
 
@@ -26,22 +33,52 @@ public class ArrowVectorType {
   public static final ArrowVectorType VALIDITY = new ArrowVectorType(VectorType.VALIDITY);
   public static final ArrowVectorType TYPE = new ArrowVectorType(VectorType.TYPE);
 
+  private static final Map<String, ArrowVectorType> typeByName;
+  static {
+    ArrowVectorType[] types = { DATA, OFFSET, VALIDITY, TYPE };
+    Builder<String, ArrowVectorType> builder = ImmutableMap.builder();
+    for (ArrowVectorType type: types) {
+      builder.put(type.getName(), type);
+    }
+    typeByName = builder.build();
+  }
+
+  public static ArrowVectorType fromName(String name) {
+    ArrowVectorType type = typeByName.get(name);
+    if (type == null) {
+      throw new IllegalArgumentException("Unknown type " + name);
+    }
+    return type;
+  }
+
   private final short type;
 
   public ArrowVectorType(short type) {
     this.type = type;
+    // validate that the type is valid
+    getName();
+  }
+
+  @JsonCreator
+  private ArrowVectorType(String name) {
+    this.type = fromName(name).type;
   }
 
   public short getType() {
     return type;
   }
 
-  @Override
-  public String toString() {
+  @JsonValue
+  public String getName() {
     try {
       return VectorType.name(type);
     } catch (ArrayIndexOutOfBoundsException e) {
-      return "Unlnown type " + type;
+      throw new IllegalArgumentException("Unknown type " + type);
     }
+  }
+
+  @Override
+  public String toString() {
+    return getName();
   }
 }

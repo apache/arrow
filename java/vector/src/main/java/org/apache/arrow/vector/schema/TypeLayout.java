@@ -19,6 +19,7 @@ package org.apache.arrow.vector.schema;
 
 import static java.util.Arrays.asList;
 import static org.apache.arrow.flatbuf.Precision.DOUBLE;
+import static org.apache.arrow.flatbuf.Precision.HALF;
 import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.apache.arrow.vector.schema.VectorLayout.booleanVector;
 import static org.apache.arrow.vector.schema.VectorLayout.byteVector;
@@ -49,6 +50,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 
 /**
@@ -110,6 +114,9 @@ public class TypeLayout {
       @Override public TypeLayout visit(FloatingPoint type) {
         int bitWidth;
         switch (type.getPrecision()) {
+        case HALF:
+          bitWidth = 16;
+          break;
         case SINGLE:
           bitWidth = 32;
           break;
@@ -184,7 +191,8 @@ public class TypeLayout {
 
   private final List<VectorLayout> vectors;
 
-  public TypeLayout(List<VectorLayout> vectors) {
+  @JsonCreator
+  public TypeLayout(@JsonProperty("vectors") List<VectorLayout> vectors) {
     super();
     this.vectors = Preconditions.checkNotNull(vectors);
   }
@@ -198,6 +206,7 @@ public class TypeLayout {
     return vectors;
   }
 
+  @JsonIgnore
   public List<ArrowVectorType> getVectorTypes() {
     List<ArrowVectorType> types = new ArrayList<>(vectors.size());
     for (VectorLayout vector : vectors) {

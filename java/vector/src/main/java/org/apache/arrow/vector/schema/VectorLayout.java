@@ -22,6 +22,8 @@ import static org.apache.arrow.vector.schema.ArrowVectorType.OFFSET;
 import static org.apache.arrow.vector.schema.ArrowVectorType.TYPE;
 import static org.apache.arrow.vector.schema.ArrowVectorType.VALIDITY;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -75,7 +77,8 @@ public class VectorLayout implements FBSerializable {
 
   private final ArrowVectorType type;
 
-  private VectorLayout(ArrowVectorType type, int typeBitWidth) {
+  @JsonCreator
+  private VectorLayout(@JsonProperty("type") ArrowVectorType type, @JsonProperty("typeBitWidth") int typeBitWidth) {
     super();
     this.type = Preconditions.checkNotNull(type);
     this.typeBitWidth = (short)typeBitWidth;

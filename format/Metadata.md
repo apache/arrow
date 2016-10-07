@@ -63,6 +63,87 @@ table Field {
 The `type` is the logical type of the field. Nested types, such as List,
 Struct, and Union, have a sequence of child fields.
 
+a JSON representation of the schema is also provided:
+Field:
+```
+{
+  "name" : "name_of_the_field",
+  "nullable" : false,
+  "type" : /* Type */,
+  "children" : [ /* Field */ ],
+  "typeLayout" : {
+    "vectors" : [ /* VectorLayout */ ]
+  }
+}
+```
+VectorLayout:
+```
+{
+  "type" : "DATA|OFFSET|VALIDITY|TYPE",
+  "typeBitWidth" : /* int */
+}
+```
+Type:
+```
+{
+  "name" : "null|struct|list|union|int|floatingpoint|utf8|binary|bool|decimal|date|time|timestamp|interval"
+  // fields as defined in the flatbuff depending on the type name
+}
+```
+Union:
+```
+{
+  "name" : "union",
+  "mode" : "Sparse|Dense",
+  "typeIds" : [ /* integer */ ]
+}
+```
+Int:
+```
+{
+  "name" : "int",
+  "bitWidth" : /* integer */,
+  "isSigned" : /* boolean */
+}
+```
+FloatingPoint:
+```
+{
+  "name" : "floatingpoint",
+  "precision" : "HALF|SINGLE|DOUBLE"
+}
+```
+Decimal:
+```
+{
+  "name" : "decimal",
+  "precision" : /* integer */,
+  "scale" : /* integer */
+}
+```
+Timestamp:
+```
+{
+  "name" : "timestamp",
+  "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND"
+}
+```
+Interval:
+```
+{
+  "name" : "interval",
+  "unit" : "YEAR_MONTH|DAY_TIME"
+}
+```
+Schema:
+```
+{
+  "fields" : [
+    /* Field */
+  ]
+}
+```
+
 ## Record data headers
 
 A record batch is a collection of top-level named, equal length Arrow arrays
