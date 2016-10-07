@@ -25,6 +25,7 @@
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/writer-internal.h"
 #include "parquet/types.h"
+#include "parquet/util/comparison.h"
 #include "parquet/util/input.h"
 #include "parquet/util/output.h"
 
@@ -38,7 +39,7 @@ namespace test {
 // The default size used in most tests.
 const int SMALL_SIZE = 100;
 // Larger size to test some corner cases, only used in some specific cases.
-const int LARGE_SIZE = 10000;
+const int LARGE_SIZE = 100000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 400000;
 
@@ -97,26 +98,37 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     this->SyncValuesOut();
   }
 
+  void ReadColumnFully(Compression::type compression = Compression::UNCOMPRESSED);
+
   void TestRequiredWithEncoding(Encoding::type encoding) {
     return TestRequiredWithSettings(encoding, Compression::UNCOMPRESSED, false, false);
   }
 
   void TestRequiredWithSettings(Encoding::type encoding, Compression::type compression,
-      bool enable_dictionary, bool enable_statistics) {
-    this->GenerateData(SMALL_SIZE);
+      bool enable_dictionary, bool enable_statistics, int64_t num_rows = SMALL_SIZE) {
+    this->GenerateData(num_rows);
 
     // Test case 1: required and non-repeated, so no definition or repetition levels
     ColumnProperties column_properties(
         encoding, compression, enable_dictionary, enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
-        this->BuildWriter(SMALL_SIZE, column_properties);
+        this->BuildWriter(num_rows, column_properties);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
 
-    this->ReadColumn(compression);
-    ASSERT_EQ(SMALL_SIZE, this->values_read_);
+    this->SetupValuesOut(num_rows);
+    this->ReadColumnFully(compression);
+    Compare<T> compare(this->descr_);
+    for (size_t i = 0; i < this->values_.size(); i++) {
+      if (compare(this->values_[i], this->values_out_[i]) ||
+          compare(this->values_out_[i], this->values_[i])) {
+        std::cout << "Failed at " << i << std::endl;
+      }
+      ASSERT_FALSE(compare(this->values_[i], this->values_out_[i]));
+      ASSERT_FALSE(compare(this->values_out_[i], this->values_[i]));
+    }
     ASSERT_EQ(this->values_, this->values_out_);
   }
 
@@ -154,7 +166,52 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::unique_ptr<InMemoryOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
+  std::vector<std::vector<uint8_t>> data_buffer_;
 };
+
+template <typename TestType>
+void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compression) {
+  BuildReader(compression);
+  values_read_ = 0;
+  while (values_read_ < static_cast<int64_t>(this->values_out_.size())) {
+    int64_t values_read_recently = 0;
+    reader_->ReadBatch(this->values_out_.size() - values_read_,
+        definition_levels_out_.data() + values_read_,
+        repetition_levels_out_.data() + values_read_,
+        this->values_out_ptr_ + values_read_, &values_read_recently);
+    values_read_ += values_read_recently;
+  }
+  this->SyncValuesOut();
+}
+
+template <>
+void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression) {
+  BuildReader(compression);
+  this->data_buffer_.clear();
+
+  values_read_ = 0;
+  while (values_read_ < static_cast<int64_t>(this->values_out_.size())) {
+    int64_t values_read_recently = 0;
+    reader_->ReadBatch(this->values_out_.size() - values_read_,
+        definition_levels_out_.data() + values_read_,
+        repetition_levels_out_.data() + values_read_,
+        this->values_out_ptr_ + values_read_, &values_read_recently);
+
+    // Copy contents of the pointers
+    std::vector<uint8_t> data(values_read_recently * this->descr_->type_length());
+    uint8_t* data_ptr = data.data();
+    for (int64_t i = 0; i < values_read_recently; i++) {
+      memcpy(data_ptr + this->descr_->type_length() * i,
+          this->values_out_[i + values_read_].ptr, this->descr_->type_length());
+      this->values_out_[i + values_read_].ptr =
+          data_ptr + this->descr_->type_length() * i;
+    }
+    data_buffer_.emplace_back(std::move(data));
+
+    values_read_ += values_read_recently;
+  }
+  this->SyncValuesOut();
+}
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
     BooleanType, ByteArrayType, FLBAType> TestTypes;
@@ -198,23 +255,28 @@ TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
 */
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithSnappyCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, false);
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::SNAPPY, false, false, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false);
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::GZIP, false, false, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true);
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::UNCOMPRESSED, false, true, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, true);
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::SNAPPY, false, true, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true);
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::GZIP, false, true, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {

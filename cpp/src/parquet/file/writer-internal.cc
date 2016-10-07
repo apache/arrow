@@ -41,8 +41,7 @@ SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type
       dictionary_page_offset_(0),
       data_page_offset_(0),
       total_uncompressed_size_(0),
-      total_compressed_size_(0),
-      compression_buffer_(std::make_shared<OwnedMutableBuffer>(0, allocator)) {
+      total_compressed_size_(0) {
   compressor_ = Codec::Create(codec);
 }
 
@@ -72,11 +71,11 @@ std::shared_ptr<Buffer> SerializedPageWriter::Compress(
   // Compress the data
   int64_t max_compressed_size =
       compressor_->MaxCompressedLen(buffer->size(), buffer->data());
-  compression_buffer_->Resize(max_compressed_size);
+  auto compression_buffer = std::make_shared<OwnedMutableBuffer>(max_compressed_size);
   int64_t compressed_size = compressor_->Compress(buffer->size(), buffer->data(),
-      max_compressed_size, compression_buffer_->mutable_data());
-  compression_buffer_->Resize(compressed_size);
-  return compression_buffer_;
+      max_compressed_size, compression_buffer->mutable_data());
+  compression_buffer->Resize(compressed_size);
+  return compression_buffer;
 }
 
 int64_t SerializedPageWriter::WriteDataPage(const CompressedDataPage& page) {

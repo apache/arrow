@@ -46,9 +46,6 @@ class SerializedPageWriter : public PageWriter {
 
   /**
    * Compress a buffer.
-   *
-   * This method may return compression_buffer_ and thus the resulting memory
-   * is only valid until the next call to Compress().
    */
   std::shared_ptr<Buffer> Compress(const std::shared_ptr<Buffer>& buffer) override;
 
@@ -65,7 +62,6 @@ class SerializedPageWriter : public PageWriter {
 
   // Compression codec to use.
   std::unique_ptr<Codec> compressor_;
-  std::shared_ptr<OwnedMutableBuffer> compression_buffer_;
 };
 
 // RowGroupWriter::Contents implementation for the Parquet file specification
