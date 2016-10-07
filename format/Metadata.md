@@ -46,7 +46,17 @@ table Field {
   name: string;
   nullable: bool;
   type: Type;
+  // present only if the field is dictionary encoded
+  // will point to a dictionary provided by a DictionaryBatch message
+  dictionary: long;
+  // children apply only to Nested data types like Struct, List and Union
   children: [Field];
+  /// layout of buffers produced for this type (as derived from the Type)
+  /// does not include children
+  /// each recordbatch will return instances of those Buffers.
+  layout: [ VectorLayout ];
+  // User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 ```
 
