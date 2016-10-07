@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
 import org.apache.arrow.vector.complex.AbstractMapVector;
@@ -50,7 +51,7 @@ public class TestPromotableWriter {
   @Test
   public void testPromoteToUnion() throws Exception {
 
-    try (final AbstractMapVector container = new MapVector(EMPTY_SCHEMA_PATH, allocator, null);
+    try (final MapVector container = new MapVector(EMPTY_SCHEMA_PATH, allocator, null);
          final NullableMapVector v = container.addOrGet("test", MinorType.MAP, NullableMapVector.class);
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
@@ -92,6 +93,19 @@ public class TestPromotableWriter {
 
       assertFalse("4 shouldn't be null", accessor.isNull(4));
       assertEquals(100, accessor.getObject(4));
+
+      container.clear();
+      container.allocateNew();
+
+      ComplexWriterImpl newWriter = new ComplexWriterImpl(EMPTY_SCHEMA_PATH, container);
+
+      writer.start();
+
+      writer.setPosition(2);
+      writer.integer("A").writeInt(10);
+
+      assertEquals("Child field should be union type", Type.Union, container.getField().getChildren().get(0).getChildren().get(0).getType().getTypeType());
+
     }
   }
 }

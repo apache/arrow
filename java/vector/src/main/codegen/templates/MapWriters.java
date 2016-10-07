@@ -56,6 +56,28 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     }
     </#if>
     this.container = container;
+    for (Field child : container.getField().getChildren()) {
+      switch (Types.getMinorTypeForArrowType(child.getType())) {
+      case MAP:
+        map(child.getName());
+        break;
+      case LIST:
+        list(child.getName());
+        break;
+      case UNION:
+        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class));
+        fields.put(child.getName().toLowerCase(), writer);
+        break;
+<#list vv.types as type><#list type.minor as minor>
+<#assign lowerName = minor.class?uncap_first />
+<#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
+<#assign upperName = minor.class?upper_case />
+      case ${upperName}:
+        ${lowerName}(child.getName());
+        break;
+</#list></#list>
+      }
+    }
   }
 
   @Override
