@@ -40,10 +40,12 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.holders.NullableTimeStampHolder;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.joda.time.DateTimeZone;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -58,14 +60,18 @@ public class TestArrowFile {
   private static final int COUNT = 10;
   private BufferAllocator allocator;
 
+  private DateTimeZone defaultTimezone = DateTimeZone.getDefault();
+
   @Before
   public void init() {
+    DateTimeZone.setDefault(DateTimeZone.forOffsetHours(2));
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
   @After
   public void tearDown() {
     allocator.close();
+    DateTimeZone.setDefault(defaultTimezone);
   }
 
   @Test
@@ -258,7 +264,9 @@ public class TestArrowFile {
       Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
       Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
       Assert.assertEquals(i % 3, rootReader.reader("list").size());
-      Assert.assertEquals(i, rootReader.reader("map").reader("timestamp").readDateTime().getMillis() % COUNT);
+      NullableTimeStampHolder h = new NullableTimeStampHolder();
+      rootReader.reader("map").reader("timestamp").read(h);
+      Assert.assertEquals(i, h.value % COUNT);
     }
   }
 
