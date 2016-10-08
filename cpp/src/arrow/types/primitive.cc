@@ -86,7 +86,7 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
 template <typename T>
 Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
   // XXX: Set floor size for now
-  if (capacity < MIN_BUILDER_CAPACITY) { capacity = MIN_BUILDER_CAPACITY; }
+  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(Init(capacity));
