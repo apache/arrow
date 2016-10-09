@@ -21,46 +21,68 @@ import numpy as np
 import pandas as pd
 
 import pyarrow as A
+import pyarrow.io as arrow_io
 import pyarrow.ipc as ipc
 
 
-def test_ipc_file_simple_roundtrip():
+class RoundtripTest(object):
     # Also tests writing zero-copy NumPy array with additional padding
 
-    nrows = 5
-    df = pd.DataFrame({
-        'one': np.random.randn(nrows),
-        'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+    def __init__(self):
+        self.sink = self._get_sink()
 
-    batch = A.RecordBatch.from_pandas(df)
+    def _get_sink(self):
+        return io.BytesIO()
 
-    sink = io.BytesIO()
-    writer = ipc.ArrowFileWriter(sink, batch.schema)
+    def _get_source(self):
+        return self.sink.getvalue()
 
-    num_batches = 5
-    frames = []
-    batches = []
-    for i in range(num_batches):
-        unique_df = df.copy()
-        unique_df['one'] = np.random.randn(nrows)
+    def run(self):
+        nrows = 5
+        df = pd.DataFrame({
+            'one': np.random.randn(nrows),
+            'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
 
-        batch = A.RecordBatch.from_pandas(unique_df)
-        writer.write_record_batch(batch)
-        frames.append(unique_df)
-        batches.append(batch)
+        batch = A.RecordBatch.from_pandas(df)
+        writer = ipc.ArrowFileWriter(self.sink, batch.schema)
 
-    writer.close()
+        num_batches = 5
+        frames = []
+        batches = []
+        for i in range(num_batches):
+            unique_df = df.copy()
+            unique_df['one'] = np.random.randn(nrows)
 
-    file_contents = sink.getvalue()
-    reader = ipc.ArrowFileReader(file_contents)
+            batch = A.RecordBatch.from_pandas(unique_df)
+            writer.write_record_batch(batch)
+            frames.append(unique_df)
+            batches.append(batch)
 
-    assert reader.num_record_batches == num_batches
+        writer.close()
 
-    for i in range(num_batches):
-        # it works. Must convert back to DataFrame
-        batch = reader.get_record_batch(i)
+        file_contents = self._get_source()
+        reader = ipc.ArrowFileReader(file_contents)
 
-        assert batches[i].equals(batch)
+        assert reader.num_record_batches == num_batches
+
+        for i in range(num_batches):
+            # it works. Must convert back to DataFrame
+            batch = reader.get_record_batch(i)
+            assert batches[i].equals(batch)
+
+
+class InMemoryStreamTest(RoundtripTest):
+
+    def _get_sink(self):
+        return arrow_io.InMemoryOutputStream()
+
+    def _get_source(self):
+        return self.sink.get_result()
+
+
+def test_ipc_file_simple_roundtrip():
+    helper = RoundtripTest()
+    helper.run()
 
 
 # XXX: For benchmarking

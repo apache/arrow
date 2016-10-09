@@ -58,6 +58,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         uint8_t* data()
         int64_t size()
 
+    cdef cppclass ResizableBuffer(CBuffer):
+        CStatus Resize(int64_t nbytes)
+        CStatus Reserve(int64_t nbytes)
+
+    cdef cppclass PoolBuffer(ResizableBuffer):
+        PoolBuffer()
+        PoolBuffer(MemoryPool*)
+
     cdef MemoryPool* default_memory_pool()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):

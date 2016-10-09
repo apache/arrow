@@ -37,7 +37,7 @@ import pyarrow.schema as schema
 
 
 def total_allocated_bytes():
-    cdef MemoryPool* pool = pyarrow.GetMemoryPool()
+    cdef MemoryPool* pool = pyarrow.get_memory_pool()
 
 
 cdef class Array:
@@ -243,13 +243,13 @@ def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
 
     if mask is None:
         with nogil:
-            check_status(pyarrow.PandasToArrow(pyarrow.GetMemoryPool(),
+            check_status(pyarrow.PandasToArrow(pyarrow.get_memory_pool(),
                                                series_values, &out))
     else:
         mask = series_as_ndarray(mask)
         with nogil:
             check_status(pyarrow.PandasMaskedToArrow(
-                pyarrow.GetMemoryPool(), series_values, mask, &out))
+                pyarrow.get_memory_pool(), series_values, mask, &out))
 
     return box_arrow_array(out)
 

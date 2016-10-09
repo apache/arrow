@@ -109,7 +109,8 @@ class PyGILGuard {
     return Status::UnknownError(message);           \
   }
 
-PYARROW_EXPORT arrow::MemoryPool* GetMemoryPool();
+// Return the common PyArrow memory pool
+PYARROW_EXPORT arrow::MemoryPool* get_memory_pool();
 
 class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
  public:

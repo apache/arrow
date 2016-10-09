@@ -121,5 +121,30 @@ TEST_F(TestMemoryMappedFile, InvalidFile) {
       IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
 }
 
+class TestBufferOutputStream : public ::testing::Test {
+ public:
+  void SetUp() {
+    buffer_.reset(new PoolBuffer(default_memory_pool()));
+    stream_.reset(new BufferOutputStream(buffer_));
+  }
+
+ protected:
+  std::shared_ptr<PoolBuffer> buffer_;
+  std::unique_ptr<OutputStream> stream_;
+};
+
+TEST_F(TestBufferOutputStream, CloseResizes) {
+  std::string data = "data123456";
+
+  const int64_t nbytes = static_cast<int64_t>(data.size());
+  const int K = 100;
+  for (int i = 0; i < K; ++i) {
+    EXPECT_OK(stream_->Write(reinterpret_cast<const uint8_t*>(data.c_str()), nbytes));
+  }
+
+  ASSERT_OK(stream_->Close());
+  ASSERT_EQ(K * nbytes, buffer_->size());
+}
+
 }  // namespace io
 }  // namespace arrow

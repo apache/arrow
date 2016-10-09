@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport MemoryPool, CBuffer
+from pyarrow.includes.libarrow cimport *
 
 cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
@@ -148,5 +148,4 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
     cdef cppclass BufferOutputStream(OutputStream):
-        # TODO(wesm)
-        pass
+        BufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)

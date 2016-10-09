@@ -426,7 +426,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
 
   // Give the sequence converter an array builder
   std::shared_ptr<ArrayBuilder> builder;
-  RETURN_ARROW_NOT_OK(arrow::MakeBuilder(GetMemoryPool(), type, &builder));
+  RETURN_ARROW_NOT_OK(arrow::MakeBuilder(get_memory_pool(), type, &builder));
   converter->Init(builder);
 
   PY_RETURN_NOT_OK(converter->AppendData(obj));

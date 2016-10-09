@@ -74,9 +74,15 @@ cdef class NativeFile:
         if not self.is_readonly:
             raise IOError("only valid on readonly files")
 
+        if not self.is_open:
+            raise IOError("file not open")
+
     def _assert_writeable(self):
         if self.is_readonly:
             raise IOError("only valid on writeonly files")
+
+        if not self.is_open:
+            raise IOError("file not open")
 
     def size(self):
         cdef int64_t size
@@ -169,6 +175,7 @@ cdef class BytesReader(NativeFile):
 # ----------------------------------------------------------------------
 # Arrow buffers
 
+
 cdef class Buffer:
 
     def __cinit__(self):
@@ -177,16 +184,65 @@ cdef class Buffer:
     cdef init(self, const shared_ptr[CBuffer]& buffer):
         self.buffer = buffer
 
+    def __len__(self):
+        return self.size
+
+    property size:
+
+        def __get__(self):
+            return self.buffer.get().size()
+
+    def __getitem__(self, key):
+        # TODO(wesm): buffer slicing
+        raise NotImplementedError
+
     def to_pybytes(self):
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
 
+cdef shared_ptr[PoolBuffer] allocate_buffer():
+    cdef shared_ptr[PoolBuffer] result
+    result.reset(new PoolBuffer(pyarrow.get_memory_pool()))
+    return result
+
+
 cdef class InMemoryOutputStream(NativeFile):
 
+    cdef:
+        shared_ptr[PoolBuffer] buffer
+
+    def __cinit__(self):
+        self.buffer = allocate_buffer()
+        self.wr_file.reset(new BufferOutputStream(
+            <shared_ptr[ResizableBuffer]> self.buffer))
+        self.is_readonly = 0
+        self.is_open = True
+
     def get_result(self):
-        pass
+        cdef Buffer result = Buffer()
+
+        check_cstatus(self.wr_file.get().Close())
+        result.init(<shared_ptr[CBuffer]> self.buffer)
+
+        self.is_open = False
+        return result
+
+
+def buffer_from_bytes(object obj):
+    """
+    Construct an Arrow buffer from a Python bytes object
+    """
+    if not isinstance(obj, bytes):
+        raise ValueError('Must pass bytes object')
+
+    cdef shared_ptr[CBuffer] buf
+    buf.reset(new pyarrow.PyBytesBuffer(obj))
+
+    cdef Buffer result = Buffer()
+    result.init(buf)
+    return result
 
 # ----------------------------------------------------------------------
 # HDFS IO implementation
