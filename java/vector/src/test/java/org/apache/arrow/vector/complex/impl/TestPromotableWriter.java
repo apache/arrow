@@ -67,6 +67,8 @@ public class TestPromotableWriter {
       writer.setPosition(1);
       writer.bit("A").writeBit(1);
 
+      writer.decimal("dec", 10,10);
+
       writer.setPosition(2);
       writer.integer("A").writeInt(10);
 
@@ -108,9 +110,10 @@ public class TestPromotableWriter {
       newMapWriter.setPosition(2);
       newMapWriter.integer("A").writeInt(10);
 
-      Field childField = container.getField().getChildren().get(0).getChildren().get(0);
-      assertEquals("Child field should be union type: " + childField.getName(), Type.Union, childField.getType().getTypeType());
-
+      Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
+      Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
+      assertEquals("Child field should be union type: " + childField1.getName(), Type.Union, childField1.getType().getTypeType());
+      assertEquals("Child field should be decimal type: " + childField2.getName(), Type.Decimal, childField2.getType().getTypeType());
     }
   }
 }
