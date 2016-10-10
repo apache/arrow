@@ -509,5 +509,7 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})
-    target_link_libraries(${module_name} pyarrow)
+    target_link_libraries(${module_name}
+      ${LINK_LIBS}
+      pyarrow)
 endforeach(module)
