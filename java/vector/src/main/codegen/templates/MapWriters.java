@@ -73,7 +73,12 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
 <#assign upperName = minor.class?upper_case />
       case ${upperName}:
+        <#if lowerName == "decimal" >
+        Decimal decimal = (Decimal)child.getType();
+        decimal(child.getName(), decimal.getScale(), decimal.getPrecision());
+        <#else>
         ${lowerName}(child.getName());
+       </#if>
         break;
 </#list></#list>
       }
