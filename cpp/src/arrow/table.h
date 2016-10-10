@@ -43,6 +43,8 @@ class ARROW_EXPORT RecordBatch {
   RecordBatch(const std::shared_ptr<Schema>& schema, int32_t num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
+  bool Equals(const RecordBatch& other) const;
+
   // @returns: the table's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 

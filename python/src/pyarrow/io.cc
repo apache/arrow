@@ -47,9 +47,9 @@ static arrow::Status CheckPyError() {
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
     PyObjectStringify stringified(exc_value);
     std::string message(stringified.bytes);
-    Py_DECREF(exc_type);
-    Py_DECREF(exc_value);
-    Py_DECREF(traceback);
+    Py_XDECREF(exc_type);
+    Py_XDECREF(exc_value);
+    Py_XDECREF(traceback);
     PyErr_Clear();
     return arrow::Status::IOError(message);
   }

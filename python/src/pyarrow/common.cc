@@ -63,7 +63,7 @@ class PyArrowMemoryPool : public arrow::MemoryPool {
   int64_t bytes_allocated_;
 };
 
-arrow::MemoryPool* GetMemoryPool() {
+arrow::MemoryPool* get_memory_pool() {
   static PyArrowMemoryPool memory_pool;
   return &memory_pool;
 }

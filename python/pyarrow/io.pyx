@@ -36,6 +36,217 @@ import re
 import sys
 import threading
 
+
+cdef class NativeFile:
+
+    def __cinit__(self):
+        self.is_open = False
+        self.own_file = False
+
+    def __dealloc__(self):
+        if self.is_open and self.own_file:
+            self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.close()
+
+    def close(self):
+        if self.is_open:
+            with nogil:
+                if self.is_readonly:
+                    check_cstatus(self.rd_file.get().Close())
+                else:
+                    check_cstatus(self.wr_file.get().Close())
+        self.is_open = False
+
+    cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
+        self._assert_readable()
+        file[0] = <shared_ptr[ReadableFileInterface]> self.rd_file
+
+    cdef write_handle(self, shared_ptr[OutputStream]* file):
+        self._assert_writeable()
+        file[0] = <shared_ptr[OutputStream]> self.wr_file
+
+    def _assert_readable(self):
+        if not self.is_readonly:
+            raise IOError("only valid on readonly files")
+
+        if not self.is_open:
+            raise IOError("file not open")
+
+    def _assert_writeable(self):
+        if self.is_readonly:
+            raise IOError("only valid on writeonly files")
+
+        if not self.is_open:
+            raise IOError("file not open")
+
+    def size(self):
+        cdef int64_t size
+        self._assert_readable()
+        with nogil:
+            check_cstatus(self.rd_file.get().GetSize(&size))
+        return size
+
+    def tell(self):
+        cdef int64_t position
+        with nogil:
+            if self.is_readonly:
+                check_cstatus(self.rd_file.get().Tell(&position))
+            else:
+                check_cstatus(self.wr_file.get().Tell(&position))
+        return position
+
+    def seek(self, int64_t position):
+        self._assert_readable()
+        with nogil:
+            check_cstatus(self.rd_file.get().Seek(position))
+
+    def write(self, data):
+        """
+        Write bytes-like (unicode, encoded to UTF-8) to file
+        """
+        self._assert_writeable()
+
+        data = tobytes(data)
+
+        cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
+        cdef int64_t bufsize = len(data)
+        with nogil:
+            check_cstatus(self.wr_file.get().Write(buf, bufsize))
+
+    def read(self, int nbytes):
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+            shared_ptr[CBuffer] out
+
+        self._assert_readable()
+
+        with nogil:
+            check_cstatus(self.rd_file.get()
+                          .ReadB(nbytes, &out))
+
+        result = cp.PyBytes_FromStringAndSize(
+            <const char*>out.get().data(), out.get().size())
+
+        return result
+
+
+# ----------------------------------------------------------------------
+# Python file-like objects
+
+cdef class PythonFileInterface(NativeFile):
+    cdef:
+        object handle
+
+    def __cinit__(self, handle, mode='w'):
+        self.handle = handle
+
+        if mode.startswith('w'):
+            self.wr_file.reset(new pyarrow.PyOutputStream(handle))
+            self.is_readonly = 0
+        elif mode.startswith('r'):
+            self.rd_file.reset(new pyarrow.PyReadableFile(handle))
+            self.is_readonly = 1
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        self.is_open = True
+
+
+cdef class BytesReader(NativeFile):
+    cdef:
+        object obj
+
+    def __cinit__(self, obj):
+        if not isinstance(obj, bytes):
+            raise ValueError('Must pass bytes object')
+
+        self.obj = obj
+        self.is_readonly = 1
+        self.is_open = True
+
+        self.rd_file.reset(new pyarrow.PyBytesReader(obj))
+
+# ----------------------------------------------------------------------
+# Arrow buffers
+
+
+cdef class Buffer:
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[CBuffer]& buffer):
+        self.buffer = buffer
+
+    def __len__(self):
+        return self.size
+
+    property size:
+
+        def __get__(self):
+            return self.buffer.get().size()
+
+    def __getitem__(self, key):
+        # TODO(wesm): buffer slicing
+        raise NotImplementedError
+
+    def to_pybytes(self):
+        return cp.PyBytes_FromStringAndSize(
+            <const char*>self.buffer.get().data(),
+            self.buffer.get().size())
+
+
+cdef shared_ptr[PoolBuffer] allocate_buffer():
+    cdef shared_ptr[PoolBuffer] result
+    result.reset(new PoolBuffer(pyarrow.get_memory_pool()))
+    return result
+
+
+cdef class InMemoryOutputStream(NativeFile):
+
+    cdef:
+        shared_ptr[PoolBuffer] buffer
+
+    def __cinit__(self):
+        self.buffer = allocate_buffer()
+        self.wr_file.reset(new BufferOutputStream(
+            <shared_ptr[ResizableBuffer]> self.buffer))
+        self.is_readonly = 0
+        self.is_open = True
+
+    def get_result(self):
+        cdef Buffer result = Buffer()
+
+        check_cstatus(self.wr_file.get().Close())
+        result.init(<shared_ptr[CBuffer]> self.buffer)
+
+        self.is_open = False
+        return result
+
+
+def buffer_from_bytes(object obj):
+    """
+    Construct an Arrow buffer from a Python bytes object
+    """
+    if not isinstance(obj, bytes):
+        raise ValueError('Must pass bytes object')
+
+    cdef shared_ptr[CBuffer] buf
+    buf.reset(new pyarrow.PyBytesBuffer(obj))
+
+    cdef Buffer result = Buffer()
+    result.init(buf)
+    return result
+
+# ----------------------------------------------------------------------
+# HDFS IO implementation
+
 _HDFS_PATH_RE = re.compile('hdfs://(.*):(\d+)(.*)')
 
 try:
@@ -274,6 +485,7 @@ cdef class HdfsClient:
         out.buffer_size = c_buffer_size
         out.parent = self
         out.is_open = True
+        out.own_file = True
 
         return out
 
@@ -321,134 +533,6 @@ cdef class HdfsClient:
         f = self.open(path, 'rb', buffer_size=buffer_size)
         f.download(stream)
 
-
-cdef class NativeFile:
-
-    def __cinit__(self):
-        self.is_open = False
-
-    def __dealloc__(self):
-        if self.is_open:
-            self.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, tb):
-        self.close()
-
-    def close(self):
-        if self.is_open:
-            with nogil:
-                if self.is_readonly:
-                    check_cstatus(self.rd_file.get().Close())
-                else:
-                    check_cstatus(self.wr_file.get().Close())
-        self.is_open = False
-
-    cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
-        self._assert_readable()
-        file[0] = <shared_ptr[ReadableFileInterface]> self.rd_file
-
-    cdef write_handle(self, shared_ptr[OutputStream]* file):
-        self._assert_writeable()
-        file[0] = <shared_ptr[OutputStream]> self.wr_file
-
-    def _assert_readable(self):
-        if not self.is_readonly:
-            raise IOError("only valid on readonly files")
-
-    def _assert_writeable(self):
-        if self.is_readonly:
-            raise IOError("only valid on writeonly files")
-
-    def size(self):
-        cdef int64_t size
-        self._assert_readable()
-        with nogil:
-            check_cstatus(self.rd_file.get().GetSize(&size))
-        return size
-
-    def tell(self):
-        cdef int64_t position
-        with nogil:
-            if self.is_readonly:
-                check_cstatus(self.rd_file.get().Tell(&position))
-            else:
-                check_cstatus(self.wr_file.get().Tell(&position))
-        return position
-
-    def seek(self, int64_t position):
-        self._assert_readable()
-        with nogil:
-            check_cstatus(self.rd_file.get().Seek(position))
-
-    def write(self, data):
-        """
-        Write bytes-like (unicode, encoded to UTF-8) to file
-        """
-        self._assert_writeable()
-
-        data = tobytes(data)
-
-        cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
-        cdef int64_t bufsize = len(data)
-        with nogil:
-            check_cstatus(self.wr_file.get().Write(buf, bufsize))
-
-    def read(self, int nbytes):
-        cdef:
-            int64_t bytes_read = 0
-            uint8_t* buf
-            shared_ptr[Buffer] out
-
-        self._assert_readable()
-
-        with nogil:
-            check_cstatus(self.rd_file.get()
-                          .ReadB(nbytes, &out))
-
-        result = cp.PyBytes_FromStringAndSize(
-            <const char*>out.get().data(), out.get().size())
-
-        return result
-
-
-# ----------------------------------------------------------------------
-# Python file-like objects
-
-cdef class PythonFileInterface(NativeFile):
-    cdef:
-        object handle
-
-    def __cinit__(self, handle, mode='w'):
-        self.handle = handle
-
-        if mode.startswith('w'):
-            self.wr_file.reset(new pyarrow.PyOutputStream(handle))
-            self.is_readonly = 0
-        elif mode.startswith('r'):
-            self.rd_file.reset(new pyarrow.PyReadableFile(handle))
-            self.is_readonly = 1
-        else:
-            raise ValueError('Invalid file mode: {0}'.format(mode))
-
-        self.is_open = True
-
-
-cdef class BytesReader(NativeFile):
-    cdef:
-        object obj
-
-    def __cinit__(self, obj):
-        if not isinstance(obj, bytes):
-            raise ValueError('Must pass bytes object')
-
-        self.obj = obj
-        self.is_readonly = 1
-        self.is_open = True
-
-        self.rd_file.reset(new pyarrow.PyBytesReader(obj))
 
 # ----------------------------------------------------------------------
 # Specialization for HDFS

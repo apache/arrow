@@ -21,6 +21,7 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/util/status.h"
@@ -34,6 +35,21 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int num_rows,
 const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name;
 }
+
+bool RecordBatch::Equals(const RecordBatch& other) const {
+  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+    return false;
+  }
+
+  for (int i = 0; i < num_columns(); ++i) {
+    if (!column(i)->Equals(other.column(i))) { return false; }
+  }
+
+  return true;
+}
+
+// ----------------------------------------------------------------------
+// Table methods
 
 Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns)

@@ -47,7 +47,3 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsKeyError()
         c_bool IsNotImplemented()
         c_bool IsInvalid()
-
-    cdef cppclass Buffer:
-        uint8_t* data()
-        int64_t size()

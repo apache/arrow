@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport MemoryPool
+from pyarrow.includes.libarrow cimport *
 
 cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
@@ -36,7 +36,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         FileMode mode()
 
     cdef cppclass Readable:
-        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[Buffer]* out)
+        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
@@ -57,7 +57,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         CStatus ReadAt(int64_t position, int64_t nbytes,
                        int64_t* bytes_read, uint8_t* buffer)
         CStatus ReadAt(int64_t position, int64_t nbytes,
-                       int64_t* bytes_read, shared_ptr[Buffer]* out)
+                       int64_t* bytes_read, shared_ptr[CBuffer]* out)
 
     cdef cppclass WriteableFileInterface(OutputStream, Seekable):
         CStatus WriteAt(int64_t position, const uint8_t* data,
@@ -143,9 +143,9 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
 
 
 cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
-    cdef cppclass BufferReader(ReadableFileInterface):
-        BufferReader(const uint8_t* data, int64_t nbytes)
+    cdef cppclass CBufferReader" arrow::io::BufferReader"\
+        (ReadableFileInterface):
+        CBufferReader(const uint8_t* data, int64_t nbytes)
 
     cdef cppclass BufferOutputStream(OutputStream):
-        # TODO(wesm)
-        pass
+        BufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)

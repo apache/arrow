@@ -54,6 +54,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass MemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
+    cdef cppclass CBuffer" arrow::Buffer":
+        uint8_t* data()
+        int64_t size()
+
+    cdef cppclass ResizableBuffer(CBuffer):
+        CStatus Resize(int64_t nbytes)
+        CStatus Reserve(int64_t nbytes)
+
+    cdef cppclass PoolBuffer(ResizableBuffer):
+        PoolBuffer()
+        PoolBuffer(MemoryPool*)
+
     cdef MemoryPool* default_memory_pool()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
@@ -149,6 +161,21 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const shared_ptr[CDataType]& type()
         const shared_ptr[CChunkedArray]& data()
 
+    cdef cppclass CRecordBatch" arrow::RecordBatch":
+        CRecordBatch(const shared_ptr[CSchema]& schema, int32_t num_rows,
+                     const vector[shared_ptr[CArray]]& columns)
+
+        c_bool Equals(const CRecordBatch& other)
+
+        const shared_ptr[CSchema]& schema()
+        const shared_ptr[CArray]& column(int i)
+        const c_string& column_name(int i)
+
+        const vector[shared_ptr[CArray]]& columns()
+
+        int num_columns()
+        int32_t num_rows()
+
     cdef cppclass CTable" arrow::Table":
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CColumn]]& columns)
@@ -186,7 +213,7 @@ cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
         MessageType_DICTIONARY_BATCH" arrow::ipc::Message::DICTIONARY_BATCH"
 
     cdef cppclass Message:
-        CStatus Open(const shared_ptr[Buffer]& buf,
+        CStatus Open(const shared_ptr[CBuffer]& buf,
                      shared_ptr[Message]* out)
         int64_t body_length()
         MessageType type()

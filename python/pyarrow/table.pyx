@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
@@ -45,8 +47,8 @@ cdef class ChunkedArray:
 
     cdef _check_nullptr(self):
         if self.chunked_array == NULL:
-            raise ReferenceError("ChunkedArray object references a NULL pointer."
-                    "Not initialized.")
+            raise ReferenceError("ChunkedArray object references a NULL "
+                                 "pointer. Not initialized.")
 
     def length(self):
         self._check_nullptr()
@@ -144,6 +146,130 @@ cdef class Column:
             return chunked_array
 
 
+cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
+    cdef:
+        Array arr
+        c_string c_name
+        vector[shared_ptr[CField]] fields
+
+    cdef int K = len(arrays)
+
+    fields.resize(K)
+    for i in range(K):
+        arr = arrays[i]
+        c_name = tobytes(names[i])
+        fields[i].reset(new CField(c_name, arr.type.sp_type, True))
+
+    schema.reset(new CSchema(fields))
+
+
+
+cdef _dataframe_to_arrays(df, name, timestamps_to_ms):
+    from pyarrow.array import from_pandas_series
+
+    cdef:
+        list names = []
+        list arrays = []
+
+    for name in df.columns:
+        col = df[name]
+        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
+
+        names.append(name)
+        arrays.append(arr)
+
+    return names, arrays
+
+
+cdef class RecordBatch:
+
+    def __cinit__(self):
+        self.batch = NULL
+        self._schema = None
+
+    cdef init(self, const shared_ptr[CRecordBatch]& batch):
+        self.sp_batch = batch
+        self.batch = batch.get()
+
+    cdef _check_nullptr(self):
+        if self.batch == NULL:
+            raise ReferenceError("Object not initialized")
+
+    def __len__(self):
+        self._check_nullptr()
+        return self.batch.num_rows()
+
+    property num_columns:
+
+        def __get__(self):
+            self._check_nullptr()
+            return self.batch.num_columns()
+
+    property num_rows:
+
+        def __get__(self):
+            return len(self)
+
+    property schema:
+
+        def __get__(self):
+            cdef Schema schema
+            self._check_nullptr()
+            if self._schema is None:
+                schema = Schema()
+                schema.init_schema(self.batch.schema())
+                self._schema = schema
+
+            return self._schema
+
+    def __getitem__(self, i):
+        cdef Array arr = Array()
+        arr.init(self.batch.column(i))
+        return arr
+
+    def equals(self, RecordBatch other):
+        self._check_nullptr()
+        other._check_nullptr()
+
+        return self.batch.Equals(deref(other.batch))
+
+    @classmethod
+    def from_pandas(cls, df):
+        """
+        Convert pandas.DataFrame to an Arrow RecordBatch
+        """
+        names, arrays = _dataframe_to_arrays(df, None, False)
+        return cls.from_arrays(names, arrays)
+
+    @staticmethod
+    def from_arrays(names, arrays):
+        cdef:
+            Array arr
+            RecordBatch result
+            c_string c_name
+            shared_ptr[CSchema] schema
+            shared_ptr[CRecordBatch] batch
+            vector[shared_ptr[CArray]] c_arrays
+            int32_t num_rows
+
+        if len(arrays) == 0:
+            raise ValueError('Record batch cannot contain no arrays (for now)')
+
+        num_rows = len(arrays[0])
+        _schema_from_arrays(arrays, names, &schema)
+
+        for i in range(len(arrays)):
+            arr = arrays[i]
+            c_arrays.push_back(arr.sp_array)
+
+        batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
+
+        result = RecordBatch()
+        result.init(batch)
+
+        return result
+
+
 cdef class Table:
     '''
     Do not call this class's constructor directly.
@@ -161,38 +287,50 @@ cdef class Table:
             raise ReferenceError("Table object references a NULL pointer."
                     "Not initialized.")
 
-    @staticmethod
-    def from_pandas(df, name=None):
-        return from_pandas_dataframe(df, name=name)
+    @classmethod
+    def from_pandas(cls, df, name=None, timestamps_to_ms=False):
+        """
+        Convert pandas.DataFrame to an Arrow Table
+
+        Parameters
+        ----------
+        df: pandas.DataFrame
+
+        name: str
+
+        timestamps_to_ms: bool
+            Convert datetime columns to ms resolution. This is needed for
+            compability with other functionality like Parquet I/O which
+            only supports milliseconds.
+        """
+        names, arrays = _dataframe_to_arrays(df, name=name,
+                                             timestamps_to_ms=timestamps_to_ms)
+        return cls.from_arrays(names, arrays, name=name)
 
     @staticmethod
     def from_arrays(names, arrays, name=None):
         cdef:
             Array arr
-            Table result
             c_string c_name
             vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
+            Table result
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
 
-        cdef int K = len(arrays)
+        _schema_from_arrays(arrays, names, &schema)
 
-        fields.resize(K)
+        cdef int K = len(arrays)
         columns.resize(K)
         for i in range(K):
             arr = arrays[i]
-            c_name = tobytes(names[i])
-
-            fields[i].reset(new CField(c_name, arr.type.sp_type, True))
-            columns[i].reset(new CColumn(fields[i], arr.sp_array))
+            columns[i].reset(new CColumn(schema.get().field(i), arr.sp_array))
 
         if name is None:
             c_name = ''
         else:
             c_name = tobytes(name)
 
-        schema.reset(new CSchema(fields))
         table.reset(new CTable(c_name, schema, columns))
 
         result = Table()
@@ -268,32 +406,4 @@ cdef class Table:
 
 
 
-def from_pandas_dataframe(object df, name=None, timestamps_to_ms=False):
-    """
-    Convert pandas.DataFrame to an Arrow Table
-
-    Parameters
-    ----------
-    df: pandas.DataFrame
-
-    name: str
-
-    timestamps_to_ms: bool
-        Convert datetime columns to ms resolution. This is needed for
-        compability with other functionality like Parquet I/O which
-        only supports milliseconds.
-    """
-    from pyarrow.array import from_pandas_series
-
-    cdef:
-        list names = []
-        list arrays = []
-
-    for name in df.columns:
-        col = df[name]
-        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
-
-        names.append(name)
-        arrays.append(arr)
-
-    return Table.from_arrays(names, arrays, name=name)
+from_pandas_dataframe = Table.from_pandas

@@ -352,6 +352,8 @@ ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_io
   SHARED_LIB ${ARROW_IO_SHARED_LIB})
+ADD_THIRDPARTY_LIB(arrow_ipc
+  SHARED_LIB ${ARROW_IPC_SHARED_LIB})
 
 ############################################################
 # Linker setup
@@ -415,6 +417,8 @@ if (UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
@@ -423,6 +427,7 @@ set(CYTHON_EXTENSIONS
   config
   error
   io
+  ipc
   scalar
   schema
   table
@@ -442,6 +447,7 @@ set(PYARROW_SRCS
 set(LINK_LIBS
   arrow
   arrow_io
+  arrow_ipc
 )
 
 if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
@@ -454,8 +460,6 @@ if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
     ${CYTHON_EXTENSIONS}
     parquet)
 endif()
-
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_library(pyarrow SHARED
   ${PYARROW_SRCS})
