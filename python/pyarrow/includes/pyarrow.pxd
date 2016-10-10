@@ -18,8 +18,8 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CStatus,
-                                        Type, MemoryPool)
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn,
+                                        CDataType, CStatus, Type, MemoryPool)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
 
@@ -53,7 +53,12 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     PyStatus ArrowToPandas(const shared_ptr[CColumn]& arr, object py_ref,
                            PyObject** out)
 
-    MemoryPool* GetMemoryPool()
+    MemoryPool* get_memory_pool()
+
+
+cdef extern from "pyarrow/common.h" namespace "pyarrow" nogil:
+    cdef cppclass PyBytesBuffer(CBuffer):
+        PyBytesBuffer(object o)
 
 
 cdef extern from "pyarrow/io.h" namespace "pyarrow" nogil:
@@ -63,5 +68,5 @@ cdef extern from "pyarrow/io.h" namespace "pyarrow" nogil:
     cdef cppclass PyOutputStream(arrow_io.OutputStream):
         PyOutputStream(object fo)
 
-    cdef cppclass PyBytesReader(arrow_io.BufferReader):
+    cdef cppclass PyBytesReader(arrow_io.CBufferReader):
         PyBytesReader(object fo)

@@ -16,7 +16,10 @@
 # under the License.
 
 from pyarrow.includes.common cimport shared_ptr
-from pyarrow.includes.libarrow cimport CChunkedArray, CColumn, CTable
+from pyarrow.includes.libarrow cimport (CChunkedArray, CColumn, CTable,
+                                        CRecordBatch)
+
+from pyarrow.schema cimport Schema
 
 
 cdef class ChunkedArray:
@@ -41,6 +44,16 @@ cdef class Table:
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
-    
+
     cdef init(self, const shared_ptr[CTable]& table)
+    cdef _check_nullptr(self)
+
+
+cdef class RecordBatch:
+    cdef:
+        shared_ptr[CRecordBatch] sp_batch
+        CRecordBatch* batch
+        Schema _schema
+
+    cdef init(self, const shared_ptr[CRecordBatch]& table)
     cdef _check_nullptr(self)

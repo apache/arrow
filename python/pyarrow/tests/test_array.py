@@ -19,6 +19,10 @@ import pyarrow
 import pyarrow.formatting as fmt
 
 
+def test_total_bytes_allocated():
+    assert pyarrow.total_allocated_bytes() == 0
+
+
 def test_repr_on_pre_init_array():
     arr = pyarrow.array.Array()
     assert len(repr(arr)) > 0

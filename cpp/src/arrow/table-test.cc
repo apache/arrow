@@ -123,4 +123,31 @@ TEST_F(TestTable, InvalidColumns) {
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
 }
 
+class TestRecordBatch : public TestBase {};
+
+TEST_F(TestRecordBatch, Equals) {
+  const int length = 10;
+
+  auto f0 = std::make_shared<Field>("f0", INT32);
+  auto f1 = std::make_shared<Field>("f1", UINT8);
+  auto f2 = std::make_shared<Field>("f2", INT16);
+
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  auto schema = std::make_shared<Schema>(fields);
+
+  auto a0 = MakePrimitive<Int32Array>(length);
+  auto a1 = MakePrimitive<UInt8Array>(length);
+  auto a2 = MakePrimitive<Int16Array>(length);
+
+  RecordBatch b1(schema, length, {a0, a1, a2});
+  RecordBatch b2(schema, 5, {a0, a1, a2});
+  RecordBatch b3(schema, length, {a0, a1});
+  RecordBatch b4(schema, length, {a0, a1, a1});
+
+  ASSERT_TRUE(b1.Equals(b1));
+  ASSERT_FALSE(b1.Equals(b2));
+  ASSERT_FALSE(b1.Equals(b3));
+  ASSERT_FALSE(b1.Equals(b4));
+}
+
 }  // namespace arrow

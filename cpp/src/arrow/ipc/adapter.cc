@@ -162,15 +162,14 @@ class RecordBatchWriter {
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
       int64_t size = 0;
+      int64_t padding = 0;
 
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
-        // We use capacity here, because size might not reflect the padding
-        // requirements of buffers but capacity always should.
-        size = buffer->capacity();
-        // check that padding is appropriate
-        RETURN_NOT_OK(CheckMultipleOf64(size));
+        size = buffer->size();
+        padding = util::RoundUpToMultipleOf64(size) - size;
       }
+
       // TODO(wesm): We currently have no notion of shared memory page id's,
       // but we've included it in the metadata IDL for when we have it in the
       // future. Use page=0 for now
@@ -179,11 +178,16 @@ class RecordBatchWriter {
       // are using from any OS-level shared memory. The thought is that systems
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back(flatbuf::Buffer(0, position, size));
+      buffer_meta_.push_back(flatbuf::Buffer(0, position, size + padding));
 
       if (size > 0) {
         RETURN_NOT_OK(dst->Write(buffer->data(), size));
         position += size;
+      }
+
+      if (padding > 0) {
+        RETURN_NOT_OK(dst->Write(kPaddingBytes, padding));
+        position += padding;
       }
     }
 

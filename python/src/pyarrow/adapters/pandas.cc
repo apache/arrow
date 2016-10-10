@@ -602,6 +602,8 @@ class ArrowDeserializer {
   }
 
   Status AllocateOutput(int type) {
+    PyAcquireGIL lock;
+
     npy_intp dims[1] = {col_->length()};
     out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNew(1, dims, type));
 
@@ -616,6 +618,8 @@ class ArrowDeserializer {
   }
 
   Status OutputFromData(int type, void* data) {
+    PyAcquireGIL lock;
+
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     Py_INCREF(py_ref_);
     OwnedRef py_ref(py_ref_);
@@ -706,6 +710,8 @@ class ArrowDeserializer {
   inline typename std::enable_if<
     arrow_traits<T2>::is_boolean, Status>::type
   ConvertValues(const std::shared_ptr<Array>& arr) {
+    PyAcquireGIL lock;
+
     arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
 
     if (arr->null_count() > 0) {
@@ -743,6 +749,8 @@ class ArrowDeserializer {
   inline typename std::enable_if<
     T2 == arrow::Type::STRING, Status>::type
   ConvertValues(const std::shared_ptr<Array>& arr) {
+    PyAcquireGIL lock;
+
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
 
     PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));

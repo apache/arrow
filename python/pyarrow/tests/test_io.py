@@ -98,3 +98,44 @@ def test_bytes_reader():
 def test_bytes_reader_non_bytes():
     with pytest.raises(ValueError):
         io.BytesReader(u('some sample data'))
+
+
+
+# ----------------------------------------------------------------------
+# Buffers
+
+
+def test_buffer_bytes():
+    val = b'some data'
+
+    buf = io.buffer_from_bytes(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = buf.to_pybytes()
+
+    assert result == val
+
+
+def test_memory_output_stream():
+    # 10 bytes
+    val = b'dataabcdef'
+
+    f = io.InMemoryOutputStream()
+
+    K = 1000
+    for i in range(K):
+        f.write(val)
+
+    buf = f.get_result()
+
+    assert len(buf) == len(val) * K
+    assert buf.to_pybytes() == val * K
+
+
+def test_inmemory_write_after_closed():
+    f = io.InMemoryOutputStream()
+    f.write(b'ok')
+    f.get_result()
+
+    with pytest.raises(IOError):
+        f.write(b'not ok')

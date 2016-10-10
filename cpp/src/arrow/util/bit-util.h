@@ -19,6 +19,7 @@
 #define ARROW_UTIL_BIT_UTIL_H
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -75,6 +76,18 @@ static inline int64_t next_power2(int64_t n) {
 
 static inline bool is_multiple_of_64(int64_t n) {
   return (n & 63) == 0;
+}
+
+inline int64_t RoundUpToMultipleOf64(int64_t num) {
+  // TODO(wesm): is this definitely needed?
+  // DCHECK_GE(num, 0);
+  constexpr int64_t round_to = 64;
+  constexpr int64_t force_carry_addend = round_to - 1;
+  constexpr int64_t truncate_bitmask = ~(round_to - 1);
+  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - round_to;
+  if (num <= max_roundable_num) { return (num + force_carry_addend) & truncate_bitmask; }
+  // handle overflow case.  This should result in a malloc error upstream
+  return num;
 }
 
 void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);

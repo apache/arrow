@@ -23,7 +23,6 @@
 #include <cstring>
 #include <memory>
 
-#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
 #include "arrow/util/visibility.h"

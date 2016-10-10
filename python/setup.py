@@ -102,6 +102,7 @@ class build_ext(_build_ext):
         'config',
         'error',
         'io',
+        'ipc',
         'parquet',
         'scalar',
         'schema',

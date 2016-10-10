@@ -212,7 +212,11 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
       mutable_data_(buffer->mutable_data()) {}
 
 Status BufferOutputStream::Close() {
-  return Status::OK();
+  if (position_ < capacity_) {
+    return buffer_->Resize(position_);
+  } else {
+    return Status::OK();
+  }
 }
 
 Status BufferOutputStream::Tell(int64_t* position) {
@@ -228,8 +232,11 @@ Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 }
 
 Status BufferOutputStream::Reserve(int64_t nbytes) {
-  while (position_ + nbytes > capacity_) {
-    int64_t new_capacity = std::max(kBufferMinimumSize, capacity_ * 2);
+  int64_t new_capacity = capacity_;
+  while (position_ + nbytes > new_capacity) {
+    new_capacity = std::max(kBufferMinimumSize, new_capacity * 2);
+  }
+  if (new_capacity > capacity_) {
     RETURN_NOT_OK(buffer_->Resize(new_capacity));
     capacity_ = new_capacity;
   }

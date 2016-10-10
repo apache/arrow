@@ -57,6 +57,13 @@ SET_TARGET_PROPERTIES(arrow_ipc PROPERTIES
   LINKER_LANGUAGE CXX
   LINK_FLAGS "${ARROW_IPC_LINK_FLAGS}")
 
+if (APPLE)
+  set_target_properties(arrow_ipc
+    PROPERTIES
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_NAME_DIR "@rpath")
+endif()
+
 ADD_ARROW_TEST(ipc-adapter-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-adapter-test
   ${ARROW_IPC_TEST_LINK_LIBS})
