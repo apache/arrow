@@ -320,7 +320,7 @@ inline int RleDecoder::GetBatchWithDict(
           std::min(batch_size - values_read, static_cast<int>(literal_count_));
 
       const int buffer_size = 1024;
-      static int indices[buffer_size];
+      int indices[buffer_size];
       literal_batch = std::min(literal_batch, buffer_size);
       int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
       DCHECK_EQ(actual_read, literal_batch);
