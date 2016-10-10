@@ -417,6 +417,8 @@ if (UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
@@ -458,8 +460,6 @@ if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
     ${CYTHON_EXTENSIONS}
     parquet)
 endif()
-
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_library(pyarrow SHARED
   ${PYARROW_SRCS})
@@ -509,7 +509,5 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})
-    target_link_libraries(${module_name}
-      ${LINK_LIBS}
-      pyarrow)
+    target_link_libraries(${module_name} pyarrow)
 endforeach(module)
