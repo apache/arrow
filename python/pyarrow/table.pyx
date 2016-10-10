@@ -100,7 +100,7 @@ cdef class Column:
 
         import pandas as pd
 
-        check_status(pyarrow.ArrowToPandas(self.sp_column, self, &arr))
+        check_status(pyarrow.ConvertColumnToPandas(self.sp_column, self, &arr))
         return pd.Series(<object>arr, name=self.name)
 
     cdef _check_nullptr(self):
@@ -233,6 +233,27 @@ cdef class RecordBatch:
 
         return self.batch.Equals(deref(other.batch))
 
+    def to_pandas(self):
+        """
+        Convert the arrow::RecordBatch to a pandas DataFrame
+        """
+        cdef:
+            PyObject* np_arr
+            shared_ptr[CArray] arr
+            Column column
+
+        import pandas as pd
+
+        names = []
+        data = []
+        for i in range(self.batch.num_columns()):
+            arr = self.batch.column(i)
+            check_status(pyarrow.ConvertArrayToPandas(arr, self, &np_arr))
+            names.append(frombytes(self.batch.column_name(i)))
+            data.append(<object> np_arr)
+
+        return pd.DataFrame(dict(zip(names, data)), columns=names)
+
     @classmethod
     def from_pandas(cls, df):
         """
@@ -354,7 +375,7 @@ cdef class Table:
         for i in range(self.table.num_columns()):
             col = self.table.column(i)
             column = self.column(i)
-            check_status(pyarrow.ArrowToPandas(col, column, &arr))
+            check_status(pyarrow.ConvertColumnToPandas(col, column, &arr))
             names.append(frombytes(col.get().name()))
             data.append(<object> arr)
 

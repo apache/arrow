@@ -18,6 +18,8 @@
 import io
 
 import numpy as np
+
+from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
 import pyarrow as A
@@ -85,17 +87,40 @@ def test_ipc_file_simple_roundtrip():
     helper.run()
 
 
+def test_ipc_zero_copy_numpy():
+    df = pd.DataFrame({'foo': [1.5]})
+
+    batch = A.RecordBatch.from_pandas(df)
+    sink = arrow_io.InMemoryOutputStream()
+    write_file(batch, sink)
+    buffer = sink.get_result()
+    reader = arrow_io.BufferReader(buffer)
+
+    batches = read_file(reader)
+
+    data = batches[0].to_pandas()
+    rdf = pd.DataFrame(data)
+    assert_frame_equal(df, rdf)
+
+
 # XXX: For benchmarking
 
 def big_batch():
+    K = 2**4
+    N = 2**20
     df = pd.DataFrame(
-        np.random.randn(2**4, 2**20).T,
-        columns=[str(i) for i in range(2**4)]
+        np.random.randn(K, N).T,
+        columns=[str(i) for i in range(K)]
     )
 
     df = pd.concat([df] * 2 ** 3, ignore_index=True)
+    return df
 
-    return A.RecordBatch.from_pandas(df)
+
+def write_to_memory2(batch):
+    sink = arrow_io.InMemoryOutputStream()
+    write_file(batch, sink)
+    return sink.get_result()
 
 
 def write_to_memory(batch):
@@ -114,3 +139,12 @@ def read_file(source):
     reader = ipc.ArrowFileReader(source)
     return [reader.get_record_batch(i)
             for i in range(reader.num_record_batches)]
+
+# df = big_batch()
+# batch = A.RecordBatch.from_pandas(df)
+# mem = write_to_memory(batch)
+# batches = read_file(mem)
+# data = batches[0].to_pandas()
+# rdf = pd.DataFrame(data)
+
+# [x.to_pandas() for x in batches]
