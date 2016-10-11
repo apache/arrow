@@ -15,17 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.flatbuf.Field;
-import org.apache.arrow.flatbuf.Type;
-import org.apache.arrow.flatbuf.Union;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-
-import java.util.ArrayList;
 import java.util.List;
 
 <@pp.dropOutputFile />
@@ -39,12 +28,15 @@ package org.apache.arrow.vector.complex;
 <#include "/@includes/vv_imports.ftl" />
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 
 import static org.apache.arrow.flatbuf.UnionMode.Sparse;
+
 
 
 /*
@@ -81,6 +73,7 @@ public class UnionVector implements FieldVector {
   private ValueVector singleVector;
 
   private final CallBack callBack;
+  private final List<BufferBacked> innerVectors;
 
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
     this.name = name;
@@ -88,6 +81,7 @@ public class UnionVector implements FieldVector {
     this.internalMap = new MapVector("internal", allocator, callBack);
     this.typeVector = new UInt1Vector("types", allocator);
     this.callBack = callBack;
+    this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(typeVector));
   }
 
   public BufferAllocator getAllocator() {
@@ -101,30 +95,28 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    getMap().initializeChildrenFromFields(children);
+    internalMap.initializeChildrenFromFields(children);
   }
 
   @Override
   public List<FieldVector> getChildrenFromFields() {
-    return getMap().getChildrenFromFields();
+    return internalMap.getChildrenFromFields();
   }
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    // TODO
-    throw new UnsupportedOperationException();
+    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    this.valueCount = fieldNode.getLength();
   }
 
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    // TODO
-    throw new UnsupportedOperationException();
+    return BaseDataValueVector.unload(getFieldInnerVectors());
   }
 
   @Override
   public List<BufferBacked> getFieldInnerVectors() {
-    // TODO
-    throw new UnsupportedOperationException();
+     return this.innerVectors;
   }
   
   public NullableMapVector getMap() {
