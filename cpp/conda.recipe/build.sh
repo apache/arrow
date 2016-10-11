@@ -38,18 +38,8 @@ cd ..
 
 rm -rf conda-build
 mkdir conda-build
-
-cp -r thirdparty conda-build/
-
 cd conda-build
 pwd
-
-# Build googletest for running unit tests
-./thirdparty/download_thirdparty.sh
-./thirdparty/build_thirdparty.sh gtest
-
-source thirdparty/versions.sh
-export GTEST_HOME=`pwd`/thirdparty/$GTEST_BASEDIR
 
 # if [ `uname` == Linux ]; then
 #     SHARED_LINKER_FLAGS='-static-libstdc++'
