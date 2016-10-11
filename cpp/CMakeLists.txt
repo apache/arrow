@@ -474,19 +474,19 @@ if(ARROW_BUILD_TESTS)
 
   if("$ENV{GTEST_HOME}" STREQUAL "")
     if(APPLE)
-      set(GTEST_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=\"-fPIC -std=c++11 -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes\"")
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
     else()
-      set(GTEST_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=\"-fPIC\"")
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
     endif()
 
     ExternalProject_Add(googletest_ep
       URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
+      CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       # googletest doesn't define install rules, so just build in the
       # source dir and don't try to install.  See its README for
       # details.
       BUILD_IN_SOURCE 1
-      INSTALL_COMMAND "/bin/true")
+      INSTALL_COMMAND "")
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
