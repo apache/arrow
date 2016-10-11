@@ -149,7 +149,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     byte_offset += num_unpacked * num_bits / 8;
   } else {
     const int buffer_size = 1024;
-    static uint32_t unpack_buffer[buffer_size];
+    uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
       int num_unpacked = unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
