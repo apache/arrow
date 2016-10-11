@@ -21,9 +21,14 @@ project(arrow)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
+include(ExternalProject)
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
+
+set(GTEST_VERSION "1.7.0")
+set(GBENCHMARK_VERSION "1.0.0")
+set(FLATBUFFERS_VERSION "1.3.0")
 
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
@@ -422,16 +427,6 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 endfunction()
 
-## GTest
-if ("$ENV{GTEST_HOME}" STREQUAL "")
-  set(GTest_HOME ${THIRDPARTY_DIR}/googletest-release-1.7.0)
-endif()
-
-## Google Benchmark
-if ("$ENV{GBENCHMARK_HOME}" STREQUAL "")
-  set(GBENCHMARK_HOME ${THIRDPARTY_DIR}/installed)
-endif()
-
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
@@ -476,18 +471,78 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 if(ARROW_BUILD_TESTS)
   add_custom_target(unittest ctest -L unittest)
-  find_package(GTest REQUIRED)
+
+  if("$ENV{GTEST_HOME}" STREQUAL "")
+    if(APPLE)
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
+    else()
+      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
+    endif()
+
+    ExternalProject_Add(googletest_ep
+      URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+      CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
+      # googletest doesn't define install rules, so just build in the
+      # source dir and don't try to install.  See its README for
+      # details.
+      BUILD_IN_SOURCE 1
+      INSTALL_COMMAND "")
+
+    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
+    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
+    set(GTEST_STATIC_LIB "${GTEST_PREFIX}/libgtest.a")
+    set(GTEST_VENDORED 1)
+  else()
+    find_package(GTest REQUIRED)
+    set(GTEST_VENDORED 0)
+  endif()
+
+  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
+  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gtest
     STATIC_LIB ${GTEST_STATIC_LIB})
+
+  if(GTEST_VENDORED)
+    add_dependencies(gtest googletest_ep)
+  endif()
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
   add_custom_target(runbenchmark ctest -L benchmark)
-  find_package(GBenchmark REQUIRED)
+
+  if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(APPLE)
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++")
+    else()
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "--std=c++11")
+    endif()
+
+    set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
+    ExternalProject_Add(gbenchmark_ep
+      URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
+      CMAKE_ARGS
+        "-DCMAKE_BUILD_TYPE=Release"
+        "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
+        "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
+
+    set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
+    set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/libbenchmark.a")
+    set(GBENCHMARK_VENDORED 1)
+  else()
+    find_package(GBenchmark REQUIRED)
+    set(GBENCHMARK_VENDORED 0)
+  endif()
+
+  message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
+  message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
   include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(benchmark
     STATIC_LIB ${GBENCHMARK_STATIC_LIB})
+
+  if(GBENCHMARK_VENDORED)
+    add_dependencies(benchmark gbenchmark_ep)
+  endif()
 endif()
 
 ## Google PerfTools
@@ -705,14 +760,34 @@ add_subdirectory(src/arrow/types)
 
 ## Flatbuffers
 if(ARROW_IPC)
-  find_package(Flatbuffers REQUIRED)
+  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    ExternalProject_Add(flatbuffers_ep
+      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      CMAKE_ARGS
+        "-DCMAKE_CXX_FLAGS=-fPIC"
+        "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+        "-DFLATBUFFERS_BUILD_TESTS=OFF")
+
+    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+    set(FLATBUFFERS_STATIC_LIB "${FLATBUFFERS_PREFIX}/libflatbuffers.a")
+    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+    set(FLATBUFFERS_VENDORED 1)
+  else()
+    find_package(Flatbuffers REQUIRED)
+    set(FLATBUFFERS_VENDORED 0)
+  endif()
+
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
   message(STATUS "Flatbuffers static library: ${FLATBUFFERS_STATIC_LIB}")
   message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
   include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-  add_library(flatbuffers STATIC IMPORTED)
-  set_target_properties(flatbuffers PROPERTIES
-    IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
+  ADD_THIRDPARTY_LIB(flatbuffers
+    STATIC_LIB ${FLATBUFFERS_STATIC_LIB})
+
+  if(FLATBUFFERS_VENDORED)
+    add_dependencies(flatbuffers flatbuffers_ep)
+  endif()
 
   add_subdirectory(src/arrow/ipc)
 endif()

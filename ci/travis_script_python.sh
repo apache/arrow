@@ -21,11 +21,6 @@ export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export PARQUET_HOME=$MINICONDA
 
-# Share environment with C++
-pushd $CPP_BUILD_DIR
-source setup_build_env.sh
-popd
-
 pushd $PYTHON_DIR
 
 python_version_tests() {

@@ -42,6 +42,9 @@ set(ARROW_IPC_SRCS
 add_library(arrow_ipc SHARED
   ${ARROW_IPC_SRCS}
 )
+if(FLATBUFFERS_VENDORED)
+  add_dependencies(arrow_ipc flatbuffers_ep)
+endif()
 target_link_libraries(arrow_ipc
   LINK_PUBLIC ${ARROW_IPC_LINK_LIBS}
   LINK_PRIVATE ${ARROW_IPC_PRIVATE_LINK_LIBS})
@@ -91,10 +94,15 @@ foreach(FIL ${FBS_SRC})
   list(APPEND ABS_FBS_SRC ${ABS_FIL})
 endforeach()
 
+if(FLATBUFFERS_VENDORED)
+  set(FBS_DEPENDS ${ABS_FBS_SRC} flatbuffers_ep)
+else()
+  set(FBS_DEPENDS ${ABS_FBS_SRC})
+endif()
 add_custom_command(
   OUTPUT ${FBS_OUTPUT_FILES}
   COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-  DEPENDS ${ABS_FBS_SRC}
+  DEPENDS ${FBS_DEPENDS}
   COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
   VERBATIM
 )
