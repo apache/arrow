@@ -33,7 +33,7 @@ class Array;
 class MemoryPool;
 class PoolBuffer;
 
-static constexpr int32_t MIN_BUILDER_CAPACITY = 1 << 5;
+static constexpr int32_t kMinBuilderCapacity = 1 << 5;
 
 // Base class for all data array builders.
 // This class provides a facilities for incrementally building the null bitmap

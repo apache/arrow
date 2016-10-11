@@ -460,7 +460,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   DECL_TYPE();
 
-  int cap = MIN_BUILDER_CAPACITY * 2;
+  int cap = kMinBuilderCapacity * 2;
 
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
@@ -472,13 +472,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(10));
   ASSERT_EQ(0, this->builder_->length());
-  ASSERT_EQ(MIN_BUILDER_CAPACITY, this->builder_->capacity());
+  ASSERT_EQ(kMinBuilderCapacity, this->builder_->capacity());
 
   ASSERT_OK(this->builder_->Reserve(90));
   ASSERT_OK(this->builder_->Advance(100));
-  ASSERT_OK(this->builder_->Reserve(MIN_BUILDER_CAPACITY));
+  ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
 
-  ASSERT_EQ(util::next_power2(MIN_BUILDER_CAPACITY + 100), this->builder_->capacity());
+  ASSERT_EQ(util::next_power2(kMinBuilderCapacity + 100), this->builder_->capacity());
 }
 
 }  // namespace arrow

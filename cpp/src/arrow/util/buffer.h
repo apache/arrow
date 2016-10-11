@@ -141,8 +141,6 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
   MemoryPool* pool_;
 };
 
-static constexpr int64_t MIN_BUFFER_CAPACITY = 1024;
-
 class BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool)

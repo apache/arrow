@@ -44,22 +44,22 @@ static inline int64_t ceil_2bytes(int64_t size) {
   return (size + 15) & ~15;
 }
 
-static constexpr uint8_t BITMASK[] = {1, 2, 4, 8, 16, 32, 64, 128};
+static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 static inline bool get_bit(const uint8_t* bits, int i) {
-  return static_cast<bool>(bits[i / 8] & BITMASK[i % 8]);
+  return static_cast<bool>(bits[i / 8] & kBitmask[i % 8]);
 }
 
 static inline bool bit_not_set(const uint8_t* bits, int i) {
-  return (bits[i / 8] & BITMASK[i % 8]) == 0;
+  return (bits[i / 8] & kBitmask[i % 8]) == 0;
 }
 
 static inline void clear_bit(uint8_t* bits, int i) {
-  bits[i / 8] &= ~BITMASK[i % 8];
+  bits[i / 8] &= ~kBitmask[i % 8];
 }
 
 static inline void set_bit(uint8_t* bits, int i) {
-  bits[i / 8] |= BITMASK[i % 8];
+  bits[i / 8] |= kBitmask[i % 8];
 }
 
 static inline int64_t next_power2(int64_t n) {
