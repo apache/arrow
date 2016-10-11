@@ -20,8 +20,8 @@
 
 #include <algorithm>
 
-#include "parquet/types.h"
 #include "parquet/schema/descriptor.h"
+#include "parquet/types.h"
 
 namespace parquet {
 

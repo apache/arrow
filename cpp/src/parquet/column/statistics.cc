@@ -20,10 +20,10 @@
 
 #include "parquet/column/statistics.h"
 #include "parquet/encodings/plain-encoding.h"
+#include "parquet/exception.h"
 #include "parquet/util/buffer.h"
 #include "parquet/util/comparison.h"
 #include "parquet/util/output.h"
-#include "parquet/exception.h"
 
 namespace parquet {
 
@@ -76,30 +76,6 @@ template <typename DType>
 void TypedRowGroupStatistics<DType>::Reset() {
   ResetCounts();
   has_min_max_ = false;
-}
-
-template <typename DType>
-void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, OwnedMutableBuffer&) {
-  *dst = src;
-}
-
-template <>
-void TypedRowGroupStatistics<FLBAType>::Copy(
-    const FLBA& src, FLBA* dst, OwnedMutableBuffer& buffer) {
-  if (dst->ptr == src.ptr) return;
-  uint32_t len = descr_->type_length();
-  buffer.Resize(len);
-  std::memcpy(&buffer[0], src.ptr, len);
-  *dst = FLBA(buffer.data());
-}
-
-template <>
-void TypedRowGroupStatistics<ByteArrayType>::Copy(
-    const ByteArray& src, ByteArray* dst, OwnedMutableBuffer& buffer) {
-  if (dst->ptr == src.ptr) return;
-  buffer.Resize(src.len);
-  std::memcpy(&buffer[0], src.ptr, src.len);
-  *dst = ByteArray(src.len, buffer.data());
 }
 
 template <typename DType>

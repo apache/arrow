@@ -22,8 +22,8 @@
 #include <memory>
 #include <string>
 
-#include "parquet/types.h"
 #include "parquet/schema/descriptor.h"
+#include "parquet/types.h"
 #include "parquet/util/buffer.h"
 #include "parquet/util/mem-allocator.h"
 #include "parquet/util/visibility.h"
@@ -130,7 +130,7 @@ class PARQUET_EXPORT RowGroupStatistics
 };
 
 template <typename DType>
-class PARQUET_EXPORT TypedRowGroupStatistics : public RowGroupStatistics {
+class TypedRowGroupStatistics : public RowGroupStatistics {
  public:
   using T = typename DType::c_type;
 
@@ -170,6 +170,31 @@ class PARQUET_EXPORT TypedRowGroupStatistics : public RowGroupStatistics {
   OwnedMutableBuffer min_buffer_, max_buffer_;
 };
 
+template <typename DType>
+inline void TypedRowGroupStatistics<DType>::Copy(
+    const T& src, T* dst, OwnedMutableBuffer&) {
+  *dst = src;
+}
+
+template <>
+inline void TypedRowGroupStatistics<FLBAType>::Copy(
+    const FLBA& src, FLBA* dst, OwnedMutableBuffer& buffer) {
+  if (dst->ptr == src.ptr) return;
+  uint32_t len = descr_->type_length();
+  buffer.Resize(len);
+  std::memcpy(&buffer[0], src.ptr, len);
+  *dst = FLBA(buffer.data());
+}
+
+template <>
+inline void TypedRowGroupStatistics<ByteArrayType>::Copy(
+    const ByteArray& src, ByteArray* dst, OwnedMutableBuffer& buffer) {
+  if (dst->ptr == src.ptr) return;
+  buffer.Resize(src.len);
+  std::memcpy(&buffer[0], src.ptr, src.len);
+  *dst = ByteArray(src.len, buffer.data());
+}
+
 using BoolStatistics = TypedRowGroupStatistics<BooleanType>;
 using Int32Statistics = TypedRowGroupStatistics<Int32Type>;
 using Int64Statistics = TypedRowGroupStatistics<Int64Type>;
@@ -178,6 +203,15 @@ using FloatStatistics = TypedRowGroupStatistics<FloatType>;
 using DoubleStatistics = TypedRowGroupStatistics<DoubleType>;
 using ByteArrayStatistics = TypedRowGroupStatistics<ByteArrayType>;
 using FLBAStatistics = TypedRowGroupStatistics<FLBAType>;
+
+extern template class TypedRowGroupStatistics<BooleanType>;
+extern template class TypedRowGroupStatistics<Int32Type>;
+extern template class TypedRowGroupStatistics<Int64Type>;
+extern template class TypedRowGroupStatistics<Int96Type>;
+extern template class TypedRowGroupStatistics<FloatType>;
+extern template class TypedRowGroupStatistics<DoubleType>;
+extern template class TypedRowGroupStatistics<ByteArrayType>;
+extern template class TypedRowGroupStatistics<FLBAType>;
 
 }  // namespace parquet
 
