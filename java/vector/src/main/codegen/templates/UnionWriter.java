@@ -25,6 +25,8 @@
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
+import org.apache.arrow.vector.complex.writer.BaseWriter;
+import org.apache.arrow.vector.types.Types.MinorType;
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -98,6 +100,28 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   public ListWriter asList() {
     data.getMutator().setType(idx(), MinorType.LIST);
     return getListWriter();
+  }
+
+  BaseWriter getWriter(MinorType minorType) {
+    switch (minorType) {
+    case MAP:
+      return getMapWriter();
+    case LIST:
+      return getListWriter();
+    <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#if !minor.class?starts_with("Decimal")>
+    case ${name?upper_case}:
+      return get${name}Writer();
+      </#if>
+    </#list>
+    </#list>
+    default:
+      throw new UnsupportedOperationException("Unknown type: " + minorType);
+    }
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
