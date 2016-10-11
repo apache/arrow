@@ -88,22 +88,17 @@ foreach(FIL ${FBS_SRC})
 endforeach()
 
 if(FLATBUFFERS_VENDORED)
-  add_custom_command(
-    OUTPUT ${FBS_OUTPUT_FILES}
-    COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-    DEPENDS ${ABS_FBS_SRC} flatbuffers_ep
-    COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
-    VERBATIM
-  )
+  set(FBS_DEPENDS ${ABS_FBS_SRC} flatbuffers_ep)
 else()
-  add_custom_command(
-    OUTPUT ${FBS_OUTPUT_FILES}
-    COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-    DEPENDS ${ABS_FBS_SRC}
-    COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
-    VERBATIM
-  )
+  set(FBS_DEPENDS ${ABS_FBS_SRC})
 endif()
+add_custom_command(
+  OUTPUT ${FBS_OUTPUT_FILES}
+  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
+  DEPENDS ${FBS_DEPENDS}
+  COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
+  VERBATIM
+)
 
 add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 add_dependencies(arrow_objlib metadata_fbs)

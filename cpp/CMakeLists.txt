@@ -24,6 +24,7 @@ include(CMakeParseArguments)
 include(ExternalProject)
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
+set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
 set(GTEST_VERSION "1.7.0")
 set(GBENCHMARK_VERSION "1.0.0")
@@ -490,21 +491,21 @@ if(ARROW_BUILD_TESTS)
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB "${GTEST_PREFIX}/libgtest.a")
-    add_library(gtest STATIC IMPORTED)
-    set_target_properties(gtest PROPERTIES
-      IMPORTED_LOCATION ${GTEST_STATIC_LIB})
-    add_dependencies(gtest googletest_ep)
     set(GTEST_VENDORED 1)
   else()
     find_package(GTest REQUIRED)
-    ADD_THIRDPARTY_LIB(gtest
-      STATIC_LIB ${GTEST_STATIC_LIB})
     set(GTEST_VENDORED 0)
   endif()
 
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
   message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gtest
+    STATIC_LIB ${GTEST_STATIC_LIB})
+
+  if(GTEST_VENDORED)
+    add_dependencies(gtest googletest_ep)
+  endif()
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
@@ -527,21 +528,21 @@ if(ARROW_BUILD_BENCHMARKS)
 
     set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
     set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/libbenchmark.a")
-    add_library(benchmark STATIC IMPORTED)
-    set_target_properties(benchmark PROPERTIES
-      IMPORTED_LOCATION ${GBENCHMARK_STATIC_LIB})
-    add_dependencies(benchmark gbenchmark_ep)
     set(GBENCHMARK_VENDORED 1)
   else()
     find_package(GBenchmark REQUIRED)
-    ADD_THIRDPARTY_LIB(benchmark
-      STATIC_LIB ${GBENCHMARK_STATIC_LIB})
     set(GBENCHMARK_VENDORED 0)
   endif()
 
   message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
   message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
   include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(benchmark
+    STATIC_LIB ${GBENCHMARK_STATIC_LIB})
+
+  if(GBENCHMARK_VENDORED)
+    add_dependencies(benchmark gbenchmark_ep)
+  endif()
 endif()
 
 ## Google PerfTools
@@ -781,9 +782,8 @@ if(ARROW_IPC)
   message(STATUS "Flatbuffers static library: ${FLATBUFFERS_STATIC_LIB}")
   message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
   include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-  add_library(flatbuffers STATIC IMPORTED)
-  set_target_properties(flatbuffers PROPERTIES
-    IMPORTED_LOCATION ${FLATBUFFERS_STATIC_LIB})
+  ADD_THIRDPARTY_LIB(flatbuffers
+    STATIC_LIB ${FLATBUFFERS_STATIC_LIB})
 
   if(FLATBUFFERS_VENDORED)
     add_dependencies(flatbuffers flatbuffers_ep)

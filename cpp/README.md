@@ -22,23 +22,6 @@ out-of-source builds with the latter one being preferred.
 Arrow requires a C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
 sufficient.
 
-To build the thirdparty build dependencies, run:
-
-```
-./thirdparty/download_thirdparty.sh
-./thirdparty/build_thirdparty.sh
-source ./thirdparty/set_thirdparty_env.sh
-```
-
-You can also run from the root of the C++ tree
-
-```
-source setup_build_env.sh
-```
-
-Arrow is configured to use the `thirdparty` directory by default for its build
-dependencies. To set up a custom toolchain see below.
-
 Simple debug build:
 
     mkdir debug
@@ -76,6 +59,7 @@ variables
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
+* Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
 
 ## Continuous Integration
 

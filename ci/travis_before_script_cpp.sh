@@ -26,14 +26,6 @@ pushd $CPP_BUILD_DIR
 
 CPP_DIR=$TRAVIS_BUILD_DIR/cpp
 
-# Build an isolated thirdparty
-cp -r $CPP_DIR/thirdparty .
-cp $CPP_DIR/setup_build_env.sh .
-
-source setup_build_env.sh
-
-echo $GTEST_HOME
-
 : ${ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install}
 
 CMAKE_COMMON_FLAGS="\
