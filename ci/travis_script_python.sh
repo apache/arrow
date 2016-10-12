@@ -38,10 +38,6 @@ python_version_tests() {
   # Expensive dependencies install from Continuum package repo
   conda install -y pip numpy pandas cython
 
-  # conda install -y parquet-cpp
-
-  conda install -y arrow-cpp -c apache/channel/dev
-
   # Other stuff pip install
   pip install -r requirements.txt
 
