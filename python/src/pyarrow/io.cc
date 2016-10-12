@@ -85,7 +85,7 @@ arrow::Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
   ARROW_RETURN_NOT_OK(CheckPyError());
 
   PyObject* result = PyObject_CallMethod(file_, "write", "(O)", py_data);
-  Py_DECREF(py_data);
+  Py_XDECREF(py_data);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
   return arrow::Status::OK();

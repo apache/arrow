@@ -230,6 +230,18 @@ cdef class InMemoryOutputStream(NativeFile):
         return result
 
 
+cdef class BufferReader(NativeFile):
+    cdef:
+        Buffer buffer
+
+    def __cinit__(self, Buffer buffer):
+        self.buffer = buffer
+        self.rd_file.reset(new CBufferReader(buffer.buffer.get().data(),
+                                             buffer.buffer.get().size()))
+        self.is_readonly = 1
+        self.is_open = True
+
+
 def buffer_from_bytes(object obj):
     """
     Construct an Arrow buffer from a Python bytes object

@@ -21,6 +21,8 @@
 
 #include "pyarrow/numpy_interop.h"
 
+#include "pyarrow/adapters/pandas.h"
+
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -38,6 +40,7 @@ namespace pyarrow {
 
 using arrow::Array;
 using arrow::Column;
+using arrow::Field;
 using arrow::DataType;
 namespace util = arrow::util;
 
@@ -106,7 +109,7 @@ struct npy_traits<NPY_FLOAT64> {
 
 template <>
 struct npy_traits<NPY_DATETIME> {
-  typedef double value_type;
+  typedef int64_t value_type;
   using TypeClass = arrow::TimestampType;
 
   static constexpr bool supports_nulls = true;
@@ -163,6 +166,8 @@ class ArrowSerializer {
   Status ConvertData();
 
   Status ConvertObjectStrings(std::shared_ptr<Array>* out) {
+    PyAcquireGIL lock;
+
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     arrow::TypePtr string_type(new arrow::StringType());
     arrow::StringBuilder string_builder(pool_, string_type);
@@ -197,6 +202,8 @@ class ArrowSerializer {
   }
 
   Status ConvertBooleans(std::shared_ptr<Array>* out) {
+    PyAcquireGIL lock;
+
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
 
     int nbytes = util::bytes_for_bits(length_);
@@ -798,7 +805,15 @@ class ArrowDeserializer {
     }                                                               \
     break;
 
-Status ArrowToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
+        PyObject** out) {
+  static std::string dummy_name = "dummy";
+  auto field = std::make_shared<Field>(dummy_name, arr->type());
+  auto col = std::make_shared<Column>(field, arr);
+  return ConvertColumnToPandas(col, py_ref, out);
+}
+
+Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
         PyObject** out) {
   switch(col->type()->type) {
     FROM_ARROW_CASE(BOOL);
