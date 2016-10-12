@@ -266,7 +266,7 @@ public class TestArrowFile {
       Assert.assertEquals(i % 3, rootReader.reader("list").size());
       NullableTimeStampHolder h = new NullableTimeStampHolder();
       rootReader.reader("map").reader("timestamp").read(h);
-      Assert.assertEquals(i, h.value % COUNT);
+      Assert.assertEquals(i, h.value);
     }
   }
 
@@ -339,4 +339,112 @@ public class TestArrowFile {
     }
   }
 
+  @Test
+  public void testWriteReadUnion() throws IOException {
+    File file = new File("target/mytest_write_union.arrow");
+    int count = COUNT;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
+
+      writeUnionData(count, parent);
+
+      printVectors(parent.getChildrenFromFields());
+
+      validateUnionData(count, parent);
+
+      write(parent.getChild("root"), file);
+    }
+ // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)
+        ) {
+      ArrowFooter footer = arrowReader.readFooter();
+      Schema schema = footer.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+
+      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
+      VectorLoader vectorLoader = new VectorLoader(schema, root);
+
+      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      for (ArrowBlock rbBlock : recordBatches) {
+        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+          vectorLoader.load(recordBatch);
+        }
+        validateUnionData(count, parent);
+      }
+    }
+  }
+
+  public void validateUnionData(int count, MapVector parent) {
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    for (int i = 0; i < count; i++) {
+      rootReader.setPosition(i);
+      switch (i % 4) {
+      case 0:
+        Assert.assertEquals(i, rootReader.reader("union").readInteger().intValue());
+        break;
+      case 1:
+        Assert.assertEquals(i, rootReader.reader("union").readLong().longValue());
+        break;
+      case 2:
+        Assert.assertEquals(i % 3, rootReader.reader("union").size());
+        break;
+      case 3:
+        NullableTimeStampHolder h = new NullableTimeStampHolder();
+        rootReader.reader("union").reader("timestamp").read(h);
+        Assert.assertEquals(i, h.value);
+        break;
+      }
+    }
+  }
+
+  public void writeUnionData(int count, NullableMapVector parent) {
+    ArrowBuf varchar = allocator.buffer(3);
+    varchar.readerIndex(0);
+    varchar.setByte(0, 'a');
+    varchar.setByte(1, 'b');
+    varchar.setByte(2, 'c');
+    varchar.writerIndex(3);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("union");
+    BigIntWriter bigIntWriter = rootWriter.bigInt("union");
+    ListWriter listWriter = rootWriter.list("union");
+    MapWriter mapWriter = rootWriter.map("union");
+    for (int i = 0; i < count; i++) {
+      switch (i % 4) {
+      case 0:
+        intWriter.setPosition(i);
+        intWriter.writeInt(i);
+        break;
+      case 1:
+        bigIntWriter.setPosition(i);
+        bigIntWriter.writeBigInt(i);
+        break;
+      case 2:
+        listWriter.setPosition(i);
+        listWriter.startList();
+        for (int j = 0; j < i % 3; j++) {
+          listWriter.varChar().writeVarChar(0, 3, varchar);
+        }
+        listWriter.endList();
+        break;
+      case 3:
+        mapWriter.setPosition(i);
+        mapWriter.start();
+        mapWriter.timeStamp("timestamp").writeTimeStamp(i);
+        mapWriter.end();
+        break;
+      }
+    }
+    writer.setValueCount(count);
+    varchar.release();
+  }
 }

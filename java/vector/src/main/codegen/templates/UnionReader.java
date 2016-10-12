@@ -134,6 +134,10 @@ public class UnionReader extends AbstractFieldReader {
 
   </#list>
 
+  public int size() {
+    return getReaderForIndex(idx()).size();
+  }
+
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
           <#assign uncappedName = name?uncap_first/>
   <#assign boxedType = (minor.boxedType!type.boxedType) />

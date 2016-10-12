@@ -74,6 +74,8 @@ public class VectorLoader {
   }
 
   private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
+    checkArgument(nodes.hasNext(),
+        "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();
     List<VectorLayout> typeLayout = field.getTypeLayout().getVectors();
     List<ArrowBuf> ownBuffers = new ArrayList<>(typeLayout.size());

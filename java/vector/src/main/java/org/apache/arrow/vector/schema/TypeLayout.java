@@ -82,8 +82,7 @@ public class TypeLayout {
             break;
           case UnionMode.Sparse:
             vectors = asList(
-                validityVector(),
-                typeVector()
+                typeVector() // type of the value at the index or 0 if null
                 );
             break;
           default:
