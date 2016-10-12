@@ -94,19 +94,19 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   protected FieldWriter getWriter(MinorType type) {
     if (state == State.UNION) {
-      return writer;
-    }
-    if (state == State.UNTYPED) {
+      ((UnionWriter)writer).getWriter(type);
+    } else if (state == State.UNTYPED) {
       if (type == null) {
+        // ???
         return null;
       }
       ValueVector v = listVector.addOrGetVector(type).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
-    }
-    if (type != this.type) {
-      return promoteToUnion();
+    } else if (type != this.type) {
+      promoteToUnion();
+      ((UnionWriter)writer).getWriter(type);
     }
     return writer;
   }
@@ -133,7 +133,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     unionVector.addVector((FieldVector)tp.getTo());
     writer = new UnionWriter(unionVector);
     writer.setPosition(idx());
-    for (int i = 0; i < idx(); i++) {
+    for (int i = 0; i <= idx(); i++) {
       unionVector.getMutator().setType(i, vector.getMinorType());
     }
     vector = null;

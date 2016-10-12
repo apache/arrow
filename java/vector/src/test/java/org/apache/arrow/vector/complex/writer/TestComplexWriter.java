@@ -45,6 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.Text;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -362,11 +363,38 @@ public class TestComplexWriter {
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < 100; i++) {
       rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("a").readLong().intValue());
+      FieldReader reader = rootReader.reader("a");
+      Long value = reader.readLong();
+      Assert.assertNotNull("index: " + i, value);
+      Assert.assertEquals(i, value.intValue());
     }
     for (int i = 100; i < 200; i++) {
       rootReader.setPosition(i);
-      Assert.assertEquals(Integer.toString(i), rootReader.reader("a").readText().toString());
+      FieldReader reader = rootReader.reader("a");
+      Text value = reader.readText();
+      Assert.assertEquals(Integer.toString(i), value.toString());
     }
+  }
+
+  /**
+   * Even without writing to the writer, the union schema is created correctly
+   */
+  @Test
+  public void promotableWriterSchema() {
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    BigIntWriter bigIntWriter = rootWriter.bigInt("a");
+    VarCharWriter varCharWriter = rootWriter.varChar("a");
+
+    Field field = parent.getField().getChildren().get(0).getChildren().get(0);
+    Assert.assertEquals("a", field.getName());
+    Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeType());
+
+    Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeType());
+    Int intType = (Int) field.getChildren().get(0).getType();
+    Assert.assertEquals(64, intType.getBitWidth());
+    Assert.assertTrue(intType.getIsSigned());
+    Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeType());
   }
 }
