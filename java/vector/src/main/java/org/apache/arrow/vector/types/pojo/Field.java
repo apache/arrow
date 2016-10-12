@@ -19,6 +19,7 @@ package org.apache.arrow.vector.types.pojo;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.arrow.vector.schema.VectorLayout;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -104,7 +106,7 @@ public class Field {
       org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
     }
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
-    org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeType());
+    org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeID().getFlatbufID());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
     org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
@@ -148,6 +150,10 @@ public class Field {
 
   @Override
   public String toString() {
-    return String.format("Field{name=%s, type=%s, children=%s, layout=%s}", name, type, children, typeLayout);
+    if (children.isEmpty()) {
+      return format("%s: %s", name, type);
+    } else {
+      return format("%s: %s{%s}", name, type, Joiner.on(",").join(children));
+    }
   }
 }

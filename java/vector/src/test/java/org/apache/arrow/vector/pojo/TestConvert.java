@@ -17,17 +17,17 @@
  */
 package org.apache.arrow.vector.pojo;
 
-import static org.apache.arrow.flatbuf.Precision.DOUBLE;
-import static org.apache.arrow.flatbuf.Precision.SINGLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
-import org.apache.arrow.flatbuf.TimeUnit;
-import org.apache.arrow.flatbuf.UnionMode;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
@@ -55,7 +55,7 @@ public class TestConvert {
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
     childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
 
-    Field initialField = new Field("a", true, Struct_.INSTANCE, childrenBuilder.build());
+    Field initialField = new Field("a", true, Struct.INSTANCE, childrenBuilder.build());
     run(initialField);
   }
 
@@ -73,7 +73,7 @@ public class TestConvert {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
     childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
-    childrenBuilder.add(new Field("child3", true, new Struct_(), ImmutableList.<Field>of(
+    childrenBuilder.add(new Field("child3", true, new Struct(), ImmutableList.<Field>of(
         new Field("child3.1", true, Utf8.INSTANCE, null),
         new Field("child3.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
         )));

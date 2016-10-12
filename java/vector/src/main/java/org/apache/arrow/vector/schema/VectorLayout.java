@@ -101,7 +101,7 @@ public class VectorLayout implements FBSerializable {
 
   @Override
   public String toString() {
-    return String.format("{width=%s,type=%s}", typeBitWidth, type);
+    return String.format("%s(%s)", type, typeBitWidth);
   }
 
   @Override

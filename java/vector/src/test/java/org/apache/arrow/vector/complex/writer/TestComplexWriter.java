@@ -429,7 +429,7 @@ public class TestComplexWriter {
     }
     Field field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
-    Assert.assertEquals(Int.TYPE_TYPE, field.getType().getTypeType());
+    Assert.assertEquals(Int.TYPE_TYPE, field.getType().getTypeID());
     Int intType = (Int) field.getType();
 
     Assert.assertEquals(64, intType.getBitWidth());
@@ -444,9 +444,9 @@ public class TestComplexWriter {
     }
     field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
-    Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeType());
-    Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeType());
-    Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeType());
+    Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeID());
+    Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeID());
+    Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeID());
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < 100; i++) {
       rootReader.setPosition(i);

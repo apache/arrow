@@ -17,10 +17,10 @@
  */
 package org.apache.arrow.vector.types;
 
-import org.apache.arrow.flatbuf.IntervalUnit;
-import org.apache.arrow.flatbuf.Precision;
-import org.apache.arrow.flatbuf.TimeUnit;
-import org.apache.arrow.flatbuf.UnionMode;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
+import static org.apache.arrow.vector.types.UnionMode.Sparse;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableBigIntVector;
@@ -81,7 +81,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
@@ -102,11 +102,11 @@ public class Types {
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
   private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
   private static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
-  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND), null);
+  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND), null);
   private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
   private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
-  private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(Precision.SINGLE), null);
-  private static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(Precision.DOUBLE), null);
+  private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.SINGLE), null);
+  private static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.DOUBLE), null);
   private static final Field VARCHAR_FIELD = new Field("", true, Utf8.INSTANCE, null);
   private static final Field VARBINARY_FIELD = new Field("", true, Binary.INSTANCE, null);
   private static final Field BIT_FIELD = new Field("", true, Bool.INSTANCE, null);
@@ -129,7 +129,7 @@ public class Types {
         return null;
       }
     },
-    MAP(Struct_.INSTANCE) {
+    MAP(Struct.INSTANCE) {
       @Override
       public Field getField() {
         throw new UnsupportedOperationException("Cannot get simple field for Map type");
@@ -242,7 +242,7 @@ public class Types {
       }
     },
     // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-    TIMESTAMP(new Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND)) {
+    TIMESTAMP(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND)) {
       @Override
       public Field getField() {
         return TIMESTAMP_FIELD;
@@ -291,7 +291,7 @@ public class Types {
       }
     },
     //  4 byte ieee 754
-    FLOAT4(new FloatingPoint(Precision.SINGLE)) {
+    FLOAT4(new FloatingPoint(SINGLE)) {
       @Override
       public Field getField() {
         return FLOAT4_FIELD;
@@ -308,7 +308,7 @@ public class Types {
       }
     },
     //  8 byte ieee 754
-    FLOAT8(new FloatingPoint(Precision.DOUBLE)) {
+    FLOAT8(new FloatingPoint(DOUBLE)) {
       @Override
       public Field getField() {
         return FLOAT8_FIELD;
@@ -472,7 +472,7 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
-    UNION(new Union(UnionMode.Sparse, null)) {
+    UNION(new Union(Sparse, null)) {
       @Override
       public Field getField() {
         throw new UnsupportedOperationException("Cannot get simple field for Union type");
@@ -512,7 +512,7 @@ public class Types {
         return MinorType.NULL;
       }
 
-      @Override public MinorType visit(Struct_ type) {
+      @Override public MinorType visit(Struct type) {
         return MinorType.MAP;
       }
 
@@ -543,11 +543,11 @@ public class Types {
       @Override
       public MinorType visit(FloatingPoint type) {
         switch (type.getPrecision()) {
-        case Precision.HALF:
+        case HALF:
           throw new UnsupportedOperationException("NYI: " + type);
-        case Precision.SINGLE:
+        case SINGLE:
           return MinorType.FLOAT4;
-        case Precision.DOUBLE:
+        case DOUBLE:
           return MinorType.FLOAT8;
         default:
           throw new IllegalArgumentException("unknown precision: " + type);
@@ -588,9 +588,9 @@ public class Types {
       @Override
       public MinorType visit(Interval type) {
         switch (type.getUnit()) {
-        case IntervalUnit.DAY_TIME:
+        case DAY_TIME:
           return MinorType.INTERVALDAY;
-        case IntervalUnit.YEAR_MONTH:
+        case YEAR_MONTH:
           return MinorType.INTERVALYEAR;
         default:
           throw new IllegalArgumentException("unknown unit: " + type);

@@ -26,7 +26,7 @@
     },
     {
       name: "Union",
-      fields: [{name: "mode", type: short}, {name: "typeIds", type: "int[]"}]
+      fields: [{name: "mode", type: short, valueType: UnionMode}, {name: "typeIds", type: "int[]"}]
     },
     {
       name: "Int",
@@ -34,7 +34,7 @@
     },
     {
       name: "FloatingPoint",
-      fields: [{name: precision, type: short}]
+      fields: [{name: precision, type: short, valueType: FloatingPointPrecision}]
     },
     {
       name: "Utf8",
@@ -62,11 +62,11 @@
     },
     {
       name: "Timestamp",
-      fields: [{name: "unit", type: short}]
+      fields: [{name: "unit", type: short, valueType: TimeUnit}]
     },
     {
       name: "Interval",
-      fields: [{name: "unit", type: short}]
+      fields: [{name: "unit", type: short, valueType: IntervalUnit}]
     }
   ]
 }
