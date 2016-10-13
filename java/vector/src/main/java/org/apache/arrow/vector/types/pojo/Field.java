@@ -19,7 +19,6 @@ package org.apache.arrow.vector.types.pojo;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.List;
@@ -145,15 +144,18 @@ public class Field {
             (Objects.equals(this.children, that.children) ||
                     (this.children == null && that.children.size() == 0) ||
                     (this.children.size() == 0 && that.children == null));
-
   }
 
   @Override
   public String toString() {
-    if (children.isEmpty()) {
-      return format("%s: %s", name, type);
-    } else {
-      return format("%s: %s{%s}", name, type, Joiner.on(",").join(children));
+    StringBuilder sb = new StringBuilder();
+    if (name != null) {
+      sb.append(name).append(": ");
     }
+    sb.append(type);
+    if (!children.isEmpty()) {
+      sb.append("<").append(Joiner.on(", ").join(children)).append(">");
+    }
+    return sb.toString();
   }
 }

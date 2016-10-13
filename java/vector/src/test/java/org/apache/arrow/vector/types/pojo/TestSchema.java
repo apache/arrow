@@ -40,6 +40,24 @@ public class TestSchema {
   }
 
   @Test
+  public void testComplex() throws IOException {
+    Schema schema = new Schema(asList(
+        field("a", false, new ArrowType.Int(8, true)),
+        field("b", new ArrowType.Struct(),
+            field("c", new ArrowType.Int(16, true)),
+            field("d", new ArrowType.Utf8())),
+        field("e", new ArrowType.List(), field(null, new ArrowType.Date())),
+        field("f", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+        field("g", new ArrowType.Timestamp(TimeUnit.MILLISECOND)),
+        field("h", new ArrowType.Interval(IntervalUnit.DAY_TIME))
+        ));
+    roundTrip(schema);
+    assertEquals(
+        "Schema<a: Int(8, true), b: Struct<c: Int(16, true), d: Utf8>, e: List<Date>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND), h: Interval(DAY_TIME)>",
+        schema.toString());
+  }
+
+  @Test
   public void testAll() throws IOException {
     Schema schema = new Schema(asList(
         field("a", false, new ArrowType.Null()),
