@@ -123,8 +123,11 @@ class TestPrimitiveBuilder : public TestBuilder {
 
     auto expected =
         std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_null_bitmap);
-    std::shared_ptr<ArrayType> result =
-        std::dynamic_pointer_cast<ArrayType>(builder->Finish());
+
+    std::shared_ptr<Array> out;
+    ASSERT_OK(builder->Finish(&out));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(out);
 
     // Builder is now reset
     ASSERT_EQ(0, builder->length());
@@ -216,8 +219,10 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   auto expected =
       std::make_shared<BooleanArray>(size, ex_data, ex_null_count, ex_null_bitmap);
-  std::shared_ptr<BooleanArray> result =
-      std::dynamic_pointer_cast<BooleanArray>(builder->Finish());
+
+  std::shared_ptr<Array> out;
+  ASSERT_OK(builder->Finish(&out));
+  std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(out);
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
@@ -267,7 +272,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
-  auto result = this->builder_->Finish();
+  std::shared_ptr<Array> result;
+  ASSERT_OK(this->builder_->Finish(&result));
 
   for (int i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
@@ -298,7 +304,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   }
 
   do {
-    std::shared_ptr<Array> result = this->builder_->Finish();
+    std::shared_ptr<Array> result;
+    ASSERT_OK(this->builder_->Finish(&result));
   } while (false);
 
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
@@ -315,8 +322,7 @@ Status MakeArray(const vector<uint8_t>& valid_bytes, const vector<T>& draws, int
       RETURN_NOT_OK(builder->AppendNull());
     }
   }
-  *out = builder->Finish();
-  return Status::OK();
+  return builder->Finish(out);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {

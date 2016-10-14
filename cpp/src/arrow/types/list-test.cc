@@ -76,7 +76,11 @@ class TestListBuilder : public TestBuilder {
     builder_ = std::dynamic_pointer_cast<ListBuilder>(tmp);
   }
 
-  void Done() { result_ = std::dynamic_pointer_cast<ListArray>(builder_->Finish()); }
+  void Done() {
+    std::shared_ptr<Array> out;
+    EXPECT_OK(builder_->Finish(&out));
+    result_ = std::dynamic_pointer_cast<ListArray>(out);
+  }
 
  protected:
   TypePtr value_type_;
@@ -98,14 +102,17 @@ TEST_F(TestListBuilder, Equality) {
   // setup two equal arrays
   ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
   ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
-  array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&array));
   ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
   ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
-  equal_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&equal_array));
   // now an unequal one
   ASSERT_OK(builder_->Append(unequal_offsets.data(), unequal_offsets.size()));
   ASSERT_OK(vb->Append(unequal_values.data(), unequal_values.size()));
-  unequal_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&unequal_array));
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));

@@ -69,6 +69,19 @@ bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
 
+template class NumericArray<UInt8Type>;
+template class NumericArray<UInt16Type>;
+template class NumericArray<UInt32Type>;
+template class NumericArray<UInt64Type>;
+template class NumericArray<Int8Type>;
+template class NumericArray<Int16Type>;
+template class NumericArray<Int32Type>;
+template class NumericArray<Int64Type>;
+template class NumericArray<TimestampType>;
+template class NumericArray<FloatType>;
+template class NumericArray<DoubleType>;
+template class NumericArray<BooleanType>;
+
 template <typename T>
 Status PrimitiveBuilder<T>::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -118,13 +131,13 @@ Status PrimitiveBuilder<T>::Append(
 }
 
 template <typename T>
-std::shared_ptr<Array> PrimitiveBuilder<T>::Finish() {
-  std::shared_ptr<Array> result = std::make_shared<typename type_traits<T>::ArrayType>(
+Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
+  *out = std::make_shared<typename type_traits<T>::ArrayType>(
       type_, length_, data_, null_count_, null_bitmap_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  return result;
+  return Status::OK();
 }
 
 template <>

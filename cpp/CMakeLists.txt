@@ -681,7 +681,6 @@ set(ARROW_SRCS
 
   src/arrow/types/construct.cc
   src/arrow/types/decimal.cc
-  src/arrow/types/json.cc
   src/arrow/types/list.cc
   src/arrow/types/primitive.cc
   src/arrow/types/string.cc

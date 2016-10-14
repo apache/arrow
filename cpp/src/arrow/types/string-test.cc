@@ -147,7 +147,10 @@ class TestStringBuilder : public TestBuilder {
   }
 
   void Done() {
-    result_ = std::dynamic_pointer_cast<StringArray>(builder_->Finish());
+    std::shared_ptr<Array> out;
+    EXPECT_OK(builder_->Finish(&out));
+
+    result_ = std::dynamic_pointer_cast<StringArray>(out);
     result_->Validate();
   }
 
@@ -178,7 +181,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
 
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->values()->length());
+  ASSERT_EQ(reps * 6, result_->data()->size());
 
   int32_t length;
   int32_t pos = 0;
@@ -298,7 +301,10 @@ class TestBinaryBuilder : public TestBuilder {
   }
 
   void Done() {
-    result_ = std::dynamic_pointer_cast<BinaryArray>(builder_->Finish());
+    std::shared_ptr<Array> out;
+    EXPECT_OK(builder_->Finish(&out));
+
+    result_ = std::dynamic_pointer_cast<BinaryArray>(out);
     result_->Validate();
   }
 
@@ -330,7 +336,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_OK(result_->Validate());
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->values()->length());
+  ASSERT_EQ(reps * 6, result_->data()->size());
 
   int32_t length;
   for (int i = 0; i < N * reps; ++i) {

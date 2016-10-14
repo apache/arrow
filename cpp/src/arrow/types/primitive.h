@@ -91,7 +91,9 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   value_type Value(int i) const { return raw_data()[i]; }
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass) using NAME = NumericArray<TypeClass>;
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass) \
+  using NAME = NumericArray<TypeClass>;     \
+  extern template class ARROW_EXPORT NumericArray<TypeClass>;
 
 NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type);
 NUMERIC_ARRAY_DECL(Int8Array, Int8Type);
@@ -139,8 +141,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status Append(
       const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
-  std::shared_ptr<Array> Finish() override;
-
+  Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int32_t capacity) override;
 
   // Increase the capacity of the builder to accommodate at least the indicated

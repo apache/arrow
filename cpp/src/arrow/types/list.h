@@ -43,9 +43,9 @@ class ARROW_EXPORT ListArray : public Array {
       const ArrayPtr& values, int32_t null_count = 0,
       std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
-    offset_buf_ = offsets;
-    offsets_ = offsets == nullptr ? nullptr
-                                  : reinterpret_cast<const int32_t*>(offset_buf_->data());
+    offset_buffer_ = offsets;
+    offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
+                                                  offset_buffer_->data());
     values_ = values;
   }
 
@@ -57,7 +57,7 @@ class ARROW_EXPORT ListArray : public Array {
   // with this array.
   const std::shared_ptr<Array>& values() const { return values_; }
   const std::shared_ptr<Buffer> offset_buffer() const {
-    return std::static_pointer_cast<Buffer>(offset_buf_);
+    return std::static_pointer_cast<Buffer>(offset_buffer_);
   }
 
   const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
@@ -77,7 +77,7 @@ class ARROW_EXPORT ListArray : public Array {
       const ArrayPtr& arr) const override;
 
  protected:
-  std::shared_ptr<Buffer> offset_buf_;
+  std::shared_ptr<Buffer> offset_buffer_;
   const int32_t* offsets_;
   ArrayPtr values_;
 };
@@ -119,19 +119,9 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
   virtual ~ListBuilder() {}
 
-  Status Init(int32_t elements) override {
-    DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
-    RETURN_NOT_OK(ArrayBuilder::Init(elements));
-    // one more then requested for offsets
-    return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
-  }
-
-  Status Resize(int32_t capacity) override {
-    DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
-    // one more then requested for offsets
-    RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
-    return ArrayBuilder::Resize(capacity);
-  }
+  Status Init(int32_t elements) override;
+  Status Resize(int32_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
 
   // Vector append
   //
@@ -144,27 +134,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
     offset_builder_.UnsafeAppend<int32_t>(offsets, length);
     return Status::OK();
   }
-
-  // The same as Finalize but allows for overridding the c++ type
-  template <typename Container>
-  std::shared_ptr<Array> Transfer() {
-    std::shared_ptr<Array> items = values_;
-    if (!items) { items = value_builder_->Finish(); }
-
-    offset_builder_.Append<int32_t>(items->length());
-
-    const auto offsets_buffer = offset_builder_.Finish();
-    auto result = std::make_shared<Container>(
-        type_, length_, offsets_buffer, items, null_count_, null_bitmap_);
-
-    // TODO(emkornfield) make a reset method
-    capacity_ = length_ = null_count_ = 0;
-    null_bitmap_ = nullptr;
-
-    return result;
-  }
-
-  std::shared_ptr<Array> Finish() override { return Transfer<ListArray>(); }
 
   // Start a new variable-length list slot
   //
@@ -188,6 +157,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   BufferBuilder offset_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
+
+  void Reset();
 };
 
 }  // namespace arrow

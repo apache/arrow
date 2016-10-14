@@ -25,7 +25,6 @@ install(FILES
   construct.h
   datetime.h
   decimal.h
-  json.h
   list.h
   primitive.h
   string.h
