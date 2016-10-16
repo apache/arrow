@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <version> <rc-num>"
@@ -56,36 +58,7 @@ tarball=$tag.tar.gz
 # archive (identical hashes) using the scm tag
 git archive $release_hash --prefix $tag/ -o $tarball
 
-# download apache rat
-curl -s https://repo1.maven.org/maven2/org/apache/rat/apache-rat/0.12/apache-rat-0.12.jar > apache-rat-0.12.jar
-
-RAT="java -jar apache-rat-0.12.jar -d "
-
-# generate the rat report
-$RAT $tarball \
-  -e ".*" \
-  -e mman.h \
-  -e "*_generated.h" \
-  -e random.h \
-  -e status.cc \
-  -e status.h \
-  -e asan_symbolize.py \
-  -e cpplint.py \
-  -e FindPythonLibsNew.cmake \
-  -e pax_global_header \
-  -e MANIFEST.in \
-  -e __init__.pxd \
-  -e __init__.py \
-  -e requirements.txt \
-  > rat.txt
-UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
-
-if [ "0" -eq "${UNAPPROVED}" ]; then
-  echo "No unnaproved licenses"
-else
-  echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
-  exit
-fi
+${SOURCE_DIR}/run-rat.sh $tarball
 
 # sign the archive
 gpg --armor --output ${tarball}.asc --detach-sig $tarball
