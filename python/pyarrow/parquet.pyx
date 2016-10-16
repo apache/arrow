@@ -34,6 +34,10 @@ from pyarrow.io cimport NativeFile
 
 import six
 
+__all__ = [
+    'read_table',
+    'write_table'
+]
 
 cdef class ParquetReader:
     cdef:
@@ -76,9 +80,11 @@ cdef class ParquetReader:
 def read_table(source, columns=None):
     """
     Read a Table from Parquet format
+    
     Returns
     -------
-    table: pyarrow.Table
+    pyarrow.table.Table
+        Content of the file as a table (of columns)
     """
     cdef ParquetReader reader = ParquetReader()
 

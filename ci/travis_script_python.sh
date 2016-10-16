@@ -51,6 +51,13 @@ python_version_tests() {
 		 --inplace
 
   python -m pytest -vv -r sxX pyarrow
+
+  # Build documentation once
+  if [[ "$PYTHON_VERSION" == "3.5" ]]
+  then
+      pip install -r doc/requirements.txt
+      python setup.py build_sphinx
+  fi
 }
 
 # run tests for python 2.7 and 3.5
