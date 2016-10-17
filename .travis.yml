@@ -32,7 +32,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - compiler: clang
-    osx_image: beta-xcode6.1
+    osx_image: xcode6.4
     os: osx
     addons:
     before_script:
