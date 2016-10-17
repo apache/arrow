@@ -66,18 +66,13 @@ class TestStringContainer : public ::testing::Test {
 
   void MakeArray() {
     length_ = offsets_.size() - 1;
-    int nchars = chars_.size();
-
     value_buf_ = test::to_buffer(chars_);
-    values_ = ArrayPtr(new UInt8Array(nchars, value_buf_));
-
     offsets_buf_ = test::to_buffer(offsets_);
-
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(
-        length_, offsets_buf_, values_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
   }
 
  protected:
@@ -94,7 +89,6 @@ class TestStringContainer : public ::testing::Test {
   int null_count_;
   int length_;
 
-  ArrayPtr values_;
   std::shared_ptr<StringArray> strings_;
 };
 
@@ -122,7 +116,7 @@ TEST_F(TestStringContainer, TestListFunctions) {
 
 TEST_F(TestStringContainer, TestDestructor) {
   auto arr = std::make_shared<StringArray>(
-      length_, offsets_buf_, values_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
 }
 
 TEST_F(TestStringContainer, TestGetString) {
@@ -221,18 +215,14 @@ class TestBinaryContainer : public ::testing::Test {
 
   void MakeArray() {
     length_ = offsets_.size() - 1;
-    int nchars = chars_.size();
-
     value_buf_ = test::to_buffer(chars_);
-    values_ = ArrayPtr(new UInt8Array(nchars, value_buf_));
-
     offsets_buf_ = test::to_buffer(offsets_);
 
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(
-        length_, offsets_buf_, values_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
   }
 
  protected:
@@ -249,7 +239,6 @@ class TestBinaryContainer : public ::testing::Test {
   int null_count_;
   int length_;
 
-  ArrayPtr values_;
   std::shared_ptr<BinaryArray> strings_;
 };
 
@@ -277,7 +266,7 @@ TEST_F(TestBinaryContainer, TestListFunctions) {
 
 TEST_F(TestBinaryContainer, TestDestructor) {
   auto arr = std::make_shared<BinaryArray>(
-      length_, offsets_buf_, values_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
 }
 
 TEST_F(TestBinaryContainer, TestGetValue) {

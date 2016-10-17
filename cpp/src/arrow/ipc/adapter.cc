@@ -78,22 +78,6 @@ static bool IsPrimitive(const DataType* type) {
   }
 }
 
-static bool IsListType(const DataType* type) {
-  DCHECK(type != nullptr);
-  switch (type->type) {
-    // TODO(emkornfield) grouping like this are used in a few places in the
-    // code consider using pattern like:
-    // http://stackoverflow.com/questions/26784685/c-macro-for-calling-function-based-on-enum-type
-    //
-    case Type::BINARY:
-    case Type::LIST:
-    case Type::STRING:
-      return true;
-    default:
-      return false;
-  }
-}
-
 // ----------------------------------------------------------------------
 // Record batch write path
 
@@ -115,7 +99,11 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
   if (IsPrimitive(arr_type)) {
     const auto prim_arr = static_cast<const PrimitiveArray*>(arr);
     buffers->push_back(prim_arr->data());
-  } else if (IsListType(arr_type)) {
+  } else if (arr->type_enum() == Type::STRING || arr->type_enum() == Type::BINARY) {
+    const auto binary_arr = static_cast<const BinaryArray*>(arr);
+    buffers->push_back(binary_arr->offsets());
+    buffers->push_back(binary_arr->data());
+  } else if (arr->type_enum() == Type::LIST) {
     const auto list_arr = static_cast<const ListArray*>(arr);
     buffers->push_back(list_arr->offset_buffer());
     RETURN_NOT_OK(VisitArray(
@@ -331,9 +319,21 @@ class RecordBatchReader::RecordBatchReaderImpl {
       }
       return MakePrimitiveArray(
           type, field_meta.length, data, field_meta.null_count, null_bitmap, out);
-    }
+    } else if (type->type == Type::STRING || type->type == Type::BINARY) {
+      std::shared_ptr<Buffer> offsets;
+      std::shared_ptr<Buffer> values;
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &offsets));
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &values));
 
-    if (IsListType(type.get())) {
+      if (type->type == Type::STRING) {
+        *out = std::make_shared<StringArray>(
+            field_meta.length, offsets, values, field_meta.null_count, null_bitmap);
+      } else {
+        *out = std::make_shared<BinaryArray>(
+            field_meta.length, offsets, values, field_meta.null_count, null_bitmap);
+      }
+      return Status::OK();
+    } else if (type->type == Type::LIST) {
       std::shared_ptr<Buffer> offsets;
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &offsets));
       const int num_children = type->num_children();
@@ -346,11 +346,10 @@ class RecordBatchReader::RecordBatchReaderImpl {
       std::shared_ptr<Array> values_array;
       RETURN_NOT_OK(
           NextArray(type->child(0).get(), max_recursion_depth - 1, &values_array));
-      return MakeListArray(type, field_meta.length, offsets, values_array,
-          field_meta.null_count, null_bitmap, out);
-    }
-
-    if (type->type == Type::STRUCT) {
+      *out = std::make_shared<ListArray>(type, field_meta.length, offsets, values_array,
+          field_meta.null_count, null_bitmap);
+      return Status::OK();
+    } else if (type->type == Type::STRUCT) {
       const int num_children = type->num_children();
       std::vector<ArrayPtr> fields;
       fields.reserve(num_children);

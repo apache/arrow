@@ -93,8 +93,7 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(field_builders_[i]->Finish(&fields[i]));
   }
 
-  *out =
-    std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
+  *out = std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
 
   null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;

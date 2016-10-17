@@ -39,7 +39,9 @@ BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
       offset_buffer_(offsets),
       offsets_(reinterpret_cast<const int32_t*>(offset_buffer_->data())),
       data_buffer_(data),
-      data_(data_buffer_->data()) {}
+      data_(nullptr) {
+  if (data_buffer_ != nullptr) { data_ = data_buffer_->data(); }
+}
 
 Status BinaryArray::Validate() const {
   // TODO(wesm): what to do here?

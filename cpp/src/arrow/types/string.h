@@ -58,8 +58,8 @@ class ARROW_EXPORT BinaryArray : public Array {
   }
 
   std::shared_ptr<Buffer> data() const { return data_buffer_; }
+  std::shared_ptr<Buffer> offsets() const { return offset_buffer_; }
 
-  const int32_t* offsets() const { return offsets_; }
   int32_t offset(int i) const { return offsets_[i]; }
 
   // Neither of these functions will perform boundschecking

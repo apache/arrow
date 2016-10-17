@@ -121,16 +121,4 @@ Status MakePrimitiveArray(const TypePtr& type, int32_t length,
 #endif
 }
 
-Status MakeListArray(const TypePtr& type, int32_t length,
-    const std::shared_ptr<Buffer>& offsets, const ArrayPtr& values, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, ArrayPtr* out) {
-  *out =
-      std::make_shared<ListArray>(type, length, offsets, values, null_count, null_bitmap);
-#ifdef NDEBUG
-  return Status::OK();
-#else
-  return (*out)->Validate();
-#endif
-}
-
 }  // namespace arrow

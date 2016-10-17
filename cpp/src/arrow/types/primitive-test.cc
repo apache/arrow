@@ -259,7 +259,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   int n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
   ASSERT_EQ(util::next_power2(n), this->builder_->capacity());
-  ASSERT_EQ(util::next_power2(type_traits<Type>::bytes_required(n)),
+  ASSERT_EQ(util::next_power2(TypeTraits<Type>::bytes_required(n)),
       this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
@@ -471,7 +471,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
 
-  ASSERT_EQ(type_traits<Type>::bytes_required(cap), this->builder_->data()->size());
+  ASSERT_EQ(TypeTraits<Type>::bytes_required(cap), this->builder_->data()->size());
   ASSERT_EQ(util::bytes_for_bits(cap), this->builder_->null_bitmap()->size());
 }
 

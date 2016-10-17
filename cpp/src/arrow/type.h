@@ -288,7 +288,7 @@ struct ARROW_EXPORT StructType : public DataType {
 
 // These will be defined elsewhere
 template <typename T>
-struct type_traits {};
+struct TypeTraits {};
 
 }  // namespace arrow
 

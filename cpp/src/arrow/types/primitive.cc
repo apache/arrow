@@ -87,7 +87,7 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
   data_ = std::make_shared<PoolBuffer>(pool_);
 
-  int64_t nbytes = type_traits<T>::bytes_required(capacity);
+  int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
   // TODO(emkornfield) valgrind complains without this
   memset(data_->mutable_data(), 0, nbytes);
@@ -106,10 +106,9 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
     const int64_t old_bytes = data_->size();
-    const int64_t new_bytes = type_traits<T>::bytes_required(capacity);
+    const int64_t new_bytes = TypeTraits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-
     memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
   }
   return Status::OK();
@@ -121,7 +120,7 @@ Status PrimitiveBuilder<T>::Append(
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
-    memcpy(raw_data_ + length_, values, type_traits<T>::bytes_required(length));
+    memcpy(raw_data_ + length_, values, TypeTraits<T>::bytes_required(length));
   }
 
   // length_ is update by these
@@ -132,7 +131,12 @@ Status PrimitiveBuilder<T>::Append(
 
 template <typename T>
 Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
-  *out = std::make_shared<typename type_traits<T>::ArrayType>(
+  const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
+  if (bytes_required > 0 && bytes_required < data_->size()) {
+    // Trim buffers
+    RETURN_NOT_OK(data_->Resize(bytes_required));
+  }
+  *out = std::make_shared<typename TypeTraits<T>::ArrayType>(
       type_, length_, data_, null_count_, null_bitmap_);
 
   data_ = null_bitmap_ = nullptr;
