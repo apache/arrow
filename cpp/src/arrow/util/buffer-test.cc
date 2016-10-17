@@ -31,6 +31,18 @@ namespace arrow {
 
 class TestBuffer : public ::testing::Test {};
 
+TEST_F(TestBuffer, IsMutableFlag) {
+  Buffer buf(nullptr, 0);
+
+  ASSERT_FALSE(buf.is_mutable());
+
+  MutableBuffer mbuf(nullptr, 0);
+  ASSERT_TRUE(mbuf.is_mutable());
+
+  PoolBuffer pbuf;
+  ASSERT_TRUE(pbuf.is_mutable());
+}
+
 TEST_F(TestBuffer, Resize) {
   PoolBuffer buf;
 
@@ -94,6 +106,35 @@ TEST_F(TestBuffer, EqualsWithSameBuffer) {
   ASSERT_FALSE(buffer1.Equals(buffer3, nbytes + 1));
 
   pool->Free(rawBuffer, bufferSize);
+}
+
+TEST_F(TestBuffer, Copy) {
+  std::string data_str = "some data to copy";
+
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  Buffer buf(data, data_str.size());
+
+  std::shared_ptr<Buffer> out;
+
+  ASSERT_OK(buf.Copy(5, 4, &out));
+
+  Buffer expected(data + 5, 4);
+  ASSERT_TRUE(out->Equals(expected));
+}
+
+TEST_F(TestBuffer, SliceBuffer) {
+  std::string data_str = "some data to slice";
+
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  auto buf = std::make_shared<Buffer>(data, data_str.size());
+
+  std::shared_ptr<Buffer> out = SliceBuffer(buf, 5, 4);
+  Buffer expected(data + 5, 4);
+  ASSERT_TRUE(out->Equals(expected));
+
+  ASSERT_EQ(2, buf.use_count());
 }
 
 }  // namespace arrow
