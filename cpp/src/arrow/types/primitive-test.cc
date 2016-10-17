@@ -123,8 +123,11 @@ class TestPrimitiveBuilder : public TestBuilder {
 
     auto expected =
         std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_null_bitmap);
-    std::shared_ptr<ArrayType> result =
-        std::dynamic_pointer_cast<ArrayType>(builder->Finish());
+
+    std::shared_ptr<Array> out;
+    ASSERT_OK(builder->Finish(&out));
+
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(out);
 
     // Builder is now reset
     ASSERT_EQ(0, builder->length());
@@ -216,8 +219,10 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   auto expected =
       std::make_shared<BooleanArray>(size, ex_data, ex_null_count, ex_null_bitmap);
-  std::shared_ptr<BooleanArray> result =
-      std::dynamic_pointer_cast<BooleanArray>(builder->Finish());
+
+  std::shared_ptr<Array> out;
+  ASSERT_OK(builder->Finish(&out));
+  std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(out);
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
@@ -254,7 +259,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   int n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
   ASSERT_EQ(util::next_power2(n), this->builder_->capacity());
-  ASSERT_EQ(util::next_power2(type_traits<Type>::bytes_required(n)),
+  ASSERT_EQ(util::next_power2(TypeTraits<Type>::bytes_required(n)),
       this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
@@ -267,7 +272,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
-  auto result = this->builder_->Finish();
+  std::shared_ptr<Array> result;
+  ASSERT_OK(this->builder_->Finish(&result));
 
   for (int i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
@@ -298,7 +304,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   }
 
   do {
-    std::shared_ptr<Array> result = this->builder_->Finish();
+    std::shared_ptr<Array> result;
+    ASSERT_OK(this->builder_->Finish(&result));
   } while (false);
 
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
@@ -315,8 +322,7 @@ Status MakeArray(const vector<uint8_t>& valid_bytes, const vector<T>& draws, int
       RETURN_NOT_OK(builder->AppendNull());
     }
   }
-  *out = builder->Finish();
-  return Status::OK();
+  return builder->Finish(out);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
@@ -465,7 +471,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
 
-  ASSERT_EQ(type_traits<Type>::bytes_required(cap), this->builder_->data()->size());
+  ASSERT_EQ(TypeTraits<Type>::bytes_required(cap), this->builder_->data()->size());
   ASSERT_EQ(util::bytes_for_bits(cap), this->builder_->null_bitmap()->size());
 }
 

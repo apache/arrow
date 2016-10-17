@@ -35,15 +35,16 @@ namespace arrow {
 class Buffer;
 class MemoryPool;
 
-class ARROW_EXPORT BinaryArray : public ListArray {
+class ARROW_EXPORT BinaryArray : public Array {
  public:
   BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+
   // Constructor that allows sub-classes/builders to propagate there logical type up the
   // class hierarchy.
   BinaryArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   // Return the pointer to the given elements bytes
@@ -53,28 +54,38 @@ class ARROW_EXPORT BinaryArray : public ListArray {
     DCHECK(out_length);
     const int32_t pos = offsets_[i];
     *out_length = offsets_[i + 1] - pos;
-    return raw_bytes_ + pos;
+    return data_ + pos;
   }
+
+  std::shared_ptr<Buffer> data() const { return data_buffer_; }
+  std::shared_ptr<Buffer> offsets() const { return offset_buffer_; }
+
+  int32_t offset(int i) const { return offsets_[i]; }
+
+  // Neither of these functions will perform boundschecking
+  int32_t value_offset(int i) const { return offsets_[i]; }
+  int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
+
+  bool EqualsExact(const BinaryArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const ArrayPtr& arr) const override;
 
   Status Validate() const override;
 
  private:
-  UInt8Array* bytes_;
-  const uint8_t* raw_bytes_;
+  std::shared_ptr<Buffer> offset_buffer_;
+  const int32_t* offsets_;
+
+  std::shared_ptr<Buffer> data_buffer_;
+  const uint8_t* data_;
 };
 
 class ARROW_EXPORT StringArray : public BinaryArray {
  public:
   StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
-  // Constructor that allows overriding the logical type, so subclasses can propagate
-  // there
-  // up the class hierarchy.
-  StringArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
-      : BinaryArray(type, length, offsets, values, null_count, null_bitmap) {}
 
   // Construct a std::string
   // TODO: std::bad_alloc possibility
@@ -98,9 +109,7 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return byte_builder_->Append(value, length);
   }
 
-  std::shared_ptr<Array> Finish() override {
-    return ListBuilder::Transfer<BinaryArray>();
-  }
+  Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
   UInt8Builder* byte_builder_;
@@ -112,6 +121,8 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
       : BinaryBuilder(pool, type) {}
 
+  Status Finish(std::shared_ptr<Array>* out) override;
+
   Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
 
   Status Append(const char* value, int32_t length) {
@@ -119,10 +130,6 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   }
 
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
-
-  std::shared_ptr<Array> Finish() override {
-    return ListBuilder::Transfer<StringArray>();
-  }
 };
 
 }  // namespace arrow

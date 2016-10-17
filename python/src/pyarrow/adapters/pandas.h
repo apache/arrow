@@ -32,27 +32,26 @@ namespace arrow {
 class Array;
 class Column;
 class MemoryPool;
+class Status;
 
 } // namespace arrow
 
 namespace pyarrow {
 
-class Status;
+PYARROW_EXPORT
+arrow::Status ConvertArrayToPandas(const std::shared_ptr<arrow::Array>& arr,
+    PyObject* py_ref, PyObject** out);
 
 PYARROW_EXPORT
-Status ConvertArrayToPandas(const std::shared_ptr<arrow::Array>& arr, PyObject* py_ref,
-    PyObject** out);
+arrow::Status ConvertColumnToPandas(const std::shared_ptr<arrow::Column>& col,
+    PyObject* py_ref, PyObject** out);
 
 PYARROW_EXPORT
-Status ConvertColumnToPandas(const std::shared_ptr<arrow::Column>& col, PyObject* py_ref,
-    PyObject** out);
-
-PYARROW_EXPORT
-Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+arrow::Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     std::shared_ptr<arrow::Array>* out);
 
 PYARROW_EXPORT
-Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
+arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
     std::shared_ptr<arrow::Array>* out);
 
 } // namespace pyarrow

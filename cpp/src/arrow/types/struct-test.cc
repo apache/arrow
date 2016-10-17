@@ -119,7 +119,11 @@ class TestStructBuilder : public TestBuilder {
     ASSERT_EQ(2, static_cast<int>(builder_->field_builders().size()));
   }
 
-  void Done() { result_ = std::dynamic_pointer_cast<StructArray>(builder_->Finish()); }
+  void Done() {
+    std::shared_ptr<Array> out;
+    ASSERT_OK(builder_->Finish(&out));
+    result_ = std::dynamic_pointer_cast<StructArray>(out);
+  }
 
  protected:
   std::vector<FieldPtr> value_fields_;
@@ -294,7 +298,8 @@ TEST_F(TestStructBuilder, TestEquality) {
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
-  array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&array));
 
   ASSERT_OK(builder_->Resize(list_lengths.size()));
   ASSERT_OK(char_vb->Resize(list_values.size()));
@@ -308,7 +313,8 @@ TEST_F(TestStructBuilder, TestEquality) {
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
-  equal_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&equal_array));
 
   ASSERT_OK(builder_->Resize(list_lengths.size()));
   ASSERT_OK(char_vb->Resize(list_values.size()));
@@ -323,7 +329,8 @@ TEST_F(TestStructBuilder, TestEquality) {
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
-  unequal_bitmap_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&unequal_bitmap_array));
 
   ASSERT_OK(builder_->Resize(list_lengths.size()));
   ASSERT_OK(char_vb->Resize(list_values.size()));
@@ -339,7 +346,8 @@ TEST_F(TestStructBuilder, TestEquality) {
   for (int32_t value : int_values) {
     int_vb->UnsafeAppend(value);
   }
-  unequal_offsets_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&unequal_offsets_array));
 
   ASSERT_OK(builder_->Resize(list_lengths.size()));
   ASSERT_OK(char_vb->Resize(list_values.size()));
@@ -354,7 +362,8 @@ TEST_F(TestStructBuilder, TestEquality) {
   for (int32_t value : unequal_int_values) {
     int_vb->UnsafeAppend(value);
   }
-  unequal_values_array = builder_->Finish();
+
+  ASSERT_OK(builder_->Finish(&unequal_values_array));
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));

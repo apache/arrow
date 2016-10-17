@@ -73,6 +73,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     field_builders_ = field_builders;
   }
 
+  Status Finish(std::shared_ptr<Array>* out) override;
+
   // Null bitmap is of equal length to every child field, and any zero byte
   // will be considered as a null for that field, but users must using app-
   // end methods or advance methods of the child builders' independently to
@@ -81,21 +83,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
-  }
-
-  std::shared_ptr<Array> Finish() override {
-    std::vector<ArrayPtr> fields;
-    for (auto it : field_builders_) {
-      fields.push_back(it->Finish());
-    }
-
-    auto result =
-        std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
-
-    null_bitmap_ = nullptr;
-    capacity_ = length_ = null_count_ = 0;
-
-    return result;
   }
 
   // Append an element to the Struct. All child-builders' Append method must

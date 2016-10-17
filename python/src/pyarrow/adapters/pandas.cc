@@ -31,10 +31,10 @@
 
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/status.h"
 
 #include "pyarrow/common.h"
 #include "pyarrow/config.h"
-#include "pyarrow/status.h"
 
 namespace pyarrow {
 
@@ -42,6 +42,8 @@ using arrow::Array;
 using arrow::Column;
 using arrow::Field;
 using arrow::DataType;
+using arrow::Status;
+
 namespace util = arrow::util;
 
 // ----------------------------------------------------------------------
@@ -149,7 +151,7 @@ class ArrowSerializer {
     int null_bytes = util::bytes_for_bits(length_);
 
     null_bitmap_ = std::make_shared<arrow::PoolBuffer>(pool_);
-    RETURN_ARROW_NOT_OK(null_bitmap_->Resize(null_bytes));
+    RETURN_NOT_OK(null_bitmap_->Resize(null_bytes));
 
     null_bitmap_data_ = null_bitmap_->mutable_data();
     memset(null_bitmap_data_, 0, null_bytes);
@@ -171,9 +173,9 @@ class ArrowSerializer {
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     arrow::TypePtr string_type(new arrow::StringType());
     arrow::StringBuilder string_builder(pool_, string_type);
-    RETURN_ARROW_NOT_OK(string_builder.Resize(length_));
+    RETURN_NOT_OK(string_builder.Resize(length_));
 
-    arrow::Status s;
+    Status s;
     PyObject* obj;
     for (int64_t i = 0; i < length_; ++i) {
       obj = objects[i];
@@ -187,18 +189,16 @@ class ArrowSerializer {
         s = string_builder.Append(PyBytes_AS_STRING(obj), length);
         Py_DECREF(obj);
         if (!s.ok()) {
-          return Status::ArrowError(s.ToString());
+          return s;
         }
       } else if (PyBytes_Check(obj)) {
         const int32_t length = PyBytes_GET_SIZE(obj);
-        RETURN_ARROW_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
+        RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
       } else {
         string_builder.AppendNull();
       }
     }
-    *out = std::shared_ptr<arrow::Array>(string_builder.Finish());
-
-    return Status::OK();
+    return string_builder.Finish(out);
   }
 
   Status ConvertBooleans(std::shared_ptr<Array>* out) {
@@ -208,7 +208,7 @@ class ArrowSerializer {
 
     int nbytes = util::bytes_for_bits(length_);
     auto data = std::make_shared<arrow::PoolBuffer>(pool_);
-    RETURN_ARROW_NOT_OK(data->Resize(nbytes));
+    RETURN_NOT_OK(data->Resize(nbytes));
     uint8_t* bitmap = data->mutable_data();
     memset(bitmap, 0, nbytes);
 
@@ -305,7 +305,7 @@ inline Status ArrowSerializer<NPY_DATETIME>::MakeDataType(std::shared_ptr<DataTy
           unit = arrow::TimestampType::Unit::NANO;
           break;
       default:
-          return Status::ValueError("Unknown NumPy datetime unit");
+          return Status::Invalid("Unknown NumPy datetime unit");
   }
 
   out->reset(new arrow::TimestampType(unit));
@@ -330,7 +330,7 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   RETURN_NOT_OK(ConvertData());
   std::shared_ptr<DataType> type;
   RETURN_NOT_OK(MakeDataType(&type));
-  RETURN_ARROW_NOT_OK(MakePrimitiveArray(type, length_, data_, null_count, null_bitmap_, out));
+  RETURN_NOT_OK(MakePrimitiveArray(type, length_, data_, null_count, null_bitmap_, out));
   return Status::OK();
 }
 
@@ -389,7 +389,7 @@ template <int TYPE>
 inline Status ArrowSerializer<TYPE>::ConvertData() {
   // TODO(wesm): strided arrays
   if (is_strided()) {
-    return Status::ValueError("no support for strided data yet");
+    return Status::Invalid("no support for strided data yet");
   }
 
   data_ = std::make_shared<NumPyBuffer>(arr_);
@@ -399,12 +399,12 @@ inline Status ArrowSerializer<TYPE>::ConvertData() {
 template <>
 inline Status ArrowSerializer<NPY_BOOL>::ConvertData() {
   if (is_strided()) {
-    return Status::ValueError("no support for strided data yet");
+    return Status::Invalid("no support for strided data yet");
   }
 
   int nbytes = util::bytes_for_bits(length_);
   auto buffer = std::make_shared<arrow::PoolBuffer>(pool_);
-  RETURN_ARROW_NOT_OK(buffer->Resize(nbytes));
+  RETURN_NOT_OK(buffer->Resize(nbytes));
 
   const uint8_t* values = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
@@ -446,7 +446,7 @@ Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
   }
 
   if (PyArray_NDIM(arr) != 1) {
-    return Status::ValueError("only handle 1-dimensional arrays");
+    return Status::Invalid("only handle 1-dimensional arrays");
   }
 
   switch(PyArray_DESCR(arr)->type_num) {

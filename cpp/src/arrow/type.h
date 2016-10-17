@@ -242,7 +242,7 @@ struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType> {
 struct ARROW_EXPORT ListType : public DataType {
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : ListType(value_type, Type::LIST) {}
+      : ListType(std::make_shared<Field>("item", value_type)) {}
 
   explicit ListType(const std::shared_ptr<Field>& value_field) : DataType(Type::LIST) {
     children_ = {value_field};
@@ -255,26 +255,17 @@ struct ARROW_EXPORT ListType : public DataType {
   static char const* name() { return "list"; }
 
   std::string ToString() const override;
-
- protected:
-  // Constructor for classes that are implemented as List Arrays.
-  ListType(const std::shared_ptr<DataType>& value_type, Type::type logical_type)
-      : DataType(logical_type) {
-    // TODO ARROW-187 this can technically fail, make a constructor method ?
-    children_ = {std::make_shared<Field>("item", value_type)};
-  }
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
-struct ARROW_EXPORT BinaryType : public ListType {
+struct ARROW_EXPORT BinaryType : public DataType {
   BinaryType() : BinaryType(Type::BINARY) {}
   static char const* name() { return "binary"; }
   std::string ToString() const override;
 
  protected:
   // Allow subclasses to change the logical type.
-  explicit BinaryType(Type::type logical_type)
-      : ListType(std::shared_ptr<DataType>(new UInt8Type()), logical_type) {}
+  explicit BinaryType(Type::type logical_type) : DataType(logical_type) {}
 };
 
 // UTF encoded strings
@@ -284,9 +275,6 @@ struct ARROW_EXPORT StringType : public BinaryType {
   static char const* name() { return "string"; }
 
   std::string ToString() const override;
-
- protected:
-  explicit StringType(Type::type logical_type) : BinaryType(logical_type) {}
 };
 
 struct ARROW_EXPORT StructType : public DataType {
@@ -300,7 +288,7 @@ struct ARROW_EXPORT StructType : public DataType {
 
 // These will be defined elsewhere
 template <typename T>
-struct type_traits {};
+struct TypeTraits {};
 
 }  // namespace arrow
 

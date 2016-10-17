@@ -42,7 +42,7 @@ const auto kListInt32 = std::make_shared<ListType>(kInt32);
 const auto kListListInt32 = std::make_shared<ListType>(kListInt32);
 
 Status MakeRandomInt32Array(
-    int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* array) {
+    int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   test::MakeRandomInt32PoolBuffer(length, pool, &data);
   const auto kInt32 = std::make_shared<Int32Type>();
@@ -52,16 +52,14 @@ Status MakeRandomInt32Array(
     test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes);
     RETURN_NOT_OK(builder.Append(
         reinterpret_cast<const int32_t*>(data->data()), length, valid_bytes->data()));
-    *array = builder.Finish();
-    return Status::OK();
+    return builder.Finish(out);
   }
   RETURN_NOT_OK(builder.Append(reinterpret_cast<const int32_t*>(data->data()), length));
-  *array = builder.Finish();
-  return Status::OK();
+  return builder.Finish(out);
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-    bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* array) {
+    bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
   const double null_percent = include_nulls ? 0.1 : 0;
@@ -90,8 +88,8 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   }
   ListBuilder builder(pool, child_array);
   RETURN_NOT_OK(builder.Append(offsets.data(), num_lists, valid_lists.data()));
-  *array = builder.Finish();
-  return (*array)->Validate();
+  RETURN_NOT_OK(builder.Finish(out));
+  return (*out)->Validate();
 }
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
@@ -115,7 +113,7 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    const TypePtr& type, int32_t length, MemoryPool* pool, ArrayPtr* array) {
+    const TypePtr& type, int32_t length, MemoryPool* pool, ArrayPtr* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
   Builder builder(pool, type);
@@ -130,8 +128,7 @@ Status MakeRandomBinaryArray(
           builder.Append(reinterpret_cast<const RawType*>(value.data()), value.size()));
     }
   }
-  *array = builder.Finish();
-  return Status::OK();
+  return builder.Finish(out);
 }
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {

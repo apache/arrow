@@ -21,10 +21,10 @@
 #include <mutex>
 #include <sstream>
 
-#include <arrow/util/memory-pool.h>
-#include <arrow/util/status.h>
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
-#include "pyarrow/status.h"
+using arrow::Status;
 
 namespace pyarrow {
 
@@ -33,18 +33,18 @@ class PyArrowMemoryPool : public arrow::MemoryPool {
   PyArrowMemoryPool() : bytes_allocated_(0) {}
   virtual ~PyArrowMemoryPool() {}
 
-  arrow::Status Allocate(int64_t size, uint8_t** out) override {
+  Status Allocate(int64_t size, uint8_t** out) override {
     std::lock_guard<std::mutex> guard(pool_lock_);
     *out = static_cast<uint8_t*>(std::malloc(size));
     if (*out == nullptr) {
       std::stringstream ss;
       ss << "malloc of size " << size << " failed";
-      return arrow::Status::OutOfMemory(ss.str());
+      return Status::OutOfMemory(ss.str());
     }
 
     bytes_allocated_ += size;
 
-    return arrow::Status::OK();
+    return Status::OK();
   }
 
   int64_t bytes_allocated() const override {

@@ -29,13 +29,6 @@ namespace pyarrow {
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
-#define RETURN_ARROW_NOT_OK(s) do {             \
-    arrow::Status _s = (s);                     \
-    if (!_s.ok()) {                             \
-      return Status::ArrowError(s.ToString());  \
-    }                                           \
-  } while (0);
-
 class OwnedRef {
  public:
   OwnedRef() : obj_(nullptr) {}

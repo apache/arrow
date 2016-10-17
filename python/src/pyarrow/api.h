@@ -18,8 +18,6 @@
 #ifndef PYARROW_API_H
 #define PYARROW_API_H
 
-#include "pyarrow/status.h"
-
 #include "pyarrow/helpers.h"
 
 #include "pyarrow/adapters/builtin.h"

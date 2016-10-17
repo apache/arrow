@@ -42,14 +42,6 @@ Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
     int32_t length, const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out);
 
-// Create new list arrays for logical types that are backed by ListArrays (e.g. list of
-// primitives and strings)
-// TODO(emkornfield) split up string vs list?
-Status ARROW_EXPORT MakeListArray(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::shared_ptr<Buffer>& offests, const std::shared_ptr<Array>& values,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap,
-    std::shared_ptr<Array>* out);
-
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_

@@ -438,8 +438,6 @@ set(PYARROW_SRCS
   src/pyarrow/config.cc
   src/pyarrow/helpers.cc
   src/pyarrow/io.cc
-  src/pyarrow/status.cc
-
   src/pyarrow/adapters/builtin.cc
   src/pyarrow/adapters/pandas.cc
 )

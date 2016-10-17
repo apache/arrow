@@ -25,7 +25,7 @@ bool ListArray::EqualsExact(const ListArray& other) const {
   if (null_count_ != other.null_count_) { return false; }
 
   bool equal_offsets =
-      offset_buf_->Equals(*other.offset_buf_, (length_ + 1) * sizeof(int32_t));
+      offset_buffer_->Equals(*other.offset_buffer_, (length_ + 1) * sizeof(int32_t));
   if (!equal_offsets) { return false; }
   bool equal_null_bitmap = true;
   if (null_count_ > 0) {
@@ -72,10 +72,10 @@ bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_st
 
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
-  if (!offset_buf_) { return Status::Invalid("offset_buf_ was null"); }
-  if (offset_buf_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
+  if (!offset_buffer_) { return Status::Invalid("offset_buffer_ was null"); }
+  if (offset_buffer_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
     std::stringstream ss;
-    ss << "offset buffer size (bytes): " << offset_buf_->size()
+    ss << "offset buffer size (bytes): " << offset_buffer_->size()
        << " isn't large enough for length: " << length_;
     return Status::Invalid(ss.str());
   }
@@ -119,6 +119,40 @@ Status ListArray::Validate() const {
     prev_offset = current_offset;
   }
   return Status::OK();
+}
+
+Status ListBuilder::Init(int32_t elements) {
+  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
+  // one more then requested for offsets
+  return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
+}
+
+Status ListBuilder::Resize(int32_t capacity) {
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+  // one more then requested for offsets
+  RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  return ArrayBuilder::Resize(capacity);
+}
+
+Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
+  std::shared_ptr<Array> items = values_;
+  if (!items) { RETURN_NOT_OK(value_builder_->Finish(&items)); }
+
+  RETURN_NOT_OK(offset_builder_.Append<int32_t>(items->length()));
+  std::shared_ptr<Buffer> offsets = offset_builder_.Finish();
+
+  *out = std::make_shared<ListArray>(
+      type_, length_, offsets, items, null_count_, null_bitmap_);
+
+  Reset();
+
+  return Status::OK();
+}
+
+void ListBuilder::Reset() {
+  capacity_ = length_ = null_count_ = 0;
+  null_bitmap_ = nullptr;
 }
 
 }  // namespace arrow
