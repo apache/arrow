@@ -31,6 +31,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 
@@ -263,7 +264,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
   std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(util::bytes_to_bits(null_bytes, &null_bitmask));
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
   ArrayPtr with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, 1, null_bitmask));
 

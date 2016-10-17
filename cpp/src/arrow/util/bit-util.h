@@ -30,39 +30,39 @@ namespace arrow {
 class Buffer;
 class Status;
 
-namespace util {
+namespace BitUtil {
 
-static inline int64_t ceil_byte(int64_t size) {
+static inline int64_t CeilByte(int64_t size) {
   return (size + 7) & ~7;
 }
 
-static inline int64_t bytes_for_bits(int64_t size) {
-  return ceil_byte(size) / 8;
+static inline int64_t BytesForBits(int64_t size) {
+  return CeilByte(size) / 8;
 }
 
-static inline int64_t ceil_2bytes(int64_t size) {
+static inline int64_t Ceil2Bytes(int64_t size) {
   return (size + 15) & ~15;
 }
 
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
-static inline bool get_bit(const uint8_t* bits, int i) {
+static inline bool GetBit(const uint8_t* bits, int i) {
   return static_cast<bool>(bits[i / 8] & kBitmask[i % 8]);
 }
 
-static inline bool bit_not_set(const uint8_t* bits, int i) {
+static inline bool BitNotSet(const uint8_t* bits, int i) {
   return (bits[i / 8] & kBitmask[i % 8]) == 0;
 }
 
-static inline void clear_bit(uint8_t* bits, int i) {
+static inline void ClearBit(uint8_t* bits, int i) {
   bits[i / 8] &= ~kBitmask[i % 8];
 }
 
-static inline void set_bit(uint8_t* bits, int i) {
+static inline void SetBit(uint8_t* bits, int i) {
   bits[i / 8] |= kBitmask[i % 8];
 }
 
-static inline int64_t next_power2(int64_t n) {
+static inline int64_t NextPower2(int64_t n) {
   n--;
   n |= n >> 1;
   n |= n >> 2;
@@ -74,7 +74,7 @@ static inline int64_t next_power2(int64_t n) {
   return n;
 }
 
-static inline bool is_multiple_of_64(int64_t n) {
+static inline bool IsMultipleOf64(int64_t n) {
   return (n & 63) == 0;
 }
 
@@ -90,11 +90,10 @@ inline int64_t RoundUpToMultipleOf64(int64_t num) {
   return num;
 }
 
-void bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits);
-ARROW_EXPORT Status bytes_to_bits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
+void BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits);
+ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
-}  // namespace util
-
+}  // namespace BitUtil
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H

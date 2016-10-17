@@ -236,7 +236,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   for (int i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
-    bool actual = util::get_bit(result->raw_data(), i);
+    bool actual = BitUtil::GetBit(result->raw_data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
   ASSERT_TRUE(result->EqualsExact(*expected.get()));
@@ -258,8 +258,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
 
   int n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
-  ASSERT_EQ(util::next_power2(n), this->builder_->capacity());
-  ASSERT_EQ(util::next_power2(TypeTraits<Type>::bytes_required(n)),
+  ASSERT_EQ(BitUtil::NextPower2(n), this->builder_->capacity());
+  ASSERT_EQ(BitUtil::NextPower2(TypeTraits<Type>::bytes_required(n)),
       this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
@@ -409,10 +409,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   }
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(util::next_power2(size), this->builder_->capacity());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
 
   ASSERT_EQ(size, this->builder_nn_->length());
-  ASSERT_EQ(util::next_power2(size), this->builder_nn_->capacity());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -444,7 +444,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   ASSERT_OK(this->builder_nn_->Append(draws.data() + K, size - K));
 
   ASSERT_EQ(size, this->builder_->length());
-  ASSERT_EQ(util::next_power2(size), this->builder_->capacity());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
@@ -472,7 +472,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   ASSERT_EQ(cap, this->builder_->capacity());
 
   ASSERT_EQ(TypeTraits<Type>::bytes_required(cap), this->builder_->data()->size());
-  ASSERT_EQ(util::bytes_for_bits(cap), this->builder_->null_bitmap()->size());
+  ASSERT_EQ(BitUtil::BytesForBits(cap), this->builder_->null_bitmap()->size());
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
@@ -484,7 +484,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Advance(100));
   ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
 
-  ASSERT_EQ(util::next_power2(kMinBuilderCapacity + 100), this->builder_->capacity());
+  ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
 }
 
 }  // namespace arrow

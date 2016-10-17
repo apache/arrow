@@ -52,7 +52,7 @@ PoolBuffer::~PoolBuffer() {
 Status PoolBuffer::Reserve(int64_t new_capacity) {
   if (!mutable_data_ || new_capacity > capacity_) {
     uint8_t* new_data;
-    new_capacity = util::RoundUpToMultipleOf64(new_capacity);
+    new_capacity = BitUtil::RoundUpToMultipleOf64(new_capacity);
     if (mutable_data_) {
       RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
       memcpy(new_data, mutable_data_, size_);
