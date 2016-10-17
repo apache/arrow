@@ -30,14 +30,15 @@
 #include "pyarrow/common.h"
 #include "pyarrow/visibility.h"
 
-namespace arrow { class Array; }
+namespace arrow {
+class Array;
+class Status;
+}
 
 namespace pyarrow {
 
-class Status;
-
 PYARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
+arrow::Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
 
 } // namespace pyarrow
 

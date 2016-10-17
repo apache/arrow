@@ -20,12 +20,13 @@
 #include <cstdint>
 #include <cstdlib>
 
-#include <arrow/io/memory.h>
-#include <arrow/util/memory-pool.h>
-#include <arrow/util/status.h>
+#include "arrow/io/memory.h"
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
 #include "pyarrow/common.h"
-#include "pyarrow/status.h"
+
+using arrow::Status;
 
 namespace pyarrow {
 
@@ -41,7 +42,7 @@ PythonFile::~PythonFile() {
   Py_DECREF(file_);
 }
 
-static arrow::Status CheckPyError() {
+static Status CheckPyError() {
   if (PyErr_Occurred()) {
     PyObject *exc_type, *exc_value, *traceback;
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
@@ -51,35 +52,35 @@ static arrow::Status CheckPyError() {
     Py_XDECREF(exc_value);
     Py_XDECREF(traceback);
     PyErr_Clear();
-    return arrow::Status::IOError(message);
+    return Status::IOError(message);
   }
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PythonFile::Close() {
+Status PythonFile::Close() {
   // whence: 0 for relative to start of file, 2 for end of file
   PyObject* result = PyObject_CallMethod(file_, "close", "()");
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PythonFile::Seek(int64_t position, int whence) {
+Status PythonFile::Seek(int64_t position, int whence) {
   // whence: 0 for relative to start of file, 2 for end of file
   PyObject* result = PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PythonFile::Read(int64_t nbytes, PyObject** out) {
+Status PythonFile::Read(int64_t nbytes, PyObject** out) {
   PyObject* result = PyObject_CallMethod(file_, "read", "(i)", nbytes);
   ARROW_RETURN_NOT_OK(CheckPyError());
   *out = result;
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
+Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
   PyObject* py_data = PyBytes_FromStringAndSize(
       reinterpret_cast<const char*>(data), nbytes);
   ARROW_RETURN_NOT_OK(CheckPyError());
@@ -88,10 +89,10 @@ arrow::Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
   Py_XDECREF(py_data);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PythonFile::Tell(int64_t* position) {
+Status PythonFile::Tell(int64_t* position) {
   PyObject* result = PyObject_CallMethod(file_, "tell", "()");
   ARROW_RETURN_NOT_OK(CheckPyError());
 
@@ -101,7 +102,7 @@ arrow::Status PythonFile::Tell(int64_t* position) {
   // PyLong_AsLongLong can raise OverflowError
   ARROW_RETURN_NOT_OK(CheckPyError());
 
- return arrow::Status::OK();
+ return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -113,22 +114,22 @@ PyReadableFile::PyReadableFile(PyObject* file) {
 
 PyReadableFile::~PyReadableFile() {}
 
-arrow::Status PyReadableFile::Close() {
+Status PyReadableFile::Close() {
   PyGILGuard lock;
   return file_->Close();
 }
 
-arrow::Status PyReadableFile::Seek(int64_t position) {
+Status PyReadableFile::Seek(int64_t position) {
   PyGILGuard lock;
   return file_->Seek(position, 0);
 }
 
-arrow::Status PyReadableFile::Tell(int64_t* position) {
+Status PyReadableFile::Tell(int64_t* position) {
   PyGILGuard lock;
   return file_->Tell(position);
 }
 
-arrow::Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   PyGILGuard lock;
   PyObject* bytes_obj;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
@@ -137,10 +138,10 @@ arrow::Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t*
   std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
   Py_DECREF(bytes_obj);
 
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
+Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
   PyGILGuard lock;
 
   PyObject* bytes_obj;
@@ -149,10 +150,10 @@ arrow::Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer
   *out = std::make_shared<PyBytesBuffer>(bytes_obj);
   Py_DECREF(bytes_obj);
 
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status PyReadableFile::GetSize(int64_t* size) {
+Status PyReadableFile::GetSize(int64_t* size) {
   PyGILGuard lock;
 
   int64_t current_position;;
@@ -167,7 +168,7 @@ arrow::Status PyReadableFile::GetSize(int64_t* size) {
   ARROW_RETURN_NOT_OK(file_->Seek(current_position, 0));
 
   *size = file_size;
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
 bool PyReadableFile::supports_zero_copy() const {
@@ -183,17 +184,17 @@ PyOutputStream::PyOutputStream(PyObject* file) {
 
 PyOutputStream::~PyOutputStream() {}
 
-arrow::Status PyOutputStream::Close() {
+Status PyOutputStream::Close() {
   PyGILGuard lock;
   return file_->Close();
 }
 
-arrow::Status PyOutputStream::Tell(int64_t* position) {
+Status PyOutputStream::Tell(int64_t* position) {
   PyGILGuard lock;
   return file_->Tell(position);
 }
 
-arrow::Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   PyGILGuard lock;
   return file_->Write(data, nbytes);
 }

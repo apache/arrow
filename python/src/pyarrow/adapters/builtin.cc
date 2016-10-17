@@ -20,13 +20,14 @@
 
 #include "pyarrow/adapters/builtin.h"
 
-#include <arrow/api.h>
+#include "arrow/api.h"
+#include "arrow/util/status.h"
 
 #include "pyarrow/helpers.h"
-#include "pyarrow/status.h"
 
 using arrow::ArrayBuilder;
 using arrow::DataType;
+using arrow::Status;
 using arrow::Type;
 
 namespace pyarrow {
@@ -129,7 +130,7 @@ class SeqVisitor {
       PyObject* item = item_ref.obj();
 
       if (PyList_Check(item)) {
-        PY_RETURN_NOT_OK(Visit(item, level + 1));
+        RETURN_NOT_OK(Visit(item, level + 1));
       } else if (PyDict_Check(item)) {
         return Status::NotImplemented("No type inference for dicts");
       } else {
@@ -164,9 +165,9 @@ class SeqVisitor {
   Status Validate() const {
     if (scalars_.total_count() > 0) {
       if (num_nesting_levels() > 1) {
-        return Status::ValueError("Mixed nesting levels not supported");
+        return Status::Invalid("Mixed nesting levels not supported");
       } else if (max_observed_level() < max_nesting_level_) {
-        return Status::ValueError("Mixed nesting levels not supported");
+        return Status::Invalid("Mixed nesting levels not supported");
       }
     }
     return Status::OK();
@@ -216,8 +217,8 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
   }
 
   SeqVisitor seq_visitor;
-  PY_RETURN_NOT_OK(seq_visitor.Visit(obj));
-  PY_RETURN_NOT_OK(seq_visitor.Validate());
+  RETURN_NOT_OK(seq_visitor.Visit(obj));
+  RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
 
@@ -259,7 +260,7 @@ class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     Py_ssize_t size = PySequence_Size(seq);
-    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
@@ -281,7 +282,7 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
   Status AppendData(PyObject* seq) override {
     int64_t val;
     Py_ssize_t size = PySequence_Size(seq);
-    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
@@ -301,7 +302,7 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
   Status AppendData(PyObject* seq) override {
     double val;
     Py_ssize_t size = PySequence_Size(seq);
-    RETURN_ARROW_NOT_OK(typed_builder_->Reserve(size));
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
@@ -330,7 +331,7 @@ class StringConverter : public TypedConverter<arrow::StringBuilder> {
       OwnedRef holder(item);
 
       if (item == Py_None) {
-        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+        RETURN_NOT_OK(typed_builder_->AppendNull());
         continue;
       } else if (PyUnicode_Check(item)) {
         tmp.reset(PyUnicode_AsUTF8String(item));
@@ -344,7 +345,7 @@ class StringConverter : public TypedConverter<arrow::StringBuilder> {
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
       bytes = PyBytes_AS_STRING(bytes_obj);
-      RETURN_ARROW_NOT_OK(typed_builder_->Append(bytes, length));
+      RETURN_NOT_OK(typed_builder_->Append(bytes, length));
     }
     return Status::OK();
   }
@@ -359,10 +360,10 @@ class ListConverter : public TypedConverter<arrow::ListBuilder> {
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
-        RETURN_ARROW_NOT_OK(typed_builder_->AppendNull());
+        RETURN_NOT_OK(typed_builder_->AppendNull());
       } else {
         typed_builder_->Append();
-        PY_RETURN_NOT_OK(value_converter_->AppendData(item.obj()));
+        RETURN_NOT_OK(value_converter_->AppendData(item.obj()));
       }
     }
     return Status::OK();
@@ -408,7 +409,7 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
 Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
-  PY_RETURN_NOT_OK(InferArrowType(obj, &size, &type));
+  RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
   // Handle NA / NullType case
   if (type->type == Type::NA) {
@@ -426,14 +427,12 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
 
   // Give the sequence converter an array builder
   std::shared_ptr<ArrayBuilder> builder;
-  RETURN_ARROW_NOT_OK(arrow::MakeBuilder(get_memory_pool(), type, &builder));
+  RETURN_NOT_OK(arrow::MakeBuilder(get_memory_pool(), type, &builder));
   converter->Init(builder);
 
-  PY_RETURN_NOT_OK(converter->AppendData(obj));
+  RETURN_NOT_OK(converter->AppendData(obj));
 
-  *out = builder->Finish();
-
-  return Status::OK();
+  return builder->Finish(out);
 }
 
 } // namespace pyarrow

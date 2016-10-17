@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow_io cimport *
 from pyarrow.includes.libarrow_ipc cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
-from pyarrow.error cimport check_cstatus
+from pyarrow.error cimport check_status
 from pyarrow.io cimport NativeFile
 from pyarrow.schema cimport Schema
 from pyarrow.table cimport RecordBatch
@@ -89,8 +89,8 @@ cdef class ArrowFileWriter:
         get_writer(sink, &self.sink)
 
         with nogil:
-            check_cstatus(CFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                           &self.writer))
+            check_status(CFileWriter.Open(self.sink.get(), schema.sp_schema,
+                                          &self.writer))
 
         self.closed = False
 
@@ -101,12 +101,12 @@ cdef class ArrowFileWriter:
     def write_record_batch(self, RecordBatch batch):
         cdef CRecordBatch* bptr = batch.batch
         with nogil:
-            check_cstatus(self.writer.get()
-                          .WriteRecordBatch(bptr.columns(), bptr.num_rows()))
+            check_status(self.writer.get()
+                         .WriteRecordBatch(bptr.columns(), bptr.num_rows()))
 
     def close(self):
         with nogil:
-            check_cstatus(self.writer.get().Close())
+            check_status(self.writer.get().Close())
         self.closed = True
 
 
@@ -124,9 +124,9 @@ cdef class ArrowFileReader:
 
         with nogil:
             if offset != 0:
-                check_cstatus(CFileReader.Open2(reader, offset, &self.reader))
+                check_status(CFileReader.Open2(reader, offset, &self.reader))
             else:
-                check_cstatus(CFileReader.Open(reader, &self.reader))
+                check_status(CFileReader.Open(reader, &self.reader))
 
     property num_dictionaries:
 
@@ -147,7 +147,7 @@ cdef class ArrowFileReader:
             raise ValueError('Batch number {0} out of range'.format(i))
 
         with nogil:
-            check_cstatus(self.reader.get().GetRecordBatch(i, &batch))
+            check_status(self.reader.get().GetRecordBatch(i, &batch))
 
         result = RecordBatch()
         result.init(batch)

@@ -28,7 +28,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.libarrow_io cimport *
 
 from pyarrow.compat import frombytes, tobytes
-from pyarrow.error cimport check_cstatus
+from pyarrow.error cimport check_status
 
 cimport cpython as cp
 
@@ -57,9 +57,9 @@ cdef class NativeFile:
         if self.is_open:
             with nogil:
                 if self.is_readonly:
-                    check_cstatus(self.rd_file.get().Close())
+                    check_status(self.rd_file.get().Close())
                 else:
-                    check_cstatus(self.wr_file.get().Close())
+                    check_status(self.wr_file.get().Close())
         self.is_open = False
 
     cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
@@ -88,22 +88,22 @@ cdef class NativeFile:
         cdef int64_t size
         self._assert_readable()
         with nogil:
-            check_cstatus(self.rd_file.get().GetSize(&size))
+            check_status(self.rd_file.get().GetSize(&size))
         return size
 
     def tell(self):
         cdef int64_t position
         with nogil:
             if self.is_readonly:
-                check_cstatus(self.rd_file.get().Tell(&position))
+                check_status(self.rd_file.get().Tell(&position))
             else:
-                check_cstatus(self.wr_file.get().Tell(&position))
+                check_status(self.wr_file.get().Tell(&position))
         return position
 
     def seek(self, int64_t position):
         self._assert_readable()
         with nogil:
-            check_cstatus(self.rd_file.get().Seek(position))
+            check_status(self.rd_file.get().Seek(position))
 
     def write(self, data):
         """
@@ -116,7 +116,7 @@ cdef class NativeFile:
         cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
         cdef int64_t bufsize = len(data)
         with nogil:
-            check_cstatus(self.wr_file.get().Write(buf, bufsize))
+            check_status(self.wr_file.get().Write(buf, bufsize))
 
     def read(self, int nbytes):
         cdef:
@@ -127,8 +127,7 @@ cdef class NativeFile:
         self._assert_readable()
 
         with nogil:
-            check_cstatus(self.rd_file.get()
-                          .ReadB(nbytes, &out))
+            check_status(self.rd_file.get().ReadB(nbytes, &out))
 
         result = cp.PyBytes_FromStringAndSize(
             <const char*>out.get().data(), out.get().size())
@@ -223,7 +222,7 @@ cdef class InMemoryOutputStream(NativeFile):
     def get_result(self):
         cdef Buffer result = Buffer()
 
-        check_cstatus(self.wr_file.get().Close())
+        check_status(self.wr_file.get().Close())
         result.init(<shared_ptr[CBuffer]> self.buffer)
 
         self.is_open = False
@@ -270,7 +269,7 @@ except ImportError:
 
 def have_libhdfs():
     try:
-        check_cstatus(ConnectLibHdfs())
+        check_status(ConnectLibHdfs())
         return True
     except:
         return False
@@ -304,7 +303,7 @@ cdef class HdfsClient:
     def close(self):
         self._ensure_client()
         with nogil:
-            check_cstatus(self.client.get().Disconnect())
+            check_status(self.client.get().Disconnect())
         self.is_open = False
 
     cdef _ensure_client(self):
@@ -341,8 +340,7 @@ cdef class HdfsClient:
         conf.user = tobytes(user)
 
         with nogil:
-            check_cstatus(
-                CHdfsClient.Connect(&conf, &out.client))
+            check_status(CHdfsClient.Connect(&conf, &out.client))
         out.is_open = True
 
         return out
@@ -383,8 +381,8 @@ cdef class HdfsClient:
         self._ensure_client()
 
         with nogil:
-            check_cstatus(self.client.get()
-                          .ListDirectory(c_path, &listing))
+            check_status(self.client.get()
+                         .ListDirectory(c_path, &listing))
 
         cdef const HdfsPathInfo* info
         for i in range(<int> listing.size()):
@@ -422,8 +420,8 @@ cdef class HdfsClient:
 
         cdef c_string c_path = tobytes(path)
         with nogil:
-            check_cstatus(self.client.get()
-                          .CreateDirectory(c_path))
+            check_status(self.client.get()
+                         .CreateDirectory(c_path))
 
     def delete(self, path, bint recursive=False):
         """
@@ -439,8 +437,8 @@ cdef class HdfsClient:
 
         cdef c_string c_path = tobytes(path)
         with nogil:
-            check_cstatus(self.client.get()
-                          .Delete(c_path, recursive))
+            check_status(self.client.get()
+                         .Delete(c_path, recursive))
 
     def open(self, path, mode='rb', buffer_size=None, replication=None,
              default_block_size=None):
@@ -473,7 +471,7 @@ cdef class HdfsClient:
                 append = True
 
             with nogil:
-                check_cstatus(
+                check_status(
                     self.client.get()
                     .OpenWriteable(c_path, append, c_buffer_size,
                                    c_replication, c_default_block_size,
@@ -484,8 +482,8 @@ cdef class HdfsClient:
             out.is_readonly = False
         else:
             with nogil:
-                check_cstatus(self.client.get()
-                              .OpenReadable(c_path, &rd_handle))
+                check_status(self.client.get()
+                             .OpenReadable(c_path, &rd_handle))
 
             out.rd_file = <shared_ptr[ReadableFileInterface]> rd_handle
             out.is_readonly = True
@@ -579,9 +577,9 @@ cdef class HdfsFile(NativeFile):
         try:
             with nogil:
                 while total_bytes < nbytes:
-                    check_cstatus(self.rd_file.get()
-                                  .Read(rpc_chunksize, &bytes_read,
-                                        buf + total_bytes))
+                    check_status(self.rd_file.get()
+                                 .Read(rpc_chunksize, &bytes_read,
+                                       buf + total_bytes))
 
                     total_bytes += bytes_read
 
@@ -647,8 +645,8 @@ cdef class HdfsFile(NativeFile):
         try:
             while True:
                 with nogil:
-                    check_cstatus(self.rd_file.get()
-                                  .Read(self.buffer_size, &bytes_read, buf))
+                    check_status(self.rd_file.get()
+                                 .Read(self.buffer_size, &bytes_read, buf))
 
                 total_bytes += bytes_read
 

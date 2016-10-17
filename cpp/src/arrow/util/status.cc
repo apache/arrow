@@ -49,11 +49,17 @@ std::string Status::CodeAsString() const {
     case StatusCode::KeyError:
       type = "Key error";
       break;
+    case StatusCode::TypeError:
+      type = "Type error";
+      break;
     case StatusCode::Invalid:
       type = "Invalid";
       break;
     case StatusCode::IOError:
       type = "IOError";
+      break;
+    case StatusCode::UnknownError:
+      type = "Unknown error";
       break;
     case StatusCode::NotImplemented:
       type = "NotImplemented";

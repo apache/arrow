@@ -26,7 +26,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import tobytes
 from pyarrow.error import ArrowException
-from pyarrow.error cimport check_cstatus
+from pyarrow.error cimport check_status
 from pyarrow.io import NativeFile
 from pyarrow.table cimport Table
 
@@ -62,7 +62,7 @@ cdef class ParquetReader:
         cdef shared_ptr[ReadableFileInterface] cpp_handle
         file.read_handle(&cpp_handle)
 
-        check_cstatus(OpenFile(cpp_handle, &self.allocator, &self.reader))
+        check_status(OpenFile(cpp_handle, &self.allocator, &self.reader))
 
     def read_all(self):
         cdef:
@@ -70,8 +70,8 @@ cdef class ParquetReader:
             shared_ptr[CTable] ctable
 
         with nogil:
-            check_cstatus(self.reader.get()
-                          .ReadFlatTable(&ctable))
+            check_status(self.reader.get()
+                         .ReadFlatTable(&ctable))
 
         table.init(ctable)
         return table
@@ -80,7 +80,7 @@ cdef class ParquetReader:
 def read_table(source, columns=None):
     """
     Read a Table from Parquet format
-    
+
     Returns
     -------
     pyarrow.table.Table
@@ -176,5 +176,5 @@ def write_table(table, filename, chunk_size=None, version=None,
 
     sink.reset(new LocalFileOutputStream(tobytes(filename)))
     with nogil:
-        check_cstatus(WriteFlatTable(ctable_, default_memory_pool(), sink,
-            chunk_size_, properties_builder.build()))
+        check_status(WriteFlatTable(ctable_, default_memory_pool(), sink,
+                                    chunk_size_, properties_builder.build()))

@@ -25,36 +25,19 @@ cimport pyarrow.includes.libarrow_io as arrow_io
 
 
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef PyStatus PyStatus_OK "Status::OK"()
-
-    cdef cppclass PyStatus "pyarrow::Status":
-        PyStatus()
-
-        c_string ToString()
-
-        c_bool ok()
-        c_bool IsOutOfMemory()
-        c_bool IsKeyError()
-        c_bool IsTypeError()
-        c_bool IsIOError()
-        c_bool IsValueError()
-        c_bool IsNotImplemented()
-        c_bool IsArrowError()
-
     shared_ptr[CDataType] GetPrimitiveType(Type type)
-    PyStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
-    PyStatus PandasToArrow(MemoryPool* pool, object ao,
-                           shared_ptr[CArray]* out)
-    PyStatus PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
-                                 shared_ptr[CArray]* out)
+    CStatus PandasToArrow(MemoryPool* pool, object ao,
+                          shared_ptr[CArray]* out)
+    CStatus PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
+                                shared_ptr[CArray]* out)
 
-    PyStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
+    CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
+                                 object py_ref, PyObject** out)
+
+    CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)
-
-    PyStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
-                                   object py_ref, PyObject** out)
 
     MemoryPool* get_memory_pool()
 
