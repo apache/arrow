@@ -24,8 +24,9 @@
 #include "arrow/type.h"
 
 namespace arrow {
-const std::shared_ptr<DataType> kBinary = std::make_shared<BinaryType>();
-const std::shared_ptr<DataType> kString = std::make_shared<StringType>();
+
+static std::shared_ptr<DataType> kBinary = std::make_shared<BinaryType>();
+static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
 
 BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
