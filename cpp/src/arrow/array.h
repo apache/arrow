@@ -45,7 +45,7 @@ class ARROW_EXPORT Array {
 
   // Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
-    return null_count_ > 0 && util::bit_not_set(null_bitmap_data_, i);
+    return null_count_ > 0 && BitUtil::BitNotSet(null_bitmap_data_, i);
   }
 
   int32_t length() const { return length_; }

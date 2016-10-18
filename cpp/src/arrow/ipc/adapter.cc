@@ -37,6 +37,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/status.h"
@@ -49,7 +50,7 @@ namespace ipc {
 
 namespace {
 Status CheckMultipleOf64(int64_t size) {
-  if (util::is_multiple_of_64(size)) { return Status::OK(); }
+  if (BitUtil::IsMultipleOf64(size)) { return Status::OK(); }
   return Status::Invalid(
       "Attempted to write a buffer that "
       "wasn't a multiple of 64 bytes");
@@ -155,7 +156,7 @@ class RecordBatchWriter {
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
         size = buffer->size();
-        padding = util::RoundUpToMultipleOf64(size) - size;
+        padding = BitUtil::RoundUpToMultipleOf64(size) - size;
       }
 
       // TODO(wesm): We currently have no notion of shared memory page id's,

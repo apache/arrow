@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
 
@@ -41,7 +42,7 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
 
   if (null_count_ > 0) {
     bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, util::ceil_byte(length_) / 8);
+        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
     if (!equal_bitmap) { return false; }
 
     const uint8_t* this_data = raw_data_;
@@ -156,9 +157,9 @@ Status PrimitiveBuilder<BooleanType>::Append(
     if ((valid_bytes != nullptr) && !valid_bytes[i]) continue;
 
     if (values[i] > 0) {
-      util::set_bit(raw_data_, length_ + i);
+      BitUtil::SetBit(raw_data_, length_ + i);
     } else {
-      util::clear_bit(raw_data_, length_ + i);
+      BitUtil::ClearBit(raw_data_, length_ + i);
     }
   }
 
@@ -196,20 +197,20 @@ bool BooleanArray::EqualsExact(const BooleanArray& other) const {
 
   if (null_count_ > 0) {
     bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
+        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
     if (!equal_bitmap) { return false; }
 
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
 
     for (int i = 0; i < length_; ++i) {
-      if (!IsNull(i) && util::get_bit(this_data, i) != util::get_bit(other_data, i)) {
+      if (!IsNull(i) && BitUtil::GetBit(this_data, i) != BitUtil::GetBit(other_data, i)) {
         return false;
       }
     }
     return true;
   } else {
-    return data_->Equals(*other.data_, util::bytes_for_bits(length_));
+    return data_->Equals(*other.data_, BitUtil::BytesForBits(length_));
   }
 }
 

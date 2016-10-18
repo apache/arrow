@@ -43,7 +43,8 @@ class Status;
 // The following invariant is always true: Size < Capacity
 class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
  public:
-  Buffer(const uint8_t* data, int64_t size) : data_(data), size_(size), capacity_(size) {}
+  Buffer(const uint8_t* data, int64_t size)
+      : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
   virtual ~Buffer();
 
   // An offset into data that is owned by another buffer, but we want to be
@@ -56,6 +57,8 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
 
   std::shared_ptr<Buffer> get_shared_ptr() { return shared_from_this(); }
+
+  bool is_mutable() const { return is_mutable_; }
 
   // Return true if both buffers are the same size and contain the same bytes
   // up to the number of compared bytes
@@ -71,18 +74,22 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
                (data_ == other.data_ || !memcmp(data_, other.data_, size_)));
   }
 
+  // Copy section of buffer into a new Buffer
+  Status Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
+      std::shared_ptr<Buffer>* out) const;
+
+  // Default memory pool
+  Status Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const;
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
 
   int64_t size() const { return size_; }
 
-  // Returns true if this Buffer is referencing memory (possibly) owned by some
-  // other buffer
-  bool is_shared() const { return static_cast<bool>(parent_); }
-
   const std::shared_ptr<Buffer> parent() const { return parent_; }
 
  protected:
+  bool is_mutable_;
   const uint8_t* data_;
   int64_t size_;
   int64_t capacity_;
@@ -94,10 +101,16 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
   DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
+// Construct a view on passed buffer at the indicated offset and length. This
+// function cannot fail and does not error checking (except in debug builds)
+std::shared_ptr<Buffer> SliceBuffer(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length);
+
 // A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
+    is_mutable_ = true;
     mutable_data_ = data;
   }
 

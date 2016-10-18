@@ -22,33 +22,33 @@
 namespace arrow {
 
 TEST(UtilTests, TestIsMultipleOf64) {
-  using util::is_multiple_of_64;
-  EXPECT_TRUE(is_multiple_of_64(64));
-  EXPECT_TRUE(is_multiple_of_64(0));
-  EXPECT_TRUE(is_multiple_of_64(128));
-  EXPECT_TRUE(is_multiple_of_64(192));
-  EXPECT_FALSE(is_multiple_of_64(23));
-  EXPECT_FALSE(is_multiple_of_64(32));
+  using BitUtil::IsMultipleOf64;
+  EXPECT_TRUE(IsMultipleOf64(64));
+  EXPECT_TRUE(IsMultipleOf64(0));
+  EXPECT_TRUE(IsMultipleOf64(128));
+  EXPECT_TRUE(IsMultipleOf64(192));
+  EXPECT_FALSE(IsMultipleOf64(23));
+  EXPECT_FALSE(IsMultipleOf64(32));
 }
 
 TEST(UtilTests, TestNextPower2) {
-  using util::next_power2;
+  using BitUtil::NextPower2;
 
-  ASSERT_EQ(8, next_power2(6));
-  ASSERT_EQ(8, next_power2(8));
+  ASSERT_EQ(8, NextPower2(6));
+  ASSERT_EQ(8, NextPower2(8));
 
-  ASSERT_EQ(1, next_power2(1));
-  ASSERT_EQ(256, next_power2(131));
+  ASSERT_EQ(1, NextPower2(1));
+  ASSERT_EQ(256, NextPower2(131));
 
-  ASSERT_EQ(1024, next_power2(1000));
+  ASSERT_EQ(1024, NextPower2(1000));
 
-  ASSERT_EQ(4096, next_power2(4000));
+  ASSERT_EQ(4096, NextPower2(4000));
 
-  ASSERT_EQ(65536, next_power2(64000));
+  ASSERT_EQ(65536, NextPower2(64000));
 
-  ASSERT_EQ(1LL << 32, next_power2((1LL << 32) - 1));
-  ASSERT_EQ(1LL << 31, next_power2((1LL << 31) - 1));
-  ASSERT_EQ(1LL << 62, next_power2((1LL << 62) - 1));
+  ASSERT_EQ(1LL << 32, NextPower2((1LL << 32) - 1));
+  ASSERT_EQ(1LL << 31, NextPower2((1LL << 31) - 1));
+  ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
 }
 
 }  // namespace arrow

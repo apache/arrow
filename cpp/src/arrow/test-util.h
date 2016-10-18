@@ -69,7 +69,7 @@ class TestBase : public ::testing::Test {
     auto data = std::make_shared<PoolBuffer>(pool_);
     auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
-    EXPECT_OK(null_bitmap->Resize(util::bytes_for_bits(length)));
+    EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
     return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
   }
 
@@ -152,7 +152,7 @@ static inline int bitmap_popcount(const uint8_t* data, int length) {
   // versions of popcount but the code complexity is likely not worth it)
   const int loop_tail_index = fast_counts * pop_len;
   for (int i = loop_tail_index; i < length; ++i) {
-    if (util::get_bit(data, i)) { ++count; }
+    if (BitUtil::GetBit(data, i)) { ++count; }
   }
 
   return count;
@@ -170,7 +170,7 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   std::shared_ptr<Buffer> out;
 
   // TODO(wesm): error checking
-  util::bytes_to_bits(bytes, &out);
+  BitUtil::BytesToBits(bytes, &out);
   return out;
 }
 

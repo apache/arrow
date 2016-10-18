@@ -24,20 +24,20 @@
 
 namespace arrow {
 
-void util::bytes_to_bits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+void BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] > 0) { set_bit(bits, i); }
+    if (bytes[i] > 0) { SetBit(bits, i); }
   }
 }
 
-Status util::bytes_to_bits(
+Status BitUtil::BytesToBits(
     const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
-  int bit_length = util::bytes_for_bits(bytes.size());
+  int bit_length = BitUtil::BytesForBits(bytes.size());
 
   auto buffer = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(buffer->Resize(bit_length));
   memset(buffer->mutable_data(), 0, bit_length);
-  bytes_to_bits(bytes, buffer->mutable_data());
+  BytesToBits(bytes, buffer->mutable_data());
 
   *out = buffer;
   return Status::OK();

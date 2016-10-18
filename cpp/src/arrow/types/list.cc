@@ -30,7 +30,7 @@ bool ListArray::EqualsExact(const ListArray& other) const {
   bool equal_null_bitmap = true;
   if (null_count_ > 0) {
     equal_null_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
+        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
   }
 
   if (!equal_null_bitmap) { return false; }

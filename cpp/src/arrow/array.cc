@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
@@ -43,7 +44,7 @@ bool Array::EqualsExact(const Array& other) const {
     return false;
   }
   if (null_count_ > 0) {
-    return null_bitmap_->Equals(*other.null_bitmap_, util::bytes_for_bits(length_));
+    return null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
   }
   return true;
 }

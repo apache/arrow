@@ -44,7 +44,7 @@ using arrow::Field;
 using arrow::DataType;
 using arrow::Status;
 
-namespace util = arrow::util;
+namespace BitUtil = arrow::BitUtil;
 
 // ----------------------------------------------------------------------
 // Serialization
@@ -148,7 +148,7 @@ class ArrowSerializer {
   }
 
   Status InitNullBitmap() {
-    int null_bytes = util::bytes_for_bits(length_);
+    int null_bytes = BitUtil::BytesForBits(length_);
 
     null_bitmap_ = std::make_shared<arrow::PoolBuffer>(pool_);
     RETURN_NOT_OK(null_bitmap_->Resize(null_bytes));
@@ -206,7 +206,7 @@ class ArrowSerializer {
 
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
 
-    int nbytes = util::bytes_for_bits(length_);
+    int nbytes = BitUtil::BytesForBits(length_);
     auto data = std::make_shared<arrow::PoolBuffer>(pool_);
     RETURN_NOT_OK(data->Resize(nbytes));
     uint8_t* bitmap = data->mutable_data();
@@ -215,12 +215,12 @@ class ArrowSerializer {
     int64_t null_count = 0;
     for (int64_t i = 0; i < length_; ++i) {
       if (objects[i] == Py_True) {
-        util::set_bit(bitmap, i);
-        util::set_bit(null_bitmap_data_, i);
+        BitUtil::SetBit(bitmap, i);
+        BitUtil::SetBit(null_bitmap_data_, i);
       } else if (objects[i] != Py_False) {
         ++null_count;
       } else {
-        util::set_bit(null_bitmap_data_, i);
+        BitUtil::SetBit(null_bitmap_data_, i);
       }
     }
 
@@ -253,7 +253,7 @@ static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap
     if (mask_values[i]) {
       ++null_count;
     } else {
-      util::set_bit(bitmap, i);
+      BitUtil::SetBit(bitmap, i);
     }
   }
   return null_count;
@@ -272,7 +272,7 @@ static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap)
     if (traits::isnull(values[i])) {
       ++null_count;
     } else {
-      util::set_bit(bitmap, i);
+      BitUtil::SetBit(bitmap, i);
     }
   }
 
@@ -402,7 +402,7 @@ inline Status ArrowSerializer<NPY_BOOL>::ConvertData() {
     return Status::Invalid("no support for strided data yet");
   }
 
-  int nbytes = util::bytes_for_bits(length_);
+  int nbytes = BitUtil::BytesForBits(length_);
   auto buffer = std::make_shared<arrow::PoolBuffer>(pool_);
   RETURN_NOT_OK(buffer->Resize(nbytes));
 
@@ -413,7 +413,7 @@ inline Status ArrowSerializer<NPY_BOOL>::ConvertData() {
   memset(bitmap, 0, nbytes);
   for (int i = 0; i < length_; ++i) {
     if (values[i] > 0) {
-      util::set_bit(bitmap, i);
+      BitUtil::SetBit(bitmap, i);
     }
   }
 

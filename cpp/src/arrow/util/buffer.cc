@@ -36,6 +36,32 @@ Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t si
 
 Buffer::~Buffer() {}
 
+Status Buffer::Copy(
+    int64_t start, int64_t nbytes, MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
+  // Sanity checks
+  DCHECK_LT(start, size_);
+  DCHECK_LE(nbytes, size_ - start);
+
+  auto new_buffer = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(new_buffer->Resize(nbytes));
+
+  std::memcpy(new_buffer->mutable_data(), data() + start, nbytes);
+
+  *out = new_buffer;
+  return Status::OK();
+}
+
+Status Buffer::Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const {
+  return Copy(start, nbytes, default_memory_pool(), out);
+}
+
+std::shared_ptr<Buffer> SliceBuffer(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
+  DCHECK_LT(offset, buffer->size());
+  DCHECK_LE(length, buffer->size() - offset);
+  return std::make_shared<Buffer>(buffer, offset, length);
+}
+
 std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }
@@ -52,7 +78,7 @@ PoolBuffer::~PoolBuffer() {
 Status PoolBuffer::Reserve(int64_t new_capacity) {
   if (!mutable_data_ || new_capacity > capacity_) {
     uint8_t* new_data;
-    new_capacity = util::RoundUpToMultipleOf64(new_capacity);
+    new_capacity = BitUtil::RoundUpToMultipleOf64(new_capacity);
     if (mutable_data_) {
       RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
       memcpy(new_data, mutable_data_, size_);

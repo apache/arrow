@@ -173,7 +173,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
 
   // Does not capacity-check; make sure to call Reserve beforehand
   void UnsafeAppend(value_type val) {
-    util::set_bit(null_bitmap_data_, length_);
+    BitUtil::SetBit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
   }
 
@@ -290,7 +290,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
-  bool Value(int i) const { return util::get_bit(raw_data(), i); }
+  bool Value(int i) const { return BitUtil::GetBit(raw_data(), i); }
 };
 
 template <>
@@ -298,7 +298,7 @@ struct TypeTraits<BooleanType> {
   typedef BooleanArray ArrayType;
 
   static inline int bytes_required(int elements) {
-    return util::bytes_for_bits(elements);
+    return BitUtil::BytesForBits(elements);
   }
 };
 
@@ -314,11 +314,11 @@ class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
   // Scalar append
   Status Append(bool val) {
     Reserve(1);
-    util::set_bit(null_bitmap_data_, length_);
+    BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
-      util::set_bit(raw_data_, length_);
+      BitUtil::SetBit(raw_data_, length_);
     } else {
-      util::clear_bit(raw_data_, length_);
+      BitUtil::ClearBit(raw_data_, length_);
     }
     ++length_;
     return Status::OK();
