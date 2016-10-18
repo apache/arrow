@@ -304,8 +304,7 @@ Status FlatColumnReader::Impl::TypedReadBatch(
     }
     if (!column_reader_->HasNext()) { NextRowGroup(); }
   }
-  *out = builder.Finish();
-  return Status::OK();
+  return builder.Finish(out);
 }
 
 template <>
@@ -347,8 +346,7 @@ Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType
     }
     if (!column_reader_->HasNext()) { NextRowGroup(); }
   }
-  *out = builder.Finish();
-  return Status::OK();
+  return builder.Finish(out);
 }
 
 #define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType)              \

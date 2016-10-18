@@ -45,6 +45,8 @@ using parquet::schema::GroupNode;
 namespace parquet {
 namespace arrow {
 
+namespace BitUtil = ::arrow::BitUtil;
+
 class FileWriter::Impl {
  public:
   Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer);
@@ -176,7 +178,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
   if (writer->descr()->max_definition_level() == 0) {
     // no nulls, just dump the data
     for (int64_t i = 0; i < length; i++) {
-      buffer_ptr[i] = ::arrow::util::get_bit(data_ptr, offset + i);
+      buffer_ptr[i] = BitUtil::GetBit(data_ptr, offset + i);
     }
     PARQUET_CATCH_NOT_OK(writer->WriteBatch(length, nullptr, nullptr, buffer_ptr));
   } else if (writer->descr()->max_definition_level() == 1) {
@@ -186,7 +188,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
     if (data->null_count() == 0) {
       std::fill(def_levels_ptr, def_levels_ptr + length, 1);
       for (int64_t i = 0; i < length; i++) {
-        buffer_ptr[i] = ::arrow::util::get_bit(data_ptr, offset + i);
+        buffer_ptr[i] = BitUtil::GetBit(data_ptr, offset + i);
       }
       // TODO(PARQUET-644): write boolean values as a packed bitmap
       PARQUET_CATCH_NOT_OK(
@@ -198,7 +200,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
           def_levels_ptr[i] = 0;
         } else {
           def_levels_ptr[i] = 1;
-          buffer_ptr[buffer_idx++] = ::arrow::util::get_bit(data_ptr, offset + i);
+          buffer_ptr[buffer_idx++] = BitUtil::GetBit(data_ptr, offset + i);
         }
       }
       PARQUET_CATCH_NOT_OK(
@@ -260,9 +262,8 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
   DCHECK((offset + length) <= data->length());
   RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(ByteArray)));
   auto buffer_ptr = reinterpret_cast<ByteArray*>(data_buffer_.mutable_data());
-  auto values = std::dynamic_pointer_cast<PrimitiveArray>(data->values());
-  auto data_ptr = reinterpret_cast<const uint8_t*>(values->data()->data());
-  DCHECK(values != nullptr);
+  auto data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
+  DCHECK(data_ptr != nullptr);
   auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
   if (writer->descr()->max_definition_level() > 0) {
     RETURN_NOT_OK(def_levels_buffer_.Resize(length * sizeof(int16_t)));

@@ -264,7 +264,8 @@ typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8
 TYPED_TEST_CASE(TestParquetIO, TestTypes);
 
 TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
-  auto values = NonNullArray<TypeParam>(SMALL_SIZE);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
   this->WriteFlatColumn(schema, values);
@@ -273,7 +274,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
-  auto values = NonNullArray<TypeParam>(SMALL_SIZE);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
@@ -291,7 +293,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
   // This also tests max_definition_level = 1
-  auto values = NullableArray<TypeParam>(SMALL_SIZE, 10);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
   this->WriteFlatColumn(schema, values);
@@ -301,7 +304,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 
 TYPED_TEST(TestParquetIO, SingleColumnTableOptionalReadWrite) {
   // This also tests max_definition_level = 1
-  std::shared_ptr<Array> values = NullableArray<TypeParam>(SMALL_SIZE, 10);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
@@ -311,7 +315,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalReadWrite) {
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
-  auto values = NonNullArray<TypeParam>(SMALL_SIZE);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   int64_t chunk_size = values->length() / 4;
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
@@ -327,7 +332,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
-  auto values = NonNullArray<TypeParam>(LARGE_SIZE);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(
@@ -338,7 +344,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
   int64_t chunk_size = SMALL_SIZE / 4;
-  auto values = NullableArray<TypeParam>(SMALL_SIZE, 10);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
   FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
@@ -354,7 +361,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 
 TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
   // This also tests max_definition_level = 1
-  auto values = NullableArray<TypeParam>(LARGE_SIZE, 100);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
@@ -367,8 +375,8 @@ using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
 TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
   // This also tests max_definition_level = 1
-  std::shared_ptr<PrimitiveArray> values =
-      NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
   // Parquet 2.0 roundtrip should yield an uint32_t column again
@@ -384,8 +392,12 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
 
 TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
   // This also tests max_definition_level = 1
-  std::shared_ptr<PrimitiveArray> values =
-      NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100);
+  std::shared_ptr<Array> arr;
+  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, &arr));
+
+  std::shared_ptr<::arrow::UInt32Array> values =
+      std::dynamic_pointer_cast<::arrow::UInt32Array>(arr);
+
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
   // Parquet 1.0 returns an int64_t column as there is no way to tell a Parquet 1.0

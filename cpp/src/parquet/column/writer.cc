@@ -353,8 +353,8 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
 }
 
 template <typename DType>
-void TypedColumnWriter<DType>::WriteBatch(int64_t num_values,
-    const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
+void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def_levels,
+    const int16_t* rep_levels, const T* values) {
   // We check for DataPage limits only after we have inserted the values. If a user
   // writes a large number of values, the DataPage size can be much above the limit.
   // The purpose of this chunking is to bound this. Even if a user writes large number

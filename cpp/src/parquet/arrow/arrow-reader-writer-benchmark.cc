@@ -94,7 +94,8 @@ std::shared_ptr<::arrow::Table> TableFromVector(
   } else {
     builder.Append(vec.data(), vec.size(), nullptr);
   }
-  std::shared_ptr<::arrow::Array> array = builder.Finish();
+  std::shared_ptr<::arrow::Array> array;
+  builder.Finish(&array);
   auto field = std::make_shared<::arrow::Field>("column", type, nullable);
   auto schema = std::make_shared<::arrow::Schema>(
       std::vector<std::shared_ptr<::arrow::Field>>({field}));
