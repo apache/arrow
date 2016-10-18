@@ -41,24 +41,6 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
-  - compiler: gcc
-    env: ARROW_TEST_GROUP=packaging
-    os: linux
-    before_script:
-    - export CC="gcc-4.9"
-    - export CXX="g++-4.9"
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_conda_build.sh
-  - os: osx
-    env: ARROW_TEST_GROUP=packaging
-    language: objective-c
-    osx_image: xcode6.4
-    compiler: clang
-    addons:
-    before_script:
-    before_install:
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_conda_build.sh
   - language: java
     os: linux
     jdk: oraclejdk7
