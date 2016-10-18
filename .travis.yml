@@ -32,7 +32,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - compiler: clang
-    language: objective-c
     osx_image: xcode6.4
     os: osx
     addons:

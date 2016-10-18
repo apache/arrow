@@ -417,8 +417,6 @@ if (UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
 add_subdirectory(src/pyarrow)
 add_subdirectory(src/pyarrow/util)
 
@@ -494,7 +492,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     if(APPLE)
         set(module_install_rpath "@loader_path")
     else()
-        set(module_install_rpath "$ORIGIN")
+        set(module_install_rpath "\$ORIGIN")
     endif()
     list(LENGTH directories i)
     while(${i} GREATER 0)
