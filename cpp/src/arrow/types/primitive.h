@@ -91,22 +91,6 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   value_type Value(int i) const { return raw_data()[i]; }
 };
 
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass) \
-  using NAME = NumericArray<TypeClass>;     \
-  extern template class ARROW_EXPORT NumericArray<TypeClass>;
-
-NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type);
-NUMERIC_ARRAY_DECL(Int8Array, Int8Type);
-NUMERIC_ARRAY_DECL(UInt16Array, UInt16Type);
-NUMERIC_ARRAY_DECL(Int16Array, Int16Type);
-NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type);
-NUMERIC_ARRAY_DECL(Int32Array, Int32Type);
-NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type);
-NUMERIC_ARRAY_DECL(Int64Array, Int64Type);
-NUMERIC_ARRAY_DECL(TimestampArray, TimestampType);
-NUMERIC_ARRAY_DECL(FloatArray, FloatType);
-NUMERIC_ARRAY_DECL(DoubleArray, DoubleType);
-
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
@@ -260,22 +244,6 @@ struct TypeTraits<DoubleType> {
   static inline int bytes_required(int elements) { return elements * sizeof(double); }
 };
 
-// Builders
-
-typedef NumericBuilder<UInt8Type> UInt8Builder;
-typedef NumericBuilder<UInt16Type> UInt16Builder;
-typedef NumericBuilder<UInt32Type> UInt32Builder;
-typedef NumericBuilder<UInt64Type> UInt64Builder;
-
-typedef NumericBuilder<Int8Type> Int8Builder;
-typedef NumericBuilder<Int16Type> Int16Builder;
-typedef NumericBuilder<Int32Type> Int32Builder;
-typedef NumericBuilder<Int64Type> Int64Builder;
-typedef NumericBuilder<TimestampType> TimestampBuilder;
-
-typedef NumericBuilder<FloatType> FloatBuilder;
-typedef NumericBuilder<DoubleType> DoubleBuilder;
-
 class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
@@ -326,6 +294,29 @@ class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
 
   Status Append(uint8_t val) { return Append(static_cast<bool>(val)); }
 };
+
+// Builders
+
+#define NUMERIC_ARRAY_DECL(NAME, TypeClass)                         \
+  using NAME##Array = NumericArray<NAME##Type>;                     \
+  using NAME##Builder = NumericBuilder<NAME##Type>;                 \
+  extern template class ARROW_EXPORT NumericArray<NAME##Type>;      \
+  extern template class ARROW_EXPORT NumericBuilder<NAME##Type>;
+
+NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type);
+NUMERIC_ARRAY_DECL(Int8Array, Int8Type);
+NUMERIC_ARRAY_DECL(UInt16Array, UInt16Type);
+NUMERIC_ARRAY_DECL(Int16Array, Int16Type);
+NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type);
+NUMERIC_ARRAY_DECL(Int32Array, Int32Type);
+NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type);
+NUMERIC_ARRAY_DECL(Int64Array, Int64Type);
+NUMERIC_ARRAY_DECL(TimestampArray, TimestampType);
+NUMERIC_ARRAY_DECL(FloatArray, FloatType);
+NUMERIC_ARRAY_DECL(DoubleArray, DoubleType);
+
+// Make these instantiated template symbols visible in Clang and devtoolset, etc.
+extern template class ARROW_EXPORT PrimitiveBuilder<BooleanType>;
 
 }  // namespace arrow
 
