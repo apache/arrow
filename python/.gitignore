@@ -25,6 +25,7 @@ MANIFEST
 # Generated sources
 *.c
 *.cpp
+pyarrow/version.py
 # Python files
 
 # setup.py working directory

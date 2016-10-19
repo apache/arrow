@@ -42,3 +42,4 @@ from pyarrow.schema import (null, bool_,
                             DataType, Field, Schema, schema)
 
 from pyarrow.table import Column, RecordBatch, Table, from_pandas_dataframe
+from pyarrow.version import version as __version__
