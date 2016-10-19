@@ -70,19 +70,6 @@ bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
 }
 
-template class NumericArray<UInt8Type>;
-template class NumericArray<UInt16Type>;
-template class NumericArray<UInt32Type>;
-template class NumericArray<UInt64Type>;
-template class NumericArray<Int8Type>;
-template class NumericArray<Int16Type>;
-template class NumericArray<Int32Type>;
-template class NumericArray<Int64Type>;
-template class NumericArray<TimestampType>;
-template class NumericArray<FloatType>;
-template class NumericArray<DoubleType>;
-template class NumericArray<BooleanType>;
-
 template <typename T>
 Status PrimitiveBuilder<T>::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -168,19 +155,6 @@ Status PrimitiveBuilder<BooleanType>::Append(
   return Status::OK();
 }
 
-template class PrimitiveBuilder<UInt8Type>;
-template class PrimitiveBuilder<UInt16Type>;
-template class PrimitiveBuilder<UInt32Type>;
-template class PrimitiveBuilder<UInt64Type>;
-template class PrimitiveBuilder<Int8Type>;
-template class PrimitiveBuilder<Int16Type>;
-template class PrimitiveBuilder<Int32Type>;
-template class PrimitiveBuilder<Int64Type>;
-template class PrimitiveBuilder<TimestampType>;
-template class PrimitiveBuilder<FloatType>;
-template class PrimitiveBuilder<DoubleType>;
-template class PrimitiveBuilder<BooleanType>;
-
 BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
     : PrimitiveArray(
@@ -234,5 +208,30 @@ bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
   }
   return true;
 }
+
+// Instantiate templates
+template class NumericArray<UInt8Type>;
+template class NumericArray<UInt16Type>;
+template class NumericArray<UInt32Type>;
+template class NumericArray<UInt64Type>;
+template class NumericArray<Int8Type>;
+template class NumericArray<Int16Type>;
+template class NumericArray<Int32Type>;
+template class NumericArray<Int64Type>;
+template class NumericArray<TimestampType>;
+template class NumericArray<FloatType>;
+template class NumericArray<DoubleType>;
+template class PrimitiveBuilder<UInt8Type>;
+template class PrimitiveBuilder<UInt16Type>;
+template class PrimitiveBuilder<UInt32Type>;
+template class PrimitiveBuilder<UInt64Type>;
+template class PrimitiveBuilder<Int8Type>;
+template class PrimitiveBuilder<Int16Type>;
+template class PrimitiveBuilder<Int32Type>;
+template class PrimitiveBuilder<Int64Type>;
+template class PrimitiveBuilder<TimestampType>;
+template class PrimitiveBuilder<FloatType>;
+template class PrimitiveBuilder<DoubleType>;
+template class PrimitiveBuilder<BooleanType>;
 
 }  // namespace arrow
