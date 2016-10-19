@@ -43,7 +43,7 @@ LD_LIBRARY_PATH), and relies on some environment variables.
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 ```
 
-#### Setting $JAVA_HOME  automatically on OS X
+### Mac Specifics
 
 The installed location of Java on OS X can vary, however the following snippet
 will set it automatically for you:
@@ -51,3 +51,23 @@ will set it automatically for you:
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home)
 ```
+
+Homebrew's Hadoop does not have native libs. Apache doesn't build these, so
+users must build Hadoop to get the native libs. See this Stack Overflow
+answer for details:
+
+http://stackoverflow.com/a/40051353/478288
+
+Be sure to include the path to the native libs in `JAVA_LIBRARY_PATH`:
+
+```shell
+export JAVA_LIBRARY_PATH=$HADOOP_HOME/lib/native:$JAVA_LIBRARY_PATH
+```
+
+If you get an error about needing to install Java 6, then add *BundledApp* and
+*JNI* to the `JVMCapabilities` in `$JAVA_HOME/../Info.plist`. See
+
+https://oliverdowling.com.au/2015/10/09/oracles-jre-8-on-mac-os-x-el-capitan/
+
+https://derflounder.wordpress.com/2015/08/08/modifying-oracles-java-sdk-to-run-java-applications-on-os-x/
+

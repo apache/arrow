@@ -342,18 +342,36 @@ int hdfsUtime(hdfsFS fs, const char* path, tTime mtime, tTime atime) {
 }
 
 static std::vector<fs::path> get_potential_libhdfs_paths() {
-  std::vector<fs::path> libhdfs_potential_paths = {
-      // find one in the local directory
-      fs::path("./libhdfs.so"), fs::path("./hdfs.dll"),
-      // find a global libhdfs.so
-      fs::path("libhdfs.so"), fs::path("hdfs.dll"),
+  std::vector<fs::path> libhdfs_potential_paths;
+  std::string file_name;
+
+  // OS-specific file name
+#ifdef __WIN32
+  file_name = "hdfs.dll";
+#elif __APPLE__
+  file_name = "libhdfs.dylib";
+#else
+  file_name = "libhdfs.so";
+#endif
+
+  // Common paths
+  std::vector<fs::path> search_paths = {
+      fs::path(""),
+      fs::path(".")
   };
 
+  // Path from environment variable
   const char* hadoop_home = std::getenv("HADOOP_HOME");
   if (hadoop_home != nullptr) {
-    auto path = fs::path(hadoop_home) / "lib/native/libhdfs.so";
-    libhdfs_potential_paths.push_back(path);
+    auto path = fs::path(hadoop_home) / "lib/native";
+    search_paths.push_back(path);
   }
+
+  // All paths with file name
+  for (auto& path : search_paths) {
+    libhdfs_potential_paths.push_back(path / file_name);
+  }
+
   return libhdfs_potential_paths;
 }
 
@@ -371,7 +389,7 @@ static std::vector<fs::path> get_potential_libjvm_paths() {
   file_name = "jvm.dll";
 #elif __APPLE__
   search_prefixes = {""};
-  search_suffixes = {""};
+  search_suffixes = {"", "/jre/lib/server"};
   file_name = "libjvm.dylib";
 
 // SFrame uses /usr/libexec/java_home to find JAVA_HOME; for now we are
