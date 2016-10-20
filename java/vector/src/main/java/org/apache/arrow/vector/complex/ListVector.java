@@ -135,7 +135,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
+    return getTransferPair(ref, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return null;
   }
 
   @Override
@@ -148,8 +153,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     ListVector to;
     TransferPair pairs[] = new TransferPair[3];
 
-    public TransferImpl(String name, BufferAllocator allocator) {
-      this(new ListVector(name, allocator, null));
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      this(new ListVector(name, allocator, callBack));
     }
 
     public TransferImpl(ListVector to) {

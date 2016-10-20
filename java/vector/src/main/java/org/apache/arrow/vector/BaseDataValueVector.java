@@ -23,6 +23,8 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.TransferPair;
 
 
 public abstract class BaseDataValueVector extends BaseValueVector implements BufferBacked {
@@ -73,6 +75,11 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
       data = null;
     }
     super.close();
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(ref, allocator);
   }
 
   @Override

@@ -15,6 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.UnionVector.TransferImpl;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.TransferPair;
+
 import java.util.List;
 
 <@pp.dropOutputFile />
@@ -235,12 +240,17 @@ public class UnionVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new TransferImpl(name, allocator);
+    return getTransferPair(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
+    return getTransferPair(ref, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(ref, allocator, callBack);
   }
 
   @Override
@@ -280,8 +290,8 @@ public class UnionVector implements FieldVector {
 
     UnionVector to;
 
-    public TransferImpl(String name, BufferAllocator allocator) {
-      to = new UnionVector(name, allocator, null);
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      to = new UnionVector(name, allocator, callBack);
     }
 
     public TransferImpl(UnionVector to) {

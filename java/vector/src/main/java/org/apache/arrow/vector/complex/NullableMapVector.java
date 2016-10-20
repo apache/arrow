@@ -83,7 +83,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, callBack), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, null), false);
   }
 
   @Override
@@ -93,6 +93,11 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, null), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, callBack), false);
   }
 
