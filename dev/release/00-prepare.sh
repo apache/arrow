@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -41,6 +41,11 @@ cd "${SOURCE_DIR}/../../java"
 mvn release:clean
 mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${nextVersion}-SNAPSHOT
 
+cd -
+
+cd "${SOURCE_DIR}/../../python"
+sed -i "s/VERSION = '[^']*'/VERSION = '${version}'/g" setup.py
+sed -i "s/ISRELEASED = False/ISRELEASED = True/g" setup.py
 cd -
 
 echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
