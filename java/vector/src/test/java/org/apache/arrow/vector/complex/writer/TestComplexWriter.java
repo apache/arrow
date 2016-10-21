@@ -117,7 +117,7 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void listOfLists() {
+  public void testList() {
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
@@ -230,23 +230,28 @@ public class TestComplexWriter {
 
   @Test
   public void listListType() {
-    ListVector listVector = new ListVector("list", allocator, null);
-    listVector.allocateNew();
-    UnionListWriter listWriter = new UnionListWriter(listVector);
-    for (int i = 0; i < COUNT; i++) {
-      listWriter.setPosition(i);
-      listWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        ListWriter innerListWriter = listWriter.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listWriter.list();
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
         }
-        innerListWriter.endList();
+        listWriter.endList();
       }
-      listWriter.endList();
+      listWriter.setValueCount(COUNT);
+      checkListOfLists(listVector);
     }
-    listWriter.setValueCount(COUNT);
+  }
+
+  private void checkListOfLists(final ListVector listVector) {
     UnionListReader listReader = new UnionListReader(listVector);
     for (int i = 0; i < COUNT; i++) {
       listReader.setPosition(i);
@@ -259,7 +264,33 @@ public class TestComplexWriter {
         }
       }
     }
-    listVector.clear();
+  }
+
+  /**
+   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning
+   */
+  @Test
+  public void listListType2() {
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      ListWriter innerListWriter = listWriter.list();
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      checkListOfLists(listVector);
+    }
   }
 
   @Test

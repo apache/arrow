@@ -185,6 +185,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void end() {
+    setPosition(idx()+1);
   }
 
   <#list vv.types as type><#list type.minor as minor>
