@@ -58,6 +58,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   @Override
   public void end() {
     getWriter(MinorType.MAP).end();
+    setPosition(idx() + 1);
   }
 
   @Override
@@ -68,6 +69,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   @Override
   public void endList() {
     getWriter(MinorType.LIST).endList();
+    setPosition(idx() + 1);
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />

@@ -19,18 +19,14 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.impl.ComplexCopier;
-import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class TestListVector {
-  private final static String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 

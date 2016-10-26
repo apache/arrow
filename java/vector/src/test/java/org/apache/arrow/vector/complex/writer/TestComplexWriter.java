@@ -65,10 +65,10 @@ public class TestComplexWriter {
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     for (int i = 0; i < COUNT; i++) {
-      intWriter.setPosition(i);
+      rootWriter.start();
       intWriter.writeInt(i);
-      bigIntWriter.setPosition(i);
       bigIntWriter.writeBigInt(i);
+      rootWriter.end();
     }
     writer.setValueCount(COUNT);
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
@@ -83,23 +83,52 @@ public class TestComplexWriter {
 
   @Test
   public void nullableMap() {
-    MapVector parent = new MapVector("parent", allocator, null);
-    ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
-    for (int i = 0; i < COUNT; i++) {
-      rootWriter.setPosition(i);
-      rootWriter.start();
-      if (i % 2 == 0) {
-        MapWriter mapWriter = rootWriter.map("map");
-        mapWriter.setPosition(i);
-        mapWriter.start();
-        mapWriter.bigInt("nested").writeBigInt(i);
-        mapWriter.end();
+    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
+      MapWriter rootWriter = writer.rootAsMap();
+      for (int i = 0; i < COUNT; i++) {
+        rootWriter.start();
+        if (i % 2 == 0) {
+          MapWriter mapWriter = rootWriter.map("map");
+          mapWriter.setPosition(i);
+          mapWriter.start();
+          mapWriter.bigInt("nested").writeBigInt(i);
+          mapWriter.end();
+        }
+        rootWriter.end();
       }
-      rootWriter.end();
+      writer.setValueCount(COUNT);
+      checkNullableMap(mapVector);
     }
-    writer.setValueCount(COUNT);
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+  }
+
+  /**
+   * This test is similar to {@link #nullableMap()} ()} but we get the inner map writer once at the beginning
+   */
+  @Test
+  public void nullableMap2() {
+    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
+      MapWriter rootWriter = writer.rootAsMap();
+      MapWriter mapWriter = rootWriter.map("map");
+
+      for (int i = 0; i < COUNT; i++) {
+        rootWriter.start();
+        if (i % 2 == 0) {
+          mapWriter.setPosition(i);
+          mapWriter.start();
+          mapWriter.bigInt("nested").writeBigInt(i);
+          mapWriter.end();
+        }
+        rootWriter.end();
+      }
+      writer.setValueCount(COUNT);
+      checkNullableMap(mapVector);
+    }
+  }
+
+  private void checkNullableMap(MapVector mapVector) {
+    MapReader rootReader = new SingleMapReaderImpl(mapVector).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
       assertTrue("index is set: " + i, rootReader.isSet());
@@ -113,11 +142,10 @@ public class TestComplexWriter {
         assertNull("index is not set: " + i, map.readObject());
       }
     }
-    parent.close();
   }
 
   @Test
-  public void listOfLists() {
+  public void testList() {
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
@@ -129,7 +157,6 @@ public class TestComplexWriter {
     rootWriter.list("list").endList();
     rootWriter.end();
 
-    rootWriter.setPosition(1);
     rootWriter.start();
     rootWriter.bigInt("int").writeBigInt(1);
     rootWriter.end();
@@ -152,7 +179,6 @@ public class TestComplexWriter {
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
-      listWriter.setPosition(i);
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
         listWriter.writeInt(j);
@@ -206,7 +232,6 @@ public class TestComplexWriter {
     UnionListWriter listWriter = new UnionListWriter(listVector);
     MapWriter mapWriter = listWriter.map();
     for (int i = 0; i < COUNT; i++) {
-      listWriter.setPosition(i);
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
         mapWriter.start();
@@ -230,23 +255,53 @@ public class TestComplexWriter {
 
   @Test
   public void listListType() {
-    ListVector listVector = new ListVector("list", allocator, null);
-    listVector.allocateNew();
-    UnionListWriter listWriter = new UnionListWriter(listVector);
-    for (int i = 0; i < COUNT; i++) {
-      listWriter.setPosition(i);
-      listWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        ListWriter innerListWriter = listWriter.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listWriter.list();
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
         }
-        innerListWriter.endList();
+        listWriter.endList();
       }
-      listWriter.endList();
+      listWriter.setValueCount(COUNT);
+      checkListOfLists(listVector);
     }
-    listWriter.setValueCount(COUNT);
+  }
+
+  /**
+   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning
+   */
+  @Test
+  public void listListType2() {
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      ListWriter innerListWriter = listWriter.list();
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      checkListOfLists(listVector);
+    }
+  }
+
+  private void checkListOfLists(final ListVector listVector) {
     UnionListReader listReader = new UnionListReader(listVector);
     for (int i = 0; i < COUNT; i++) {
       listReader.setPosition(i);
@@ -259,32 +314,65 @@ public class TestComplexWriter {
         }
       }
     }
-    listVector.clear();
   }
 
   @Test
   public void unionListListType() {
-    ListVector listVector = new ListVector("list", allocator, null);
-    listVector.allocateNew();
-    UnionListWriter listWriter = new UnionListWriter(listVector);
-    for (int i = 0; i < COUNT; i++) {
-      listWriter.setPosition(i);
-      listWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        ListWriter innerListWriter = listWriter.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          if (k % 2 == 0) {
-            innerListWriter.integer().writeInt(k);
-          } else {
-            innerListWriter.bigInt().writeBigInt(k);
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listWriter.list();
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
           }
+          innerListWriter.endList();
         }
-        innerListWriter.endList();
+        listWriter.endList();
       }
-      listWriter.endList();
+      listWriter.setValueCount(COUNT);
+      checkUnionList(listVector);
     }
-    listWriter.setValueCount(COUNT);
+  }
+
+  /**
+   * This test is similar to {@link #unionListListType()} but we get the inner list writer once at the beginning
+   */
+  @Test
+  public void unionListListType2() {
+    try (ListVector listVector = new ListVector("list", allocator, null)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      ListWriter innerListWriter = listWriter.list();
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      checkUnionList(listVector);
+    }
+  }
+
+  private void checkUnionList(ListVector listVector) {
     UnionListReader listReader = new UnionListReader(listVector);
     for (int i = 0; i < COUNT; i++) {
       listReader.setPosition(i);
@@ -301,7 +389,6 @@ public class TestComplexWriter {
         }
       }
     }
-    listVector.clear();
   }
 
   @Test
@@ -384,8 +471,8 @@ public class TestComplexWriter {
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
-    BigIntWriter bigIntWriter = rootWriter.bigInt("a");
-    VarCharWriter varCharWriter = rootWriter.varChar("a");
+    rootWriter.bigInt("a");
+    rootWriter.varChar("a");
 
     Field field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
