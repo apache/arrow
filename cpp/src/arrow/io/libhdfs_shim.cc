@@ -73,9 +73,17 @@ static HINSTANCE libjvm_handle = NULL;
 
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 
-static hdfsFS (*ptr_hdfsConnectAsUser)(
-    const char* host, tPort port, const char* user) = NULL;
-static hdfsFS (*ptr_hdfsConnect)(const char* host, tPort port) = NULL;
+static hdfsBuilder* (*ptr_hdfsNewBuilder)(void) = NULL;
+static void (*ptr_hdfsBuilderSetNameNode)(
+    hdfsBuilder* bld, const char* nn) = NULL;
+static void (*ptr_hdfsBuilderSetNameNodePort)(
+    hdfsBuilder* bld, tPort port) = NULL;
+static void (*ptr_hdfsBuilderSetUserName)(
+    hdfsBuilder* bld, const char* userName) = NULL;
+static void (*ptr_hdfsBuilderSetKerbTicketCachePath)(
+    hdfsBuilder* bld, const char* kerbTicketCachePath) = NULL;
+static hdfsFS (*ptr_hdfsBuilderConnect)(hdfsBuilder* bld) = NULL;
+
 static int (*ptr_hdfsDisconnect)(hdfsFS fs) = NULL;
 
 static hdfsFile (*ptr_hdfsOpenFile)(hdfsFS fs, const char* path, int flags,
@@ -149,18 +157,29 @@ static void* get_symbol(const char* symbol) {
 #endif
 }
 
-hdfsFS hdfsConnectAsUser(const char* host, tPort port, const char* user) {
-  return ptr_hdfsConnectAsUser(host, port, user);
+hdfsBuilder* hdfsNewBuilder(void) {
+  return ptr_hdfsNewBuilder();
 }
 
-// Returns NULL on failure
-hdfsFS hdfsConnect(const char* host, tPort port) {
-  if (ptr_hdfsConnect) {
-    return ptr_hdfsConnect(host, port);
-  } else {
-    // TODO: error reporting when shim setup fails
-    return NULL;
-  }
+void hdfsBuilderSetNameNode(hdfsBuilder* bld, const char* nn) {
+  ptr_hdfsBuilderSetNameNode(bld, nn);
+}
+
+void hdfsBuilderSetNameNodePort(hdfsBuilder* bld, tPort port) {
+  ptr_hdfsBuilderSetNameNodePort(bld, port);
+}
+
+void hdfsBuilderSetUserName(hdfsBuilder* bld, const char* userName) {
+  ptr_hdfsBuilderSetUserName(bld, userName);
+}
+
+void hdfsBuilderSetKerbTicketCachePath(hdfsBuilder* bld,
+    const char* kerbTicketCachePath) {
+  ptr_hdfsBuilderSetKerbTicketCachePath(bld , kerbTicketCachePath);
+}
+
+hdfsFS hdfsBuilderConnect(hdfsBuilder* bld) {
+  return ptr_hdfsBuilderConnect(bld);
 }
 
 int hdfsDisconnect(hdfsFS fs) {
@@ -531,8 +550,12 @@ Status ARROW_EXPORT ConnectLibHdfs() {
     return Status::IOError("Prior attempt to load libhdfs failed");
   }
 
-  GET_SYMBOL_REQUIRED(hdfsConnect);
-  GET_SYMBOL_REQUIRED(hdfsConnectAsUser);
+  GET_SYMBOL_REQUIRED(hdfsNewBuilder);
+  GET_SYMBOL_REQUIRED(hdfsBuilderSetNameNode);
+  GET_SYMBOL_REQUIRED(hdfsBuilderSetNameNodePort);
+  GET_SYMBOL_REQUIRED(hdfsBuilderSetUserName);
+  GET_SYMBOL_REQUIRED(hdfsBuilderSetKerbTicketCachePath);
+  GET_SYMBOL_REQUIRED(hdfsBuilderConnect);
   GET_SYMBOL_REQUIRED(hdfsCreateDirectory);
   GET_SYMBOL_REQUIRED(hdfsDelete);
   GET_SYMBOL_REQUIRED(hdfsDisconnect);
