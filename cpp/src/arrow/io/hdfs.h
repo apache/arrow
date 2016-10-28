@@ -60,7 +60,7 @@ struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;
-  std::string kerb;
+  std::string kerb_ticket;
 };
 
 class ARROW_EXPORT HdfsClient : public FileSystemClient {

@@ -296,8 +296,8 @@ class HdfsClient::HdfsClientImpl {
     if (!config->user.empty()) {
       hdfsBuilderSetUserName(builder, config->user.c_str());
     }
-    if (!config->kerb.empty()) {
-      hdfsBuilderSetKerbTicketCachePath(builder, config->kerb.c_str());
+    if (!config->kerb_ticket.empty()) {
+      hdfsBuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
     }
     fs_ = hdfsBuilderConnect(builder);
 
@@ -305,7 +305,7 @@ class HdfsClient::HdfsClientImpl {
     namenode_host_ = config->host;
     port_ = config->port;
     user_ = config->user;
-    kerb_ = config->kerb;
+    kerb_ticket_ = config->kerb_ticket;
 
     return Status::OK();
   }
@@ -438,7 +438,7 @@ class HdfsClient::HdfsClientImpl {
   std::string namenode_host_;
   std::string user_;
   int port_;
-  std::string kerb_;
+  std::string kerb_ticket_;
 
   hdfsFS fs_;
 };

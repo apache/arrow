@@ -313,7 +313,7 @@ cdef class HdfsClient:
             raise IOError('HDFS client is closed')
 
     @classmethod
-    def connect(cls, host="default", port=0, user=None, kerb=None):
+    def connect(cls, host="default", port=0, user=None, kerb_ticket=None):
         """
         Connect to an HDFS cluster. All parameters are optional and should
         only be set if the defaults need to be overridden.
@@ -327,7 +327,7 @@ cdef class HdfsClient:
         host : NameNode. Set to "default" for fs.defaultFS from core-site.xml.
         port : NameNode's port. Set to 0 for default or logical (HA) nodes.
         user : Username when connecting to HDFS; None implies login user.
-        kerb : Path to Kerberos ticket cache.
+        kerb_ticket : Path to Kerberos ticket cache.
 
         Notes
         -----
@@ -347,8 +347,8 @@ cdef class HdfsClient:
         conf.port = port
         if user is not None:
             conf.user = tobytes(user)
-        if kerb is not None:
-            conf.kerb = tobytes(kerb)
+        if kerb_ticket is not None:
+            conf.kerb_ticket = tobytes(kerb_ticket)
 
         with nogil:
             check_status(CHdfsClient.Connect(&conf, &out.client))
