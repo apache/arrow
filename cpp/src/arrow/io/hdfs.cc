@@ -287,12 +287,25 @@ class HdfsClient::HdfsClientImpl {
   Status Connect(const HdfsConnectionConfig* config) {
     RETURN_NOT_OK(ConnectLibHdfs());
 
-    fs_ = hdfsConnectAsUser(config->host.c_str(), config->port, config->user.c_str());
+    // connect to HDFS with the builder object
+    hdfsBuilder* builder = hdfsNewBuilder();
+    if (!config->host.empty()) {
+      hdfsBuilderSetNameNode(builder, config->host.c_str());
+    }
+    hdfsBuilderSetNameNodePort(builder, config->port);
+    if (!config->user.empty()) {
+      hdfsBuilderSetUserName(builder, config->user.c_str());
+    }
+    if (!config->kerb_ticket.empty()) {
+      hdfsBuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
+    }
+    fs_ = hdfsBuilderConnect(builder);
 
     if (fs_ == nullptr) { return Status::IOError("HDFS connection failed"); }
     namenode_host_ = config->host;
     port_ = config->port;
     user_ = config->user;
+    kerb_ticket_ = config->kerb_ticket;
 
     return Status::OK();
   }
@@ -425,6 +438,7 @@ class HdfsClient::HdfsClientImpl {
   std::string namenode_host_;
   std::string user_;
   int port_;
+  std::string kerb_ticket_;
 
   hdfsFS fs_;
 };

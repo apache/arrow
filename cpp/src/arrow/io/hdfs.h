@@ -60,19 +60,16 @@ struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;
-
-  // TODO: Kerberos, etc.
+  std::string kerb_ticket;
 };
 
 class ARROW_EXPORT HdfsClient : public FileSystemClient {
  public:
   ~HdfsClient();
 
-  // Connect to an HDFS cluster at indicated host, port, and as user
+  // Connect to an HDFS cluster given a configuration
   //
-  // @param host (in)
-  // @param port (in)
-  // @param user (in): user to identify as
+  // @param config (in): configuration for connecting
   // @param fs (out): the created client
   // @returns Status
   static Status Connect(

@@ -93,6 +93,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         c_string host
         int port
         c_string user
+        c_string kerb_ticket
 
     cdef cppclass HdfsPathInfo:
         ObjectType kind;

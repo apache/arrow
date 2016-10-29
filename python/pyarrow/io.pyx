@@ -288,9 +288,6 @@ cdef class HdfsClient:
         shared_ptr[CHdfsClient] client
 
     cdef readonly:
-        object host
-        int port
-        object user
         bint is_open
 
     def __cinit__(self):
@@ -301,6 +298,9 @@ cdef class HdfsClient:
             self.close()
 
     def close(self):
+        """
+        Disconnect from the HDFS cluster
+        """
         self._ensure_client()
         with nogil:
             check_status(self.client.get().Disconnect())
@@ -313,14 +313,21 @@ cdef class HdfsClient:
             raise IOError('HDFS client is closed')
 
     @classmethod
-    def connect(cls, host, port, user):
+    def connect(cls, host="default", port=0, user=None, kerb_ticket=None):
         """
+        Connect to an HDFS cluster. All parameters are optional and should
+        only be set if the defaults need to be overridden.
+
+        Authentication should be automatic if the HDFS cluster uses Kerberos.
+        However, if a username is specified, then the ticket cache will likely
+        be required.
 
         Parameters
         ----------
-        host :
-        port :
-        user :
+        host : NameNode. Set to "default" for fs.defaultFS from core-site.xml.
+        port : NameNode's port. Set to 0 for default or logical (HA) nodes.
+        user : Username when connecting to HDFS; None implies login user.
+        kerb_ticket : Path to Kerberos ticket cache.
 
         Notes
         -----
@@ -335,9 +342,13 @@ cdef class HdfsClient:
             HdfsClient out = HdfsClient()
             HdfsConnectionConfig conf
 
-        conf.host = tobytes(host)
+        if host is not None:
+            conf.host = tobytes(host)
         conf.port = port
-        conf.user = tobytes(user)
+        if user is not None:
+            conf.user = tobytes(user)
+        if kerb_ticket is not None:
+            conf.kerb_ticket = tobytes(kerb_ticket)
 
         with nogil:
             check_status(CHdfsClient.Connect(&conf, &out.client))
