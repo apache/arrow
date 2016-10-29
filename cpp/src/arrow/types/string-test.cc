@@ -129,6 +129,18 @@ TEST_F(TestStringContainer, TestGetString) {
   }
 }
 
+TEST_F(TestStringContainer, TestEmptyStringComparison) {
+  offsets_ = {0, 0, 0, 0, 0, 0};
+  offsets_buf_ = test::to_buffer(offsets_);
+  length_ = offsets_.size() - 1;
+
+  auto strings_a = std::make_shared<StringArray>(
+      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+  auto strings_b = std::make_shared<StringArray>(
+      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+  ASSERT_TRUE(strings_a->Equals(strings_b));
+}
+
 // ----------------------------------------------------------------------
 // String builder tests
 
