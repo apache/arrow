@@ -48,7 +48,14 @@ python setup.py build_ext --inplace
 py.test pyarrow
 ```
 
-To set CMake build options, set the environment variable `$PYARROW_CMAKE_OPTIONS`:
+To change the build type, use the `--build-type` option:
+
+```bash
+python setup.py build_ext --build-type=release --inplace
+```
+
+To pass through other build options to CMake, set the environment variable
+`$PYARROW_CMAKE_OPTIONS`.
 
 #### Build the documentation
 
