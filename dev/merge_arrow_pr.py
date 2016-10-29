@@ -198,37 +198,6 @@ def merge_pr(pr_num, target_ref):
     return merge_hash
 
 
-def cherry_pick(pr_num, merge_hash, default_branch):
-    pick_ref = input("Enter a branch name [%s]: " % default_branch)
-    if pick_ref == "":
-        pick_ref = default_branch
-
-    pick_branch_name = "%s_PICK_PR_%s_%s" % (BRANCH_PREFIX, pr_num,
-                                             pick_ref.upper())
-
-    run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, pick_ref,
-                                    pick_branch_name))
-    run_cmd("git checkout %s" % pick_branch_name)
-    run_cmd("git cherry-pick -sx %s" % merge_hash)
-
-    continue_maybe("Pick complete (local ref %s). Push to %s?" % (
-        pick_branch_name, PUSH_REMOTE_NAME))
-
-    try:
-        run_cmd('git push %s %s:%s' % (PUSH_REMOTE_NAME, pick_branch_name,
-                                       pick_ref))
-    except Exception as e:
-        clean_up()
-        fail("Exception while pushing: %s" % e)
-
-    pick_hash = run_cmd("git rev-parse %s" % pick_branch_name)[:8]
-    clean_up()
-
-    print("Pull request #%s picked into %s!" % (pr_num, pick_ref))
-    print("Pick hash: %s" % pick_hash)
-    return pick_ref
-
-
 def fix_version_from_branch(branch, versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
@@ -335,7 +304,6 @@ if pr["merged"] is True:
     message = merge_commit_desc[8:]
 
     print("Found: %s" % message)
-    # maybe_cherry_pick(pr_num, merge_hash, latest_branch)
     sys.exit(0)
 
 if not bool(pr["mergeable"]):
@@ -351,11 +319,6 @@ continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 merged_refs = [target_ref]
 
 merge_hash = merge_pr(pr_num, target_ref)
-
-# pick_prompt = "Would you like to pick %s into another branch?" % merge_hash
-# while input("\n%s (y/n): " % pick_prompt).lower() == "y":
-#     merged_refs = merged_refs + [cherry_pick(pr_num, merge_hash,
-#                                              latest_branch)]
 
 if JIRA_IMPORTED:
     continue_maybe("Would you like to update the associated JIRA?")
