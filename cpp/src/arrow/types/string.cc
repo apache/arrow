@@ -56,6 +56,8 @@ bool BinaryArray::EqualsExact(const BinaryArray& other) const {
       offset_buffer_->Equals(*other.offset_buffer_, (length_ + 1) * sizeof(int32_t));
   if (!equal_offsets) { return false; }
 
+  if (!data_buffer_ && !(other.data_buffer_)) { return true; }
+
   return data_buffer_->Equals(*other.data_buffer_, data_buffer_->size());
 }
 
