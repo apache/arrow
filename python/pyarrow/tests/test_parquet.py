@@ -73,7 +73,8 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None]
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'empty_str': [''] * size
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = A.from_pandas_dataframe(df, timestamps_to_ms=True)
@@ -98,7 +99,10 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
         'int64': np.arange(size, dtype=np.int64),
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
-        'bool': np.random.randn(size) > 0
+        'bool': np.random.randn(size) > 0,
+        'str': [str(x) for x in range(size)],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'empty_str': [''] * size
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = A.from_pandas_dataframe(df)
