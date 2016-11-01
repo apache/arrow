@@ -262,8 +262,14 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
   DCHECK((offset + length) <= data->length());
   RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(ByteArray)));
   auto buffer_ptr = reinterpret_cast<ByteArray*>(data_buffer_.mutable_data());
-  auto data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
-  DCHECK(data_ptr != nullptr);
+  // In the case of an array consisting of only empty strings or all null,
+  // data->data() points already to a nullptr, thus data->data()->data() will
+  // segfault.
+  const uint8_t* data_ptr = nullptr;
+  if (data->data()) {
+    data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
+    DCHECK(data_ptr != nullptr);
+  }
   auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
   if (writer->descr()->max_definition_level() > 0) {
     RETURN_NOT_OK(def_levels_buffer_.Resize(length * sizeof(int16_t)));

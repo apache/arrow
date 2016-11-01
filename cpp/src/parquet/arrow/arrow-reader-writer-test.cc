@@ -428,6 +428,31 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
   this->ReadAndCheckSingleColumnTable(expected_values);
 }
 
+using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
+
+TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
+  std::shared_ptr<Array> values;
+  ::arrow::StringBuilder builder(
+      ::arrow::default_memory_pool(), std::make_shared<::arrow::StringType>());
+  for (size_t i = 0; i < SMALL_SIZE; i++) {
+    builder.Append("");
+  }
+  ASSERT_OK(builder.Finish(&values));
+  std::shared_ptr<Table> table = MakeSimpleTable(values, false);
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
+      this->sink_, values->length(), default_writer_properties()));
+
+  std::shared_ptr<Table> out;
+  this->ReadTableFromFile(this->ReaderFromSink(), &out);
+  ASSERT_EQ(1, out->num_columns());
+  ASSERT_EQ(100, out->num_rows());
+
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  ASSERT_EQ(1, chunked_array->num_chunks());
+  ASSERT_TRUE(values->Equals(chunked_array->chunk(0)));
+}
+
 template <typename T>
 using ParquetCDataType = typename ParquetDataType<T>::c_type;
 
