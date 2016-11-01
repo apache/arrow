@@ -29,7 +29,8 @@ static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   return std::make_shared<TypedRowGroupStatistics<DType>>(descr, metadata.statistics.min,
       metadata.statistics.max, metadata.num_values - metadata.statistics.null_count,
-      metadata.statistics.null_count, metadata.statistics.distinct_count);
+      metadata.statistics.null_count, metadata.statistics.distinct_count,
+      metadata.statistics.__isset.max || metadata.statistics.__isset.min);
 }
 
 std::shared_ptr<RowGroupStatistics> MakeColumnStats(

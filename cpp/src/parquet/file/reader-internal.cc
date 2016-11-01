@@ -175,14 +175,6 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
       std::move(stream), col->compression(), properties_.allocator()));
 }
 
-template <typename DType>
-static std::shared_ptr<RowGroupStatistics> MakeColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
-  return std::make_shared<TypedRowGroupStatistics<DType>>(descr, metadata.statistics.min,
-      metadata.statistics.max, metadata.num_values, metadata.statistics.null_count,
-      metadata.statistics.distinct_count);
-}
-
 // ----------------------------------------------------------------------
 // SerializedFile: Parquet on-disk layout
 
