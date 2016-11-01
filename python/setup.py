@@ -39,14 +39,6 @@ from distutils import sysconfig
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-# Check if this is a debug build of Python.
-# if hasattr(sys, 'gettotalrefcount'):
-#     build_type = 'Debug'
-# else:
-#     build_type = 'Release'
-
-build_type = 'Debug'
-
 if Cython.__version__ < '0.19.1':
     raise Exception('Please upgrade to Cython 0.19.1 or newer')
 
@@ -104,13 +96,14 @@ class build_ext(_build_ext):
     # github.com/libdynd/dynd-python
 
     description = "Build the C-extensions for arrow"
-    user_options = ([('extra-cmake-args=', None,
-                      'extra arguments for CMake')] +
-                    _build_ext.user_options)
+    user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
+                     ('build-type=', None, 'build type (debug or release)')]
+                    + _build_ext.user_options)
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
+        self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
 
     CYTHON_MODULE_NAMES = [
         'array',
@@ -152,9 +145,12 @@ class build_ext(_build_ext):
         static_lib_option = ''
         build_tests_option = ''
 
+        build_type_option = '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type)
+
         if sys.platform != 'win32':
             cmake_command = ['cmake', self.extra_cmake_args, pyexe_option,
                              build_tests_option,
+                             build_type_option,
                              static_lib_option, source]
 
             self.spawn(cmake_command)
@@ -170,7 +166,8 @@ class build_ext(_build_ext):
             # Generate the build files
             extra_cmake_args = shlex.split(self.extra_cmake_args)
             cmake_command = (['cmake'] + extra_cmake_args +
-                             [source, pyexe_option,
+                             [source,
+                              pyexe_option,
                               static_lib_option,
                               build_tests_option,
                              '-G', cmake_generator])
@@ -179,7 +176,7 @@ class build_ext(_build_ext):
 
             self.spawn(cmake_command)
             # Do the build
-            self.spawn(['cmake', '--build', '.', '--config', build_type])
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type])
 
         if self.inplace:
             # a bit hacky
@@ -188,14 +185,15 @@ class build_ext(_build_ext):
         # Move the built libpyarrow library to the place expected by the Python
         # build
         if sys.platform != 'win32':
-            name, = glob.glob('libpyarrow.*')
+            name, = glob.glob(pjoin(self.build_type, 'libpyarrow.*'))
             try:
                 os.makedirs(pjoin(build_lib, 'pyarrow'))
             except OSError:
                 pass
-            shutil.move(name, pjoin(build_lib, 'pyarrow', name))
+            shutil.move(name,
+                        pjoin(build_lib, 'pyarrow', os.path.split(name)[1]))
         else:
-            shutil.move(pjoin(build_type, 'pyarrow.dll'),
+            shutil.move(pjoin(self.build_type, 'pyarrow.dll'),
                         pjoin(build_lib, 'pyarrow', 'pyarrow.dll'))
 
         # Move the built C-extension to the place expected by the Python build
@@ -239,10 +237,10 @@ class build_ext(_build_ext):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
             suffix = sysconfig.get_config_var('SO')
-            return pjoin(head, build_type, tail + suffix)
+            return pjoin(head, self.build_type, tail + suffix)
         else:
             suffix = sysconfig.get_config_var('SO')
-            return name + suffix
+            return pjoin(self.build_type, name + suffix)
 
     def get_names(self):
         return self._found_names
