@@ -106,7 +106,8 @@ def write_table(table, filename, chunk_size=None, version=None,
     table : pyarrow.Table
     filename : string
     chunk_size : int
-        The maximum number of rows in each Parquet RowGroup
+        The maximum number of rows in each Parquet RowGroup. As a default,
+        we will write a single RowGroup per file.
     version : {"1.0", "2.0"}, default "1.0"
         The Parquet format version, defaults to 1.0
     use_dictionary : bool or list
@@ -121,7 +122,7 @@ def write_table(table, filename, chunk_size=None, version=None,
     cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
-        chunk_size_ = min(ctable_.num_rows(), int(2**16))
+        chunk_size_ = ctable_.num_rows()
     else:
         chunk_size_ = chunk_size
 
