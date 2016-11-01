@@ -210,7 +210,7 @@ def fix_version_from_branch(branch, versions):
 
 def exctract_jira_id(title):
     m = re.search(r'^(ARROW-[0-9]+)\b.*$', title)
-    if m and m.groups > 0:
+    if m:
         return m.group(1)
     else:
         fail("PR title should be prefixed by a jira id "
@@ -256,8 +256,8 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%sf\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    resolve = filter(lambda a: a['name'] == "Resolve Issue",
-                     asf_jira.transitions(jira_id))[0]
+    resolve = [x for x in asf_jira.transitions(jira_id)
+               if x['name'] == "Resolve Issue"][0]
     asf_jira.transition_issue(jira_id, resolve["id"], comment=comment)
 
     print("Succesfully resolved %s!" % (jira_id))
