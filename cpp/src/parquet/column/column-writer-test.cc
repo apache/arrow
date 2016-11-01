@@ -381,10 +381,11 @@ TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
   writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
   writer->Close();
 
-  // Just read the first SMALL_SIZE rows to ensure we could read it back in
-  this->ReadColumn();
-  ASSERT_EQ(SMALL_SIZE, this->values_read_);
-  this->values_.resize(SMALL_SIZE);
+  // Read all rows so we are sure that also the non-dictionary pages are read correctly
+  this->SetupValuesOut(VERY_LARGE_SIZE);
+  this->ReadColumnFully();
+  ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
+  this->values_.resize(VERY_LARGE_SIZE);
   ASSERT_EQ(this->values_, this->values_out_);
   std::vector<Encoding::type> encodings = this->metadata_encodings();
   // There are 3 encodings (RLE, PLAIN_DICTIONARY, PLAIN) in a fallback case

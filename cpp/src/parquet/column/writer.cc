@@ -216,6 +216,7 @@ void TypedColumnWriter<Type>::CheckDictionarySizeLimit() {
     fallback_ = true;
     // Only PLAIN encoding is supported for fallback in V1
     current_encoder_.reset(new PlainEncoder<Type>(descr_, properties_->allocator()));
+    encoding_ = Encoding::PLAIN;
   }
 }
 
