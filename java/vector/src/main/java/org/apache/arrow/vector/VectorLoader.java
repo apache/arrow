@@ -67,6 +67,7 @@ public class VectorLoader {
       Field field = fields.get(i);
       FieldVector fieldVector = fieldVectors.get(i);
       loadBuffers(fieldVector, field, buffers, nodes);
+      fieldVector.getMutator().setValueCount(recordBatch.getLength());
     }
     if (nodes.hasNext() || buffers.hasNext()) {
       throw new IllegalArgumentException("not all nodes and buffers where consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
