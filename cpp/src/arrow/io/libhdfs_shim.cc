@@ -386,6 +386,11 @@ static std::vector<fs::path> get_potential_libhdfs_paths() {
     search_paths.push_back(path);
   }
 
+  const char* libhdfs_dir = std::getenv("ARROW_LIBHDFS_DIR");
+  if (libhdfs_dir != nullptr) {
+    search_paths.push_back(fs::path(libhdfs_dir));
+  }
+
   // All paths with file name
   for (auto& path : search_paths) {
     libhdfs_potential_paths.push_back(path / file_name);
