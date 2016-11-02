@@ -61,7 +61,13 @@ To pass through other build options to CMake, set the environment variable
 #### Build the pyarrow Parquet file extension
 
 To build the integration with [parquet-cpp][1], pass `--with-parquet` to
-setup.py or add `-DPYARROW_BUILD_PARQUET=on` to the general CMake options.
+the `build_ext` option in setup.py:
+
+```
+python setup.py build_ext --with-parquet install
+```
+
+Alternately, add `-DPYARROW_BUILD_PARQUET=on` to the general CMake options.
 
 ```
 export PYARROW_CMAKE_OPTIONS=-DPYARROW_BUILD_PARQUET=on
