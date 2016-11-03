@@ -628,7 +628,6 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
-    Py_INCREF(py_ref_);
     OwnedRef py_ref(py_ref_);
     npy_intp dims[1] = {col_->length()};
     out_ = reinterpret_cast<PyArrayObject*>(PyArray_SimpleNewFromData(1, dims,
