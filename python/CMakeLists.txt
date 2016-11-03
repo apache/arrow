@@ -50,6 +50,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_TESTS
     "Build the PyArrow C++ googletest unit tests"
     OFF)
+  option(PYARROW_BUILD_PARQUET
+    "Build the PyArrow Parquet integration"
+    OFF)
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -445,7 +448,10 @@ set(LINK_LIBS
   arrow_ipc
 )
 
-if(PARQUET_FOUND AND PARQUET_ARROW_FOUND)
+if (PYARROW_BUILD_PARQUET)
+  if(NOT (PARQUET_FOUND AND PARQUET_ARROW_FOUND))
+    message(FATAL_ERROR "Unable to locate Parquet libraries")
+  endif()
   ADD_THIRDPARTY_LIB(parquet_arrow
     SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
   set(LINK_LIBS

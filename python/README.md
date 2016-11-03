@@ -48,7 +48,8 @@ python setup.py build_ext --inplace
 py.test pyarrow
 ```
 
-To change the build type, use the `--build-type` option:
+To change the build type, use the `--build-type` option or set
+`$PYARROW_BUILD_TYPE`:
 
 ```bash
 python setup.py build_ext --build-type=release --inplace
@@ -57,9 +58,26 @@ python setup.py build_ext --build-type=release --inplace
 To pass through other build options to CMake, set the environment variable
 `$PYARROW_CMAKE_OPTIONS`.
 
+#### Build the pyarrow Parquet file extension
+
+To build the integration with [parquet-cpp][1], pass `--with-parquet` to
+the `build_ext` option in setup.py:
+
+```
+python setup.py build_ext --with-parquet install
+```
+
+Alternately, add `-DPYARROW_BUILD_PARQUET=on` to the general CMake options.
+
+```
+export PYARROW_CMAKE_OPTIONS=-DPYARROW_BUILD_PARQUET=on
+```
+
 #### Build the documentation
 
 ```bash
 pip install -r doc/requirements.txt
 python setup.py build_sphinx
 ```
+
+[1]: https://github.com/apache/parquet-cpp

@@ -97,13 +97,15 @@ class build_ext(_build_ext):
 
     description = "Build the C-extensions for arrow"
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
-                     ('build-type=', None, 'build type (debug or release)')]
-                    + _build_ext.user_options)
+                     ('build-type=', None, 'build type (debug or release)'),
+                     ('with-parquet', None, 'build the Parquet extension')] +
+                    _build_ext.user_options)
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
+        self.with_parquet = False
 
     CYTHON_MODULE_NAMES = [
         'array',
@@ -115,8 +117,6 @@ class build_ext(_build_ext):
         'scalar',
         'schema',
         'table']
-
-    CYTHON_ALLOWED_FAILURES = ['parquet']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -141,17 +141,24 @@ class build_ext(_build_ext):
             if (cachedir != build_temp):
                 return
 
-        pyexe_option = '-DPYTHON_EXECUTABLE=%s' % sys.executable
         static_lib_option = ''
         build_tests_option = ''
 
-        build_type_option = '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type)
+        cmake_options = [
+            '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+            static_lib_option,
+            build_tests_option,
+        ]
+
+        if self.with_parquet:
+            cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
 
         if sys.platform != 'win32':
-            cmake_command = ['cmake', self.extra_cmake_args, pyexe_option,
-                             build_tests_option,
-                             build_type_option,
-                             static_lib_option, source]
+            cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
+                                 .format(self.build_type))
+
+            cmake_command = (['cmake', self.extra_cmake_args] +
+                             cmake_options + [source])
 
             self.spawn(cmake_command)
             args = ['make', 'VERBOSE=1']
@@ -166,10 +173,8 @@ class build_ext(_build_ext):
             # Generate the build files
             extra_cmake_args = shlex.split(self.extra_cmake_args)
             cmake_command = (['cmake'] + extra_cmake_args +
+                             cmake_options +
                              [source,
-                              pyexe_option,
-                              static_lib_option,
-                              build_tests_option,
                              '-G', cmake_generator])
             if "-G" in self.extra_cmake_args:
                 cmake_command = cmake_command[:-2]
@@ -202,7 +207,7 @@ class build_ext(_build_ext):
             built_path = self.get_ext_built(name)
             if not os.path.exists(built_path):
                 print(built_path)
-                if name in self.CYTHON_ALLOWED_FAILURES:
+                if self._failure_permitted(name):
                     print('Cython module {0} failure permitted'.format(name))
                     continue
                 raise RuntimeError('libpyarrow C-extension failed to build:',
@@ -218,6 +223,11 @@ class build_ext(_build_ext):
             self._found_names.append(name)
 
         os.chdir(saved_cwd)
+
+    def _failure_permitted(self, name):
+        if name == 'parquet' and not self.with_parquet:
+            return True
+        return False
 
     def _get_inplace_dir(self):
         pass
