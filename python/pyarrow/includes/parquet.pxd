@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport CSchema, CStatus, CTable, MemoryPool
+from pyarrow.includes.libarrow cimport CArray, CSchema, CStatus, CTable, MemoryPool
 from pyarrow.includes.libarrow_io cimport ReadableFileInterface
 
 
@@ -32,6 +32,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
   cdef cppclass PrimitiveNode(Node):
     pass
 
+  cdef cppclass ColumnPath:
+    c_string ToDotString()
+
 cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
   enum ParquetVersion" parquet::ParquetVersion::type":
       PARQUET_1_0" parquet::ParquetVersion::PARQUET_1_0"
@@ -44,12 +47,13 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
       LZO" parquet::Compression::LZO"
       BROTLI" parquet::Compression::BROTLI"
 
+  cdef cppclass ColumnDescriptor:
+    shared_ptr[ColumnPath] path()
+
   cdef cppclass SchemaDescriptor:
+    const ColumnDescriptor* Column(int i)
     shared_ptr[Node] schema()
     GroupNode* group()
-
-  cdef cppclass ColumnDescriptor:
-    pass
 
 
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
@@ -80,10 +84,21 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass RowGroupReader:
         pass
 
+    cdef cppclass FileMetaData:
+        uint32_t size()
+        int num_columns()
+        int64_t num_rows()
+        int num_row_groups()
+        int32_t version()
+        const c_string created_by()
+        int num_schema_elements()
+        const SchemaDescriptor* schema()
+
     cdef cppclass ParquetFileReader:
         # TODO: Some default arguments are missing
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
+        const FileMetaData* metadata();
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
@@ -124,7 +139,9 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
     cdef cppclass FileReader:
         FileReader(MemoryPool* pool, unique_ptr[ParquetFileReader] reader)
+        CStatus ReadFlatColumn(int i, shared_ptr[CArray]* out);
         CStatus ReadFlatTable(shared_ptr[CTable]* out);
+        const ParquetFileReader* parquet_reader();
 
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:

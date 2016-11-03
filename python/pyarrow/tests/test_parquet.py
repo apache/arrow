@@ -116,6 +116,22 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     pdt.assert_frame_equal(df, df_read)
 
 @parquet
+def test_pandas_column_selection(tmpdir):
+    size = 10000
+    np.random.seed(0)
+    df = pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16)
+    })
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = A.from_pandas_dataframe(df)
+    A.parquet.write_table(arrow_table, filename.strpath)
+    table_read = pq.read_table(filename.strpath, columns=['uint8'])
+    df_read = table_read.to_pandas()
+
+    pdt.assert_frame_equal(df[['uint8']], df_read)
+
+@parquet
 def test_pandas_parquet_configuration_options(tmpdir):
     size = 10000
     np.random.seed(0)
