@@ -44,6 +44,7 @@ cdef class ParquetReader:
     cdef:
         ParquetAllocator allocator
         unique_ptr[FileReader] reader
+        column_idx_map
 
     def __cinit__(self):
         self.allocator.set_pool(default_memory_pool())
@@ -92,15 +93,15 @@ cdef class ParquetReader:
             Integer index of the position of the column
         """
         cdef:
-            c_string column_path = tobytes(column_name)
             const FileMetaData* metadata = self.reader.get().parquet_reader().metadata()
             int i = 0
 
-        for i in range(0, metadata.num_columns()):
-            if metadata.schema().Column(i).path().get().ToDotString() == column_path:
-                return i
+        if self.column_idx_map is None:
+            self.column_idx_map = {}
+            for i in range(0, metadata.num_columns()):
+                self.column_idx_map[str(metadata.schema().Column(i).path().get().ToDotString())] = i
 
-        return 0
+        return self.column_idx_map[column_name]
 
     def read_column(self, int column_index):
         cdef:
