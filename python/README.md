@@ -33,11 +33,18 @@ These are the various projects that PyArrow depends on.
 1. **g++ and gcc Version >= 4.8**
 2. **cmake > 2.8.6**
 3. **boost**
-4. **Arrow-cpp and its dependencies***
+4. **Arrow-cpp and its dependencies**
 
 The Arrow C++ library must be built with all options enabled and installed with
 ``ARROW_HOME`` environment variable set to the installation location. Look at
 (https://github.com/apache/arrow/blob/master/cpp/README.md) for instructions.
+
+Ensure PyArrow can locate the Arrow-cpp shared libraries by setting the
+LD_LIBRARY_PATH environment variable.
+
+```bash
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_HOME/lib
+```
 
 5. **Python dependencies: numpy, pandas, cython, pytest**
 
