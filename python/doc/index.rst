@@ -34,6 +34,8 @@ structures.
    :maxdepth: 2
    :caption: Getting Started
 
+   Installing pyarrow <install.rst>
+   Pandas <pandas.rst>
    Module Reference <modules.rst>
 
 .. toctree::
