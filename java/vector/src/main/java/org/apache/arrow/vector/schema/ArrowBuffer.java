@@ -78,4 +78,10 @@ public class ArrowBuffer implements FBSerializable {
   public int writeTo(FlatBufferBuilder builder) {
     return Buffer.createBuffer(builder, page, offset, size);
   }
+
+  @Override
+  public String toString() {
+    return "ArrowBuffer [page=" + page + ", offset=" + offset + ", size=" + size + "]";
+  }
+
 }

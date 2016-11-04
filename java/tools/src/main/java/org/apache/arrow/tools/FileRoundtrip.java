@@ -28,15 +28,13 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ArrowFooter;
 import org.apache.arrow.vector.file.ArrowReader;
 import org.apache.arrow.vector.file.ArrowWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -107,13 +105,11 @@ public class FileRoundtrip {
           List<ArrowBlock> recordBatches = footer.getRecordBatches();
           for (ArrowBlock rbBlock : recordBatches) {
             try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                MapVector parent = new MapVector("parent", allocator, null);) {
+                VectorSchemaRoot root = new VectorSchemaRoot(schema, allocator);) {
 
-              NullableMapVector root = parent.addOrGet("root", Types.MinorType.MAP, NullableMapVector.class);
-              VectorLoader vectorLoader = new VectorLoader(schema, root);
+              VectorLoader vectorLoader = new VectorLoader(root);
               vectorLoader.load(inRecordBatch);
 
-              //          NullableMapVector outParent = new NullableMapVector("parent", allocator, null);
               VectorUnloader vectorUnloader = new VectorUnloader(root);
               ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
               arrowWriter.writeRecordBatch(recordBatch);

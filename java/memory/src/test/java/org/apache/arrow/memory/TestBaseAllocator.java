@@ -22,15 +22,12 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ArrowBuf.TransferResult;
 
-import org.apache.arrow.memory.AllocationReservation;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.RootAllocator;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.ArrowBuf.TransferResult;
 
 public class TestBaseAllocator {
   // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestBaseAllocator.class);
@@ -134,6 +131,7 @@ public class TestBaseAllocator {
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
       TransferResult transferOwnership = arrowBuf1.transferOwnership(childAllocator2);
+      assertEquiv(arrowBuf1, transferOwnership.buffer);
       final boolean allocationFit = transferOwnership.allocationFit;
       rootAllocator.verify();
       assertTrue(allocationFit);
@@ -160,6 +158,7 @@ public class TestBaseAllocator {
       rootAllocator.verify();
       assertNotNull(arrowBuf2);
       assertNotEquals(arrowBuf2, arrowBuf1);
+      assertEquiv(arrowBuf1, arrowBuf2);
 
       // release original buffer (thus transferring ownership to allocator 2. (should leave allocator 1 in empty state)
       arrowBuf1.release();
@@ -172,6 +171,7 @@ public class TestBaseAllocator {
       assertNotNull(arrowBuf3);
       assertNotEquals(arrowBuf3, arrowBuf1);
       assertNotEquals(arrowBuf3, arrowBuf2);
+      assertEquiv(arrowBuf1, arrowBuf3);
       rootAllocator.verify();
 
       arrowBuf2.release();
@@ -452,8 +452,10 @@ public class TestBaseAllocator {
       rootAllocator.verify();
 
       TransferResult result1 = arrowBuf2s.transferOwnership(childAllocator1);
+      assertEquiv(arrowBuf2s, result1.buffer);
       rootAllocator.verify();
       TransferResult result2 = arrowBuf1s.transferOwnership(childAllocator2);
+      assertEquiv(arrowBuf1s, result2.buffer);
       rootAllocator.verify();
 
       result1.buffer.release();
@@ -482,7 +484,9 @@ public class TestBaseAllocator {
       rootAllocator.verify();
 
       final ArrowBuf arrowBuf2s1 = arrowBuf2s.retain(childAllocator1);
+      assertEquiv(arrowBuf2s, arrowBuf2s1);
       final ArrowBuf arrowBuf1s2 = arrowBuf1s.retain(childAllocator2);
+      assertEquiv(arrowBuf1s, arrowBuf1s2);
       rootAllocator.verify();
 
       arrowBuf1s.release(); // releases arrowBuf1
@@ -512,11 +516,13 @@ public class TestBaseAllocator {
       rootAllocator.verify();
       assertNotNull(arrowBuf2);
       assertNotEquals(arrowBuf2, arrowBuf1);
+      assertEquiv(arrowBuf1, arrowBuf2);
 
       TransferResult result = arrowBuf1.transferOwnership(childAllocator3);
       allocationFit = result.allocationFit;
       final ArrowBuf arrowBuf3 = result.buffer;
       assertTrue(allocationFit);
+      assertEquiv(arrowBuf1, arrowBuf3);
       rootAllocator.verify();
 
       // Since childAllocator3 now has childAllocator1's buffer, 1, can close
@@ -533,6 +539,7 @@ public class TestBaseAllocator {
       allocationFit = result.allocationFit;
       final ArrowBuf arrowBuf4 = result2.buffer;
       assertTrue(allocationFit);
+      assertEquiv(arrowBuf3, arrowBuf4);
       rootAllocator.verify();
 
       arrowBuf3.release();
@@ -644,5 +651,10 @@ public class TestBaseAllocator {
       frag3.close();
 
     }
+  }
+
+  public void assertEquiv(ArrowBuf origBuf, ArrowBuf newBuf) {
+    assertEquals(origBuf.readerIndex(), newBuf.readerIndex());
+    assertEquals(origBuf.writerIndex(), newBuf.writerIndex());
   }
 }

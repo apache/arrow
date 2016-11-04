@@ -145,7 +145,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     org.apache.arrow.vector.BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
-    // TODO: do something with the sizes in fieldNode?
+    bits.valueCount = fieldNode.getLength();
   }
 
   public List<ArrowBuf> getFieldBuffers() {

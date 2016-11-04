@@ -18,20 +18,18 @@
 package org.apache.arrow.vector;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
-import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
-import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -42,13 +40,15 @@ public class TestVectorUnloadLoad {
   static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
 
   @Test
-  public void test() throws IOException {
+  public void testUnloadLoad() throws IOException {
     int count = 10000;
     Schema schema;
 
     try (
         BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorsAllocator, null)) {
+
+      // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       MapWriter rootWriter = writer.rootAsMap();
       IntWriter intWriter = rootWriter.integer("int");
@@ -61,26 +61,38 @@ public class TestVectorUnloadLoad {
       }
       writer.setValueCount(count);
 
-      VectorUnloader vectorUnloader = new VectorUnloader(parent.getChild("root"));
-      schema = vectorUnloader.getSchema();
-
+      // unload it
+      FieldVector root = parent.getChild("root");
+      schema = new Schema(root.getField().getChildren());
+      VectorUnloader vectorUnloader = newVectorUnloader(root);
       try (
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
           BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-          MapVector newParent = new MapVector("parent", finalVectorsAllocator, null)) {
-        FieldVector root = newParent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
-        VectorLoader vectorLoader = new VectorLoader(schema, root);
+          VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
+          ) {
+
+        // load it
+        VectorLoader vectorLoader = new VectorLoader(newRoot);
 
         vectorLoader.load(recordBatch);
 
-        MapReader rootReader = new SingleMapReaderImpl(newParent).reader("root");
+        FieldReader intReader = newRoot.getVector("int").getReader();
+        FieldReader bigIntReader = newRoot.getVector("bigInt").getReader();
         for (int i = 0; i < count; i++) {
-          rootReader.setPosition(i);
-          Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-          Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+          intReader.setPosition(i);
+          Assert.assertEquals(i, intReader.readInteger().intValue());
+          bigIntReader.setPosition(i);
+          Assert.assertEquals(i, bigIntReader.readLong().longValue());
         }
       }
     }
+  }
+
+  public static VectorUnloader newVectorUnloader(FieldVector root) {
+    Schema schema = new Schema(root.getField().getChildren());
+    int valueCount = root.getAccessor().getValueCount();
+    List<FieldVector> fields = root.getChildrenFromFields();
+    return new VectorUnloader(schema, valueCount, fields);
   }
 
   @AfterClass

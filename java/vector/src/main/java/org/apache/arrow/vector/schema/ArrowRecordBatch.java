@@ -124,4 +124,12 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
     }
   }
 
+  @Override
+  public String toString() {
+    return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() + ", buffersLayout="
+        + buffersLayout + ", closed=" + closed + "]";
+  }
+
+
+
 }
