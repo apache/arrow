@@ -100,6 +100,8 @@ class PARQUET_EXPORT FileReader {
   // Read a table of flat columns into a Table.
   ::arrow::Status ReadFlatTable(std::shared_ptr<::arrow::Table>* out);
 
+  const ParquetFileReader* parquet_reader();
+
   virtual ~FileReader();
 
  private:
