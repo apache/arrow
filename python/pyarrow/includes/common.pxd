@@ -47,3 +47,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsKeyError()
         c_bool IsNotImplemented()
         c_bool IsInvalid()
+
+
+cdef inline object PyObject_to_object(PyObject* o):
+    # Cast to "object" increments reference count
+    cdef object result = <object> o
+    cpython.Py_DECREF(result)
+    return result

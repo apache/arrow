@@ -34,10 +34,10 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
                                 shared_ptr[CArray]* out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
-                                 object py_ref, PyObject** out)
+                                 PyObject* py_ref, PyObject** out)
 
     CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
-                                  object py_ref, PyObject** out)
+                                  PyObject* py_ref, PyObject** out)
 
     MemoryPool* get_memory_pool()
 
