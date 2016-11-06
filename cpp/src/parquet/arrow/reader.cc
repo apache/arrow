@@ -70,7 +70,7 @@ class FileReader::Impl {
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
   Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
   Status ReadFlatTable(std::shared_ptr<Table>* out);
-  const ParquetFileReader* parquet_reader() { return reader_.get(); }
+  const ParquetFileReader* parquet_reader() const { return reader_.get(); }
 
  private:
   MemoryPool* pool_;
@@ -223,7 +223,7 @@ Status FileReader::ReadFlatTable(std::shared_ptr<Table>* out) {
   return impl_->ReadFlatTable(out);
 }
 
-const ParquetFileReader* FileReader::parquet_reader() {
+const ParquetFileReader* FileReader::parquet_reader() const {
   return impl_->parquet_reader();
 }
 
