@@ -24,6 +24,7 @@ from pyarrow.includes.parquet cimport *
 from pyarrow.includes.libarrow_io cimport ReadableFileInterface
 cimport pyarrow.includes.pyarrow as pyarrow
 
+from pyarrow.array cimport Array
 from pyarrow.compat import tobytes
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
@@ -43,6 +44,7 @@ cdef class ParquetReader:
     cdef:
         ParquetAllocator allocator
         unique_ptr[FileReader] reader
+        column_idx_map
 
     def __cinit__(self):
         self.allocator.set_pool(default_memory_pool())
@@ -76,10 +78,54 @@ cdef class ParquetReader:
         table.init(ctable)
         return table
 
+    def column_name_idx(self, column_name):
+        """
+        Find the matching index of a column in the schema.
+
+        Parameter
+        ---------
+        column_name: str
+            Name of the column, separation of nesting levels is done via ".".
+
+        Returns
+        -------
+        column_idx: int
+            Integer index of the position of the column
+        """
+        cdef:
+            const FileMetaData* metadata = self.reader.get().parquet_reader().metadata()
+            int i = 0
+
+        if self.column_idx_map is None:
+            self.column_idx_map = {}
+            for i in range(0, metadata.num_columns()):
+                self.column_idx_map[str(metadata.schema().Column(i).path().get().ToDotString())] = i
+
+        return self.column_idx_map[column_name]
+
+    def read_column(self, int column_index):
+        cdef:
+            Array array = Array()
+            shared_ptr[CArray] carray
+
+        with nogil:
+            check_status(self.reader.get().ReadFlatColumn(column_index, &carray))
+
+        array.init(carray)
+        return array
+
 
 def read_table(source, columns=None):
     """
     Read a Table from Parquet format
+
+    Parameters
+    ----------
+    source: str or pyarrow.io.NativeFile
+        Readable source. For passing Python file objects or byte buffers, see
+        pyarrow.io.PythonFileInterface or pyarrow.io.BytesReader.
+    columns: list
+        If not None, only these columns will be read from the file.
 
     Returns
     -------
@@ -93,7 +139,12 @@ def read_table(source, columns=None):
     elif isinstance(source, NativeFile):
         reader.open_native_file(source)
 
-    return reader.read_all()
+    if columns is None:
+        return reader.read_all()
+    else:
+        column_idxs = [reader.column_name_idx(column) for column in columns]
+        arrays = [reader.read_column(column_idx) for column_idx in column_idxs]
+        return Table.from_arrays(columns, arrays)
 
 
 def write_table(table, filename, chunk_size=None, version=None,
