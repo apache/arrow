@@ -22,6 +22,7 @@
 from cython.operator cimport dereference as deref
 
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
@@ -32,6 +33,7 @@ from pyarrow.schema cimport box_data_type, box_schema
 
 from pyarrow.compat import frombytes, tobytes
 
+cimport cpython
 
 cdef class ChunkedArray:
     '''
@@ -100,8 +102,10 @@ cdef class Column:
 
         import pandas as pd
 
-        check_status(pyarrow.ConvertColumnToPandas(self.sp_column, self, &arr))
-        return pd.Series(<object>arr, name=self.name)
+        check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
+                                                   <PyObject*> self, &arr))
+
+        return pd.Series(PyObject_to_object(arr), name=self.name)
 
     cdef _check_nullptr(self):
         if self.column == NULL:
@@ -248,9 +252,10 @@ cdef class RecordBatch:
         data = []
         for i in range(self.batch.num_columns()):
             arr = self.batch.column(i)
-            check_status(pyarrow.ConvertArrayToPandas(arr, self, &np_arr))
+            check_status(pyarrow.ConvertArrayToPandas(arr, <PyObject*> self,
+                                                      &np_arr))
             names.append(frombytes(self.batch.column_name(i)))
-            data.append(<object> np_arr)
+            data.append(PyObject_to_object(np_arr))
 
         return pd.DataFrame(dict(zip(names, data)), columns=names)
 
@@ -375,9 +380,10 @@ cdef class Table:
         for i in range(self.table.num_columns()):
             col = self.table.column(i)
             column = self.column(i)
-            check_status(pyarrow.ConvertColumnToPandas(col, column, &arr))
+            check_status(pyarrow.ConvertColumnToPandas(
+                col, <PyObject*> column, &arr))
             names.append(frombytes(col.get().name()))
-            data.append(<object> arr)
+            data.append(PyObject_to_object(arr))
 
         return pd.DataFrame(dict(zip(names, data)), columns=names)
 
