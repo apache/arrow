@@ -22,6 +22,7 @@
 import numpy as np
 
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
@@ -34,6 +35,8 @@ from pyarrow.scalar import NA
 
 from pyarrow.schema cimport Schema
 import pyarrow.schema as schema
+
+cimport cpython
 
 
 def total_allocated_bytes():
@@ -110,6 +113,24 @@ cdef class Array:
 
     def slice(self, start, end):
         pass
+
+    def to_pandas(self):
+        """
+        Convert to an array object suitable for use in pandas
+
+        See also
+        --------
+        Column.to_pandas
+        Table.to_pandas
+        RecordBatch.to_pandas
+        """
+        cdef:
+            PyObject* np_arr
+
+        check_status(pyarrow.ConvertArrayToPandas(
+            self.sp_array, <PyObject*> self, &np_arr))
+
+        return PyObject_to_object(np_arr)
 
 
 cdef class NullArray(Array):

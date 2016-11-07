@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
+
 import pyarrow
 import pyarrow.formatting as fmt
 
@@ -71,3 +73,30 @@ def test_long_array_format():
   99
 ]"""
     assert result == expected
+
+
+def test_to_pandas_zero_copy():
+    import gc
+
+    arr = pyarrow.from_pylist(range(10))
+
+    for i in range(10):
+        np_arr = arr.to_pandas()
+        assert sys.getrefcount(np_arr) == 2
+        np_arr = None  # noqa
+
+    assert sys.getrefcount(arr) == 2
+
+    for i in range(10):
+        arr = pyarrow.from_pylist(range(10))
+        np_arr = arr.to_pandas()
+        arr = None
+        gc.collect()
+
+        # Ensure base is still valid
+
+        # Because of py.test's assert inspection magic, if you put getrefcount
+        # on the line being examined, it will be 1 higher than you expect
+        base_refcount = sys.getrefcount(np_arr.base)
+        assert base_refcount == 2
+        np_arr.sum()

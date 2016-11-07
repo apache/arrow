@@ -47,6 +47,10 @@ class TestConvertList(unittest.TestCase):
 
     def test_garbage_collection(self):
         import gc
+
+        # Force the cyclic garbage collector to run
+        gc.collect()
+
         bytes_before = pyarrow.total_allocated_bytes()
         pyarrow.from_pylist([1, None, 3, None])
         gc.collect()
