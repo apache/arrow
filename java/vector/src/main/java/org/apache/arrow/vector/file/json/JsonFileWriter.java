@@ -87,12 +87,12 @@ public class JsonFileWriter {
     generator.writeStartObject();
     {
       generator.writeObjectField("count", recordBatch.getRowCount());
-      generator.writeObjectFieldStart("columns");
+      generator.writeArrayFieldStart("columns");
       for (Field field : schema.getFields()) {
         FieldVector vector = recordBatch.getVector(field.getName());
         writeVector(field, vector);
       }
-      generator.writeEndObject();
+      generator.writeEndArray();
     }
     generator.writeEndObject();
   }
@@ -103,8 +103,9 @@ public class JsonFileWriter {
     if (vectorTypes.size() != fieldInnerVectors.size()) {
       throw new IllegalArgumentException("vector types and inner vectors are not the same size: " + vectorTypes.size() + " != " + fieldInnerVectors.size());
     }
-    generator.writeObjectFieldStart(field.getName());
+    generator.writeStartObject();
     {
+      generator.writeObjectField("name", field.getName());
       int valueCount = vector.getAccessor().getValueCount();
       generator.writeObjectField("count", valueCount);
       for (int v = 0; v < vectorTypes.size(); v++) {
@@ -137,13 +138,13 @@ public class JsonFileWriter {
         throw new IllegalArgumentException("fields and children are not the same size: " + fields.size() + " != " + children.size());
       }
       if (fields.size() > 0) {
-        generator.writeObjectFieldStart("children");
+        generator.writeArrayFieldStart("children");
         for (int i = 0; i < fields.size(); i++) {
           Field childField = fields.get(i);
           FieldVector childVector = children.get(i);
           writeVector(childField, childVector);
         }
-        generator.writeEndObject();
+        generator.writeEndArray();
       }
     }
     generator.writeEndObject();

@@ -47,6 +47,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import com.google.common.base.Objects;
 
 public class JsonFileReader {
   private final File inputFile;
@@ -79,14 +80,14 @@ public class JsonFileReader {
       int count = readNextField("count", Integer.class);
       recordBatch.setRowCount(count);
       nextFieldIs("columns");
-      readToken(START_OBJECT);
+      readToken(START_ARRAY);
       {
         for (Field field : schema.getFields()) {
           FieldVector vector = recordBatch.getVector(field.getName());
           readVector(field, vector);
         }
       }
-      readToken(END_OBJECT);
+      readToken(END_ARRAY);
     }
     readToken(END_OBJECT);
     return recordBatch;
@@ -98,9 +99,12 @@ public class JsonFileReader {
     if (vectorTypes.size() != fieldInnerVectors.size()) {
       throw new IllegalArgumentException("vector types and inner vectors are not the same size: " + vectorTypes.size() + " != " + fieldInnerVectors.size());
     }
-    nextFieldIs(field.getName());
     readToken(START_OBJECT);
     {
+      String name = readNextField("name", String.class);
+      if (!Objects.equal(field.getName(), name)) {
+        throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
+      }
       int count = readNextField("count", Integer.class);
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
@@ -145,13 +149,13 @@ public class JsonFileReader {
           throw new IllegalArgumentException("fields and children are not the same size: " + fields.size() + " != " + vectorChildren.size());
         }
         nextFieldIs("children");
-        readToken(START_OBJECT);
+        readToken(START_ARRAY);
         for (int i = 0; i < fields.size(); i++) {
           Field childField = fields.get(i);
           FieldVector childVector = vectorChildren.get(i);
           readVector(childField, childVector);
         }
-        readToken(END_OBJECT);
+        readToken(END_ARRAY);
       }
     }
     readToken(END_OBJECT);
