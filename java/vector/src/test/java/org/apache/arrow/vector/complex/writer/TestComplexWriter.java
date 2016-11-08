@@ -41,6 +41,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
@@ -476,12 +477,12 @@ public class TestComplexWriter {
 
     Field field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
-    Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeType());
+    Assert.assertEquals(ArrowTypeID.Union, field.getType().getTypeID());
 
-    Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeType());
+    Assert.assertEquals(ArrowTypeID.Int, field.getChildren().get(0).getType().getTypeID());
     Int intType = (Int) field.getChildren().get(0).getType();
     Assert.assertEquals(64, intType.getBitWidth());
     Assert.assertTrue(intType.getIsSigned());
-    Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeType());
+    Assert.assertEquals(ArrowTypeID.Utf8, field.getChildren().get(1).getType().getTypeID());
   }
 }
