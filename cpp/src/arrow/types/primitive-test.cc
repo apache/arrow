@@ -41,15 +41,15 @@ namespace arrow {
 
 class Array;
 
-#define PRIMITIVE_TEST(KLASS, ENUM, NAME) \
-  TEST(TypesTest, TestPrimitive_##ENUM) { \
-    KLASS tp;                             \
-                                          \
-    ASSERT_EQ(tp.type, Type::ENUM);       \
-    ASSERT_EQ(tp.name(), string(NAME));   \
-                                          \
-    KLASS tp_copy = tp;                   \
-    ASSERT_EQ(tp_copy.type, Type::ENUM);  \
+#define PRIMITIVE_TEST(KLASS, ENUM, NAME)       \
+  TEST(TypesTest, TestPrimitive_##ENUM) {       \
+    KLASS tp;                                   \
+                                                \
+    ASSERT_EQ(tp.type, Type::ENUM);             \
+    ASSERT_EQ(tp.ToString(), string(NAME));     \
+                                                \
+    KLASS tp_copy = tp;                         \
+    ASSERT_EQ(tp_copy.type, Type::ENUM);        \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");

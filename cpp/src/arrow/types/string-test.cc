@@ -47,7 +47,7 @@ TEST(TypesTest, BinaryType) {
 TEST(TypesTest, TestStringType) {
   StringType str;
   ASSERT_EQ(str.type, Type::STRING);
-  ASSERT_EQ(str.name(), std::string("string"));
+  ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
 // ----------------------------------------------------------------------

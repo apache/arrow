@@ -24,9 +24,61 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+struct Field;
+
+// Type forward declarations for the TypeVisitor
+struct DataType;
+struct NullType;
+struct BooleanType;
+struct Int8Type;
+struct Int16Type;
+struct Int32Type;
+struct Int64Type;
+struct UInt8Type;
+struct UInt16Type;
+struct UInt32Type;
+struct UInt64Type;
+struct FloatType;
+struct DoubleType;
+struct StringType;
+struct BinaryType;
+struct DateType;
+struct TimestampType;
+struct DecimalType;
+struct ListType;
+struct StructType;
+struct DenseUnionType;
+struct SparseUnionType;
+
+class TypeVisitor {
+ public:
+  virtual Status Visit(const NullType& type) = 0;
+  virtual Status Visit(const BooleanType& type) = 0;
+  virtual Status Visit(const Int8Type& type) = 0;
+  virtual Status Visit(const Int16Type& type) = 0;
+  virtual Status Visit(const Int32Type& type) = 0;
+  virtual Status Visit(const Int64Type& type) = 0;
+  virtual Status Visit(const UInt8Type& type) = 0;
+  virtual Status Visit(const UInt16Type& type) = 0;
+  virtual Status Visit(const UInt32Type& type) = 0;
+  virtual Status Visit(const UInt64Type& type) = 0;
+  virtual Status Visit(const FloatType& type) = 0;
+  virtual Status Visit(const DoubleType& type) = 0;
+  virtual Status Visit(const StringType& type) = 0;
+  virtual Status Visit(const BinaryType& type) = 0;
+  virtual Status Visit(const DateType& type) = 0;
+  virtual Status Visit(const TimestampType& type) = 0;
+  virtual Status Visit(const DecimalType& type) = 0;
+  virtual Status Visit(const ListType& type) = 0;
+  virtual Status Visit(const StructType& type) = 0;
+  virtual Status Visit(const DenseUnionType& type) = 0;
+  virtual Status Visit(const SparseUnionType& type) = 0;
+};
 
 // Data types in this library are all *logical*. They can be expressed as
 // either a primitive physical type (bytes or bits of some fixed size), a
@@ -91,16 +143,8 @@ struct Type {
     // Unions of logical types
     DENSE_UNION = 32,
     SPARSE_UNION = 33,
-
-    // Union<Null, Int32, Double, String, Bool>
-    JSON_SCALAR = 50,
-
-    // User-defined type
-    USER = 60
   };
 };
-
-struct Field;
 
 struct ARROW_EXPORT DataType {
   Type::type type;
@@ -126,6 +170,8 @@ struct ARROW_EXPORT DataType {
   int num_children() const { return children_.size(); }
 
   virtual int value_size() const { return -1; }
+
+  virtual Status Accept(TypeVisitor* visitor) const  = 0;
 
   virtual std::string ToString() const = 0;
 };
@@ -168,75 +214,81 @@ struct ARROW_EXPORT Field {
 };
 typedef std::shared_ptr<Field> FieldPtr;
 
-template <typename Derived>
+template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
 struct ARROW_EXPORT PrimitiveType : public DataType {
-  PrimitiveType() : DataType(Derived::type_enum) {}
+  using c_type = C_TYPE;                        \
+  static constexpr Type::type type_id = TYPE_ID;
 
-  std::string ToString() const override;
+  PrimitiveType() : DataType(TYPE_ID) {}
+
+  int value_size() const override { return sizeof(C_TYPE); }
+
+  Status Accept(TypeVisitor* visitor) const override {
+    return visitor->Visit(*static_cast<const DERIVED*>(this));
+  }
+
+  std::string ToString() const override {
+    return std::string(DERIVED::NAME);
+  }
 };
 
-template <typename Derived>
-inline std::string PrimitiveType<Derived>::ToString() const {
-  std::string result(static_cast<const Derived*>(this)->name());
-  return result;
-}
+struct ARROW_EXPORT NullType : public DataType {
+  static constexpr Type::type type_enum = Type::NA;
 
-#define PRIMITIVE_DECL(TYPENAME, C_TYPE, ENUM, SIZE, NAME) \
-  typedef C_TYPE c_type;                                   \
-  static constexpr Type::type type_enum = Type::ENUM;      \
-                                                           \
-  TYPENAME() : PrimitiveType<TYPENAME>() {}                \
-                                                           \
-  virtual int value_size() const { return SIZE; }          \
-                                                           \
-  static const char* name() { return NAME; }
+  NullType() : DataType(Type::NA) {}
 
-struct ARROW_EXPORT NullType : public PrimitiveType<NullType> {
-  PRIMITIVE_DECL(NullType, void, NA, 0, "null");
+  int value_size() const override { return 0; }
+
+  Status Accept(TypeVisitor* visitor) const override;
+
+  std::string ToString() const override {
+    static const std::string name = "null";
+    return name;
+  }
 };
 
-struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType> {
-  PRIMITIVE_DECL(BooleanType, uint8_t, BOOL, 1, "bool");
+struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType, Type::BOOL, uint8_t> {
+  constexpr static const char* NAME = "bool";
 };
 
-struct ARROW_EXPORT UInt8Type : public PrimitiveType<UInt8Type> {
-  PRIMITIVE_DECL(UInt8Type, uint8_t, UINT8, 1, "uint8");
+struct ARROW_EXPORT UInt8Type : public PrimitiveType<UInt8Type, Type::UINT8, uint8_t> {
+  constexpr static const char* NAME = "uint8";
 };
 
-struct ARROW_EXPORT Int8Type : public PrimitiveType<Int8Type> {
-  PRIMITIVE_DECL(Int8Type, int8_t, INT8, 1, "int8");
+struct ARROW_EXPORT Int8Type : public PrimitiveType<Int8Type, Type::INT8, int8_t> {
+  constexpr static const char* NAME = "int8";
 };
 
-struct ARROW_EXPORT UInt16Type : public PrimitiveType<UInt16Type> {
-  PRIMITIVE_DECL(UInt16Type, uint16_t, UINT16, 2, "uint16");
+struct ARROW_EXPORT UInt16Type : public PrimitiveType<UInt16Type, Type::UINT16, uint16_t> {
+  constexpr static const char* NAME = "uint16";
 };
 
-struct ARROW_EXPORT Int16Type : public PrimitiveType<Int16Type> {
-  PRIMITIVE_DECL(Int16Type, int16_t, INT16, 2, "int16");
+struct ARROW_EXPORT Int16Type : public PrimitiveType<Int16Type, Type::INT16, int16_t> {
+  constexpr static const char* NAME = "int16";
 };
 
-struct ARROW_EXPORT UInt32Type : public PrimitiveType<UInt32Type> {
-  PRIMITIVE_DECL(UInt32Type, uint32_t, UINT32, 4, "uint32");
+struct ARROW_EXPORT UInt32Type : public PrimitiveType<UInt32Type, Type::UINT32, uint32_t> {
+  constexpr static const char* NAME = "uint32";
 };
 
-struct ARROW_EXPORT Int32Type : public PrimitiveType<Int32Type> {
-  PRIMITIVE_DECL(Int32Type, int32_t, INT32, 4, "int32");
+struct ARROW_EXPORT Int32Type : public PrimitiveType<Int32Type, Type::INT32, int32_t> {
+  constexpr static const char* NAME = "int32";
 };
 
-struct ARROW_EXPORT UInt64Type : public PrimitiveType<UInt64Type> {
-  PRIMITIVE_DECL(UInt64Type, uint64_t, UINT64, 8, "uint64");
+struct ARROW_EXPORT UInt64Type : public PrimitiveType<UInt64Type, Type::UINT64, uint64_t> {
+  constexpr static const char* NAME = "uint64";
 };
 
-struct ARROW_EXPORT Int64Type : public PrimitiveType<Int64Type> {
-  PRIMITIVE_DECL(Int64Type, int64_t, INT64, 8, "int64");
+struct ARROW_EXPORT Int64Type : public PrimitiveType<Int64Type, Type::INT64, int64_t> {
+  constexpr static const char* NAME = "int64";
 };
 
-struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType> {
-  PRIMITIVE_DECL(FloatType, float, FLOAT, 4, "float");
+struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType, Type::FLOAT, float> {
+  constexpr static const char* NAME = "float";
 };
 
-struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType> {
-  PRIMITIVE_DECL(DoubleType, double, DOUBLE, 8, "double");
+struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, double> {
+  constexpr static const char* NAME = "double";
 };
 
 struct ARROW_EXPORT ListType : public DataType {
@@ -252,15 +304,15 @@ struct ARROW_EXPORT ListType : public DataType {
 
   const std::shared_ptr<DataType>& value_type() const { return children_[0]->type; }
 
-  static char const* name() { return "list"; }
-
+  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
 struct ARROW_EXPORT BinaryType : public DataType {
   BinaryType() : BinaryType(Type::BINARY) {}
-  static char const* name() { return "binary"; }
+
+  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
  protected:
@@ -272,8 +324,7 @@ struct ARROW_EXPORT BinaryType : public DataType {
 struct ARROW_EXPORT StringType : public BinaryType {
   StringType() : BinaryType(Type::STRING) {}
 
-  static char const* name() { return "string"; }
-
+  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 };
 
@@ -283,7 +334,82 @@ struct ARROW_EXPORT StructType : public DataType {
     children_ = fields;
   }
 
+  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+};
+
+struct ARROW_EXPORT DecimalType : public DataType {
+  explicit DecimalType(int precision_, int scale_)
+      : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
+  int precision;
+  int scale;
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+};
+
+template <Type::type T>
+struct UnionType : public DataType {
+  std::vector<TypePtr> child_types_;
+
+  UnionType() : DataType(T) {}
+
+  const TypePtr& child(int i) const { return child_types_[i]; }
+  int num_children() const { return child_types_.size(); }
+};
+
+struct DenseUnionType : public UnionType<Type::DENSE_UNION> {
+  typedef UnionType<Type::DENSE_UNION> Base;
+
+  explicit DenseUnionType(const std::vector<TypePtr>& child_types) : Base() {
+    child_types_ = child_types;
+  }
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+};
+
+struct SparseUnionType : public UnionType<Type::SPARSE_UNION> {
+  typedef UnionType<Type::SPARSE_UNION> Base;
+
+  explicit SparseUnionType(const std::vector<TypePtr>& child_types) : Base() {
+    child_types_ = child_types;
+  }
+
+  Status Accept(TypeVisitor* visitor) const override;
+  virtual std::string ToString() const;
+};
+
+struct DateType : public DataType {
+  enum class Unit : char { DAY = 0, MONTH = 1, YEAR = 2 };
+
+  Unit unit;
+
+  explicit DateType(Unit unit = Unit::DAY) : DataType(Type::DATE), unit(unit) {}
+
+  DateType(const DateType& other) : DateType(other.unit) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+};
+
+struct ARROW_EXPORT TimestampType : public DataType {
+  enum class Unit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
+  typedef int64_t c_type;
+  static constexpr Type::type type_enum = Type::TIMESTAMP;
+
+  int value_size() const override { return sizeof(int64_t); }
+
+  Unit unit;
+
+  explicit TimestampType(Unit unit = Unit::MILLI)
+      : DataType(Type::TIMESTAMP), unit(unit) {}
+
+  TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
+  virtual ~TimestampType() {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override { return "timestamp"; }
 };
 
 // These will be defined elsewhere

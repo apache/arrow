@@ -20,6 +20,8 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/util/status.h"
+
 namespace arrow {
 
 std::string Field::ToString() const {
@@ -45,8 +47,7 @@ bool DataType::Equals(const DataType* other) const {
 }
 
 std::string StringType::ToString() const {
-  std::string result(name());
-  return result;
+  return std::string("string");
 }
 
 std::string ListType::ToString() const {
@@ -56,7 +57,7 @@ std::string ListType::ToString() const {
 }
 
 std::string BinaryType::ToString() const {
-  return std::string(name());
+  return std::string("binary");
 }
 
 std::string StructType::ToString() const {
@@ -70,5 +71,34 @@ std::string StructType::ToString() const {
   s << ">";
   return s.str();
 }
+
+// Visitors and template instantiation
+
+#define ACCEPT_VISITOR(TYPE)                        \
+  Status TYPE::Accept(TypeVisitor* visitor) const { \
+    return visitor->Visit(*this);                   \
+  }
+
+ACCEPT_VISITOR(NullType);
+ACCEPT_VISITOR(BinaryType);
+ACCEPT_VISITOR(StringType);
+ACCEPT_VISITOR(ListType);
+ACCEPT_VISITOR(StructType);
+ACCEPT_VISITOR(DecimalType);
+ACCEPT_VISITOR(SparseUnionType);
+ACCEPT_VISITOR(DenseUnionType);
+ACCEPT_VISITOR(DateType);
+ACCEPT_VISITOR(TimestampType);
+
+constexpr const char* Int8Type::NAME;
+constexpr const char* UInt16Type::NAME;
+constexpr const char* Int16Type::NAME;
+constexpr const char* UInt32Type::NAME;
+constexpr const char* Int32Type::NAME;
+constexpr const char* UInt64Type::NAME;
+constexpr const char* Int64Type::NAME;
+constexpr const char* FloatType::NAME;
+constexpr const char* DoubleType::NAME;
+constexpr const char* BooleanType::NAME;
 
 }  // namespace arrow
