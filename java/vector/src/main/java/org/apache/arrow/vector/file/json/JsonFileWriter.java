@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TimeStampVector;
@@ -114,21 +115,7 @@ public class JsonFileWriter {
         generator.writeArrayFieldStart(vectorType.getName());
         ValueVector valueVector = (ValueVector)innerVector;
         for (int i = 0; i < valueCount; i++) {
-          switch (valueVector.getMinorType()) {
-            case TIMESTAMP:
-              generator.writeObject(((TimeStampVector)valueVector).getAccessor().get(i));
-              break;
-            default:
-              // TODO: each type
-              Accessor accessor = valueVector.getAccessor();
-              Object value = accessor.getObject(i);
-              if (value instanceof Number || value instanceof Boolean) {
-                generator.writeObject(value);
-              } else {
-                generator.writeObject(value.toString());
-              }
-              break;
-          }
+          writeValueToGenerator(valueVector, i);
         }
         generator.writeEndArray();
       }
@@ -148,6 +135,27 @@ public class JsonFileWriter {
       }
     }
     generator.writeEndObject();
+  }
+
+  private void writeValueToGenerator(ValueVector valueVector, int i) throws IOException {
+    switch (valueVector.getMinorType()) {
+      case TIMESTAMP:
+        generator.writeNumber(((TimeStampVector)valueVector).getAccessor().get(i));
+        break;
+      case BIT:
+        generator.writeNumber(((BitVector)valueVector).getAccessor().get(i));
+        break;
+      default:
+        // TODO: each type
+        Accessor accessor = valueVector.getAccessor();
+        Object value = accessor.getObject(i);
+        if (value instanceof Number || value instanceof Boolean) {
+          generator.writeObject(value);
+        } else {
+          generator.writeObject(value.toString());
+        }
+        break;
+    }
   }
 
   public void close() throws IOException {

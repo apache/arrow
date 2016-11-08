@@ -32,9 +32,16 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Mutator;
 import org.apache.arrow.vector.VarCharVector;
@@ -112,32 +119,12 @@ public class JsonFileReader {
         nextFieldIs(vectorType.getName());
         readToken(START_ARRAY);
         ValueVector valueVector = (ValueVector)innerVector;
+        valueVector.allocateNew();
         Mutator mutator = valueVector.getMutator();
         mutator.setValueCount(count);
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          switch (valueVector.getMinorType()) {
-          case BIT:
-            ((BitVector)valueVector).getMutator().set(i, parser.readValueAs(Boolean.class) ? 1 : 0);
-            break;
-          case INT:
-            ((IntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-            break;
-          case BIGINT:
-            ((BigIntVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-            break;
-          case UINT4:
-            ((UInt4Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-            break;
-          case VARCHAR:
-            ((VarCharVector)valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
-            break;
-          case TIMESTAMP:
-            ((TimeStampVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-            break;
-          default:
-            throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
-          }
+          setValueFromParser(valueVector, i);
         }
         readToken(END_ARRAY);
       }
@@ -159,6 +146,52 @@ public class JsonFileReader {
       }
     }
     readToken(END_OBJECT);
+  }
+
+  private void setValueFromParser(ValueVector valueVector, int i) throws IOException {
+    switch (valueVector.getMinorType()) {
+    case BIT:
+      ((BitVector)valueVector).getMutator().set(i, parser.readValueAs(Boolean.class) ? 1 : 0);
+      break;
+    case TINYINT:
+      ((TinyIntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case SMALLINT:
+      ((SmallIntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case INT:
+      ((IntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case BIGINT:
+      ((BigIntVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case UINT1:
+      ((UInt1Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case UINT2:
+      ((UInt2Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case UINT4:
+      ((UInt4Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+      break;
+    case UINT8:
+      ((UInt8Vector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case FLOAT4:
+      ((Float4Vector)valueVector).getMutator().set(i, parser.readValueAs(Float.class));
+      break;
+    case FLOAT8:
+      ((Float8Vector)valueVector).getMutator().set(i, parser.readValueAs(Double.class));
+      break;
+    case VARCHAR:
+      ((VarCharVector)valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
+      break;
+    case TIMESTAMP:
+      ((TimeStampVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    default:
+      throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
+    }
   }
 
   public void close() throws IOException {
