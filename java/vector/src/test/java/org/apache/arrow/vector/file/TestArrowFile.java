@@ -42,6 +42,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.file.json.JsonFileReader;
+import org.apache.arrow.vector.file.json.JsonFileWriter;
 import org.apache.arrow.vector.holders.NullableTimeStampHolder;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
@@ -98,6 +100,56 @@ public class TestArrowFile {
       FieldVector root = parent.getChild("root");
       validateComplexContent(count, new VectorSchemaRoot(root));
       write(root, file);
+    }
+  }
+
+  @Test
+  public void testWriteComplexJSON() throws IOException {
+    File file = new File("target/mytest_write_complex.json");
+    int count = COUNT;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
+      writeComplexData(count, parent);
+      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
+      validateComplexContent(root.getRowCount(), root);
+      writeJSON(file, root);
+    }
+  }
+
+  public void writeJSON(File file, VectorSchemaRoot root) throws IOException {
+    JsonFileWriter writer = new JsonFileWriter(file, JsonFileWriter.config().pretty(true));
+    writer.start(root.getSchema());
+    writer.write(root);
+    writer.close();
+  }
+
+  @Test
+  public void testWriteReadComplexJSON() throws IOException {
+    File file = new File("target/mytest_complex.json");
+    int count = COUNT;
+
+    // write
+    try (
+        BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
+      writeComplexData(count, parent);
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")));
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateComplexContent(count, root);
+      }
+      reader.close();
     }
   }
 
