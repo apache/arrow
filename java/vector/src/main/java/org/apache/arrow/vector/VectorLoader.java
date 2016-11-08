@@ -27,7 +27,6 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.collect.Iterators;
 
@@ -37,22 +36,16 @@ import io.netty.buffer.ArrowBuf;
  * Loads buffers into vectors
  */
 public class VectorLoader {
-  private final List<FieldVector> fieldVectors;
-  private final List<Field> fields;
+  private final VectorSchemaRoot root;
 
   /**
    * will create children in root based on schema
    * @param schema the expected schema
    * @param root the root to add vectors to based on schema
    */
-  public VectorLoader(Schema schema, FieldVector root) {
+  public VectorLoader(VectorSchemaRoot root) {
     super();
-    this.fields = schema.getFields();
-    root.initializeChildrenFromFields(fields);
-    this.fieldVectors = root.getChildrenFromFields();
-    if (this.fieldVectors.size() != fields.size()) {
-      throw new IllegalArgumentException("The root vector did not create the right number of children. found " + fieldVectors.size() + " expected " + fields.size());
-    }
+    this.root = root;
   }
 
   /**
@@ -63,15 +56,18 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+    List<Field> fields = root.getSchema().getFields();
     for (int i = 0; i < fields.size(); ++i) {
       Field field = fields.get(i);
-      FieldVector fieldVector = fieldVectors.get(i);
+      FieldVector fieldVector = root.getVector(field.getName());
       loadBuffers(fieldVector, field, buffers, nodes);
     }
+    root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
       throw new IllegalArgumentException("not all nodes and buffers where consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
     }
   }
+
 
   private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(),
@@ -85,7 +81,7 @@ public class VectorLoader {
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
     } catch (RuntimeException e) {
-      throw new IllegalArgumentException("Could not load buffers for field " + field);
+      throw new IllegalArgumentException("Could not load buffers for field " + field, e);
     }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
@@ -98,4 +94,5 @@ public class VectorLoader {
       }
     }
   }
+
 }

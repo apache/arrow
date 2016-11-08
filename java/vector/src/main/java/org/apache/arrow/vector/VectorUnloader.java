@@ -34,11 +34,15 @@ public class VectorUnloader {
   private final int valueCount;
   private final List<FieldVector> vectors;
 
-  public VectorUnloader(FieldVector parent) {
+  public VectorUnloader(Schema schema, int valueCount, List<FieldVector> vectors) {
     super();
-    this.schema = new Schema(parent.getField().getChildren());
-    this.valueCount = parent.getAccessor().getValueCount();
-    this.vectors = parent.getChildrenFromFields();
+    this.schema = schema;
+    this.valueCount = valueCount;
+    this.vectors = vectors;
+  }
+
+  public VectorUnloader(VectorSchemaRoot root) {
+    this(root.getSchema(), root.getRowCount(), root.getFieldVectors());
   }
 
   public Schema getSchema() {
@@ -77,4 +81,5 @@ public class VectorUnloader {
       appendNodes(child, nodes, buffers);
     }
   }
+
 }

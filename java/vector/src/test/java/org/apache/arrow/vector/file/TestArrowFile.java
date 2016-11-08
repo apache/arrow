@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector.file;
 
+import static org.apache.arrow.vector.TestVectorUnloadLoad.newVectorUnloader;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -29,12 +31,12 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
-import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
-import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
@@ -43,7 +45,6 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.holders.NullableTimeStampHolder;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.joda.time.DateTimeZone;
 import org.junit.After;
@@ -94,8 +95,9 @@ public class TestArrowFile {
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
       writeComplexData(count, parent);
-      validateComplexContent(count, parent);
-      write(parent.getChild("root"), file);
+      FieldVector root = parent.getChild("root");
+      validateComplexContent(count, new VectorSchemaRoot(root));
+      write(root, file);
     }
   }
 
@@ -174,33 +176,31 @@ public class TestArrowFile {
 
       // initialize vectors
 
-      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator)) {
+        VectorLoader vectorLoader = new VectorLoader(root);
 
-      VectorLoader vectorLoader = new VectorLoader(schema, root);
-
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
-      for (ArrowBlock rbBlock : recordBatches) {
-        Assert.assertEquals(0, rbBlock.getOffset() % 8);
-        Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
-        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-          List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
-          for (ArrowBuffer arrowBuffer : buffersLayout) {
-            Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+        List<ArrowBlock> recordBatches = footer.getRecordBatches();
+        for (ArrowBlock rbBlock : recordBatches) {
+          Assert.assertEquals(0, rbBlock.getOffset() % 8);
+          Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
+          try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+            List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+            for (ArrowBuffer arrowBuffer : buffersLayout) {
+              Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+            }
+            vectorLoader.load(recordBatch);
           }
-          vectorLoader.load(recordBatch);
-        }
 
-        validateContent(count, parent);
+          validateContent(count, root);
+        }
       }
     }
   }
 
-  private void validateContent(int count, MapVector parent) {
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+  private void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
-      rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+      Assert.assertEquals(i, root.getVector("int").getAccessor().getObject(i));
+      Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
     }
   }
 
@@ -231,15 +231,15 @@ public class TestArrowFile {
 
       // initialize vectors
 
-      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
-      VectorLoader vectorLoader = new VectorLoader(schema, root);
-
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
-      for (ArrowBlock rbBlock : recordBatches) {
-        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-          vectorLoader.load(recordBatch);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator)) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        List<ArrowBlock> recordBatches = footer.getRecordBatches();
+        for (ArrowBlock rbBlock : recordBatches) {
+          try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+            vectorLoader.load(recordBatch);
+          }
+          validateComplexContent(count, root);
         }
-        validateComplexContent(count, parent);
       }
     }
   }
@@ -255,23 +255,23 @@ public class TestArrowFile {
     }
   }
 
-  private void validateComplexContent(int count, NullableMapVector parent) {
-    printVectors(parent.getChildrenFromFields());
-
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+  private void validateComplexContent(int count, VectorSchemaRoot root) {
+    Assert.assertEquals(count, root.getRowCount());
+    printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
-      rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
-      Assert.assertEquals(i % 3, rootReader.reader("list").size());
+      Assert.assertEquals(i, root.getVector("int").getAccessor().getObject(i));
+      Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
+      Assert.assertEquals(i % 3, ((List<?>)root.getVector("list").getAccessor().getObject(i)).size());
       NullableTimeStampHolder h = new NullableTimeStampHolder();
-      rootReader.reader("map").reader("timestamp").read(h);
+      FieldReader mapReader = root.getVector("map").getReader();
+      mapReader.setPosition(i);
+      mapReader.reader("timestamp").read(h);
       Assert.assertEquals(i, h.value);
     }
   }
 
   private void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
-    VectorUnloader vectorUnloader = new VectorUnloader(parent);
+    VectorUnloader vectorUnloader = newVectorUnloader(parent);
     Schema schema = vectorUnloader.getSchema();
     LOGGER.debug("writing schema: " + schema);
     try (
@@ -294,7 +294,7 @@ public class TestArrowFile {
         MapVector parent = new MapVector("parent", originalVectorAllocator, null);
         FileOutputStream fileOutputStream = new FileOutputStream(file);) {
       writeData(count, parent);
-      VectorUnloader vectorUnloader = new VectorUnloader(parent.getChild("root"));
+      VectorUnloader vectorUnloader = newVectorUnloader(parent.getChild("root"));
       Schema schema = vectorUnloader.getSchema();
       Assert.assertEquals(2, schema.getFields().size());
       try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);) {
@@ -320,20 +320,21 @@ public class TestArrowFile {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
-      VectorLoader vectorLoader = new VectorLoader(schema, root);
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
-      Assert.assertEquals(2, recordBatches.size());
-      for (ArrowBlock rbBlock : recordBatches) {
-        Assert.assertEquals(0, rbBlock.getOffset() % 8);
-        Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
-        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-          List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
-          for (ArrowBuffer arrowBuffer : buffersLayout) {
-            Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator);) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        List<ArrowBlock> recordBatches = footer.getRecordBatches();
+        Assert.assertEquals(2, recordBatches.size());
+        for (ArrowBlock rbBlock : recordBatches) {
+          Assert.assertEquals(0, rbBlock.getOffset() % 8);
+          Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
+          try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+            List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+            for (ArrowBuffer arrowBuffer : buffersLayout) {
+              Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+            }
+            vectorLoader.load(recordBatch);
+            validateContent(count, root);
           }
-          vectorLoader.load(recordBatch);
-          validateContent(count, parent);
         }
       }
     }
@@ -351,7 +352,7 @@ public class TestArrowFile {
 
       printVectors(parent.getChildrenFromFields());
 
-      validateUnionData(count, parent);
+      validateUnionData(count, new VectorSchemaRoot(parent.getChild("root")));
 
       write(parent.getChild("root"), file);
     }
@@ -361,44 +362,42 @@ public class TestArrowFile {
         FileInputStream fileInputStream = new FileInputStream(file);
         ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
         BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)
         ) {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-
-      NullableMapVector root = parent.addOrGet("root", MinorType.MAP, NullableMapVector.class);
-      VectorLoader vectorLoader = new VectorLoader(schema, root);
-
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
-      for (ArrowBlock rbBlock : recordBatches) {
-        try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-          vectorLoader.load(recordBatch);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator);) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        List<ArrowBlock> recordBatches = footer.getRecordBatches();
+        for (ArrowBlock rbBlock : recordBatches) {
+          try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+            vectorLoader.load(recordBatch);
+          }
+          validateUnionData(count, root);
         }
-        validateUnionData(count, parent);
       }
     }
   }
 
-  public void validateUnionData(int count, MapVector parent) {
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+  public void validateUnionData(int count, VectorSchemaRoot root) {
+    FieldReader unionReader = root.getVector("union").getReader();
     for (int i = 0; i < count; i++) {
-      rootReader.setPosition(i);
+      unionReader.setPosition(i);
       switch (i % 4) {
       case 0:
-        Assert.assertEquals(i, rootReader.reader("union").readInteger().intValue());
+        Assert.assertEquals(i, unionReader.readInteger().intValue());
         break;
       case 1:
-        Assert.assertEquals(i, rootReader.reader("union").readLong().longValue());
+        Assert.assertEquals(i, unionReader.readLong().longValue());
         break;
       case 2:
-        Assert.assertEquals(i % 3, rootReader.reader("union").size());
+        Assert.assertEquals(i % 3, unionReader.size());
         break;
       case 3:
         NullableTimeStampHolder h = new NullableTimeStampHolder();
-        rootReader.reader("union").reader("timestamp").read(h);
+        unionReader.reader("timestamp").read(h);
         Assert.assertEquals(i, h.value);
         break;
       }
