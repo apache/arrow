@@ -20,10 +20,12 @@
 #ifndef ARROW_IPC_JSON_H
 #define ARROW_IPC_JSON_H
 
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
-namespace ipc {}  // namespace ipc
+namespace ipc {
+
+}  // namespace ipc
 }  // namespace arrow
 
 #endif  // ARROW_IPC_FILE_H

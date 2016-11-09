@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/types/datetime.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
@@ -90,22 +91,6 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   value_type Value(int i) const { return raw_data()[i]; }
 };
-
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass) \
-  using NAME = NumericArray<TypeClass>;     \
-  extern template class ARROW_EXPORT NumericArray<TypeClass>;
-
-NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type);
-NUMERIC_ARRAY_DECL(Int8Array, Int8Type);
-NUMERIC_ARRAY_DECL(UInt16Array, UInt16Type);
-NUMERIC_ARRAY_DECL(Int16Array, Int16Type);
-NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type);
-NUMERIC_ARRAY_DECL(Int32Array, Int32Type);
-NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type);
-NUMERIC_ARRAY_DECL(Int64Array, Int64Type);
-NUMERIC_ARRAY_DECL(TimestampArray, TimestampType);
-NUMERIC_ARRAY_DECL(FloatArray, FloatType);
-NUMERIC_ARRAY_DECL(DoubleArray, DoubleType);
 
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
@@ -326,6 +311,20 @@ class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
 
   Status Append(uint8_t val) { return Append(static_cast<bool>(val)); }
 };
+
+// Only instantiate these templates once
+extern template class ARROW_EXPORT NumericArray<Int8Type>;
+extern template class ARROW_EXPORT NumericArray<UInt8Type>;
+extern template class ARROW_EXPORT NumericArray<Int16Type>;
+extern template class ARROW_EXPORT NumericArray<UInt16Type>;
+extern template class ARROW_EXPORT NumericArray<Int32Type>;
+extern template class ARROW_EXPORT NumericArray<UInt32Type>;
+extern template class ARROW_EXPORT NumericArray<Int64Type>;
+extern template class ARROW_EXPORT NumericArray<UInt64Type>;
+extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
+extern template class ARROW_EXPORT NumericArray<FloatType>;
+extern template class ARROW_EXPORT NumericArray<DoubleType>;
+extern template class ARROW_EXPORT NumericArray<TimestampType>;
 
 }  // namespace arrow
 

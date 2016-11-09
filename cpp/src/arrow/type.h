@@ -23,66 +23,12 @@
 #include <string>
 #include <vector>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct Field;
-
-// Type forward declarations for the TypeVisitor
-struct DataType;
-struct NullType;
-struct BooleanType;
-struct Int8Type;
-struct Int16Type;
-struct Int32Type;
-struct Int64Type;
-struct UInt8Type;
-struct UInt16Type;
-struct UInt32Type;
-struct UInt64Type;
-struct HalfFloatType;
-struct FloatType;
-struct DoubleType;
-struct StringType;
-struct BinaryType;
-struct DateType;
-struct TimeType;
-struct TimestampType;
-struct DecimalType;
-struct ListType;
-struct StructType;
-struct DenseUnionType;
-struct SparseUnionType;
-
-class TypeVisitor {
- public:
-  virtual Status Visit(const NullType& type) = 0;
-  virtual Status Visit(const BooleanType& type) = 0;
-  virtual Status Visit(const Int8Type& type) = 0;
-  virtual Status Visit(const Int16Type& type) = 0;
-  virtual Status Visit(const Int32Type& type) = 0;
-  virtual Status Visit(const Int64Type& type) = 0;
-  virtual Status Visit(const UInt8Type& type) = 0;
-  virtual Status Visit(const UInt16Type& type) = 0;
-  virtual Status Visit(const UInt32Type& type) = 0;
-  virtual Status Visit(const UInt64Type& type) = 0;
-  virtual Status Visit(const HalfFloatType& type) = 0;
-  virtual Status Visit(const FloatType& type) = 0;
-  virtual Status Visit(const DoubleType& type) = 0;
-  virtual Status Visit(const StringType& type) = 0;
-  virtual Status Visit(const BinaryType& type) = 0;
-  virtual Status Visit(const DateType& type) = 0;
-  virtual Status Visit(const TimeType& type) = 0;
-  virtual Status Visit(const TimestampType& type) = 0;
-  virtual Status Visit(const DecimalType& type) = 0;
-  virtual Status Visit(const ListType& type) = 0;
-  virtual Status Visit(const StructType& type) = 0;
-  virtual Status Visit(const DenseUnionType& type) = 0;
-  virtual Status Visit(const SparseUnionType& type) = 0;
-};
 
 // Data types in this library are all *logical*. They can be expressed as
 // either a primitive physical type (bytes or bits of some fixed size), a

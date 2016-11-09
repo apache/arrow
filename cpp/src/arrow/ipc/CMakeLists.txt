@@ -80,6 +80,10 @@ ADD_ARROW_TEST(ipc-metadata-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-metadata-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
+ADD_ARROW_TEST(ipc-json-test)
+ARROW_TEST_LINK_LIBRARIES(ipc-json-test
+  ${ARROW_IPC_TEST_LINK_LIBS})
+
 # make clean will delete the generated file
 set_source_files_properties(Metadata_generated.h PROPERTIES GENERATED TRUE)
 

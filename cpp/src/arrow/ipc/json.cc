@@ -130,7 +130,12 @@ class JsonSchemaWriter : public TypeVisitor {
     writer_->EndArray();
   }
 
-  void WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {}
+  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {
+    for (const std::shared_ptr<Field>& field : children) {
+      RETURN_NOT_OK(VisitField(*field.get()));
+    }
+    return Status::OK();
+  }
 
   void SetNoChildren() {
     writer_->Key("children");
@@ -238,7 +243,7 @@ class JsonSchemaWriter : public TypeVisitor {
 
   Status Visit(const ListType& type) override {
     WriteName(type);
-    WriteChildren(type.children());
+    RETURN_NOT_OK(WriteChildren(type.children()));
     WriteBufferLayout({kValidityBuffer, kOffsetBuffer});
     return Status::OK();
   }
