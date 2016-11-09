@@ -26,7 +26,7 @@ DataFrames
 
 The equivalent to a Pandas DataFrame in Arrow is a :class:`pyarrow.table.Table`.
 Both consist of a set of named columns of equal length. While Pandas only
-supports flat columnas, the Table also provides nested columns, thus it can
+supports flat columns, the Table also provides nested columns, thus it can
 represent more data than a DataFrame, so a full conversion is not always possible.
 
 Conversion from a Table to a DataFrame is done by calling
@@ -53,9 +53,62 @@ conversion.
 Series
 ------
 
-In Arrow, the most similar structure to a Pandas Series is an Array. 
+In Arrow, the most similar structure to a Pandas Series is an Array.
 It is a vector that contains data of the same type as linear memory. You can
 convert a Pandas Series to an Arrow Array using :meth:`pyarrow.array.from_pandas_series`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
+
+Type differences
+----------------
+
+With the current design of Pandas and Arrow, it is not possible to convert all
+column types unmodified. One of the main issues here is that Pandas has no
+support for nullable columns of arbitrary type. Also ``datetime64`` is currently
+fixed to nanosecond resolution. On the other side, Arrow might be still missing
+support for some types.
+
+Pandas -> Arrow Conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++------------------------+--------------------------+
+| Source Type (Pandas)   | Destination Type (Arrow) |
++========================+==========================+
+| ``bool``               | ``BOOL``                 |
++------------------------+--------------------------+
+| ``(u)int{8,16,32,64}`` | ``(U)INT{8,16,32,64}``   |
++------------------------+--------------------------+
+| ``float32``            | ``FLOAT``                |
++------------------------+--------------------------+
+| ``float64``            | ``DOUBLE``               |
++------------------------+--------------------------+
+| ``str`` / ``unicode``  | ``STRING``               |
++------------------------+--------------------------+
+| ``pd.Timestamp``       | ``TIMESTAMP(unit=ns)``   |
++------------------------+--------------------------+
+| ``pd.Categorical``     | *not supported*          |
++------------------------+--------------------------+
+
+Arrow -> Pandas Conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++-------------------------------------+--------------------------------------------------------+
+| Source Type (Arrow)                 | Destination Type (Pandas)                              |
++=====================================+========================================================+
+| ``BOOL``                            | ``bool``                                               |
++-------------------------------------+--------------------------------------------------------+
+| ``BOOL`` *with nulls*               | ``object`` (with values ``True``, ``False``, ``None``) |
++-------------------------------------+--------------------------------------------------------+
+| ``(U)INT{8,16,32,64}``              | ``(u)int{8,16,32,64}``                                 |
++-------------------------------------+--------------------------------------------------------+
+| ``(U)INT{8,16,32,64}`` *with nulls* | ``float64``                                            |
++-------------------------------------+--------------------------------------------------------+
+| ``FLOAT``                           | ``float32``                                            |
++-------------------------------------+--------------------------------------------------------+
+| ``DOUBLE``                          | ``float64``                                            |
++-------------------------------------+--------------------------------------------------------+
+| ``STRING``                          | ``str``                                                |
++-------------------------------------+--------------------------------------------------------+
+| ``TIMESTAMP(unit=*)``               | ``pd.Timestamp`` (``np.datetime64[ns]``)               |
++-------------------------------------+--------------------------------------------------------+
 
