@@ -74,12 +74,9 @@ static HINSTANCE libjvm_handle = NULL;
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 
 static hdfsBuilder* (*ptr_hdfsNewBuilder)(void) = NULL;
-static void (*ptr_hdfsBuilderSetNameNode)(
-    hdfsBuilder* bld, const char* nn) = NULL;
-static void (*ptr_hdfsBuilderSetNameNodePort)(
-    hdfsBuilder* bld, tPort port) = NULL;
-static void (*ptr_hdfsBuilderSetUserName)(
-    hdfsBuilder* bld, const char* userName) = NULL;
+static void (*ptr_hdfsBuilderSetNameNode)(hdfsBuilder* bld, const char* nn) = NULL;
+static void (*ptr_hdfsBuilderSetNameNodePort)(hdfsBuilder* bld, tPort port) = NULL;
+static void (*ptr_hdfsBuilderSetUserName)(hdfsBuilder* bld, const char* userName) = NULL;
 static void (*ptr_hdfsBuilderSetKerbTicketCachePath)(
     hdfsBuilder* bld, const char* kerbTicketCachePath) = NULL;
 static hdfsFS (*ptr_hdfsBuilderConnect)(hdfsBuilder* bld) = NULL;
@@ -173,9 +170,9 @@ void hdfsBuilderSetUserName(hdfsBuilder* bld, const char* userName) {
   ptr_hdfsBuilderSetUserName(bld, userName);
 }
 
-void hdfsBuilderSetKerbTicketCachePath(hdfsBuilder* bld,
-    const char* kerbTicketCachePath) {
-  ptr_hdfsBuilderSetKerbTicketCachePath(bld , kerbTicketCachePath);
+void hdfsBuilderSetKerbTicketCachePath(
+    hdfsBuilder* bld, const char* kerbTicketCachePath) {
+  ptr_hdfsBuilderSetKerbTicketCachePath(bld, kerbTicketCachePath);
 }
 
 hdfsFS hdfsBuilderConnect(hdfsBuilder* bld) {
@@ -364,7 +361,7 @@ static std::vector<fs::path> get_potential_libhdfs_paths() {
   std::vector<fs::path> libhdfs_potential_paths;
   std::string file_name;
 
-  // OS-specific file name
+// OS-specific file name
 #ifdef __WIN32
   file_name = "hdfs.dll";
 #elif __APPLE__
@@ -374,10 +371,7 @@ static std::vector<fs::path> get_potential_libhdfs_paths() {
 #endif
 
   // Common paths
-  std::vector<fs::path> search_paths = {
-      fs::path(""),
-      fs::path(".")
-  };
+  std::vector<fs::path> search_paths = {fs::path(""), fs::path(".")};
 
   // Path from environment variable
   const char* hadoop_home = std::getenv("HADOOP_HOME");
@@ -387,9 +381,7 @@ static std::vector<fs::path> get_potential_libhdfs_paths() {
   }
 
   const char* libhdfs_dir = std::getenv("ARROW_LIBHDFS_DIR");
-  if (libhdfs_dir != nullptr) {
-    search_paths.push_back(fs::path(libhdfs_dir));
-  }
+  if (libhdfs_dir != nullptr) { search_paths.push_back(fs::path(libhdfs_dir)); }
 
   // All paths with file name
   for (auto& path : search_paths) {

@@ -46,6 +46,18 @@ bool DataType::Equals(const DataType* other) const {
   return equals;
 }
 
+FloatingPointMeta::Precision HalfFloatType::precision() const {
+  return FloatingPointMeta::HALF;
+}
+
+FloatingPointMeta::Precision FloatType::precision() const {
+  return FloatingPointMeta::SINGLE;
+}
+
+FloatingPointMeta::Precision DoubleType::precision() const {
+  return FloatingPointMeta::DOUBLE;
+}
+
 std::string StringType::ToString() const {
   return std::string("string");
 }
@@ -74,10 +86,8 @@ std::string StructType::ToString() const {
 
 // Visitors and template instantiation
 
-#define ACCEPT_VISITOR(TYPE)                        \
-  Status TYPE::Accept(TypeVisitor* visitor) const { \
-    return visitor->Visit(*this);                   \
-  }
+#define ACCEPT_VISITOR(TYPE) \
+  Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
 
 ACCEPT_VISITOR(NullType);
 ACCEPT_VISITOR(BinaryType);
@@ -88,17 +98,31 @@ ACCEPT_VISITOR(DecimalType);
 ACCEPT_VISITOR(SparseUnionType);
 ACCEPT_VISITOR(DenseUnionType);
 ACCEPT_VISITOR(DateType);
+ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
 
-constexpr const char* Int8Type::NAME;
-constexpr const char* UInt16Type::NAME;
-constexpr const char* Int16Type::NAME;
-constexpr const char* UInt32Type::NAME;
-constexpr const char* Int32Type::NAME;
-constexpr const char* UInt64Type::NAME;
-constexpr const char* Int64Type::NAME;
-constexpr const char* FloatType::NAME;
-constexpr const char* DoubleType::NAME;
-constexpr const char* BooleanType::NAME;
+const std::string NullType::NAME = "null";
+const std::string UInt8Type::NAME = "uint8";
+const std::string Int8Type::NAME = "int8";
+const std::string UInt16Type::NAME = "uint16";
+const std::string Int16Type::NAME = "int16";
+const std::string UInt32Type::NAME = "uint32";
+const std::string Int32Type::NAME = "int32";
+const std::string UInt64Type::NAME = "uint64";
+const std::string Int64Type::NAME = "int64";
+const std::string HalfFloatType::NAME = "halffloat";
+const std::string FloatType::NAME = "float";
+const std::string DoubleType::NAME = "double";
+const std::string BooleanType::NAME = "bool";
+const std::string BinaryType::NAME = "binary";
+const std::string StringType::NAME = "utf8";
+const std::string DecimalType::NAME = "decimal";
+const std::string DateType::NAME = "decimal";
+const std::string TimeType::NAME = "time";
+const std::string TimestampType::NAME = "timestamp";
+const std::string ListType::NAME = "list";
+const std::string StructType::NAME = "struct";
+const std::string DenseUnionType::NAME = "union";
+const std::string SparseUnionType::NAME = "union";
 
 }  // namespace arrow

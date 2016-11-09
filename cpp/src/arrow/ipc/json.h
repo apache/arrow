@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_DATETIME_H
-#define ARROW_TYPES_DATETIME_H
+// Implement Arrow JSON serialization format
 
-#include <string>
+#ifndef ARROW_IPC_JSON_H
+#define ARROW_IPC_JSON_H
 
 #include "arrow/type.h"
 
-namespace arrow {}  // namespace arrow
+namespace arrow {
+namespace ipc {}  // namespace ipc
+}  // namespace arrow
 
-#endif  // ARROW_TYPES_DATETIME_H
+#endif  // ARROW_IPC_FILE_H

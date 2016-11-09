@@ -48,13 +48,13 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
 
-    int value_size = type_->value_size();
-    DCHECK_GT(value_size, 0);
+    int value_byte_size = type_->bit_width() / 8;
+    DCHECK_GT(value_byte_size, 0);
 
     for (int i = 0; i < length_; ++i) {
-      if (!IsNull(i) && memcmp(this_data, other_data, value_size)) { return false; }
-      this_data += value_size;
-      other_data += value_size;
+      if (!IsNull(i) && memcmp(this_data, other_data, value_byte_size)) { return false; }
+      this_data += value_byte_size;
+      other_data += value_byte_size;
     }
     return true;
   } else {

@@ -289,13 +289,9 @@ class HdfsClient::HdfsClientImpl {
 
     // connect to HDFS with the builder object
     hdfsBuilder* builder = hdfsNewBuilder();
-    if (!config->host.empty()) {
-      hdfsBuilderSetNameNode(builder, config->host.c_str());
-    }
+    if (!config->host.empty()) { hdfsBuilderSetNameNode(builder, config->host.c_str()); }
     hdfsBuilderSetNameNodePort(builder, config->port);
-    if (!config->user.empty()) {
-      hdfsBuilderSetUserName(builder, config->user.c_str());
-    }
+    if (!config->user.empty()) { hdfsBuilderSetUserName(builder, config->user.c_str()); }
     if (!config->kerb_ticket.empty()) {
       hdfsBuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
     }

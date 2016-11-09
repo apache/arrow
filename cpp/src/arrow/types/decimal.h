@@ -23,8 +23,6 @@
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-
-}  // namespace arrow
+namespace arrow {}  // namespace arrow
 
 #endif  // ARROW_TYPES_DECIMAL_H

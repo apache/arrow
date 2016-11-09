@@ -41,15 +41,15 @@ namespace arrow {
 
 class Array;
 
-#define PRIMITIVE_TEST(KLASS, ENUM, NAME)       \
-  TEST(TypesTest, TestPrimitive_##ENUM) {       \
-    KLASS tp;                                   \
-                                                \
-    ASSERT_EQ(tp.type, Type::ENUM);             \
-    ASSERT_EQ(tp.ToString(), string(NAME));     \
-                                                \
-    KLASS tp_copy = tp;                         \
-    ASSERT_EQ(tp_copy.type, Type::ENUM);        \
+#define PRIMITIVE_TEST(KLASS, ENUM, NAME)   \
+  TEST(TypesTest, TestPrimitive_##ENUM) {   \
+    KLASS tp;                               \
+                                            \
+    ASSERT_EQ(tp.type, Type::ENUM);         \
+    ASSERT_EQ(tp.ToString(), string(NAME)); \
+                                            \
+    KLASS tp_copy = tp;                     \
+    ASSERT_EQ(tp_copy.type, Type::ENUM);    \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
@@ -243,7 +243,8 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-    PInt32, PInt64, PFloat, PDouble> Primitives;
+    PInt32, PInt64, PFloat, PDouble>
+    Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 

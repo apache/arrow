@@ -43,11 +43,13 @@ struct UInt8Type;
 struct UInt16Type;
 struct UInt32Type;
 struct UInt64Type;
+struct HalfFloatType;
 struct FloatType;
 struct DoubleType;
 struct StringType;
 struct BinaryType;
 struct DateType;
+struct TimeType;
 struct TimestampType;
 struct DecimalType;
 struct ListType;
@@ -67,11 +69,13 @@ class TypeVisitor {
   virtual Status Visit(const UInt16Type& type) = 0;
   virtual Status Visit(const UInt32Type& type) = 0;
   virtual Status Visit(const UInt64Type& type) = 0;
+  virtual Status Visit(const HalfFloatType& type) = 0;
   virtual Status Visit(const FloatType& type) = 0;
   virtual Status Visit(const DoubleType& type) = 0;
   virtual Status Visit(const StringType& type) = 0;
   virtual Status Visit(const BinaryType& type) = 0;
   virtual Status Visit(const DateType& type) = 0;
+  virtual Status Visit(const TimeType& type) = 0;
   virtual Status Visit(const TimestampType& type) = 0;
   virtual Status Visit(const DecimalType& type) = 0;
   virtual Status Visit(const ListType& type) = 0;
@@ -102,17 +106,20 @@ struct Type {
     UINT64 = 8,
     INT64 = 9,
 
+    // 2-byte floating point value
+    HALF_FLOAT = 10,
+
     // 4-byte floating point value
-    FLOAT = 10,
+    FLOAT = 11,
 
     // 8-byte floating point value
-    DOUBLE = 11,
+    DOUBLE = 12,
 
     // UTF8 variable-length string as List<Char>
     STRING = 13,
 
     // Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY = 15,
+    BINARY = 14,
 
     // By default, int32 days since the UNIX epoch
     DATE = 16,
@@ -167,11 +174,13 @@ struct ARROW_EXPORT DataType {
 
   const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
 
+  const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
+
   int num_children() const { return children_.size(); }
 
-  virtual int value_size() const { return -1; }
+  virtual int bit_width() const { return -1; }
 
-  virtual Status Accept(TypeVisitor* visitor) const  = 0;
+  virtual Status Accept(TypeVisitor* visitor) const = 0;
 
   virtual std::string ToString() const = 0;
 };
@@ -216,20 +225,18 @@ typedef std::shared_ptr<Field> FieldPtr;
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
 struct ARROW_EXPORT PrimitiveType : public DataType {
-  using c_type = C_TYPE;                        \
+  using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
   PrimitiveType() : DataType(TYPE_ID) {}
 
-  int value_size() const override { return sizeof(C_TYPE); }
+  int bit_width() const override { return sizeof(C_TYPE) * 8; }
 
   Status Accept(TypeVisitor* visitor) const override {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
   }
 
-  std::string ToString() const override {
-    return std::string(DERIVED::NAME);
-  }
+  std::string ToString() const override { return std::string(DERIVED::NAME); }
 };
 
 struct ARROW_EXPORT NullType : public DataType {
@@ -237,58 +244,87 @@ struct ARROW_EXPORT NullType : public DataType {
 
   NullType() : DataType(Type::NA) {}
 
-  int value_size() const override { return 0; }
+  int bit_width() const override { return 0; }
 
   Status Accept(TypeVisitor* visitor) const override;
 
-  std::string ToString() const override {
-    static const std::string name = "null";
-    return name;
-  }
+  static const std::string NAME;
+
+  std::string ToString() const override { return NAME; }
+};
+
+struct IntegerMeta {
+  virtual bool is_signed() const = 0;
+};
+
+struct FloatingPointMeta {
+  enum Precision { HALF, SINGLE, DOUBLE };
+  virtual Precision precision() const = 0;
+};
+
+template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
+struct IntegerTypeImpl : public PrimitiveType<DERIVED, TYPE_ID, C_TYPE>,
+                         public IntegerMeta {
+  bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
 struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType, Type::BOOL, uint8_t> {
-  constexpr static const char* NAME = "bool";
+  int bit_width() const override { return 1; }
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT UInt8Type : public PrimitiveType<UInt8Type, Type::UINT8, uint8_t> {
-  constexpr static const char* NAME = "uint8";
+struct ARROW_EXPORT UInt8Type : public IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT Int8Type : public PrimitiveType<Int8Type, Type::INT8, int8_t> {
-  constexpr static const char* NAME = "int8";
+struct ARROW_EXPORT Int8Type : public IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT UInt16Type : public PrimitiveType<UInt16Type, Type::UINT16, uint16_t> {
-  constexpr static const char* NAME = "uint16";
+struct ARROW_EXPORT UInt16Type
+    : public IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT Int16Type : public PrimitiveType<Int16Type, Type::INT16, int16_t> {
-  constexpr static const char* NAME = "int16";
+struct ARROW_EXPORT Int16Type : public IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT UInt32Type : public PrimitiveType<UInt32Type, Type::UINT32, uint32_t> {
-  constexpr static const char* NAME = "uint32";
+struct ARROW_EXPORT UInt32Type
+    : public IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT Int32Type : public PrimitiveType<Int32Type, Type::INT32, int32_t> {
-  constexpr static const char* NAME = "int32";
+struct ARROW_EXPORT Int32Type : public IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT UInt64Type : public PrimitiveType<UInt64Type, Type::UINT64, uint64_t> {
-  constexpr static const char* NAME = "uint64";
+struct ARROW_EXPORT UInt64Type
+    : public IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT Int64Type : public PrimitiveType<Int64Type, Type::INT64, int64_t> {
-  constexpr static const char* NAME = "int64";
+struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType, Type::FLOAT, float> {
-  constexpr static const char* NAME = "float";
+struct ARROW_EXPORT HalfFloatType
+    : public PrimitiveType<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
+      public FloatingPointMeta {
+  Precision precision() const override;
+  static const std::string NAME;
 };
 
-struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, double> {
-  constexpr static const char* NAME = "double";
+struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType, Type::FLOAT, float>,
+                                public FloatingPointMeta {
+  Precision precision() const override;
+  static const std::string NAME;
+};
+
+struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, double>,
+                                 public FloatingPointMeta {
+  Precision precision() const override;
+  static const std::string NAME;
 };
 
 struct ARROW_EXPORT ListType : public DataType {
@@ -306,6 +342,7 @@ struct ARROW_EXPORT ListType : public DataType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static const std::string NAME;
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
@@ -314,6 +351,8 @@ struct ARROW_EXPORT BinaryType : public DataType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  static const std::string NAME;
 
  protected:
   // Allow subclasses to change the logical type.
@@ -326,6 +365,7 @@ struct ARROW_EXPORT StringType : public BinaryType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static const std::string NAME;
 };
 
 struct ARROW_EXPORT StructType : public DataType {
@@ -336,6 +376,7 @@ struct ARROW_EXPORT StructType : public DataType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static const std::string NAME;
 };
 
 struct ARROW_EXPORT DecimalType : public DataType {
@@ -346,6 +387,7 @@ struct ARROW_EXPORT DecimalType : public DataType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static const std::string NAME;
 };
 
 template <Type::type T>
@@ -367,6 +409,7 @@ struct DenseUnionType : public UnionType<Type::DENSE_UNION> {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static const std::string NAME;
 };
 
 struct SparseUnionType : public UnionType<Type::SPARSE_UNION> {
@@ -377,10 +420,11 @@ struct SparseUnionType : public UnionType<Type::SPARSE_UNION> {
   }
 
   Status Accept(TypeVisitor* visitor) const override;
-  virtual std::string ToString() const;
+  std::string ToString() const override;
+  static const std::string NAME;
 };
 
-struct DateType : public DataType {
+struct ARROW_EXPORT DateType : public DataType {
   enum class Unit : char { DAY = 0, MONTH = 1, YEAR = 2 };
 
   Unit unit;
@@ -390,6 +434,21 @@ struct DateType : public DataType {
   DateType(const DateType& other) : DateType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override { return NAME; }
+  static const std::string NAME;
+};
+
+struct ARROW_EXPORT TimeType : public DataType {
+  enum class Unit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
+  Unit unit;
+
+  explicit TimeType(Unit unit = Unit::MILLI) : DataType(Type::TIME), unit(unit) {}
+  TimeType(const TimeType& other) : TimeType(other.unit) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override { return NAME; }
+  static const std::string NAME;
 };
 
 struct ARROW_EXPORT TimestampType : public DataType {
@@ -398,7 +457,7 @@ struct ARROW_EXPORT TimestampType : public DataType {
   typedef int64_t c_type;
   static constexpr Type::type type_enum = Type::TIMESTAMP;
 
-  int value_size() const override { return sizeof(int64_t); }
+  int bit_width() const override { return sizeof(int64_t) * 8; }
 
   Unit unit;
 
@@ -409,7 +468,8 @@ struct ARROW_EXPORT TimestampType : public DataType {
   virtual ~TimestampType() {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return "timestamp"; }
+  std::string ToString() const override { return NAME; }
+  static const std::string NAME;
 };
 
 // These will be defined elsewhere
