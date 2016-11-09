@@ -19,6 +19,7 @@
 #define PARQUET_UTIL_MEMORY_POOL_H
 
 #include <cstdint>
+#include <mutex>
 
 #include "parquet/util/visibility.h"
 
@@ -48,6 +49,7 @@ class PARQUET_EXPORT TrackingAllocator : public MemoryAllocator {
   int64_t MaxMemory() { return max_memory_; }
 
  private:
+  std::mutex stats_mutex_;
   int64_t total_memory_;
   int64_t max_memory_;
 };

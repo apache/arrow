@@ -30,17 +30,23 @@ uint8_t* TrackingAllocator::Malloc(int64_t size) {
 
   uint8_t* p = static_cast<uint8_t*>(std::malloc(size));
   if (!p) { throw ParquetException("OOM: memory allocation failed"); }
-  total_memory_ += size;
-  if (total_memory_ > max_memory_) { max_memory_ = total_memory_; }
+  {
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    total_memory_ += size;
+    if (total_memory_ > max_memory_) { max_memory_ = total_memory_; }
+  }
   return p;
 }
 
 void TrackingAllocator::Free(uint8_t* p, int64_t size) {
   if (nullptr != p && size > 0) {
-    if (total_memory_ < size) {
-      throw ParquetException("Attempting to free too much memory");
+    {
+      std::lock_guard<std::mutex> lock(stats_mutex_);
+      if (total_memory_ < size) {
+        throw ParquetException("Attempting to free too much memory");
+      }
+      total_memory_ -= size;
     }
-    total_memory_ -= size;
     std::free(p);
   }
 }
