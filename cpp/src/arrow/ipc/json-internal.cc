@@ -518,18 +518,10 @@ class JsonSchemaReader {
         *type = is_signed ? int16() : uint16();
         break;
       case 32:
-        if (is_signed) {
-          *type = std::make_shared<Int32Type>();
-        } else {
-          *type = std::make_shared<UInt32Type>();
-        }
+        *type = is_signed ? int32() : uint32();
         break;
       case 64:
-        if (is_signed) {
-          *type = std::make_shared<Int64Type>();
-        } else {
-          *type = std::make_shared<UInt64Type>();
-        }
+        *type = is_signed ? int64() : uint64();
         break;
       default:
         std::stringstream ss;
@@ -548,16 +540,46 @@ class JsonSchemaReader {
     std::string precision = json_precision->value.GetString();
 
     if (precision == "DOUBLE") {
-      *type = std::make_shared<DoubleType>();
+      *type = float64();
     } else if (precision == "SINGLE") {
-      *type = std::make_shared<FloatType>();
+      *type = float32();
     } else if (precision == "HALF") {
-      *type = std::make_shared<HalfFloatType>();
+      *type = float16();
     } else {
       std::stringstream ss;
       ss << "Invalid precision: " << precision;
       return Status::Invalid(ss.str());
     }
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status GetTimeLike(const rj::Value& obj, std::shared_ptr<DataType>* type) {
+    const auto& json_type = obj.GetObject();
+
+    const auto& json_unit = json_type.FindMember("unit");
+    RETURN_NOT_STRING(json_unit, json_type);
+
+    std::string unit_str = json_unit->value.GetString();
+
+    TimeUnit unit;
+
+    if (unit_str == "SECOND") {
+      unit = TimeUnit::SECOND;
+    } else if (unit_str == "MILLISECOND") {
+      unit = TimeUnit::MILLI;
+    } else if (unit_str == "MICROSECOND") {
+      unit = TimeUnit::MICRO;
+    } else if (unit_str == "NANOSECOND") {
+      unit = TimeUnit::NANO;
+    } else {
+      std::stringstream ss;
+      ss << "Invalid time unit: " << unit_str;
+      return Status::Invalid(ss.str());
+    }
+
+    *type = std::make_shared<T>(unit);
+
     return Status::OK();
   }
 
@@ -576,17 +598,23 @@ class JsonSchemaReader {
     } else if (type_name == "floatingpoint") {
       return GetFloatingPoint(obj, type);
     } else if (type_name == "bool") {
-      *type = std::make_shared<BooleanType>();
+      *type = boolean();
     } else if (type_name == "utf8") {
-      *type = std::make_shared<StringType>();
+      *type = utf8();
     } else if (type_name == "binary") {
-      *type = std::make_shared<BinaryType>();
+      *type = binary();
     } else if (type_name == "null") {
-      *type = std::make_shared<NullType>();
+      *type = null();
+    } else if (type_name == "date") {
+      *type = date();
+    } else if (type_name == "time") {
+      return GetTimeLike<TimeType>(obj, type);
+    } else if (type_name == "timestamp") {
+      return GetTimeLike<TimestampType>(obj, type);
     } else if (type_name == "list") {
-      *type = std::make_shared<ListType>(children[0]);
+      *type = list(children[0]);
     } else if (type_name == "struct") {
-      *type = std::make_shared<StructType>(children);
+      *type = struct_(children);
     } else {
       return Status::NotImplemented(type_name);
     }

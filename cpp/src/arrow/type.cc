@@ -148,6 +148,8 @@ const std::string UnionType::NAME = "union";
     return result;                                                       \
   }
 
+TYPE_FACTORY(null, NullType);
+TYPE_FACTORY(boolean, BooleanType);
 TYPE_FACTORY(int8, Int8Type);
 TYPE_FACTORY(uint8, UInt8Type);
 TYPE_FACTORY(int16, Int16Type);
@@ -156,13 +158,29 @@ TYPE_FACTORY(int32, Int32Type);
 TYPE_FACTORY(uint32, UInt32Type);
 TYPE_FACTORY(int64, Int64Type);
 TYPE_FACTORY(uint64, UInt64Type);
+TYPE_FACTORY(float16, HalfFloatType);
 TYPE_FACTORY(float32, FloatType);
 TYPE_FACTORY(float64, DoubleType);
 TYPE_FACTORY(utf8, StringType);
 TYPE_FACTORY(binary, BinaryType);
+TYPE_FACTORY(date, DateType);
+
+std::shared_ptr<DataType> timestamp(TimeUnit unit) {
+  static std::shared_ptr<DataType> result = std::make_shared<TimestampType>();
+  return result;
+}
+
+std::shared_ptr<DataType> time(TimeUnit unit) {
+  static std::shared_ptr<DataType> result = std::make_shared<TimeType>();
+  return result;
+}
 
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
   return std::make_shared<ListType>(value_type);
+}
+
+std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
+  return std::make_shared<ListType>(value_field);
 }
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {

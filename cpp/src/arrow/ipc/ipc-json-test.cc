@@ -30,8 +30,8 @@
 #include "rapidjson/prettywriter.h"
 #include "gtest/gtest.h"
 
-#include "arrow/ipc/adapter.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
@@ -66,7 +66,10 @@ TEST_F(TestJsonSchemaWriter, FlatTypes) {
       field("f6", uint32()), field("f7", uint64()), field("f8", float32()),
       field("f9", float64()), field("f10", utf8()), field("f11", binary()),
       field("f12", list(int32())), field("f13", struct_({field("s1", int32()),
-                field("s2", utf8())}))};
+                field("s2", utf8())})),
+      field("f14", date()), field("f15", timestamp(TimeUnit::NANO)),
+      field("f16", timestamp(TimeUnit::MICRO)),
+  };
 
   Schema schema(fields);
   TestRoundTrip(schema);
