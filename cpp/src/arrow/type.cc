@@ -84,6 +84,23 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
+std::string UnionType::ToString() const {
+  std::stringstream s;
+
+  if (mode == UnionType::SPARSE) {
+    s << "union[sparse]<";
+  } else {
+    s << "union[dense]<";
+  }
+
+  for (size_t i = 0; i < child_types.size(); ++i) {
+    if (i) { s << ", "; }
+    s << child_types[i]->ToString();
+  }
+  s << ">";
+  return s.str();
+}
+
 // Visitors and template instantiation
 
 #define ACCEPT_VISITOR(TYPE) \
@@ -95,11 +112,11 @@ ACCEPT_VISITOR(StringType);
 ACCEPT_VISITOR(ListType);
 ACCEPT_VISITOR(StructType);
 ACCEPT_VISITOR(DecimalType);
-ACCEPT_VISITOR(SparseUnionType);
-ACCEPT_VISITOR(DenseUnionType);
+ACCEPT_VISITOR(UnionType);
 ACCEPT_VISITOR(DateType);
 ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
+ACCEPT_VISITOR(IntervalType);
 
 const std::string NullType::NAME = "null";
 const std::string UInt8Type::NAME = "uint8";
@@ -120,9 +137,9 @@ const std::string DecimalType::NAME = "decimal";
 const std::string DateType::NAME = "decimal";
 const std::string TimeType::NAME = "time";
 const std::string TimestampType::NAME = "timestamp";
+const std::string IntervalType::NAME = "interval";
 const std::string ListType::NAME = "list";
 const std::string StructType::NAME = "struct";
-const std::string DenseUnionType::NAME = "union";
-const std::string SparseUnionType::NAME = "union";
+const std::string UnionType::NAME = "union";
 
 }  // namespace arrow

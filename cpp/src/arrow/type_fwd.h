@@ -43,11 +43,11 @@ struct BinaryType;
 struct DateType;
 struct TimeType;
 struct TimestampType;
+struct IntervalType;
 struct DecimalType;
 struct ListType;
 struct StructType;
-struct DenseUnionType;
-struct SparseUnionType;
+struct UnionType;
 
 class TypeVisitor {
  public:
@@ -69,11 +69,11 @@ class TypeVisitor {
   virtual Status Visit(const DateType& type) = 0;
   virtual Status Visit(const TimeType& type) = 0;
   virtual Status Visit(const TimestampType& type) = 0;
+  virtual Status Visit(const IntervalType& type) = 0;
   virtual Status Visit(const DecimalType& type) = 0;
   virtual Status Visit(const ListType& type) = 0;
   virtual Status Visit(const StructType& type) = 0;
-  virtual Status Visit(const DenseUnionType& type) = 0;
-  virtual Status Visit(const SparseUnionType& type) = 0;
+  virtual Status Visit(const UnionType& type) = 0;
 };
 
 class NullArray;
@@ -83,8 +83,7 @@ class BinaryArray;
 class DecimalArray;
 class ListArray;
 class StructArray;
-class DenseUnionArray;
-class SparseUnionArray;
+class UnionArray;
 
 template <typename TypeClass>
 class NumericArray;
@@ -104,6 +103,7 @@ using UInt32Array = NumericArray<UInt32Type>;
 using Int64Array = NumericArray<Int64Type>;
 using UInt64Array = NumericArray<UInt64Type>;
 using TimestampArray = NumericArray<TimestampType>;
+using IntervalArray = NumericArray<IntervalType>;
 
 class ArrayVisitor {
  public:
@@ -125,11 +125,11 @@ class ArrayVisitor {
   virtual Status Visit(const DateArray& array) = 0;
   virtual Status Visit(const TimeArray& array) = 0;
   virtual Status Visit(const TimestampArray& array) = 0;
+  virtual Status Visit(const IntervalArray& array) = 0;
   virtual Status Visit(const DecimalArray& array) = 0;
   virtual Status Visit(const ListArray& array) = 0;
   virtual Status Visit(const StructArray& array) = 0;
-  virtual Status Visit(const DenseUnionArray& array) = 0;
-  virtual Status Visit(const SparseUnionArray& array) = 0;
+  virtual Status Visit(const UnionArray& array) = 0;
 };
 
 }  // namespace arrow

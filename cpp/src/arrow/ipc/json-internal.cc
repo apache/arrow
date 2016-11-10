@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -105,7 +106,106 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  void WriteTypeMetadata(const T& type) {}
+  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
+                              std::is_base_of<BooleanType, T>::value ||
+                              std::is_base_of<NullType, T>::value,
+      void>::type
+  WriteTypeMetadata(const T& type) {}
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<IntegerMeta, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("bitWidth");
+    writer_->Int(type.bit_width());
+    writer_->Key("isSigned");
+    writer_->Bool(type.is_signed());
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<FloatingPointMeta, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("precision");
+    switch (type.precision()) {
+      case FloatingPointMeta::HALF:
+        writer_->String("HALF");
+        break;
+      case FloatingPointMeta::SINGLE:
+        writer_->String("SINGLE");
+        break;
+      case FloatingPointMeta::DOUBLE:
+        writer_->String("DOUBLE");
+        break;
+      default:
+        break;
+    };
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<IntervalType, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("unit");
+    switch (type.unit) {
+      case IntervalType::Unit::YEAR_MONTH:
+        writer_->String("YEAR_MONTH");
+        break;
+      case IntervalType::Unit::DAY_TIME:
+        writer_->String("DAY_TIME");
+        break;
+    };
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
+                              std::is_base_of<TimestampType, T>::value,
+      void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("unit");
+    switch (type.unit) {
+      case TimeUnit::SECOND:
+        writer_->String("SECOND");
+        break;
+      case TimeUnit::MILLI:
+        writer_->String("MILLISECOND");
+        break;
+      case TimeUnit::MICRO:
+        writer_->String("MICROSECOND");
+        break;
+      case TimeUnit::NANO:
+        writer_->String("NANOSECOND");
+        break;
+    };
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<DecimalType, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("precision");
+    writer_->Int(type.precision);
+    writer_->Key("scale");
+    writer_->Int(type.scale);
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<UnionType, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("mode");
+    switch (type.mode) {
+      case UnionType::SPARSE:
+        writer_->String("SPARSE");
+        break;
+      case UnionType::DENSE:
+        writer_->String("DENSE");
+        break;
+    };
+
+    // Write type ids
+    writer_->Key("typeIds");
+    writer_->StartArray();
+    for (size_t i = 0; i < type.type_ids.size(); ++i) {
+      writer_->Uint(type.type_ids[i]);
+    }
+    writer_->EndArray();
+  }
 
   // TODO(wesm): Other Type metadata
 
@@ -135,7 +235,7 @@ class JsonSchemaWriter : public TypeVisitor {
     WriteBufferLayout({kValidityBuffer, kOffsetBuffer, kValues8});
   }
 
-   void WriteBufferLayout(const std::vector<BufferLayout>& buffer_layout) {
+  void WriteBufferLayout(const std::vector<BufferLayout>& buffer_layout) {
     writer_->Key("typeLayout");
     writer_->StartArray();
 
@@ -249,6 +349,11 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
+  Status Visit(const IntervalType& type) override {
+    WritePrimitive(type, {kValidityBuffer, kValues64});
+    return Status::OK();
+  }
+
   Status Visit(const DecimalType& type) override { return Status::NotImplemented("NYI"); }
 
   Status Visit(const ListType& type) override {
@@ -265,17 +370,15 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DenseUnionType& type) override {
+  Status Visit(const UnionType& type) override {
     WriteName(type);
     WriteChildren(type.children());
-    WriteBufferLayout({kValidityBuffer, kTypeBuffer, kOffsetBuffer});
-    return Status::NotImplemented("NYI");
-  }
 
-  Status Visit(const SparseUnionType& type) override {
-    WriteName(type);
-    WriteChildren(type.children());
-    WriteBufferLayout({kValidityBuffer, kTypeBuffer});
+    if (type.mode == UnionType::SPARSE) {
+      WriteBufferLayout({kValidityBuffer, kTypeBuffer});
+    } else {
+      WriteBufferLayout({kValidityBuffer, kTypeBuffer, kOffsetBuffer});
+    }
     return Status::NotImplemented("NYI");
   }
 
@@ -283,14 +386,14 @@ class JsonSchemaWriter : public TypeVisitor {
   RjWriter* writer_;
 };
 
-#define RETURN_NOT_STRING(NAME, PARENT)                         \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsString()) {  \
-    return Status::Invalid("invalid field");                    \
+#define RETURN_NOT_STRING(NAME, PARENT)                        \
+  if (NAME == PARENT.MemberEnd() || !NAME->value.IsString()) { \
+    return Status::Invalid("invalid field");                   \
   }
 
-#define RETURN_NOT_BOOL(NAME, PARENT)                           \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsBool()) {    \
-    return Status::Invalid("invalid field");                    \
+#define RETURN_NOT_BOOL(NAME, PARENT)                        \
+  if (NAME == PARENT.MemberEnd() || !NAME->value.IsBool()) { \
+    return Status::Invalid("invalid field");                 \
   }
 
 #define RETURN_NOT_INT(NAME, PARENT)                        \
@@ -298,20 +401,19 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::Invalid("invalid field");                \
   }
 
-#define RETURN_NOT_ARRAY(NAME, PARENT)                          \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsArray()) {   \
-    return Status::Invalid("invalid field");                    \
+#define RETURN_NOT_ARRAY(NAME, PARENT)                        \
+  if (NAME == PARENT.MemberEnd() || !NAME->value.IsArray()) { \
+    return Status::Invalid("invalid field");                  \
   }
 
-#define RETURN_NOT_OBJECT(NAME, PARENT)                         \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsObject()) {  \
-    return Status::Invalid("invalid field");                    \
+#define RETURN_NOT_OBJECT(NAME, PARENT)                        \
+  if (NAME == PARENT.MemberEnd() || !NAME->value.IsObject()) { \
+    return Status::Invalid("invalid field");                   \
   }
 
 class JsonSchemaReader {
  public:
-  explicit JsonSchemaReader(const rj::Value& json_schema)
-      : json_schema_(json_schema) {}
+  explicit JsonSchemaReader(const rj::Value& json_schema) : json_schema_(json_schema) {}
 
   Status GetSchema(std::shared_ptr<Schema>* schema) {
     const auto& obj_schema = json_schema_.GetObject();
@@ -326,7 +428,8 @@ class JsonSchemaReader {
     return Status::OK();
   }
 
-  Status GetFieldsFromArray(const rj::Value& obj, std::vector<std::shared_ptr<Field>>* fields) {
+  Status GetFieldsFromArray(
+      const rj::Value& obj, std::vector<std::shared_ptr<Field>>* fields) {
     const auto& values = obj.GetArray();
 
     fields->resize(values.Size());
@@ -337,9 +440,7 @@ class JsonSchemaReader {
   }
 
   Status GetField(const rj::Value& obj, std::shared_ptr<Field>* field) {
-    if (!obj.IsObject()) {
-      return Status::Invalid("Field was not a JSON object");
-    }
+    if (!obj.IsObject()) { return Status::Invalid("Field was not a JSON object"); }
     const auto& json_field = obj.GetObject();
 
     const auto& json_name = json_field.FindMember("name");
@@ -360,8 +461,8 @@ class JsonSchemaReader {
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(GetType(json_type->value, children, &type));
 
-    *field = std::make_shared<Field>(json_name->value.GetString(), type,
-        json_nullable->value.GetBool());
+    *field = std::make_shared<Field>(
+        json_name->value.GetString(), type, json_nullable->value.GetBool());
     return Status::OK();
   }
 
@@ -437,7 +538,8 @@ class JsonSchemaReader {
   }
 
   Status GetType(const rj::Value& obj,
-      const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* type) {
+      const std::vector<std::shared_ptr<Field>>& children,
+      std::shared_ptr<DataType>* type) {
     const auto& json_type = obj.GetObject();
 
     const auto& json_type_name = json_type.FindMember("name");
@@ -473,8 +575,7 @@ class JsonSchemaReader {
 
 class JsonArrayReader {
  public:
-  explicit JsonArrayReader(const rj::Value& json_array)
-      : json_array_(json_array) {}
+  explicit JsonArrayReader(const rj::Value& json_array) : json_array_(json_array) {}
 
   Status GetArray(std::shared_ptr<Array>* array) {
     if (!json_array_.IsObject()) {

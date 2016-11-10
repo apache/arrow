@@ -48,7 +48,8 @@ bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
 
-    int value_byte_size = type_->bit_width() / 8;
+    auto primitive_meta = dynamic_cast<const PrimitiveMeta*>(type_.get());
+    int value_byte_size = primitive_meta->bit_width() / 8;
     DCHECK_GT(value_byte_size, 0);
 
     for (int i = 0; i < length_; ++i) {

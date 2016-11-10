@@ -80,12 +80,15 @@ struct Type {
     // Exact time encoded with int64, default unit millisecond
     TIME = 19,
 
+    // YEAR_MONTH or DAY_TIME interval in SQL style
+    INTERVAL = 20,
+
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
-    DECIMAL = 20,
+    DECIMAL = 21,
 
     // Decimal value encoded as a text string
-    DECIMAL_TEXT = 21,
+    DECIMAL_TEXT = 22,
 
     // A list of some logical data type
     LIST = 30,
@@ -94,8 +97,7 @@ struct Type {
     STRUCT = 31,
 
     // Unions of logical types
-    DENSE_UNION = 32,
-    SPARSE_UNION = 33,
+    UNION = 32,
   };
 };
 
@@ -124,14 +126,27 @@ struct ARROW_EXPORT DataType {
 
   int num_children() const { return children_.size(); }
 
-  virtual int bit_width() const { return -1; }
-
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 
   virtual std::string ToString() const = 0;
 };
 
 typedef std::shared_ptr<DataType> TypePtr;
+
+struct PrimitiveMeta {
+  virtual int bit_width() const = 0;
+};
+
+struct IntegerMeta {
+  virtual bool is_signed() const = 0;
+};
+
+struct FloatingPointMeta {
+  enum Precision { HALF, SINGLE, DOUBLE };
+  virtual Precision precision() const = 0;
+};
+
+struct NoExtraMeta {};
 
 // A field is a piece of metadata that includes (for now) a name and a data
 // type
@@ -170,7 +185,7 @@ struct ARROW_EXPORT Field {
 typedef std::shared_ptr<Field> FieldPtr;
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT PrimitiveType : public DataType {
+struct ARROW_EXPORT PrimitiveType : public DataType, public PrimitiveMeta {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
@@ -185,7 +200,7 @@ struct ARROW_EXPORT PrimitiveType : public DataType {
   std::string ToString() const override { return std::string(DERIVED::NAME); }
 };
 
-struct ARROW_EXPORT NullType : public DataType {
+struct ARROW_EXPORT NullType : public DataType, public PrimitiveMeta {
   static constexpr Type::type type_enum = Type::NA;
 
   NullType() : DataType(Type::NA) {}
@@ -197,15 +212,6 @@ struct ARROW_EXPORT NullType : public DataType {
   static const std::string NAME;
 
   std::string ToString() const override { return NAME; }
-};
-
-struct IntegerMeta {
-  virtual bool is_signed() const = 0;
-};
-
-struct FloatingPointMeta {
-  enum Precision { HALF, SINGLE, DOUBLE };
-  virtual Precision precision() const = 0;
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
@@ -273,7 +279,7 @@ struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, 
   static const std::string NAME;
 };
 
-struct ARROW_EXPORT ListType : public DataType {
+struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
       : ListType(std::make_shared<Field>("item", value_type)) {}
@@ -292,7 +298,7 @@ struct ARROW_EXPORT ListType : public DataType {
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
-struct ARROW_EXPORT BinaryType : public DataType {
+struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   BinaryType() : BinaryType(Type::BINARY) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -314,7 +320,7 @@ struct ARROW_EXPORT StringType : public BinaryType {
   static const std::string NAME;
 };
 
-struct ARROW_EXPORT StructType : public DataType {
+struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
       : DataType(Type::STRUCT) {
     children_ = fields;
@@ -336,60 +342,39 @@ struct ARROW_EXPORT DecimalType : public DataType {
   static const std::string NAME;
 };
 
-template <Type::type T>
 struct ARROW_EXPORT UnionType : public DataType {
-  std::vector<TypePtr> child_types_;
+  enum UnionMode { SPARSE, DENSE };
 
-  UnionType() : DataType(T) {}
+  UnionType(const std::vector<std::shared_ptr<DataType>>& child_types,
+      const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE)
+      : DataType(Type::UNION), mode(mode), child_types(child_types), type_ids(type_ids) {}
 
-  const TypePtr& child(int i) const { return child_types_[i]; }
-  int num_children() const { return child_types_.size(); }
-};
+  const TypePtr& child(int i) const { return child_types[i]; }
+  int num_children() const { return child_types.size(); }
 
-struct ARROW_EXPORT DenseUnionType : public UnionType<Type::DENSE_UNION> {
-  typedef UnionType<Type::DENSE_UNION> Base;
-
-  explicit DenseUnionType(const std::vector<TypePtr>& child_types) : Base() {
-    child_types_ = child_types;
-  }
-
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  Status Accept(TypeVisitor* visitor) const override;
+
+  UnionMode mode;
+  std::vector<TypePtr> child_types;
+  std::vector<uint8_t> type_ids;
   static const std::string NAME;
 };
 
-struct ARROW_EXPORT SparseUnionType : public UnionType<Type::SPARSE_UNION> {
-  typedef UnionType<Type::SPARSE_UNION> Base;
-
-  explicit SparseUnionType(const std::vector<TypePtr>& child_types) : Base() {
-    child_types_ = child_types;
-  }
-
-  Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override;
-  static const std::string NAME;
-};
-
-struct ARROW_EXPORT DateType : public DataType {
-  enum class Unit : char { DAY = 0, MONTH = 1, YEAR = 2 };
-
-  Unit unit;
-
-  explicit DateType(Unit unit = Unit::DAY) : DataType(Type::DATE), unit(unit) {}
-
-  DateType(const DateType& other) : DateType(other.unit) {}
+struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
+  DateType() : DataType(Type::DATE) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return NAME; }
   static const std::string NAME;
 };
 
+enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
 struct ARROW_EXPORT TimeType : public DataType {
-  enum class Unit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+  TimeUnit unit;
 
-  Unit unit;
-
-  explicit TimeType(Unit unit = Unit::MILLI) : DataType(Type::TIME), unit(unit) {}
+  explicit TimeType(TimeUnit unit = TimeUnit::MILLI) : DataType(Type::TIME), unit(unit) {}
   TimeType(const TimeType& other) : TimeType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -397,21 +382,38 @@ struct ARROW_EXPORT TimeType : public DataType {
   static const std::string NAME;
 };
 
-struct ARROW_EXPORT TimestampType : public DataType {
-  enum class Unit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
-
+struct ARROW_EXPORT TimestampType : public DataType, public PrimitiveMeta {
   typedef int64_t c_type;
   static constexpr Type::type type_enum = Type::TIMESTAMP;
 
   int bit_width() const override { return sizeof(int64_t) * 8; }
 
-  Unit unit;
+  TimeUnit unit;
 
-  explicit TimestampType(Unit unit = Unit::MILLI)
+  explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
       : DataType(Type::TIMESTAMP), unit(unit) {}
 
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
-  virtual ~TimestampType() {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override { return NAME; }
+  static const std::string NAME;
+};
+
+struct ARROW_EXPORT IntervalType : public DataType, public PrimitiveMeta {
+  enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
+
+  typedef int64_t c_type;
+  static constexpr Type::type type_enum = Type::INTERVAL;
+
+  int bit_width() const override { return sizeof(int64_t) * 8; }
+
+  Unit unit;
+
+  explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
+      : DataType(Type::INTERVAL), unit(unit) {}
+
+  IntervalType(const IntervalType& other) : IntervalType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return NAME; }
