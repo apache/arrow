@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
@@ -39,15 +40,14 @@ namespace arrow {
 namespace ipc {
 
 const auto kInt32 = std::make_shared<Int32Type>();
-const auto kListInt32 = std::make_shared<ListType>(kInt32);
-const auto kListListInt32 = std::make_shared<ListType>(kListInt32);
+const auto kListInt32 = list(kInt32);
+const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(
     int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   test::MakeRandomInt32PoolBuffer(length, pool, &data);
-  const auto kInt32 = std::make_shared<Int32Type>();
-  Int32Builder builder(pool, kInt32);
+  Int32Builder builder(pool, int32());
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes);
@@ -134,8 +134,8 @@ Status MakeRandomBinaryArray(
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int32_t length = 500;
-  auto string_type = std::make_shared<StringType>();
-  auto binary_type = std::make_shared<BinaryType>();
+  auto string_type = utf8();
+  auto binary_type = binary();
   auto f0 = std::make_shared<Field>("f0", string_type);
   auto f1 = std::make_shared<Field>("f1", binary_type);
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
@@ -233,7 +233,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
   for (int i = 0; i < 63; ++i) {
-    type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
+    type = std::static_pointer_cast<DataType>(list(type));
     RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool, &array));
   }
 

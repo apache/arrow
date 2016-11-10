@@ -77,12 +77,14 @@ class JsonSchemaWriter : public TypeVisitor {
       : schema_(schema), writer_(writer) {}
 
   Status Write() {
+    writer_->StartObject();
     writer_->Key("fields");
     writer_->StartArray();
     for (const std::shared_ptr<Field>& field : schema_.fields()) {
       RETURN_NOT_OK(VisitField(*field.get()));
     }
     writer_->EndArray();
+    writer_->EndObject();
     return Status::OK();
   }
 
@@ -97,7 +99,6 @@ class JsonSchemaWriter : public TypeVisitor {
 
     // Visit the type
     RETURN_NOT_OK(field.type->Accept(this));
-
     writer_->EndObject();
 
     return Status::OK();
@@ -214,11 +215,11 @@ class JsonSchemaWriter : public TypeVisitor {
   // TODO(wesm): Other Type metadata
 
   template <typename T>
-  void WriteName(const T& type) {
+  void WriteName(const std::string& typeclass, const T& type) {
     writer_->Key("type");
     writer_->StartObject();
     writer_->Key("name");
-    writer_->String(T::NAME);
+    writer_->String(typeclass);
 
     WriteTypeMetadata(type);
 
@@ -226,15 +227,16 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  void WritePrimitive(const T& type, const std::vector<BufferLayout>& buffer_layout) {
-    WriteName(type);
+  void WritePrimitive(const std::string& typeclass, const T& type,
+      const std::vector<BufferLayout>& buffer_layout) {
+    WriteName(typeclass, type);
     SetNoChildren();
     WriteBufferLayout(buffer_layout);
   }
 
   template <typename T>
-  void WriteVarBytes(const T& type) {
-    WriteName(type);
+  void WriteVarBytes(const std::string& typeclass, const T& type) {
+    WriteName(typeclass, type);
     SetNoChildren();
     WriteBufferLayout({kValidityBuffer, kOffsetBuffer, kValues8});
   }
@@ -257,125 +259,128 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {
+    writer_->Key("children");
+    writer_->StartArray();
     for (const std::shared_ptr<Field>& field : children) {
       RETURN_NOT_OK(VisitField(*field.get()));
     }
+    writer_->EndArray();
     return Status::OK();
   }
 
   Status Visit(const NullType& type) override {
-    WritePrimitive(type, {});
+    WritePrimitive("null", type, {});
     return Status::OK();
   }
 
   Status Visit(const BooleanType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kBooleanBuffer});
+    WritePrimitive("bool", type, {kValidityBuffer, kBooleanBuffer});
     return Status::OK();
   }
 
   Status Visit(const Int8Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues8});
+    WritePrimitive("int", type, {kValidityBuffer, kValues8});
     return Status::OK();
   }
 
   Status Visit(const Int16Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues16});
+    WritePrimitive("int", type, {kValidityBuffer, kValues16});
     return Status::OK();
   }
 
   Status Visit(const Int32Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues32});
+    WritePrimitive("int", type, {kValidityBuffer, kValues32});
     return Status::OK();
   }
 
   Status Visit(const Int64Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("int", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const UInt8Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues8});
+    WritePrimitive("int", type, {kValidityBuffer, kValues8});
     return Status::OK();
   }
 
   Status Visit(const UInt16Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues16});
+    WritePrimitive("int", type, {kValidityBuffer, kValues16});
     return Status::OK();
   }
 
   Status Visit(const UInt32Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues32});
+    WritePrimitive("int", type, {kValidityBuffer, kValues32});
     return Status::OK();
   }
 
   Status Visit(const UInt64Type& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("int", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const HalfFloatType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues16});
+    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues16});
     return Status::OK();
   }
 
   Status Visit(const FloatType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues32});
+    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues32});
     return Status::OK();
   }
 
   Status Visit(const DoubleType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const StringType& type) override {
-    WriteVarBytes(type);
+    WriteVarBytes("utf8", type);
     return Status::OK();
   }
 
   Status Visit(const BinaryType& type) override {
-    WriteVarBytes(type);
+    WriteVarBytes("binary", type);
     return Status::OK();
   }
 
   Status Visit(const DateType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("date", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const TimeType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("time", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const TimestampType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("timestamp", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const IntervalType& type) override {
-    WritePrimitive(type, {kValidityBuffer, kValues64});
+    WritePrimitive("interval", type, {kValidityBuffer, kValues64});
     return Status::OK();
   }
 
   Status Visit(const DecimalType& type) override { return Status::NotImplemented("NYI"); }
 
   Status Visit(const ListType& type) override {
-    WriteName(type);
+    WriteName("list", type);
     RETURN_NOT_OK(WriteChildren(type.children()));
     WriteBufferLayout({kValidityBuffer, kOffsetBuffer});
     return Status::OK();
   }
 
   Status Visit(const StructType& type) override {
-    WriteName(type);
+    WriteName("struct", type);
     WriteChildren(type.children());
     WriteBufferLayout({kValidityBuffer, kTypeBuffer});
     return Status::OK();
   }
 
   Status Visit(const UnionType& type) override {
-    WriteName(type);
+    WriteName("union", type);
     WriteChildren(type.children());
 
     if (type.mode == UnionType::SPARSE) {
@@ -391,29 +396,51 @@ class JsonSchemaWriter : public TypeVisitor {
   RjWriter* writer_;
 };
 
-#define RETURN_NOT_STRING(NAME, PARENT)                        \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsString()) { \
-    return Status::Invalid("invalid field");                   \
+#define RETURN_NOT_FOUND(NAME, PARENT) \
+  if (NAME == PARENT.MemberEnd()) {    \
+    std::stringstream ss;              \
+    ss << "field not found";           \
+    return Status::Invalid(ss.str());  \
   }
 
-#define RETURN_NOT_BOOL(NAME, PARENT)                        \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsBool()) { \
-    return Status::Invalid("invalid field");                 \
+#define RETURN_NOT_STRING(NAME, PARENT) \
+  RETURN_NOT_FOUND(NAME, PARENT);       \
+  if (!NAME->value.IsString()) {        \
+    std::stringstream ss;               \
+    ss << "field was not a string";     \
+    return Status::Invalid(ss.str());   \
   }
 
-#define RETURN_NOT_INT(NAME, PARENT)                        \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsInt()) { \
-    return Status::Invalid("invalid field");                \
+#define RETURN_NOT_BOOL(NAME, PARENT) \
+  RETURN_NOT_FOUND(NAME, PARENT);     \
+  if (!NAME->value.IsBool()) {        \
+    std::stringstream ss;             \
+    ss << "field was not a boolean";  \
+    return Status::Invalid(ss.str()); \
   }
 
-#define RETURN_NOT_ARRAY(NAME, PARENT)                        \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsArray()) { \
-    return Status::Invalid("invalid field");                  \
+#define RETURN_NOT_INT(NAME, PARENT)  \
+  RETURN_NOT_FOUND(NAME, PARENT);     \
+  if (!NAME->value.IsInt()) {         \
+    std::stringstream ss;             \
+    ss << "field was not an int";     \
+    return Status::Invalid(ss.str()); \
   }
 
-#define RETURN_NOT_OBJECT(NAME, PARENT)                        \
-  if (NAME == PARENT.MemberEnd() || !NAME->value.IsObject()) { \
-    return Status::Invalid("invalid field");                   \
+#define RETURN_NOT_ARRAY(NAME, PARENT) \
+  RETURN_NOT_FOUND(NAME, PARENT);      \
+  if (!NAME->value.IsArray()) {        \
+    std::stringstream ss;              \
+    ss << "field was not an array";    \
+    return Status::Invalid(ss.str());  \
+  }
+
+#define RETURN_NOT_OBJECT(NAME, PARENT) \
+  RETURN_NOT_FOUND(NAME, PARENT);       \
+  if (!NAME->value.IsObject()) {        \
+    std::stringstream ss;               \
+    ss << "field was not an object";    \
+    return Status::Invalid(ss.str());   \
   }
 
 class JsonSchemaReader {
@@ -474,7 +501,7 @@ class JsonSchemaReader {
   Status GetInteger(const rj::Value& obj, std::shared_ptr<DataType>* type) {
     const auto& json_type = obj.GetObject();
 
-    const auto& json_bit_width = json_type.FindMember("bidWidth");
+    const auto& json_bit_width = json_type.FindMember("bitWidth");
     RETURN_NOT_INT(json_bit_width, json_type);
 
     const auto& json_is_signed = json_type.FindMember("isSigned");
@@ -485,18 +512,10 @@ class JsonSchemaReader {
 
     switch (bit_width) {
       case 8:
-        if (is_signed) {
-          *type = std::make_shared<Int8Type>();
-        } else {
-          *type = std::make_shared<UInt8Type>();
-        }
+        *type = is_signed ? int8() : uint8();
         break;
       case 16:
-        if (is_signed) {
-          *type = std::make_shared<Int16Type>();
-        } else {
-          *type = std::make_shared<UInt16Type>();
-        }
+        *type = is_signed ? int16() : uint16();
         break;
       case 32:
         if (is_signed) {
@@ -530,7 +549,7 @@ class JsonSchemaReader {
 
     if (precision == "DOUBLE") {
       *type = std::make_shared<DoubleType>();
-    } else if (precision == "FLOAT") {
+    } else if (precision == "SINGLE") {
       *type = std::make_shared<FloatType>();
     } else if (precision == "HALF") {
       *type = std::make_shared<HalfFloatType>();

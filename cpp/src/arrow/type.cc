@@ -142,4 +142,36 @@ const std::string ListType::NAME = "list";
 const std::string StructType::NAME = "struct";
 const std::string UnionType::NAME = "union";
 
+#define TYPE_FACTORY(NAME, KLASS)                                        \
+  std::shared_ptr<DataType> NAME() {                                     \
+    static std::shared_ptr<DataType> result = std::make_shared<KLASS>(); \
+    return result;                                                       \
+  }
+
+TYPE_FACTORY(int8, Int8Type);
+TYPE_FACTORY(uint8, UInt8Type);
+TYPE_FACTORY(int16, Int16Type);
+TYPE_FACTORY(uint16, UInt16Type);
+TYPE_FACTORY(int32, Int32Type);
+TYPE_FACTORY(uint32, UInt32Type);
+TYPE_FACTORY(int64, Int64Type);
+TYPE_FACTORY(uint64, UInt64Type);
+TYPE_FACTORY(float32, FloatType);
+TYPE_FACTORY(float64, DoubleType);
+TYPE_FACTORY(utf8, StringType);
+TYPE_FACTORY(binary, BinaryType);
+
+std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
+  return std::make_shared<ListType>(value_type);
+}
+
+std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
+  return std::make_shared<StructType>(fields);
+}
+
+std::shared_ptr<Field> field(
+    const std::string& name, const TypePtr& type, bool nullable, int64_t dictionary) {
+  return std::make_shared<Field>(name, type, nullable, dictionary);
+}
+
 }  // namespace arrow

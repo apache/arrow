@@ -31,6 +31,7 @@
 #include "rapidjson/writer.h"
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace rj = rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
@@ -42,11 +43,13 @@ class Schema;
 
 namespace ipc {
 
-Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
-Status WriteJsonArray(const Array& array, RjWriter* json_writer);
+Status ARROW_EXPORT WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
+Status ARROW_EXPORT WriteJsonArray(const Array& array, RjWriter* json_writer);
 
-Status ReadJsonSchema(const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
-Status ReadJsonArray(const rj::Value& json_obj, std::shared_ptr<Array>* schema);
+Status ARROW_EXPORT ReadJsonSchema(
+    const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
+Status ARROW_EXPORT ReadJsonArray(
+    const rj::Value& json_obj, std::shared_ptr<Array>* schema);
 
 }  // namespace ipc
 }  // namespace arrow

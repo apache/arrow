@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 
 #include "arrow/schema.h"
-#include "arrow/factory.h"
 #include "arrow/type.h"
 
 using std::shared_ptr;
@@ -56,11 +55,11 @@ class TestSchema : public ::testing::Test {
 };
 
 TEST_F(TestSchema, Basics) {
-  auto f0 = std::make_shared<Field>("f0", int32());
-  auto f1 = std::make_shared<Field>("f1", uint8(), false);
-  auto f1_optional = std::make_shared<Field>("f1", uint8());
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f1_optional = field("f1", uint8());
 
-  auto f2 = std::make_shared<Field>("f2", utf8());
+  auto f2 = field("f2", utf8());
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = std::make_shared<Schema>(fields);
@@ -82,10 +81,10 @@ TEST_F(TestSchema, Basics) {
 }
 
 TEST_F(TestSchema, ToString) {
-  auto f0 = std::make_shared<Field>("f0", int32());
-  auto f1 = std::make_shared<Field>("f1", uint8(), false);
-  auto f2 = std::make_shared<Field>("f2", utf8());
-  auto f3 = std::make_shared<Field>("f3", std::make_shared<ListType>(int16()));
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f3", list(int16()));
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
   auto schema = std::make_shared<Schema>(fields);
