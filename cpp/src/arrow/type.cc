@@ -87,15 +87,15 @@ std::string StructType::ToString() const {
 std::string UnionType::ToString() const {
   std::stringstream s;
 
-  if (mode == UnionType::SPARSE) {
+  if (mode == UnionMode::SPARSE) {
     s << "union[sparse]<";
   } else {
     s << "union[dense]<";
   }
 
-  for (size_t i = 0; i < child_types.size(); ++i) {
+  for (size_t i = 0; i < children_.size(); ++i) {
     if (i) { s << ", "; }
-    s << child_types[i]->ToString();
+    s << children_[i]->ToString();
   }
   s << ">";
   return s.str();
@@ -185,6 +185,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
   return std::make_shared<StructType>(fields);
+}
+
+std::shared_ptr<DataType> ARROW_EXPORT union_(
+    const std::vector<std::shared_ptr<Field>>& child_fields,
+    const std::vector<uint8_t>& type_ids, UnionMode mode) {
+  return std::make_shared<UnionType>(child_fields, type_ids, mode);
 }
 
 std::shared_ptr<Field> field(

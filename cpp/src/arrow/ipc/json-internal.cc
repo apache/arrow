@@ -195,10 +195,10 @@ class JsonSchemaWriter : public TypeVisitor {
   WriteTypeMetadata(const T& type) {
     writer_->Key("mode");
     switch (type.mode) {
-      case UnionType::SPARSE:
+      case UnionMode::SPARSE:
         writer_->String("SPARSE");
         break;
-      case UnionType::DENSE:
+      case UnionMode::DENSE:
         writer_->String("DENSE");
         break;
     };
@@ -220,9 +220,7 @@ class JsonSchemaWriter : public TypeVisitor {
     writer_->StartObject();
     writer_->Key("name");
     writer_->String(typeclass);
-
     WriteTypeMetadata(type);
-
     writer_->EndObject();
   }
 
@@ -383,12 +381,12 @@ class JsonSchemaWriter : public TypeVisitor {
     WriteName("union", type);
     WriteChildren(type.children());
 
-    if (type.mode == UnionType::SPARSE) {
+    if (type.mode == UnionMode::SPARSE) {
       WriteBufferLayout({kValidityBuffer, kTypeBuffer});
     } else {
       WriteBufferLayout({kValidityBuffer, kTypeBuffer, kOffsetBuffer});
     }
-    return Status::NotImplemented("NYI");
+    return Status::OK();
   }
 
  private:
@@ -396,51 +394,51 @@ class JsonSchemaWriter : public TypeVisitor {
   RjWriter* writer_;
 };
 
-#define RETURN_NOT_FOUND(NAME, PARENT) \
-  if (NAME == PARENT.MemberEnd()) {    \
-    std::stringstream ss;              \
-    ss << "field not found";           \
-    return Status::Invalid(ss.str());  \
+#define RETURN_NOT_FOUND(TOK, NAME, PARENT) \
+  if (NAME == PARENT.MemberEnd()) {         \
+    std::stringstream ss;                   \
+    ss << "field " << TOK << " not found";  \
+    return Status::Invalid(ss.str());       \
   }
 
-#define RETURN_NOT_STRING(NAME, PARENT) \
-  RETURN_NOT_FOUND(NAME, PARENT);       \
-  if (!NAME->value.IsString()) {        \
-    std::stringstream ss;               \
-    ss << "field was not a string";     \
-    return Status::Invalid(ss.str());   \
+#define RETURN_NOT_STRING(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
+  if (!NAME->value.IsString()) {             \
+    std::stringstream ss;                    \
+    ss << "field was not a string";          \
+    return Status::Invalid(ss.str());        \
   }
 
-#define RETURN_NOT_BOOL(NAME, PARENT) \
-  RETURN_NOT_FOUND(NAME, PARENT);     \
-  if (!NAME->value.IsBool()) {        \
-    std::stringstream ss;             \
-    ss << "field was not a boolean";  \
-    return Status::Invalid(ss.str()); \
+#define RETURN_NOT_BOOL(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);     \
+  if (!NAME->value.IsBool()) {             \
+    std::stringstream ss;                  \
+    ss << "field was not a boolean";       \
+    return Status::Invalid(ss.str());      \
   }
 
-#define RETURN_NOT_INT(NAME, PARENT)  \
-  RETURN_NOT_FOUND(NAME, PARENT);     \
-  if (!NAME->value.IsInt()) {         \
-    std::stringstream ss;             \
-    ss << "field was not an int";     \
-    return Status::Invalid(ss.str()); \
+#define RETURN_NOT_INT(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);    \
+  if (!NAME->value.IsInt()) {             \
+    std::stringstream ss;                 \
+    ss << "field was not an int";         \
+    return Status::Invalid(ss.str());     \
   }
 
-#define RETURN_NOT_ARRAY(NAME, PARENT) \
-  RETURN_NOT_FOUND(NAME, PARENT);      \
-  if (!NAME->value.IsArray()) {        \
-    std::stringstream ss;              \
-    ss << "field was not an array";    \
-    return Status::Invalid(ss.str());  \
+#define RETURN_NOT_ARRAY(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);      \
+  if (!NAME->value.IsArray()) {             \
+    std::stringstream ss;                   \
+    ss << "field was not an array";         \
+    return Status::Invalid(ss.str());       \
   }
 
-#define RETURN_NOT_OBJECT(NAME, PARENT) \
-  RETURN_NOT_FOUND(NAME, PARENT);       \
-  if (!NAME->value.IsObject()) {        \
-    std::stringstream ss;               \
-    ss << "field was not an object";    \
-    return Status::Invalid(ss.str());   \
+#define RETURN_NOT_OBJECT(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
+  if (!NAME->value.IsObject()) {             \
+    std::stringstream ss;                    \
+    ss << "field was not an object";         \
+    return Status::Invalid(ss.str());        \
   }
 
 class JsonSchemaReader {
@@ -451,7 +449,7 @@ class JsonSchemaReader {
     const auto& obj_schema = json_schema_.GetObject();
 
     const auto& json_fields = obj_schema.FindMember("fields");
-    RETURN_NOT_ARRAY(json_fields, obj_schema);
+    RETURN_NOT_ARRAY("fields", json_fields, obj_schema);
 
     std::vector<std::shared_ptr<Field>> fields;
     RETURN_NOT_OK(GetFieldsFromArray(json_fields->value, &fields));
@@ -476,16 +474,16 @@ class JsonSchemaReader {
     const auto& json_field = obj.GetObject();
 
     const auto& json_name = json_field.FindMember("name");
-    RETURN_NOT_STRING(json_name, json_field);
+    RETURN_NOT_STRING("name", json_name, json_field);
 
     const auto& json_nullable = json_field.FindMember("nullable");
-    RETURN_NOT_BOOL(json_nullable, json_field);
+    RETURN_NOT_BOOL("nullable", json_nullable, json_field);
 
     const auto& json_type = json_field.FindMember("type");
-    RETURN_NOT_OBJECT(json_type, json_field);
+    RETURN_NOT_OBJECT("type", json_type, json_field);
 
     const auto& json_children = json_field.FindMember("children");
-    RETURN_NOT_ARRAY(json_children, json_field);
+    RETURN_NOT_ARRAY("children", json_children, json_field);
 
     std::vector<std::shared_ptr<Field>> children;
     RETURN_NOT_OK(GetFieldsFromArray(json_children->value, &children));
@@ -502,10 +500,10 @@ class JsonSchemaReader {
     const auto& json_type = obj.GetObject();
 
     const auto& json_bit_width = json_type.FindMember("bitWidth");
-    RETURN_NOT_INT(json_bit_width, json_type);
+    RETURN_NOT_INT("bitWidth", json_bit_width, json_type);
 
     const auto& json_is_signed = json_type.FindMember("isSigned");
-    RETURN_NOT_BOOL(json_is_signed, json_type);
+    RETURN_NOT_BOOL("isSigned", json_is_signed, json_type);
 
     bool is_signed = json_is_signed->value.GetBool();
     int bit_width = json_bit_width->value.GetInt();
@@ -535,7 +533,7 @@ class JsonSchemaReader {
     const auto& json_type = obj.GetObject();
 
     const auto& json_precision = json_type.FindMember("precision");
-    RETURN_NOT_STRING(json_precision, json_type);
+    RETURN_NOT_STRING("precision", json_precision, json_type);
 
     std::string precision = json_precision->value.GetString();
 
@@ -558,7 +556,7 @@ class JsonSchemaReader {
     const auto& json_type = obj.GetObject();
 
     const auto& json_unit = json_type.FindMember("unit");
-    RETURN_NOT_STRING(json_unit, json_type);
+    RETURN_NOT_STRING("unit", json_unit, json_type);
 
     std::string unit_str = json_unit->value.GetString();
 
@@ -583,13 +581,49 @@ class JsonSchemaReader {
     return Status::OK();
   }
 
+  Status GetUnion(const rj::Value& obj,
+      const std::vector<std::shared_ptr<Field>>& children,
+      std::shared_ptr<DataType>* type) {
+    const auto& json_type = obj.GetObject();
+
+    const auto& json_mode = json_type.FindMember("mode");
+    RETURN_NOT_STRING("mode", json_mode, json_type);
+
+    std::string mode_str = json_mode->value.GetString();
+    UnionMode mode;
+
+    if (mode_str == "SPARSE") {
+      mode = UnionMode::SPARSE;
+    } else if (mode_str == "DENSE") {
+      mode = UnionMode::DENSE;
+    } else {
+      std::stringstream ss;
+      ss << "Invalid union mode: " << mode_str;
+      ;
+      return Status::Invalid(ss.str());
+    }
+
+    const auto& json_type_ids = json_type.FindMember("typeIds");
+    RETURN_NOT_ARRAY("typeIds", json_type_ids, json_type);
+
+    std::vector<uint8_t> type_ids;
+    const auto& id_array = json_type_ids->value.GetArray();
+    for (const rj::Value& val : id_array) {
+      type_ids.push_back(val.GetUint());
+    }
+
+    *type = union_(children, type_ids, mode);
+
+    return Status::OK();
+  }
+
   Status GetType(const rj::Value& obj,
       const std::vector<std::shared_ptr<Field>>& children,
       std::shared_ptr<DataType>* type) {
     const auto& json_type = obj.GetObject();
 
     const auto& json_type_name = json_type.FindMember("name");
-    RETURN_NOT_STRING(json_type_name, json_type);
+    RETURN_NOT_STRING("name", json_type_name, json_type);
 
     std::string type_name = json_type_name->value.GetString();
 
@@ -616,7 +650,7 @@ class JsonSchemaReader {
     } else if (type_name == "struct") {
       *type = struct_(children);
     } else {
-      return Status::NotImplemented(type_name);
+      return GetUnion(obj, children, type);
     }
     return Status::OK();
   }

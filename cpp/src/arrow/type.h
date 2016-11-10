@@ -342,21 +342,19 @@ struct ARROW_EXPORT DecimalType : public DataType {
   static const std::string NAME;
 };
 
+enum class UnionMode : char { SPARSE, DENSE };
+
 struct ARROW_EXPORT UnionType : public DataType {
-  enum UnionMode { SPARSE, DENSE };
-
-  UnionType(const std::vector<std::shared_ptr<DataType>>& child_types,
+  UnionType(const std::vector<std::shared_ptr<Field>>& child_fields,
       const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE)
-      : DataType(Type::UNION), mode(mode), child_types(child_types), type_ids(type_ids) {}
-
-  const TypePtr& child(int i) const { return child_types[i]; }
-  int num_children() const { return child_types.size(); }
+      : DataType(Type::UNION), mode(mode), type_ids(type_ids) {
+    children_ = child_fields;
+  }
 
   std::string ToString() const override;
   Status Accept(TypeVisitor* visitor) const override;
 
   UnionMode mode;
-  std::vector<TypePtr> child_types;
   std::vector<uint8_t> type_ids;
   static const std::string NAME;
 };
@@ -451,6 +449,10 @@ std::shared_ptr<DataType> ARROW_EXPORT time(TimeUnit unit);
 
 std::shared_ptr<DataType> ARROW_EXPORT struct_(
     const std::vector<std::shared_ptr<Field>>& fields);
+
+std::shared_ptr<DataType> ARROW_EXPORT union_(
+    const std::vector<std::shared_ptr<Field>>& child_fields,
+    const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE);
 
 std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name, const TypePtr& type,
     bool nullable = true, int64_t dictionary = 0);
