@@ -15,45 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef ARROW_FACTORY_H
+#define ARROW_FACTORY_H
+
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
-
-#include "arrow/io/memory.h"
-#include "arrow/io/test-common.h"
-#include "arrow/ipc/adapter.h"
-#include "arrow/ipc/file.h"
-#include "arrow/ipc/test-common.h"
-#include "arrow/ipc/util.h"
-
-#include "arrow/test-util.h"
-#include "arrow/types/list.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace ipc {
 
-class TestJsonSchemaWriter : public ::testing::Test {
- public:
-  void SetUp() {}
-  void TearDown() {}
+std::shared_ptr<DataType> int8();
+std::shared_ptr<DataType> int16();
+std::shared_ptr<DataType> int32();
+std::shared_ptr<DataType> int64();
+std::shared_ptr<DataType> uint8();
+std::shared_ptr<DataType> uint16();
+std::shared_ptr<DataType> uint32();
+std::shared_ptr<DataType> uint64();
+std::shared_ptr<DataType> float32();
+std::shared_ptr<DataType> float64();
+std::shared_ptr<DataType> utf8();
+std::shared_ptr<DataType> binary();
 
-  void TestRoundTrip(const Schema& schema) {
-
-
-  }
-};
-
-}  // namespace ipc
 }  // namespace arrow
+
+#endif  // ARROW_FACTORY_H

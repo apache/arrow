@@ -15,45 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
+#include "arrow/factory.h"
+
 #include <memory>
-#include <string>
-#include <vector>
 
-#include "gtest/gtest.h"
-
-#include "arrow/io/memory.h"
-#include "arrow/io/test-common.h"
-#include "arrow/ipc/adapter.h"
-#include "arrow/ipc/file.h"
-#include "arrow/ipc/test-common.h"
-#include "arrow/ipc/util.h"
-
-#include "arrow/test-util.h"
-#include "arrow/types/list.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
+#include "arrow/type.h"
 
 namespace arrow {
-namespace ipc {
 
-class TestJsonSchemaWriter : public ::testing::Test {
- public:
-  void SetUp() {}
-  void TearDown() {}
-
-  void TestRoundTrip(const Schema& schema) {
-
-
+#define TYPE_FACTORY(NAME, KLASS)                                       \
+  std::shared_ptr<DataType> NAME() {                                    \
+    static std::shared_ptr<DataType> result = std::make_shared<KLASS>(); \
+    return result;                                                      \
   }
-};
 
-}  // namespace ipc
+TYPE_FACTORY(int8, Int8Type);
+TYPE_FACTORY(uint8, UInt8Type);
+TYPE_FACTORY(int16, Int16Type);
+TYPE_FACTORY(uint16, UInt16Type);
+TYPE_FACTORY(int32, Int32Type);
+TYPE_FACTORY(uint32, UInt32Type);
+TYPE_FACTORY(int64, Int64Type);
+TYPE_FACTORY(uint64, UInt64Type);
+TYPE_FACTORY(float32, FloatType);
+TYPE_FACTORY(float64, DoubleType);
+TYPE_FACTORY(utf8, StringType);
+TYPE_FACTORY(binary, BinaryType);
+
 }  // namespace arrow

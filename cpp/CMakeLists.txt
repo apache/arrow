@@ -694,6 +694,7 @@ set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/builder.cc
   src/arrow/column.cc
+  src/arrow/factory.cc
   src/arrow/schema.cc
   src/arrow/table.cc
   src/arrow/type.cc

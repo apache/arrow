@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/schema.h"
+#include "arrow/factory.h"
 #include "arrow/type.h"
 
 using std::shared_ptr;
@@ -29,23 +30,21 @@ using std::vector;
 
 namespace arrow {
 
-const auto INT32 = std::make_shared<Int32Type>();
-
 TEST(TestField, Basics) {
-  Field f0("f0", INT32);
-  Field f0_nn("f0", INT32, false);
+  Field f0("f0", int32());
+  Field f0_nn("f0", int32(), false);
 
   ASSERT_EQ(f0.name, "f0");
-  ASSERT_EQ(f0.type->ToString(), INT32->ToString());
+  ASSERT_EQ(f0.type->ToString(), int32()->ToString());
 
   ASSERT_TRUE(f0.nullable);
   ASSERT_FALSE(f0_nn.nullable);
 }
 
 TEST(TestField, Equals) {
-  Field f0("f0", INT32);
-  Field f0_nn("f0", INT32, false);
-  Field f0_other("f0", INT32);
+  Field f0("f0", int32());
+  Field f0_nn("f0", int32(), false);
+  Field f0_other("f0", int32());
 
   ASSERT_EQ(f0, f0_other);
   ASSERT_NE(f0, f0_nn);
@@ -57,11 +56,11 @@ class TestSchema : public ::testing::Test {
 };
 
 TEST_F(TestSchema, Basics) {
-  auto f0 = std::make_shared<Field>("f0", INT32);
-  auto f1 = std::make_shared<Field>("f1", std::make_shared<UInt8Type>(), false);
-  auto f1_optional = std::make_shared<Field>("f1", std::make_shared<UInt8Type>());
+  auto f0 = std::make_shared<Field>("f0", int32());
+  auto f1 = std::make_shared<Field>("f1", uint8(), false);
+  auto f1_optional = std::make_shared<Field>("f1", uint8());
 
-  auto f2 = std::make_shared<Field>("f2", std::make_shared<StringType>());
+  auto f2 = std::make_shared<Field>("f2", utf8());
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = std::make_shared<Schema>(fields);
@@ -83,11 +82,10 @@ TEST_F(TestSchema, Basics) {
 }
 
 TEST_F(TestSchema, ToString) {
-  auto f0 = std::make_shared<Field>("f0", INT32);
-  auto f1 = std::make_shared<Field>("f1", std::make_shared<UInt8Type>(), false);
-  auto f2 = std::make_shared<Field>("f2", std::make_shared<StringType>());
-  auto f3 = std::make_shared<Field>(
-      "f3", std::make_shared<ListType>(std::make_shared<Int16Type>()));
+  auto f0 = std::make_shared<Field>("f0", int32());
+  auto f1 = std::make_shared<Field>("f1", uint8(), false);
+  auto f2 = std::make_shared<Field>("f2", utf8());
+  auto f3 = std::make_shared<Field>("f3", std::make_shared<ListType>(int16()));
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
   auto schema = std::make_shared<Schema>(fields);

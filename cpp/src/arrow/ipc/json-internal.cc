@@ -73,14 +73,18 @@ static const BufferLayout kValues8(BufferType::DATA, 8);
 
 class JsonSchemaWriter : public TypeVisitor {
  public:
-  explicit JsonSchemaWriter(RjWriter* writer) : writer_(writer) {}
+  explicit JsonSchemaWriter(const Schema& schema, RjWriter* writer)
+      : schema_(schema), writer_(writer) {}
 
-  void Start() {
-    writer_->Key("schema");
+  Status Write() {
+    writer_->Key("fields");
     writer_->StartArray();
+    for (const std::shared_ptr<Field>& field : schema_.fields()) {
+      RETURN_NOT_OK(VisitField(*field.get()));
+    }
+    writer_->EndArray();
+    return Status::OK();
   }
-
-  void Finish() { writer_->EndArray(); }
 
   Status VisitField(const Field& field) {
     writer_->StartObject();
@@ -383,6 +387,7 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
  private:
+  const Schema& schema_;
   RjWriter* writer_;
 };
 
@@ -590,11 +595,8 @@ class JsonArrayReader {
 };
 
 Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer) {
-  JsonSchemaWriter converter(json_writer);
-  for (const std::shared_ptr<Field>& field : schema.fields()) {
-    RETURN_NOT_OK(converter.VisitField(*field.get()));
-  }
-  return Status::OK();
+  JsonSchemaWriter converter(schema, json_writer);
+  return converter.Write();
 }
 
 Status ReadJsonSchema(const rj::Value& json_schema, std::shared_ptr<Schema>* schema) {
