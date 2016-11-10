@@ -35,6 +35,7 @@ set(ARROW_IPC_SRCS
   adapter.cc
   file.cc
   json.cc
+  json-internal.cc
   metadata.cc
   metadata-internal.cc
 )

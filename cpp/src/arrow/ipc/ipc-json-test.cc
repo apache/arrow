@@ -15,41 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_SCHEMA_H
-#define ARROW_SCHEMA_H
-
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/util/visibility.h"
+#include "gtest/gtest.h"
+
+#include "arrow/io/memory.h"
+#include "arrow/io/test-common.h"
+#include "arrow/ipc/adapter.h"
+#include "arrow/ipc/file.h"
+#include "arrow/ipc/test-common.h"
+#include "arrow/ipc/util.h"
+
+#include "arrow/test-util.h"
+#include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
+#include "arrow/types/struct.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/buffer.h"
+#include "arrow/util/memory-pool.h"
+#include "arrow/util/status.h"
 
 namespace arrow {
+namespace ipc {
 
-struct Field;
-
-class ARROW_EXPORT Schema {
+class TestJsonSchemaWriter : public ::testing::Test {
  public:
-  explicit Schema(const std::vector<std::shared_ptr<Field>>& fields);
-
-  // Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other) const;
-  bool Equals(const std::shared_ptr<Schema>& other) const;
-
-  // Return the ith schema element. Does not boundscheck
-  const std::shared_ptr<Field>& field(int i) const { return fields_[i]; }
-
-  const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
-
-  // Render a string representation of the schema suitable for debugging
-  std::string ToString() const;
-
-  int num_fields() const { return fields_.size(); }
-
- private:
-  std::vector<std::shared_ptr<Field>> fields_;
+  void SetUp() {}
+  void TearDown() {}
 };
 
+}  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_FIELD_H

@@ -337,7 +337,7 @@ struct ARROW_EXPORT DecimalType : public DataType {
 };
 
 template <Type::type T>
-struct UnionType : public DataType {
+struct ARROW_EXPORT UnionType : public DataType {
   std::vector<TypePtr> child_types_;
 
   UnionType() : DataType(T) {}
@@ -346,7 +346,7 @@ struct UnionType : public DataType {
   int num_children() const { return child_types_.size(); }
 };
 
-struct DenseUnionType : public UnionType<Type::DENSE_UNION> {
+struct ARROW_EXPORT DenseUnionType : public UnionType<Type::DENSE_UNION> {
   typedef UnionType<Type::DENSE_UNION> Base;
 
   explicit DenseUnionType(const std::vector<TypePtr>& child_types) : Base() {
@@ -358,7 +358,7 @@ struct DenseUnionType : public UnionType<Type::DENSE_UNION> {
   static const std::string NAME;
 };
 
-struct SparseUnionType : public UnionType<Type::SPARSE_UNION> {
+struct ARROW_EXPORT SparseUnionType : public UnionType<Type::SPARSE_UNION> {
   typedef UnionType<Type::SPARSE_UNION> Base;
 
   explicit SparseUnionType(const std::vector<TypePtr>& child_types) : Base() {

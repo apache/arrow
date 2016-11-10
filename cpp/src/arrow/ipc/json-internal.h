@@ -15,22 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json-internal.h"
+// Implement Arrow JSON serialization format
+
+#ifndef ARROW_IPC_JSON_H
+#define ARROW_IPC_JSON_H
 
 #define RAPIDJSON_HAS_STDSTRING 1
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
 
+#include <memory>
+
+#include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
-#include "arrow/type.h"
-#include "arrow/util/status.h"
-
-namespace arrow {
-namespace ipc {
+#include "arrow/type_fwd.h"
 
 namespace rj = rapidjson;
+using RjWriter = rj::Writer<rj::StringBuffer>;
+
+namespace arrow {
+
+class Array;
+class Schema;
+
+namespace ipc {
+
+Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
+Status WriteJsonArray(const Array& array, RjWriter* json_writer);
+
+Status ReadJsonSchema(const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
+Status ReadJsonArray(const rj::Value& json_obj, std::shared_ptr<Array>* schema);
 
 }  // namespace ipc
 }  // namespace arrow
+
+#endif  // ARROW_IPC_FILE_H
