@@ -56,7 +56,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Objects;
 
-public class JsonFileReader {
+public class JsonFileReader implements AutoCloseable {
   private final File inputFile;
   private final JsonParser parser;
   private final BufferAllocator allocator;
@@ -81,23 +81,29 @@ public class JsonFileReader {
   }
 
   public VectorSchemaRoot read() throws IOException {
-    VectorSchemaRoot recordBatch = new VectorSchemaRoot(schema, allocator);
-    readToken(START_OBJECT);
-    {
-      int count = readNextField("count", Integer.class);
-      recordBatch.setRowCount(count);
-      nextFieldIs("columns");
-      readToken(START_ARRAY);
+    JsonToken t = parser.nextToken();
+    if (t == START_OBJECT) {
+      VectorSchemaRoot recordBatch = new VectorSchemaRoot(schema, allocator);
       {
-        for (Field field : schema.getFields()) {
-          FieldVector vector = recordBatch.getVector(field.getName());
-          readVector(field, vector);
+        int count = readNextField("count", Integer.class);
+        recordBatch.setRowCount(count);
+        nextFieldIs("columns");
+        readToken(START_ARRAY);
+        {
+          for (Field field : schema.getFields()) {
+            FieldVector vector = recordBatch.getVector(field.getName());
+            readVector(field, vector);
+          }
         }
+        readToken(END_ARRAY);
       }
-      readToken(END_ARRAY);
+      readToken(END_OBJECT);
+      return recordBatch;
+    } else if (t == END_ARRAY) {
+      return null;
+    } else {
+      throw new IllegalArgumentException("Invalid token: " + t);
     }
-    readToken(END_OBJECT);
-    return recordBatch;
   }
 
   private void readVector(Field field, FieldVector vector) throws JsonParseException, IOException {
@@ -194,9 +200,8 @@ public class JsonFileReader {
     }
   }
 
+  @Override
   public void close() throws IOException {
-    readToken(END_ARRAY);
-    readToken(END_OBJECT);
     parser.close();
   }
 
