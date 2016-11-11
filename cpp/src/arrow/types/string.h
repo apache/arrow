@@ -37,6 +37,8 @@ class MemoryPool;
 
 class ARROW_EXPORT BinaryArray : public Array {
  public:
+  using TypeClass = BinaryType;
+
   BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
@@ -59,6 +61,8 @@ class ARROW_EXPORT BinaryArray : public Array {
 
   std::shared_ptr<Buffer> data() const { return data_buffer_; }
   std::shared_ptr<Buffer> offsets() const { return offset_buffer_; }
+
+  const int32_t* raw_offsets() const { return offsets_; }
 
   int32_t offset(int i) const { return offsets_[i]; }
 
@@ -83,6 +87,8 @@ class ARROW_EXPORT BinaryArray : public Array {
 
 class ARROW_EXPORT StringArray : public BinaryArray {
  public:
+  using TypeClass = StringType;
+
   StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);

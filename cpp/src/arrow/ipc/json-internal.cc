@@ -25,8 +25,14 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
+#include "arrow/array.h"
 #include "arrow/schema.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/types/list.h"
+#include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
+#include "arrow/types/struct.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -225,18 +231,20 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  void WritePrimitive(const std::string& typeclass, const T& type,
+  Status WritePrimitive(const std::string& typeclass, const T& type,
       const std::vector<BufferLayout>& buffer_layout) {
     WriteName(typeclass, type);
     SetNoChildren();
     WriteBufferLayout(buffer_layout);
+    return Status::OK();
   }
 
   template <typename T>
-  void WriteVarBytes(const std::string& typeclass, const T& type) {
+  Status WriteVarBytes(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
     SetNoChildren();
     WriteBufferLayout({kValidityBuffer, kOffsetBuffer, kValues8});
+    return Status::OK();
   }
 
   void WriteBufferLayout(const std::vector<BufferLayout>& buffer_layout) {
@@ -266,99 +274,74 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) override {
-    WritePrimitive("null", type, {});
-    return Status::OK();
-  }
+  Status Visit(const NullType& type) override { return WritePrimitive("null", type, {}); }
 
   Status Visit(const BooleanType& type) override {
-    WritePrimitive("bool", type, {kValidityBuffer, kBooleanBuffer});
-    return Status::OK();
+    return WritePrimitive("bool", type, {kValidityBuffer, kBooleanBuffer});
   }
 
   Status Visit(const Int8Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues8});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues8});
   }
 
   Status Visit(const Int16Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues16});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues16});
   }
 
   Status Visit(const Int32Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues32});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues32});
   }
 
   Status Visit(const Int64Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const UInt8Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues8});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues8});
   }
 
   Status Visit(const UInt16Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues16});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues16});
   }
 
   Status Visit(const UInt32Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues32});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues32});
   }
 
   Status Visit(const UInt64Type& type) override {
-    WritePrimitive("int", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("int", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const HalfFloatType& type) override {
-    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues16});
-    return Status::OK();
+    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues16});
   }
 
   Status Visit(const FloatType& type) override {
-    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues32});
-    return Status::OK();
+    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues32});
   }
 
   Status Visit(const DoubleType& type) override {
-    WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues64});
   }
 
-  Status Visit(const StringType& type) override {
-    WriteVarBytes("utf8", type);
-    return Status::OK();
-  }
+  Status Visit(const StringType& type) override { return WriteVarBytes("utf8", type); }
 
-  Status Visit(const BinaryType& type) override {
-    WriteVarBytes("binary", type);
-    return Status::OK();
-  }
+  Status Visit(const BinaryType& type) override { return WriteVarBytes("binary", type); }
 
   Status Visit(const DateType& type) override {
-    WritePrimitive("date", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("date", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const TimeType& type) override {
-    WritePrimitive("time", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("time", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const TimestampType& type) override {
-    WritePrimitive("timestamp", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("timestamp", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const IntervalType& type) override {
-    WritePrimitive("interval", type, {kValidityBuffer, kValues64});
-    return Status::OK();
+    return WritePrimitive("interval", type, {kValidityBuffer, kValues64});
   }
 
   Status Visit(const DecimalType& type) override { return Status::NotImplemented("NYI"); }
@@ -391,6 +374,211 @@ class JsonSchemaWriter : public TypeVisitor {
 
  private:
   const Schema& schema_;
+  RjWriter* writer_;
+};
+
+class JsonArrayWriter : public ArrayVisitor {
+ public:
+  explicit JsonArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
+      : name_(name), array_(array), writer_(writer) {}
+
+  Status Write() { return VisitArray(name_, array_); }
+
+  Status VisitArray(const std::string& name, const Array& arr) {
+    writer_->StartObject();
+    writer_->Key("name");
+    writer_->String(name);
+
+    writer_->Key("count");
+    writer_->String(arr.length());
+
+    RETURN_NOT_OK(array.Accept(this));
+
+    writer_->EndObject();
+    return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
+      const T& arr) {
+    const typename T::c_type* data = arr.raw_data();
+    for (auto i = 0; i < arr.length(); ++i) {
+      writer_->Int64(data[i]);
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
+      const T& arr) {
+    const typename T::c_type* data = arr.raw_data();
+    for (auto i = 0; i < arr.length(); ++i) {
+      writer_->Uint64(data[i]);
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
+      const T& arr) {
+    const typename T::c_type* data = arr.raw_data();
+    for (auto i = 0; i < arr.length(); ++i) {
+      writer_->Double(data[i]);
+    }
+  }
+
+  // String (Utf8), Binary
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
+  WriteDataValues(const T& arr) {
+    for (auto i = 0; i < arr.length(); ++i) {
+      int32_t length;
+      const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
+      writer_->String(buf, length);
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
+  WriteDataValues(const T& arr) {
+    for (auto i = 0; i < arr.length(); ++i) {
+      writer_->String(buf, length);
+    }
+  }
+
+  template <typename T>
+  void WriteDataField(const T& arr) {
+    writer_->StartArray();
+    WriteDataValues(arr);
+    writer_->EndArray();
+  }
+
+  template <typename T>
+  void WriteOffsetsField(const T* offsets, int32_t length) {
+    writer_->Key("OFFSETS");
+    writer_->StartArray();
+    for (auto i = 0; i < arr.length(); ++i) {
+      writer_->Int64(offsets[i]);
+    }
+    writer_->EndArray();
+  }
+
+  void WriteValidityField(const Array& arr) {
+    writer_->Key("VALIDITY");
+    writer_->StartArray();
+    if (arr.null_count() > 0) {
+      for (auto i = 0; i < arr.length(); ++i) {
+        writer_->Int(arr.IsNull(i) ? 0 : 1);
+      }
+    } else {
+      for (auto i = 0; i < arr.length(); ++i) {
+        writer_->Int(1);
+      }
+    }
+    writer_->EndArray();
+  }
+
+  void SetNoChildren() {
+    writer_->Key("children");
+    writer_->StartArray();
+    writer_->EndArray();
+  }
+
+  template <typename T>
+  Status WritePrimitive(const T& array) {
+    WriteValidityField(array);
+    WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status WriteVarBytes(const T& array) {
+    WriteValidityField(array);
+    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
+    WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
+
+  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& fields,
+      const std::vector<std::shared_ptr<Array>>& arrays) {
+    writer_->Key("children");
+    writer_->StartArray();
+    for (size_t i = 0; i < fields.size(); ++i) {
+      RETURN_NOT_OK(VisitArray(fields[i].name, *arrays[i].get()));
+    }
+    writer_->EndArray();
+    return Status::OK();
+  }
+
+  Status Visit(const NullArray& array) override {
+    SetNoChildren();
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const Int8Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const Int16Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const Int32Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const Int64Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const UInt8Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const UInt16Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const UInt32Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const UInt64Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const HalfFloatArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const FloatArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const DoubleArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const StringArray& array) override { return WriteVarBytes(array); }
+
+  Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
+
+  Status Visit(const DateArray& array) override { return Status::NotImplemented("date"); }
+
+  Status Visit(const TimeArray& array) override { return Status::NotImplemented("time"); }
+
+  Status Visit(const TimestampArray& array) override {
+    return Status::NotImplemented("timestamp");
+  }
+
+  Status Visit(const IntervalArray& array) override {
+    return Status::NotImplemented("interval");
+  }
+
+  Status Visit(const DecimalArray& array) override {
+    return Status::NotImplemented("decimal");
+  }
+
+  Status Visit(const ListArray& array) override {
+    WriteValidityField(array);
+    WriteOffsetsField(array);
+    auto type = static_cast<const ListType*>(array.type().get());
+    return WriteChildren(type.children(), {array.values()});
+  }
+
+  Status Visit(const StructArray& array) override {
+    WriteValidityField(array);
+    auto type = static_cast<const StructType*>(array.type().get());
+    return WriteChildren(type.children(), array.fields());
+  }
+
+  Status Visit(const UnionArray& array) override {
+    return Status::NotImplemented("union");
+  }
+
+ private:
+  const std::string& name_;
+  const Array& array_;
   RjWriter* writer_;
 };
 
@@ -659,21 +847,23 @@ class JsonSchemaReader {
   const rj::Value& json_schema_;
 };
 
-class JsonArrayReader {
- public:
-  explicit JsonArrayReader(const rj::Value& json_array) : json_array_(json_array) {}
+// class JsonArrayReader {
+//  public:
+//   explicit JsonArrayReader(const rj::Value& json_array, const Schema& schema)
+//       : json_array_(json_array), schema_(schema) {}
 
-  Status GetArray(std::shared_ptr<Array>* array) {
-    if (!json_array_.IsObject()) {
-      return Status::Invalid("Array was not a JSON object");
-    }
+//   Status GetArray(std::shared_ptr<Array>* array) {
+//     if (!json_array_.IsObject()) {
+//       return Status::Invalid("Array was not a JSON object");
+//     }
 
-    return Status::OK();
-  }
+//     return Status::OK();
+//   }
 
- private:
-  const rj::Value& json_array_;
-};
+//  private:
+//   const rj::Value& json_array_;
+//   const Schema& schema_;
+// };
 
 Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer) {
   JsonSchemaWriter converter(schema, json_writer);
@@ -685,10 +875,17 @@ Status ReadJsonSchema(const rj::Value& json_schema, std::shared_ptr<Schema>* sch
   return converter.GetSchema(schema);
 }
 
-Status ReadJsonArray(const rj::Value& json_array, std::shared_ptr<Array>* array) {
-  JsonArrayReader converter(json_array);
-  return converter.GetArray(array);
-}
+// Status WriteJsonArray(
+//     const std::string& name, const Array& array, RjWriter* json_writer) {
+//   JsonArrayWriter converter(name, array, json_writer);
+//   converter.Write();
+// }
+
+// Status ReadJsonArray(
+//     const rj::Value& json_array, const Schema& schema, std::shared_ptr<Array>* array) {
+//   JsonArrayReader converter(json_array, schema);
+//   return converter.GetArray(array);
+// }
 
 }  // namespace ipc
 }  // namespace arrow

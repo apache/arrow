@@ -86,6 +86,8 @@ class ARROW_EXPORT Array {
 // Degenerate null type Array
 class ARROW_EXPORT NullArray : public Array {
  public:
+  using TypeClass = NullType;
+
   NullArray(const std::shared_ptr<DataType>& type, int32_t length)
       : Array(type, length, length, nullptr) {}
 

@@ -44,12 +44,13 @@ class Schema;
 namespace ipc {
 
 Status ARROW_EXPORT WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
-Status ARROW_EXPORT WriteJsonArray(const Array& array, RjWriter* json_writer);
+Status ARROW_EXPORT WriteJsonArray(
+    const std::string& name, const Array& array, RjWriter* json_writer);
 
 Status ARROW_EXPORT ReadJsonSchema(
     const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
 Status ARROW_EXPORT ReadJsonArray(
-    const rj::Value& json_obj, std::shared_ptr<Array>* schema);
+    const rj::Value& json_obj, const Schema& schema, std::shared_ptr<Array>* array);
 
 }  // namespace ipc
 }  // namespace arrow

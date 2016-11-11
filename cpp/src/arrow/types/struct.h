@@ -31,6 +31,8 @@ namespace arrow {
 
 class ARROW_EXPORT StructArray : public Array {
  public:
+  using TypeClass = StructType;
+
   StructArray(const TypePtr& type, int32_t length, std::vector<ArrayPtr>& field_arrays,
       int32_t null_count = 0, std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {

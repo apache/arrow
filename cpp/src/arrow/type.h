@@ -420,10 +420,6 @@ struct ARROW_EXPORT IntervalType : public DataType, public PrimitiveMeta {
   static std::string name() { return "date"; }
 };
 
-// These will be defined elsewhere
-template <typename T>
-struct TypeTraits {};
-
 // Factory functions
 
 std::shared_ptr<DataType> ARROW_EXPORT null();

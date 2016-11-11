@@ -55,9 +55,10 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-template <class TypeClass>
+template <class TYPE>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
  public:
+  using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
   NumericArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
@@ -168,83 +169,6 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::raw_data_;
 };
 
-template <>
-struct TypeTraits<UInt8Type> {
-  typedef UInt8Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements; }
-};
-
-template <>
-struct TypeTraits<Int8Type> {
-  typedef Int8Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements; }
-};
-
-template <>
-struct TypeTraits<UInt16Type> {
-  typedef UInt16Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
-};
-
-template <>
-struct TypeTraits<Int16Type> {
-  typedef Int16Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int16_t); }
-};
-
-template <>
-struct TypeTraits<UInt32Type> {
-  typedef UInt32Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint32_t); }
-};
-
-template <>
-struct TypeTraits<Int32Type> {
-  typedef Int32Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int32_t); }
-};
-
-template <>
-struct TypeTraits<UInt64Type> {
-  typedef UInt64Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint64_t); }
-};
-
-template <>
-struct TypeTraits<Int64Type> {
-  typedef Int64Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
-};
-
-template <>
-struct TypeTraits<TimestampType> {
-  typedef TimestampArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
-};
-template <>
-
-struct TypeTraits<FloatType> {
-  typedef FloatArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(float); }
-};
-
-template <>
-struct TypeTraits<DoubleType> {
-  typedef DoubleArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(double); }
-};
-
 // Builders
 
 typedef NumericBuilder<UInt8Type> UInt8Builder;
@@ -263,6 +187,8 @@ typedef NumericBuilder<DoubleType> DoubleBuilder;
 
 class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
+  using TypeClass = BooleanType;
+
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   BooleanArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
@@ -276,15 +202,6 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
   bool Value(int i) const { return BitUtil::GetBit(raw_data(), i); }
-};
-
-template <>
-struct TypeTraits<BooleanType> {
-  typedef BooleanArray ArrayType;
-
-  static inline int bytes_required(int elements) {
-    return BitUtil::BytesForBits(elements);
-  }
 };
 
 class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {

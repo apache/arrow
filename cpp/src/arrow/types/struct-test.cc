@@ -80,7 +80,7 @@ void ValidateBasicStructArray(const StructArray* result,
   ASSERT_EQ(4, list_char_arr->length());
   ASSERT_EQ(10, list_char_arr->values()->length());
   for (size_t i = 0; i < list_offsets.size(); ++i) {
-    ASSERT_EQ(list_offsets[i], list_char_arr->offsets()[i]);
+    ASSERT_EQ(list_offsets[i], list_char_arr->raw_offsets()[i]);
   }
   for (size_t i = 0; i < list_values.size(); ++i) {
     ASSERT_EQ(list_values[i], char_arr->Value(i));

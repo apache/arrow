@@ -25,6 +25,7 @@
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/test-common.h"
