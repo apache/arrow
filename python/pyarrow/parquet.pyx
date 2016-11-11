@@ -93,15 +93,18 @@ cdef class ParquetReader:
             Integer index of the position of the column
         """
         cdef:
-            const FileMetaData* metadata = self.reader.get().parquet_reader().metadata()
+            const FileMetaData* metadata = (self.reader.get()
+                                            .parquet_reader().metadata())
             int i = 0
 
         if self.column_idx_map is None:
             self.column_idx_map = {}
             for i in range(0, metadata.num_columns()):
-                self.column_idx_map[str(metadata.schema().Column(i).path().get().ToDotString())] = i
+                col_bytes = tobytes(metadata.schema().Column(i)
+                                    .path().get().ToDotString())
+                self.column_idx_map[col_bytes] = i
 
-        return self.column_idx_map[column_name]
+        return self.column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
         cdef:
@@ -109,7 +112,8 @@ cdef class ParquetReader:
             shared_ptr[CArray] carray
 
         with nogil:
-            check_status(self.reader.get().ReadFlatColumn(column_index, &carray))
+            check_status(self.reader.get()
+                         .ReadFlatColumn(column_index, &carray))
 
         array.init(carray)
         return array
