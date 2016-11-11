@@ -31,14 +31,16 @@ additional functionality such as reading Apache Parquet files into Arrow
 structures.
 
 .. toctree::
-   :maxdepth: 4
-   :hidden:
+   :maxdepth: 2
+   :caption: Getting Started
 
+   Installing pyarrow <install.rst>
+   Pandas <pandas.rst>
    Module Reference <modules.rst>
 
-Indices and tables
-==================
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional Features
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   Parquet format <parquet.rst>
+

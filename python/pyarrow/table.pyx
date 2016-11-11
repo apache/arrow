@@ -298,6 +298,8 @@ cdef class RecordBatch:
 
 cdef class Table:
     '''
+    A collection of top-level named, equal length Arrow arrays.
+
     Do not call this class's constructor directly.
     '''
 
@@ -335,6 +337,19 @@ cdef class Table:
 
     @staticmethod
     def from_arrays(names, arrays, name=None):
+        """
+        Construct a Table from Arrow Arrays
+
+        Parameters
+        ----------
+
+        names: list of str
+            Names for the table columns
+        arrays: list of pyarrow.array.Array
+            Equal-length arrays that should form the table.
+        name: str
+            (optional) name for the Table
+        """
         cdef:
             Array arr
             c_string c_name
