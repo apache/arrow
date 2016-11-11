@@ -21,7 +21,8 @@ Reading/Writing Parquet files
 If you have built ``pyarrow`` with Parquet support, i.e. ``parquet-cpp`` was
 found during the build, you can read files in the Parquet format to/from Arrow
 memory structures. The Parquet support code is located in the
-:mod:`pyarrow.parquet` module.
+:mod:`pyarrow.parquet` module and your package needs to be built with the
+``--with-parquet`` flag for ``build_ext``.
 
 Reading Parquet
 ---------------

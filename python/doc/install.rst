@@ -120,6 +120,10 @@ Install `pyarrow`
 
     cd arrow/python
 
+    # --with-parquet enable the Apache Parquet support in PyArrow
+    # --build-type=release disables debugging information and turns on
+    #       compiler optimizations for native code
+    python setup.py build_ext --with-parquet --build-type=release install
     python setup.py install
 
 .. warning::
