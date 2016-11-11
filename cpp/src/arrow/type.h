@@ -133,15 +133,15 @@ struct ARROW_EXPORT DataType {
 
 typedef std::shared_ptr<DataType> TypePtr;
 
-struct PrimitiveMeta {
+struct ARROW_EXPORT PrimitiveMeta {
   virtual int bit_width() const = 0;
 };
 
-struct IntegerMeta {
+struct ARROW_EXPORT IntegerMeta {
   virtual bool is_signed() const = 0;
 };
 
-struct FloatingPointMeta {
+struct ARROW_EXPORT FloatingPointMeta {
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -197,7 +197,7 @@ struct ARROW_EXPORT PrimitiveType : public DataType, public PrimitiveMeta {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
   }
 
-  std::string ToString() const override { return std::string(DERIVED::NAME); }
+  std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
 struct ARROW_EXPORT NullType : public DataType, public PrimitiveMeta {
@@ -205,13 +205,11 @@ struct ARROW_EXPORT NullType : public DataType, public PrimitiveMeta {
 
   NullType() : DataType(Type::NA) {}
 
-  int bit_width() const override { return 0; }
-
+  int bit_width() const override;
   Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
 
-  static const std::string NAME;
-
-  std::string ToString() const override { return NAME; }
+  static std::string name() { return "null"; }
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
@@ -222,61 +220,61 @@ struct IntegerTypeImpl : public PrimitiveType<DERIVED, TYPE_ID, C_TYPE>,
 
 struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType, Type::BOOL, uint8_t> {
   int bit_width() const override { return 1; }
-  static const std::string NAME;
+  static std::string name() { return "bool"; }
 };
 
 struct ARROW_EXPORT UInt8Type : public IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
-  static const std::string NAME;
+  static std::string name() { return "uint8"; }
 };
 
 struct ARROW_EXPORT Int8Type : public IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
-  static const std::string NAME;
+  static std::string name() { return "int8"; }
 };
 
 struct ARROW_EXPORT UInt16Type
     : public IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
-  static const std::string NAME;
+  static std::string name() { return "uint16"; }
 };
 
 struct ARROW_EXPORT Int16Type : public IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
-  static const std::string NAME;
+  static std::string name() { return "int16"; }
 };
 
 struct ARROW_EXPORT UInt32Type
     : public IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
-  static const std::string NAME;
+  static std::string name() { return "uint32"; }
 };
 
 struct ARROW_EXPORT Int32Type : public IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
-  static const std::string NAME;
+  static std::string name() { return "int32"; }
 };
 
 struct ARROW_EXPORT UInt64Type
     : public IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
-  static const std::string NAME;
+  static std::string name() { return "uint64"; }
 };
 
 struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
-  static const std::string NAME;
+  static std::string name() { return "int64"; }
 };
 
 struct ARROW_EXPORT HalfFloatType
     : public PrimitiveType<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
       public FloatingPointMeta {
   Precision precision() const override;
-  static const std::string NAME;
+  static std::string name() { return "halffloat"; }
 };
 
 struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType, Type::FLOAT, float>,
                                 public FloatingPointMeta {
   Precision precision() const override;
-  static const std::string NAME;
+  static std::string name() { return "float"; }
 };
 
 struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, double>,
                                  public FloatingPointMeta {
   Precision precision() const override;
-  static const std::string NAME;
+  static std::string name() { return "double"; }
 };
 
 struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
@@ -294,7 +292,8 @@ struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static const std::string NAME;
+
+  static std::string name() { return "list"; }
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
@@ -303,8 +302,7 @@ struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-
-  static const std::string NAME;
+  static std::string name() { return "binary"; }
 
  protected:
   // Allow subclasses to change the logical type.
@@ -317,7 +315,7 @@ struct ARROW_EXPORT StringType : public BinaryType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static const std::string NAME;
+  static std::string name() { return "utf8"; }
 };
 
 struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
@@ -328,7 +326,7 @@ struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static const std::string NAME;
+  static std::string name() { return "struct"; }
 };
 
 struct ARROW_EXPORT DecimalType : public DataType {
@@ -339,7 +337,7 @@ struct ARROW_EXPORT DecimalType : public DataType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static const std::string NAME;
+  static std::string name() { return "decimal"; }
 };
 
 enum class UnionMode : char { SPARSE, DENSE };
@@ -352,35 +350,39 @@ struct ARROW_EXPORT UnionType : public DataType {
   }
 
   std::string ToString() const override;
+  static std::string name() { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
   UnionMode mode;
   std::vector<uint8_t> type_ids;
-  static const std::string NAME;
 };
 
 struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
   DateType() : DataType(Type::DATE) {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return NAME; }
-  static const std::string NAME;
+  std::string ToString() const override { return name(); }
+  static std::string name() { return "date"; }
 };
 
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 
 struct ARROW_EXPORT TimeType : public DataType {
+  using Unit = TimeUnit;
+
   TimeUnit unit;
 
   explicit TimeType(TimeUnit unit = TimeUnit::MILLI) : DataType(Type::TIME), unit(unit) {}
   TimeType(const TimeType& other) : TimeType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return NAME; }
-  static const std::string NAME;
+  std::string ToString() const override { return name(); }
+  static std::string name() { return "time"; }
 };
 
 struct ARROW_EXPORT TimestampType : public DataType, public PrimitiveMeta {
+  using Unit = TimeUnit;
+
   typedef int64_t c_type;
   static constexpr Type::type type_enum = Type::TIMESTAMP;
 
@@ -394,8 +396,8 @@ struct ARROW_EXPORT TimestampType : public DataType, public PrimitiveMeta {
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return NAME; }
-  static const std::string NAME;
+  std::string ToString() const override { return name(); }
+  static std::string name() { return "timestamp"; }
 };
 
 struct ARROW_EXPORT IntervalType : public DataType, public PrimitiveMeta {
@@ -414,8 +416,8 @@ struct ARROW_EXPORT IntervalType : public DataType, public PrimitiveMeta {
   IntervalType(const IntervalType& other) : IntervalType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return NAME; }
-  static const std::string NAME;
+  std::string ToString() const override { return name(); }
+  static std::string name() { return "date"; }
 };
 
 // These will be defined elsewhere
