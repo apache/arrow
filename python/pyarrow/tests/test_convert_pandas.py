@@ -165,7 +165,7 @@ class TestPandasConversion(unittest.TestCase):
         expected = pd.DataFrame({'strings': values * repeats})
         self._check_pandas_roundtrip(df, expected)
 
-    def test_timestamps_notimezone(self):
+    def test_timestamps_notimezone_no_nulls(self):
         df = pd.DataFrame({
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123',
@@ -179,6 +179,26 @@ class TestPandasConversion(unittest.TestCase):
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123456789',
                 '2006-01-13T12:34:56.432539784',
+                '2010-08-13T05:46:57.437699912'],
+                dtype='datetime64[ns]')
+            })
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
+
+    def test_timestamps_notimezone_nulls(self):
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123',
+                None,
+                '2010-08-13T05:46:57.437'],
+                dtype='datetime64[ms]')
+            })
+        df.info()
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
+
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123456789',
+                None,
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
             })
