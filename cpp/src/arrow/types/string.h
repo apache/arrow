@@ -77,6 +77,8 @@ class ARROW_EXPORT BinaryArray : public Array {
 
   Status Validate() const override;
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
  private:
   std::shared_ptr<Buffer> offset_buffer_;
   const int32_t* offsets_;
@@ -102,6 +104,8 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   }
 
   Status Validate() const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 };
 
 // BinaryBuilder : public ListBuilder

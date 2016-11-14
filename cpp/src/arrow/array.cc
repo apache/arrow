@@ -66,4 +66,8 @@ bool NullArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_st
   return true;
 }
 
+Status NullArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
 }  // namespace arrow

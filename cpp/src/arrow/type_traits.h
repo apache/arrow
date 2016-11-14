@@ -112,10 +112,27 @@ struct TypeTraits<BooleanType> {
   }
 };
 
+// Not all type classes have a c_type
+template <typename T>
+struct as_void {
+  using type = void;
+};
+
+template <typename T, typename Enable = void>
+struct GetCType {
+  using type = void;
+};
+
+// The partial specialization will match if T has the c_type member
+template <typename T>
+struct GetCType<T, typename as_void<typename T::c_type>::type> {
+  using type = typename T::c_type;
+};
+
 #define PRIMITIVE_TRAITS(T)                                                           \
   using TypeClass = typename std::conditional<std::is_base_of<DataType, T>::value, T, \
       typename T::TypeClass>::type;                                                   \
-  using c_type = typename TypeClass::c_type;
+  using c_type = typename GetCType<TypeClass>::type;
 
 template <typename T>
 struct IsUnsignedInt {

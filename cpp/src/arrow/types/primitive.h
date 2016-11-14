@@ -90,6 +90,8 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     return reinterpret_cast<const value_type*>(raw_data_);
   }
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
   value_type Value(int i) const { return raw_data()[i]; }
 };
 
@@ -199,19 +201,36 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const ArrayPtr& arr) const override;
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
   bool Value(int i) const { return BitUtil::GetBit(raw_data(), i); }
 };
 
-class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
+class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
   explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
-      : PrimitiveBuilder<BooleanType>(pool, type) {}
+      : ArrayBuilder(pool, type), data_(nullptr) {}
 
   virtual ~BooleanBuilder() {}
 
-  using PrimitiveBuilder<BooleanType>::Append;
+  using ArrayBuilder::Advance;
+
+  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  Status AppendNull() {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   // Scalar append
   Status Append(bool val) {
@@ -226,7 +245,23 @@ class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
     return Status::OK();
   }
 
-  Status Append(uint8_t val) { return Append(static_cast<bool>(val)); }
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(
+      const uint8_t* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+  Status Init(int32_t capacity) override;
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity) override;
+
+ protected:
+  std::shared_ptr<PoolBuffer> data_;
+  uint8_t* raw_data_;
 };
 
 // Only instantiate these templates once

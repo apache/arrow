@@ -70,6 +70,8 @@ class ARROW_EXPORT Array {
   // returning Status::OK.  This can be an expensive check.
   virtual Status Validate() const;
 
+  virtual Status Accept(ArrayVisitor* visitor) const = 0;
+
  protected:
   std::shared_ptr<DataType> type_;
   int32_t null_count_;
@@ -96,6 +98,8 @@ class ARROW_EXPORT NullArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
       const std::shared_ptr<Array>& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 };
 
 typedef std::shared_ptr<Array> ArrayPtr;

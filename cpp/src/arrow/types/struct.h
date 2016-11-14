@@ -57,6 +57,8 @@ class ARROW_EXPORT StructArray : public Array {
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
  protected:
   // The child arrays corresponding to each field of the struct data type.
   std::vector<ArrayPtr> field_arrays_;

@@ -46,6 +46,10 @@ bool DataType::Equals(const DataType* other) const {
   return equals;
 }
 
+std::string BooleanType::ToString() const {
+  return name();
+}
+
 FloatingPointMeta::Precision HalfFloatType::precision() const {
   return FloatingPointMeta::HALF;
 }
@@ -104,6 +108,7 @@ std::string UnionType::ToString() const {
 int NullType::bit_width() const {
   return 0;
 }
+
 std::string NullType::ToString() const {
   return name();
 }
@@ -114,6 +119,7 @@ std::string NullType::ToString() const {
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
 
 ACCEPT_VISITOR(NullType);
+ACCEPT_VISITOR(BooleanType);
 ACCEPT_VISITOR(BinaryType);
 ACCEPT_VISITOR(StringType);
 ACCEPT_VISITOR(ListType);

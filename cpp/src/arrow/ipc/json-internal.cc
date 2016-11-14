@@ -390,9 +390,9 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->String(name);
 
     writer_->Key("count");
-    writer_->String(arr.length());
+    writer_->Int(arr.length());
 
-    RETURN_NOT_OK(array.Accept(this));
+    RETURN_NOT_OK(arr.Accept(this));
 
     writer_->EndObject();
     return Status::OK();
@@ -401,7 +401,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const typename T::c_type* data = arr.raw_data();
+    const auto data = arr.raw_data();
     for (auto i = 0; i < arr.length(); ++i) {
       writer_->Int64(data[i]);
     }
@@ -410,7 +410,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const typename T::c_type* data = arr.raw_data();
+    const auto data = arr.raw_data();
     for (auto i = 0; i < arr.length(); ++i) {
       writer_->Uint64(data[i]);
     }
@@ -419,7 +419,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const typename T::c_type* data = arr.raw_data();
+    const auto data = arr.raw_data();
     for (auto i = 0; i < arr.length(); ++i) {
       writer_->Double(data[i]);
     }
@@ -440,7 +440,7 @@ class JsonArrayWriter : public ArrayVisitor {
   typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
     for (auto i = 0; i < arr.length(); ++i) {
-      writer_->String(buf, length);
+      writer_->Bool(arr.Value(i));
     }
   }
 
@@ -455,7 +455,7 @@ class JsonArrayWriter : public ArrayVisitor {
   void WriteOffsetsField(const T* offsets, int32_t length) {
     writer_->Key("OFFSETS");
     writer_->StartArray();
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (auto i = 0; i < length; ++i) {
       writer_->Int64(offsets[i]);
     }
     writer_->EndArray();
@@ -504,7 +504,7 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->Key("children");
     writer_->StartArray();
     for (size_t i = 0; i < fields.size(); ++i) {
-      RETURN_NOT_OK(VisitArray(fields[i].name, *arrays[i].get()));
+      RETURN_NOT_OK(VisitArray(fields[i]->name, *arrays[i].get()));
     }
     writer_->EndArray();
     return Status::OK();
@@ -561,15 +561,15 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
-    WriteOffsetsField(array);
+    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
     auto type = static_cast<const ListType*>(array.type().get());
-    return WriteChildren(type.children(), {array.values()});
+    return WriteChildren(type->children(), {array.values()});
   }
 
   Status Visit(const StructArray& array) override {
     WriteValidityField(array);
     auto type = static_cast<const StructType*>(array.type().get());
-    return WriteChildren(type.children(), array.fields());
+    return WriteChildren(type->children(), array.fields());
   }
 
   Status Visit(const UnionArray& array) override {

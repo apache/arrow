@@ -94,6 +94,10 @@ bool BinaryArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_
   return true;
 }
 
+Status BinaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
 StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
@@ -102,6 +106,10 @@ StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
 Status StringArray::Validate() const {
   // TODO(emkornfield) Validate proper UTF8 code points?
   return BinaryArray::Validate();
+}
+
+Status StringArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
 }
 
 // This used to be a static member variable of BinaryBuilder, but it can cause

@@ -133,7 +133,7 @@ struct ARROW_EXPORT DataType {
 
 typedef std::shared_ptr<DataType> TypePtr;
 
-struct ARROW_EXPORT PrimitiveMeta {
+struct ARROW_EXPORT FixedWidthMeta {
   virtual int bit_width() const = 0;
 };
 
@@ -185,11 +185,11 @@ struct ARROW_EXPORT Field {
 typedef std::shared_ptr<Field> FieldPtr;
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT PrimitiveType : public DataType, public PrimitiveMeta {
+struct ARROW_EXPORT PrimitiveCType : public DataType, public FixedWidthMeta {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
-  PrimitiveType() : DataType(TYPE_ID) {}
+  PrimitiveCType() : DataType(TYPE_ID) {}
 
   int bit_width() const override { return sizeof(C_TYPE) * 8; }
 
@@ -200,7 +200,7 @@ struct ARROW_EXPORT PrimitiveType : public DataType, public PrimitiveMeta {
   std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
-struct ARROW_EXPORT NullType : public DataType, public PrimitiveMeta {
+struct ARROW_EXPORT NullType : public DataType, public FixedWidthMeta {
   static constexpr Type::type type_enum = Type::NA;
 
   NullType() : DataType(Type::NA) {}
@@ -213,12 +213,19 @@ struct ARROW_EXPORT NullType : public DataType, public PrimitiveMeta {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct IntegerTypeImpl : public PrimitiveType<DERIVED, TYPE_ID, C_TYPE>,
+struct IntegerTypeImpl : public PrimitiveCType<DERIVED, TYPE_ID, C_TYPE>,
                          public IntegerMeta {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
-struct ARROW_EXPORT BooleanType : public PrimitiveType<BooleanType, Type::BOOL, uint8_t> {
+struct ARROW_EXPORT BooleanType : public DataType, FixedWidthMeta {
+  static constexpr Type::type type_enum = Type::BOOL;
+
+  BooleanType() : DataType(Type::BOOL) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+
   int bit_width() const override { return 1; }
   static std::string name() { return "bool"; }
 };
@@ -259,19 +266,19 @@ struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, i
 };
 
 struct ARROW_EXPORT HalfFloatType
-    : public PrimitiveType<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
+    : public PrimitiveCType<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
       public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
-struct ARROW_EXPORT FloatType : public PrimitiveType<FloatType, Type::FLOAT, float>,
+struct ARROW_EXPORT FloatType : public PrimitiveCType<FloatType, Type::FLOAT, float>,
                                 public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
-struct ARROW_EXPORT DoubleType : public PrimitiveType<DoubleType, Type::DOUBLE, double>,
+struct ARROW_EXPORT DoubleType : public PrimitiveCType<DoubleType, Type::DOUBLE, double>,
                                  public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "double"; }
@@ -380,7 +387,7 @@ struct ARROW_EXPORT TimeType : public DataType {
   static std::string name() { return "time"; }
 };
 
-struct ARROW_EXPORT TimestampType : public DataType, public PrimitiveMeta {
+struct ARROW_EXPORT TimestampType : public DataType, public FixedWidthMeta {
   using Unit = TimeUnit;
 
   typedef int64_t c_type;
@@ -400,7 +407,7 @@ struct ARROW_EXPORT TimestampType : public DataType, public PrimitiveMeta {
   static std::string name() { return "timestamp"; }
 };
 
-struct ARROW_EXPORT IntervalType : public DataType, public PrimitiveMeta {
+struct ARROW_EXPORT IntervalType : public DataType, public FixedWidthMeta {
   enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
 
   typedef int64_t c_type;
