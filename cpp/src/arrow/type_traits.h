@@ -31,18 +31,21 @@ struct TypeTraits {};
 template <>
 struct TypeTraits<UInt8Type> {
   using ArrayType = UInt8Array;
+  using BuilderType = UInt8Builder;
   static inline int bytes_required(int elements) { return elements; }
 };
 
 template <>
 struct TypeTraits<Int8Type> {
   using ArrayType = Int8Array;
+  using BuilderType = Int8Builder;
   static inline int bytes_required(int elements) { return elements; }
 };
 
 template <>
 struct TypeTraits<UInt16Type> {
   using ArrayType = UInt16Array;
+  using BuilderType = UInt16Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
 };
@@ -50,6 +53,7 @@ struct TypeTraits<UInt16Type> {
 template <>
 struct TypeTraits<Int16Type> {
   using ArrayType = Int16Array;
+  using BuilderType = Int16Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(int16_t); }
 };
@@ -57,6 +61,7 @@ struct TypeTraits<Int16Type> {
 template <>
 struct TypeTraits<UInt32Type> {
   using ArrayType = UInt32Array;
+  using BuilderType = UInt32Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(uint32_t); }
 };
@@ -64,6 +69,7 @@ struct TypeTraits<UInt32Type> {
 template <>
 struct TypeTraits<Int32Type> {
   using ArrayType = Int32Array;
+  using BuilderType = Int32Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(int32_t); }
 };
@@ -71,6 +77,7 @@ struct TypeTraits<Int32Type> {
 template <>
 struct TypeTraits<UInt64Type> {
   using ArrayType = UInt64Array;
+  using BuilderType = UInt64Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(uint64_t); }
 };
@@ -78,6 +85,7 @@ struct TypeTraits<UInt64Type> {
 template <>
 struct TypeTraits<Int64Type> {
   using ArrayType = Int64Array;
+  using BuilderType = Int64Builder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
 };
@@ -85,13 +93,15 @@ struct TypeTraits<Int64Type> {
 template <>
 struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
+  using BuilderType = TimestampBuilder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
 };
-template <>
 
+template <>
 struct TypeTraits<FloatType> {
   using ArrayType = FloatArray;
+  using BuilderType = FloatBuilder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(float); }
 };
@@ -99,13 +109,15 @@ struct TypeTraits<FloatType> {
 template <>
 struct TypeTraits<DoubleType> {
   using ArrayType = DoubleArray;
+  using BuilderType = DoubleBuilder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(double); }
 };
 
 template <>
 struct TypeTraits<BooleanType> {
-  typedef BooleanArray ArrayType;
+  using ArrayType = BooleanArray;
+  using BuilderType = BooleanBuilder;
 
   static inline int bytes_required(int elements) {
     return BitUtil::BytesForBits(elements);

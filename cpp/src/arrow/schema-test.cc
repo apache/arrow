@@ -98,4 +98,25 @@ f3: list<item: int16>)";
   ASSERT_EQ(expected, result);
 }
 
+TEST_F(TestSchema, GetFieldByName) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f3", list(int16()));
+
+  vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
+  auto schema = std::make_shared<Schema>(fields);
+
+  std::shared_ptr<Field> result;
+
+  result = schema->GetFieldByName("f1");
+  ASSERT_TRUE(f1->Equals(result));
+
+  result = schema->GetFieldByName("f3");
+  ASSERT_TRUE(f3->Equals(result));
+
+  result = schema->GetFieldByName("not-found");
+  ASSERT_TRUE(result == nullptr);
+}
+
 }  // namespace arrow

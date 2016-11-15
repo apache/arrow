@@ -74,21 +74,15 @@ struct Type {
     // Default unit millisecond
     TIMESTAMP = 17,
 
-    // Timestamp as double seconds since the UNIX epoch
-    TIMESTAMP_DOUBLE = 18,
-
     // Exact time encoded with int64, default unit millisecond
-    TIME = 19,
+    TIME = 18,
 
     // YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL = 20,
+    INTERVAL = 19,
 
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
-    DECIMAL = 21,
-
-    // Decimal value encoded as a text string
-    DECIMAL_TEXT = 22,
+    DECIMAL = 20,
 
     // A list of some logical data type
     LIST = 30,
@@ -98,6 +92,12 @@ struct Type {
 
     // Unions of logical types
     UNION = 32,
+
+    // Timestamp as double seconds since the UNIX epoch
+    TIMESTAMP_DOUBLE = 33,
+
+    // Decimal value encoded as a text string
+    DECIMAL_TEXT = 34,
   };
 };
 
@@ -155,7 +155,7 @@ struct ARROW_EXPORT Field {
   std::string name;
 
   // The field's data type
-  TypePtr type;
+  std::shared_ptr<DataType> type;
 
   // Fields can be nullable
   bool nullable;
@@ -164,8 +164,8 @@ struct ARROW_EXPORT Field {
   // 0 means it's not dictionary encoded
   int64_t dictionary;
 
-  Field(const std::string& name, const TypePtr& type, bool nullable = true,
-      int64_t dictionary = 0)
+  Field(const std::string& name, const std::shared_ptr<DataType>& type,
+      bool nullable = true, int64_t dictionary = 0)
       : name(name), type(type), nullable(nullable), dictionary(dictionary) {}
 
   bool operator==(const Field& other) const { return this->Equals(other); }
@@ -459,8 +459,8 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
     const std::vector<std::shared_ptr<Field>>& child_fields,
     const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE);
 
-std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name, const TypePtr& type,
-    bool nullable = true, int64_t dictionary = 0);
+std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
+    const std::shared_ptr<DataType>& type, bool nullable = true, int64_t dictionary = 0);
 
 }  // namespace arrow
 

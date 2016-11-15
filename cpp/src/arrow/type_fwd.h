@@ -22,32 +22,76 @@ namespace arrow {
 
 class Status;
 
-// Type forward declarations for the TypeVisitor
 struct DataType;
+class Array;
+class ArrayBuilder;
 struct Field;
+
 struct NullType;
+class NullArray;
+
 struct BooleanType;
-struct Int8Type;
-struct Int16Type;
-struct Int32Type;
-struct Int64Type;
-struct UInt8Type;
-struct UInt16Type;
-struct UInt32Type;
-struct UInt64Type;
-struct HalfFloatType;
-struct FloatType;
-struct DoubleType;
-struct StringType;
+class BooleanArray;
+class BooleanBuilder;
+
 struct BinaryType;
-struct DateType;
-struct TimeType;
-struct TimestampType;
-struct IntervalType;
-struct DecimalType;
+class BinaryArray;
+class BinaryBuilder;
+
+struct StringType;
+class StringArray;
+class StringBuilder;
+
 struct ListType;
+class ListArray;
+class ListBuilder;
+
 struct StructType;
+class StructArray;
+class StructBuilder;
+
+struct DecimalType;
+class DecimalArray;
+
 struct UnionType;
+class UnionArray;
+
+template <typename TypeClass>
+class NumericArray;
+
+template <typename TypeClass>
+class NumericBuilder;
+
+#define _NUMERIC_TYPE_DECL(KLASS)                 \
+  struct KLASS##TYPE;                             \
+  using KLASS##Array = NumericArray<KLASS##Type>; \
+  using KLASS##Builder = NumericBuilder<KLASS##Type>;
+
+_NUMERIC_TYPE_DECL(Int8);
+_NUMERIC_TYPE_DECL(Int16);
+_NUMERIC_TYPE_DECL(Int32);
+_NUMERIC_TYPE_DECL(Int64);
+_NUMERIC_TYPE_DECL(UInt8);
+_NUMERIC_TYPE_DECL(UInt16);
+_NUMERIC_TYPE_DECL(UInt32);
+_NUMERIC_TYPE_DECL(UInt64);
+_NUMERIC_TYPE_DECL(HalfFloat);
+_NUMERIC_TYPE_DECL(Float);
+_NUMERIC_TYPE_DECL(Double);
+
+#undef _NUMERIC_TYPE_DECL
+
+struct DateType;
+class DateArray;
+
+struct TimeType;
+class TimeArray;
+
+struct TimestampType;
+using TimestampArray = NumericArray<TimestampType>;
+
+struct IntervalType;
+using IntervalArray = NumericArray<IntervalType>;
 
 class TypeVisitor {
  public:
@@ -75,35 +119,6 @@ class TypeVisitor {
   virtual Status Visit(const StructType& type) = 0;
   virtual Status Visit(const UnionType& type) = 0;
 };
-
-class NullArray;
-class BooleanArray;
-class StringArray;
-class BinaryArray;
-class DecimalArray;
-class ListArray;
-class StructArray;
-class UnionArray;
-
-template <typename TypeClass>
-class NumericArray;
-
-class DateArray;
-class TimeArray;
-
-using HalfFloatArray = NumericArray<HalfFloatType>;
-using FloatArray = NumericArray<FloatType>;
-using DoubleArray = NumericArray<DoubleType>;
-using Int8Array = NumericArray<Int8Type>;
-using UInt8Array = NumericArray<UInt8Type>;
-using Int16Array = NumericArray<Int16Type>;
-using UInt16Array = NumericArray<UInt16Type>;
-using Int32Array = NumericArray<Int32Type>;
-using UInt32Array = NumericArray<UInt32Type>;
-using Int64Array = NumericArray<Int64Type>;
-using UInt64Array = NumericArray<UInt64Type>;
-using TimestampArray = NumericArray<TimestampType>;
-using IntervalArray = NumericArray<IntervalType>;
 
 class ArrayVisitor {
  public:

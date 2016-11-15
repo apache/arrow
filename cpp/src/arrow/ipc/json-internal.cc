@@ -33,6 +33,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
+#include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -847,23 +848,163 @@ class JsonSchemaReader {
   const rj::Value& json_schema_;
 };
 
-// class JsonArrayReader {
-//  public:
-//   explicit JsonArrayReader(const rj::Value& json_array, const Schema& schema)
-//       : json_array_(json_array), schema_(schema) {}
+class JsonArrayReader {
+ public:
+  explicit JsonArrayReader(
+      MemoryPool* pool, const rj::Value& json_array, const Schema& schema)
+      : pool_(pool), json_array_(json_array), schema_(schema) {}
 
-//   Status GetArray(std::shared_ptr<Array>* array) {
-//     if (!json_array_.IsObject()) {
-//       return Status::Invalid("Array was not a JSON object");
-//     }
+  Status GetResult(std::shared_ptr<Array>* array) {
+    if (!json_array_.IsObject()) {
+      return Status::Invalid("Array was not a JSON object");
+    }
+    const auto& json_array = json_array_.GetObject();
 
-//     return Status::OK();
-//   }
+    const auto& json_name = json_array.FindMember("name");
+    RETURN_NOT_STRING("name", json_name, json_array);
 
-//  private:
-//   const rj::Value& json_array_;
-//   const Schema& schema_;
-// };
+    return GetArrayFromStruct(
+        json_array_, json_name.GetString(), schema_.fields(), array);
+  }
+
+  Status GetArrayFromStruct(const rj::Value& obj, const std::string& name,
+      const std::vector<std::shared_ptr<Field>>& fields, std::shared_ptr<Array>* array) {
+    std::shared_ptr<Field> result = nullptr;
+
+    for (const std::shared_ptr<Field>& field : fields) {
+      if (field->name == name) {
+        result = field;
+        break;
+      }
+    }
+
+    if (result == nullptr) {
+      std::stringstream ss;
+      ss << "Field named " << name << " not found in struct/schema";
+      return Status::KeyError(ss.str());
+    }
+
+    return GetArray(obj, result->type, array);
+  }
+
+  template <typename T>
+  Status ReadArray(const rj::Value& obj, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    typename TypeTraits<T>::BuilderType builder(pool_, type);
+    const auto& json_array = obj.GetObject();
+
+    const auto& json_data = json_array.FindMember("DATA");
+    RETURN_NOT_ARRAY("DATA", json_data, json_array);
+
+    const auto& json_data_arr = json_type_ids->value.GetArray();
+
+    for (auto i = 0; i < json_data_arr.Size(); ++i) {
+      if (!is_valid[i]) {
+        builder.AppendNull();
+        continue;
+      }
+
+      const rj::Value& val = json_data_arr[i];
+      if (IsSignedInt<T>::value) {
+        builder.Append(val.GetInt64());
+      } else if (IsUnsignedInt<T>::value) {
+        builder.Append(val.GetUint64());
+      } else if (IsFloatingPoint<T>::value) {
+        builder.Append(val.GetFloat());
+      } else if (std::is_base_of<BooleanType, T>::value) {
+        builder.Append(val.GetBool());
+      } else {
+        // We are in the wrong function
+        return Status::Invalid(type->ToString());
+      }
+    }
+
+    return builder.Finish(array);
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type
+  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
+      std::shared_ptr<Array>* array) {}
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type
+  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
+      std::shared_ptr<Array>* array) {}
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<StructType, T>::value, Status>::type
+  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
+      std::shared_ptr<Array>* array) {}
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<NullType, T>::value, Status>::type
+  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
+      std::shared_ptr<Array>* array) {}
+
+  Status GetArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
+      std::shared_ptr<Array>* array) {
+    if (!obj.IsObject()) { return Status::Invalid("Array was not a JSON object"); }
+    const auto& json_array = obj.GetObject();
+
+    const auto& json_length = json_array.FindMember("count");
+    RETURN_NOT_INT("count", json_length, json_array);
+
+    const auto& json_validity = json_array.FindMember("VALIDITY");
+    RETURN_NOT_ARRAY("VALIDITY", json_validity, json_array);
+
+    std::vector<bool> is_valid(count);
+
+#define TYPE_CASE(TYPE)                         \
+    case TYPE::type_enum:                       \
+      return ReadArray<TYPE>(obj, type, array);
+
+#define NOT_IMPLEMENTED_CASE(TYPE_ENUM)         \
+    case Type::TYPE_ENUM:                       \
+      std::stringstream ss;                     \
+      ss << type->ToString();                   \
+      return Status::NotImplemented(ss.str());
+
+    switch (type->type) {
+      TYPE_CASE(NullType);
+      TYPE_CASE(BooleanType);
+      TYPE_CASE(UInt8Type);
+      TYPE_CASE(Int8Type);
+      TYPE_CASE(UInt16Type);
+      TYPE_CASE(Int16Type);
+      TYPE_CASE(UInt32Type);
+      TYPE_CASE(Int32Type);
+      TYPE_CASE(UInt64Type);
+      TYPE_CASE(Int64Type);
+      TYPE_CASE(HalfFloatType);
+      TYPE_CASE(FloatType);
+      TYPE_CASE(DoubleType);
+      TYPE_CASE(StringType);
+      TYPE_CASE(BinaryType);
+      NOT_IMPLEMENTED_CASE(DATE);
+      NOT_IMPLEMENTED_CASE(TIMESTAMP);
+      NOT_IMPLEMENTED_CASE(TIME);
+      NOT_IMPLEMENTED_CASE(INTERVAL);
+      TYPE_CASE(ListType);
+      TYPE_CASE(StructType);
+      NOT_IMPLEMENTED_CASE(UNION);
+      default:
+        std::stringstream ss;
+        ss << type->ToString();
+        return Status::NotImplemented(ss.str());
+    };
+
+#undef TYPE_CASE
+#undef NOT_IMPLEMENTED_CASE
+
+    return Status::OK();
+  }
+
+ private:
+  MemoryPool* pool;
+  const rj::Value& json_array_;
+  const Schema& schema_;
+};
 
 Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer) {
   JsonSchemaWriter converter(schema, json_writer);
@@ -875,17 +1016,17 @@ Status ReadJsonSchema(const rj::Value& json_schema, std::shared_ptr<Schema>* sch
   return converter.GetSchema(schema);
 }
 
-// Status WriteJsonArray(
-//     const std::string& name, const Array& array, RjWriter* json_writer) {
-//   JsonArrayWriter converter(name, array, json_writer);
-//   converter.Write();
-// }
+Status WriteJsonArray(
+    const std::string& name, const Array& array, RjWriter* json_writer) {
+  JsonArrayWriter converter(name, array, json_writer);
+  return converter.Write();
+}
 
-// Status ReadJsonArray(
-//     const rj::Value& json_array, const Schema& schema, std::shared_ptr<Array>* array) {
-//   JsonArrayReader converter(json_array, schema);
-//   return converter.GetArray(array);
-// }
+Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
+    std::shared_ptr<Array>* array) {
+  JsonArrayReader converter(pool, json_array, schema);
+  return converter.GetArray(array);
+}
 
 }  // namespace ipc
 }  // namespace arrow
