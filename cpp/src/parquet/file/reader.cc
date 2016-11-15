@@ -114,7 +114,7 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 // ParquetFileReader::DebugPrint
 
 // the fixed initial size is just for an example
-#define COL_WIDTH "20"
+#define COL_WIDTH "30"
 
 void ParquetFileReader::DebugPrint(
     std::ostream& stream, std::list<int> selected_columns, bool print_values) {
@@ -216,7 +216,7 @@ void ParquetFileReader::DebugPrint(
       for (auto scanner : scanners) {
         if (scanner->HasNext()) {
           hasRow = true;
-          scanner->PrintNext(stream, 17);
+          scanner->PrintNext(stream, 27);
         }
       }
       stream << "\n";

@@ -195,7 +195,6 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
     if (bits_available_ > 0) {
       bit_writer_->Flush();
       values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
-      bits_available_ = 0;
       bit_writer_->Clear();
       bits_available_ = bits_buffer_.size() * 8;
     }

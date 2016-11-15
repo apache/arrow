@@ -162,14 +162,12 @@ void TypedRowGroupStatistics<DType>::PlainDecode(const std::string& src, T* dst)
 }
 
 template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(
-     const T& src, std::string* dst) {
+void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::string* dst) {
   dst->assign(reinterpret_cast<const char*>(src.ptr), src.len);
 }
 
 template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(
-     const std::string& src, T* dst) {
+void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst) {
   dst->len = src.size();
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }

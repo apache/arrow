@@ -65,8 +65,7 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min = statistics1.EncodeMin();
     std::string encoded_max = statistics1.EncodeMax();
 
-    TypedStats statistics2(
-        this->schema_.Column(0), encoded_min, encoded_max,
+    TypedStats statistics2(this->schema_.Column(0), encoded_min, encoded_max,
         this->values_.size(), 0, 0, true);
 
     ASSERT_EQ(encoded_min, statistics2.EncodeMin());
@@ -236,7 +235,7 @@ void TestRowGroupStatistics<ByteArrayType>::DeepFree(std::vector<ByteArray>& val
   }
 }
 
-template<>
+template <>
 void TestRowGroupStatistics<ByteArrayType>::TestMinMaxEncode() {
   this->GenerateData(1000);
   // Test that we encode min max strings correctly
@@ -246,13 +245,13 @@ void TestRowGroupStatistics<ByteArrayType>::TestMinMaxEncode() {
   std::string encoded_max = statistics1.EncodeMax();
 
   // encoded is same as unencoded
-  ASSERT_EQ(encoded_min, std::string((const char*)statistics1.min().ptr,
-      statistics1.min().len));
-  ASSERT_EQ(encoded_max, std::string((const char*)statistics1.max().ptr,
-      statistics1.max().len));
+  ASSERT_EQ(encoded_min,
+      std::string((const char*)statistics1.min().ptr, statistics1.min().len));
+  ASSERT_EQ(encoded_max,
+      std::string((const char*)statistics1.max().ptr, statistics1.max().len));
 
-  TypedRowGroupStatistics<ByteArrayType> statistics2(
-     this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(), 0, 0, true);
+  TypedRowGroupStatistics<ByteArrayType> statistics2(this->schema_.Column(0), encoded_min,
+      encoded_max, this->values_.size(), 0, 0, true);
 
   ASSERT_EQ(encoded_min, statistics2.EncodeMin());
   ASSERT_EQ(encoded_max, statistics2.EncodeMax());
