@@ -24,11 +24,13 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/visibility.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class MemoryPool;
+class RecordBatch;
+class Schema;
 
 namespace io {
 
@@ -42,7 +44,7 @@ namespace ipc {
 class ARROW_EXPORT JsonWriter {
  public:
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<FileWriter>* out);
+      std::shared_ptr<JsonWriter>* out);
 
   // TODO(wesm): Write dictionaries
 

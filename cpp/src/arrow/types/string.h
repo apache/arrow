@@ -119,6 +119,12 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return byte_builder_->Append(value, length);
   }
 
+  Status Append(const char* value, int32_t length) {
+    return Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
@@ -131,13 +137,9 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
       : BinaryBuilder(pool, type) {}
 
+  using BinaryBuilder::Append;
+
   Status Finish(std::shared_ptr<Array>* out) override;
-
-  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
-
-  Status Append(const char* value, int32_t length) {
-    return BinaryBuilder::Append(reinterpret_cast<const uint8_t*>(value), length);
-  }
 
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
 };

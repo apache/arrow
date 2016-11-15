@@ -132,6 +132,18 @@ struct TypeTraits<BooleanType> {
   }
 };
 
+template <>
+struct TypeTraits<StringType> {
+  using ArrayType = StringArray;
+  using BuilderType = StringBuilder;
+};
+
+template <>
+struct TypeTraits<BinaryType> {
+  using ArrayType = BinaryArray;
+  using BuilderType = BinaryBuilder;
+};
+
 // Not all type classes have a c_type
 template <typename T>
 struct as_void {
@@ -139,15 +151,15 @@ struct as_void {
 };
 
 // The partial specialization will match if T has the ATTR_NAME member
-#define GET_ATTR(ATTR_NAME, DEFAULT)            \
-  template <typename T, typename Enable = void> \
-  struct GetAttr_##ATTR_NAME {                  \
-    using type = DEFAULT;                       \
-  };                                            \
-                                                \
-  template <typename T>                                                 \
+#define GET_ATTR(ATTR_NAME, DEFAULT)                                             \
+  template <typename T, typename Enable = void>                                  \
+  struct GetAttr_##ATTR_NAME {                                                   \
+    using type = DEFAULT;                                                        \
+  };                                                                             \
+                                                                                 \
+  template <typename T>                                                          \
   struct GetAttr_##ATTR_NAME<T, typename as_void<typename T::ATTR_NAME>::type> { \
-    using type = typename T::ATTR_NAME;                                 \
+    using type = typename T::ATTR_NAME;                                          \
   };
 
 GET_ATTR(c_type, void);
@@ -157,7 +169,7 @@ GET_ATTR(TypeClass, void);
 
 #define PRIMITIVE_TRAITS(T)                                                           \
   using TypeClass = typename std::conditional<std::is_base_of<DataType, T>::value, T, \
-      typename GetAttr_TypeClass<T>::type>::type;                                \
+      typename GetAttr_TypeClass<T>::type>::type;                                     \
   using c_type = typename GetAttr_c_type<TypeClass>::type;
 
 template <typename T>

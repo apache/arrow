@@ -22,9 +22,5 @@
 #include "arrow/util/status.h"
 
 namespace arrow {
-namespace ipc {
-
-namespace rj = rapidjson;
-
-}  // namespace ipc
+namespace ipc {}  // namespace ipc
 }  // namespace arrow
