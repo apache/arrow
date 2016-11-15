@@ -184,12 +184,16 @@ struct ARROW_EXPORT Field {
 };
 typedef std::shared_ptr<Field> FieldPtr;
 
+struct PrimitiveCType : public DataType {
+  using DataType::DataType;
+};
+
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT PrimitiveCType : public DataType, public FixedWidthMeta {
+struct ARROW_EXPORT CTypeImpl : public PrimitiveCType, public FixedWidthMeta {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
-  PrimitiveCType() : DataType(TYPE_ID) {}
+  CTypeImpl() : PrimitiveCType(TYPE_ID) {}
 
   int bit_width() const override { return sizeof(C_TYPE) * 8; }
 
@@ -201,7 +205,7 @@ struct ARROW_EXPORT PrimitiveCType : public DataType, public FixedWidthMeta {
 };
 
 struct ARROW_EXPORT NullType : public DataType, public FixedWidthMeta {
-  static constexpr Type::type type_enum = Type::NA;
+  static constexpr Type::type type_id = Type::NA;
 
   NullType() : DataType(Type::NA) {}
 
@@ -213,13 +217,12 @@ struct ARROW_EXPORT NullType : public DataType, public FixedWidthMeta {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct IntegerTypeImpl : public PrimitiveCType<DERIVED, TYPE_ID, C_TYPE>,
-                         public IntegerMeta {
+struct IntegerTypeImpl : public CTypeImpl<DERIVED, TYPE_ID, C_TYPE>, public IntegerMeta {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
 struct ARROW_EXPORT BooleanType : public DataType, FixedWidthMeta {
-  static constexpr Type::type type_enum = Type::BOOL;
+  static constexpr Type::type type_id = Type::BOOL;
 
   BooleanType() : DataType(Type::BOOL) {}
 
@@ -266,25 +269,27 @@ struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, i
 };
 
 struct ARROW_EXPORT HalfFloatType
-    : public PrimitiveCType<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
+    : public CTypeImpl<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
       public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
-struct ARROW_EXPORT FloatType : public PrimitiveCType<FloatType, Type::FLOAT, float>,
+struct ARROW_EXPORT FloatType : public CTypeImpl<FloatType, Type::FLOAT, float>,
                                 public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
-struct ARROW_EXPORT DoubleType : public PrimitiveCType<DoubleType, Type::DOUBLE, double>,
+struct ARROW_EXPORT DoubleType : public CTypeImpl<DoubleType, Type::DOUBLE, double>,
                                  public FloatingPointMeta {
   Precision precision() const override;
   static std::string name() { return "double"; }
 };
 
 struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
+  static constexpr Type::type type_id = Type::LIST;
+
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
       : ListType(std::make_shared<Field>("item", value_type)) {}
@@ -305,6 +310,8 @@ struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
 
 // BinaryType type is reprsents lists of 1-byte values.
 struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
+  static constexpr Type::type type_id = Type::BINARY;
+
   BinaryType() : BinaryType(Type::BINARY) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -318,6 +325,8 @@ struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 
 // UTF encoded strings
 struct ARROW_EXPORT StringType : public BinaryType {
+  static constexpr Type::type type_id = Type::STRING;
+
   StringType() : BinaryType(Type::STRING) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -326,6 +335,8 @@ struct ARROW_EXPORT StringType : public BinaryType {
 };
 
 struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
+  static constexpr Type::type type_id = Type::STRUCT;
+
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
       : DataType(Type::STRUCT) {
     children_ = fields;
@@ -337,6 +348,8 @@ struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
 };
 
 struct ARROW_EXPORT DecimalType : public DataType {
+  static constexpr Type::type type_id = Type::DECIMAL;
+
   explicit DecimalType(int precision_, int scale_)
       : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
   int precision;
@@ -350,6 +363,8 @@ struct ARROW_EXPORT DecimalType : public DataType {
 enum class UnionMode : char { SPARSE, DENSE };
 
 struct ARROW_EXPORT UnionType : public DataType {
+  static constexpr Type::type type_id = Type::UNION;
+
   UnionType(const std::vector<std::shared_ptr<Field>>& child_fields,
       const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE)
       : DataType(Type::UNION), mode(mode), type_ids(type_ids) {
@@ -365,6 +380,8 @@ struct ARROW_EXPORT UnionType : public DataType {
 };
 
 struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
+  static constexpr Type::type type_id = Type::DATE;
+
   DateType() : DataType(Type::DATE) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -375,6 +392,7 @@ struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 
 struct ARROW_EXPORT TimeType : public DataType {
+  static constexpr Type::type type_id = Type::TIME;
   using Unit = TimeUnit;
 
   TimeUnit unit;
@@ -391,7 +409,7 @@ struct ARROW_EXPORT TimestampType : public DataType, public FixedWidthMeta {
   using Unit = TimeUnit;
 
   typedef int64_t c_type;
-  static constexpr Type::type type_enum = Type::TIMESTAMP;
+  static constexpr Type::type type_id = Type::TIMESTAMP;
 
   int bit_width() const override { return sizeof(int64_t) * 8; }
 
@@ -411,7 +429,7 @@ struct ARROW_EXPORT IntervalType : public DataType, public FixedWidthMeta {
   enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
 
   typedef int64_t c_type;
-  static constexpr Type::type type_enum = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL;
 
   int bit_width() const override { return sizeof(int64_t) * 8; }
 

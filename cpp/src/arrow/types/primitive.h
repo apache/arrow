@@ -98,7 +98,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
-  typedef typename Type::c_type value_type;
+  using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
       : ArrayBuilder(pool, type), data_(nullptr) {}
@@ -173,19 +173,20 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
 
 // Builders
 
-typedef NumericBuilder<UInt8Type> UInt8Builder;
-typedef NumericBuilder<UInt16Type> UInt16Builder;
-typedef NumericBuilder<UInt32Type> UInt32Builder;
-typedef NumericBuilder<UInt64Type> UInt64Builder;
+using UInt8Builder = NumericBuilder<UInt8Type>;
+using UInt16Builder = NumericBuilder<UInt16Type>;
+using UInt32Builder = NumericBuilder<UInt32Type>;
+using UInt64Builder = NumericBuilder<UInt64Type>;
 
-typedef NumericBuilder<Int8Type> Int8Builder;
-typedef NumericBuilder<Int16Type> Int16Builder;
-typedef NumericBuilder<Int32Type> Int32Builder;
-typedef NumericBuilder<Int64Type> Int64Builder;
-typedef NumericBuilder<TimestampType> TimestampBuilder;
+using Int8Builder = NumericBuilder<Int8Type>;
+using Int16Builder = NumericBuilder<Int16Type>;
+using Int32Builder = NumericBuilder<Int32Type>;
+using Int64Builder = NumericBuilder<Int64Type>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
 
-typedef NumericBuilder<FloatType> FloatBuilder;
-typedef NumericBuilder<DoubleType> DoubleBuilder;
+using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
+using FloatBuilder = NumericBuilder<FloatType>;
+using DoubleBuilder = NumericBuilder<DoubleType>;
 
 class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:

@@ -93,9 +93,17 @@ struct TypeTraits<Int64Type> {
 template <>
 struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
-  using BuilderType = TimestampBuilder;
+  // using BuilderType = TimestampBuilder;
 
   static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+};
+
+template <>
+struct TypeTraits<HalfFloatType> {
+  using ArrayType = HalfFloatArray;
+  using BuilderType = HalfFloatBuilder;
+
+  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
 };
 
 template <>
@@ -130,21 +138,27 @@ struct as_void {
   using type = void;
 };
 
-template <typename T, typename Enable = void>
-struct GetCType {
-  using type = void;
-};
+// The partial specialization will match if T has the ATTR_NAME member
+#define GET_ATTR(ATTR_NAME, DEFAULT)            \
+  template <typename T, typename Enable = void> \
+  struct GetAttr_##ATTR_NAME {                  \
+    using type = DEFAULT;                       \
+  };                                            \
+                                                \
+  template <typename T>                                                 \
+  struct GetAttr_##ATTR_NAME<T, typename as_void<typename T::ATTR_NAME>::type> { \
+    using type = typename T::ATTR_NAME;                                 \
+  };
 
-// The partial specialization will match if T has the c_type member
-template <typename T>
-struct GetCType<T, typename as_void<typename T::c_type>::type> {
-  using type = typename T::c_type;
-};
+GET_ATTR(c_type, void);
+GET_ATTR(TypeClass, void);
+
+#undef GET_ATTR
 
 #define PRIMITIVE_TRAITS(T)                                                           \
   using TypeClass = typename std::conditional<std::is_base_of<DataType, T>::value, T, \
-      typename T::TypeClass>::type;                                                   \
-  using c_type = typename GetCType<TypeClass>::type;
+      typename GetAttr_TypeClass<T>::type>::type;                                \
+  using c_type = typename GetAttr_c_type<TypeClass>::type;
 
 template <typename T>
 struct IsUnsignedInt {

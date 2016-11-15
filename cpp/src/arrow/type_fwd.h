@@ -63,7 +63,7 @@ template <typename TypeClass>
 class NumericBuilder;
 
 #define _NUMERIC_TYPE_DECL(KLASS)                 \
-  struct KLASS##TYPE;                             \
+  struct KLASS##Type;                             \
   using KLASS##Array = NumericArray<KLASS##Type>; \
   using KLASS##Builder = NumericBuilder<KLASS##Type>;
 

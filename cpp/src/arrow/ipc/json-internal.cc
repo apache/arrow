@@ -864,7 +864,7 @@ class JsonArrayReader {
     RETURN_NOT_STRING("name", json_name, json_array);
 
     return GetArrayFromStruct(
-        json_array_, json_name.GetString(), schema_.fields(), array);
+        json_array_, json_name->value.GetString(), schema_.fields(), array);
   }
 
   Status GetArrayFromStruct(const rj::Value& obj, const std::string& name,
@@ -888,7 +888,10 @@ class JsonArrayReader {
   }
 
   template <typename T>
-  Status ReadArray(const rj::Value& obj, const std::vector<bool>& is_valid,
+  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
+                              std::is_base_of<BooleanType, T>::value,
+      Status>::type
+  ReadArray(const rj::Value& obj, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
     typename TypeTraits<T>::BuilderType builder(pool_, type);
     const auto& json_array = obj.GetObject();
@@ -896,7 +899,7 @@ class JsonArrayReader {
     const auto& json_data = json_array.FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, json_array);
 
-    const auto& json_data_arr = json_type_ids->value.GetArray();
+    const auto& json_data_arr = json_data->value.GetArray();
 
     for (auto i = 0; i < json_data_arr.Size(); ++i) {
       if (!is_valid[i]) {
@@ -923,24 +926,32 @@ class JsonArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type
-  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
-      std::shared_ptr<Array>* array) {}
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type ReadArray(
+      const rj::Value& obj, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    return Status::OK();
+  }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type
-  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
-      std::shared_ptr<Array>* array) {}
+  typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type ReadArray(
+      const rj::Value& obj, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    return Status::OK();
+  }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<StructType, T>::value, Status>::type
-  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
-      std::shared_ptr<Array>* array) {}
+  typename std::enable_if<std::is_base_of<StructType, T>::value, Status>::type ReadArray(
+      const rj::Value& obj, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    return Status::OK();
+  }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NullType, T>::value, Status>::type
-  ReadArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
-      std::shared_ptr<Array>* array) {}
+  typename std::enable_if<std::is_base_of<NullType, T>::value, Status>::type ReadArray(
+      const rj::Value& obj, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    return Status::NotImplemented("null");
+  }
 
   Status GetArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
       std::shared_ptr<Array>* array) {
@@ -949,21 +960,31 @@ class JsonArrayReader {
 
     const auto& json_length = json_array.FindMember("count");
     RETURN_NOT_INT("count", json_length, json_array);
+    int32_t length = json_length->value.GetInt();
 
-    const auto& json_validity = json_array.FindMember("VALIDITY");
-    RETURN_NOT_ARRAY("VALIDITY", json_validity, json_array);
+    const auto& json_valid_iter = json_array.FindMember("VALIDITY");
+    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, json_array);
 
-    std::vector<bool> is_valid(count);
+    const auto& json_validity = json_valid_iter->value.GetArray();
 
-#define TYPE_CASE(TYPE)                         \
-    case TYPE::type_enum:                       \
-      return ReadArray<TYPE>(obj, type, array);
+    DCHECK_EQ(static_cast<int>(json_validity.Size()), length);
 
-#define NOT_IMPLEMENTED_CASE(TYPE_ENUM)         \
-    case Type::TYPE_ENUM:                       \
-      std::stringstream ss;                     \
-      ss << type->ToString();                   \
-      return Status::NotImplemented(ss.str());
+    std::vector<bool> is_valid(length);
+    for (const rj::Value& val : json_validity) {
+      DCHECK(val.IsInt());
+      is_valid.push_back(static_cast<bool>(val.GetInt()));
+    }
+
+#define TYPE_CASE(TYPE) \
+  case TYPE::type_id:   \
+    return ReadArray<TYPE>(obj, is_valid, type, array);
+
+#define NOT_IMPLEMENTED_CASE(TYPE_ENUM)      \
+  case Type::TYPE_ENUM: {                    \
+    std::stringstream ss;                    \
+    ss << type->ToString();                  \
+    return Status::NotImplemented(ss.str()); \
+  }
 
     switch (type->type) {
       TYPE_CASE(NullType);
@@ -1001,7 +1022,7 @@ class JsonArrayReader {
   }
 
  private:
-  MemoryPool* pool;
+  MemoryPool* pool_;
   const rj::Value& json_array_;
   const Schema& schema_;
 };
@@ -1025,7 +1046,7 @@ Status WriteJsonArray(
 Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
     std::shared_ptr<Array>* array) {
   JsonArrayReader converter(pool, json_array, schema);
-  return converter.GetArray(array);
+  return converter.GetResult(array);
 }
 
 }  // namespace ipc
