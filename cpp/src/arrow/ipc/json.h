@@ -21,6 +21,7 @@
 #define ARROW_IPC_JSON_H
 
 #include <memory>
+#include <vector>
 
 #include "arrow/type_fwd.h"
 #include "arrow/visibility.h"
@@ -79,7 +80,7 @@ class ARROW_EXPORT JsonReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  JsonReader(const std::shared_ptr<io::ReadableFileInterface>& file);
+  explicit JsonReader(const std::shared_ptr<io::ReadableFileInterface>& file);
 
   std::shared_ptr<io::ReadableFileInterface> file_;
   std::shared_ptr<Schema> schema_;

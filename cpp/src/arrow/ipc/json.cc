@@ -15,15 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/ipc/json.h"
+
 #include "arrow/ipc/json-internal.h"
-
-#define RAPIDJSON_HAS_STDSTRING 1
-#define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
-#define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
-
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-
 #include "arrow/type.h"
 #include "arrow/util/status.h"
 

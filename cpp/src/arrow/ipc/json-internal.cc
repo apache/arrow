@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -53,7 +54,7 @@ static std::string GetBufferTypeName(BufferType type) {
       return "VALIDITY";
     default:
       break;
-  };
+  }
   return "UNKNOWN";
 }
 
@@ -149,7 +150,7 @@ class JsonSchemaWriter : public TypeVisitor {
         break;
       default:
         break;
-    };
+    }
   }
 
   template <typename T>
@@ -163,7 +164,7 @@ class JsonSchemaWriter : public TypeVisitor {
       case IntervalType::Unit::DAY_TIME:
         writer_->String("DAY_TIME");
         break;
-    };
+    }
   }
 
   template <typename T>
@@ -185,7 +186,7 @@ class JsonSchemaWriter : public TypeVisitor {
       case TimeUnit::NANO:
         writer_->String("NANOSECOND");
         break;
-    };
+    }
   }
 
   template <typename T>
@@ -208,7 +209,7 @@ class JsonSchemaWriter : public TypeVisitor {
       case UnionMode::DENSE:
         writer_->String("DENSE");
         break;
-    };
+    }
 
     // Write type ids
     writer_->Key("typeIds");
@@ -788,7 +789,6 @@ class JsonSchemaReader {
     } else {
       std::stringstream ss;
       ss << "Invalid union mode: " << mode_str;
-      ;
       return Status::Invalid(ss.str());
     }
 
@@ -1013,7 +1013,7 @@ class JsonArrayReader {
         std::stringstream ss;
         ss << type->ToString();
         return Status::NotImplemented(ss.str());
-    };
+    }
 
 #undef TYPE_CASE
 #undef NOT_IMPLEMENTED_CASE

@@ -25,6 +25,7 @@ install(FILES
   table.h
   type.h
   type_fwd.h
+  type_traits.h
   test-util.h
   DESTINATION include/arrow)
 

@@ -25,6 +25,7 @@
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
 
 #include <memory>
+#include <string>
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
