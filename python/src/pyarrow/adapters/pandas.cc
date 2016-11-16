@@ -489,20 +489,20 @@ struct arrow_traits<arrow::Type::BOOL> {
   static constexpr int npy_type = NPY_BOOL;
   static constexpr bool supports_nulls = false;
   static constexpr bool is_boolean = true;
-  static constexpr bool is_integer = false;
-  static constexpr bool is_floating = false;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = false;
 };
 
-#define INT_DECL(TYPE)                                      \
-  template <>                                               \
-  struct arrow_traits<arrow::Type::TYPE> {              \
-    static constexpr int npy_type = NPY_##TYPE;             \
-    static constexpr bool supports_nulls = false;           \
-    static constexpr double na_value = NAN;                 \
-    static constexpr bool is_boolean = false;               \
-    static constexpr bool is_integer = true;                \
-    static constexpr bool is_floating = false;              \
-    typedef typename npy_traits<NPY_##TYPE>::value_type T;  \
+#define INT_DECL(TYPE)                                           \
+  template <>                                                    \
+  struct arrow_traits<arrow::Type::TYPE> {                       \
+    static constexpr int npy_type = NPY_##TYPE;                  \
+    static constexpr bool supports_nulls = false;                \
+    static constexpr double na_value = NAN;                      \
+    static constexpr bool is_boolean = false;                    \
+    static constexpr bool is_pandas_numeric_not_nullable = true; \
+    static constexpr bool is_pandas_numeric_nullable = false;    \
+    typedef typename npy_traits<NPY_##TYPE>::value_type T;       \
   };
 
 INT_DECL(INT8);
@@ -520,8 +520,8 @@ struct arrow_traits<arrow::Type::FLOAT> {
   static constexpr bool supports_nulls = true;
   static constexpr float na_value = NAN;
   static constexpr bool is_boolean = false;
-  static constexpr bool is_integer = false;
-  static constexpr bool is_floating = true;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = true;
   typedef typename npy_traits<NPY_FLOAT32>::value_type T;
 };
 
@@ -531,8 +531,8 @@ struct arrow_traits<arrow::Type::DOUBLE> {
   static constexpr bool supports_nulls = true;
   static constexpr double na_value = NAN;
   static constexpr bool is_boolean = false;
-  static constexpr bool is_integer = false;
-  static constexpr bool is_floating = true;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = true;
   typedef typename npy_traits<NPY_FLOAT64>::value_type T;
 };
 
@@ -542,8 +542,8 @@ struct arrow_traits<arrow::Type::TIMESTAMP> {
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = std::numeric_limits<int64_t>::min();
   static constexpr bool is_boolean = false;
-  static constexpr bool is_integer = true;
-  static constexpr bool is_floating = false;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = true;
   typedef typename npy_traits<NPY_DATETIME>::value_type T;
 };
 
@@ -552,8 +552,8 @@ struct arrow_traits<arrow::Type::STRING> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
   static constexpr bool is_boolean = false;
-  static constexpr bool is_integer = false;
-  static constexpr bool is_floating = false;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = false;
 };
 
 
@@ -655,7 +655,7 @@ class ArrowDeserializer {
 
   template <int T2>
   inline typename std::enable_if<
-    arrow_traits<T2>::is_floating, Status>::type
+    arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
   ConvertValues(const std::shared_ptr<Array>& arr) {
     typedef typename arrow_traits<T2>::T T;
 
@@ -668,7 +668,7 @@ class ArrowDeserializer {
 
       T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_));
       for (int64_t i = 0; i < arr->length(); ++i) {
-        out_values[i] = arr->IsNull(i) ? NAN : in_values[i];
+        out_values[i] = arr->IsNull(i) ? arrow_traits<T2>::na_value : in_values[i];
       }
     } else {
       // Zero-Copy. We can pass the data pointer directly to NumPy.
@@ -683,7 +683,7 @@ class ArrowDeserializer {
   // Integer specialization
   template <int T2>
   inline typename std::enable_if<
-    arrow_traits<T2>::is_integer, Status>::type
+    arrow_traits<T2>::is_pandas_numeric_not_nullable, Status>::type
   ConvertValues(const std::shared_ptr<Array>& arr) {
     typedef typename arrow_traits<T2>::T T;
 
