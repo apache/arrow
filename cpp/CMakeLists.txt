@@ -114,7 +114,7 @@ CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 
 # compiler flags that are common across debug/release builds
 #  - Wall: Enable all warnings.
-set(CXX_COMMON_FLAGS "-std=c++11 -Wall")
+set(CXX_COMMON_FLAGS "-std=c++11 -Wall -Werror")
 
 # Only enable additional instruction sets if they are supported
 if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)

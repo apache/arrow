@@ -414,7 +414,7 @@ class JsonArrayWriter : public ArrayVisitor {
   typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
     const auto data = arr.raw_data();
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (int i = 0; i < arr.length(); ++i) {
       writer_->Int64(data[i]);
     }
   }
@@ -423,7 +423,7 @@ class JsonArrayWriter : public ArrayVisitor {
   typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
     const auto data = arr.raw_data();
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (int i = 0; i < arr.length(); ++i) {
       writer_->Uint64(data[i]);
     }
   }
@@ -432,7 +432,7 @@ class JsonArrayWriter : public ArrayVisitor {
   typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& arr) {
     const auto data = arr.raw_data();
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (int i = 0; i < arr.length(); ++i) {
       writer_->Double(data[i]);
     }
   }
@@ -441,7 +441,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (int i = 0; i < arr.length(); ++i) {
       int32_t length;
       const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
       writer_->String(buf, length);
@@ -451,7 +451,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
-    for (auto i = 0; i < arr.length(); ++i) {
+    for (int i = 0; i < arr.length(); ++i) {
       writer_->Bool(arr.Value(i));
     }
   }
@@ -467,7 +467,7 @@ class JsonArrayWriter : public ArrayVisitor {
   void WriteOffsetsField(const T* offsets, int32_t length) {
     writer_->Key("OFFSETS");
     writer_->StartArray();
-    for (auto i = 0; i < length; ++i) {
+    for (int i = 0; i < length; ++i) {
       writer_->Int64(offsets[i]);
     }
     writer_->EndArray();
@@ -477,11 +477,11 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->Key("VALIDITY");
     writer_->StartArray();
     if (arr.null_count() > 0) {
-      for (auto i = 0; i < arr.length(); ++i) {
+      for (int i = 0; i < arr.length(); ++i) {
         writer_->Int(arr.IsNull(i) ? 0 : 1);
       }
     } else {
-      for (auto i = 0; i < arr.length(); ++i) {
+      for (int i = 0; i < arr.length(); ++i) {
         writer_->Int(1);
       }
     }
@@ -922,7 +922,7 @@ class JsonArrayReader {
     const auto& json_data_arr = json_data->value.GetArray();
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
-    for (auto i = 0; i < length; ++i) {
+    for (int i = 0; i < length; ++i) {
       if (!is_valid[i]) {
         builder.AppendNull();
         continue;
@@ -962,7 +962,7 @@ class JsonArrayReader {
     const auto& json_data_arr = json_data->value.GetArray();
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
-    for (auto i = 0; i < length; ++i) {
+    for (int i = 0; i < length; ++i) {
       if (!is_valid[i]) {
         builder.AppendNull();
         continue;
@@ -1046,7 +1046,7 @@ class JsonArrayReader {
       return Status::Invalid(ss.str());
     }
 
-    for (auto i = 0; i < json_children_arr.Size(); ++i) {
+    for (int i = 0; i < static_cast<int>(json_children_arr.Size()); ++i) {
       DCHECK(json_children_arr[i].IsObject());
       std::shared_ptr<Array> child;
       RETURN_NOT_OK(GetArray(json_children_arr[i], type->child(i)->type, &child));
