@@ -301,7 +301,7 @@ public class TestValueVector {
       assertEquals(0, accessor.get(100));
       assertEquals(1, accessor.get(1022));
 
-      assertEquals(2, accessor.getNullCount());
+      assertEquals(1022, accessor.getNullCount());
 
       // test setting the same value twice
       m.set(0, 1);
@@ -318,7 +318,7 @@ public class TestValueVector {
       assertEquals(1, accessor.get(1));
 
       // should not change
-      assertEquals(2, accessor.getNullCount());
+      assertEquals(1022, accessor.getNullCount());
 
       // Ensure unallocated space returns 0
       assertEquals(0, accessor.get(3));
@@ -326,13 +326,13 @@ public class TestValueVector {
       m.set(1, 0);
       m.set(1022, 0);
 
-      assertEquals(0, accessor.getNullCount());
+      assertEquals(1024, accessor.getNullCount());
 
       for (int i = 0; i < 1024; ++i) {
         m.set(i, 1);
       }
 
-      assertEquals(1024, accessor.getNullCount());
+      assertEquals(0, accessor.getNullCount());
     }
   }
 
