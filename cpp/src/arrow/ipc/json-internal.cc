@@ -458,6 +458,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
   template <typename T>
   void WriteDataField(const T& arr) {
+    writer_->Key("DATA");
     writer_->StartArray();
     WriteDataValues(arr);
     writer_->EndArray();
@@ -858,10 +859,9 @@ class JsonArrayReader {
       std::shared_ptr<Buffer>* validity_buffer) {
     int length = static_cast<int>(is_valid.size());
 
-    auto out_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(out_buffer->Resize(BitUtil::BytesForBits(length)));
-    uint8_t* bitmap = reinterpret_cast<uint8_t*>(out_buffer->mutable_data());
-    memset(bitmap, 0, out_buffer->size());
+    std::shared_ptr<MutableBuffer> out_buffer;
+    RETURN_NOT_OK(GetEmptyBitmap(pool_, length, &out_buffer));
+    uint8_t* bitmap = out_buffer->mutable_data();
 
     *null_count = 0;
     for (int i = 0; i < length; ++i) {
@@ -1015,9 +1015,17 @@ class JsonArrayReader {
     }
 
     for (int i = 0; i < static_cast<int>(json_children_arr.Size()); ++i) {
-      DCHECK(json_children_arr[i].IsObject());
+      const rj::Value& json_child = json_children_arr[i];
+      DCHECK(json_child.IsObject());
+
+      std::shared_ptr<Field> child_field = type->child(i);
+
+      auto it = json_child.FindMember("name");
+      RETURN_NOT_STRING("name", it, json_child);
+
+      DCHECK_EQ(it->value.GetString(), child_field->name);
       std::shared_ptr<Array> child;
-      RETURN_NOT_OK(GetArray(json_children_arr[i], type->child(i)->type, &child));
+      RETURN_NOT_OK(GetArray(json_children_arr[i], child_field->type, &child));
       array->emplace_back(child);
     }
 
@@ -1042,7 +1050,7 @@ class JsonArrayReader {
 
     DCHECK_EQ(static_cast<int>(json_validity.Size()), length);
 
-    std::vector<bool> is_valid(length);
+    std::vector<bool> is_valid;
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
       is_valid.push_back(static_cast<bool>(val.GetInt()));
@@ -1120,9 +1128,8 @@ Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array,
   return converter.GetArray(json_array, type, array);
 }
 
-
-Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array,
-    const Schema& schema, std::shared_ptr<Array>* array) {
+Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
+    std::shared_ptr<Array>* array) {
   if (!json_array.IsObject()) { return Status::Invalid("Element was not a JSON object"); }
 
   const auto& json_obj = json_array.GetObject();

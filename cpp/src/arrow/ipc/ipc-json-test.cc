@@ -35,6 +35,8 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/types/primitive.h"
+#include "arrow/types/string.h"
+#include "arrow/types/struct.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
@@ -64,15 +66,20 @@ void TestArrayRoundTrip(const Array& array) {
 
   ASSERT_OK(WriteJsonArray(name, array, &writer));
 
+  std::string array_as_json = sb.GetString();
+
   rj::Document d;
-  d.Parse(sb.GetString());
+  d.Parse(array_as_json);
+
+  if (d.HasParseError()) { FAIL() << "JSON parsing failed"; }
 
   std::shared_ptr<Array> out;
   ASSERT_OK(ReadJsonArray(default_memory_pool(), d, array.type(), &out));
 
-  ASSERT_TRUE(array.Equals(out));
-}
+  std::cout << array_as_json << std::endl;
 
+  ASSERT_TRUE(array.Equals(out)) << array_as_json;
+}
 
 template <typename T, typename ValueType>
 void CheckPrimitive(const std::shared_ptr<DataType>& type,
@@ -109,12 +116,70 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
   TestSchemaRoundTrip(schema);
 }
 
+template <typename T>
+void PrimitiveTypesCheckOne() {
+  using c_type = typename T::c_type;
+
+  std::vector<bool> is_valid = {true, false, true, true, true, false, true, true};
+  std::vector<c_type> values = {0, 1, 2, 3, 4, 5, 6, 7};
+  CheckPrimitive<T, c_type>(std::make_shared<T>(), is_valid, values);
+}
 
 TEST(TestJsonArrayWriter, PrimitiveTypes) {
-  std::vector<bool> is_valid = {true, false, true, true, true, false, true, true};
+  PrimitiveTypesCheckOne<Int8Type>();
+  PrimitiveTypesCheckOne<Int16Type>();
+  PrimitiveTypesCheckOne<Int32Type>();
+  PrimitiveTypesCheckOne<Int64Type>();
+  PrimitiveTypesCheckOne<UInt8Type>();
+  PrimitiveTypesCheckOne<UInt16Type>();
+  PrimitiveTypesCheckOne<UInt32Type>();
+  PrimitiveTypesCheckOne<UInt64Type>();
+  PrimitiveTypesCheckOne<FloatType>();
+  PrimitiveTypesCheckOne<DoubleType>();
 
-  std::vector<uint8_t> u1 = {0, 1, 2, 3, 4, 5, 6, 7};
-  CheckPrimitive<UInt8Type, uint8_t>(uint8(), is_valid, u1);
+  std::vector<bool> is_valid = {true, false, true, true, true, false, true, true};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", "qux", "foo", "a", "1"};
+
+  CheckPrimitive<StringType, std::string>(utf8(), is_valid, values);
+  CheckPrimitive<BinaryType, std::string>(binary(), is_valid, values);
+}
+
+TEST(TestJsonArrayWriter, NestedTypes) {
+  auto value_type = int32();
+
+  std::vector<bool> values_is_valid = {true, false, true, true, false, true, true};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+
+  std::shared_ptr<Buffer> values_buffer = test::GetBufferFromVector(values);
+  std::shared_ptr<Buffer> values_bitmap;
+  ASSERT_OK(test::GetBitmapFromBoolVector(values_is_valid, &values_bitmap));
+  auto values_array = std::make_shared<Int32Array>(
+      value_type, static_cast<int32_t>(values.size()), values_buffer, 2, values_bitmap);
+
+  // List
+  std::vector<bool> list_is_valid = {true, false, true, true, true};
+  std::vector<int32_t> offsets = {0, 0, 0, 1, 4, 7};
+
+  std::shared_ptr<Buffer> list_bitmap;
+  ASSERT_OK(test::GetBitmapFromBoolVector(list_is_valid, &list_bitmap));
+  std::shared_ptr<Buffer> offsets_buffer = test::GetBufferFromVector(offsets);
+
+  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, 1, list_bitmap);
+
+  TestArrayRoundTrip(list_array);
+
+  // Struct
+  std::vector<bool> struct_is_valid = {true, false, true, true, true, false, true};
+  std::shared_ptr<Buffer> struct_bitmap;
+  ASSERT_OK(test::GetBitmapFromBoolVector(struct_is_valid, &struct_bitmap));
+
+  auto struct_type =
+      struct_({field("f1", int32()), field("f2", int32()), field("f3", int32())});
+
+  std::vector<std::shared_ptr<Array>> fields = {values_array, values_array, values_array};
+  StructArray struct_array(
+      struct_type, static_cast<int>(struct_is_valid.size()), fields, 2, struct_bitmap);
+  TestArrayRoundTrip(struct_array);
 }
 
 }  // namespace ipc

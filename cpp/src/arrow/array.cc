@@ -18,12 +18,23 @@
 #include "arrow/array.h"
 
 #include <cstdint>
+#include <cstring>
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
+
+Status GetEmptyBitmap(
+    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result) {
+  auto buffer = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(buffer->Resize(BitUtil::BytesForBits(length)));
+  memset(buffer->mutable_data(), 0, buffer->size());
+
+  *result = buffer;
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
 // Base array class

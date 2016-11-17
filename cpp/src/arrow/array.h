@@ -29,6 +29,8 @@
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
+class MutableBuffer;
 class Status;
 
 // Immutable data array with some logical type and some length. Any memory is
@@ -103,6 +105,10 @@ class ARROW_EXPORT NullArray : public Array {
 };
 
 typedef std::shared_ptr<Array> ArrayPtr;
+
+Status ARROW_EXPORT GetEmptyBitmap(
+    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
+
 }  // namespace arrow
 
 #endif

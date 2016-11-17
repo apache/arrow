@@ -27,6 +27,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
@@ -102,9 +103,25 @@ void random_real(int n, uint32_t seed, T min_value, T max_value, std::vector<T>*
 }
 
 template <typename T>
-std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
+std::shared_ptr<Buffer> GetBufferFromVector(const std::vector<T>& values) {
   return std::make_shared<Buffer>(
       reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T));
+}
+
+static inline Status GetBitmapFromBoolVector(
+    const std::vector<bool>& is_valid, std::shared_ptr<Buffer>* result) {
+  int length = static_cast<int>(is_valid.size());
+
+  std::shared_ptr<MutableBuffer> buffer;
+  RETURN_NOT_OK(GetEmptyBitmap(default_memory_pool(), length, &buffer));
+
+  uint8_t* bitmap = buffer->mutable_data();
+  for (int i = 0; i < length; ++i) {
+    if (is_valid[i]) { BitUtil::SetBit(bitmap, i); }
+  }
+
+  *result = buffer;
+  return Status::OK();
 }
 
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
