@@ -22,5 +22,62 @@
 #include "arrow/util/status.h"
 
 namespace arrow {
-namespace ipc {}  // namespace ipc
+namespace ipc {
+
+class JsonWriter::JsonWriterImpl {
+ public:
+  JsonWriterImpl(const std::shared_ptr<Schema>& schema)
+      : schema_(schema) {
+    writer_.reset(new RjWriter(string_buffer_));
+  }
+
+  Status Start() {
+    writer_->StartObject();
+
+    writer_->Key("schema");
+    RETURN_NOT_OK(WriteJsonSchema(schema_, writer_.get()));
+
+    // Record batches
+    writer_->Key("batches");
+    writer_->StartArray();
+    return Status::OK();
+  }
+
+  Status Finish() {
+    writer_->EndArray();  // Record batches
+    writer_->EndObject();
+    return Status::OK();
+  }
+
+  Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+
+  rj::StringBuffer string_buffer_;
+  std::unique_ptr<RjWriter> writer_;
+};
+
+JsonWriter::JsonWriter(const std::shared_ptr<Schema>& schema) {
+  impl_.reset(new JsonWriteImpl(schema));
+}
+
+Status JsonWriter::Open(
+    const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* writer) {
+  *writer = std::unique_ptr<JsonWriter>(new JsonWriter(schema));
+  return (*writer)->impl_->Start();
+}
+
+Status JsonWriter::Close() {
+  return impl_->Close();
+}
+
+Status JsonWriter::WriteRecordBatch(
+    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
+
+}
+
+}  // namespace ipc
 }  // namespace arrow

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json-internal.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -25,12 +24,11 @@
 #include <string>
 #include <vector>
 
-#include "rapidjson/document.h"
-#include "rapidjson/filewritestream.h"
-#include "rapidjson/prettywriter.h"
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-internal.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

@@ -43,8 +43,7 @@ namespace ipc {
 
 class ARROW_EXPORT JsonWriter {
  public:
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<JsonWriter>* out);
+  static Status Open(const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
 
   // TODO(wesm): Write dictionaries
 
@@ -54,25 +53,21 @@ class ARROW_EXPORT JsonWriter {
   Status Close();
 
  private:
-  JsonWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
-
-  io::OutputStream* sink_;
-  std::shared_ptr<Schema> schema_;
+  explicit JsonWriter(const std::shared_ptr<Schema>& schema);
 
   // Hide RapidJSON details from public API
   class JsonWriterImpl;
   std::unique_ptr<JsonWriterImpl> impl_;
 };
 
+// TODO(wesm): Read from a file stream rather than an in-memory buffer
 class ARROW_EXPORT JsonReader {
  public:
-  static Status Open(MemoryPool* pool,
-      const std::shared_ptr<io::ReadableFileInterface>& file,
-      std::shared_ptr<JsonReader>* reader);
+  static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
+      std::unique_ptr<JsonReader>* reader);
 
   // Use the default memory pool
-  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
-      std::shared_ptr<JsonReader>* reader);
+  static Status Open(const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader);
 
   std::shared_ptr<Schema> schema() const;
 
@@ -82,10 +77,7 @@ class ARROW_EXPORT JsonReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  explicit JsonReader(const std::shared_ptr<io::ReadableFileInterface>& file);
-
-  std::shared_ptr<io::ReadableFileInterface> file_;
-  std::shared_ptr<Schema> schema_;
+  explicit JsonReader(const std::shared_ptr<Buffer>& data);
 
   // Hide RapidJSON details from public API
   class JsonReaderImpl;
@@ -95,4 +87,4 @@ class ARROW_EXPORT JsonReader {
 }  // namespace ipc
 }  // namespace arrow
 
-#endif  // ARROW_IPC_FILE_H
+#endif  // ARROW_IPC_JSON_H

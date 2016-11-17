@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Implement Arrow JSON serialization format
-
-#ifndef ARROW_IPC_JSON_H
-#define ARROW_IPC_JSON_H
+#ifndef ARROW_IPC_JSON_INTERNAL_H
+#define ARROW_IPC_JSON_INTERNAL_H
 
 #define RAPIDJSON_HAS_STDSTRING 1
 #define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
@@ -57,4 +55,4 @@ Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
 }  // namespace ipc
 }  // namespace arrow
 
-#endif  // ARROW_IPC_FILE_H
+#endif  // ARROW_IPC_JSON_INTERNAL_H
