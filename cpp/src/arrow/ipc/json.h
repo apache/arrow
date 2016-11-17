@@ -27,11 +27,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-class RecordBatch;
-class Schema;
-
 namespace io {
 
 class OutputStream;
@@ -43,14 +38,15 @@ namespace ipc {
 
 class ARROW_EXPORT JsonWriter {
  public:
-  static Status Open(const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
+  static Status Open(
+      const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
 
   // TODO(wesm): Write dictionaries
 
   Status WriteRecordBatch(
       const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows);
 
-  Status Close();
+  Status Finish(std::shared_ptr<Buffer>* result);
 
  private:
   explicit JsonWriter(const std::shared_ptr<Schema>& schema);
@@ -67,7 +63,8 @@ class ARROW_EXPORT JsonReader {
       std::unique_ptr<JsonReader>* reader);
 
   // Use the default memory pool
-  static Status Open(const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader);
+  static Status Open(
+      const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader);
 
   std::shared_ptr<Schema> schema() const;
 
@@ -77,7 +74,7 @@ class ARROW_EXPORT JsonReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  explicit JsonReader(const std::shared_ptr<Buffer>& data);
+  JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);
 
   // Hide RapidJSON details from public API
   class JsonReaderImpl;

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -27,8 +26,8 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
-#include "arrow/ipc/json.h"
 #include "arrow/ipc/json-internal.h"
+#include "arrow/ipc/json.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -74,8 +73,6 @@ void TestArrayRoundTrip(const Array& array) {
   std::shared_ptr<Array> out;
   ASSERT_OK(ReadJsonArray(default_memory_pool(), d, array.type(), &out));
 
-  std::cout << array_as_json << std::endl;
-
   ASSERT_TRUE(array.Equals(out)) << array_as_json;
 }
 
@@ -96,6 +93,25 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
   TestArrayRoundTrip(*array.get());
+}
+
+template <typename TYPE, typename C_TYPE>
+void MakeArray(const std::shared_ptr<DataType>& type,
+    const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+    std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> values_buffer = test::GetBufferFromVector(values);
+  std::shared_ptr<Buffer> values_bitmap;
+  ASSERT_OK(test::GetBitmapFromBoolVector(is_valid, &values_bitmap));
+
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+
+  int32_t null_count = 0;
+  for (bool val : is_valid) {
+    if (!val) { ++null_count; }
+  }
+
+  *out = std::make_shared<ArrayType>(type, static_cast<int32_t>(values.size()),
+      values_buffer, null_count, values_bitmap);
 }
 
 TEST(TestJsonSchemaWriter, FlatTypes) {
@@ -148,11 +164,8 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   std::vector<bool> values_is_valid = {true, false, true, true, false, true, true};
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
 
-  std::shared_ptr<Buffer> values_buffer = test::GetBufferFromVector(values);
-  std::shared_ptr<Buffer> values_bitmap;
-  ASSERT_OK(test::GetBitmapFromBoolVector(values_is_valid, &values_bitmap));
-  auto values_array = std::make_shared<Int32Array>(
-      value_type, static_cast<int32_t>(values.size()), values_buffer, 2, values_bitmap);
+  std::shared_ptr<Array> values_array;
+  MakeArray<Int32Type, int32_t>(int32(), values_is_valid, values, &values_array);
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
@@ -178,6 +191,44 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   StructArray struct_array(
       struct_type, static_cast<int>(struct_is_valid.size()), fields, 2, struct_bitmap);
   TestArrayRoundTrip(struct_array);
+}
+
+TEST(TestJsonFileReadWrite, BasicRoundTrip) {
+  auto v1_type = int8();
+  auto v2_type = int32();
+  auto v3_type = utf8();
+
+  std::vector<bool> is_valid = {true, false, true, true, false, true, true};
+
+  std::vector<int8_t> v1_values = {0, 1, 2, 3, 4, 5, 6};
+  std::shared_ptr<Array> v1;
+  MakeArray<Int8Type, int8_t>(v1_type, is_valid, v1_values, &v1);
+
+  std::vector<int32_t> v2_values = {0, 1, 2, 3, 4, 5, 6};
+  std::shared_ptr<Array> v2;
+  MakeArray<Int32Type, int32_t>(v2_type, is_valid, v2_values, &v2);
+
+  std::vector<std::string> v3_values = {"foo", "bar", "", "", "", "baz", "qux"};
+  std::shared_ptr<Array> v3;
+  MakeArray<StringType, std::string>(v3_type, is_valid, v3_values, &v3);
+
+  std::shared_ptr<Schema> schema({field("f1", v1_type), field("f2", v2_type),
+          field("f3", v3_type)});
+
+  std::vector<std::shared_ptr<Array>> arrays = {v1, v2, v3}
+
+  std::unique_ptr<JsonWriter> writer;
+  ASSERT_OK(JsonWriter::Open(schema, &writer));
+
+  const int nbatches = 3;
+  const int32_t num_rows = static_cast<int32_t>(v1_values.size());
+
+  for (int i = 0; i < nbatches; ++i) {
+    ASSERT_OK(writer_->WriteRecordBatch(arrays, num_rows));
+  }
+
+  std::shared_ptr<Buffer> data;
+  ASSERT_OK(writer->Finish(&data));
 }
 
 }  // namespace ipc

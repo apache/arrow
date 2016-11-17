@@ -23,6 +23,7 @@
 #define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
 
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "rapidjson/document.h"
@@ -35,6 +36,53 @@
 namespace rj = rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
 
+#define RETURN_NOT_FOUND(TOK, NAME, PARENT) \
+  if (NAME == PARENT.MemberEnd()) {         \
+    std::stringstream ss;                   \
+    ss << "field " << TOK << " not found";  \
+    return Status::Invalid(ss.str());       \
+  }
+
+#define RETURN_NOT_STRING(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
+  if (!NAME->value.IsString()) {             \
+    std::stringstream ss;                    \
+    ss << "field was not a string";          \
+    return Status::Invalid(ss.str());        \
+  }
+
+#define RETURN_NOT_BOOL(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);     \
+  if (!NAME->value.IsBool()) {             \
+    std::stringstream ss;                  \
+    ss << "field was not a boolean";       \
+    return Status::Invalid(ss.str());      \
+  }
+
+#define RETURN_NOT_INT(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);    \
+  if (!NAME->value.IsInt()) {             \
+    std::stringstream ss;                 \
+    ss << "field was not an int";         \
+    return Status::Invalid(ss.str());     \
+  }
+
+#define RETURN_NOT_ARRAY(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);      \
+  if (!NAME->value.IsArray()) {             \
+    std::stringstream ss;                   \
+    ss << "field was not an array";         \
+    return Status::Invalid(ss.str());       \
+  }
+
+#define RETURN_NOT_OBJECT(TOK, NAME, PARENT) \
+  RETURN_NOT_FOUND(TOK, NAME, PARENT);       \
+  if (!NAME->value.IsObject()) {             \
+    std::stringstream ss;                    \
+    ss << "field was not an object";         \
+    return Status::Invalid(ss.str());        \
+  }
+
 namespace arrow {
 namespace ipc {
 
@@ -45,7 +93,7 @@ Status ARROW_EXPORT WriteJsonArray(
     const std::string& name, const Array& array, RjWriter* json_writer);
 
 Status ARROW_EXPORT ReadJsonSchema(
-    const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
+    const rj::Value& json_obj, std::shared_ptr<Schema>* schema);
 Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array);
 
