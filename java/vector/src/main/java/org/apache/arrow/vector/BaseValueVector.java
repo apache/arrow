@@ -72,6 +72,11 @@ public abstract class BaseValueVector implements ValueVector {
     public boolean isNull(int index) {
       return false;
     }
+
+    @Override
+    public int getNullCount() {
+      return 0;
+    }
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {

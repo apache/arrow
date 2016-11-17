@@ -310,6 +310,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     public boolean isNull(int index) {
       return bits.getAccessor().get(index) == 0;
     }
+
+    @Override
+    public int getNullCount() {
+      return bits.getAccessor().getNullCount();
+    }
   }
 
   public class Mutator extends BaseRepeatedMutator {

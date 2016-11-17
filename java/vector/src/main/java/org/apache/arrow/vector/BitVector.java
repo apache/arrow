@@ -379,6 +379,21 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       holder.isSet = 1;
       holder.value = get(index);
     }
+
+    /**
+     * Get the number of bits set to 1
+     * @return the number of bits set to 1
+     */
+    public final int getNullCount() {
+      int count = 0;
+      for (int i = 0; i < allocationSizeInBytes; ++i) {
+        byte byteValue = data.getByte(i);
+        // Java uses two's complement binary representation, hence 11111111_b which is -1 when converted to Int
+        // will have 32bits set to 1. Masking the MSB and then adding it back solves the issue.
+        count += Integer.bitCount(byteValue & 0x7F) - (byteValue >> 7);
+      }
+      return count;
+    }
   }
 
   /**

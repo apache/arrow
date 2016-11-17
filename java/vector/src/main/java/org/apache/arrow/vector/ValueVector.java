@@ -180,6 +180,11 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
      * Returns true if the value at the given index is null, false otherwise.
      */
     boolean isNull(int index);
+
+    /**
+     * Returns the number of null values
+     */
+    int getNullCount();
   }
 
   /**
