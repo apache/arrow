@@ -46,6 +46,7 @@ TEST(TypesTest, TestListType) {
   ListType list_type(vt);
   ASSERT_EQ(list_type.type, Type::LIST);
 
+  ASSERT_EQ(list_type.name(), string("list"));
   ASSERT_EQ(list_type.ToString(), string("list<item: uint8>"));
 
   ASSERT_EQ(list_type.value_type()->type, vt->type);

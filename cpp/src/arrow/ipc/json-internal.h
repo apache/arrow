@@ -40,6 +40,8 @@ using RjWriter = rj::Writer<rj::StringBuffer>;
 namespace arrow {
 namespace ipc {
 
+// TODO(wesm): Only exporting these because arrow_ipc does not have a static
+// library at the moment. Better to not export
 Status ARROW_EXPORT WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
 Status ARROW_EXPORT WriteJsonArray(
     const std::string& name, const Array& array, RjWriter* json_writer);
