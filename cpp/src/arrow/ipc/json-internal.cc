@@ -852,39 +852,7 @@ class JsonSchemaReader {
 
 class JsonArrayReader {
  public:
-  explicit JsonArrayReader(
-      MemoryPool* pool, const rj::Value& json_array, const Schema& schema)
-      : pool_(pool), json_array_(json_array), schema_(schema) {}
-
-  Status GetResult(std::shared_ptr<Array>* array) {
-    const auto& json_array = json_array_.GetObject();
-
-    const auto& json_name = json_array.FindMember("name");
-    RETURN_NOT_STRING("name", json_name, json_array);
-
-    return GetArrayFromStruct(
-        json_array_, json_name->value.GetString(), schema_.fields(), array);
-  }
-
-  Status GetArrayFromStruct(const rj::Value& obj, const std::string& name,
-      const std::vector<std::shared_ptr<Field>>& fields, std::shared_ptr<Array>* array) {
-    std::shared_ptr<Field> result = nullptr;
-
-    for (const std::shared_ptr<Field>& field : fields) {
-      if (field->name == name) {
-        result = field;
-        break;
-      }
-    }
-
-    if (result == nullptr) {
-      std::stringstream ss;
-      ss << "Field named " << name << " not found in struct/schema";
-      return Status::KeyError(ss.str());
-    }
-
-    return GetArray(obj, result->type, array);
-  }
+  explicit JsonArrayReader(MemoryPool* pool) : pool_(pool) {}
 
   Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
       std::shared_ptr<Buffer>* validity_buffer) {
@@ -1128,8 +1096,6 @@ class JsonArrayReader {
 
  private:
   MemoryPool* pool_;
-  const rj::Value& json_array_;
-  const Schema& schema_;
 };
 
 Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer) {
@@ -1148,11 +1114,39 @@ Status WriteJsonArray(
   return converter.Write();
 }
 
-Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
-    std::shared_ptr<Array>* array) {
+Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+  JsonArrayReader converter(pool);
+  return converter.GetArray(json_array, type, array);
+}
+
+
+Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array,
+    const Schema& schema, std::shared_ptr<Array>* array) {
   if (!json_array.IsObject()) { return Status::Invalid("Element was not a JSON object"); }
-  JsonArrayReader converter(pool, json_array, schema);
-  return converter.GetResult(array);
+
+  const auto& json_obj = json_array.GetObject();
+
+  const auto& json_name = json_obj.FindMember("name");
+  RETURN_NOT_STRING("name", json_name, json_obj);
+
+  std::string name = json_name->value.GetString();
+
+  std::shared_ptr<Field> result = nullptr;
+  for (const std::shared_ptr<Field>& field : schema.fields()) {
+    if (field->name == name) {
+      result = field;
+      break;
+    }
+  }
+
+  if (result == nullptr) {
+    std::stringstream ss;
+    ss << "Field named " << name << " not found in schema";
+    return Status::KeyError(ss.str());
+  }
+
+  return ReadJsonArray(pool, json_array, result->type, array);
 }
 
 }  // namespace ipc

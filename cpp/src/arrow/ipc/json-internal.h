@@ -38,10 +38,6 @@ namespace rj = rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
 
 namespace arrow {
-
-class Array;
-class Schema;
-
 namespace ipc {
 
 Status ARROW_EXPORT WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
@@ -50,8 +46,11 @@ Status ARROW_EXPORT WriteJsonArray(
 
 Status ARROW_EXPORT ReadJsonSchema(
     const rj::Value& json_arr, std::shared_ptr<Schema>* schema);
-Status ARROW_EXPORT ReadJsonArray(
-    const rj::Value& json_obj, const Schema& schema, std::shared_ptr<Array>* array);
+Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array);
+
+Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
+    const Schema& schema, std::shared_ptr<Array>* array);
 
 }  // namespace ipc
 }  // namespace arrow

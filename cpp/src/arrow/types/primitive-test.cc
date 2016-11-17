@@ -313,20 +313,6 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
 }
 
-template <class T, class Builder>
-Status MakeArray(const vector<uint8_t>& valid_bytes, const vector<T>& draws, int size,
-    Builder* builder, ArrayPtr* out) {
-  // Append the first 1000
-  for (int i = 0; i < size; ++i) {
-    if (valid_bytes[i] > 0) {
-      RETURN_NOT_OK(builder->Append(draws[i]));
-    } else {
-      RETURN_NOT_OK(builder->AppendNull());
-    }
-  }
-  return builder->Finish(out);
-}
-
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
   DECL_T();
 

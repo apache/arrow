@@ -27,6 +27,9 @@ class Array;
 class ArrayBuilder;
 struct Field;
 
+class MemoryPool;
+class Schema;
+
 struct NullType;
 class NullArray;
 
