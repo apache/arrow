@@ -38,7 +38,7 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 
-public class JsonFileWriter {
+public class JsonFileWriter implements AutoCloseable {
 
   public static final class JSONWriteConfig {
     private final boolean pretty;
@@ -158,6 +158,7 @@ public class JsonFileWriter {
     }
   }
 
+  @Override
   public void close() throws IOException {
     generator.writeEndArray();
     generator.writeEndObject();
