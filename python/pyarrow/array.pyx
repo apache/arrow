@@ -54,6 +54,41 @@ cdef class Array:
 
     @staticmethod
     def from_pandas(obj, mask=None):
+        """
+        Create an array from a pandas.Series
+
+        Parameters
+        ----------
+        obj : pandas.Series or numpy.ndarray
+            vector holding the data
+        mask : numpy.ndarray, optional
+            boolean mask if the object is valid or null
+
+        Returns
+        -------
+        pyarrow.Array
+
+        Examples
+        --------
+
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> pa.Array.from_pandas(pd.Series([1, 2]))
+        <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
+        [
+          1,
+          2
+        ]
+
+
+        >>> import numpy as np
+        >>> pa.Array.from_pandas(pd.Series([1, 2]), np.array([0, 1], dtype=bool))
+        <pyarrow.array.Int64Array object at 0x7f9019e11208>
+        [
+          1,
+          NA
+        ]
+        """
         return from_pandas_series(obj, mask)
 
     property null_count:
@@ -228,6 +263,14 @@ cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
 def from_pylist(object list_obj, DataType type=None):
     """
     Convert Python list to Arrow array
+
+    Parameters
+    ----------
+    list_obj : array_like
+
+    Returns
+    -------
+    pyarrow.array.Array
     """
     cdef:
         shared_ptr[CArray] sp_array
@@ -246,15 +289,19 @@ def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
 
     Parameters
     ----------
-    series: pandas.Series or numpy.ndarray
+    series : pandas.Series or numpy.ndarray
 
-    mask: pandas.Series or numpy.ndarray
+    mask : pandas.Series or numpy.ndarray, optional
         array to mask null entries in the series
 
-    timestamps_to_ms: bool
+    timestamps_to_ms : bool, optional
         Convert datetime columns to ms resolution. This is needed for
         compability with other functionality like Parquet I/O which
         only supports milliseconds.
+
+    Returns
+    -------
+    pyarrow.array.Array
     """
     cdef:
         shared_ptr[CArray] out
