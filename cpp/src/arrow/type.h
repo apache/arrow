@@ -375,6 +375,11 @@ struct ARROW_EXPORT UnionType : public DataType {
   static std::string name() { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
+  bool Equals(const DataType* other) const override;
+  bool Equals(const std::shared_ptr<DataType>& other) const {
+    return Equals(other.get());
+  }
+
   UnionMode mode;
   std::vector<uint8_t> type_ids;
 };
