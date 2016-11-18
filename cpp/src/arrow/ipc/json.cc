@@ -54,9 +54,11 @@ class JsonWriter::JsonWriterImpl {
     return Status::OK();
   }
 
-  Status Finish() {
+  Status Finish(std::string* result) {
     writer_->EndArray();  // Record batches
     writer_->EndObject();
+
+    *result = string_buffer_.GetString();
     return Status::OK();
   }
 
@@ -75,7 +77,7 @@ class JsonWriter::JsonWriterImpl {
       const std::shared_ptr<Array>& column = columns[i];
 
       DCHECK_EQ(num_rows, column->length())
-        << "Array length did not match record batch length";
+          << "Array length did not match record batch length";
 
       RETURN_NOT_OK(
           WriteJsonArray(schema_->field(i)->name, *column.get(), writer_.get()));
@@ -97,14 +99,16 @@ JsonWriter::JsonWriter(const std::shared_ptr<Schema>& schema) {
   impl_.reset(new JsonWriterImpl(schema));
 }
 
+JsonWriter::~JsonWriter() {}
+
 Status JsonWriter::Open(
     const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* writer) {
   *writer = std::unique_ptr<JsonWriter>(new JsonWriter(schema));
   return (*writer)->impl_->Start();
 }
 
-Status JsonWriter::Finish(std::shared_ptr<Buffer>* out) {
-  return impl_->Finish();
+Status JsonWriter::Finish(std::string* result) {
+  return impl_->Finish(result);
 }
 
 Status JsonWriter::WriteRecordBatch(
@@ -137,7 +141,7 @@ class JsonReader::JsonReaderImpl {
   }
 
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
-    DCHECK_GT(i, 0) << "i out of bounds";
+    DCHECK_GE(i, 0) << "i out of bounds";
     DCHECK_LT(i, record_batches_->GetArray().Size()) << "i out of bounds";
 
     const auto& batch_val = record_batches_->GetArray()[i];
@@ -183,6 +187,8 @@ JsonReader::JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data) {
   impl_.reset(new JsonReaderImpl(pool, data));
 }
 
+JsonReader::~JsonReader() {}
+
 Status JsonReader::Open(
     const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader) {
   return Open(default_memory_pool(), data, reader);
@@ -200,6 +206,10 @@ std::shared_ptr<Schema> JsonReader::schema() const {
 
 int JsonReader::num_record_batches() const {
   return impl_->num_record_batches();
+}
+
+Status JsonReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+  return impl_->GetRecordBatch(i, batch);
 }
 
 }  // namespace ipc

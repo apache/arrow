@@ -38,6 +38,8 @@ namespace ipc {
 
 class ARROW_EXPORT JsonWriter {
  public:
+  ~JsonWriter();
+
   static Status Open(
       const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
 
@@ -46,7 +48,7 @@ class ARROW_EXPORT JsonWriter {
   Status WriteRecordBatch(
       const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows);
 
-  Status Finish(std::shared_ptr<Buffer>* result);
+  Status Finish(std::string* result);
 
  private:
   explicit JsonWriter(const std::shared_ptr<Schema>& schema);
@@ -59,6 +61,8 @@ class ARROW_EXPORT JsonWriter {
 // TODO(wesm): Read from a file stream rather than an in-memory buffer
 class ARROW_EXPORT JsonReader {
  public:
+  ~JsonReader();
+
   static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
       std::unique_ptr<JsonReader>* reader);
 
@@ -71,7 +75,7 @@ class ARROW_EXPORT JsonReader {
   int num_record_batches() const;
 
   // Read a record batch from the file
-  Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
+  Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
 
  private:
   JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);

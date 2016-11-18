@@ -28,6 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -96,11 +97,12 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
 }
 
 template <typename TYPE, typename C_TYPE>
-void MakeArray(const std::shared_ptr<DataType>& type,
-    const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
-    std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> values_buffer = test::GetBufferFromVector(values);
+void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& is_valid,
+    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> values_buffer;
   std::shared_ptr<Buffer> values_bitmap;
+
+  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
   ASSERT_OK(test::GetBitmapFromBoolVector(is_valid, &values_bitmap));
 
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
@@ -193,42 +195,84 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   TestArrayRoundTrip(struct_array);
 }
 
+// Data generation for test case below
+void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
+    std::vector<std::shared_ptr<Array>>* arrays) {
+  std::vector<bool> is_valid;
+  test::random_is_valid(num_rows, 0.25, &is_valid);
+
+  std::vector<int8_t> v1_values;
+  std::vector<int32_t> v2_values;
+
+  test::randint<int8_t>(num_rows, 0, 100, &v1_values);
+  test::randint<int32_t>(num_rows, 0, 100, &v2_values);
+
+  std::shared_ptr<Array> v1;
+  MakeArray<Int8Type, int8_t>(schema->field(0)->type, is_valid, v1_values, &v1);
+
+  std::shared_ptr<Array> v2;
+  MakeArray<Int32Type, int32_t>(schema->field(1)->type, is_valid, v2_values, &v2);
+
+  static const int kBufferSize = 10;
+  static uint8_t buffer[kBufferSize];
+  static uint32_t seed = 0;
+  StringBuilder string_builder(default_memory_pool(), utf8());
+  for (int i = 0; i < num_rows; ++i) {
+    if (!is_valid[i]) {
+      string_builder.AppendNull();
+    } else {
+      test::random_ascii(kBufferSize, seed++, buffer);
+      string_builder.Append(buffer, kBufferSize);
+    }
+  }
+  std::shared_ptr<Array> v3;
+  ASSERT_OK(string_builder.Finish(&v3));
+
+  arrays->emplace_back(v1);
+  arrays->emplace_back(v2);
+  arrays->emplace_back(v3);
+}
+
 TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   auto v1_type = int8();
   auto v2_type = int32();
   auto v3_type = utf8();
 
-  std::vector<bool> is_valid = {true, false, true, true, false, true, true};
-
-  std::vector<int8_t> v1_values = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> v1;
-  MakeArray<Int8Type, int8_t>(v1_type, is_valid, v1_values, &v1);
-
-  std::vector<int32_t> v2_values = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> v2;
-  MakeArray<Int32Type, int32_t>(v2_type, is_valid, v2_values, &v2);
-
-  std::vector<std::string> v3_values = {"foo", "bar", "", "", "", "baz", "qux"};
-  std::shared_ptr<Array> v3;
-  MakeArray<StringType, std::string>(v3_type, is_valid, v3_values, &v3);
-
-  std::shared_ptr<Schema> schema({field("f1", v1_type), field("f2", v2_type),
-          field("f3", v3_type)});
-
-  std::vector<std::shared_ptr<Array>> arrays = {v1, v2, v3}
+  std::shared_ptr<Schema> schema(
+      new Schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)}));
 
   std::unique_ptr<JsonWriter> writer;
   ASSERT_OK(JsonWriter::Open(schema, &writer));
 
   const int nbatches = 3;
-  const int32_t num_rows = static_cast<int32_t>(v1_values.size());
-
+  std::vector<std::shared_ptr<RecordBatch>> batches;
   for (int i = 0; i < nbatches; ++i) {
-    ASSERT_OK(writer_->WriteRecordBatch(arrays, num_rows));
+    int32_t num_rows = 5 + i * 5;
+    std::vector<std::shared_ptr<Array>> arrays;
+
+    MakeBatchArrays(schema, num_rows, &arrays);
+    batches.emplace_back(std::make_shared<RecordBatch>(schema, num_rows, arrays));
+    ASSERT_OK(writer->WriteRecordBatch(arrays, num_rows));
   }
 
-  std::shared_ptr<Buffer> data;
-  ASSERT_OK(writer->Finish(&data));
+  std::string result;
+  ASSERT_OK(writer->Finish(&result));
+
+  std::unique_ptr<JsonReader> reader;
+
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(result.c_str()), static_cast<int>(result.size()));
+
+  ASSERT_OK(JsonReader::Open(buffer, &reader));
+  ASSERT_TRUE(reader->schema()->Equals(*schema.get()));
+
+  ASSERT_EQ(nbatches, reader->num_record_batches());
+
+  for (int i = 0; i < nbatches; ++i) {
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(reader->GetRecordBatch(i, &batch));
+    ASSERT_TRUE(batch->Equals(*batches[i].get()));
+  }
 }
 
 }  // namespace ipc
