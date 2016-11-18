@@ -275,5 +275,79 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   }
 }
 
+TEST(TestJsonFileReadWrite, MinimalFormatExample) {
+  static const char* example = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "foo",
+        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
+        "nullable": true, "children": [],
+        "typeLayout": [
+          {"type": "VALIDITY", "typeBitWidth": 1},
+          {"type": "DATA", "typeBitWidth": 32}
+        ]
+      },
+      {
+        "name": "bar",
+        "type": {"name": "floatingpoint", "precision": "DOUBLE"},
+        "nullable": true, "children": [],
+        "typeLayout": [
+          {"type": "VALIDITY", "typeBitWidth": 1},
+          {"type": "DATA", "typeBitWidth": 64}
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "DATA": [1, 2, 3, 4, 5],
+          "VALIDITY": [1, 0, 1, 1, 1]
+        },
+        {
+          "name": "bar",
+          "count": 5,
+          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0],
+          "VALIDITY": [1, 0, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(example), strlen(example));
+
+  std::unique_ptr<JsonReader> reader;
+  ASSERT_OK(JsonReader::Open(buffer, &reader));
+
+  Schema ex_schema({field("foo", int32()), field("bar", float64())});
+
+  ASSERT_TRUE(reader->schema()->Equals(ex_schema));
+  ASSERT_EQ(1, reader->num_record_batches());
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader->GetRecordBatch(0, &batch));
+
+  std::vector<bool> foo_valid = {true, false, true, true, true};
+  std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
+  std::shared_ptr<Array> foo;
+  MakeArray<Int32Type, int32_t>(int32(), foo_valid, foo_values, &foo);
+  ASSERT_TRUE(batch->column(0)->Equals(foo));
+
+  std::vector<bool> bar_valid = {true, false, false, true, true};
+  std::vector<double> bar_values = {1, 2, 3, 4, 5};
+  std::shared_ptr<Array> bar;
+  MakeArray<DoubleType, double>(float64(), bar_valid, bar_values, &bar);
+  ASSERT_TRUE(batch->column(1)->Equals(bar));
+}
+
 }  // namespace ipc
 }  // namespace arrow
