@@ -21,6 +21,7 @@
 #define ARROW_IPC_JSON_H
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/type_fwd.h"

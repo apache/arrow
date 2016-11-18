@@ -19,6 +19,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/ipc/json-internal.h"
@@ -38,7 +40,7 @@ namespace ipc {
 
 class JsonWriter::JsonWriterImpl {
  public:
-  JsonWriterImpl(const std::shared_ptr<Schema>& schema) : schema_(schema) {
+  explicit JsonWriterImpl(const std::shared_ptr<Schema>& schema) : schema_(schema) {
     writer_.reset(new RjWriter(string_buffer_));
   }
 
