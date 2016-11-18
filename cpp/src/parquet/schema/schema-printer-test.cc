@@ -51,17 +51,21 @@ TEST(TestSchemaPrinter, Examples) {
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
+  fields.push_back(PrimitiveNode::Make("c", Repetition::REQUIRED, Type::INT32,
+                                       LogicalType::DECIMAL, -1, 3, 2));
+
   NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
 
   std::string result = Print(schema);
-  std::string expected = R"(repeated group schema {
-  required int32 a
+  std::string expected = R"(message schema {
+  required int32 a;
   optional group bag {
-    repeated group b {
-      optional int64 item1
-      required boolean item2
+    repeated group b (LIST) {
+      optional int64 item1;
+      required boolean item2;
     }
   }
+  required int32 c (DECIMAL(3,2));
 }
 )";
   ASSERT_EQ(expected, result);

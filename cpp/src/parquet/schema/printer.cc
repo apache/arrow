@@ -83,7 +83,7 @@ static void PrintType(const PrimitiveNode* node, std::ostream& stream) {
       stream << "double";
       break;
     case Type::BYTE_ARRAY:
-      stream << "byte_array";
+      stream << "binary";
       break;
     case Type::FIXED_LEN_BYTE_ARRAY:
       stream << "fixed_len_byte_array(" << node->type_length() << ")";
@@ -93,16 +93,38 @@ static void PrintType(const PrimitiveNode* node, std::ostream& stream) {
   }
 }
 
+static void PrintLogicalType(const PrimitiveNode* node, std::ostream& stream) {
+  auto lt = node->logical_type();
+  if (lt == LogicalType::DECIMAL) {
+    stream << " (" <<  LogicalTypeToString(lt) << "(" <<
+      node->decimal_metadata().precision << "," <<
+      node->decimal_metadata().scale << "))";
+  } else if (lt != LogicalType::NONE) {
+    stream << " (" << LogicalTypeToString(lt) << ")";
+  }
+}
+
 void SchemaPrinter::Visit(const PrimitiveNode* node) {
   PrintRepLevel(node->repetition(), stream_);
   stream_ << " ";
   PrintType(node, stream_);
-  stream_ << " " << node->name() << std::endl;
+  stream_ << " " << node->name();
+  PrintLogicalType(node, stream_);
+  stream_ << ";" << std::endl;
 }
 
 void SchemaPrinter::Visit(const GroupNode* node) {
-  PrintRepLevel(node->repetition(), stream_);
-  stream_ << " group " << node->name() << " {" << std::endl;
+  if (!node->parent()) {
+    stream_ << "message " << node->name() << " {" << std::endl;
+  } else {
+    PrintRepLevel(node->repetition(), stream_);
+    stream_ << " group " << node->name();
+    auto lt = node->logical_type();
+    if (lt != LogicalType::NONE) {
+      stream_ << " (" << LogicalTypeToString(lt) << ")";
+    }
+    stream_  << " {" << std::endl;
+  }
 
   indent_ += indent_width_;
   for (int i = 0; i < node->field_count(); ++i) {
