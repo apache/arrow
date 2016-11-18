@@ -144,7 +144,8 @@ class JsonReader::JsonReaderImpl {
 
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
     DCHECK_GE(i, 0) << "i out of bounds";
-    DCHECK_LT(i, record_batches_->GetArray().Size()) << "i out of bounds";
+    DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
+        << "i out of bounds";
 
     const auto& batch_val = record_batches_->GetArray()[i];
     DCHECK(batch_val.IsObject());
