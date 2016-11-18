@@ -22,6 +22,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/test-util.h"

@@ -37,6 +37,8 @@ class MemoryPool;
 
 class ARROW_EXPORT BinaryArray : public Array {
  public:
+  using TypeClass = BinaryType;
+
   BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
@@ -60,6 +62,8 @@ class ARROW_EXPORT BinaryArray : public Array {
   std::shared_ptr<Buffer> data() const { return data_buffer_; }
   std::shared_ptr<Buffer> offsets() const { return offset_buffer_; }
 
+  const int32_t* raw_offsets() const { return offsets_; }
+
   int32_t offset(int i) const { return offsets_[i]; }
 
   // Neither of these functions will perform boundschecking
@@ -73,6 +77,8 @@ class ARROW_EXPORT BinaryArray : public Array {
 
   Status Validate() const override;
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
  private:
   std::shared_ptr<Buffer> offset_buffer_;
   const int32_t* offsets_;
@@ -83,6 +89,8 @@ class ARROW_EXPORT BinaryArray : public Array {
 
 class ARROW_EXPORT StringArray : public BinaryArray {
  public:
+  using TypeClass = StringType;
+
   StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
@@ -96,6 +104,8 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   }
 
   Status Validate() const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 };
 
 // BinaryBuilder : public ListBuilder
@@ -109,6 +119,12 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return byte_builder_->Append(value, length);
   }
 
+  Status Append(const char* value, int32_t length) {
+    return Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
@@ -121,13 +137,9 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
       : BinaryBuilder(pool, type) {}
 
+  using BinaryBuilder::Append;
+
   Status Finish(std::shared_ptr<Array>* out) override;
-
-  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
-
-  Status Append(const char* value, int32_t length) {
-    return BinaryBuilder::Append(reinterpret_cast<const uint8_t*>(value), length);
-  }
 
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
 };

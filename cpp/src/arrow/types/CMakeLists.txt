@@ -21,7 +21,6 @@
 
 # Headers: top level
 install(FILES
-  collection.h
   construct.h
   datetime.h
   decimal.h

@@ -31,6 +31,8 @@ namespace arrow {
 
 class ARROW_EXPORT StructArray : public Array {
  public:
+  using TypeClass = StructType;
+
   StructArray(const TypePtr& type, int32_t length, std::vector<ArrayPtr>& field_arrays,
       int32_t null_count = 0, std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
@@ -54,6 +56,8 @@ class ARROW_EXPORT StructArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 
  protected:
   // The child arrays corresponding to each field of the struct data type.

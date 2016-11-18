@@ -24,6 +24,8 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/memory-pool.h"
@@ -48,6 +50,20 @@ class TestBuilder : public ::testing::Test {
   unique_ptr<ArrayBuilder> builder_;
   unique_ptr<ArrayBuilder> builder_nn_;
 };
+
+template <class T, class Builder>
+Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
+    int size, Builder* builder, ArrayPtr* out) {
+  // Append the first 1000
+  for (int i = 0; i < size; ++i) {
+    if (valid_bytes[i] > 0) {
+      RETURN_NOT_OK(builder->Append(values[i]));
+    } else {
+      RETURN_NOT_OK(builder->AppendNull());
+    }
+  }
+  return builder->Finish(out);
+}
 
 }  // namespace arrow
 

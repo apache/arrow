@@ -24,31 +24,10 @@
 
 #include "arrow/array.h"
 #include "arrow/type.h"
-#include "arrow/types/collection.h"
 
 namespace arrow {
 
 class Buffer;
-
-struct DenseUnionType : public CollectionType<Type::DENSE_UNION> {
-  typedef CollectionType<Type::DENSE_UNION> Base;
-
-  explicit DenseUnionType(const std::vector<TypePtr>& child_types) : Base() {
-    child_types_ = child_types;
-  }
-
-  virtual std::string ToString() const;
-};
-
-struct SparseUnionType : public CollectionType<Type::SPARSE_UNION> {
-  typedef CollectionType<Type::SPARSE_UNION> Base;
-
-  explicit SparseUnionType(const std::vector<TypePtr>& child_types) : Base() {
-    child_types_ = child_types;
-  }
-
-  virtual std::string ToString() const;
-};
 
 class UnionArray : public Array {
  protected:

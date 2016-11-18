@@ -23,18 +23,6 @@
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-
-struct ARROW_EXPORT DecimalType : public DataType {
-  explicit DecimalType(int precision_, int scale_)
-      : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
-  int precision;
-  int scale;
-  static char const* name() { return "decimal"; }
-
-  std::string ToString() const override;
-};
-
-}  // namespace arrow
+namespace arrow {}  // namespace arrow
 
 #endif  // ARROW_TYPES_DECIMAL_H

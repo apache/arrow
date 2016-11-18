@@ -155,4 +155,8 @@ void ListBuilder::Reset() {
   null_bitmap_ = nullptr;
 }
 
+Status ListArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
 }  // namespace arrow

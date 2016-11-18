@@ -39,6 +39,8 @@ class MemoryPool;
 
 class ARROW_EXPORT ListArray : public Array {
  public:
+  using TypeClass = ListType;
+
   ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
       const ArrayPtr& values, int32_t null_count = 0,
       std::shared_ptr<Buffer> null_bitmap = nullptr)
@@ -56,13 +58,13 @@ class ARROW_EXPORT ListArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   const std::shared_ptr<Array>& values() const { return values_; }
-  const std::shared_ptr<Buffer> offset_buffer() const {
+  std::shared_ptr<Buffer> offsets() const {
     return std::static_pointer_cast<Buffer>(offset_buffer_);
   }
 
   const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
 
-  const int32_t* offsets() const { return offsets_; }
+  const int32_t* raw_offsets() const { return offsets_; }
 
   int32_t offset(int i) const { return offsets_[i]; }
 
@@ -75,6 +77,8 @@ class ARROW_EXPORT ListArray : public Array {
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const ArrayPtr& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 
  protected:
   std::shared_ptr<Buffer> offset_buffer_;

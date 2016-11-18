@@ -545,6 +545,25 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
+# RapidJSON, header only dependency
+if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
+  ExternalProject_Add(rapidjson_ep
+    PREFIX "${CMAKE_BINARY_DIR}"
+    URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
+    URL_MD5 "badd12c511e081fec6c89c43a7027bce"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    BUILD_IN_SOURCE 1
+    INSTALL_COMMAND "")
+
+  ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
+  set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
+else()
+  set(RAPIDJSON_INCLUDE_DIR "$ENV{RAPIDJSON_HOME}/include")
+endif()
+message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
+include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+
 ## Google PerfTools
 ##
 ## Disabled with TSAN/ASAN as well as with gold+dynamic linking (see comment

@@ -20,13 +20,13 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-struct Field;
 
 class ARROW_EXPORT Schema {
  public:
@@ -37,7 +37,12 @@ class ARROW_EXPORT Schema {
   bool Equals(const std::shared_ptr<Schema>& other) const;
 
   // Return the ith schema element. Does not boundscheck
-  const std::shared_ptr<Field>& field(int i) const { return fields_[i]; }
+  std::shared_ptr<Field> field(int i) const { return fields_[i]; }
+
+  // Returns nullptr if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name);
+
+  const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
 
   // Render a string representation of the schema suitable for debugging
   std::string ToString() const;
@@ -46,6 +51,7 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
+  std::unordered_map<std::string, int> name_to_index_;
 };
 
 }  // namespace arrow

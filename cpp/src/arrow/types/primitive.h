@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/types/datetime.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
@@ -54,9 +55,10 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-template <class TypeClass>
+template <class TYPE>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
  public:
+  using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
   NumericArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
@@ -88,29 +90,15 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     return reinterpret_cast<const value_type*>(raw_data_);
   }
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
   value_type Value(int i) const { return raw_data()[i]; }
 };
-
-#define NUMERIC_ARRAY_DECL(NAME, TypeClass) \
-  using NAME = NumericArray<TypeClass>;     \
-  extern template class ARROW_EXPORT NumericArray<TypeClass>;
-
-NUMERIC_ARRAY_DECL(UInt8Array, UInt8Type);
-NUMERIC_ARRAY_DECL(Int8Array, Int8Type);
-NUMERIC_ARRAY_DECL(UInt16Array, UInt16Type);
-NUMERIC_ARRAY_DECL(Int16Array, Int16Type);
-NUMERIC_ARRAY_DECL(UInt32Array, UInt32Type);
-NUMERIC_ARRAY_DECL(Int32Array, Int32Type);
-NUMERIC_ARRAY_DECL(UInt64Array, UInt64Type);
-NUMERIC_ARRAY_DECL(Int64Array, Int64Type);
-NUMERIC_ARRAY_DECL(TimestampArray, TimestampType);
-NUMERIC_ARRAY_DECL(FloatArray, FloatType);
-NUMERIC_ARRAY_DECL(DoubleArray, DoubleType);
 
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
-  typedef typename Type::c_type value_type;
+  using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
       : ArrayBuilder(pool, type), data_(nullptr) {}
@@ -183,101 +171,27 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::raw_data_;
 };
 
-template <>
-struct TypeTraits<UInt8Type> {
-  typedef UInt8Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements; }
-};
-
-template <>
-struct TypeTraits<Int8Type> {
-  typedef Int8Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements; }
-};
-
-template <>
-struct TypeTraits<UInt16Type> {
-  typedef UInt16Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
-};
-
-template <>
-struct TypeTraits<Int16Type> {
-  typedef Int16Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int16_t); }
-};
-
-template <>
-struct TypeTraits<UInt32Type> {
-  typedef UInt32Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint32_t); }
-};
-
-template <>
-struct TypeTraits<Int32Type> {
-  typedef Int32Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int32_t); }
-};
-
-template <>
-struct TypeTraits<UInt64Type> {
-  typedef UInt64Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(uint64_t); }
-};
-
-template <>
-struct TypeTraits<Int64Type> {
-  typedef Int64Array ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
-};
-
-template <>
-struct TypeTraits<TimestampType> {
-  typedef TimestampArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
-};
-template <>
-
-struct TypeTraits<FloatType> {
-  typedef FloatArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(float); }
-};
-
-template <>
-struct TypeTraits<DoubleType> {
-  typedef DoubleArray ArrayType;
-
-  static inline int bytes_required(int elements) { return elements * sizeof(double); }
-};
-
 // Builders
 
-typedef NumericBuilder<UInt8Type> UInt8Builder;
-typedef NumericBuilder<UInt16Type> UInt16Builder;
-typedef NumericBuilder<UInt32Type> UInt32Builder;
-typedef NumericBuilder<UInt64Type> UInt64Builder;
+using UInt8Builder = NumericBuilder<UInt8Type>;
+using UInt16Builder = NumericBuilder<UInt16Type>;
+using UInt32Builder = NumericBuilder<UInt32Type>;
+using UInt64Builder = NumericBuilder<UInt64Type>;
 
-typedef NumericBuilder<Int8Type> Int8Builder;
-typedef NumericBuilder<Int16Type> Int16Builder;
-typedef NumericBuilder<Int32Type> Int32Builder;
-typedef NumericBuilder<Int64Type> Int64Builder;
-typedef NumericBuilder<TimestampType> TimestampBuilder;
+using Int8Builder = NumericBuilder<Int8Type>;
+using Int16Builder = NumericBuilder<Int16Type>;
+using Int32Builder = NumericBuilder<Int32Type>;
+using Int64Builder = NumericBuilder<Int64Type>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
 
-typedef NumericBuilder<FloatType> FloatBuilder;
-typedef NumericBuilder<DoubleType> DoubleBuilder;
+using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
+using FloatBuilder = NumericBuilder<FloatType>;
+using DoubleBuilder = NumericBuilder<DoubleType>;
 
 class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
+  using TypeClass = BooleanType;
+
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   BooleanArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
@@ -288,28 +202,36 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const ArrayPtr& arr) const override;
 
+  Status Accept(ArrayVisitor* visitor) const override;
+
   const uint8_t* raw_data() const { return reinterpret_cast<const uint8_t*>(raw_data_); }
 
   bool Value(int i) const { return BitUtil::GetBit(raw_data(), i); }
 };
 
-template <>
-struct TypeTraits<BooleanType> {
-  typedef BooleanArray ArrayType;
-
-  static inline int bytes_required(int elements) {
-    return BitUtil::BytesForBits(elements);
-  }
-};
-
-class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
+class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
   explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
-      : PrimitiveBuilder<BooleanType>(pool, type) {}
+      : ArrayBuilder(pool, type), data_(nullptr) {}
 
   virtual ~BooleanBuilder() {}
 
-  using PrimitiveBuilder<BooleanType>::Append;
+  using ArrayBuilder::Advance;
+
+  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  Status AppendNull() {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   // Scalar append
   Status Append(bool val) {
@@ -324,8 +246,38 @@ class ARROW_EXPORT BooleanBuilder : public PrimitiveBuilder<BooleanType> {
     return Status::OK();
   }
 
-  Status Append(uint8_t val) { return Append(static_cast<bool>(val)); }
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(
+      const uint8_t* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+  Status Init(int32_t capacity) override;
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity) override;
+
+ protected:
+  std::shared_ptr<PoolBuffer> data_;
+  uint8_t* raw_data_;
 };
+
+// Only instantiate these templates once
+extern template class ARROW_EXPORT NumericArray<Int8Type>;
+extern template class ARROW_EXPORT NumericArray<UInt8Type>;
+extern template class ARROW_EXPORT NumericArray<Int16Type>;
+extern template class ARROW_EXPORT NumericArray<UInt16Type>;
+extern template class ARROW_EXPORT NumericArray<Int32Type>;
+extern template class ARROW_EXPORT NumericArray<UInt32Type>;
+extern template class ARROW_EXPORT NumericArray<Int64Type>;
+extern template class ARROW_EXPORT NumericArray<UInt64Type>;
+extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
+extern template class ARROW_EXPORT NumericArray<FloatType>;
+extern template class ARROW_EXPORT NumericArray<DoubleType>;
+extern template class ARROW_EXPORT NumericArray<TimestampType>;
 
 }  // namespace arrow
 

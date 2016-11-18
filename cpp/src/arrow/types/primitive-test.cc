@@ -25,6 +25,7 @@
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/test-common.h"
@@ -41,15 +42,15 @@ namespace arrow {
 
 class Array;
 
-#define PRIMITIVE_TEST(KLASS, ENUM, NAME) \
-  TEST(TypesTest, TestPrimitive_##ENUM) { \
-    KLASS tp;                             \
-                                          \
-    ASSERT_EQ(tp.type, Type::ENUM);       \
-    ASSERT_EQ(tp.name(), string(NAME));   \
-                                          \
-    KLASS tp_copy = tp;                   \
-    ASSERT_EQ(tp_copy.type, Type::ENUM);  \
+#define PRIMITIVE_TEST(KLASS, ENUM, NAME)   \
+  TEST(TypesTest, TestPrimitive_##ENUM) {   \
+    KLASS tp;                               \
+                                            \
+    ASSERT_EQ(tp.type, Type::ENUM);         \
+    ASSERT_EQ(tp.ToString(), string(NAME)); \
+                                            \
+    KLASS tp_copy = tp;                     \
+    ASSERT_EQ(tp_copy.type, Type::ENUM);    \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");
@@ -243,7 +244,8 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-    PInt32, PInt64, PFloat, PDouble> Primitives;
+    PInt32, PInt64, PFloat, PDouble>
+    Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
@@ -309,20 +311,6 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   } while (false);
 
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
-}
-
-template <class T, class Builder>
-Status MakeArray(const vector<uint8_t>& valid_bytes, const vector<T>& draws, int size,
-    Builder* builder, ArrayPtr* out) {
-  // Append the first 1000
-  for (int i = 0; i < size; ++i) {
-    if (valid_bytes[i] > 0) {
-      RETURN_NOT_OK(builder->Append(draws[i]));
-    } else {
-      RETURN_NOT_OK(builder->AppendNull());
-    }
-  }
-  return builder->Finish(out);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {

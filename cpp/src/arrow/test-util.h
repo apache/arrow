@@ -27,6 +27,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
@@ -102,23 +103,69 @@ void random_real(int n, uint32_t seed, T min_value, T max_value, std::vector<T>*
 }
 
 template <typename T>
-std::shared_ptr<Buffer> to_buffer(const std::vector<T>& values) {
+std::shared_ptr<Buffer> GetBufferFromVector(const std::vector<T>& values) {
   return std::make_shared<Buffer>(
       reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T));
 }
 
+template <typename T>
+inline Status CopyBufferFromVector(
+    const std::vector<T>& values, std::shared_ptr<Buffer>* result) {
+  int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
+
+  auto buffer = std::make_shared<PoolBuffer>(default_memory_pool());
+  RETURN_NOT_OK(buffer->Resize(nbytes));
+  memcpy(buffer->mutable_data(), values.data(), nbytes);
+
+  *result = buffer;
+  return Status::OK();
+}
+
+static inline Status GetBitmapFromBoolVector(
+    const std::vector<bool>& is_valid, std::shared_ptr<Buffer>* result) {
+  int length = static_cast<int>(is_valid.size());
+
+  std::shared_ptr<MutableBuffer> buffer;
+  RETURN_NOT_OK(GetEmptyBitmap(default_memory_pool(), length, &buffer));
+
+  uint8_t* bitmap = buffer->mutable_data();
+  for (int i = 0; i < length; ++i) {
+    if (is_valid[i]) { BitUtil::SetBit(bitmap, i); }
+  }
+
+  *result = buffer;
+  return Status::OK();
+}
+
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
-void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
+static inline void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   Random rng(random_seed());
   for (int i = 0; i < n; ++i) {
     null_bytes[i] = rng.NextDoubleFraction() > pct_null;
   }
 }
 
+static inline void random_is_valid(
+    int64_t n, double pct_null, std::vector<bool>* is_valid) {
+  Random rng(random_seed());
+  for (int i = 0; i < n; ++i) {
+    is_valid->push_back(rng.NextDoubleFraction() > pct_null);
+  }
+}
+
 static inline void random_bytes(int n, uint32_t seed, uint8_t* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
+
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen) & 0xFF;
+  }
+}
+
+static inline void random_ascii(int n, uint32_t seed, uint8_t* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<int> d(65, 122);
 
   for (int i = 0; i < n; ++i) {
     out[i] = d(gen) & 0xFF;

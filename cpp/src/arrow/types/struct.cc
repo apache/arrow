@@ -87,6 +87,10 @@ Status StructArray::Validate() const {
   return Status::OK();
 }
 
+Status StructArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
 Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
   std::vector<std::shared_ptr<Array>> fields(field_builders_.size());
   for (size_t i = 0; i < field_builders_.size(); ++i) {

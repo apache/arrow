@@ -98,6 +98,11 @@ Union:
   "typeIds" : [ /* integer */ ]
 }
 ```
+
+The `typeIds` field in the Union are the codes used to denote each type, which
+may be different from the index of the child array. This is so that the union
+type ids do not have to be enumerated from 0.
+
 Int:
 ```
 {

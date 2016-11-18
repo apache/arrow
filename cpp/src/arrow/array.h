@@ -29,6 +29,8 @@
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
+class MutableBuffer;
 class Status;
 
 // Immutable data array with some logical type and some length. Any memory is
@@ -70,6 +72,8 @@ class ARROW_EXPORT Array {
   // returning Status::OK.  This can be an expensive check.
   virtual Status Validate() const;
 
+  virtual Status Accept(ArrayVisitor* visitor) const = 0;
+
  protected:
   std::shared_ptr<DataType> type_;
   int32_t null_count_;
@@ -86,6 +90,8 @@ class ARROW_EXPORT Array {
 // Degenerate null type Array
 class ARROW_EXPORT NullArray : public Array {
  public:
+  using TypeClass = NullType;
+
   NullArray(const std::shared_ptr<DataType>& type, int32_t length)
       : Array(type, length, length, nullptr) {}
 
@@ -94,9 +100,15 @@ class ARROW_EXPORT NullArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
       const std::shared_ptr<Array>& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
 };
 
 typedef std::shared_ptr<Array> ArrayPtr;
+
+Status ARROW_EXPORT GetEmptyBitmap(
+    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
+
 }  // namespace arrow
 
 #endif

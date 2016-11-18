@@ -47,7 +47,7 @@ TEST(TypesTest, BinaryType) {
 TEST(TypesTest, TestStringType) {
   StringType str;
   ASSERT_EQ(str.type, Type::STRING);
-  ASSERT_EQ(str.name(), std::string("string"));
+  ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
 // ----------------------------------------------------------------------
@@ -66,8 +66,8 @@ class TestStringContainer : public ::testing::Test {
 
   void MakeArray() {
     length_ = offsets_.size() - 1;
-    value_buf_ = test::to_buffer(chars_);
-    offsets_buf_ = test::to_buffer(offsets_);
+    value_buf_ = test::GetBufferFromVector(chars_);
+    offsets_buf_ = test::GetBufferFromVector(offsets_);
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);
 
@@ -131,7 +131,7 @@ TEST_F(TestStringContainer, TestGetString) {
 
 TEST_F(TestStringContainer, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = test::to_buffer(offsets_);
+  offsets_buf_ = test::GetBufferFromVector(offsets_);
   length_ = offsets_.size() - 1;
 
   auto strings_a = std::make_shared<StringArray>(
@@ -227,8 +227,8 @@ class TestBinaryContainer : public ::testing::Test {
 
   void MakeArray() {
     length_ = offsets_.size() - 1;
-    value_buf_ = test::to_buffer(chars_);
-    offsets_buf_ = test::to_buffer(offsets_);
+    value_buf_ = test::GetBufferFromVector(chars_);
+    offsets_buf_ = test::GetBufferFromVector(offsets_);
 
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
     null_count_ = test::null_count(valid_bytes_);

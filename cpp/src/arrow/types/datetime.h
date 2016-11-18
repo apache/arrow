@@ -22,41 +22,6 @@
 
 #include "arrow/type.h"
 
-namespace arrow {
-
-struct DateType : public DataType {
-  enum class Unit : char { DAY = 0, MONTH = 1, YEAR = 2 };
-
-  Unit unit;
-
-  explicit DateType(Unit unit = Unit::DAY) : DataType(Type::DATE), unit(unit) {}
-
-  DateType(const DateType& other) : DateType(other.unit) {}
-
-  static char const* name() { return "date"; }
-};
-
-struct ARROW_EXPORT TimestampType : public DataType {
-  enum class Unit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
-
-  typedef int64_t c_type;
-  static constexpr Type::type type_enum = Type::TIMESTAMP;
-
-  int value_size() const override { return sizeof(int64_t); }
-
-  Unit unit;
-
-  explicit TimestampType(Unit unit = Unit::MILLI)
-      : DataType(Type::TIMESTAMP), unit(unit) {}
-
-  TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
-  virtual ~TimestampType() {}
-
-  std::string ToString() const override { return "timestamp"; }
-
-  static char const* name() { return "timestamp"; }
-};
-
-}  // namespace arrow
+namespace arrow {}  // namespace arrow
 
 #endif  // ARROW_TYPES_DATETIME_H

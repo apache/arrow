@@ -106,7 +106,7 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
     buffers->push_back(binary_arr->data());
   } else if (arr->type_enum() == Type::LIST) {
     const auto list_arr = static_cast<const ListArray*>(arr);
-    buffers->push_back(list_arr->offset_buffer());
+    buffers->push_back(list_arr->offsets());
     RETURN_NOT_OK(VisitArray(
         list_arr->values().get(), field_nodes, buffers, max_recursion_depth - 1));
   } else if (arr->type_enum() == Type::STRUCT) {
