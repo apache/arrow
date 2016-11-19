@@ -24,6 +24,14 @@
 #include <string>
 #include <vector>
 
+#if defined(__MINGW32__)  // MinGW
+// nothing
+#elif defined(_MSC_VER)  // Visual Studio
+#include <io.h>
+#else  // POSIX / Linux
+// nothing
+#endif
+
 #include "arrow/io/memory.h"
 #include "arrow/test-util.h"
 #include "arrow/util/buffer.h"
@@ -43,7 +51,11 @@ class MemoryMapFixture {
   void CreateFile(const std::string path, int64_t size) {
     FILE* file = fopen(path.c_str(), "w");
     if (file != nullptr) { tmp_files_.push_back(path); }
+#ifdef _MSC_VER
+    _chsize(fileno(file), size);
+#else
     ftruncate(fileno(file), size);
+#endif
     fclose(file);
   }
 

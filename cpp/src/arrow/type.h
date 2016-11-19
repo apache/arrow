@@ -184,7 +184,7 @@ struct ARROW_EXPORT Field {
 };
 typedef std::shared_ptr<Field> FieldPtr;
 
-struct PrimitiveCType : public DataType {
+struct ARROW_EXPORT PrimitiveCType : public DataType {
   using DataType::DataType;
 };
 

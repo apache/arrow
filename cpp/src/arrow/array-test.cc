@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 #include "gtest/gtest.h"

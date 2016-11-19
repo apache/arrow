@@ -1,0 +1,22 @@
+# Operating system (build VM template)
+os: Visual Studio 2015
+
+environment:
+  matrix:
+    - GENERATOR: Visual Studio 14 2015 Win64
+    # - GENERATOR: Visual Studio 14 2015
+  MSVC_DEFAULT_OPTIONS: ON
+  BOOST_ROOT: C:\Libraries\boost_1_59_0
+  BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
+
+build_script:
+ - cd cpp
+ - mkdir build
+ - cd build
+ # A lot of features are still deactivated as they do not build on Windows
+ #  * gbenchmark doesn't build with MSVC
+ - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF ..
+ - cmake --build . --config Debug
+
+# test_script:
+#  - ctest -VV

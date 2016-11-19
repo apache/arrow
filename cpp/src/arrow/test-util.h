@@ -59,6 +59,14 @@
     EXPECT_TRUE(s.ok());        \
   } while (0)
 
+// Alias MSVC popcount to GCC name
+#ifdef _MSC_VER
+#  include <intrin.h>
+#  define __builtin_popcount __popcnt
+#  include <nmmintrin.h>
+#  define __builtin_popcountll _mm_popcnt_u64
+#endif
+
 namespace arrow {
 
 class TestBase : public ::testing::Test {
