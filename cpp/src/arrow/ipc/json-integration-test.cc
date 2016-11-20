@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,23 +22,15 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "gflags/gflags.h"
 #include "gtest/gtest.h"
 
-#include "arrow/array.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/file.h"
 #include "arrow/ipc/json.h"
+#include "arrow/schema.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
-#include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
