@@ -93,6 +93,7 @@ if (APPLE)
     arrow_io
     arrow_ipc
     gflags
+    gtest
     dl)
   set_target_properties(json-integration-test
     PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
@@ -102,6 +103,7 @@ else()
     arrow_io
     arrow_ipc
     gflags
+    gtest
     pthread
     dl)
 endif()
