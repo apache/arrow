@@ -148,9 +148,7 @@ static Status ValidateArrowVsJson(
        << "Arrow schema: \n"
        << arrow_schema->ToString();
 
-    if (FLAGS_verbose) {
-      std::cout << ss.str() << std::endl;
-    }
+    if (FLAGS_verbose) { std::cout << ss.str() << std::endl; }
     return Status::Invalid("Schemas did not match");
   }
 
@@ -233,8 +231,8 @@ class TestJSONIntegration : public ::testing::Test {
     do {
       std::shared_ptr<io::FileOutputStream> out;
       RETURN_NOT_OK(io::FileOutputStream::Open(path, &out));
-      RETURN_NOT_OK(out->Write(reinterpret_cast<const uint8_t*>(data),
-              static_cast<int64_t>(strlen(data))));
+      RETURN_NOT_OK(out->Write(
+          reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(strlen(data))));
     } while (0);
     return Status::OK();
   }
@@ -366,15 +364,18 @@ TEST_F(TestJSONIntegration, ErrorStates) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  int ret = 0;
+
   if (FLAGS_integration) {
     arrow::Status result = arrow::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
     if (!result.ok()) {
       std::cout << "Error message: " << result.ToString() << std::endl;
-      return 1;
+      ret = 1;
     }
   } else {
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    ret = RUN_ALL_TESTS();
   }
-  return 0;
+  gflags::ShutDownCommandLineFlags();
+  return ret;
 }

@@ -518,7 +518,9 @@ if(ARROW_BUILD_TESTS)
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     ExternalProject_Add(gflags_ep
-      URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz"
+      GIT_REPOSITORY https://github.com/gflags/gflags.git
+      GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+      # URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz"
       BUILD_IN_SOURCE 1
       CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                  -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
@@ -526,7 +528,6 @@ if(ARROW_BUILD_TESTS)
                  -DBUILD_STATIC_LIBS=ON
                  -DBUILD_PACKAGING=OFF
                  -DBUILD_TESTING=OFF
-                 -DBUILD_NC_TESTS=OFF
                  -BUILD_CONFIG_TESTS=OFF
                  -DINSTALL_HEADERS=ON
                  -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
