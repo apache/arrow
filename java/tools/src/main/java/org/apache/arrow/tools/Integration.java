@@ -220,6 +220,7 @@ public class Integration {
 
   private static void fatalError(String message, Throwable e) {
     System.err.println(message);
+    System.err.println(e.getMessage());
     LOGGER.error(message, e);
     System.exit(1);
   }
