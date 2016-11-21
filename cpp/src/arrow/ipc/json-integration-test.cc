@@ -332,15 +332,15 @@ TEST_F(TestJSONIntegration, ConvertAndValidate) {
 
   ASSERT_OK(WriteJson(JSON_EXAMPLE, json_path));
 
-  ASSERT_OK(ConvertJsonToArrow(json_path, arrow_path));
-  ASSERT_OK(ValidateArrowVsJson(arrow_path, json_path));
+  ASSERT_OK(RunCommand(json_path, arrow_path, "JSON_TO_ARROW"));
+  ASSERT_OK(RunCommand(json_path, arrow_path, "VALIDATE"));
 
   // Convert and overwrite
-  ASSERT_OK(ConvertArrowToJson(arrow_path, json_path));
+  ASSERT_OK(RunCommand(json_path, arrow_path, "ARROW_TO_JSON"));
 
   // Convert back to arrow, and validate
-  ASSERT_OK(ConvertJsonToArrow(json_path, arrow_path));
-  ASSERT_OK(ValidateArrowVsJson(arrow_path, json_path));
+  ASSERT_OK(RunCommand(json_path, arrow_path, "JSON_TO_ARROW"));
+  ASSERT_OK(RunCommand(json_path, arrow_path, "VALIDATE"));
 }
 
 TEST_F(TestJSONIntegration, ErrorStates) {
@@ -356,6 +356,9 @@ TEST_F(TestJSONIntegration, ErrorStates) {
 
   ASSERT_RAISES(IOError, ValidateArrowVsJson("does_not_exist-1234", json_path2));
   ASSERT_RAISES(IOError, ValidateArrowVsJson(arrow_path, "does_not_exist-1234"));
+
+  ASSERT_RAISES(Invalid, RunCommand("", arrow_path, "VALIDATE"));
+  ASSERT_RAISES(Invalid, RunCommand(json_path, "", "VALIDATE"));
 }
 
 }  // namespace arrow
