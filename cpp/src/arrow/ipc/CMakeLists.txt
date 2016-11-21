@@ -94,6 +94,8 @@ if (APPLE)
     arrow_ipc
     gflags
     gtest
+    boost_filesystem_static
+    boost_system_static
     dl)
   set_target_properties(json-integration-test
     PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
@@ -105,6 +107,8 @@ else()
     gflags
     gtest
     pthread
+    boost_filesystem_static
+    boost_system_static
     dl)
 endif()
 

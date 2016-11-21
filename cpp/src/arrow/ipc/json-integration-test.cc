@@ -26,11 +26,14 @@
 #include "gflags/gflags.h"
 #include "gtest/gtest.h"
 
+#include <boost/filesystem.hpp>  // NOLINT
+
 #include "arrow/io/file.h"
 #include "arrow/ipc/file.h"
 #include "arrow/ipc/json.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
+#include "arrow/test-util.h"
 #include "arrow/util/status.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
@@ -38,6 +41,9 @@ DEFINE_string(json, "", "JSON file name");
 DEFINE_string(mode, "VALIDATE",
     "Mode of integration testing tool (ARROW_TO_JSON, JSON_TO_ARROW, VALIDATE)");
 DEFINE_bool(unittest, false, "Run integration test self unit tests");
+DEFINE_bool(verbose, false, "Verbose output");
+
+namespace fs = boost::filesystem;
 
 namespace arrow {
 
@@ -64,7 +70,9 @@ static Status ConvertJsonToArrow(
   std::unique_ptr<ipc::JsonReader> reader;
   RETURN_NOT_OK(ipc::JsonReader::Open(json_buffer, &reader));
 
-  std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+  if (FLAGS_verbose) {
+    std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+  }
 
   std::shared_ptr<ipc::FileWriter> writer;
   RETURN_NOT_OK(ipc::FileWriter::Open(out_file.get(), reader->schema(), &writer));
@@ -89,7 +97,9 @@ static Status ConvertArrowToJson(
   std::shared_ptr<ipc::FileReader> reader;
   RETURN_NOT_OK(ipc::FileReader::Open(in_file, &reader));
 
-  std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+  if (FLAGS_verbose) {
+    std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+  }
 
   std::unique_ptr<ipc::JsonWriter> writer;
   RETURN_NOT_OK(ipc::JsonWriter::Open(reader->schema(), &writer));
@@ -138,7 +148,9 @@ static Status ValidateArrowVsJson(
        << "Arrow schema: \n"
        << arrow_schema->ToString();
 
-    std::cout << ss.str() << std::endl;
+    if (FLAGS_verbose) {
+      std::cout << ss.str() << std::endl;
+    }
     return Status::Invalid("Schemas did not match");
   }
 
@@ -201,6 +213,149 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
     ss << "Unknown command: " << command;
     return Status::Invalid(ss.str());
   }
+}
+
+static std::string temp_path() {
+  return (fs::temp_directory_path() / fs::unique_path()).native();
+}
+
+class TestJSONIntegration : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  std::string mkstemp() {
+    auto path = temp_path();
+    tmp_paths_.push_back(path);
+    return path;
+  }
+
+  Status WriteJson(const char* data, const std::string& path) {
+    do {
+      std::shared_ptr<io::FileOutputStream> out;
+      RETURN_NOT_OK(io::FileOutputStream::Open(path, &out));
+      RETURN_NOT_OK(out->Write(reinterpret_cast<const uint8_t*>(data),
+              static_cast<int64_t>(strlen(data))));
+    } while (0);
+    return Status::OK();
+  }
+
+  void TearDown() {
+    for (const std::string path : tmp_paths_) {
+      std::remove(path.c_str());
+    }
+  }
+
+ protected:
+  std::vector<std::string> tmp_paths_;
+};
+
+static const char* JSON_EXAMPLE = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "foo",
+        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
+        "nullable": true, "children": [],
+        "typeLayout": [
+          {"type": "VALIDITY", "typeBitWidth": 1},
+          {"type": "DATA", "typeBitWidth": 32}
+        ]
+      },
+      {
+        "name": "bar",
+        "type": {"name": "floatingpoint", "precision": "DOUBLE"},
+        "nullable": true, "children": [],
+        "typeLayout": [
+          {"type": "VALIDITY", "typeBitWidth": 1},
+          {"type": "DATA", "typeBitWidth": 64}
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "DATA": [1, 2, 3, 4, 5],
+          "VALIDITY": [1, 0, 1, 1, 1]
+        },
+        {
+          "name": "bar",
+          "count": 5,
+          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0],
+          "VALIDITY": [1, 0, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+static const char* JSON_EXAMPLE2 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "foo",
+        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
+        "nullable": true, "children": [],
+        "typeLayout": [
+          {"type": "VALIDITY", "typeBitWidth": 1},
+          {"type": "DATA", "typeBitWidth": 32}
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "DATA": [1, 2, 3, 4, 5],
+          "VALIDITY": [1, 0, 1, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+TEST_F(TestJSONIntegration, ConvertAndValidate) {
+  std::string json_path = this->mkstemp();
+  std::string arrow_path = this->mkstemp();
+
+  ASSERT_OK(WriteJson(JSON_EXAMPLE, json_path));
+
+  ASSERT_OK(ConvertJsonToArrow(json_path, arrow_path));
+  ASSERT_OK(ValidateArrowVsJson(arrow_path, json_path));
+
+  // Convert and overwrite
+  ASSERT_OK(ConvertArrowToJson(arrow_path, json_path));
+
+  // Convert back to arrow, and validate
+  ASSERT_OK(ConvertJsonToArrow(json_path, arrow_path));
+  ASSERT_OK(ValidateArrowVsJson(arrow_path, json_path));
+}
+
+TEST_F(TestJSONIntegration, ErrorStates) {
+  std::string json_path = this->mkstemp();
+  std::string json_path2 = this->mkstemp();
+  std::string arrow_path = this->mkstemp();
+
+  ASSERT_OK(WriteJson(JSON_EXAMPLE, json_path));
+  ASSERT_OK(WriteJson(JSON_EXAMPLE2, json_path2));
+
+  ASSERT_OK(ConvertJsonToArrow(json_path, arrow_path));
+  ASSERT_RAISES(Invalid, ValidateArrowVsJson(arrow_path, json_path2));
+
+  ASSERT_RAISES(IOError, ValidateArrowVsJson("does_not_exist-1234", json_path2));
+  ASSERT_RAISES(IOError, ValidateArrowVsJson(arrow_path, "does_not_exist-1234"));
 }
 
 }  // namespace arrow
