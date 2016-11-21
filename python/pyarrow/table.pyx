@@ -36,9 +36,13 @@ from pyarrow.compat import frombytes, tobytes
 cimport cpython
 
 cdef class ChunkedArray:
-    '''
+    """
+    Array backed via one or more memory chunks.
+
+    Warning
+    -------
     Do not call this class's constructor directly.
-    '''
+    """
 
     def __cinit__(self):
         self.chunked_array = NULL
@@ -59,19 +63,42 @@ cdef class ChunkedArray:
     def __len__(self):
         return self.length()
 
-    property null_count:
+    @property
+    def null_count(self):
+        """
+        Number of null entires
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.chunked_array.null_count()
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.chunked_array.null_count()
 
-    property num_chunks:
+    @property
+    def num_chunks(self):
+        """
+        Number of underlying chunks
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.chunked_array.num_chunks()
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.chunked_array.num_chunks()
 
     def chunk(self, i):
+        """
+        Select a chunk by its index
+
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.array.Array
+        """
         self._check_nullptr()
         return box_arrow_array(self.chunked_array.chunk(i))
 
@@ -82,9 +109,13 @@ cdef class ChunkedArray:
 
 
 cdef class Column:
-    '''
+    """
+    Named vector of elements of equal type.
+
+    Warning
+    -------
     Do not call this class's constructor directly.
-    '''
+    """
 
     def __cinit__(self):
         self.column = NULL
@@ -95,7 +126,11 @@ cdef class Column:
 
     def to_pandas(self):
         """
-        Convert the arrow::Column to a pandas Series
+        Convert the arrow::Column to a pandas.Series
+
+        Returns
+        -------
+        pandas.Series
         """
         cdef:
             PyObject* arr
@@ -120,34 +155,64 @@ cdef class Column:
         self._check_nullptr()
         return self.column.length()
 
-    property shape:
+    @property
+    def shape(self):
+        """
+        Dimensions of this columns
 
-        def __get__(self):
-            self._check_nullptr()
-            return (self.length(),)
+        Returns
+        -------
+        (int,)
+        """
+        self._check_nullptr()
+        return (self.length(),)
 
-    property null_count:
+    @property
+    def null_count(self):
+        """
+        Number of null entires
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.column.null_count()
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.column.null_count()
 
-    property name:
+    @property
+    def name(self):
+        """
+        Label of the column
 
-        def __get__(self):
-            return frombytes(self.column.name())
+        Returns
+        -------
+        str
+        """
+        return frombytes(self.column.name())
 
-    property type:
+    @property
+    def type(self):
+        """
+        Type information for this column
 
-        def __get__(self):
-            return box_data_type(self.column.type())
+        Returns
+        -------
+        pyarrow.schema.DataType
+        """
+        return box_data_type(self.column.type())
 
-    property data:
+    @property
+    def data(self):
+        """
+        The underlying data
 
-        def __get__(self):
-            cdef ChunkedArray chunked_array = ChunkedArray()
-            chunked_array.init(self.column.data())
-            return chunked_array
+        Returns
+        -------
+        pyarrow.table.ChunkedArray
+        """
+        cdef ChunkedArray chunked_array = ChunkedArray()
+        chunked_array.init(self.column.data())
+        return chunked_array
 
 
 cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
@@ -186,6 +251,13 @@ cdef _dataframe_to_arrays(df, name, timestamps_to_ms):
 
 
 cdef class RecordBatch:
+    """
+    Batch of rows of columns of equal length
+
+    Warning
+    -------
+    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    """
 
     def __cinit__(self):
         self.batch = NULL
@@ -203,28 +275,48 @@ cdef class RecordBatch:
         self._check_nullptr()
         return self.batch.num_rows()
 
-    property num_columns:
+    @property
+    def num_columns(self):
+        """
+        Number of columns
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.batch.num_columns()
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.batch.num_columns()
 
-    property num_rows:
+    @property
+    def num_rows(self):
+        """
+        Number of rows
 
-        def __get__(self):
-            return len(self)
+        Due to the definition of a RecordBatch, all columns have the same number of rows.
 
-    property schema:
+        Returns
+        -------
+        int
+        """
+        return len(self)
 
-        def __get__(self):
-            cdef Schema schema
-            self._check_nullptr()
-            if self._schema is None:
-                schema = Schema()
-                schema.init_schema(self.batch.schema())
-                self._schema = schema
+    @property
+    def schema(self):
+        """
+        Schema of the RecordBatch and its columns
 
-            return self._schema
+        Returns
+        -------
+        pyarrow.schema.Schema
+        """
+        cdef Schema schema
+        self._check_nullptr()
+        if self._schema is None:
+            schema = Schema()
+            schema.init_schema(self.batch.schema())
+            self._schema = schema
+
+        return self._schema
 
     def __getitem__(self, i):
         cdef Array arr = Array()
@@ -240,6 +332,10 @@ cdef class RecordBatch:
     def to_pandas(self):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
+
+        Returns
+        -------
+        pandas.DataFrame
         """
         cdef:
             PyObject* np_arr
@@ -263,12 +359,34 @@ cdef class RecordBatch:
     def from_pandas(cls, df):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
+
+        Parameters
+        ----------
+        df: pandas.DataFrame
+
+        Returns
+        -------
+        pyarrow.table.RecordBatch
         """
         names, arrays = _dataframe_to_arrays(df, None, False)
         return cls.from_arrays(names, arrays)
 
     @staticmethod
     def from_arrays(names, arrays):
+        """
+        Construct a RecordBatch from multiple pyarrow.Arrays
+
+        Parameters
+        ----------
+        names: list of str
+            Labels for the columns
+        arrays: list of pyarrow.Array
+            column-wise data vectors
+
+        Returns
+        -------
+        pyarrow.table.RecordBatch
+        """
         cdef:
             Array arr
             RecordBatch result
@@ -297,11 +415,13 @@ cdef class RecordBatch:
 
 
 cdef class Table:
-    '''
+    """
     A collection of top-level named, equal length Arrow arrays.
 
-    Do not call this class's constructor directly.
-    '''
+    Warning
+    -------
+    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    """
 
     def __cinit__(self):
         self.table = NULL
@@ -330,6 +450,22 @@ cdef class Table:
             Convert datetime columns to ms resolution. This is needed for
             compability with other functionality like Parquet I/O which
             only supports milliseconds.
+
+        Returns
+        -------
+        pyarrow.table.Table
+
+        Examples
+        --------
+
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({
+            ...     'int': [1, 2],
+            ...     'str': ['a', 'b']
+            ... })
+        >>> pa.table.from_pandas_dataframe(df)
+        <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
         names, arrays = _dataframe_to_arrays(df, name=name,
                                              timestamps_to_ms=timestamps_to_ms)
@@ -347,8 +483,13 @@ cdef class Table:
             Names for the table columns
         arrays: list of pyarrow.array.Array
             Equal-length arrays that should form the table.
-        name: str
-            (optional) name for the Table
+        name: str, optional
+            name for the Table
+
+        Returns
+        -------
+        pyarrow.table.Table
+
         """
         cdef:
             Array arr
@@ -382,6 +523,10 @@ cdef class Table:
     def to_pandas(self):
         """
         Convert the arrow::Table to a pandas DataFrame
+
+        Returns
+        -------
+        pandas.DataFrame
         """
         cdef:
             PyObject* arr
@@ -402,18 +547,41 @@ cdef class Table:
 
         return pd.DataFrame(dict(zip(names, data)), columns=names)
 
-    property name:
+    @property
+    def name(self):
+        """
+        Label of the table
 
-        def __get__(self):
-            self._check_nullptr()
-            return frombytes(self.table.name())
+        Returns
+        -------
+        str
+        """
+        self._check_nullptr()
+        return frombytes(self.table.name())
 
-    property schema:
+    @property
+    def schema(self):
+        """
+        Schema of the table and its columns
 
-        def __get__(self):
-            raise box_schema(self.table.schema())
+        Returns
+        -------
+        pyarrow.schema.Schema
+        """
+        return box_schema(self.table.schema())
 
     def column(self, index):
+        """
+        Select a column by its numeric index.
+
+        Parameters
+        ----------
+        index: int
+
+        Returns
+        -------
+        pyarrow.table.Column
+        """
         self._check_nullptr()
         cdef Column column = Column()
         column.init(self.table.column(index))
@@ -423,28 +591,51 @@ cdef class Table:
         return self.column(i)
 
     def itercolumns(self):
+        """
+        Iterator over all columns in their numerical order
+        """
         for i in range(self.num_columns):
             yield self.column(i)
 
-    property num_columns:
+    @property
+    def num_columns(self):
+        """
+        Number of columns in this table
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.table.num_columns()
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.table.num_columns()
 
-    property num_rows:
+    @property
+    def num_rows(self):
+        """
+        Number of rows in this table.
 
-        def __get__(self):
-            self._check_nullptr()
-            return self.table.num_rows()
+        Due to the definition of a table, all columns have the same number of rows.
+
+        Returns
+        -------
+        int
+        """
+        self._check_nullptr()
+        return self.table.num_rows()
 
     def __len__(self):
         return self.num_rows
 
-    property shape:
+    @property
+    def shape(self):
+        """
+        Dimensions of the table: (#rows, #columns)
 
-        def __get__(self):
-            return (self.num_rows, self.num_columns)
+        Returns
+        -------
+        (int, int)
+        """
+        return (self.num_rows, self.num_columns)
 
 
 
