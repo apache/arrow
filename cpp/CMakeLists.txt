@@ -26,6 +26,7 @@ include(ExternalProject)
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
+set(GFLAGS_VERSION "2.1.2")
 set(GTEST_VERSION "1.7.0")
 set(GBENCHMARK_VERSION "1.0.0")
 set(FLATBUFFERS_VERSION "1.3.0")
@@ -505,6 +506,49 @@ if(ARROW_BUILD_TESTS)
 
   if(GTEST_VENDORED)
     add_dependencies(gtest googletest_ep)
+  endif()
+
+  # gflags (formerly Googleflags) command line parsing
+  if("$ENV{GFLAGS_HOME}" STREQUAL "")
+    if(APPLE)
+      set(GFLAGS_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
+    else()
+      set(GFLAGS_CMAKE_CXX_FLAGS "-fPIC")
+    endif()
+
+    set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
+    ExternalProject_Add(gflags_ep
+      GIT_REPOSITORY https://github.com/gflags/gflags.git
+      GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+      # URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz"
+      BUILD_IN_SOURCE 1
+      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                 -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
+                 -DBUILD_SHARED_LIBS=OFF
+                 -DBUILD_STATIC_LIBS=ON
+                 -DBUILD_PACKAGING=OFF
+                 -DBUILD_TESTING=OFF
+                 -BUILD_CONFIG_TESTS=OFF
+                 -DINSTALL_HEADERS=ON
+                 -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
+
+    set(GFLAGS_HOME "${GFLAGS_PREFIX}")
+    set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
+    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    set(GFLAGS_VENDORED 1)
+  else()
+    set(GFLAGS_VENDORED 0)
+    find_package(GFlags REQUIRED)
+  endif()
+
+  message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
+  message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
+  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(gflags
+    STATIC_LIB ${GFLAGS_STATIC_LIB})
+
+  if(GFLAGS_VENDORED)
+    add_dependencies(gflags gflags_ep)
   endif()
 endif()
 

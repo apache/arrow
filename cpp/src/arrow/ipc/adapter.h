@@ -16,7 +16,7 @@
 // under the License.
 
 // Public API for writing and accessing (with zero copy, if possible) Arrow
-// data in shared memory
+// IPC binary formatted data (e.g. in shared memory, or from some other IO source)
 
 #ifndef ARROW_IPC_ADAPTER_H
 #define ARROW_IPC_ADAPTER_H

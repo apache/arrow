@@ -85,6 +85,33 @@ ADD_ARROW_TEST(ipc-json-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-json-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
+ADD_ARROW_TEST(json-integration-test)
+
+if (APPLE)
+  target_link_libraries(json-integration-test
+    arrow_static
+    arrow_io
+    arrow_ipc
+    gflags
+    gtest
+    boost_filesystem_static
+    boost_system_static
+    dl)
+  set_target_properties(json-integration-test
+    PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+else()
+  target_link_libraries(json-integration-test
+    arrow_static
+    arrow_io
+    arrow_ipc
+    gflags
+    gtest
+    pthread
+    boost_filesystem_static
+    boost_system_static
+    dl)
+endif()
+
 # make clean will delete the generated file
 set_source_files_properties(Metadata_generated.h PROPERTIES GENERATED TRUE)
 
