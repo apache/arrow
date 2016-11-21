@@ -40,8 +40,8 @@ DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");
 DEFINE_string(mode, "VALIDATE",
     "Mode of integration testing tool (ARROW_TO_JSON, JSON_TO_ARROW, VALIDATE)");
-DEFINE_bool(unittest, false, "Run integration test self unit tests");
-DEFINE_bool(verbose, false, "Verbose output");
+DEFINE_bool(integration, false, "Run in integration test mode");
+DEFINE_bool(verbose, true, "Verbose output");
 
 namespace fs = boost::filesystem;
 
@@ -366,16 +366,15 @@ TEST_F(TestJSONIntegration, ErrorStates) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  if (FLAGS_unittest) {
+  if (FLAGS_integration) {
+    arrow::Status result = arrow::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
+    if (!result.ok()) {
+      std::cout << "Error message: " << result.ToString() << std::endl;
+      return 1;
+    }
+  } else {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
   }
-
-  arrow::Status result = arrow::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
-  if (!result.ok()) {
-    std::cout << "Error message: " << result.ToString() << std::endl;
-    return 1;
-  }
-
   return 0;
 }

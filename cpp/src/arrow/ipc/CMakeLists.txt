@@ -85,7 +85,7 @@ ADD_ARROW_TEST(ipc-json-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-json-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
-add_executable(json-integration-test json-integration-test.cc)
+ADD_ARROW_TEST(json-integration-test)
 
 if (APPLE)
   target_link_libraries(json-integration-test

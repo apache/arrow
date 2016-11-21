@@ -34,7 +34,4 @@ make lint
 
 ctest -VV -L unittest
 
-# Also run the integration tests self tests
-debug/json-integration-test --unittest --verbose
-
 popd
