@@ -284,19 +284,23 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
         "name": "foo",
         "type": {"name": "int", "isSigned": true, "bitWidth": 32},
         "nullable": true, "children": [],
-        "typeLayout": [
-          {"type": "VALIDITY", "typeBitWidth": 1},
-          {"type": "DATA", "typeBitWidth": 32}
-        ]
+        "typeLayout": {
+          "vectors": [
+            {"type": "VALIDITY", "typeBitWidth": 1},
+            {"type": "DATA", "typeBitWidth": 32}
+          ]
+        }
       },
       {
         "name": "bar",
         "type": {"name": "floatingpoint", "precision": "DOUBLE"},
         "nullable": true, "children": [],
-        "typeLayout": [
-          {"type": "VALIDITY", "typeBitWidth": 1},
-          {"type": "DATA", "typeBitWidth": 64}
-        ]
+        "typeLayout": {
+          "vectors": [
+            {"type": "VALIDITY", "typeBitWidth": 1},
+            {"type": "DATA", "typeBitWidth": 64}
+          ]
+        }
       }
     ]
   },

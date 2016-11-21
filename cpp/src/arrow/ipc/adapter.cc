@@ -398,7 +398,10 @@ Status RecordBatchReader::Open(io::ReadableFileInterface* file, int64_t offset,
   int32_t metadata_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
   if (metadata_size + static_cast<int>(sizeof(int32_t)) > offset) {
-    return Status::Invalid("metadata size invalid");
+    std::stringstream ss;
+    ss << "metadata size " << metadata_size
+       << " invalid. File offset: " << offset;
+    return Status::Invalid(ss.str());
   }
 
   // Read the metadata

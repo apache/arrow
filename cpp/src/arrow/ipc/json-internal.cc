@@ -261,6 +261,8 @@ class JsonSchemaWriter : public TypeVisitor {
 
   void WriteBufferLayout(const std::vector<BufferLayout>& buffer_layout) {
     writer_->Key("typeLayout");
+    writer_->StartObject();
+    writer_->Key("vectors");
     writer_->StartArray();
 
     for (const BufferLayout& buffer : buffer_layout) {
@@ -274,6 +276,7 @@ class JsonSchemaWriter : public TypeVisitor {
       writer_->EndObject();
     }
     writer_->EndArray();
+    writer_->EndObject();
   }
 
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {
