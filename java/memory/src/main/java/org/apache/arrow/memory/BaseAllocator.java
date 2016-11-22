@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
@@ -37,14 +36,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
 
-  private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
-  private static final int CHUNK_SIZE = AllocationManager.INNER_ALLOCATOR.getChunkSize();
-
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled()
       || Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
 
+  private final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final ArrowByteBufAllocator thisAsByteBufAllocator;
   private final IdentityHashMap<BaseAllocator, Object> childAllocators;
@@ -62,11 +59,30 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final HistoricalLog historicalLog;
 
   protected BaseAllocator(
+      final AllocationListener listener,
+      final String name,
+      final long initReservation,
+      final long maxAllocation) throws OutOfMemoryException {
+    this(listener, null, name, initReservation, maxAllocation);
+  }
+
+  protected BaseAllocator(
+      final BaseAllocator parentAllocator,
+      final String name,
+      final long initReservation,
+      final long maxAllocation) throws OutOfMemoryException {
+    this(parentAllocator.listener, parentAllocator, name, initReservation, maxAllocation);
+  }
+
+  private BaseAllocator(
+      final AllocationListener listener,
       final BaseAllocator parentAllocator,
       final String name,
       final long initReservation,
       final long maxAllocation) throws OutOfMemoryException {
     super(parentAllocator, initReservation, maxAllocation);
+
+    this.listener = listener;
 
     if (parentAllocator != null) {
       this.root = parentAllocator.root;
@@ -192,7 +208,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private ArrowBuf createEmpty(){
     assertOpen();
 
-    return new ArrowBuf(new AtomicInteger(), null, AllocationManager.INNER_ALLOCATOR.empty, null, null, 0, 0, true);
+    return new ArrowBuf(new AtomicInteger(), null, AllocationManager.EMPTY, null, null, 0, 0, true);
   }
 
   @Override
@@ -206,7 +222,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     // round to next largest power of two if we're within a chunk since that is how our allocator operates
-    final int actualRequestSize = initialRequestSize < CHUNK_SIZE ?
+    final int actualRequestSize = initialRequestSize < AllocationManager.CHUNK_SIZE ?
         nextPowerOfTwo(initialRequestSize)
         : initialRequestSize;
     AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
@@ -218,6 +234,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     try {
       ArrowBuf buffer = bufferWithoutReservation(actualRequestSize, manager);
       success = true;
+      listener.onAllocation(actualRequestSize);
       return buffer;
     } finally {
       if (!success) {
@@ -405,6 +422,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       try {
         final ArrowBuf arrowBuf = BaseAllocator.this.bufferWithoutReservation(nBytes, null);
 
+        listener.onAllocation(nBytes);
         if (DEBUG) {
           historicalLog.recordEvent("allocate() => %s", String.format("ArrowBuf[%d]", arrowBuf.getId()));
         }
