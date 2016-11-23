@@ -597,14 +597,10 @@ class ArrowDeserializer {
 
   Status Convert(PyObject** out) {
     const std::shared_ptr<arrow::ChunkedArray> data = col_->data();
-    if (data->num_chunks() > 1) {
-      return Status::NotImplemented("Chunked column conversion NYI");
-    }
 
-    auto chunk = data->chunk(0);
-
-    RETURN_NOT_OK(ConvertValues<TYPE>(chunk));
+    RETURN_NOT_OK(ConvertValues<TYPE>(data));
     *out = reinterpret_cast<PyObject*>(out_);
+
     return Status::OK();
   }
 
@@ -634,7 +630,7 @@ class ArrowDeserializer {
 
     if (out_ == NULL) {
       // Error occurred, trust that SimpleNew set the error state
-      return Status::OK();
+      return Status::OK();//Invalid("Error in PyArray_SimpleNewFromData");
     }
 
     set_numpy_metadata(type, col_->type().get(), out_);
@@ -654,27 +650,54 @@ class ArrowDeserializer {
   }
 
   template <int T2>
-  inline typename std::enable_if<
-    arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
-  ConvertValues(const std::shared_ptr<Array>& arr) {
+  Status ConvertValuesZeroCopy(std::shared_ptr<Array> arr) {
     typedef typename arrow_traits<T2>::T T;
 
     arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
         arr.get());
     const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
-    if (arr->null_count() > 0) {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
+    // Zero-Copy. We can pass the data pointer directly to NumPy.
+    void* data = const_cast<T*>(in_values);
+    int type = arrow_traits<TYPE>::npy_type;
+    RETURN_NOT_OK(OutputFromData(type, data));
 
-      T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_));
-      for (int64_t i = 0; i < arr->length(); ++i) {
-        out_values[i] = arr->IsNull(i) ? arrow_traits<T2>::na_value : in_values[i];
+    return Status::OK();
+  }
+
+  template <int T2>
+  inline typename std::enable_if<
+    arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
+    typedef typename arrow_traits<T2>::T T;
+    bool has_null_values = data->null_count() > 0;
+    size_t chunk_offset = 0;
+
+    if (data->num_chunks() == 1 && !has_null_values) {
+      return ConvertValuesZeroCopy<TYPE>(data->chunk(0));
+    }
+
+    RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
+
+    for (int c = 0; c < data->num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data->chunk(c);
+      arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
+          arr.get());
+      const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+      T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
+
+      if (has_null_values) {
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          out_values[i] = arr->IsNull(i) ? arrow_traits<T2>::na_value : in_values[i];
+        }
+      } else {
+        // TODO - copy entire chunck?
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          out_values[i] = in_values[i];
+        }
       }
-    } else {
-      // Zero-Copy. We can pass the data pointer directly to NumPy.
-      void* data = const_cast<T*>(in_values);
-      int type = arrow_traits<TYPE>::npy_type;
-      RETURN_NOT_OK(OutputFromData(type, data));
+
+      chunk_offset += arr->length();
     }
 
     return Status::OK();
@@ -684,27 +707,37 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_pandas_numeric_not_nullable, Status>::type
-  ConvertValues(const std::shared_ptr<Array>& arr) {
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
     typedef typename arrow_traits<T2>::T T;
+    bool has_null_values = data->null_count() > 0;
+    size_t chunk_offset = 0;
 
-    arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-        arr.get());
+    if (data->num_chunks() == 1 && !has_null_values) {
+      return ConvertValuesZeroCopy<TYPE>(data->chunk(0));
+    }
 
-    const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    // TODO - why cast to double?
+    RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
 
-    if (arr->null_count() > 0) {
-      RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
-
+    for (int c = 0; c < data->num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data->chunk(c);
+      arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
+          arr.get());
+      const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
       // Upcast to double, set NaN as appropriate
-      double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_));
-      for (int i = 0; i < arr->length(); ++i) {
-        out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
+      double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_)) + chunk_offset;
+
+      if (arr->null_count() > 0) {
+        for (int i = 0; i < arr->length(); ++i) {
+          out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
+        }
+      } else {
+        for (int i = 0; i < arr->length(); ++i) {
+          out_values[i] = in_values[i];
+        }
       }
-    } else {
-      // Zero-Copy. We can pass the data pointer directly to NumPy.
-      void* data = const_cast<T*>(in_values);
-      int type = arrow_traits<TYPE>::npy_type;
-      RETURN_NOT_OK(OutputFromData(type, data));
+
+      chunk_offset += arr->length();
     }
 
     return Status::OK();
@@ -714,35 +747,48 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     arrow_traits<T2>::is_boolean, Status>::type
-  ConvertValues(const std::shared_ptr<Array>& arr) {
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
+    size_t chunk_offset = 0;
     PyAcquireGIL lock;
 
-    arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
-
-    if (arr->null_count() > 0) {
+    if (data->null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
 
-      PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
-      for (int64_t i = 0; i < arr->length(); ++i) {
-        if (bool_arr->IsNull(i)) {
-          Py_INCREF(Py_None);
-          out_values[i] = Py_None;
-        } else if (bool_arr->Value(i)) {
-          // True
-          Py_INCREF(Py_True);
-          out_values[i] = Py_True;
-        } else {
-          // False
-          Py_INCREF(Py_False);
-          out_values[i] = Py_False;
+      for (int c = 0; c < data->num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data->chunk(c);
+        arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
+        PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
+
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          if (bool_arr->IsNull(i)) {
+            Py_INCREF(Py_None);
+            out_values[i] = Py_None;
+          } else if (bool_arr->Value(i)) {
+            // True
+            Py_INCREF(Py_True);
+            out_values[i] = Py_True;
+          } else {
+            // False
+            Py_INCREF(Py_False);
+            out_values[i] = Py_False;
+          }
         }
+
+        chunk_offset += bool_arr->length();
       }
     } else {
       RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
 
-      uint8_t* out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_));
-      for (int64_t i = 0; i < arr->length(); ++i) {
-        out_values[i] = static_cast<uint8_t>(bool_arr->Value(i));
+      for (int c = 0; c < data->num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data->chunk(c);
+        arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
+        uint8_t* out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_)) + chunk_offset;
+
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          out_values[i] = static_cast<uint8_t>(bool_arr->Value(i));
+        }
+
+        chunk_offset += bool_arr->length();
       }
     }
 
@@ -753,42 +799,49 @@ class ArrowDeserializer {
   template <int T2>
   inline typename std::enable_if<
     T2 == arrow::Type::STRING, Status>::type
-  ConvertValues(const std::shared_ptr<Array>& arr) {
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
+    size_t chunk_offset = 0;
     PyAcquireGIL lock;
 
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
 
-    PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
+    for (int c = 0; c < data->num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data->chunk(c);
+      arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr.get());
+      PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
 
-    arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr.get());
+      const uint8_t* data_ptr;
+      int32_t length;
+      if (data->null_count() > 0) {
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          if (string_arr->IsNull(i)) {
+            Py_INCREF(Py_None);
+            out_values[i] = Py_None;
+          } else {
+            data_ptr = string_arr->GetValue(i, &length);
 
-    const uint8_t* data;
-    int32_t length;
-    if (arr->null_count() > 0) {
-      for (int64_t i = 0; i < arr->length(); ++i) {
-        if (string_arr->IsNull(i)) {
-          Py_INCREF(Py_None);
-          out_values[i] = Py_None;
-        } else {
-          data = string_arr->GetValue(i, &length);
-
-          out_values[i] = make_pystring(data, length);
+            out_values[i] = make_pystring(data_ptr, length);
+            if (out_values[i] == nullptr) {
+              return Status::UnknownError("String initialization failed");
+            }
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          data_ptr = string_arr->GetValue(i, &length);
+          out_values[i] = make_pystring(data_ptr, length);
           if (out_values[i] == nullptr) {
             return Status::UnknownError("String initialization failed");
           }
         }
       }
-    } else {
-      for (int64_t i = 0; i < arr->length(); ++i) {
-        data = string_arr->GetValue(i, &length);
-        out_values[i] = make_pystring(data, length);
-        if (out_values[i] == nullptr) {
-          return Status::UnknownError("String initialization failed");
-        }
-      }
+
+      chunk_offset += string_arr->length();
     }
+
     return Status::OK();
   }
+
  private:
   std::shared_ptr<Column> col_;
   PyObject* py_ref_;

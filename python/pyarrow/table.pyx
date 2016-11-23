@@ -296,6 +296,56 @@ cdef class RecordBatch:
         return result
 
 
+cdef class RecordBatchList:
+    '''
+    A utility class used for conversions with RecordBatch lists
+    '''
+
+    @staticmethod
+    def to_pandas(batches):
+        cdef:
+            vector[vector[shared_ptr[CArray]]] c_array_vec
+            shared_ptr[CColumn] c_col
+            PyObject* np_arr
+            Array arr
+            Schema schema
+
+        import pandas as pd
+
+        schema = batches[0].schema
+        K = batches[0].num_columns
+
+        # TODO - check schemas are equal
+
+        # make a vector of ArrayVectors to store column chunks
+        for i in range(K):
+            c_array_vec.push_back(vector[shared_ptr[CArray]]())
+
+        # copy each batch into a chunk
+        for batch in batches:
+            for i in range(K):
+                arr = batch[i]
+                c_array_vec[i].push_back(arr.sp_array)
+
+        # create columns from the chunks
+        names = []
+        data = []
+        for i in range(K):
+            c_col.reset(new CColumn(schema.sp_schema.get().field(i), c_array_vec[i]))
+            # TODO - why need PyOject ref? arr is placeholder
+            check_status(pyarrow.ConvertColumnToPandas(
+                c_col, <PyObject*> arr, &np_arr))
+            names.append(frombytes(c_col.get().name()))
+            data.append(PyObject_to_object(np_arr))
+
+        return pd.DataFrame(dict(zip(names, data)), columns=names)
+
+        '''
+        frames = [batch.to_pandas() for batch in batches]
+        return pd.concat(frames, ignore_index=True)
+        '''
+
+
 cdef class Table:
     '''
     A collection of top-level named, equal length Arrow arrays.
