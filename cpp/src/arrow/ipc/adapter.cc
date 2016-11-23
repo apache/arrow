@@ -190,7 +190,7 @@ class RecordBatchWriter {
     // determine the data header size then request a buffer such that you can
     // construct the flatbuffer data accessor object (see arrow::ipc::Message)
     std::shared_ptr<Buffer> data_header;
-    RETURN_NOT_OK(WriteDataHeader(
+    RETURN_NOT_OK(WriteRecordBatchMetadata(
         num_rows_, position - start_position, field_nodes_, buffer_meta_, &data_header));
 
     // Write the data header at the end

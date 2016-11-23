@@ -70,7 +70,7 @@ class MessageBuilder {
   flatbuffers::FlatBufferBuilder fbb_;
 };
 
-Status WriteDataHeader(int32_t length, int64_t body_length,
+Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 
