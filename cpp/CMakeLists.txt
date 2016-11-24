@@ -435,7 +435,8 @@ endfunction()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
-# find boost headers and libs
+# Find static boost headers and libs
+# TODO Differentiate here between release and debug builds
 set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_LIBS ON)
@@ -443,12 +444,12 @@ find_package(Boost COMPONENTS system filesystem REQUIRED)
 # TODO Differentiate here between release and debug builds
 set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
 set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-unset(Boost_SYSTEM_LIBRARY_DEBUG)
-unset(Boost_FILESYSTEM_LIBRARY_DEBUG)
 
-# Find Boost shared libraries.
+# Find shared Boost libraries.
 set(Boost_USE_STATIC_LIBS OFF)
+# TODO Differentiate here between release and debug builds
 find_package(Boost COMPONENTS system filesystem REQUIRED)
+
 set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
 set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
 
@@ -457,11 +458,11 @@ message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
 
 ADD_THIRDPARTY_LIB(boost_system
     STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+    SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
 
 ADD_THIRDPARTY_LIB(boost_filesystem
     STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+    SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
 SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
 
