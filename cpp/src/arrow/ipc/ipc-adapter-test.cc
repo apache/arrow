@@ -54,17 +54,24 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     std::string path = "test-write-row-batch";
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
 
-    int64_t body_end_offset;
-    int64_t header_end_offset;
+    int32_t metadata_length;
+    int64_t body_length;
 
-    RETURN_NOT_OK(WriteRecordBatch(batch.columns(), batch.num_rows(), mmap_.get(),
-        &body_end_offset, &header_end_offset));
+    const int64_t buffer_offset = 0;
 
-    std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(RecordBatchReader::Open(mmap_.get(), header_end_offset, &reader));
+    RETURN_NOT_OK(WriteRecordBatch(batch.columns(), batch.num_rows(), buffer_offset,
+        mmap_.get(), &metadata_length, &body_length));
 
-    RETURN_NOT_OK(reader->GetRecordBatch(batch.schema(), batch_result));
-    return Status::OK();
+    std::shared_ptr<RecordBatchMetadata> metadata;
+    RETURN_NOT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+
+    // The buffer offsets start at 0, so we must construct a
+    // ReadableFileInterface according to that frame of reference
+    std::shared_ptr<Buffer> buffer_payload;
+    RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
+    io::BufferReader buffer_reader(buffer_payload);
+
+    return ReadRecordBatch(metadata, batch.schema(), &buffer_reader, batch_result);
   }
 
  protected:
@@ -96,11 +103,11 @@ INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
-  int64_t mock_header_offset = -1;
-  int64_t mock_body_offset = -1;
+  int32_t mock_metadata_length = -1;
+  int64_t mock_body_length = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRecordBatch(batch->columns(), batch->num_rows(), &mock,
-      &mock_body_offset, &mock_header_offset));
+  ASSERT_OK(WriteRecordBatch(batch->columns(), batch->num_rows(), 0, &mock,
+      &mock_metadata_length, &mock_body_length));
   ASSERT_OK(GetRecordBatchSize(batch.get(), &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -129,39 +136,36 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
   void SetUp() { pool_ = default_memory_pool(); }
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
-  Status WriteToMmap(int recursion_level, bool override_level,
-      int64_t* header_out = nullptr, std::shared_ptr<Schema>* schema_out = nullptr) {
+  Status WriteToMmap(int recursion_level, bool override_level, int32_t* metadata_length,
+      int64_t* body_length, std::shared_ptr<Schema>* schema) {
     const int batch_length = 5;
-    TypePtr type = kInt32;
+    TypePtr type = int32();
     ArrayPtr array;
     const bool include_nulls = true;
     RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool_, &array));
     for (int i = 0; i < recursion_level; ++i) {
-      type = std::static_pointer_cast<DataType>(std::make_shared<ListType>(type));
+      type = list(type);
       RETURN_NOT_OK(
           MakeRandomListArray(array, batch_length, include_nulls, pool_, &array));
     }
 
-    auto f0 = std::make_shared<Field>("f0", type);
-    std::shared_ptr<Schema> schema(new Schema({f0}));
-    if (schema_out != nullptr) { *schema_out = schema; }
+    auto f0 = field("f0", type);
+
+    *schema = std::shared_ptr<Schema>(new Schema({f0}));
+
     std::vector<ArrayPtr> arrays = {array};
-    auto batch = std::make_shared<RecordBatch>(schema, batch_length, arrays);
+    auto batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
 
     std::string path = "test-write-past-max-recursion";
     const int memory_map_size = 1 << 16;
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
 
-    int64_t body_offset;
-    int64_t header_offset;
-
-    int64_t* header_out_param = header_out == nullptr ? &header_offset : header_out;
     if (override_level) {
-      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
-          &body_offset, header_out_param, recursion_level + 1);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), 0, mmap_.get(),
+          metadata_length, body_length, recursion_level + 1);
     } else {
-      return WriteRecordBatch(batch->columns(), batch->num_rows(), mmap_.get(),
-          &body_offset, header_out_param);
+      return WriteRecordBatch(batch->columns(), batch->num_rows(), 0, mmap_.get(),
+          metadata_length, body_length);
     }
   }
 
@@ -171,18 +175,29 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 };
 
 TEST_F(RecursionLimits, WriteLimit) {
-  ASSERT_RAISES(Invalid, WriteToMmap((1 << 8) + 1, false));
+  int32_t metadata_length = -1;
+  int64_t body_length = -1;
+  std::shared_ptr<Schema> schema;
+  ASSERT_RAISES(
+      Invalid, WriteToMmap((1 << 8) + 1, false, &metadata_length, &body_length, &schema));
 }
 
 TEST_F(RecursionLimits, ReadLimit) {
-  int64_t header_offset = -1;
+  int32_t metadata_length = -1;
+  int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
-  ASSERT_OK(WriteToMmap(64, true, &header_offset, &schema));
+  ASSERT_OK(WriteToMmap(64, true, &metadata_length, &body_length, &schema));
 
-  std::shared_ptr<RecordBatchReader> reader;
-  ASSERT_OK(RecordBatchReader::Open(mmap_.get(), header_offset, &reader));
-  std::shared_ptr<RecordBatch> batch_result;
-  ASSERT_RAISES(Invalid, reader->GetRecordBatch(schema, &batch_result));
+  std::shared_ptr<RecordBatchMetadata> metadata;
+  ASSERT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+
+  std::shared_ptr<Buffer> payload;
+  ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
+
+  io::BufferReader reader(payload);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_RAISES(Invalid, ReadRecordBatch(metadata, schema, &reader, &batch));
 }
 
 }  // namespace ipc

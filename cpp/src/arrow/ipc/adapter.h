@@ -43,7 +43,7 @@ class OutputStream;
 
 namespace ipc {
 
-class RecordBatchMessage;
+class RecordBatchMetadata;
 
 // ----------------------------------------------------------------------
 // Write path
@@ -51,22 +51,30 @@ class RecordBatchMessage;
 // TODO(emkornfield) investigate this more
 constexpr int kMaxIpcRecursionDepth = 64;
 
-// Write the RecordBatch (collection of equal-length Arrow arrays) to the output
-// stream
+// Write the RecordBatch (collection of equal-length Arrow arrays) to the
+// output stream in a contiguous block. The record batch metadata is written as
+// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
+// prefixed by its size, followed by each of the memory buffers in the batch
+// written end to end (with appropriate alignment and padding):
 //
-// First, each of the memory buffers are written out end-to-end
-//
-// Then, this function writes the batch metadata as a flatbuffer (see
-// format/Message.fbs -- the RecordBatch message type) like so:
-//
-// <int32: metadata size> <uint8*: metadata>
+// <int32: metadata size> <uint8*: metadata> <buffers>
 //
 // Finally, the absolute offsets (relative to the start of the output stream)
 // to the end of the body and end of the metadata / data header (suffixed by
 // the header size) is returned in out-variables
+//
+// @param(in) buffer_start_offset: the start offset to use in the buffer metadata,
+// default should be 0
+//
+// @param(out) metadata_length: the size of the length-prefixed flatbuffer
+// including padding to a 64-byte boundary
+//
+// @param(out) body_length: the size of the contiguous buffer block plus
+// padding bytes
 ARROW_EXPORT Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
-    int32_t num_rows, io::OutputStream* dst, int64_t* body_end_offset,
-    int64_t* header_end_offset, int max_recursion_depth = kMaxIpcRecursionDepth);
+    int32_t num_rows, int64_t buffer_start_offset, io::OutputStream* dst,
+    int32_t* metadata_length, int64_t* body_length,
+    int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // int64_t GetRecordBatchMetadata(const RecordBatch* batch);
 
@@ -78,27 +86,20 @@ ARROW_EXPORT Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size);
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the input supports zero copy reads
 
-class ARROW_EXPORT RecordBatchReader {
- public:
-  // The offset is the absolute position to the *end* of the record batch data
-  // header
-  static Status Open(io::ReadableFileInterface* file, int64_t offset,
-      std::shared_ptr<RecordBatchReader>* out);
+// Read the record batch flatbuffer metadata starting at the indicated file offset
+//
+// The flatbuffer is expected to be length-prefixed, so the metadata_length
+// includes at least the length prefix and the flatbuffer
+Status ARROW_EXPORT ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
+    io::ReadableFileInterface* file, std::shared_ptr<RecordBatchMetadata>* metadata);
 
-  static Status Open(io::ReadableFileInterface* file, int64_t offset,
-      int max_recursion_depth, std::shared_ptr<RecordBatchReader>* out);
+Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+    const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
+    std::shared_ptr<RecordBatch>* out);
 
-  virtual ~RecordBatchReader();
-
-  // Reassemble the record batch. A Schema is required to be able to construct
-  // the right array containers
-  Status GetRecordBatch(
-      const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatch>* out);
-
- private:
-  class RecordBatchReaderImpl;
-  std::unique_ptr<RecordBatchReaderImpl> impl_;
-};
+Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+    const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+    io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out);
 
 }  // namespace ipc
 }  // namespace arrow

@@ -15,3 +15,65 @@
 # Interprocess messaging / communication (IPC)
 
 ## File format
+
+We define a self-contained "file format" containing an Arrow schema along with
+one or more record batches defining a dataset. See [format/File.fbs][1] for the
+precise details of the file metadata.
+
+In general, the file looks like:
+
+```
+<magic number "ARROW1">
+<empty padding bytes [to 8 byte boundary]>
+<DICTIONARY 0>
+...
+<DICTIONARY k - 1>
+<RECORD BATCH 0>
+...
+<RECORD BATCH n - 1>
+<METADATA org.apache.arrow.flatbuf.Footer>
+<metadata_size: int32>
+<magic number "ARROW1">
+```
+
+See the File.fbs document for details about the Flatbuffers metadata. The
+record batches have a particular structure, defined next.
+
+### Record batches
+
+The record batch metadata is written as
+a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
+prefixed by its size, followed by each of the memory buffers in the batch
+written end to end (with appropriate alignment and padding):
+
+```
+<int32: metadata flatbuffer size>
+<metadata: org.apache.arrow.flatbuf.RecordBatch>
+<padding bytes [to 64-byte boundary]>
+<body: buffers end to end>
+```
+
+The location of a record batch and the size of the metadata block as well as
+the body of buffers is stored in the file footer:
+
+```
+struct Block {
+  offset: long;
+  metaDataLength: int;
+  bodyLength: long;
+}
+```
+
+Some notes about this
+
+* The `Block` offset indicates the starting byte of the record batch.
+* The metadata length includes the flatbuffer size, the record batch metadata
+  flatbuffer, and any padding bytes
+
+### Dictionary batches
+
+Dictionary batches have not yet been implemented, while they are provided for
+in the metadata. For the time being, the `DICTIONARY` segments shown above in
+the file do not appear in any of the file implementations.
+
+[1]: https://github.com/apache/arrow/blob/master/format/File.fbs

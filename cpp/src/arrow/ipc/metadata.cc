@@ -50,9 +50,17 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out) {
 
 class Message::MessageImpl {
  public:
-  explicit MessageImpl(
-      const std::shared_ptr<Buffer>& buffer, const flatbuf::Message* message)
-      : buffer_(buffer), message_(message) {}
+  explicit MessageImpl(const std::shared_ptr<Buffer>& buffer, int64_t offset)
+      : buffer_(buffer),
+        offset_(offset),
+        message_(nullptr) {}
+
+  Status Open() {
+    message_ = flatbuf::GetMessage(buffer_->data() + offset_);
+
+    // TODO(wesm): verify the message
+    return Status::OK();
+  }
 
   Message::Type type() const {
     switch (message_->header_type()) {
@@ -72,25 +80,23 @@ class Message::MessageImpl {
   int64_t body_length() const { return message_->bodyLength(); }
 
  private:
-  // Owns the memory this message accesses
+  // Retain reference to memory
   std::shared_ptr<Buffer> buffer_;
+  int64_t offset_;
 
   const flatbuf::Message* message_;
 };
 
-Message::Message() {}
+Message::Message(const std::shared_ptr<Buffer>& buffer, int64_t offset) {
+  impl_.reset(new MessageImpl(buffer, offset));
+}
 
-Status Message::Open(
-    const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out) {
-  std::shared_ptr<Message> result(new Message());
+Status Message::Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
+    std::shared_ptr<Message>* out) {
+  // ctor is private
 
-  const flatbuf::Message* message = flatbuf::GetMessage(buffer->data());
-
-  // TODO(wesm): verify message
-  result->impl_.reset(new MessageImpl(buffer, message));
-  *out = result;
-
-  return Status::OK();
+  *out = std::shared_ptr<Message>(new Message(buffer, offset));
+  return (*out)->impl_->Open();
 }
 
 Message::Type Message::type() const {
@@ -101,20 +107,12 @@ int64_t Message::body_length() const {
   return impl_->body_length();
 }
 
-std::shared_ptr<Message> Message::get_shared_ptr() {
-  return this->shared_from_this();
-}
-
-std::shared_ptr<SchemaMessage> Message::GetSchema() {
-  return std::make_shared<SchemaMessage>(this->shared_from_this(), impl_->header());
-}
-
 // ----------------------------------------------------------------------
-// SchemaMessage
+// SchemaMetadata
 
-class SchemaMessage::SchemaMessageImpl {
+class SchemaMetadata::SchemaMetadataImpl {
  public:
-  explicit SchemaMessageImpl(const void* schema)
+  explicit SchemaMetadataImpl(const void* schema)
       : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
 
   const flatbuf::Field* field(int i) const { return schema_->fields()->Get(i); }
@@ -125,22 +123,29 @@ class SchemaMessage::SchemaMessageImpl {
   const flatbuf::Schema* schema_;
 };
 
-SchemaMessage::SchemaMessage(
-    const std::shared_ptr<Message>& message, const void* schema) {
+SchemaMetadata::SchemaMetadata(
+    const std::shared_ptr<Message>& message, const void* flatbuf) {
   message_ = message;
-  impl_.reset(new SchemaMessageImpl(schema));
+  impl_.reset(new SchemaMetadataImpl(flatbuf));
 }
 
-int SchemaMessage::num_fields() const {
+SchemaMetadata::SchemaMetadata(const std::shared_ptr<Message>& message) {
+  message_ = message;
+  impl_.reset(new SchemaMetadataImpl(message->impl_->header()));
+}
+
+SchemaMetadata::~SchemaMetadata() {}
+
+int SchemaMetadata::num_fields() const {
   return impl_->num_fields();
 }
 
-Status SchemaMessage::GetField(int i, std::shared_ptr<Field>* out) const {
+Status SchemaMetadata::GetField(int i, std::shared_ptr<Field>* out) const {
   const flatbuf::Field* field = impl_->field(i);
   return FieldFromFlatbuffer(field, out);
 }
 
-Status SchemaMessage::GetSchema(std::shared_ptr<Schema>* out) const {
+Status SchemaMetadata::GetSchema(std::shared_ptr<Schema>* out) const {
   std::vector<std::shared_ptr<Field>> fields(num_fields());
   for (int i = 0; i < this->num_fields(); ++i) {
     RETURN_NOT_OK(GetField(i, &fields[i]));
@@ -150,11 +155,11 @@ Status SchemaMessage::GetSchema(std::shared_ptr<Schema>* out) const {
 }
 
 // ----------------------------------------------------------------------
-// RecordBatchMessage
+// RecordBatchMetadata
 
-class RecordBatchMessage::RecordBatchMessageImpl {
+class RecordBatchMetadata::RecordBatchMetadataImpl {
  public:
-  explicit RecordBatchMessageImpl(const void* batch)
+  explicit RecordBatchMetadataImpl(const void* batch)
       : batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
     nodes_ = batch_->nodes();
     buffers_ = batch_->buffers();
@@ -176,19 +181,16 @@ class RecordBatchMessage::RecordBatchMessageImpl {
   const flatbuffers::Vector<const flatbuf::Buffer*>* buffers_;
 };
 
-std::shared_ptr<RecordBatchMessage> Message::GetRecordBatch() {
-  return std::make_shared<RecordBatchMessage>(this->shared_from_this(), impl_->header());
+RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message) {
+  message_ = message;
+  impl_.reset(new RecordBatchMetadataImpl(message->impl_->header()));
 }
 
-RecordBatchMessage::RecordBatchMessage(
-    const std::shared_ptr<Message>& message, const void* batch) {
-  message_ = message;
-  impl_.reset(new RecordBatchMessageImpl(batch));
-}
+RecordBatchMetadata::~RecordBatchMetadata() {}
 
 // TODO(wesm): Copying the flatbuffer data isn't great, but this will do for
 // now
-FieldMetadata RecordBatchMessage::field(int i) const {
+FieldMetadata RecordBatchMetadata::field(int i) const {
   const flatbuf::FieldNode* node = impl_->field(i);
 
   FieldMetadata result;
@@ -197,7 +199,7 @@ FieldMetadata RecordBatchMessage::field(int i) const {
   return result;
 }
 
-BufferMetadata RecordBatchMessage::buffer(int i) const {
+BufferMetadata RecordBatchMetadata::buffer(int i) const {
   const flatbuf::Buffer* buffer = impl_->buffer(i);
 
   BufferMetadata result;
@@ -207,15 +209,15 @@ BufferMetadata RecordBatchMessage::buffer(int i) const {
   return result;
 }
 
-int32_t RecordBatchMessage::length() const {
+int32_t RecordBatchMetadata::length() const {
   return impl_->length();
 }
 
-int RecordBatchMessage::num_buffers() const {
+int RecordBatchMetadata::num_buffers() const {
   return impl_->num_buffers();
 }
 
-int RecordBatchMessage::num_fields() const {
+int RecordBatchMetadata::num_fields() const {
   return impl_->num_fields();
 }
 
@@ -285,7 +287,7 @@ class FileFooter::FileFooterImpl {
   }
 
   Status GetSchema(std::shared_ptr<Schema>* out) const {
-    auto schema_msg = std::make_shared<SchemaMessage>(nullptr, footer_->schema());
+    auto schema_msg = std::make_shared<SchemaMetadata>(nullptr, footer_->schema());
     return schema_msg->GetSchema(out);
   }
 
