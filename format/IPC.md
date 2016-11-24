@@ -24,7 +24,7 @@ In general, the file looks like:
 
 ```
 <magic number "ARROW1">
-<empty padding bytes [to 8 byte boundary]>
+<empty padding bytes [to 64 byte boundary]>
 <DICTIONARY 0>
 ...
 <DICTIONARY k - 1>
