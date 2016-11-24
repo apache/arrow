@@ -51,9 +51,7 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out) {
 class Message::MessageImpl {
  public:
   explicit MessageImpl(const std::shared_ptr<Buffer>& buffer, int64_t offset)
-      : buffer_(buffer),
-        offset_(offset),
-        message_(nullptr) {}
+      : buffer_(buffer), offset_(offset), message_(nullptr) {}
 
   Status Open() {
     message_ = flatbuf::GetMessage(buffer_->data() + offset_);

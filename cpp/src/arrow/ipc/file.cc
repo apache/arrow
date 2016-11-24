@@ -201,8 +201,8 @@ Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   FileBlock block = footer_->record_batch(i);
 
   std::shared_ptr<RecordBatchMetadata> metadata;
-  RETURN_NOT_OK(ReadRecordBatchMetadata(block.offset, block.metadata_length, file_.get(),
-          &metadata));
+  RETURN_NOT_OK(ReadRecordBatchMetadata(
+      block.offset, block.metadata_length, file_.get(), &metadata));
 
   // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
   // ARROW-384).

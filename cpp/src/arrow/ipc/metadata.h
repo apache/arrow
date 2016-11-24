@@ -60,7 +60,7 @@ class Message;
 // Container for serialized Schema metadata contained in an IPC message
 class ARROW_EXPORT SchemaMetadata {
  public:
-  SchemaMetadata(const std::shared_ptr<Message>& message);
+  explicit SchemaMetadata(const std::shared_ptr<Message>& message);
 
   // Accepts an opaque flatbuffer pointer
   SchemaMetadata(const std::shared_ptr<Message>& message, const void* schema);
@@ -99,7 +99,7 @@ struct BufferMetadata {
 // Container for serialized record batch metadata contained in an IPC message
 class ARROW_EXPORT RecordBatchMetadata {
  public:
-  RecordBatchMetadata(const std::shared_ptr<Message>& message);
+  explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
   ~RecordBatchMetadata();
 
   FieldMetadata field(int i) const;
