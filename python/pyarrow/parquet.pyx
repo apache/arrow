@@ -21,7 +21,7 @@
 
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.parquet cimport *
-from pyarrow.includes.libarrow_io cimport ReadableFileInterface
+from pyarrow.includes.libarrow_io cimport ReadableFileInterface, OutputStream, FileOutputStream
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.array cimport Array
@@ -151,7 +151,7 @@ def read_table(source, columns=None):
         return Table.from_arrays(columns, arrays)
 
 
-def write_table(table, filename, chunk_size=None, version=None,
+def write_table(table, sink, chunk_size=None, version=None,
                 use_dictionary=True, compression=None):
     """
     Write a Table to Parquet format
@@ -159,7 +159,7 @@ def write_table(table, filename, chunk_size=None, version=None,
     Parameters
     ----------
     table : pyarrow.Table
-    filename : string
+    sink: string or pyarrow.io.NativeFile
     chunk_size : int
         The maximum number of rows in each Parquet RowGroup. As a default,
         we will write a single RowGroup per file.
@@ -173,7 +173,8 @@ def write_table(table, filename, chunk_size=None, version=None,
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
-    cdef shared_ptr[ParquetOutputStream] sink
+    cdef shared_ptr[ParquetWriteSink] sink_
+    cdef shared_ptr[FileOutputStream] filesink_
     cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
@@ -230,7 +231,12 @@ def write_table(table, filename, chunk_size=None, version=None,
             else:
                 raise ArrowException("Unsupport compression codec")
 
-    sink.reset(new LocalFileOutputStream(tobytes(filename)))
+    if isinstance(sink, six.string_types):
+       check_status(FileOutputStream.Open(tobytes(sink), &filesink_))
+       sink_.reset(new ParquetWriteSink(<shared_ptr[OutputStream]>filesink_))
+    elif isinstance(sink, NativeFile):
+        sink_.reset(new ParquetWriteSink((<NativeFile>sink).wr_file))
+
     with nogil:
-        check_status(WriteFlatTable(ctable_, default_memory_pool(), sink,
+        check_status(WriteFlatTable(ctable_, default_memory_pool(), sink_,
                                     chunk_size_, properties_builder.build()))

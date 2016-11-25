@@ -18,6 +18,7 @@
 import pytest
 
 import pyarrow as A
+import pyarrow.io as paio
 
 import numpy as np
 import pandas as pd
@@ -130,6 +131,32 @@ def test_pandas_column_selection(tmpdir):
     df_read = table_read.to_pandas()
 
     pdt.assert_frame_equal(df[['uint8']], df_read)
+
+@parquet
+def test_pandas_parquet_native_file_roundtrip(tmpdir):
+    size = 10000
+    np.random.seed(0)
+    df = pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16),
+        'uint32': np.arange(size, dtype=np.uint32),
+        'uint64': np.arange(size, dtype=np.uint64),
+        'int8': np.arange(size, dtype=np.int16),
+        'int16': np.arange(size, dtype=np.int16),
+        'int32': np.arange(size, dtype=np.int32),
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0
+    })
+    arrow_table = A.from_pandas_dataframe(df)
+    imos = paio.InMemoryOutputStream()
+    pq.write_table(arrow_table, imos, version="2.0")
+    buf = imos.get_result()
+    reader = paio.BufferReader(buf)
+    df_read = pq.read_table(reader).to_pandas()
+    pdt.assert_frame_equal(df, df_read)
+
 
 @parquet
 def test_pandas_parquet_configuration_options(tmpdir):

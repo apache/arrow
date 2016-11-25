@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CArray, CSchema, CStatus, CTable, MemoryPool
-from pyarrow.includes.libarrow_io cimport ReadableFileInterface
+from pyarrow.includes.libarrow_io cimport ReadableFileInterface, OutputStream
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -131,6 +131,9 @@ cdef extern from "parquet/arrow/io.h" namespace "parquet::arrow" nogil:
         ParquetReadSource(ParquetAllocator* allocator)
         Open(const shared_ptr[ReadableFileInterface]& file)
 
+    cdef cppclass ParquetWriteSink:
+        ParquetWriteSink(const shared_ptr[OutputStream]& file)
+
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
@@ -154,6 +157,6 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef CStatus WriteFlatTable(
         const CTable* table, MemoryPool* pool,
-        const shared_ptr[ParquetOutputStream]& sink,
+        const shared_ptr[ParquetWriteSink]& sink,
         int64_t chunk_size,
         const shared_ptr[WriterProperties]& properties)
