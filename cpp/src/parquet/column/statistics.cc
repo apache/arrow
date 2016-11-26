@@ -103,6 +103,16 @@ void TypedRowGroupStatistics<DType>::Update(
 }
 
 template <typename DType>
+const typename DType::c_type& TypedRowGroupStatistics<DType>::min() const {
+  return min_;
+}
+
+template <typename DType>
+const typename DType::c_type& TypedRowGroupStatistics<DType>::max() const {
+  return max_;
+}
+
+template <typename DType>
 void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>& other) {
   this->MergeCounts(other);
 

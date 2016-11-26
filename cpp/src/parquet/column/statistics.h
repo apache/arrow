@@ -151,8 +151,8 @@ class TypedRowGroupStatistics : public RowGroupStatistics {
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null);
 
-  const T& min() const { return min_; }
-  const T& max() const { return max_; }
+  const T& min() const;
+  const T& max() const;
 
   std::string EncodeMin() override;
   std::string EncodeMax() override;
@@ -202,23 +202,32 @@ void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::stri
 template <>
 void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst);
 
-using BoolStatistics = TypedRowGroupStatistics<BooleanType>;
-using Int32Statistics = TypedRowGroupStatistics<Int32Type>;
-using Int64Statistics = TypedRowGroupStatistics<Int64Type>;
-using Int96Statistics = TypedRowGroupStatistics<Int96Type>;
-using FloatStatistics = TypedRowGroupStatistics<FloatType>;
-using DoubleStatistics = TypedRowGroupStatistics<DoubleType>;
-using ByteArrayStatistics = TypedRowGroupStatistics<ByteArrayType>;
-using FLBAStatistics = TypedRowGroupStatistics<FLBAType>;
+typedef TypedRowGroupStatistics<BooleanType> BoolStatistics;
+typedef TypedRowGroupStatistics<Int32Type> Int32Statistics;
+typedef TypedRowGroupStatistics<Int64Type> Int64Statistics;
+typedef TypedRowGroupStatistics<Int96Type> Int96Statistics;
+typedef TypedRowGroupStatistics<FloatType> FloatStatistics;
+typedef TypedRowGroupStatistics<DoubleType> DoubleStatistics;
+typedef TypedRowGroupStatistics<ByteArrayType> ByteArrayStatistics;
+typedef TypedRowGroupStatistics<FLBAType> FLBAStatistics;
 
-extern template class TypedRowGroupStatistics<BooleanType>;
-extern template class TypedRowGroupStatistics<Int32Type>;
-extern template class TypedRowGroupStatistics<Int64Type>;
-extern template class TypedRowGroupStatistics<Int96Type>;
-extern template class TypedRowGroupStatistics<FloatType>;
-extern template class TypedRowGroupStatistics<DoubleType>;
-extern template class TypedRowGroupStatistics<ByteArrayType>;
-extern template class TypedRowGroupStatistics<FLBAType>;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<BooleanType>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int32Type>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int64Type>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int96Type>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<FloatType>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<DoubleType>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<ByteArrayType>;
+extern template class PARQUET_EXPORT TypedRowGroupStatistics<FLBAType>;
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 }  // namespace parquet
 
