@@ -87,29 +87,31 @@ ARROW_TEST_LINK_LIBRARIES(ipc-json-test
 
 ADD_ARROW_TEST(json-integration-test)
 
-if (APPLE)
-  target_link_libraries(json-integration-test
-    arrow_static
-    arrow_io
-    arrow_ipc
-    gflags
-    gtest
-    boost_filesystem_static
-    boost_system_static
-    dl)
-  set_target_properties(json-integration-test
-    PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-else()
-  target_link_libraries(json-integration-test
-    arrow_static
-    arrow_io
-    arrow_ipc
-    gflags
-    gtest
-    pthread
-    boost_filesystem_static
-    boost_system_static
-    dl)
+if (ARROW_BUILD_TESTS)
+  if (APPLE)
+    target_link_libraries(json-integration-test
+      arrow_static
+      arrow_io
+      arrow_ipc
+      gflags
+      gtest
+      boost_filesystem_static
+      boost_system_static
+      dl)
+    set_target_properties(json-integration-test
+      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  else()
+    target_link_libraries(json-integration-test
+      arrow_static
+      arrow_io
+      arrow_ipc
+      gflags
+      gtest
+      pthread
+      boost_filesystem_static
+      boost_system_static
+      dl)
+  endif()
 endif()
 
 # make clean will delete the generated file
