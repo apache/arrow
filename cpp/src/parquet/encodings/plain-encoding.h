@@ -271,6 +271,7 @@ inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_value
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
     values_sink_->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
+    if (src[i].len > 0) { DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL"; }
     values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
   }
 }
@@ -279,6 +280,9 @@ template <>
 inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
+    if (descr_->type_length() > 0) {
+      DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
+    }
     values_sink_->Write(
         reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length());
   }

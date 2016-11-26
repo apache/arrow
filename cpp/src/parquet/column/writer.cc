@@ -336,6 +336,9 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     throw ParquetException("More rows were written in the column chunk than expected");
   }
 
+  // PARQUET-780
+  if (values_to_write > 0) { DCHECK(nullptr != values) << "Values ptr cannot be NULL"; }
+
   WriteValues(values_to_write, values);
 
   if (page_statistics_ != nullptr) {

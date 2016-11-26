@@ -285,11 +285,13 @@ inline int DictEncoder<DType>::Hash(const typename DType::c_type& value) const {
 
 template <>
 inline int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) const {
+  if (value.len > 0) { DCHECK(nullptr != value.ptr) << "Value ptr cannot be NULL"; }
   return HashUtil::Hash(value.ptr, value.len, 0);
 }
 
 template <>
 inline int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) const {
+  if (type_length_ > 0) { DCHECK(nullptr != value.ptr) << "Value ptr cannot be NULL"; }
   return HashUtil::Hash(value.ptr, type_length_, 0);
 }
 
@@ -415,6 +417,7 @@ inline void DictEncoder<ByteArrayType>::WriteDict(uint8_t* buffer) {
   for (const ByteArray& v : uniques_) {
     memcpy(buffer, reinterpret_cast<const void*>(&v.len), sizeof(uint32_t));
     buffer += sizeof(uint32_t);
+    if (v.len > 0) { DCHECK(nullptr != v.ptr) << "Value ptr cannot be NULL"; }
     memcpy(buffer, v.ptr, v.len);
     buffer += v.len;
   }
@@ -423,6 +426,7 @@ inline void DictEncoder<ByteArrayType>::WriteDict(uint8_t* buffer) {
 template <>
 inline void DictEncoder<FLBAType>::WriteDict(uint8_t* buffer) {
   for (const FixedLenByteArray& v : uniques_) {
+    if (type_length_ > 0) { DCHECK(nullptr != v.ptr) << "Value ptr cannot be NULL"; }
     memcpy(buffer, v.ptr, type_length_);
     buffer += type_length_;
   }
