@@ -18,7 +18,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <fcntl.h>
+#ifndef _MSC_VER
+# include <fcntl.h>
+#endif
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -38,7 +40,12 @@ static bool FileExists(const std::string& path) {
 }
 
 static bool FileIsClosed(int fd) {
+#ifdef _MSC_VER
+  // Close file a second time, this should set errno to EBADF
+  close(fd);
+#else
   if (-1 != fcntl(fd, F_GETFD)) { return false; }
+#endif
   return errno == EBADF;
 }
 

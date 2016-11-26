@@ -141,9 +141,11 @@ endif()
 # For CMAKE_BUILD_TYPE=Release
 #   -O3: Enable all compiler optimizations
 #   -g: Enable symbols for profiler tools (TODO: remove for shipping)
-set(CXX_FLAGS_DEBUG "-ggdb -O0")
-set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
-set(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
+if (NOT MSVC)
+  set(CXX_FLAGS_DEBUG "-ggdb -O0")
+  set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
+  set(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
+endif()
 
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
@@ -347,6 +349,8 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       COMPILE_FLAGS " -DARROW_VALGRIND")
     add_test(${TEST_NAME}
       valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ${TEST_PATH})
+  elseif(MSVC)
+    add_test(${TEST_NAME} ${TEST_PATH})
   else()
     add_test(${TEST_NAME}
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
@@ -431,40 +435,44 @@ endfunction()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
-# find boost headers and libs
+# Find static boost headers and libs
+# TODO Differentiate here between release and debug builds
 set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost COMPONENTS system filesystem REQUIRED)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-set(BOOST_STATIC_LIBS ${Boost_LIBRARIES})
-list(LENGTH BOOST_STATIC_LIBS BOOST_STATIC_LIBS_LEN)
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+  set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+else()
+  set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+  set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+endif()
 
-# Find Boost shared libraries.
+# Find shared Boost libraries.
 set(Boost_USE_STATIC_LIBS OFF)
 find_package(Boost COMPONENTS system filesystem REQUIRED)
-set(BOOST_SHARED_LIBS ${Boost_LIBRARIES})
-list(LENGTH BOOST_SHARED_LIBS BOOST_SHARED_LIBS_LEN)
-list(SORT BOOST_SHARED_LIBS)
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+  set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+else()
+  set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+  set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
 
-math(EXPR LAST_IDX "${BOOST_STATIC_LIBS_LEN} - 1")
-foreach(IDX RANGE ${LAST_IDX})
-  list(GET BOOST_STATIC_LIBS ${IDX} BOOST_STATIC_LIB)
-  list(GET BOOST_SHARED_LIBS ${IDX} BOOST_SHARED_LIB)
+ADD_THIRDPARTY_LIB(boost_system
+    STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
+    SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
 
-  # Remove the prefix/suffix from the library name.
-  #
-  # e.g. libboost_system-mt --> boost_system
-  get_filename_component(LIB_NAME ${BOOST_STATIC_LIB} NAME_WE)
-  string(REGEX REPLACE "lib([^-]*)(-mt)?" "\\1" LIB_NAME_NO_PREFIX_SUFFIX ${LIB_NAME})
-  ADD_THIRDPARTY_LIB(${LIB_NAME_NO_PREFIX_SUFFIX}
-    STATIC_LIB "${BOOST_STATIC_LIB}"
-    SHARED_LIB "${BOOST_SHARED_LIB}")
-  list(APPEND ARROW_BOOST_LIBS ${LIB_NAME_NO_PREFIX_SUFFIX})
-endforeach()
+ADD_THIRDPARTY_LIB(boost_filesystem
+    STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
+    SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
+
+SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 # ----------------------------------------------------------------------
@@ -482,7 +490,7 @@ if(ARROW_BUILD_TESTS)
 
     ExternalProject_Add(googletest_ep
       URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-      CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
+      CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
       # googletest doesn't define install rules, so just build in the
       # source dir and don't try to install.  See its README for
       # details.
@@ -491,7 +499,7 @@ if(ARROW_BUILD_TESTS)
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-    set(GTEST_STATIC_LIB "${GTEST_PREFIX}/libgtest.a")
+    set(GTEST_STATIC_LIB "${GTEST_PREFIX}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
   else()
     find_package(GTest REQUIRED)
@@ -571,7 +579,7 @@ if(ARROW_BUILD_BENCHMARKS)
         "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
 
     set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
-    set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/libbenchmark.a")
+    set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GBENCHMARK_VENDORED 1)
   else()
     find_package(GBenchmark REQUIRED)

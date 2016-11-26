@@ -20,6 +20,7 @@
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define ARROW_EXPORT __declspec(dllexport)
+#define ARROW_NO_EXPORT
 #else  // Not Windows
 #ifndef ARROW_EXPORT
 #define ARROW_EXPORT __attribute__((visibility("default")))

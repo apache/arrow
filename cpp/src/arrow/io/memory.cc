@@ -17,7 +17,18 @@
 
 #include "arrow/io/memory.h"
 
-#include <sys/mman.h>  // For memory-mapping
+// sys/mman.h not present in Visual Studio or Cygwin
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "arrow/io/mman.h"
+#undef Realloc
+#undef Free
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
 
 #include <algorithm>
 #include <cerrno>

@@ -18,10 +18,16 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-set(ARROW_IO_LINK_LIBS
-  arrow_shared
-  dl
-)
+if (MSVC)
+  set(ARROW_IO_LINK_LIBS
+    arrow_shared
+  )
+else()
+  set(ARROW_IO_LINK_LIBS
+    arrow_shared
+    dl
+  )
+endif()
 
 if (ARROW_BOOST_USE_SHARED)
   set(ARROW_IO_PRIVATE_LINK_LIBS

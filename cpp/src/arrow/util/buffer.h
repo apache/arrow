@@ -103,7 +103,7 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
 
 // Construct a view on passed buffer at the indicated offset and length. This
 // function cannot fail and does not error checking (except in debug builds)
-std::shared_ptr<Buffer> SliceBuffer(
+ARROW_EXPORT std::shared_ptr<Buffer> SliceBuffer(
     const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length);
 
 // A Buffer whose contents can be mutated. May or may not own its data.
@@ -154,7 +154,7 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
   MemoryPool* pool_;
 };
 
-class BufferBuilder {
+class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool)
       : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
