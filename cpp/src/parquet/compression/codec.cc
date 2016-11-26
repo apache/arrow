@@ -38,7 +38,7 @@ std::unique_ptr<Codec> Codec::Create(Compression::type codec_type) {
       ParquetException::NYI("LZO codec not implemented");
       break;
     case Compression::BROTLI:
-      ParquetException::NYI("BROTLI codec not implemented");
+      result.reset(new BrotliCodec());
       break;
     default:
       ParquetException::NYI("Unrecognized codec");

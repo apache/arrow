@@ -119,6 +119,10 @@ TYPED_TEST(TestSerialize, SmallFileSnappy) {
   this->FileSerializeTest(Compression::SNAPPY);
 }
 
+TYPED_TEST(TestSerialize, SmallFileBrotli) {
+  this->FileSerializeTest(Compression::BROTLI);
+}
+
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   this->FileSerializeTest(Compression::GZIP);
 }

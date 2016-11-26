@@ -259,6 +259,11 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithSnappyCompression) {
       Encoding::PLAIN, Compression::SNAPPY, false, false, LARGE_SIZE);
 }
 
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompression) {
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::BROTLI, false, false, LARGE_SIZE);
+}
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(
       Encoding::PLAIN, Compression::GZIP, false, false, LARGE_SIZE);
@@ -272,6 +277,11 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
   this->TestRequiredWithSettings(
       Encoding::PLAIN, Compression::SNAPPY, false, true, LARGE_SIZE);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
+  this->TestRequiredWithSettings(
+      Encoding::PLAIN, Compression::BROTLI, false, true, LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {

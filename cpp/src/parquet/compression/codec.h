@@ -59,6 +59,20 @@ class SnappyCodec : public Codec {
   virtual const char* name() const { return "snappy"; }
 };
 
+// Brotli codec.
+class BrotliCodec : public Codec {
+ public:
+  void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer) override;
+
+  int64_t Compress(int64_t input_len, const uint8_t* input,
+      int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+
+  const char* name() const override { return "brotli"; }
+};
+
 // GZip codec.
 class GZipCodec : public Codec {
  public:

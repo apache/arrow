@@ -165,7 +165,8 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, Compression) {
-  Compression::type codec_types[2] = {Compression::GZIP, Compression::SNAPPY};
+  Compression::type codec_types[3] = {
+      Compression::GZIP, Compression::SNAPPY, Compression::BROTLI};
 
   // This is a dummy number
   data_page_header_.num_values = 32;
