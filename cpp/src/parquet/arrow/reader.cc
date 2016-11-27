@@ -376,6 +376,79 @@ Status FlatColumnReader::Impl::TypedReadBatch(
 }
 
 template <>
+Status FlatColumnReader::Impl::TypedReadBatch<::arrow::BooleanType, BooleanType>(
+    int batch_size, std::shared_ptr<Array>* out) {
+  int values_to_read = batch_size;
+  RETURN_NOT_OK(InitDataBuffer<::arrow::BooleanType>(batch_size));
+  valid_bits_idx_ = 0;
+  if (descr_->max_definition_level() > 0) {
+    valid_bits_buffer_ = std::make_shared<PoolBuffer>(pool_);
+    int valid_bits_size = ::arrow::BitUtil::CeilByte(batch_size) / 8;
+    valid_bits_buffer_->Resize(valid_bits_size);
+    valid_bits_ptr_ = valid_bits_buffer_->mutable_data();
+    memset(valid_bits_ptr_, 0, valid_bits_size);
+    null_count_ = 0;
+  }
+
+  while ((values_to_read > 0) && column_reader_) {
+    values_buffer_.Resize(values_to_read * sizeof(bool));
+    if (descr_->max_definition_level() > 0) {
+      def_levels_buffer_.Resize(values_to_read * sizeof(int16_t));
+    }
+    auto reader = dynamic_cast<TypedColumnReader<BooleanType>*>(column_reader_.get());
+    int64_t values_read;
+    int64_t levels_read;
+    int16_t* def_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
+    auto values = reinterpret_cast<bool*>(values_buffer_.mutable_data());
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
+                             values_to_read, def_levels, nullptr, values, &values_read));
+    values_to_read -= levels_read;
+    if (descr_->max_definition_level() == 0) {
+      ReadNonNullableBatch<::arrow::BooleanType, BooleanType>(values, values_read);
+    } else {
+      // As per the defintion and checks for flat columns:
+      // descr_->max_definition_level() == 1
+      ReadNullableFlatBatch<::arrow::BooleanType, BooleanType>(
+          def_levels, values, values_read, levels_read);
+    }
+    if (!column_reader_->HasNext()) { NextRowGroup(); }
+  }
+
+  if (descr_->max_definition_level() > 0) {
+    // TODO: Shrink arrays in the case they are too large
+    if (valid_bits_idx_ < batch_size * 0.8) {
+      // Shrink arrays as they are larger than the output.
+      // TODO(PARQUET-761/ARROW-360): Use realloc internally to shrink the arrays
+      //    without the need for a copy. Given a decent underlying allocator this
+      //    should still free some underlying pages to the OS.
+
+      auto data_buffer = std::make_shared<PoolBuffer>(pool_);
+      RETURN_NOT_OK(data_buffer->Resize(valid_bits_idx_ * sizeof(bool)));
+      memcpy(data_buffer->mutable_data(), data_buffer_->data(), data_buffer->size());
+      data_buffer_ = data_buffer;
+
+      auto valid_bits_buffer = std::make_shared<PoolBuffer>(pool_);
+      RETURN_NOT_OK(
+          valid_bits_buffer->Resize(::arrow::BitUtil::CeilByte(valid_bits_idx_) / 8));
+      memcpy(valid_bits_buffer->mutable_data(), valid_bits_buffer_->data(),
+          valid_bits_buffer->size());
+      valid_bits_buffer_ = valid_bits_buffer;
+    }
+    *out = std::make_shared<::arrow::BooleanArray>(
+        field_->type, valid_bits_idx_, data_buffer_, null_count_, valid_bits_buffer_);
+    // Relase the ownership
+    data_buffer_.reset();
+    valid_bits_buffer_.reset();
+    return Status::OK();
+  } else {
+    *out = std::make_shared<::arrow::BooleanArray>(
+        field_->type, valid_bits_idx_, data_buffer_);
+    data_buffer_.reset();
+    return Status::OK();
+  }
+}
+
+template <>
 Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType>(
     int batch_size, std::shared_ptr<Array>* out) {
   int values_to_read = batch_size;

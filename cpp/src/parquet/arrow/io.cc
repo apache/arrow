@@ -103,5 +103,25 @@ std::shared_ptr<Buffer> ParquetReadSource::Read(int64_t nbytes) {
   return result;
 }
 
+ParquetWriteSink::ParquetWriteSink(
+    const std::shared_ptr<::arrow::io::OutputStream>& stream)
+    : stream_(stream) {}
+
+ParquetWriteSink::~ParquetWriteSink() {}
+
+void ParquetWriteSink::Close() {
+  PARQUET_THROW_NOT_OK(stream_->Close());
+}
+
+int64_t ParquetWriteSink::Tell() {
+  int64_t position;
+  PARQUET_THROW_NOT_OK(stream_->Tell(&position));
+  return position;
+}
+
+void ParquetWriteSink::Write(const uint8_t* data, int64_t length) {
+  PARQUET_THROW_NOT_OK(stream_->Write(data, length));
+}
+
 }  // namespace arrow
 }  // namespace parquet

@@ -24,6 +24,7 @@
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
 
+#include "arrow/io/memory.h"
 #include "arrow/test-util.h"
 #include "arrow/types/construct.h"
 #include "arrow/types/primitive.h"
@@ -342,6 +343,29 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
   this->ReadAndCheckSingleColumnTable(values);
 }
 
+TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
+  std::shared_ptr<Table> table = MakeSimpleTable(values, false);
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  auto buffer = std::make_shared<::arrow::PoolBuffer>();
+  auto arrow_sink_ = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
+  ASSERT_OK_NO_THROW(WriteFlatTable(
+      table.get(), default_memory_pool(), arrow_sink_, 512, default_writer_properties()));
+
+  std::shared_ptr<ParquetBuffer> pbuffer =
+      std::make_shared<ParquetBuffer>(buffer->data(), buffer->size());
+  std::unique_ptr<RandomAccessSource> source(new BufferReader(pbuffer));
+  std::shared_ptr<::arrow::Table> out;
+  this->ReadTableFromFile(ParquetFileReader::Open(std::move(source)), &out);
+  ASSERT_EQ(1, out->num_columns());
+  ASSERT_EQ(values->length(), out->num_rows());
+
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  ASSERT_EQ(1, chunked_array->num_chunks());
+  ASSERT_TRUE(values->Equals(chunked_array->chunk(0)));
+}
+
 TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
   int64_t chunk_size = SMALL_SIZE / 4;
   std::shared_ptr<Array> values;
@@ -456,10 +480,20 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
 template <typename T>
 using ParquetCDataType = typename ParquetDataType<T>::c_type;
 
+template <typename T>
+struct c_type_trait {
+  using ArrowCType = typename T::c_type;
+};
+
+template <>
+struct c_type_trait<::arrow::BooleanType> {
+  using ArrowCType = uint8_t;
+};
+
 template <typename TestType>
 class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
  public:
-  typedef typename TestType::c_type T;
+  typedef typename c_type_trait<TestType>::ArrowCType T;
 
   void MakeTestFile(std::vector<T>& values, int num_chunks,
       std::unique_ptr<ParquetFileReader>* file_reader) {
@@ -497,7 +531,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
     std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
     ASSERT_EQ(1, chunked_array->num_chunks());
-    ExpectArray<TestType>(values.data(), chunked_array->chunk(0).get());
+    ExpectArrayT<TestType>(values.data(), chunked_array->chunk(0).get());
   }
 
   void CheckSingleColumnRequiredRead(int num_chunks) {
@@ -508,7 +542,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
     std::shared_ptr<Array> out;
     this->ReadSingleColumnFile(std::move(file_reader), &out);
 
-    ExpectArray<TestType>(values.data(), out.get());
+    ExpectArrayT<TestType>(values.data(), out.get());
   }
 };
 

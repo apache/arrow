@@ -76,6 +76,25 @@ class PARQUET_EXPORT ParquetReadSource : public RandomAccessSource {
   ParquetAllocator* allocator_;
 };
 
+class PARQUET_EXPORT ParquetWriteSink : public OutputStream {
+ public:
+  explicit ParquetWriteSink(const std::shared_ptr<::arrow::io::OutputStream>& stream);
+
+  virtual ~ParquetWriteSink();
+
+  // Close the output stream
+  void Close() override;
+
+  // Return the current position in the output stream relative to the start
+  int64_t Tell() override;
+
+  // Copy bytes into the output stream
+  void Write(const uint8_t* data, int64_t length) override;
+
+ private:
+  std::shared_ptr<::arrow::io::OutputStream> stream_;
+};
+
 }  // namespace arrow
 }  // namespace parquet
 

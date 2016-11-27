@@ -37,6 +37,9 @@ using is_arrow_int = std::is_integral<typename ArrowType::c_type>;
 template <typename ArrowType>
 using is_arrow_string = std::is_same<ArrowType, ::arrow::StringType>;
 
+template <typename ArrowType>
+using is_arrow_bool = std::is_same<ArrowType, ::arrow::BooleanType>;
+
 template <class ArrowType>
 typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
@@ -70,8 +73,9 @@ typename std::enable_if<is_arrow_string<ArrowType>::value, Status>::type NonNull
   return builder.Finish(out);
 }
 
-template <>
-Status NonNullArray<::arrow::BooleanType>(size_t size, std::shared_ptr<Array>* out) {
+template <class ArrowType>
+typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NonNullArray(
+    size_t size, std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values;
   ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
   ::arrow::BooleanBuilder builder(
@@ -135,8 +139,8 @@ typename std::enable_if<is_arrow_string<ArrowType>::value, Status>::type Nullabl
 }
 
 // This helper function only supports (size/2) nulls yet.
-template <>
-Status NullableArray<::arrow::BooleanType>(
+template <class ArrowType>
+typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableArray(
     size_t size, size_t num_nulls, std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values;
   ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
@@ -176,19 +180,19 @@ void ExpectArray(T* expected, Array* result) {
 }
 
 template <typename ArrowType>
-void ExpectArray(typename ArrowType::c_type* expected, Array* result) {
+void ExpectArrayT(void* expected, Array* result) {
   ::arrow::PrimitiveArray* p_array = static_cast<::arrow::PrimitiveArray*>(result);
   for (int64_t i = 0; i < result->length(); i++) {
-    EXPECT_EQ(expected[i],
+    EXPECT_EQ(reinterpret_cast<typename ArrowType::c_type*>(expected)[i],
         reinterpret_cast<const typename ArrowType::c_type*>(p_array->data()->data())[i]);
   }
 }
 
 template <>
-void ExpectArray<::arrow::BooleanType>(uint8_t* expected, Array* result) {
+void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   ::arrow::BooleanBuilder builder(
       ::arrow::default_memory_pool(), std::make_shared<::arrow::BooleanType>());
-  builder.Append(expected, result->length());
+  builder.Append(reinterpret_cast<uint8_t*>(expected), result->length());
 
   std::shared_ptr<Array> expected_array;
   EXPECT_OK(builder.Finish(&expected_array));

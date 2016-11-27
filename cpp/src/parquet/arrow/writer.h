@@ -23,6 +23,8 @@
 #include "parquet/api/schema.h"
 #include "parquet/api/writer.h"
 
+#include "arrow/io/interfaces.h"
+
 namespace arrow {
 
 class Array;
@@ -68,6 +70,11 @@ class PARQUET_EXPORT FileWriter {
  */
 ::arrow::Status PARQUET_EXPORT WriteFlatTable(const ::arrow::Table* table,
     ::arrow::MemoryPool* pool, const std::shared_ptr<OutputStream>& sink,
+    int64_t chunk_size,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
+
+::arrow::Status PARQUET_EXPORT WriteFlatTable(const ::arrow::Table* table,
+    ::arrow::MemoryPool* pool, const std::shared_ptr<::arrow::io::OutputStream>& sink,
     int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 
