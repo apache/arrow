@@ -26,6 +26,7 @@
 #include "arrow/schema.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/types/union.h"
 #include "arrow/util/status.h"
 
 namespace arrow {
@@ -95,6 +96,22 @@ TEST_F(TestSchemaMessage, NestedFields) {
 
   Schema schema({f0, f1});
   CheckRoundtrip(&schema);
+}
+
+TEST_F(TestSchemaMessage, UnionType) {
+  auto f0 = std::make_shared<Field>("f0", TypePtr(new Int32Type()));
+  auto f1 = std::make_shared<Field>("f1", TypePtr(new Int64Type()));
+  std::vector<uint8_t> type_ids = {}; // TODO(pcm): Implement typeIds
+  auto ud = TypePtr(new UnionType(std::vector<std::shared_ptr<Field>>({f0, f1}),
+                                  type_ids, UnionMode::DENSE));
+  auto fd = std::make_shared<Field>("f", ud);
+  Schema schema_dense({fd});
+  CheckRoundtrip(&schema_dense);
+  auto us = TypePtr(new UnionType(std::vector<std::shared_ptr<Field>>({f0, f1}),
+                                  type_ids, UnionMode::SPARSE));
+  auto fs = std::make_shared<Field>("f", us);
+  Schema schema_sparse({fs});
+  CheckRoundtrip(&schema_sparse);
 }
 
 class TestFileFooter : public ::testing::Test {

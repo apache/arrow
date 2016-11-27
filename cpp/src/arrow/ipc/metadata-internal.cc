@@ -28,6 +28,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/schema.h"
 #include "arrow/type.h"
+#include "arrow/types/union.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/status.h"
 
@@ -119,8 +120,20 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Struct_:
       *out = std::make_shared<StructType>(children);
       return Status::OK();
-    case flatbuf::Type_Union:
-      return Status::NotImplemented("Type is not implemented");
+    case flatbuf::Type_Union: {
+        std::vector<uint8_t> type_ids = {}; // TODO(pcm): Implement typeIds
+        auto union_data = static_cast<const flatbuf::Union*>(type_data);
+        UnionMode mode;
+        if (union_data->mode() == flatbuf::UnionMode_Sparse) {
+          mode = UnionMode::SPARSE;
+        } else if (union_data->mode() == flatbuf::UnionMode_Dense) {
+          mode = UnionMode::DENSE;
+        } else {
+          return Status::Invalid("Unrecognized UnionMode");
+        }
+        *out = std::make_shared<UnionType>(children, type_ids, mode);
+      }
+      return Status::OK();
     default:
       return Status::Invalid("Unrecognized type");
   }
@@ -155,6 +168,18 @@ static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type
     out_children->push_back(field);
   }
   *offset = flatbuf::CreateStruct_(fbb).Union();
+  return Status::OK();
+}
+
+static Status UnionToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* out_children, Offset* offset) {
+  auto union_type = std::dynamic_pointer_cast<UnionType>(type);
+  FieldOffset field;
+  for (int i = 0; i < union_type->num_children(); ++i) {
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, union_type->child(i), &field));
+    out_children->push_back(field);
+  }
+  *offset = flatbuf::CreateUnion(fbb).Union();
   return Status::OK();
 }
 
@@ -208,6 +233,9 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::STRUCT:
       *out_type = flatbuf::Type_Struct_;
       return StructToFlatbuffer(fbb, type, children, offset);
+    case Type::UNION:
+      *out_type = flatbuf::Type_Union;
+      return UnionToFlatbuffer(fbb, type, children, offset);
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
       std::stringstream ss;

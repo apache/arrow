@@ -130,6 +130,15 @@ class ARROW_EXPORT ArrayBuilder {
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
+class ARROW_EXPORT NullArrayBuilder : public ArrayBuilder {
+ public:
+  explicit NullArrayBuilder(MemoryPool* pool, const TypePtr& type) : ArrayBuilder(pool, type) {}
+  virtual ~NullArrayBuilder() {};
+  Status Finish(std::shared_ptr<Array>* out) override {
+    return Status::OK();
+  }
+};
+
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_
