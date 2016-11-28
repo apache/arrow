@@ -99,7 +99,7 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
 class ARROW_EXPORT BufferReader : public ReadableFileInterface {
  public:
-  BufferReader(const std::shared_ptr<Buffer>& buffer);
+  explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   BufferReader(const uint8_t* data, int64_t size);
   ~BufferReader();
 
