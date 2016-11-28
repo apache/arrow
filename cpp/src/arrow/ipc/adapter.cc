@@ -402,7 +402,13 @@ class RecordBatchReader {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
-    return file_->ReadAt(metadata.offset, metadata.length, out);
+
+    if (metadata.length == 0) {
+      *out = std::make_shared<Buffer>(nullptr, 0);
+      return Status::OK();
+    } else {
+      return file_->ReadAt(metadata.offset, metadata.length, out);
+    }
   }
 
  private:
