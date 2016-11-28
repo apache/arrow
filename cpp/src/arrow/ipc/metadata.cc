@@ -184,12 +184,13 @@ RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message
   impl_.reset(new RecordBatchMetadataImpl(message->impl_->header()));
 }
 
-RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Buffer>& buffer, int64_t offset) {
+RecordBatchMetadata::RecordBatchMetadata(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset) {
   message_ = nullptr;
   buffer_ = buffer;
 
-  const flatbuf::RecordBatch* metadata = flatbuffers::GetRoot<flatbuf::RecordBatch>(
-      buffer->data() + offset);
+  const flatbuf::RecordBatch* metadata =
+      flatbuffers::GetRoot<flatbuf::RecordBatch>(buffer->data() + offset);
 
   // TODO(wesm): validate table
 

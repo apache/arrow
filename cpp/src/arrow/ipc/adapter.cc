@@ -402,9 +402,6 @@ class RecordBatchReader {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
-    if (!BitUtil::IsMultipleOf8(metadata.length)) {
-      return Status::Invalid("Expected buffer to be a multiple of 8 bytes");
-    }
     return file_->ReadAt(metadata.offset, metadata.length, out);
   }
 

@@ -80,6 +80,9 @@ class IntegrationRunner(object):
 
 class Tester(object):
 
+    def __init__(self, debug=False):
+        self.debug = debug
+
     def json_to_arrow(self, json_path, arrow_path):
         raise NotImplementedError
 
@@ -106,6 +109,10 @@ class JavaTester(Tester):
             cmd.extend(['-j', json_path])
 
         cmd.extend(['-c', command])
+
+        if self.debug:
+            print(' '.join(cmd))
+
         return run_cmd(cmd)
 
     def validate(self, json_path, arrow_path):
@@ -124,14 +131,8 @@ class CPPTester(Tester):
 
     name = 'C++'
 
-    def __init__(self, debug=False):
-        self.debug = debug
-
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = [self.CPP_INTEGRATION_EXE, '--integration']
-
-        if self.debug:
-            cmd = ['gdb', '--args'] + cmd
 
         if arrow_path is not None:
             cmd.append('--arrow=' + arrow_path)
@@ -140,6 +141,10 @@ class CPPTester(Tester):
             cmd.append('--json=' + json_path)
 
         cmd.append('--mode=' + command)
+
+        if self.debug:
+            print(' '.join(cmd))
+
         return run_cmd(cmd)
 
     def validate(self, json_path, arrow_path):
@@ -155,7 +160,7 @@ def get_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [JavaTester(), CPPTester(debug=debug)]
+    testers = [JavaTester(debug=debug), CPPTester(debug=debug)]
     json_files = get_json_files()
 
     runner = IntegrationRunner(json_files, testers, debug=debug)

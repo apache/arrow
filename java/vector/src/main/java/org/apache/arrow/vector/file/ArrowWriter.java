@@ -118,6 +118,7 @@ public class ArrowWriter implements AutoCloseable {
       if (startPosition != currentPosition) {
         writeZeros((int)(startPosition - currentPosition));
       }
+
       write(buffer);
       if (currentPosition != startPosition + layout.getSize()) {
         throw new IllegalStateException("wrong buffer size: " + currentPosition + " != " + startPosition + layout.getSize());
@@ -134,7 +135,9 @@ public class ArrowWriter implements AutoCloseable {
   }
 
   private void write(ArrowBuf buffer) throws IOException {
-    write(buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes()));
+    ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
+    LOGGER.debug("Writing buffer with size: " + nioBuffer.remaining());
+    write(nioBuffer);
   }
 
   private void checkStarted() throws IOException {

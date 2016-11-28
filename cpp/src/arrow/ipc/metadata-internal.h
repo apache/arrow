@@ -41,6 +41,7 @@ namespace ipc {
 
 using FBB = flatbuffers::FlatBufferBuilder;
 using FieldOffset = flatbuffers::Offset<arrow::flatbuf::Field>;
+using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 
 static constexpr flatbuf::MetadataVersion kMetadataVersion =

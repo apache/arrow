@@ -152,7 +152,32 @@ static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type
   break;
 
 static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
-    std::vector<FieldOffset>* children, flatbuf::Type* out_type, Offset* offset) {
+    std::vector<FieldOffset>* children, std::vector<VectorLayoutOffset>* layout,
+    flatbuf::Type* out_type, Offset* offset) {
+  std::vector<BufferDescr> buffer_layout = type->GetBufferLayout();
+  for (const BufferDescr& descr : buffer_layout) {
+    flatbuf::VectorType vector_type;
+    switch (descr.type()) {
+      case BufferType::OFFSET:
+        vector_type = flatbuf::VectorType_OFFSET;
+        break;
+      case BufferType::DATA:
+        vector_type = flatbuf::VectorType_DATA;
+        break;
+      case BufferType::VALIDITY:
+        vector_type = flatbuf::VectorType_VALIDITY;
+        break;
+      case BufferType::TYPE:
+        vector_type = flatbuf::VectorType_TYPE;
+        break;
+      default:
+        vector_type = flatbuf::VectorType_DATA;
+        break;
+    }
+    auto offset = flatbuf::CreateVectorLayout(fbb, descr.bit_width(), vector_type);
+    layout->push_back(offset);
+  }
+
   switch (type->type) {
     case Type::BOOL:
       *out_type = flatbuf::Type_Bool;
@@ -211,14 +236,18 @@ static Status FieldToFlatbuffer(
 
   flatbuf::Type type_enum;
   Offset type_data;
+  Offset type_layout;
   std::vector<FieldOffset> children;
+  std::vector<VectorLayoutOffset> layout;
 
-  RETURN_NOT_OK(TypeToFlatbuffer(fbb, field->type, &children, &type_enum, &type_data));
+  RETURN_NOT_OK(
+      TypeToFlatbuffer(fbb, field->type, &children, &layout, &type_enum, &type_data));
   auto fb_children = fbb.CreateVector(children);
+  auto fb_layout = fbb.CreateVector(layout);
 
   // TODO: produce the list of VectorTypes
   *offset = flatbuf::CreateField(fbb, fb_name, field->nullable, type_enum, type_data,
-      field->dictionary, fb_children);
+      field->dictionary, fb_children, fb_layout);
 
   return Status::OK();
 }
@@ -293,8 +322,8 @@ Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
   flatbuffers::FlatBufferBuilder fbb;
 
-  auto batch = flatbuf::CreateRecordBatch(fbb, length, fbb.CreateVectorOfStructs(nodes),
-      fbb.CreateVectorOfStructs(buffers));
+  auto batch = flatbuf::CreateRecordBatch(
+      fbb, length, fbb.CreateVectorOfStructs(nodes), fbb.CreateVectorOfStructs(buffers));
 
   fbb.Finish(batch);
 

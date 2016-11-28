@@ -45,6 +45,12 @@
             <artifactId>commons-cli</artifactId>
             <version>1.2</version>
         </dependency>
+        <dependency>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+          <version>1.0.13</version>
+          <scope>run</scope>
+        </dependency>
     </dependencies>
 
     <build>
