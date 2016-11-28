@@ -48,15 +48,6 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
-namespace {
-Status CheckMultipleOf64(int64_t size) {
-  if (BitUtil::IsMultipleOf64(size)) { return Status::OK(); }
-  return Status::Invalid(
-      "Attempted to write a buffer that "
-      "wasn't a multiple of 64 bytes");
-}
-}
-
 static bool IsPrimitive(const DataType* type) {
   DCHECK(type != nullptr);
   switch (type->type) {
@@ -224,7 +215,7 @@ class RecordBatchWriter {
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
-    DCHECK(BitUtil::IsMultipleOf64(current_position));
+    DCHECK(BitUtil::IsMultipleOf8(current_position));
 #endif
 
     // Now write the buffers
@@ -246,7 +237,7 @@ class RecordBatchWriter {
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
-    DCHECK(BitUtil::IsMultipleOf64(current_position));
+    DCHECK(BitUtil::IsMultipleOf8(current_position));
 #endif
 
     return Status::OK();
@@ -411,7 +402,9 @@ class RecordBatchReader {
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     BufferMetadata metadata = metadata_->buffer(buffer_index);
-    RETURN_NOT_OK(CheckMultipleOf64(metadata.length));
+    if (!BitUtil::IsMultipleOf8(metadata.length)) {
+      return Status::Invalid("Expected buffer to be a multiple of 8 bytes");
+    }
     return file_->ReadAt(metadata.offset, metadata.length, out);
   }
 
@@ -441,14 +434,7 @@ Status ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
     return Status::Invalid(ss.str());
   }
 
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(Message::Open(buffer, sizeof(int32_t), &message));
-
-  if (message->type() != Message::RECORD_BATCH) {
-    return Status::Invalid("Metadata message is not a record batch");
-  }
-
-  *metadata = std::make_shared<RecordBatchMetadata>(message);
+  *metadata = std::make_shared<RecordBatchMetadata>(buffer, sizeof(int32_t));
   return Status::OK();
 }
 

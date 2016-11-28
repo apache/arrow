@@ -78,6 +78,10 @@ static inline bool IsMultipleOf64(int64_t n) {
   return (n & 63) == 0;
 }
 
+static inline bool IsMultipleOf8(int64_t n) {
+  return (n & 7) == 0;
+}
+
 inline int64_t RoundUpToMultipleOf64(int64_t num) {
   // TODO(wesm): is this definitely needed?
   // DCHECK_GE(num, 0);

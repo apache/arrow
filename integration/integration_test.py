@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import argparse
 import glob
 import itertools
 import os
@@ -53,10 +54,11 @@ def run_cmd(cmd):
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, testers):
+    def __init__(self, json_files, testers, debug=False):
         self.json_files = json_files
         self.testers = testers
         self.temp_dir = tempfile.mkdtemp()
+        self.debug = debug
 
     def run(self):
         for producer, consumer in itertools.product(self.testers,
@@ -122,8 +124,14 @@ class CPPTester(Tester):
 
     name = 'C++'
 
+    def __init__(self, debug=False):
+        self.debug = debug
+
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = [self.CPP_INTEGRATION_EXE, '--integration']
+
+        if self.debug:
+            cmd = ['gdb', '--args'] + cmd
 
         if arrow_path is not None:
             cmd.append('--arrow=' + arrow_path)
@@ -146,13 +154,19 @@ def get_json_files():
     return glob.glob(glob_pattern)
 
 
-def run_all_tests():
-    testers = [JavaTester(), CPPTester()]
+def run_all_tests(debug=False):
+    testers = [JavaTester(), CPPTester(debug=debug)]
     json_files = get_json_files()
 
-    runner = IntegrationRunner(json_files, testers)
+    runner = IntegrationRunner(json_files, testers, debug=debug)
     runner.run()
 
 
 if __name__ == '__main__':
-    run_all_tests()
+    parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+    parser.add_argument('--debug', dest='debug', action='store_true',
+                        default=False,
+                        help='Run executables in debug mode as relevant')
+
+    args = parser.parse_args()
+    run_all_tests(debug=args.debug)

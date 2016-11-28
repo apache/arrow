@@ -100,6 +100,9 @@ struct BufferMetadata {
 class ARROW_EXPORT RecordBatchMetadata {
  public:
   explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
+
+  RecordBatchMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
+
   ~RecordBatchMetadata();
 
   FieldMetadata field(int i) const;
@@ -112,6 +115,7 @@ class ARROW_EXPORT RecordBatchMetadata {
  private:
   // Parent, owns the flatbuffer data
   std::shared_ptr<Message> message_;
+  std::shared_ptr<Buffer> buffer_;
 
   class RecordBatchMetadataImpl;
   std::unique_ptr<RecordBatchMetadataImpl> impl_;
