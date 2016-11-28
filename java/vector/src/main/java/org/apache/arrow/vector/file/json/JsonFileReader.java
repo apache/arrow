@@ -127,8 +127,13 @@ public class JsonFileReader implements AutoCloseable {
         ValueVector valueVector = (ValueVector)innerVector;
         valueVector.allocateNew();
         Mutator mutator = valueVector.getMutator();
-        mutator.setValueCount(count);
-        for (int i = 0; i < count; i++) {
+
+        int innerVectorCount = count;
+        if (vectorType.getName() == "OFFSET") {
+          innerVectorCount++;
+        }
+        mutator.setValueCount(innerVectorCount);
+        for (int i = 0; i < innerVectorCount; i++) {
           parser.nextToken();
           setValueFromParser(valueVector, i);
         }
