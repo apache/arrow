@@ -18,7 +18,8 @@
 namespace org.apache.arrow.flatbuf;
 
 enum MetadataVersion:short {
-  V1_SNAPSHOT
+  V1,
+  V2
 }
 
 /// ----------------------------------------------------------------------

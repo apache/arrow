@@ -281,11 +281,13 @@ class FileFooter::FileFooterImpl {
 
   MetadataVersion::type version() const {
     switch (footer_->version()) {
-      case flatbuf::MetadataVersion_V1_SNAPSHOT:
-        return MetadataVersion::V1_SNAPSHOT;
+      case flatbuf::MetadataVersion_V1:
+        return MetadataVersion::V1;
+      case flatbuf::MetadataVersion_V2:
+        return MetadataVersion::V2;
       // Add cases as other versions become available
       default:
-        return MetadataVersion::V1_SNAPSHOT;
+        return MetadataVersion::V2;
     }
   }
 

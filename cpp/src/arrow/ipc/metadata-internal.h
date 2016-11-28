@@ -44,8 +44,7 @@ using FieldOffset = flatbuffers::Offset<arrow::flatbuf::Field>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 
-static constexpr flatbuf::MetadataVersion kMetadataVersion =
-    flatbuf::MetadataVersion_V1_SNAPSHOT;
+static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V2;
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
 

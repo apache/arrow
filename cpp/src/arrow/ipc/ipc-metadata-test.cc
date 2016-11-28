@@ -111,7 +111,7 @@ class TestFileFooter : public ::testing::Test {
     std::unique_ptr<FileFooter> footer;
     ASSERT_OK(FileFooter::Open(buffer, &footer));
 
-    ASSERT_EQ(MetadataVersion::V1_SNAPSHOT, footer->version());
+    ASSERT_EQ(MetadataVersion::V2, footer->version());
 
     // Check schema
     std::shared_ptr<Schema> schema2;

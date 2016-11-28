@@ -42,7 +42,7 @@ class OutputStream;
 namespace ipc {
 
 struct MetadataVersion {
-  enum type { V1_SNAPSHOT };
+  enum type { V1, V2 };
 };
 
 //----------------------------------------------------------------------
