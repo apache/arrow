@@ -204,9 +204,6 @@ class TestPandasConversion(unittest.TestCase):
             })
         self._check_pandas_roundtrip(df, timestamps_to_ms=False)
 
-    def test_chunked_array_conversion(self):
-        pass
-
     # def test_category(self):
     #     repeats = 1000
     #     values = [b'foo', None, u'bar', 'qux', np.nan]
