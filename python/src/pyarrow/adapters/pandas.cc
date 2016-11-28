@@ -630,7 +630,7 @@ class ArrowDeserializer {
 
     if (out_ == NULL) {
       // Error occurred, trust that SimpleNew set the error state
-      return Status::OK();//Invalid("Error in PyArray_SimpleNewFromData");
+      return Status::OK();
     }
 
     set_numpy_metadata(type, col_->type().get(), out_);
@@ -670,10 +670,9 @@ class ArrowDeserializer {
     arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
   ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
     typedef typename arrow_traits<T2>::T T;
-    bool has_null_values = data->null_count() > 0;
     size_t chunk_offset = 0;
 
-    if (data->num_chunks() == 1 && !has_null_values) {
+    if (data->num_chunks() == 1 && data->null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(data->chunk(0));
     }
 
@@ -686,15 +685,12 @@ class ArrowDeserializer {
       const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
       T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
 
-      if (has_null_values) {
+      if (arr->null_count() > 0) {
         for (int64_t i = 0; i < arr->length(); ++i) {
           out_values[i] = arr->IsNull(i) ? arrow_traits<T2>::na_value : in_values[i];
         }
       } else {
-        // TODO - copy entire chunck?
-        for (int64_t i = 0; i < arr->length(); ++i) {
-          out_values[i] = in_values[i];
-        }
+        memcpy(out_values, in_values, sizeof(T) * arr->length());
       }
 
       chunk_offset += arr->length();
@@ -709,35 +705,43 @@ class ArrowDeserializer {
     arrow_traits<T2>::is_pandas_numeric_not_nullable, Status>::type
   ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
     typedef typename arrow_traits<T2>::T T;
-    bool has_null_values = data->null_count() > 0;
     size_t chunk_offset = 0;
 
-    if (data->num_chunks() == 1 && !has_null_values) {
+    if (data->num_chunks() == 1 && data->null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(data->chunk(0));
     }
 
-    // TODO - why cast to double?
-    RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
+    if (data->null_count() > 0) {
+      RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
 
-    for (int c = 0; c < data->num_chunks(); c++) {
-      const std::shared_ptr<Array> arr = data->chunk(c);
-      arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-          arr.get());
-      const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
-      // Upcast to double, set NaN as appropriate
-      double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_)) + chunk_offset;
+      for (int c = 0; c < data->num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data->chunk(c);
+        arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
+            arr.get());
+        const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+        // Upcast to double, set NaN as appropriate
+        double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_)) + chunk_offset;
 
-      if (arr->null_count() > 0) {
         for (int i = 0; i < arr->length(); ++i) {
           out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
         }
-      } else {
-        for (int i = 0; i < arr->length(); ++i) {
-          out_values[i] = in_values[i];
-        }
-      }
 
-      chunk_offset += arr->length();
+        chunk_offset += arr->length();
+      }
+    } else {
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
+
+      for (int c = 0; c < data->num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data->chunk(c);
+        arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
+            arr.get());
+        const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+        T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
+
+        memcpy(out_values, in_values, sizeof(T) * arr->length());
+
+        chunk_offset += arr->length();
+      }
     }
 
     return Status::OK();

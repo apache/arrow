@@ -51,20 +51,25 @@ def test_recordbatch_from_to_pandas():
 
 
 def test_recordbatchlist_to_pandas():
-    # NOTE - dtype='uint32' is converted to float64 when not zero copy
-    data = pd.DataFrame({
-        'c1': np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype='float64'),
-        'c2': ['foo', 'bar', None, 'baz', 'qux']
+    data1 = pd.DataFrame({
+        'c1': np.array([1, 1, 2], dtype='uint32'),
+        'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
+        'c3': [True, None, False],
+        'c4': ['foo', 'bar', None]
     })
 
-    split = int(len(data) / 2)
-    data1 = data[:split]
-    data2 = data[split:]
+    data2 = pd.DataFrame({
+        'c1': np.array([3, 5], dtype='uint32'),
+        'c2': np.array([4.0, 5.0], dtype='float64'),
+        'c3': [True, True],
+        'c4': ['baz', 'qux']
+    })
 
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
     result = pa.RecordBatchList.to_pandas([batch1, batch2])
+    data = pd.concat([data1, data2], ignore_index=True)
     assert_frame_equal(data, result)
 
 
