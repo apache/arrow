@@ -123,7 +123,11 @@ public class ArrowReader implements AutoCloseable {
     if (n != l) {
       throw new IllegalStateException(n + " != " + l);
     }
-    RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(buffer.nioBuffer().asReadOnlyBuffer());
+
+    // Record batch flatbuffer is prefixed by its size as int32le
+    final ArrowBuf metadata = buffer.slice(4, recordBatchBlock.getMetadataLength() - 4);
+    RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(metadata.nioBuffer().asReadOnlyBuffer());
+
     int nodesLength = recordBatchFB.nodesLength();
     final ArrowBuf body = buffer.slice(recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
     List<ArrowFieldNode> nodes = new ArrayList<>();
