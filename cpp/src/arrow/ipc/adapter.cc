@@ -37,6 +37,7 @@
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
+#include "arrow/types/union.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
@@ -114,6 +115,13 @@ Status VisitArray(const Array* arr, std::vector<flatbuf::FieldNode>* field_nodes
     for (auto& field : struct_arr->fields()) {
       RETURN_NOT_OK(
           VisitArray(field.get(), field_nodes, buffers, max_recursion_depth - 1));
+    }
+  } else if (arr->type_enum() == Type::UNION) {
+    const auto union_arr = static_cast<const UnionArray*>(arr);
+    buffers->push_back(union_arr->types());
+    buffers->push_back(union_arr->offset_buf());
+    for (auto& child_arr : union_arr->children()) {
+      RETURN_NOT_OK(VisitArray(child_arr.get(), field_nodes, buffers, max_recursion_depth - 1));
     }
   } else {
     return Status::NotImplemented("Unrecognized type");
@@ -362,6 +370,22 @@ class RecordBatchReader::RecordBatchReaderImpl {
       }
       out->reset(new StructArray(
           type, field_meta.length, fields, field_meta.null_count, null_bitmap));
+      return Status::OK();
+    } else if (type->type == Type::UNION) {
+      std::shared_ptr<Buffer> types;
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &types));
+      std::shared_ptr<Buffer> offset_buf;
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &offset_buf));
+      auto union_type = std::dynamic_pointer_cast<UnionType>(type);
+      const int num_children = union_type->num_children();
+      std::vector<ArrayPtr> results;
+      for (int child_idx = 0; child_idx < num_children; ++child_idx) {
+        std::shared_ptr<Array> result;
+        RETURN_NOT_OK(NextArray(union_type->child(child_idx).get(), max_recursion_depth - 1, &result));
+        results.push_back(result);
+      }
+      out->reset(new UnionArray(
+        type, field_meta.length, results, types, offset_buf, field_meta.null_count, null_bitmap));
       return Status::OK();
     }
 

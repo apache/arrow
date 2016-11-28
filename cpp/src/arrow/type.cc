@@ -105,6 +105,16 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
+bool UnionType::Equals(const DataType* other) const {
+  if (!DataType::Equals(other)) {
+    return false;
+  }
+  const UnionType *union_type = dynamic_cast<const UnionType*>(other);
+  return union_type && type_id == union_type->type_id
+             && std::equal(type_ids.begin(), type_ids.end(),
+                           union_type->type_ids.begin());
+}
+
 int NullType::bit_width() const {
   return 0;
 }

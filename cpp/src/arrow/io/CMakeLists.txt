@@ -86,9 +86,11 @@ if(ARROW_HDFS)
     ${ARROW_IO_TEST_LINK_LIBS})
 endif()
 
-add_library(arrow_io SHARED
+add_library(arrow_io STATIC
   ${ARROW_IO_SRCS}
 )
+set_property(TARGET arrow_io PROPERTY POSITION_INDEPENDENT_CODE 1)
+
 target_link_libraries(arrow_io
   LINK_PUBLIC ${ARROW_IO_LINK_LIBS}
   LINK_PRIVATE ${ARROW_IO_PRIVATE_LINK_LIBS})

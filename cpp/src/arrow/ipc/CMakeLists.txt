@@ -41,9 +41,10 @@ set(ARROW_IPC_SRCS
 )
 
 # TODO(wesm): SHARED and STATIC targets
-add_library(arrow_ipc SHARED
+add_library(arrow_ipc STATIC
   ${ARROW_IPC_SRCS}
 )
+set_property(TARGET arrow_ipc PROPERTY POSITION_INDEPENDENT_CODE 1)
 if(FLATBUFFERS_VENDORED)
   add_dependencies(arrow_ipc flatbuffers_ep)
 endif()
