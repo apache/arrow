@@ -29,6 +29,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -114,6 +115,7 @@ public class Integration {
             // initialize vectors
             VectorSchemaRoot root;
             while ((root = reader.read()) != null) {
+              printVectors(root.getFieldVectors());
               VectorUnloader vectorUnloader = new VectorUnloader(root);
               try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();) {
                 arrowWriter.writeRecordBatch(recordBatch);
@@ -251,6 +253,17 @@ public class Integration {
           throw new IllegalArgumentException(
               "Different values in column:\n" + field + " at index " + j + ": " + arrow + " != " + json);
         }
+      }
+    }
+  }
+
+  public static void printVectors(List<FieldVector> vectors) {
+    for (FieldVector vector : vectors) {
+      LOGGER.debug(vector.getField().getName());
+      ValueVector.Accessor accessor = vector.getAccessor();
+      int valueCount = accessor.getValueCount();
+      for (int i = 0; i < valueCount; i++) {
+        LOGGER.debug(String.valueOf(accessor.getObject(i)));
       }
     }
   }

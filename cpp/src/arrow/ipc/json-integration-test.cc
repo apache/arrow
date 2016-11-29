@@ -31,6 +31,7 @@
 #include "arrow/io/file.h"
 #include "arrow/ipc/file.h"
 #include "arrow/ipc/json.h"
+#include "arrow/pretty_print.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
@@ -171,6 +172,12 @@ static Status ValidateArrowVsJson(
     if (!json_batch->Equals(*arrow_batch.get())) {
       std::stringstream ss;
       ss << "Record batch " << i << " did not match";
+
+      ss << "\nJSON: \n ";
+      RETURN_NOT_OK(PrettyPrint(*json_batch.get(), &ss));
+
+      ss << "\nArrow: \n ";
+      RETURN_NOT_OK(PrettyPrint(*arrow_batch.get(), &ss));
       return Status::Invalid(ss.str());
     }
   }

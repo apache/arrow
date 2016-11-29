@@ -343,7 +343,7 @@ class JsonSchemaWriter : public TypeVisitor {
 
 class JsonArrayWriter : public ArrayVisitor {
  public:
-  explicit JsonArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
+  JsonArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
       : name_(name), array_(array), writer_(writer) {}
 
   Status Write() { return VisitArray(name_, array_); }
