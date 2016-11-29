@@ -24,9 +24,12 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.Assert.fail;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -43,6 +46,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class TestIntegration {
 
@@ -69,7 +77,7 @@ public class TestIntegration {
     File testOutFile = testFolder.newFile("testOut.arrow");
     testOutFile.delete();
 
-    // generate an arow file
+    // generate an arrow file
     writeInput(testInFile, allocator);
 
     Integration integration = new Integration();
@@ -89,6 +97,50 @@ public class TestIntegration {
     String[] args3 = { "-arrow", testInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.VALIDATE.name()};
     integration.run(args3);
   }
+
+  @Test
+  public void testJSONRoundTripWithVariableWidth() throws Exception {
+    File testJSONFile = new File("../../integration/data/simple.json");
+    File testOutFile = testFolder.newFile("testOut.arrow");
+    File testRoundTripJSONFile = testFolder.newFile("testOut.json");
+    testOutFile.delete();
+    testRoundTripJSONFile.delete();
+
+    Integration integration = new Integration();
+
+    // convert to arrow
+    String[] args1 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    integration.run(args1);
+
+    // convert back to json
+    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testRoundTripJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    integration.run(args2);
+
+    BufferedReader orig = readNormalized(testJSONFile);
+    BufferedReader rt = readNormalized(testRoundTripJSONFile);
+    String i, o;
+    int j = 0;
+    while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
+      Assert.assertEquals("line: " + j, i, o);
+      ++j;
+    }
+  }
+
+  private ObjectMapper om = new ObjectMapper();
+  {
+    DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
+    prettyPrinter.indentArraysWith(NopIndenter.instance);
+    om.setDefaultPrettyPrinter(prettyPrinter);
+    om.enable(SerializationFeature.INDENT_OUTPUT);
+    om.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+  }
+
+  private BufferedReader readNormalized(File f) throws IOException {
+    Map<?,?> tree = om.readValue(f, Map.class);
+    String normalized = om.writeValueAsString(tree);
+    return new BufferedReader(new StringReader(normalized));
+  }
+
 
   @Test
   public void testInvalid() throws Exception {
