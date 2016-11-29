@@ -42,7 +42,7 @@ class OutputStream;
 namespace ipc {
 
 struct MetadataVersion {
-  enum type { V1_SNAPSHOT };
+  enum type { V1, V2 };
 };
 
 //----------------------------------------------------------------------
@@ -58,10 +58,14 @@ Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out);
 class Message;
 
 // Container for serialized Schema metadata contained in an IPC message
-class ARROW_EXPORT SchemaMessage {
+class ARROW_EXPORT SchemaMetadata {
  public:
+  explicit SchemaMetadata(const std::shared_ptr<Message>& message);
+
   // Accepts an opaque flatbuffer pointer
-  SchemaMessage(const std::shared_ptr<Message>& message, const void* schema);
+  SchemaMetadata(const std::shared_ptr<Message>& message, const void* schema);
+
+  ~SchemaMetadata();
 
   int num_fields() const;
 
@@ -76,8 +80,8 @@ class ARROW_EXPORT SchemaMessage {
   // Parent, owns the flatbuffer data
   std::shared_ptr<Message> message_;
 
-  class SchemaMessageImpl;
-  std::unique_ptr<SchemaMessageImpl> impl_;
+  class SchemaMetadataImpl;
+  std::unique_ptr<SchemaMetadataImpl> impl_;
 };
 
 // Field metadata
@@ -93,10 +97,13 @@ struct BufferMetadata {
 };
 
 // Container for serialized record batch metadata contained in an IPC message
-class ARROW_EXPORT RecordBatchMessage {
+class ARROW_EXPORT RecordBatchMetadata {
  public:
-  // Accepts an opaque flatbuffer pointer
-  RecordBatchMessage(const std::shared_ptr<Message>& message, const void* batch_meta);
+  explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
+
+  RecordBatchMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
+
+  ~RecordBatchMetadata();
 
   FieldMetadata field(int i) const;
   BufferMetadata buffer(int i) const;
@@ -108,37 +115,34 @@ class ARROW_EXPORT RecordBatchMessage {
  private:
   // Parent, owns the flatbuffer data
   std::shared_ptr<Message> message_;
+  std::shared_ptr<Buffer> buffer_;
 
-  class RecordBatchMessageImpl;
-  std::unique_ptr<RecordBatchMessageImpl> impl_;
+  class RecordBatchMetadataImpl;
+  std::unique_ptr<RecordBatchMetadataImpl> impl_;
 };
 
-class ARROW_EXPORT DictionaryBatchMessage {
+class ARROW_EXPORT DictionaryBatchMetadata {
  public:
   int64_t id() const;
-  std::unique_ptr<RecordBatchMessage> data() const;
+  std::unique_ptr<RecordBatchMetadata> data() const;
 };
 
-class ARROW_EXPORT Message : public std::enable_shared_from_this<Message> {
+class ARROW_EXPORT Message {
  public:
   enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
 
-  static Status Open(
-      const std::shared_ptr<Buffer>& buffer, std::shared_ptr<Message>* out);
-
-  std::shared_ptr<Message> get_shared_ptr();
+  static Status Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
+      std::shared_ptr<Message>* out);
 
   int64_t body_length() const;
 
   Type type() const;
 
-  // These methods only to be invoked if you have checked the message type
-  std::shared_ptr<SchemaMessage> GetSchema();
-  std::shared_ptr<RecordBatchMessage> GetRecordBatch();
-  std::shared_ptr<DictionaryBatchMessage> GetDictionaryBatch();
-
  private:
-  Message();
+  Message(const std::shared_ptr<Buffer>& buffer, int64_t offset);
+
+  friend class RecordBatchMetadata;
+  friend class SchemaMetadata;
 
   // Hide serialization details from user API
   class MessageImpl;

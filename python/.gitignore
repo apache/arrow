@@ -12,16 +12,6 @@ Testing/
 # Editor temporary/working/backup files
 *flymake*
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.dylib
-.build_cache_dir
-MANIFEST
-
 # Generated sources
 *.c
 *.cpp

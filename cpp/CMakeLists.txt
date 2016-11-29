@@ -528,7 +528,6 @@ if(ARROW_BUILD_TESTS)
     ExternalProject_Add(gflags_ep
       GIT_REPOSITORY https://github.com/gflags/gflags.git
       GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
-      # URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz"
       BUILD_IN_SOURCE 1
       CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                  -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}

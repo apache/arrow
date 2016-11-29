@@ -101,6 +101,20 @@ struct Type {
   };
 };
 
+enum class BufferType : char { DATA, OFFSET, TYPE, VALIDITY };
+
+class BufferDescr {
+ public:
+  BufferDescr(BufferType type, int bit_width) : type_(type), bit_width_(bit_width) {}
+
+  BufferType type() const { return type_; }
+  int bit_width() const { return bit_width_; }
+
+ private:
+  BufferType type_;
+  int bit_width_;
+};
+
 struct ARROW_EXPORT DataType {
   Type::type type;
 
@@ -129,12 +143,18 @@ struct ARROW_EXPORT DataType {
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 
   virtual std::string ToString() const = 0;
+
+  virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
 };
 
 typedef std::shared_ptr<DataType> TypePtr;
 
-struct ARROW_EXPORT FixedWidthMeta {
+struct ARROW_EXPORT FixedWidthType : public DataType {
+  using DataType::DataType;
+
   virtual int bit_width() const = 0;
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 struct ARROW_EXPORT IntegerMeta {
@@ -184,12 +204,12 @@ struct ARROW_EXPORT Field {
 };
 typedef std::shared_ptr<Field> FieldPtr;
 
-struct ARROW_EXPORT PrimitiveCType : public DataType {
-  using DataType::DataType;
+struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {
+  using FixedWidthType::FixedWidthType;
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT CTypeImpl : public PrimitiveCType, public FixedWidthMeta {
+struct ARROW_EXPORT CTypeImpl : public PrimitiveCType {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
@@ -204,16 +224,17 @@ struct ARROW_EXPORT CTypeImpl : public PrimitiveCType, public FixedWidthMeta {
   std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
-struct ARROW_EXPORT NullType : public DataType, public FixedWidthMeta {
+struct ARROW_EXPORT NullType : public DataType {
   static constexpr Type::type type_id = Type::NA;
 
   NullType() : DataType(Type::NA) {}
 
-  int bit_width() const override;
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   static std::string name() { return "null"; }
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
@@ -221,10 +242,10 @@ struct IntegerTypeImpl : public CTypeImpl<DERIVED, TYPE_ID, C_TYPE>, public Inte
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
-struct ARROW_EXPORT BooleanType : public DataType, FixedWidthMeta {
+struct ARROW_EXPORT BooleanType : public FixedWidthType {
   static constexpr Type::type type_id = Type::BOOL;
 
-  BooleanType() : DataType(Type::BOOL) {}
+  BooleanType() : FixedWidthType(Type::BOOL) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -306,6 +327,8 @@ struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
   std::string ToString() const override;
 
   static std::string name() { return "list"; }
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 // BinaryType type is reprsents lists of 1-byte values.
@@ -317,6 +340,8 @@ struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "binary"; }
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 
  protected:
   // Allow subclasses to change the logical type.
@@ -345,6 +370,8 @@ struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "struct"; }
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 struct ARROW_EXPORT DecimalType : public DataType {
@@ -358,6 +385,8 @@ struct ARROW_EXPORT DecimalType : public DataType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "decimal"; }
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 enum class UnionMode : char { SPARSE, DENSE };
@@ -375,14 +404,20 @@ struct ARROW_EXPORT UnionType : public DataType {
   static std::string name() { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
+  std::vector<BufferDescr> GetBufferLayout() const override;
+
   UnionMode mode;
   std::vector<uint8_t> type_ids;
 };
 
-struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
+struct ARROW_EXPORT DateType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DATE;
 
-  DateType() : DataType(Type::DATE) {}
+  using c_type = int32_t;
+
+  DateType() : FixedWidthType(Type::DATE) {}
+
+  int bit_width() const override { return sizeof(c_type) * 8; }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
@@ -391,13 +426,17 @@ struct ARROW_EXPORT DateType : public DataType, public NoExtraMeta {
 
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 
-struct ARROW_EXPORT TimeType : public DataType {
+struct ARROW_EXPORT TimeType : public FixedWidthType {
   static constexpr Type::type type_id = Type::TIME;
   using Unit = TimeUnit;
+  using c_type = int64_t;
 
   TimeUnit unit;
 
-  explicit TimeType(TimeUnit unit = TimeUnit::MILLI) : DataType(Type::TIME), unit(unit) {}
+  int bit_width() const override { return sizeof(c_type) * 8; }
+
+  explicit TimeType(TimeUnit unit = TimeUnit::MILLI)
+      : FixedWidthType(Type::TIME), unit(unit) {}
   TimeType(const TimeType& other) : TimeType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -405,7 +444,7 @@ struct ARROW_EXPORT TimeType : public DataType {
   static std::string name() { return "time"; }
 };
 
-struct ARROW_EXPORT TimestampType : public DataType, public FixedWidthMeta {
+struct ARROW_EXPORT TimestampType : public FixedWidthType {
   using Unit = TimeUnit;
 
   typedef int64_t c_type;
@@ -416,7 +455,7 @@ struct ARROW_EXPORT TimestampType : public DataType, public FixedWidthMeta {
   TimeUnit unit;
 
   explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
-      : DataType(Type::TIMESTAMP), unit(unit) {}
+      : FixedWidthType(Type::TIMESTAMP), unit(unit) {}
 
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
 
@@ -425,10 +464,10 @@ struct ARROW_EXPORT TimestampType : public DataType, public FixedWidthMeta {
   static std::string name() { return "timestamp"; }
 };
 
-struct ARROW_EXPORT IntervalType : public DataType, public FixedWidthMeta {
+struct ARROW_EXPORT IntervalType : public FixedWidthType {
   enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
 
-  typedef int64_t c_type;
+  using c_type = int64_t;
   static constexpr Type::type type_id = Type::INTERVAL;
 
   int bit_width() const override { return sizeof(int64_t) * 8; }
@@ -436,7 +475,7 @@ struct ARROW_EXPORT IntervalType : public DataType, public FixedWidthMeta {
   Unit unit;
 
   explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
-      : DataType(Type::INTERVAL), unit(unit) {}
+      : FixedWidthType(Type::INTERVAL), unit(unit) {}
 
   IntervalType(const IntervalType& other) : IntervalType(other.unit) {}
 

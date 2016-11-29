@@ -114,7 +114,7 @@ public class JsonFileWriter implements AutoCloseable {
         BufferBacked innerVector = fieldInnerVectors.get(v);
         generator.writeArrayFieldStart(vectorType.getName());
         ValueVector valueVector = (ValueVector)innerVector;
-        for (int i = 0; i < valueCount; i++) {
+        for (int i = 0; i < valueVector.getAccessor().getValueCount(); i++) {
           writeValueToGenerator(valueVector, i);
         }
         generator.writeEndArray();

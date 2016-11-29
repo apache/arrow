@@ -99,9 +99,10 @@ public class ArrowWriter implements AutoCloseable {
   public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
     checkStarted();
     align();
-    // write metadata header
+
+    // write metadata header with int32 size prefix
     long offset = currentPosition;
-    write(recordBatch);
+    write(recordBatch, true);
     align();
     // write body
     long bodyOffset = currentPosition;
@@ -117,6 +118,7 @@ public class ArrowWriter implements AutoCloseable {
       if (startPosition != currentPosition) {
         writeZeros((int)(startPosition - currentPosition));
       }
+
       write(buffer);
       if (currentPosition != startPosition + layout.getSize()) {
         throw new IllegalStateException("wrong buffer size: " + currentPosition + " != " + startPosition + layout.getSize());
@@ -133,7 +135,9 @@ public class ArrowWriter implements AutoCloseable {
   }
 
   private void write(ArrowBuf buffer) throws IOException {
-    write(buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes()));
+    ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
+    LOGGER.debug("Writing buffer with size: " + nioBuffer.remaining());
+    write(nioBuffer);
   }
 
   private void checkStarted() throws IOException {
@@ -166,14 +170,21 @@ public class ArrowWriter implements AutoCloseable {
 
   private void writeFooter() throws IOException {
     // TODO: dictionaries
-    write(new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), recordBatches));
+    write(new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), recordBatches), false);
   }
 
-  private long write(FBSerializable writer) throws IOException {
+  private long write(FBSerializable writer, boolean withSizePrefix) throws IOException {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int root = writer.writeTo(builder);
     builder.finish(root);
-    return write(builder.dataBuffer());
+
+    ByteBuffer buffer = builder.dataBuffer();
+
+    if (withSizePrefix) {
+      writeIntLittleEndian(buffer.remaining());
+    }
+
+    return write(buffer);
   }
 
 }

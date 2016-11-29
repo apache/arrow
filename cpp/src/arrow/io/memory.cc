@@ -258,8 +258,11 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // In-memory buffer reader
 
-BufferReader::BufferReader(const uint8_t* buffer, int buffer_size)
-    : buffer_(buffer), buffer_size_(buffer_size), position_(0) {}
+BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
+    : buffer_(buffer), data_(buffer->data()), size_(buffer->size()), position_(0) {}
+
+BufferReader::BufferReader(const uint8_t* data, int64_t size)
+    : buffer_(nullptr), data_(data), size_(size), position_(0) {}
 
 BufferReader::~BufferReader() {}
 
@@ -278,26 +281,32 @@ bool BufferReader::supports_zero_copy() const {
 }
 
 Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
-  memcpy(buffer, buffer_ + position_, nbytes);
-  *bytes_read = std::min(nbytes, buffer_size_ - position_);
+  memcpy(buffer, data_ + position_, nbytes);
+  *bytes_read = std::min(nbytes, size_ - position_);
   position_ += *bytes_read;
   return Status::OK();
 }
 
 Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  int64_t size = std::min(nbytes, buffer_size_ - position_);
-  *out = std::make_shared<Buffer>(buffer_ + position_, size);
+  int64_t size = std::min(nbytes, size_ - position_);
+
+  if (buffer_ != nullptr) {
+    *out = SliceBuffer(buffer_, position_, size);
+  } else {
+    *out = std::make_shared<Buffer>(data_ + position_, size);
+  }
+
   position_ += nbytes;
   return Status::OK();
 }
 
 Status BufferReader::GetSize(int64_t* size) {
-  *size = buffer_size_;
+  *size = size_;
   return Status::OK();
 }
 
 Status BufferReader::Seek(int64_t position) {
-  if (position < 0 || position >= buffer_size_) {
+  if (position < 0 || position >= size_) {
     return Status::IOError("position out of bounds");
   }
 

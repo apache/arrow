@@ -19,7 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #ifndef _MSC_VER
-# include <fcntl.h>
+#include <fcntl.h>
 #endif
 #include <fstream>
 #include <memory>

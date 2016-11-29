@@ -39,8 +39,7 @@
 namespace arrow {
 namespace ipc {
 
-const auto kInt32 = std::make_shared<Int32Type>();
-const auto kListInt32 = list(kInt32);
+const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(
@@ -99,8 +98,8 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int length = 1000;
 
   // Make the schema
-  auto f0 = std::make_shared<Field>("f0", kInt32);
-  auto f1 = std::make_shared<Field>("f1", kInt32);
+  auto f0 = std::make_shared<Field>("f0", int32());
+  auto f1 = std::make_shared<Field>("f1", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   // Example data
@@ -161,7 +160,7 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = std::make_shared<Field>("f0", kListInt32);
   auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", kInt32);
+  auto f2 = std::make_shared<Field>("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -184,7 +183,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = std::make_shared<Field>("f0", kListInt32);
   auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", kInt32);
+  auto f2 = std::make_shared<Field>("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -205,7 +204,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = std::make_shared<Field>("f0", kListInt32);
   auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", kInt32);
+  auto f2 = std::make_shared<Field>("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -226,7 +225,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const int batch_length = 5;
-  TypePtr type = kInt32;
+  TypePtr type = int32();
 
   MemoryPool* pool = default_memory_pool();
   ArrayPtr array;

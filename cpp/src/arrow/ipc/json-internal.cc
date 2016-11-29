@@ -45,8 +45,6 @@ namespace ipc {
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
 
-enum class BufferType : char { DATA, OFFSET, TYPE, VALIDITY };
-
 static std::string GetBufferTypeName(BufferType type) {
   switch (type) {
     case BufferType::DATA:
@@ -93,27 +91,6 @@ static std::string GetTimeUnitName(TimeUnit unit) {
   return "UNKNOWN";
 }
 
-class BufferLayout {
- public:
-  BufferLayout(BufferType type, int bit_width) : type_(type), bit_width_(bit_width) {}
-
-  BufferType type() const { return type_; }
-  int bit_width() const { return bit_width_; }
-
- private:
-  BufferType type_;
-  int bit_width_;
-};
-
-static const BufferLayout kValidityBuffer(BufferType::VALIDITY, 1);
-static const BufferLayout kOffsetBuffer(BufferType::OFFSET, 32);
-static const BufferLayout kTypeBuffer(BufferType::TYPE, 32);
-static const BufferLayout kBooleanBuffer(BufferType::DATA, 1);
-static const BufferLayout kValues64(BufferType::DATA, 64);
-static const BufferLayout kValues32(BufferType::DATA, 32);
-static const BufferLayout kValues16(BufferType::DATA, 16);
-static const BufferLayout kValues8(BufferType::DATA, 8);
-
 class JsonSchemaWriter : public TypeVisitor {
  public:
   explicit JsonSchemaWriter(const Schema& schema, RjWriter* writer)
@@ -154,9 +131,9 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<BooleanType, T>::value ||
-                              std::is_base_of<NullType, T>::value,
+  typename std::enable_if<
+      std::is_base_of<NoExtraMeta, T>::value || std::is_base_of<BooleanType, T>::value ||
+          std::is_base_of<DateType, T>::value || std::is_base_of<NullType, T>::value,
       void>::type
   WriteTypeMetadata(const T& type) {}
 
@@ -243,11 +220,10 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  Status WritePrimitive(const std::string& typeclass, const T& type,
-      const std::vector<BufferLayout>& buffer_layout) {
+  Status WritePrimitive(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
     SetNoChildren();
-    WriteBufferLayout(buffer_layout);
+    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
@@ -255,15 +231,17 @@ class JsonSchemaWriter : public TypeVisitor {
   Status WriteVarBytes(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
     SetNoChildren();
-    WriteBufferLayout({kValidityBuffer, kOffsetBuffer, kValues8});
+    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
-  void WriteBufferLayout(const std::vector<BufferLayout>& buffer_layout) {
+  void WriteBufferLayout(const std::vector<BufferDescr>& buffer_layout) {
     writer_->Key("typeLayout");
+    writer_->StartObject();
+    writer_->Key("vectors");
     writer_->StartArray();
 
-    for (const BufferLayout& buffer : buffer_layout) {
+    for (const BufferDescr& buffer : buffer_layout) {
       writer_->StartObject();
       writer_->Key("type");
       writer_->String(GetBufferTypeName(buffer.type()));
@@ -274,6 +252,7 @@ class JsonSchemaWriter : public TypeVisitor {
       writer_->EndObject();
     }
     writer_->EndArray();
+    writer_->EndObject();
   }
 
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {
@@ -286,74 +265,52 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) override { return WritePrimitive("null", type, {}); }
+  Status Visit(const NullType& type) override { return WritePrimitive("null", type); }
 
-  Status Visit(const BooleanType& type) override {
-    return WritePrimitive("bool", type, {kValidityBuffer, kBooleanBuffer});
-  }
+  Status Visit(const BooleanType& type) override { return WritePrimitive("bool", type); }
 
-  Status Visit(const Int8Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues8});
-  }
+  Status Visit(const Int8Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const Int16Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues16});
-  }
+  Status Visit(const Int16Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const Int32Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues32});
-  }
+  Status Visit(const Int32Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const Int64Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues64});
-  }
+  Status Visit(const Int64Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const UInt8Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues8});
-  }
+  Status Visit(const UInt8Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const UInt16Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues16});
-  }
+  Status Visit(const UInt16Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const UInt32Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues32});
-  }
+  Status Visit(const UInt32Type& type) override { return WritePrimitive("int", type); }
 
-  Status Visit(const UInt64Type& type) override {
-    return WritePrimitive("int", type, {kValidityBuffer, kValues64});
-  }
+  Status Visit(const UInt64Type& type) override { return WritePrimitive("int", type); }
 
   Status Visit(const HalfFloatType& type) override {
-    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues16});
+    return WritePrimitive("floatingpoint", type);
   }
 
   Status Visit(const FloatType& type) override {
-    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues32});
+    return WritePrimitive("floatingpoint", type);
   }
 
   Status Visit(const DoubleType& type) override {
-    return WritePrimitive("floatingpoint", type, {kValidityBuffer, kValues64});
+    return WritePrimitive("floatingpoint", type);
   }
 
   Status Visit(const StringType& type) override { return WriteVarBytes("utf8", type); }
 
   Status Visit(const BinaryType& type) override { return WriteVarBytes("binary", type); }
 
-  Status Visit(const DateType& type) override {
-    return WritePrimitive("date", type, {kValidityBuffer, kValues64});
-  }
+  Status Visit(const DateType& type) override { return WritePrimitive("date", type); }
 
-  Status Visit(const TimeType& type) override {
-    return WritePrimitive("time", type, {kValidityBuffer, kValues64});
-  }
+  Status Visit(const TimeType& type) override { return WritePrimitive("time", type); }
 
   Status Visit(const TimestampType& type) override {
-    return WritePrimitive("timestamp", type, {kValidityBuffer, kValues64});
+    return WritePrimitive("timestamp", type);
   }
 
   Status Visit(const IntervalType& type) override {
-    return WritePrimitive("interval", type, {kValidityBuffer, kValues64});
+    return WritePrimitive("interval", type);
   }
 
   Status Visit(const DecimalType& type) override { return Status::NotImplemented("NYI"); }
@@ -361,26 +318,21 @@ class JsonSchemaWriter : public TypeVisitor {
   Status Visit(const ListType& type) override {
     WriteName("list", type);
     RETURN_NOT_OK(WriteChildren(type.children()));
-    WriteBufferLayout({kValidityBuffer, kOffsetBuffer});
+    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   Status Visit(const StructType& type) override {
     WriteName("struct", type);
     WriteChildren(type.children());
-    WriteBufferLayout({kValidityBuffer, kTypeBuffer});
+    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   Status Visit(const UnionType& type) override {
     WriteName("union", type);
     WriteChildren(type.children());
-
-    if (type.mode == UnionMode::SPARSE) {
-      WriteBufferLayout({kValidityBuffer, kTypeBuffer});
-    } else {
-      WriteBufferLayout({kValidityBuffer, kTypeBuffer, kOffsetBuffer});
-    }
+    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 

@@ -43,7 +43,7 @@ static inline void assert_schema_equal(const Schema* lhs, const Schema* rhs) {
   }
 }
 
-class TestSchemaMessage : public ::testing::Test {
+class TestSchemaMetadata : public ::testing::Test {
  public:
   void SetUp() {}
 
@@ -52,11 +52,11 @@ class TestSchemaMessage : public ::testing::Test {
     ASSERT_OK(WriteSchema(schema, &buffer));
 
     std::shared_ptr<Message> message;
-    ASSERT_OK(Message::Open(buffer, &message));
+    ASSERT_OK(Message::Open(buffer, 0, &message));
 
     ASSERT_EQ(Message::SCHEMA, message->type());
 
-    std::shared_ptr<SchemaMessage> schema_msg = message->GetSchema();
+    auto schema_msg = std::make_shared<SchemaMetadata>(message);
     ASSERT_EQ(schema->num_fields(), schema_msg->num_fields());
 
     std::shared_ptr<Schema> schema2;
@@ -68,7 +68,7 @@ class TestSchemaMessage : public ::testing::Test {
 
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
-TEST_F(TestSchemaMessage, PrimitiveFields) {
+TEST_F(TestSchemaMetadata, PrimitiveFields) {
   auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
   auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>());
   auto f2 = std::make_shared<Field>("f2", std::make_shared<Int32Type>());
@@ -85,7 +85,7 @@ TEST_F(TestSchemaMessage, PrimitiveFields) {
   CheckRoundtrip(&schema);
 }
 
-TEST_F(TestSchemaMessage, NestedFields) {
+TEST_F(TestSchemaMetadata, NestedFields) {
   auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
   auto f0 = std::make_shared<Field>("f0", type);
 
@@ -111,7 +111,7 @@ class TestFileFooter : public ::testing::Test {
     std::unique_ptr<FileFooter> footer;
     ASSERT_OK(FileFooter::Open(buffer, &footer));
 
-    ASSERT_EQ(MetadataVersion::V1_SNAPSHOT, footer->version());
+    ASSERT_EQ(MetadataVersion::V2, footer->version());
 
     // Check schema
     std::shared_ptr<Schema> schema2;

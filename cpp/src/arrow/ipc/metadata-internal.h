@@ -41,10 +41,10 @@ namespace ipc {
 
 using FBB = flatbuffers::FlatBufferBuilder;
 using FieldOffset = flatbuffers::Offset<arrow::flatbuf::Field>;
+using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 
-static constexpr flatbuf::MetadataVersion kMetadataVersion =
-    flatbuf::MetadataVersion_V1_SNAPSHOT;
+static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V2;
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
 
@@ -70,7 +70,7 @@ class MessageBuilder {
   flatbuffers::FlatBufferBuilder fbb_;
 };
 
-Status WriteDataHeader(int32_t length, int64_t body_length,
+Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 
