@@ -32,6 +32,7 @@
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
@@ -250,6 +251,27 @@ Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
 }
 
 }  // namespace test
+
+template <typename TYPE, typename C_TYPE>
+void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& is_valid,
+    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> values_buffer;
+  std::shared_ptr<Buffer> values_bitmap;
+
+  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
+  ASSERT_OK(test::GetBitmapFromBoolVector(is_valid, &values_bitmap));
+
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+
+  int32_t null_count = 0;
+  for (bool val : is_valid) {
+    if (!val) { ++null_count; }
+  }
+
+  *out = std::make_shared<ArrayType>(type, static_cast<int32_t>(values.size()),
+      values_buffer, null_count, values_bitmap);
+}
+
 }  // namespace arrow
 
 #endif  // ARROW_TEST_UTIL_H_

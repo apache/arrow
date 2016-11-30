@@ -21,6 +21,7 @@ install(FILES
   array.h
   column.h
   builder.h
+  pretty_print.h
   schema.h
   table.h
   type.h
@@ -37,6 +38,7 @@ set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(column-test)
+ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(schema-test)
 ADD_ARROW_TEST(table-test)
 

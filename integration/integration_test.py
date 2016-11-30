@@ -165,7 +165,7 @@ def run_all_tests(debug=False):
 
     runner = IntegrationRunner(json_files, testers, debug=debug)
     runner.run()
-
+    print('-- All tests passed!')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')

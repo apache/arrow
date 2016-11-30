@@ -192,6 +192,12 @@ struct IsFloatingPoint {
   static constexpr bool value = std::is_floating_point<c_type>::value;
 };
 
+template <typename T>
+struct IsNumeric {
+  PRIMITIVE_TRAITS(T);
+  static constexpr bool value = std::is_arithmetic<c_type>::value;
+};
+
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_TRAITS_H

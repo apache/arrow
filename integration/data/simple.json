@@ -31,7 +31,7 @@
           "vectors": [
             {"type": "VALIDITY", "typeBitWidth": 1},
             {"type": "OFFSET", "typeBitWidth": 32},
-            {"type": "DATA", "typeBitWidth": 64}
+            {"type": "DATA", "typeBitWidth": 8}
           ]
         }
       }

@@ -24,7 +24,7 @@ In general, the file looks like:
 
 ```
 <magic number "ARROW1">
-<empty padding bytes [to 64 byte boundary]>
+<empty padding bytes [to 8 byte boundary]>
 <DICTIONARY 0>
 ...
 <DICTIONARY k - 1>
@@ -49,7 +49,7 @@ appropriate alignment and padding):
 ```
 <int32: metadata flatbuffer size>
 <metadata: org.apache.arrow.flatbuf.RecordBatch>
-<padding bytes [to 64-byte boundary]>
+<padding bytes [to 8-byte boundary]>
 <body: buffers end to end>
 ```
 

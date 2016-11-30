@@ -96,26 +96,6 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
   TestArrayRoundTrip(*array.get());
 }
 
-template <typename TYPE, typename C_TYPE>
-void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& is_valid,
-    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> values_buffer;
-  std::shared_ptr<Buffer> values_bitmap;
-
-  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
-  ASSERT_OK(test::GetBitmapFromBoolVector(is_valid, &values_bitmap));
-
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
-
-  int32_t null_count = 0;
-  for (bool val : is_valid) {
-    if (!val) { ++null_count; }
-  }
-
-  *out = std::make_shared<ArrayType>(type, static_cast<int32_t>(values.size()),
-      values_buffer, null_count, values_bitmap);
-}
-
 TEST(TestJsonSchemaWriter, FlatTypes) {
   std::vector<std::shared_ptr<Field>> fields = {field("f0", int8()),
       field("f1", int16(), false), field("f2", int32()), field("f3", int64(), false),
