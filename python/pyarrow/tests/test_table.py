@@ -19,6 +19,7 @@ import numpy as np
 
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
+import pytest
 
 import pyarrow as pa
 
@@ -73,16 +74,15 @@ def test_recordbatchlist_to_pandas():
     assert_frame_equal(data, result)
 
 
-def test_recordbatchlist_errors():
+def test_recordbatchlist_schema_equals():
     data1 = pd.DataFrame({'c1': np.array([1], dtype='uint32')})
     data2 = pd.DataFrame({'c1': np.array([4.0, 5.0], dtype='float64')})
 
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
-    # TODO: Enable when subclass of unittest.testcase
-    #with self.assertRaises(pyarrow.ArrowException):
-    #    self.assertRaises(pa.dataframe_from_batches([batch1, batch2]))
+    with pytest.raises(pa.ArrowException):
+        pa.dataframe_from_batches([batch1, batch2])
 
 
 def test_table_basics():
