@@ -161,24 +161,27 @@ public class TestArrowFile extends BaseFileTest {
   @Test
   public void testWriteReadMultipleRBs() throws IOException {
     File file = new File("target/mytest_multiple.arrow");
-    int count = COUNT;
+    int[] counts = { 10, 5 };
 
     // write
     try (
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorAllocator, null);
         FileOutputStream fileOutputStream = new FileOutputStream(file);) {
-      writeData(count, parent);
-      VectorUnloader vectorUnloader = newVectorUnloader(parent.getChild("root"));
-      Schema schema = vectorUnloader.getSchema();
+      writeData(counts[0], parent);
+      VectorUnloader vectorUnloader0 = newVectorUnloader(parent.getChild("root"));
+      Schema schema = vectorUnloader0.getSchema();
       Assert.assertEquals(2, schema.getFields().size());
       try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);) {
-        try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch()) {
+        try (ArrowRecordBatch recordBatch = vectorUnloader0.getRecordBatch()) {
+          Assert.assertEquals("RB #0", counts[0], recordBatch.getLength());
           arrowWriter.writeRecordBatch(recordBatch);
         }
         parent.allocateNew();
-        writeData(count, parent);
-        try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch()) {
+        writeData(counts[1], parent); // if we write the same data we don't catch that the metadata is stored in the wrong order.
+        VectorUnloader vectorUnloader1 = newVectorUnloader(parent.getChild("root"));
+        try (ArrowRecordBatch recordBatch = vectorUnloader1.getRecordBatch()) {
+          Assert.assertEquals("RB #1", counts[1], recordBatch.getLength());
           arrowWriter.writeRecordBatch(recordBatch);
         }
       }
@@ -195,21 +198,27 @@ public class TestArrowFile extends BaseFileTest {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
       LOGGER.debug("reading schema: " + schema);
+      int i = 0;
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator);) {
         VectorLoader vectorLoader = new VectorLoader(root);
         List<ArrowBlock> recordBatches = footer.getRecordBatches();
         Assert.assertEquals(2, recordBatches.size());
+        long previousOffset = 0;
         for (ArrowBlock rbBlock : recordBatches) {
+          Assert.assertTrue(rbBlock.getOffset() + " > " + previousOffset, rbBlock.getOffset() > previousOffset);
+          previousOffset = rbBlock.getOffset();
           Assert.assertEquals(0, rbBlock.getOffset() % 8);
           Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
           try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
+            Assert.assertEquals("RB #" + i, counts[i], recordBatch.getLength());
             List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
             for (ArrowBuffer arrowBuffer : buffersLayout) {
               Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
             }
             vectorLoader.load(recordBatch);
-            validateContent(count, root);
+            validateContent(counts[i], root);
           }
+          ++i;
         }
       }
     }
