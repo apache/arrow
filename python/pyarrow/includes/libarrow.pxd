@@ -88,6 +88,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
+
+        c_bool Equals(const shared_ptr[CSchema]& other)
+
         const shared_ptr[CField]& field(int i)
         int num_fields()
         c_string ToString()

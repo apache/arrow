@@ -68,7 +68,7 @@ def test_recordbatchlist_to_pandas():
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
-    result = pa.RecordBatchList.to_pandas([batch1, batch2])
+    result = pa.dataframe_from_batches([batch1, batch2])
     data = pd.concat([data1, data2], ignore_index=True)
     assert_frame_equal(data, result)
 

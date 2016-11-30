@@ -28,6 +28,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 import pyarrow.config
 
 from pyarrow.array cimport Array, box_arrow_array
+from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport box_data_type, box_schema
 
@@ -296,54 +297,51 @@ cdef class RecordBatch:
         return result
 
 
-cdef class RecordBatchList:
-    '''
-    A utility class used for conversions with RecordBatch lists
-    '''
+def dataframe_from_batches(batches):
+    """
+    Convert a list of Arrow RecordBatches to one pandas.DataFrame
 
-    @staticmethod
-    def to_pandas(batches):
-        cdef:
-            vector[vector[shared_ptr[CArray]]] c_array_vec
-            shared_ptr[CColumn] c_col
-            PyObject* np_arr
-            Array arr
-            Schema schema
+    Parameters
+    ----------
 
-        import pandas as pd
+    batches: list of RecordBatch
+        RecordBatch list with identical schema to be converted
+    """
 
-        schema = batches[0].schema
-        K = batches[0].num_columns
+    cdef:
+        vector[shared_ptr[CArray]] c_array_chunks
+        vector[shared_ptr[CColumn]] c_columns
+        shared_ptr[CTable] c_table
+        Array arr
+        Schema schema
+        Schema schema_comp
 
-        # TODO - check schemas are equal
+    import pandas as pd
 
-        # make a vector of ArrayVectors to store column chunks
-        for i in range(K):
-            c_array_vec.push_back(vector[shared_ptr[CArray]]())
+    schema = batches[0].schema
 
-        # copy each batch into a chunk
+    # check schemas are equal
+    for i in range(1, len(batches)):
+        schema_comp = batches[i].schema
+        if not schema.sp_schema.get().Equals(schema_comp.sp_schema):
+          raise ArrowException("Error converting list of RecordBatches to DataFrame, not all schemas are equal")
+
+    cdef int K = batches[0].num_columns
+
+    # create chunked columns from the batches
+    c_columns.resize(K)
+    for i in range(K):
         for batch in batches:
-            for i in range(K):
-                arr = batch[i]
-                c_array_vec[i].push_back(arr.sp_array)
+            arr = batch[i]
+            c_array_chunks.push_back(arr.sp_array)
+        c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i), c_array_chunks))
+        c_array_chunks.clear()
 
-        # create columns from the chunks
-        names = []
-        data = []
-        for i in range(K):
-            c_col.reset(new CColumn(schema.sp_schema.get().field(i), c_array_vec[i]))
-            # TODO - why need PyOject ref? arr is placeholder
-            check_status(pyarrow.ConvertColumnToPandas(
-                c_col, <PyObject*> arr, &np_arr))
-            names.append(frombytes(c_col.get().name()))
-            data.append(PyObject_to_object(np_arr))
-
-        return pd.DataFrame(dict(zip(names, data)), columns=names)
-
-        '''
-        frames = [batch.to_pandas() for batch in batches]
-        return pd.concat(frames, ignore_index=True)
-        '''
+    # create a Table from columns and convert to DataFrame
+    c_table.reset(new CTable('', schema.sp_schema, c_columns))
+    table = Table()
+    table.init(c_table)
+    return table.to_pandas()
 
 
 cdef class Table:
