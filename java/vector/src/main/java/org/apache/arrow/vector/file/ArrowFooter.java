@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector.file;
 
+import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,10 +54,10 @@ public class ArrowFooter implements FBSerializable {
 
   private static List<ArrowBlock> recordBatches(Footer footer) {
     List<ArrowBlock> recordBatches = new ArrayList<>();
-    Block tempBLock = new Block();
+    Block tempBlock = new Block();
     int recordBatchesLength = footer.recordBatchesLength();
     for (int i = 0; i < recordBatchesLength; i++) {
-      Block block = footer.recordBatches(tempBLock, i);
+      Block block = footer.recordBatches(tempBlock, i);
       recordBatches.add(new ArrowBlock(block.offset(), block.metaDataLength(), block.bodyLength()));
     }
     return recordBatches;
@@ -88,21 +90,14 @@ public class ArrowFooter implements FBSerializable {
   public int writeTo(FlatBufferBuilder builder) {
     int schemaIndex = schema.getSchema(builder);
     Footer.startDictionariesVector(builder, dictionaries.size());
-    int dicsOffset = endVector(builder, dictionaries);
+    int dicsOffset = writeAllStructsToVector(builder, dictionaries);
     Footer.startRecordBatchesVector(builder, recordBatches.size());
-    int rbsOffset = endVector(builder, recordBatches);
+    int rbsOffset = writeAllStructsToVector(builder, recordBatches);
     Footer.startFooter(builder);
     Footer.addSchema(builder, schemaIndex);
     Footer.addDictionaries(builder, dicsOffset);
     Footer.addRecordBatches(builder, rbsOffset);
     return Footer.endFooter(builder);
-  }
-
-  private int endVector(FlatBufferBuilder builder, List<ArrowBlock> blocks) {
-    for (ArrowBlock block : blocks) {
-      block.writeTo(builder);
-    }
-    return builder.endVector();
   }
 
   @Override
