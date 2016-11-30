@@ -18,37 +18,30 @@
 #include <ostream>
 
 #include "arrow/array.h"
+#include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/types/list.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
-#include "arrow/pretty_print.h"
 
 namespace arrow {
 
 class ArrayPrinter : public ArrayVisitor {
  public:
-  ArrayPrinter(const Array& array, std::ostream* sink)
-      : array_(array), sink_(sink) {}
+  ArrayPrinter(const Array& array, std::ostream* sink) : array_(array), sink_(sink) {}
 
-  Status Print() {
-    return VisitArray(array_);
-  }
+  Status Print() { return VisitArray(array_); }
 
-  Status VisitArray(const Array& array) {
-    return array.Accept(this);
-  }
+  Status VisitArray(const Array& array) { return array.Accept(this); }
 
   template <typename T>
   typename std::enable_if<IsNumeric<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
+      if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
         (*sink_) << "null";
       } else {
@@ -63,9 +56,7 @@ class ArrayPrinter : public ArrayVisitor {
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
+      if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
         (*sink_) << "null";
       } else {
@@ -79,9 +70,7 @@ class ArrayPrinter : public ArrayVisitor {
   typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
+      if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
         (*sink_) << "null";
       } else {
@@ -90,13 +79,9 @@ class ArrayPrinter : public ArrayVisitor {
     }
   }
 
-  void OpenArray() {
-    (*sink_) << "[";
-  }
+  void OpenArray() { (*sink_) << "["; }
 
-  void CloseArray() {
-    (*sink_) << "]";
-  }
+  void CloseArray() { (*sink_) << "]"; }
 
   template <typename T>
   Status WritePrimitive(const T& array) {
@@ -114,9 +99,7 @@ class ArrayPrinter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullArray& array) override {
-    return Status::OK();
-  }
+  Status Visit(const NullArray& array) override { return Status::OK(); }
 
   Status Visit(const BooleanArray& array) override { return WritePrimitive(array); }
 

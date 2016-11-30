@@ -272,7 +272,6 @@ void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& i
       values_buffer, null_count, values_bitmap);
 }
 
-
 }  // namespace arrow
 
 #endif  // ARROW_TEST_UTIL_H_

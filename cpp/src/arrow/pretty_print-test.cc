@@ -16,8 +16,8 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <sstream>
@@ -29,11 +29,11 @@
 #include "arrow/pretty_print.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/types/list.h"
 #include "arrow/types/primitive.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
-#include "arrow/type_traits.h"
 
 namespace arrow {
 
@@ -48,8 +48,8 @@ class TestArrayPrinter : public ::testing::Test {
 };
 
 template <typename TYPE, typename C_TYPE>
-void CheckPrimitive(const std::vector<bool>& is_valid,
-    const std::vector<C_TYPE>& values, const char* expected) {
+void CheckPrimitive(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+    const char* expected) {
   std::ostringstream sink;
 
   MemoryPool* pool = default_memory_pool();
