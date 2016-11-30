@@ -62,6 +62,7 @@ class ARROW_EXPORT Array {
 
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
+  virtual bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
 
   // Compare if the range of slots specified are equal for the given array and
   // this array.  end_idx exclusive.  This methods does not bounds check.

@@ -169,15 +169,15 @@ static Status ValidateArrowVsJson(
     RETURN_NOT_OK(json_reader->GetRecordBatch(i, &json_batch));
     RETURN_NOT_OK(arrow_reader->GetRecordBatch(i, &arrow_batch));
 
-    if (!json_batch->Equals(*arrow_batch.get())) {
+    if (!json_batch->ApproxEquals(*arrow_batch.get())) {
       std::stringstream ss;
       ss << "Record batch " << i << " did not match";
 
-      ss << "\nJSON: \n ";
-      RETURN_NOT_OK(PrettyPrint(*json_batch.get(), &ss));
+      ss << "\nJSON:\n";
+      RETURN_NOT_OK(PrettyPrint(*json_batch.get(), 0, &ss));
 
-      ss << "\nArrow: \n ";
-      RETURN_NOT_OK(PrettyPrint(*arrow_batch.get(), &ss));
+      ss << "\nArrow:\n";
+      RETURN_NOT_OK(PrettyPrint(*arrow_batch.get(), 0, &ss));
       return Status::Invalid(ss.str());
     }
   }
@@ -297,6 +297,23 @@ static const char* JSON_EXAMPLE = R"example(
           "count": 5,
           "DATA": [1.0, 2.0, 3.0, 4.0, 5.0],
           "VALIDITY": [1, 0, 0, 1, 1]
+        }
+      ]
+    },
+    {
+      "count": 4,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 4,
+          "DATA": [1, 2, 3, 4],
+          "VALIDITY": [1, 0, 1, 1]
+        },
+        {
+          "name": "bar",
+          "count": 4,
+          "DATA": [1.0, 2.0, 3.0, 4.0],
+          "VALIDITY": [1, 0, 0, 1]
         }
       ]
     }

@@ -46,6 +46,16 @@ matrix:
     jdk: oraclejdk7
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+  - language: java
+    os: linux
+    env: ARROW_TEST_GROUP=integration
+    jdk: oraclejdk7
+    before_script:
+    - export CC="gcc-4.9"
+    - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
 
 before_install:
 - ulimit -c unlimited -S

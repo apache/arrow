@@ -17,6 +17,7 @@
 
 #include "arrow/types/primitive.h"
 
+#include <cmath>
 #include <memory>
 
 #include "arrow/type_traits.h"

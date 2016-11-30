@@ -70,7 +70,7 @@ const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
   auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
-  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>());
+  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>(), false);
   auto f2 = std::make_shared<Field>("f2", std::make_shared<Int32Type>());
   auto f3 = std::make_shared<Field>("f3", std::make_shared<Int64Type>());
   auto f4 = std::make_shared<Field>("f4", std::make_shared<UInt8Type>());
@@ -78,7 +78,7 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
   auto f6 = std::make_shared<Field>("f6", std::make_shared<UInt32Type>());
   auto f7 = std::make_shared<Field>("f7", std::make_shared<UInt64Type>());
   auto f8 = std::make_shared<Field>("f8", std::make_shared<FloatType>());
-  auto f9 = std::make_shared<Field>("f9", std::make_shared<DoubleType>());
+  auto f9 = std::make_shared<Field>("f9", std::make_shared<DoubleType>(), false);
   auto f10 = std::make_shared<Field>("f10", std::make_shared<BooleanType>());
 
   Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});

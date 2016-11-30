@@ -209,7 +209,7 @@ std::vector<BufferDescr> ListType::GetBufferLayout() const {
 }
 
 std::vector<BufferDescr> StructType::GetBufferLayout() const {
-  return {kValidityBuffer, kTypeBuffer};
+  return {kValidityBuffer};
 }
 
 std::vector<BufferDescr> UnionType::GetBufferLayout() const {
