@@ -16,6 +16,7 @@
 // under the License.
 
 #include <ostream>
+#include <string>
 
 #include "arrow/array.h"
 #include "arrow/pretty_print.h"
@@ -25,6 +26,7 @@
 #include "arrow/types/list.h"
 #include "arrow/types/string.h"
 #include "arrow/types/struct.h"
+#include "arrow/util/status.h"
 
 namespace arrow {
 
