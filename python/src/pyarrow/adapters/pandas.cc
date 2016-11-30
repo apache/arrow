@@ -653,9 +653,8 @@ class ArrowDeserializer {
   Status ConvertValuesZeroCopy(std::shared_ptr<Array> arr) {
     typedef typename arrow_traits<T2>::T T;
 
-    arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-        arr.get());
-    const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     void* data = const_cast<T*>(in_values);
@@ -680,10 +679,9 @@ class ArrowDeserializer {
 
     for (int c = 0; c < data->num_chunks(); c++) {
       const std::shared_ptr<Array> arr = data->chunk(c);
-      arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-          arr.get());
-      const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
-      T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
+      auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+      auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+      auto out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
 
       if (arr->null_count() > 0) {
         for (int64_t i = 0; i < arr->length(); ++i) {
@@ -716,11 +714,10 @@ class ArrowDeserializer {
 
       for (int c = 0; c < data->num_chunks(); c++) {
         const std::shared_ptr<Array> arr = data->chunk(c);
-        arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-            arr.get());
-        const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+        auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+        auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
         // Upcast to double, set NaN as appropriate
-        double* out_values = reinterpret_cast<double*>(PyArray_DATA(out_)) + chunk_offset;
+        auto out_values = reinterpret_cast<double*>(PyArray_DATA(out_)) + chunk_offset;
 
         for (int i = 0; i < arr->length(); ++i) {
           out_values[i] = prim_arr->IsNull(i) ? NAN : in_values[i];
@@ -733,10 +730,9 @@ class ArrowDeserializer {
 
       for (int c = 0; c < data->num_chunks(); c++) {
         const std::shared_ptr<Array> arr = data->chunk(c);
-        arrow::PrimitiveArray* prim_arr = static_cast<arrow::PrimitiveArray*>(
-            arr.get());
-        const T* in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
-        T* out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
+        auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+        auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+        auto out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
 
         memcpy(out_values, in_values, sizeof(T) * arr->length());
 
@@ -760,8 +756,8 @@ class ArrowDeserializer {
 
       for (int c = 0; c < data->num_chunks(); c++) {
         const std::shared_ptr<Array> arr = data->chunk(c);
-        arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
-        PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
+        auto bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
+        auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
 
         for (int64_t i = 0; i < arr->length(); ++i) {
           if (bool_arr->IsNull(i)) {
@@ -785,8 +781,8 @@ class ArrowDeserializer {
 
       for (int c = 0; c < data->num_chunks(); c++) {
         const std::shared_ptr<Array> arr = data->chunk(c);
-        arrow::BooleanArray* bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
-        uint8_t* out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_)) + chunk_offset;
+        auto bool_arr = static_cast<arrow::BooleanArray*>(arr.get());
+        auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(out_)) + chunk_offset;
 
         for (int64_t i = 0; i < arr->length(); ++i) {
           out_values[i] = static_cast<uint8_t>(bool_arr->Value(i));
@@ -811,8 +807,8 @@ class ArrowDeserializer {
 
     for (int c = 0; c < data->num_chunks(); c++) {
       const std::shared_ptr<Array> arr = data->chunk(c);
-      arrow::StringArray* string_arr = static_cast<arrow::StringArray*>(arr.get());
-      PyObject** out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
+      auto string_arr = static_cast<arrow::StringArray*>(arr.get());
+      auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
 
       const uint8_t* data_ptr;
       int32_t length;
