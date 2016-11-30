@@ -22,6 +22,7 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.arrow.vector.schema.ArrowVectorType.OFFSET;
 
 import java.io.File;
 import java.io.IOException;
@@ -128,15 +129,12 @@ public class JsonFileReader implements AutoCloseable {
         valueVector.allocateNew();
         Mutator mutator = valueVector.getMutator();
 
-        int innerVectorCount = count;
-        if (vectorType.getName() == "OFFSET") {
-          innerVectorCount++;
-        }
-        mutator.setValueCount(innerVectorCount);
+        int innerVectorCount = vectorType.equals(OFFSET) ? count + 1 : count;
         for (int i = 0; i < innerVectorCount; i++) {
           parser.nextToken();
           setValueFromParser(valueVector, i);
         }
+        mutator.setValueCount(innerVectorCount);
         readToken(END_ARRAY);
       }
       // if children
