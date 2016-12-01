@@ -68,7 +68,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
     RETURN_NOT_OK(sink_->Tell(&footer_offset));
 
     // Open the file
-    auto reader = std::make_shared<io::BufferReader>(buffer_->data(), buffer_->size());
+    auto reader = std::make_shared<io::BufferReader>(buffer_);
     RETURN_NOT_OK(FileReader::Open(reader, footer_offset, &file_reader_));
 
     EXPECT_EQ(num_batches, file_reader_->num_record_batches());

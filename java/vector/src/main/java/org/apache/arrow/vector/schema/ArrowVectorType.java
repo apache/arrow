@@ -81,4 +81,19 @@ public class ArrowVectorType {
   public String toString() {
     return getName();
   }
+
+  @Override
+  public int hashCode() {
+    return type;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof ArrowVectorType) {
+      ArrowVectorType other = (ArrowVectorType) obj;
+      return type == other.type;
+    }
+    return false;
+  }
+
 }

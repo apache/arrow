@@ -24,7 +24,7 @@
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
-  <description>Apache arrow is an open source, low latency SQL query engine for Hadoop and NoSQL.</description>
+  <description>Apache Arrow is open source, in-memory columnar data structures and low-overhead messaging</description>
   <url>http://arrow.apache.org/</url>
 
   <properties>
@@ -442,8 +442,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <!-- Mockito needs to be on the class path after JUnit (or Hamcrest) as 
-           long as Mockito _contains_ older Hamcrest classes.  See arrow-2130. --> 
+      <!-- Mockito needs to be on the class path after JUnit (or Hamcrest) as
+           long as Mockito _contains_ older Hamcrest classes.  See arrow-2130. -->
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>1.9.5</version>

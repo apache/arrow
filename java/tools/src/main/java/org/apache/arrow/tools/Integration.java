@@ -80,7 +80,7 @@ public class Integration {
           Schema schema = footer.getSchema();
           LOGGER.debug("Input file size: " + arrowFile.length());
           LOGGER.debug("Found schema: " + schema);
-          try (JsonFileWriter writer = new JsonFileWriter(jsonFile);) {
+          try (JsonFileWriter writer = new JsonFileWriter(jsonFile, JsonFileWriter.config().pretty(true));) {
             writer.start(schema);
             List<ArrowBlock> recordBatches = footer.getRecordBatches();
             for (ArrowBlock rbBlock : recordBatches) {
@@ -220,6 +220,7 @@ public class Integration {
 
   private static void fatalError(String message, Throwable e) {
     System.err.println(message);
+    System.err.println(e.getMessage());
     LOGGER.error(message, e);
     System.exit(1);
   }

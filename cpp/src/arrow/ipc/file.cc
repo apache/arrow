@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
@@ -87,18 +88,18 @@ Status FileWriter::WriteRecordBatch(
 
   int64_t offset = position_;
 
-  int64_t body_end_offset;
-  int64_t header_end_offset;
+  // There may be padding ever the end of the metadata, so we cannot rely on
+  // position_
+  int32_t metadata_length;
+  int64_t body_length;
+
+  // Frame of reference in file format is 0, see ARROW-384
+  const int64_t buffer_start_offset = 0;
   RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
-      columns, num_rows, sink_, &body_end_offset, &header_end_offset));
+      columns, num_rows, buffer_start_offset, sink_, &metadata_length, &body_length));
   RETURN_NOT_OK(UpdatePosition());
 
   DCHECK(position_ % 8 == 0) << "ipc::WriteRecordBatch did not perform aligned writes";
-
-  // There may be padding ever the end of the metadata, so we cannot rely on
-  // position_
-  int32_t metadata_length = header_end_offset - body_end_offset;
-  int32_t body_length = body_end_offset - offset;
 
   // Append metadata, to be written in the footer later
   record_batches_.emplace_back(offset, metadata_length, body_length);
@@ -198,12 +199,18 @@ Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, num_record_batches());
   FileBlock block = footer_->record_batch(i);
-  int64_t metadata_end_offset = block.offset + block.body_length + block.metadata_length;
 
-  std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(RecordBatchReader::Open(file_.get(), metadata_end_offset, &reader));
+  std::shared_ptr<RecordBatchMetadata> metadata;
+  RETURN_NOT_OK(ReadRecordBatchMetadata(
+      block.offset, block.metadata_length, file_.get(), &metadata));
 
-  return reader->GetRecordBatch(schema_, batch);
+  // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
+  // ARROW-384).
+  std::shared_ptr<Buffer> buffer_block;
+  RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
+  io::BufferReader reader(buffer_block);
+
+  return ReadRecordBatch(metadata, schema_, &reader, batch);
 }
 
 }  // namespace ipc

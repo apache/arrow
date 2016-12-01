@@ -99,7 +99,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
 class ARROW_EXPORT BufferReader : public ReadableFileInterface {
  public:
-  BufferReader(const uint8_t* buffer, int buffer_size);
+  explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
+  BufferReader(const uint8_t* data, int64_t size);
   ~BufferReader();
 
   Status Close() override;
@@ -116,8 +117,9 @@ class ARROW_EXPORT BufferReader : public ReadableFileInterface {
   bool supports_zero_copy() const override;
 
  private:
-  const uint8_t* buffer_;
-  int buffer_size_;
+  std::shared_ptr<Buffer> buffer_;
+  const uint8_t* data_;
+  int64_t size_;
   int64_t position_;
 };
 

@@ -186,12 +186,13 @@ static inline Status FileOpenWriteable(const std::string& filename, int* fd) {
   memcpy(wpath.data(), filename.data(), filename.size());
   memcpy(wpath.data() + nwchars, L"\0", sizeof(wchar_t));
 
-  errno_actual = _wsopen_s(
-      fd, wpath.data(), _O_WRONLY | _O_CREAT | _O_BINARY, _SH_DENYNO, _S_IWRITE);
+  errno_actual = _wsopen_s(fd, wpath.data(), _O_WRONLY | _O_CREAT | _O_BINARY | _O_TRUNC,
+      _SH_DENYNO, _S_IWRITE);
   ret = *fd;
 
 #else
-  ret = *fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_BINARY, ARROW_WRITE_SHMODE);
+  ret = *fd =
+      open(filename.c_str(), O_WRONLY | O_CREAT | O_BINARY | O_TRUNC, ARROW_WRITE_SHMODE);
 #endif
   return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
 }

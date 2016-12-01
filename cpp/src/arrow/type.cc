@@ -105,10 +105,6 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
-int NullType::bit_width() const {
-  return 0;
-}
-
 std::string NullType::ToString() const {
   return name();
 }
@@ -185,6 +181,48 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
 std::shared_ptr<Field> field(
     const std::string& name, const TypePtr& type, bool nullable, int64_t dictionary) {
   return std::make_shared<Field>(name, type, nullable, dictionary);
+}
+
+static const BufferDescr kValidityBuffer(BufferType::VALIDITY, 1);
+static const BufferDescr kOffsetBuffer(BufferType::OFFSET, 32);
+static const BufferDescr kTypeBuffer(BufferType::TYPE, 32);
+static const BufferDescr kBooleanBuffer(BufferType::DATA, 1);
+static const BufferDescr kValues64(BufferType::DATA, 64);
+static const BufferDescr kValues32(BufferType::DATA, 32);
+static const BufferDescr kValues16(BufferType::DATA, 16);
+static const BufferDescr kValues8(BufferType::DATA, 8);
+
+std::vector<BufferDescr> FixedWidthType::GetBufferLayout() const {
+  return {kValidityBuffer, BufferDescr(BufferType::DATA, bit_width())};
+}
+
+std::vector<BufferDescr> NullType::GetBufferLayout() const {
+  return {};
+}
+
+std::vector<BufferDescr> BinaryType::GetBufferLayout() const {
+  return {kValidityBuffer, kOffsetBuffer, kValues8};
+}
+
+std::vector<BufferDescr> ListType::GetBufferLayout() const {
+  return {kValidityBuffer, kOffsetBuffer};
+}
+
+std::vector<BufferDescr> StructType::GetBufferLayout() const {
+  return {kValidityBuffer, kTypeBuffer};
+}
+
+std::vector<BufferDescr> UnionType::GetBufferLayout() const {
+  if (mode == UnionMode::SPARSE) {
+    return {kValidityBuffer, kTypeBuffer};
+  } else {
+    return {kValidityBuffer, kTypeBuffer, kOffsetBuffer};
+  }
+}
+
+std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
+  // TODO(wesm)
+  return {};
 }
 
 }  // namespace arrow

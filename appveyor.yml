@@ -15,31 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  column.h
-  builder.h
-  pretty_print.h
-  schema.h
-  table.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  DESTINATION include/arrow)
+# Operating system (build VM template)
+os: Visual Studio 2015
 
-#######################################
-# Unit tests
-#######################################
+environment:
+  matrix:
+    - GENERATOR: Visual Studio 14 2015 Win64
+    # - GENERATOR: Visual Studio 14 2015
+  MSVC_DEFAULT_OPTIONS: ON
+  BOOST_ROOT: C:\Libraries\boost_1_59_0
+  BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
 
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+build_script:
+ - cd cpp
+ - mkdir build
+ - cd build
+ # A lot of features are still deactivated as they do not build on Windows
+ #  * gbenchmark doesn't build with MSVC
+ - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF ..
+ - cmake --build . --config Debug
 
-ADD_ARROW_TEST(array-test)
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(pretty_print-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
-
-ADD_ARROW_BENCHMARK(column-benchmark)
+# test_script:
+#  - ctest -VV

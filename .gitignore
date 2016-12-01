@@ -15,31 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  array.h
-  column.h
-  builder.h
-  pretty_print.h
-  schema.h
-  table.h
-  type.h
-  type_fwd.h
-  type_traits.h
-  test-util.h
-  DESTINATION include/arrow)
-
-#######################################
-# Unit tests
-#######################################
-
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
-ADD_ARROW_TEST(array-test)
-ADD_ARROW_TEST(column-test)
-ADD_ARROW_TEST(pretty_print-test)
-ADD_ARROW_TEST(schema-test)
-ADD_ARROW_TEST(table-test)
-
-ADD_ARROW_BENCHMARK(column-benchmark)
+# Compiled source
+*.a
+*.dll
+*.o
+*.py[ocd]
+*.so
+*.dylib
+.build_cache_dir
+MANIFEST

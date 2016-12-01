@@ -28,6 +28,7 @@ $RAT $1 \
   -e ".*" \
   -e mman.h \
   -e "*_generated.h" \
+  -e "*.json" \
   -e random.h \
   -e status.cc \
   -e status.h \
@@ -49,5 +50,3 @@ else
   echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
   exit 1
 fi
-
-

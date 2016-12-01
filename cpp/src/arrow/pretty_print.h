@@ -15,19 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_VISIBILITY_H
-#define ARROW_UTIL_VISIBILITY_H
+#ifndef ARROW_PRETTY_PRINT_H
+#define ARROW_PRETTY_PRINT_H
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-#define ARROW_EXPORT __declspec(dllexport)
-#define ARROW_NO_EXPORT
-#else  // Not Windows
-#ifndef ARROW_EXPORT
-#define ARROW_EXPORT __attribute__((visibility("default")))
-#endif
-#ifndef ARROW_NO_EXPORT
-#define ARROW_NO_EXPORT __attribute__((visibility("hidden")))
-#endif
-#endif  // Non-Windows
+#include <ostream>
 
-#endif  // ARROW_UTIL_VISIBILITY_H
+#include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
+
+namespace arrow {
+
+class Status;
+
+Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, std::ostream* sink);
+Status ARROW_EXPORT PrettyPrint(const Array& arr, std::ostream* sink);
+
+}  // namespace arrow
+
+#endif  // ARROW_PRETTY_PRINT_H

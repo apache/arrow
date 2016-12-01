@@ -41,3 +41,17 @@ This product includes software from the CMake project
 
 This product includes software from https://github.com/matthew-brett/multibuild (BSD 2-clause)
  * Copyright (c) 2013-2016, Matt Terry and Matthew Brett; all rights reserved.
+
+--------------------------------------------------------------------------------
+
+This product includes code from Apache Kudu, which includes the following in
+its NOTICE file:
+
+  Apache Kudu
+  Copyright 2016 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (http://www.apache.org/).
+
+  Portions of this software were developed at
+  Cloudera, Inc (http://www.cloudera.com/).
