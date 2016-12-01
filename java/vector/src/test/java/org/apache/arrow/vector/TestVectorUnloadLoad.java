@@ -17,7 +17,13 @@
  */
 package org.apache.arrow.vector;
 
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -29,11 +35,16 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
 
 public class TestVectorUnloadLoad {
 
@@ -85,6 +96,51 @@ public class TestVectorUnloadLoad {
           Assert.assertEquals(i, bigIntReader.readLong().longValue());
         }
       }
+    }
+  }
+
+  /**
+   * The validity buffer can be empty if:
+   *  - all values are defined
+   *  - all values are null
+   * @throws IOException
+   */
+  @Test
+  public void testLoadEmptyValidityBuffer() throws IOException {
+    Schema schema = new Schema(asList(
+        new Field("intDefined", true, new ArrowType.Int(32, true), Collections.<Field>emptyList()),
+        new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
+        ));
+    int count = 10;
+    ArrowBuf validity = allocator.getEmpty();
+    ArrowBuf values = allocator.buffer(count * 4); // integers
+    for (int i = 0; i < count; i++) {
+      values.setInt(i * 4, i);
+    }
+    try (
+        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values, validity, values));
+        BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
+        ) {
+
+      // load it
+      VectorLoader vectorLoader = new VectorLoader(newRoot);
+
+      vectorLoader.load(recordBatch);
+
+      FieldReader intDefinedReader = newRoot.getVector("intDefined").getReader();
+      FieldReader intNullReader = newRoot.getVector("intNull").getReader();
+      for (int i = 0; i < count; i++) {
+        intDefinedReader.setPosition(i);
+        intNullReader.setPosition(i);
+        Integer defined = intDefinedReader.readInteger();
+        assertNotNull("#" + i, defined);
+        assertEquals("#" + i, i, defined.intValue());
+        Integer nullVal = intNullReader.readInteger();
+        assertNull("#" + i, nullVal);
+      }
+    } finally {
+      values.release();
     }
   }
 

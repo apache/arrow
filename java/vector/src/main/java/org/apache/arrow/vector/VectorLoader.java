@@ -81,7 +81,6 @@ public class VectorLoader {
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
     } catch (RuntimeException e) {
-      e.printStackTrace();
       throw new IllegalArgumentException("Could not load buffers for field " +
               field + " error message" + e.getMessage(), e);
     }

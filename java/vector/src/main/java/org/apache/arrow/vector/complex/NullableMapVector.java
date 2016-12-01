@@ -62,7 +62,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    BaseDataValueVector.load(getFieldInnerVectors(), ownBuffers);
+    BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
     this.valueCount = fieldNode.getLength();
   }
 

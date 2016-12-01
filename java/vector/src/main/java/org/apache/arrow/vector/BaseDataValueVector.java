@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -29,13 +30,13 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
 
   protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
 
-  public static void load(List<BufferBacked> vectors, List<ArrowBuf> buffers) {
+  public static void load(ArrowFieldNode fieldNode, List<BufferBacked> vectors, List<ArrowBuf> buffers) {
     int expectedSize = vectors.size();
     if (buffers.size() != expectedSize) {
       throw new IllegalArgumentException("Illegal buffer count, expected " + expectedSize + ", got: " + buffers.size());
     }
     for (int i = 0; i < expectedSize; i++) {
-      vectors.get(i).load(buffers.get(i));
+      vectors.get(i).load(fieldNode, buffers.get(i));
     }
   }
 
@@ -106,7 +107,7 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
   }
 
   @Override
-  public void load(ArrowBuf data) {
+  public void load(ArrowFieldNode fieldNode, ArrowBuf data) {
     this.data.release();
     this.data = data.retain(allocator);
   }
