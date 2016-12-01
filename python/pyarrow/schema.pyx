@@ -110,6 +110,15 @@ cdef class Schema:
         self.schema = schema.get()
         self.sp_schema = schema
 
+    def equals(self, other):
+        """
+        Test if this schema is equal to the other
+        """
+        cdef Schema _other
+        _other = other
+
+        return self.sp_schema.get().Equals(_other.sp_schema)
+
     @classmethod
     def from_fields(cls, fields):
         cdef:
