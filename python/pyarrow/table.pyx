@@ -417,13 +417,13 @@ cdef class RecordBatch:
 
 def dataframe_from_batches(batches):
     """
-    Convert a list of Arrow RecordBatches to one pandas.DataFrame
+    Convert a list of Arrow RecordBatches to a pandas.DataFrame
 
     Parameters
     ----------
 
     batches: list of RecordBatch
-        RecordBatch list with identical schema to be converted
+        RecordBatch list to be converted, schemas must be equal
     """
 
     cdef:
@@ -450,7 +450,8 @@ def dataframe_from_batches(batches):
         for batch in batches:
             arr = batch[i]
             c_array_chunks.push_back(arr.sp_array)
-        c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i), c_array_chunks))
+        c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i),
+                           c_array_chunks))
         c_array_chunks.clear()
 
     # create a Table from columns and convert to DataFrame
