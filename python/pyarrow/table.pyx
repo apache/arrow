@@ -432,17 +432,15 @@ def dataframe_from_batches(batches):
         shared_ptr[CTable] c_table
         Array arr
         Schema schema
-        Schema schema_comp
 
     import pandas as pd
 
     schema = batches[0].schema
 
     # check schemas are equal
-    for i in range(1, len(batches)):
-        schema_comp = batches[i].schema
-        if not schema.sp_schema.get().Equals(schema_comp.sp_schema):
-          raise ArrowException("Error converting list of RecordBatches to DataFrame, not all schemas are equal")
+    if any((not schema.equals(other.schema) for other in batches[1:])):
+        raise ArrowException("Error converting list of RecordBatches to "
+                "DataFrame, not all schemas are equal")
 
     cdef int K = batches[0].num_columns
 
