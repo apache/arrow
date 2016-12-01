@@ -54,20 +54,27 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     // When the vector is all nulls or all defined, the content of the buffer can be omitted
     if (data.readableBytes() == 0 && fieldNode.getLength() != 0) {
       data.release();
-      allocateNew(fieldNode.getLength());
-      int n = getSizeFromCount(fieldNode.getLength());
+      int count = fieldNode.getLength();
+      allocateNew(count);
+      int n = getSizeFromCount(count);
       if (fieldNode.getNullCount() == 0) {
         // all defined
         // create an all 1s buffer
-        for (int i = 0; i < n; ++i) {
+        // set full bytes
+        int fullBytesCount = count / 8;
+        for (int i = 0; i < fullBytesCount; ++i) {
           this.data.setByte(i, 0xFF);
+        }
+        int remainder = count % 8;
+        // set remaining bits
+        if (remainder > 0) {
+          byte bitMask = (byte) (0xFFL >>> ((8 - remainder) & 7));;
+          this.data.setByte(fullBytesCount, bitMask);
         }
       } else if (fieldNode.getNullCount() == fieldNode.getLength()) {
         // all null
         // create an all 0s buffer
-        for (int i = 0; i < n; ++i) {
-          this.data.setByte(i, 0x00);
-        }
+        zeroVector();
       } else {
         throw new IllegalArgumentException("The buffer can be empty only if there's no data or it's all null or all defined");
       }

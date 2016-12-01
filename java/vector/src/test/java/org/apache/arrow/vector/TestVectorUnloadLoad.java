@@ -19,8 +19,8 @@ package org.apache.arrow.vector;
 
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -128,17 +128,30 @@ public class TestVectorUnloadLoad {
 
       vectorLoader.load(recordBatch);
 
-      FieldReader intDefinedReader = newRoot.getVector("intDefined").getReader();
-      FieldReader intNullReader = newRoot.getVector("intNull").getReader();
+      NullableIntVector intDefinedVector = (NullableIntVector)newRoot.getVector("intDefined");
+      NullableIntVector intNullVector = (NullableIntVector)newRoot.getVector("intNull");
       for (int i = 0; i < count; i++) {
-        intDefinedReader.setPosition(i);
-        intNullReader.setPosition(i);
-        Integer defined = intDefinedReader.readInteger();
-        assertNotNull("#" + i, defined);
-        assertEquals("#" + i, i, defined.intValue());
-        Integer nullVal = intNullReader.readInteger();
-        assertNull("#" + i, nullVal);
+        assertFalse("#" + i, intDefinedVector.getAccessor().isNull(i));
+        assertEquals("#" + i, i, intDefinedVector.getAccessor().get(i));
+        assertTrue("#" + i, intNullVector.getAccessor().isNull(i));
       }
+      intDefinedVector.getMutator().setSafe(count + 10, 1234);
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 1));
+      // empty slots should still default to unset
+      intDefinedVector.getMutator().setSafe(count + 1, 789);
+      assertFalse(intDefinedVector.getAccessor().isNull(count + 1));
+      assertEquals(789, intDefinedVector.getAccessor().get(count + 1));
+      assertTrue(intDefinedVector.getAccessor().isNull(count));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 2));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 3));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 4));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 5));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 6));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 7));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 8));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 9));
+      assertFalse(intDefinedVector.getAccessor().isNull(count + 10));
+      assertEquals(1234, intDefinedVector.getAccessor().get(count + 10));
     } finally {
       values.release();
     }
