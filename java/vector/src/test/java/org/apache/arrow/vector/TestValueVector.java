@@ -323,12 +323,38 @@ public class TestValueVector {
       // Ensure unallocated space returns 0
       assertEquals(0, accessor.get(3));
 
+      // unset the previously set bits
       m.set(1, 0);
       m.set(1022, 0);
-
+      // this should set all the array to 0
       assertEquals(1024, accessor.getNullCount());
 
+      // set all the array to 1
       for (int i = 0; i < 1024; ++i) {
+        assertEquals(1024 - i, accessor.getNullCount());
+        m.set(i, 1);
+      }
+
+      assertEquals(0, accessor.getNullCount());
+
+      // re-allocate the vector with a new (odd) size, smaller by more than a byte than the original vector
+      // this allows to ensure that we use one byte less memory than the previous one
+      vector.allocateNew(1015);
+
+      // ensure it has been zeroed
+      assertEquals(1016, accessor.getNullCount());
+
+      m.set(0, 1);
+      m.set(1015, 1); // ensure that the last item of the last byte is allocated
+
+      assertEquals(1014, accessor.getNullCount());
+
+      vector.zeroVector();
+      assertEquals(1016, accessor.getNullCount());
+
+      // set all the array to 1
+      for (int i = 0; i < 1016; ++i) {
+        assertEquals(1016 - i, accessor.getNullCount());
         m.set(i, 1);
       }
 
