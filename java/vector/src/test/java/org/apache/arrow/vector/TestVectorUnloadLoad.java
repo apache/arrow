@@ -17,7 +17,13 @@
  */
 package org.apache.arrow.vector;
 
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -29,11 +35,16 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
 
 public class TestVectorUnloadLoad {
 
@@ -85,6 +96,64 @@ public class TestVectorUnloadLoad {
           Assert.assertEquals(i, bigIntReader.readLong().longValue());
         }
       }
+    }
+  }
+
+  /**
+   * The validity buffer can be empty if:
+   *  - all values are defined
+   *  - all values are null
+   * @throws IOException
+   */
+  @Test
+  public void testLoadEmptyValidityBuffer() throws IOException {
+    Schema schema = new Schema(asList(
+        new Field("intDefined", true, new ArrowType.Int(32, true), Collections.<Field>emptyList()),
+        new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
+        ));
+    int count = 10;
+    ArrowBuf validity = allocator.getEmpty();
+    ArrowBuf values = allocator.buffer(count * 4); // integers
+    for (int i = 0; i < count; i++) {
+      values.setInt(i * 4, i);
+    }
+    try (
+        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values, validity, values));
+        BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
+        ) {
+
+      // load it
+      VectorLoader vectorLoader = new VectorLoader(newRoot);
+
+      vectorLoader.load(recordBatch);
+
+      NullableIntVector intDefinedVector = (NullableIntVector)newRoot.getVector("intDefined");
+      NullableIntVector intNullVector = (NullableIntVector)newRoot.getVector("intNull");
+      for (int i = 0; i < count; i++) {
+        assertFalse("#" + i, intDefinedVector.getAccessor().isNull(i));
+        assertEquals("#" + i, i, intDefinedVector.getAccessor().get(i));
+        assertTrue("#" + i, intNullVector.getAccessor().isNull(i));
+      }
+      intDefinedVector.getMutator().setSafe(count + 10, 1234);
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 1));
+      // empty slots should still default to unset
+      intDefinedVector.getMutator().setSafe(count + 1, 789);
+      assertFalse(intDefinedVector.getAccessor().isNull(count + 1));
+      assertEquals(789, intDefinedVector.getAccessor().get(count + 1));
+      assertTrue(intDefinedVector.getAccessor().isNull(count));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 2));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 3));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 4));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 5));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 6));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 7));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 8));
+      assertTrue(intDefinedVector.getAccessor().isNull(count + 9));
+      assertFalse(intDefinedVector.getAccessor().isNull(count + 10));
+      assertEquals(1234, intDefinedVector.getAccessor().get(count + 10));
+    } finally {
+      values.release();
     }
   }
 

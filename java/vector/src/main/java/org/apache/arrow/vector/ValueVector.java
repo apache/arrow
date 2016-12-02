@@ -131,13 +131,6 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   FieldReader getReader();
 
   /**
-   * Get the metadata for this field. Used in serialization
-   *
-   * @return FieldMetadata for this field.
-   */
-//  SerializedField getMetadata();
-
-  /**
    * Returns the number of bytes that is used by this vector instance.
    */
   int getBufferSize();
@@ -165,16 +158,6 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this vector instance.
    */
   ArrowBuf[] getBuffers(boolean clear);
-
-  /**
-   * Load the data provided in the buffer. Typically used when deserializing from the wire.
-   *
-   * @param metadata
-   *          Metadata used to decode the incoming buffer.
-   * @param buffer
-   *          The buffer that contains the ValueVector.
-   */
-//  void load(SerializedField metadata, DrillBuf buffer);
 
   /**
    * An abstraction that is used to read from this vector instance.

@@ -22,6 +22,7 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -46,6 +47,41 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   public BitVector(String name, BufferAllocator allocator) {
     super(name, allocator);
+  }
+
+  @Override
+  public void load(ArrowFieldNode fieldNode, ArrowBuf data) {
+    // When the vector is all nulls or all defined, the content of the buffer can be omitted
+    if (data.readableBytes() == 0 && fieldNode.getLength() != 0) {
+      data.release();
+      int count = fieldNode.getLength();
+      allocateNew(count);
+      int n = getSizeFromCount(count);
+      if (fieldNode.getNullCount() == 0) {
+        // all defined
+        // create an all 1s buffer
+        // set full bytes
+        int fullBytesCount = count / 8;
+        for (int i = 0; i < fullBytesCount; ++i) {
+          this.data.setByte(i, 0xFF);
+        }
+        int remainder = count % 8;
+        // set remaining bits
+        if (remainder > 0) {
+          byte bitMask = (byte) (0xFFL >>> ((8 - remainder) & 7));;
+          this.data.setByte(fullBytesCount, bitMask);
+        }
+      } else if (fieldNode.getNullCount() == fieldNode.getLength()) {
+        // all null
+        // create an all 0s buffer
+        zeroVector();
+      } else {
+        throw new IllegalArgumentException("The buffer can be empty only if there's no data or it's all null or all defined");
+      }
+      this.data.writerIndex(n);
+    } else {
+      super.load(fieldNode, data);
+    }
   }
 
   @Override

@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector;
 
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+
 import io.netty.buffer.ArrowBuf;
 
 /**
@@ -24,7 +26,7 @@ import io.netty.buffer.ArrowBuf;
  */
 public interface BufferBacked {
 
-  void load(ArrowBuf data);
+  void load(ArrowFieldNode fieldNode, ArrowBuf data);
 
   ArrowBuf unLoad();
 
