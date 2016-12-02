@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -45,7 +46,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.Text;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -59,7 +62,38 @@ public class TestComplexWriter {
 
   @Test
   public void simpleNestedTypes() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = populateMapVector(null);
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    for (int i = 0; i < COUNT; i++) {
+      rootReader.setPosition(i);
+      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
+      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+    }
+
+    parent.close();
+  }
+
+  @Test
+  public void transferPairSchemaChange() {
+    SchemaChangeCallBack callBack1 = new SchemaChangeCallBack();
+    SchemaChangeCallBack callBack2 = new SchemaChangeCallBack();
+    MapVector parent = populateMapVector(callBack1);
+
+    TransferPair tp = parent.getTransferPair("newVector", allocator, callBack2);
+
+    ComplexWriter writer = new ComplexWriterImpl("newWriter", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("newInt");
+    intWriter.writeInt(1);
+    writer.setValueCount(1);
+
+    assertTrue(callBack1.getSchemaChangedAndReset());
+    // The second vector should not have registered a schema change
+    assertFalse(callBack1.getSchemaChangedAndReset());
+  }
+
+  private MapVector populateMapVector(CallBack callBack) {
+    MapVector parent = new MapVector("parent", allocator, callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -71,14 +105,7 @@ public class TestComplexWriter {
       rootWriter.end();
     }
     writer.setValueCount(COUNT);
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
-    for (int i = 0; i < COUNT; i++) {
-      rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
-    }
-
-    parent.close();
+    return parent;
   }
 
   @Test

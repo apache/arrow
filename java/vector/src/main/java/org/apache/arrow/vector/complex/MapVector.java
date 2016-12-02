@@ -115,6 +115,11 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
+    return getTransferPair(name, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new MapTransferPair(this, new MapVector(name, allocator, callBack), false);
   }
 
