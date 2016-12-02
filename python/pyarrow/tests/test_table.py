@@ -19,6 +19,7 @@ import numpy as np
 
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
+import pytest
 
 import pyarrow as pa
 
@@ -48,6 +49,40 @@ def test_recordbatch_from_to_pandas():
     batch = pa.RecordBatch.from_pandas(data)
     result = batch.to_pandas()
     assert_frame_equal(data, result)
+
+
+def test_recordbatchlist_to_pandas():
+    data1 = pd.DataFrame({
+        'c1': np.array([1, 1, 2], dtype='uint32'),
+        'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
+        'c3': [True, None, False],
+        'c4': ['foo', 'bar', None]
+    })
+
+    data2 = pd.DataFrame({
+        'c1': np.array([3, 5], dtype='uint32'),
+        'c2': np.array([4.0, 5.0], dtype='float64'),
+        'c3': [True, True],
+        'c4': ['baz', 'qux']
+    })
+
+    batch1 = pa.RecordBatch.from_pandas(data1)
+    batch2 = pa.RecordBatch.from_pandas(data2)
+
+    result = pa.dataframe_from_batches([batch1, batch2])
+    data = pd.concat([data1, data2], ignore_index=True)
+    assert_frame_equal(data, result)
+
+
+def test_recordbatchlist_schema_equals():
+    data1 = pd.DataFrame({'c1': np.array([1], dtype='uint32')})
+    data2 = pd.DataFrame({'c1': np.array([4.0, 5.0], dtype='float64')})
+
+    batch1 = pa.RecordBatch.from_pandas(data1)
+    batch2 = pa.RecordBatch.from_pandas(data2)
+
+    with pytest.raises(pa.ArrowException):
+        pa.dataframe_from_batches([batch1, batch2])
 
 
 def test_table_basics():

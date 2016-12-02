@@ -158,6 +158,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CColumn(const shared_ptr[CField]& field,
                 const shared_ptr[CArray]& data)
 
+        CColumn(const shared_ptr[CField]& field,
+                const vector[shared_ptr[CArray]]& chunks)
+
         int64_t length()
         int64_t null_count()
         const c_string& name()
