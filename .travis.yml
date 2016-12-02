@@ -24,6 +24,7 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
+    group: deprecated
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
