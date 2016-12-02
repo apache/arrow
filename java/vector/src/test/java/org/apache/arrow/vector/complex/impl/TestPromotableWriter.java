@@ -21,15 +21,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
-import org.apache.arrow.vector.complex.AbstractMapVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
 import org.junit.Before;
@@ -112,8 +111,8 @@ public class TestPromotableWriter {
 
       Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
       Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
-      assertEquals("Child field should be union type: " + childField1.getName(), Type.Union, childField1.getType().getTypeType());
-      assertEquals("Child field should be decimal type: " + childField2.getName(), Type.Decimal, childField2.getType().getTypeType());
+      assertEquals("Child field should be union type: " + childField1.getName(), ArrowTypeID.Union, childField1.getType().getTypeID());
+      assertEquals("Child field should be decimal type: " + childField2.getName(), ArrowTypeID.Decimal, childField2.getType().getTypeID());
     }
   }
 }

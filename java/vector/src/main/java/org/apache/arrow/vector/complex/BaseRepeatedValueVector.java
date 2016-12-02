@@ -20,7 +20,6 @@ package org.apache.arrow.vector.complex;
 import java.util.Collections;
 import java.util.Iterator;
 
-import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
@@ -159,9 +158,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       created = true;
     }
 
-    if (vector.getField().getType().getTypeType() != minorType.getType().getTypeType()) {
+    if (vector.getField().getType().getTypeID() != minorType.getType().getTypeID()) {
       final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          Type.name(minorType.getType().getTypeType()), Type.name(vector.getField().getType().getTypeType()));
+          minorType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
 

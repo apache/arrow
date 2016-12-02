@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -132,6 +133,6 @@ public class Schema {
 
   @Override
   public String toString() {
-    return "Schema" + fields;
+    return "Schema<" + Joiner.on(", ").join(fields) + ">";
   }
 }

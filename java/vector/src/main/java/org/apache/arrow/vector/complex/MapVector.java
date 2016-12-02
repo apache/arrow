@@ -34,7 +34,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
@@ -290,7 +290,7 @@ public class MapVector extends AbstractMapVector {
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    return new Field(name, false, Struct_.INSTANCE, children);
+    return new Field(name, false, Struct.INSTANCE, children);
   }
 
   @Override

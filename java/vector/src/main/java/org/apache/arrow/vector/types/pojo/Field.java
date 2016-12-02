@@ -29,6 +29,7 @@ import org.apache.arrow.vector.schema.VectorLayout;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
@@ -104,7 +105,7 @@ public class Field {
       org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
     }
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
-    org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeType());
+    org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeID().getFlatbufID());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
     org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
@@ -143,11 +144,18 @@ public class Field {
             (Objects.equals(this.children, that.children) ||
                     (this.children == null && that.children.size() == 0) ||
                     (this.children.size() == 0 && that.children == null));
-
   }
 
   @Override
   public String toString() {
-    return String.format("Field{name=%s, type=%s, children=%s, layout=%s}", name, type, children, typeLayout);
+    StringBuilder sb = new StringBuilder();
+    if (name != null) {
+      sb.append(name).append(": ");
+    }
+    sb.append(type);
+    if (!children.isEmpty()) {
+      sb.append("<").append(Joiner.on(", ").join(children)).append(">");
+    }
+    return sb.toString();
   }
 }

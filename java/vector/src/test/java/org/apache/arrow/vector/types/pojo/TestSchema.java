@@ -23,10 +23,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 
-import org.apache.arrow.flatbuf.IntervalUnit;
-import org.apache.arrow.flatbuf.Precision;
-import org.apache.arrow.flatbuf.TimeUnit;
-import org.apache.arrow.flatbuf.UnionMode;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.IntervalUnit;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.UnionMode;
 import org.junit.Test;
 
 public class TestSchema {
@@ -40,14 +40,32 @@ public class TestSchema {
   }
 
   @Test
+  public void testComplex() throws IOException {
+    Schema schema = new Schema(asList(
+        field("a", false, new ArrowType.Int(8, true)),
+        field("b", new ArrowType.Struct(),
+            field("c", new ArrowType.Int(16, true)),
+            field("d", new ArrowType.Utf8())),
+        field("e", new ArrowType.List(), field(null, new ArrowType.Date())),
+        field("f", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+        field("g", new ArrowType.Timestamp(TimeUnit.MILLISECOND)),
+        field("h", new ArrowType.Interval(IntervalUnit.DAY_TIME))
+        ));
+    roundTrip(schema);
+    assertEquals(
+        "Schema<a: Int(8, true), b: Struct<c: Int(16, true), d: Utf8>, e: List<Date>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND), h: Interval(DAY_TIME)>",
+        schema.toString());
+  }
+
+  @Test
   public void testAll() throws IOException {
     Schema schema = new Schema(asList(
         field("a", false, new ArrowType.Null()),
-        field("b", new ArrowType.Struct_(), field("ba", new ArrowType.Null())),
+        field("b", new ArrowType.Struct(), field("ba", new ArrowType.Null())),
         field("c", new ArrowType.List(), field("ca", new ArrowType.Null())),
         field("d", new ArrowType.Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new ArrowType.Null())),
         field("e", new ArrowType.Int(8, true)),
-        field("f", new ArrowType.FloatingPoint(Precision.SINGLE)),
+        field("f", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
         field("g", new ArrowType.Utf8()),
         field("h", new ArrowType.Binary()),
         field("i", new ArrowType.Bool()),
@@ -94,9 +112,9 @@ public class TestSchema {
   @Test
   public void testFP() throws IOException {
     Schema schema = new Schema(asList(
-        field("a", new ArrowType.FloatingPoint(Precision.HALF)),
-        field("b", new ArrowType.FloatingPoint(Precision.SINGLE)),
-        field("c", new ArrowType.FloatingPoint(Precision.DOUBLE))
+        field("a", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF)),
+        field("b", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+        field("c", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
         ));
     roundTrip(schema);
     contains(schema, "HALF", "SINGLE", "DOUBLE");

@@ -15,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import java.util.List;
-
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
 
@@ -35,7 +33,7 @@ import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 
-import static org.apache.arrow.flatbuf.UnionMode.Sparse;
+import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 
 

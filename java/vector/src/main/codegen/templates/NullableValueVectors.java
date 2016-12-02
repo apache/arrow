@@ -99,15 +99,15 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#elseif minor.class == "Time">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
   <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(Precision.SINGLE), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE), null);
   <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(Precision.DOUBLE), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE), null);
   <#elseif minor.class == "TimeStamp">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND), null);
   <#elseif minor.class == "IntervalDay">
-    field = new Field(name, true, new Interval(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.DAY_TIME), null);
   <#elseif minor.class == "IntervalYear">
-    field = new Field(name, true, new Interval(org.apache.arrow.flatbuf.IntervalUnit.YEAR_MONTH), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.YEAR_MONTH), null);
   <#elseif minor.class == "VarChar">
     field = new Field(name, true, new Utf8(), null);
   <#elseif minor.class == "VarBinary">

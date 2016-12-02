@@ -18,9 +18,6 @@
 package org.apache.arrow.vector.schema;
 
 import static java.util.Arrays.asList;
-import static org.apache.arrow.flatbuf.Precision.DOUBLE;
-import static org.apache.arrow.flatbuf.Precision.HALF;
-import static org.apache.arrow.flatbuf.Precision.SINGLE;
 import static org.apache.arrow.vector.schema.VectorLayout.booleanVector;
 import static org.apache.arrow.vector.schema.VectorLayout.byteVector;
 import static org.apache.arrow.vector.schema.VectorLayout.dataVector;
@@ -32,8 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.flatbuf.IntervalUnit;
-import org.apache.arrow.flatbuf.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
@@ -44,7 +39,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct_;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
@@ -72,7 +67,7 @@ public class TypeLayout {
       @Override public TypeLayout visit(Union type) {
         List<VectorLayout> vectors;
         switch (type.getMode()) {
-          case UnionMode.Dense:
+          case Dense:
             vectors = asList(
                 // TODO: validate this
                 validityVector(),
@@ -80,7 +75,7 @@ public class TypeLayout {
                 offsetVector() // offset to find the vector
                 );
             break;
-          case UnionMode.Sparse:
+          case Sparse:
             vectors = asList(
                 typeVector() // type of the value at the index or 0 if null
                 );
@@ -91,7 +86,7 @@ public class TypeLayout {
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(Struct_ type) {
+      @Override public TypeLayout visit(Struct type) {
         List<VectorLayout> vectors = asList(
             validityVector()
             );
@@ -175,9 +170,9 @@ public class TypeLayout {
       @Override
       public TypeLayout visit(Interval type) { // TODO: check size
         switch (type.getUnit()) {
-        case IntervalUnit.DAY_TIME:
+        case DAY_TIME:
           return newFixedWidthTypeLayout(dataVector(64));
-        case IntervalUnit.YEAR_MONTH:
+        case YEAR_MONTH:
           return newFixedWidthTypeLayout(dataVector(64));
         default:
           throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
@@ -215,7 +210,7 @@ public class TypeLayout {
   }
 
   public String toString() {
-    return "TypeLayout{" + vectors + "}";
+    return vectors.toString();
   }
 
   @Override
