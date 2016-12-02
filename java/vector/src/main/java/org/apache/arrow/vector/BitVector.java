@@ -381,8 +381,8 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     }
 
     /**
-     * Get the number of bits set to 1
-     * @return the number of bits set to 1
+     * Get the number nulls, this correspond to the number of bits set to 0 in the vector
+     * @return the number of bits set to 0
      */
     @Override
     public final int getNullCount() {
