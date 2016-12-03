@@ -39,6 +39,7 @@ import org.apache.arrow.vector.file.ArrowWriter;
 import org.apache.arrow.vector.file.json.JsonFileReader;
 import org.apache.arrow.vector.file.json.JsonFileWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
@@ -247,12 +248,21 @@ public class Integration {
       for (int j = 0; j < valueCount; j++) {
         Object arrow = arrowVector.getAccessor().getObject(j);
         Object json = jsonVector.getAccessor().getObject(j);
-        if (!Objects.equal(arrow, json)) {
+        if (!equals(field.getType(), arrow, json)) {
           throw new IllegalArgumentException(
               "Different values in column:\n" + field + " at index " + j + ": " + arrow + " != " + json);
         }
       }
     }
+  }
+
+  private static boolean equals(ArrowType type, final Object arrow, final Object json) {
+    if (type instanceof ArrowType.FloatingPoint) {
+      double a = ((Number)arrow).doubleValue();
+      double j = ((Number)json).doubleValue();
+      return Math.abs(a - j) < 0.00001;
+    }
+    return Objects.equal(arrow, json);
   }
 
   private static void compareSchemas(Schema jsonSchema, Schema arrowSchema) {
