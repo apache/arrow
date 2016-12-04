@@ -17,6 +17,14 @@
 
 # flake8: noqa
 
+from pkg_resources import get_distribution, DistributionNotFound
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+   # package is not installed
+   pass
+
+
 import pyarrow.config
 
 from pyarrow.array import (Array,
@@ -43,5 +51,3 @@ from pyarrow.schema import (null, bool_,
 
 from pyarrow.table import (Column, RecordBatch, dataframe_from_batches, Table,
                            from_pandas_dataframe)
-
-from pyarrow.version import version as __version__
