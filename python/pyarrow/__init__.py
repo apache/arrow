@@ -51,5 +51,3 @@ from pyarrow.schema import (null, bool_,
 
 from pyarrow.table import (Column, RecordBatch, dataframe_from_batches, Table,
                            from_pandas_dataframe)
-
-from pyarrow.version import version as __version__
