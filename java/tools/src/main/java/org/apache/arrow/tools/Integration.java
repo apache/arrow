@@ -40,6 +40,7 @@ import org.apache.arrow.vector.file.json.JsonFileReader;
 import org.apache.arrow.vector.file.json.JsonFileWriter;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
@@ -258,12 +259,50 @@ public class Integration {
 
   private static boolean equals(ArrowType type, final Object arrow, final Object json) {
     if (type instanceof ArrowType.FloatingPoint) {
-      double a = ((Number)arrow).doubleValue();
-      double j = ((Number)json).doubleValue();
-      return Math.abs(a - j) < 0.00001;
+      FloatingPoint fpType = (FloatingPoint) type;
+      switch (fpType.getPrecision()) {
+      case DOUBLE:
+        return equalEnough((Double)arrow, (Double)json);
+      case SINGLE:
+        return equalEnough((Float)arrow, (Float)json);
+      case HALF:
+      default:
+        throw new UnsupportedOperationException("unsupported precision: " + fpType);
+      }
     }
     return Objects.equal(arrow, json);
   }
+
+  static boolean equalEnough(Float f1, Float f2) {
+    if (f1 == null || f2 == null) {
+      return f1 == null && f2 == null;
+    }
+    if (f1.isNaN()) {
+      return f2.isNaN();
+    }
+    if (f1.isInfinite()) {
+      return f2.isInfinite() && Math.signum(f1) == Math.signum(f2);
+    }
+    float average = Math.abs((f1 + f2) / 2);
+    float differenceScaled = Math.abs(f1 - f2) / (average == 0.0f ? 1f : average);
+    return differenceScaled < 1.0E-6f;
+  }
+
+  static boolean equalEnough(Double f1, Double f2) {
+    if (f1 == null || f2 == null) {
+      return f1 == null && f2 == null;
+    }
+    if (f1.isNaN()) {
+      return f2.isNaN();
+    }
+    if (f1.isInfinite()) {
+      return f2.isInfinite() && Math.signum(f1) == Math.signum(f2);
+    }
+    double average = Math.abs((f1 + f2) / 2);
+    double differenceScaled = Math.abs(f1 - f2) / (average == 0.0d ? 1d : average);
+    return differenceScaled < 1.0E-12d;
+  }
+
 
   private static void compareSchemas(Schema jsonSchema, Schema arrowSchema) {
     if (!arrowSchema.equals(jsonSchema)) {

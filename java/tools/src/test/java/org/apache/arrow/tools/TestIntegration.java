@@ -22,6 +22,10 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
+import static org.apache.arrow.tools.Integration.equalEnough;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.BufferedReader;
@@ -42,7 +46,6 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -122,7 +125,7 @@ public class TestIntegration {
     String i, o;
     int j = 0;
     while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
-      Assert.assertEquals("line: " + j, i, o);
+      assertEquals("line: " + j, i, o);
       ++j;
     }
   }
@@ -195,8 +198,8 @@ public class TestIntegration {
       integration.run(args3);
       fail("should have failed");
     } catch (IllegalArgumentException e) {
-      Assert.assertTrue(e.getMessage(), e.getMessage().contains("Different values in column"));
-      Assert.assertTrue(e.getMessage(), e.getMessage().contains("999"));
+      assertTrue(e.getMessage(), e.getMessage().contains("Different values in column"));
+      assertTrue(e.getMessage(), e.getMessage().contains("999"));
     }
 
   }
@@ -234,6 +237,35 @@ public class TestIntegration {
       writer.setValueCount(count);
       write(parent.getChild("root"), testInFile);
     }
+  }
+
+  @Test
+  public void testFloatComp() {
+    assertTrue(equalEnough(912.4140000000002F, 912.414F));
+    assertTrue(equalEnough(912.4140000000002D, 912.414D));
+    assertTrue(equalEnough(912.414F, 912.4140000000002F));
+    assertTrue(equalEnough(912.414D, 912.4140000000002D));
+    assertFalse(equalEnough(912.414D, 912.4140001D));
+    assertFalse(equalEnough(null, 912.414D));
+    assertTrue(equalEnough((Float)null, null));
+    assertTrue(equalEnough((Double)null, null));
+    assertFalse(equalEnough(912.414D, null));
+    assertFalse(equalEnough(Double.MAX_VALUE, Double.MIN_VALUE));
+    assertFalse(equalEnough(Double.MIN_VALUE, Double.MAX_VALUE));
+    assertTrue(equalEnough(Double.MAX_VALUE, Double.MAX_VALUE));
+    assertTrue(equalEnough(Double.MIN_VALUE, Double.MIN_VALUE));
+    assertTrue(equalEnough(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
+    assertFalse(equalEnough(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+    assertTrue(equalEnough(Double.NaN, Double.NaN));
+    assertFalse(equalEnough(1.0, Double.NaN));
+    assertFalse(equalEnough(Float.MAX_VALUE, Float.MIN_VALUE));
+    assertFalse(equalEnough(Float.MIN_VALUE, Float.MAX_VALUE));
+    assertTrue(equalEnough(Float.MAX_VALUE, Float.MAX_VALUE));
+    assertTrue(equalEnough(Float.MIN_VALUE, Float.MIN_VALUE));
+    assertTrue(equalEnough(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY));
+    assertFalse(equalEnough(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+    assertTrue(equalEnough(Float.NaN, Float.NaN));
+    assertFalse(equalEnough(1.0F, Float.NaN));
   }
 
 }
