@@ -293,6 +293,39 @@ TEST_F(TestHdfsClient, ReadableMethods) {
   ASSERT_EQ(60, position);
 }
 
+TEST_F(TestHdfsClient, LargeFile) {
+  SKIP_IF_NO_LIBHDFS();
+
+  ASSERT_OK(MakeScratchDir());
+
+  auto path = ScratchPath("test-large-file");
+  const int size = 1000000;
+
+  std::vector<uint8_t> data = RandomData(size);
+  ASSERT_OK(WriteDummyFile(path, data.data(), size));
+
+  std::shared_ptr<HdfsReadableFile> file;
+  ASSERT_OK(client_->OpenReadable(path, &file));
+
+  auto buffer = std::make_shared<PoolBuffer>();
+  ASSERT_OK(buffer->Resize(size));
+  int64_t bytes_read = 0;
+
+  ASSERT_OK(file->Read(size, &bytes_read, buffer->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(buffer->data(), data.data(), size));
+  ASSERT_EQ(size, bytes_read);
+
+  // explicit buffer size
+  std::shared_ptr<HdfsReadableFile> file2;
+  ASSERT_OK(client_->OpenReadable(path, 1 << 18, &file2));
+
+  auto buffer2 = std::make_shared<PoolBuffer>();
+  ASSERT_OK(buffer2->Resize(size));
+  ASSERT_OK(file2->Read(size, &bytes_read, buffer2->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(buffer2->data(), data.data(), size));
+  ASSERT_EQ(size, bytes_read);
+}
+
 TEST_F(TestHdfsClient, RenameFile) {
   SKIP_IF_NO_LIBHDFS();
 

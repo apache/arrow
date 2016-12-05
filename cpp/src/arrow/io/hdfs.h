@@ -128,6 +128,9 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // status if the file is not found.
   //
   // @param path complete file path
+  Status OpenReadable(const std::string& path, int32_t buffer_size,
+      std::shared_ptr<HdfsReadableFile>* file);
+
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
 
   // FileMode::WRITE options
