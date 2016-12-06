@@ -545,9 +545,11 @@ cdef class Table:
         schema = batches[0].schema
 
         # check schemas are equal
-        if any((not schema.equals(other.schema) for other in batches[1:])):
-            raise ArrowException("Error converting list of RecordBatches to "
-                    "DataFrame, not all schemas are equal")
+        for other in batches[1:]:
+            if not schema.equals(other.schema):
+                raise ArrowException("Error converting list of RecordBatches "
+                        "to DataFrame, not all schemas are equal: {%s} != {%s}"
+                        % (str(schema), str(other.schema)))
 
         cdef int K = batches[0].num_columns
 
