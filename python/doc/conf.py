@@ -42,7 +42,12 @@ cmd_line_template = "sphinx-apidoc -f -e -o {outputdir} {moduledir}"
 cmd_line = cmd_line_template.format(outputdir=output_dir, moduledir=module_dir)
 apidoc.main(cmd_line.split(" "))
 
-sys.path.insert(0, os.path.abspath('..'))
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+
+if not on_rtd:
+    # Hack: On RTD we use the pyarrow package from conda-forge as we cannot
+    # build pyarrow there.
+    sys.path.insert(0, os.path.abspath('..'))
 
 # -- General configuration ------------------------------------------------
 

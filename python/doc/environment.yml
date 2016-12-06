@@ -1,0 +1,8 @@
+channels:
+- defaults
+- conda-forge
+dependencies:
+- arrow-cpp
+- parquet-cpp
+- pyarrow
+- numpydoc
