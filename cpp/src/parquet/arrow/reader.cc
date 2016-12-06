@@ -201,11 +201,19 @@ Status FileReader::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) 
 }
 
 Status FileReader::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
-  return impl_->ReadFlatColumn(i, out);
+  try {
+    return impl_->ReadFlatColumn(i, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
 }
 
 Status FileReader::ReadFlatTable(std::shared_ptr<Table>* out) {
-  return impl_->ReadFlatTable(out);
+  try {
+    return impl_->ReadFlatTable(out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
 }
 
 const ParquetFileReader* FileReader::parquet_reader() const {
