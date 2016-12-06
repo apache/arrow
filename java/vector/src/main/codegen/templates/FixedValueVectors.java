@@ -45,6 +45,8 @@ package org.apache.arrow.vector;
 public final class ${minor.class}Vector extends BaseDataValueVector implements FixedWidthVector{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
 
+  public static final int TYPE_WIDTH = ${type.width};
+
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
 

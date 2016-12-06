@@ -113,12 +113,17 @@ public class TestVectorUnloadLoad {
         ));
     int count = 10;
     ArrowBuf validity = allocator.getEmpty();
-    ArrowBuf values = allocator.buffer(count * 4); // integers
-    for (int i = 0; i < count; i++) {
-      values.setInt(i * 4, i);
+    ArrowBuf[] values = new ArrowBuf[2];
+    for (int i = 0; i < values.length; i++) {
+      ArrowBuf arrowBuf = allocator.buffer(count * 4); // integers
+      values[i] = arrowBuf;
+      for (int j = 0; j < count; j++) {
+        arrowBuf.setInt(j * 4, j);
+      }
+      arrowBuf.writerIndex(count * 4);
     }
     try (
-        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values, validity, values));
+        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values[0], validity, values[1]));
         BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
         ) {
@@ -153,7 +158,9 @@ public class TestVectorUnloadLoad {
       assertFalse(intDefinedVector.getAccessor().isNull(count + 10));
       assertEquals(1234, intDefinedVector.getAccessor().get(count + 10));
     } finally {
-      values.release();
+      for (ArrowBuf arrowBuf : values) {
+        arrowBuf.release();
+      }
     }
   }
 
