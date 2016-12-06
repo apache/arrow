@@ -17,6 +17,7 @@
 
 #include <hdfs.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <sstream>
 #include <string>
@@ -50,6 +51,8 @@ static Status CheckReadResult(int ret) {
   }
   return Status::OK();
 }
+
+static constexpr int kDefaultHdfsBufferSize = 1 << 16;
 
 // ----------------------------------------------------------------------
 // File reading
@@ -124,9 +127,16 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
-    tSize ret = hdfsRead(fs_, file_, reinterpret_cast<void*>(buffer), nbytes);
-    RETURN_NOT_OK(CheckReadResult(ret));
-    *bytes_read = ret;
+    int64_t total_bytes = 0;
+    while (total_bytes < nbytes) {
+      tSize ret = hdfsRead(fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
+          std::min<int64_t>(buffer_size_, nbytes - total_bytes));
+      RETURN_NOT_OK(CheckReadResult(ret));
+      total_bytes += ret;
+      if (ret == 0) { break; }
+    }
+
+    *bytes_read = total_bytes;
     return Status::OK();
   }
 
@@ -136,7 +146,6 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-
     if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
 
     *out = buffer;
@@ -154,8 +163,11 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
 
+  void set_buffer_size(int32_t buffer_size) { buffer_size_ = buffer_size; }
+
  private:
   MemoryPool* pool_;
+  int32_t buffer_size_;
 };
 
 HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
@@ -384,8 +396,9 @@ class HdfsClient::HdfsClientImpl {
     return Status::OK();
   }
 
-  Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file) {
-    hdfsFile handle = hdfsOpenFile(fs_, path.c_str(), O_RDONLY, 0, 0, 0);
+  Status OpenReadable(const std::string& path, int32_t buffer_size,
+      std::shared_ptr<HdfsReadableFile>* file) {
+    hdfsFile handle = hdfsOpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
       // TODO(wesm): determine cause of failure
@@ -397,6 +410,7 @@ class HdfsClient::HdfsClientImpl {
     // std::make_shared does not work with private ctors
     *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile());
     (*file)->impl_->set_members(path, fs_, handle);
+    (*file)->impl_->set_buffer_size(buffer_size);
 
     return Status::OK();
   }
@@ -490,9 +504,14 @@ Status HdfsClient::ListDirectory(
   return impl_->ListDirectory(path, listing);
 }
 
+Status HdfsClient::OpenReadable(const std::string& path, int32_t buffer_size,
+    std::shared_ptr<HdfsReadableFile>* file) {
+  return impl_->OpenReadable(path, buffer_size, file);
+}
+
 Status HdfsClient::OpenReadable(
     const std::string& path, std::shared_ptr<HdfsReadableFile>* file) {
-  return impl_->OpenReadable(path, file);
+  return OpenReadable(path, kDefaultHdfsBufferSize, file);
 }
 
 Status HdfsClient::OpenWriteable(const std::string& path, bool append,
