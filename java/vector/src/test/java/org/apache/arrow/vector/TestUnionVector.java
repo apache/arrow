@@ -21,8 +21,12 @@ import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -76,4 +80,54 @@ public class TestUnionVector {
     }
   }
 
+  @Test
+  public void testTransfer() throws Exception {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      srcVector.allocateNew();
+
+      // write some data
+      final UnionVector.Mutator mutator = srcVector.getMutator();
+      mutator.setType(0, MinorType.INT);
+      mutator.setSafe(0, newIntHolder(5));
+      mutator.setType(1, MinorType.BIT);
+      mutator.setSafe(1, newBitHolder(false));
+      mutator.setType(3, MinorType.INT);
+      mutator.setSafe(3, newIntHolder(10));
+      mutator.setType(5, MinorType.BIT);
+      mutator.setSafe(5, newBitHolder(false));
+      mutator.setValueCount(6);
+
+      try(UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+        TransferPair pair = srcVector.makeTransferPair(destVector);
+
+        // Creating the transfer should transfer the type of the field at least.
+        assertEquals(srcVector.getField(), destVector.getField());
+
+        // transfer
+        pair.transfer();
+
+        assertEquals(srcVector.getField(), destVector.getField());
+
+        // now check the values are transferred
+        assertEquals(srcVector.getAccessor().getValueCount(), destVector.getAccessor().getValueCount());
+        for(int i=0; i<srcVector.getAccessor().getValueCount(); i++) {
+          assertEquals("Different values at index " + i, srcVector.getAccessor().get(i), destVector.getAccessor().get(i));
+        }
+      }
+    }
+  }
+
+  private static NullableIntHolder newIntHolder(int value) {
+    final NullableIntHolder holder = new NullableIntHolder();
+    holder.isSet = 1;
+    holder.value = value;
+    return holder;
+  }
+
+  private static NullableBitHolder newBitHolder(boolean value) {
+    final NullableBitHolder holder = new NullableBitHolder();
+    holder.isSet = 1;
+    holder.value = value ? 1 : 0;
+    return holder;
+  }
 }
