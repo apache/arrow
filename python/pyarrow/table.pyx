@@ -415,52 +415,6 @@ cdef class RecordBatch:
         return result
 
 
-def dataframe_from_batches(batches):
-    """
-    Convert a list of Arrow RecordBatches to a pandas.DataFrame
-
-    Parameters
-    ----------
-
-    batches: list of RecordBatch
-        RecordBatch list to be converted, schemas must be equal
-    """
-
-    cdef:
-        vector[shared_ptr[CArray]] c_array_chunks
-        vector[shared_ptr[CColumn]] c_columns
-        shared_ptr[CTable] c_table
-        Array arr
-        Schema schema
-
-    import pandas as pd
-
-    schema = batches[0].schema
-
-    # check schemas are equal
-    if any((not schema.equals(other.schema) for other in batches[1:])):
-        raise ArrowException("Error converting list of RecordBatches to "
-                "DataFrame, not all schemas are equal")
-
-    cdef int K = batches[0].num_columns
-
-    # create chunked columns from the batches
-    c_columns.resize(K)
-    for i in range(K):
-        for batch in batches:
-            arr = batch[i]
-            c_array_chunks.push_back(arr.sp_array)
-        c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i),
-                           c_array_chunks))
-        c_array_chunks.clear()
-
-    # create a Table from columns and convert to DataFrame
-    c_table.reset(new CTable('', schema.sp_schema, c_columns))
-    table = Table()
-    table.init(c_table)
-    return table.to_pandas()
-
-
 cdef class Table:
     """
     A collection of top-level named, equal length Arrow arrays.
@@ -566,6 +520,54 @@ cdef class Table:
         result.init(table)
 
         return result
+
+    @staticmethod
+    def from_batches(batches):
+        """
+        Construct a Table from a list of Arrow RecordBatches
+
+        Parameters
+        ----------
+
+        batches: list of RecordBatch
+            RecordBatch list to be converted, schemas must be equal
+        """
+
+        cdef:
+            vector[shared_ptr[CArray]] c_array_chunks
+            vector[shared_ptr[CColumn]] c_columns
+            shared_ptr[CTable] c_table
+            Array arr
+            Schema schema
+
+        import pandas as pd
+
+        schema = batches[0].schema
+
+        # check schemas are equal
+        for other in batches[1:]:
+            if not schema.equals(other.schema):
+                raise ArrowException("Error converting list of RecordBatches "
+                        "to DataFrame, not all schemas are equal: {%s} != {%s}"
+                        % (str(schema), str(other.schema)))
+
+        cdef int K = batches[0].num_columns
+
+        # create chunked columns from the batches
+        c_columns.resize(K)
+        for i in range(K):
+            for batch in batches:
+                arr = batch[i]
+                c_array_chunks.push_back(arr.sp_array)
+            c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i),
+                               c_array_chunks))
+            c_array_chunks.clear()
+
+        # create a Table from columns and convert to DataFrame
+        c_table.reset(new CTable('', schema.sp_schema, c_columns))
+        table = Table()
+        table.init(c_table)
+        return table
 
     def to_pandas(self):
         """

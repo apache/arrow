@@ -69,7 +69,8 @@ def test_recordbatchlist_to_pandas():
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
-    result = pa.dataframe_from_batches([batch1, batch2])
+    table = pa.Table.from_batches([batch1, batch2])
+    result = table.to_pandas()
     data = pd.concat([data1, data2], ignore_index=True)
     assert_frame_equal(data, result)
 
@@ -82,7 +83,7 @@ def test_recordbatchlist_schema_equals():
     batch2 = pa.RecordBatch.from_pandas(data2)
 
     with pytest.raises(pa.ArrowException):
-        pa.dataframe_from_batches([batch1, batch2])
+        pa.Table.from_batches([batch1, batch2])
 
 
 def test_table_basics():
