@@ -572,7 +572,7 @@ cdef class _HdfsFileNanny:
 
     def __dealloc__(self):
         self.file_handle.close()
-        # avoid cyclic GC
+        # try to avoid cyclic GC
         self.file_handle = None
         self.client = None
 
