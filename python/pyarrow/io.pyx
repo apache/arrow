@@ -564,16 +564,19 @@ cdef class HdfsClient:
 cdef class _HdfsFileNanny:
     cdef:
         object client
-        object file_handle
+        object file_handle_ref
 
     def __cinit__(self, client, file_handle):
+        import weakref
         self.client = client
-        self.file_handle = file_handle
+        self.file_handle_ref = weakref.ref(file_handle)
 
     def __dealloc__(self):
-        self.file_handle.close()
-        # try to avoid cyclic GC
-        self.file_handle = None
+        fh = self.file_handle_ref()
+        if fh:
+            fh.close()
+        # avoid cyclic GC
+        self.file_handle_ref = None
         self.client = None
 
 
@@ -582,6 +585,8 @@ cdef class HdfsFile(NativeFile):
         int32_t buffer_size
         object mode
         object parent
+
+    cdef object __weakref__
 
     def __dealloc__(self):
         self.parent = None
