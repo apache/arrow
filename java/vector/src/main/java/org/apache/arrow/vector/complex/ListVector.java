@@ -93,6 +93,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    // variable width values: truncate offset vector buffer to size (#1)
+    org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, offsets.getBufferSizeFor(fieldNode.getLength() + 1));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
   }
 

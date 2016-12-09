@@ -68,7 +68,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
         int remainder = count % 8;
         // set remaining bits
         if (remainder > 0) {
-          byte bitMask = (byte) (0xFFL >>> ((8 - remainder) & 7));;
+          byte bitMask = (byte) (0xFFL >>> ((8 - remainder) & 7));
           this.data.setByte(fullBytesCount, bitMask);
         }
       } else if (fieldNode.getNullCount() == fieldNode.getLength()) {
