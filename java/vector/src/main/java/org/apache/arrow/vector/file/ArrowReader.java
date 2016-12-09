@@ -139,10 +139,7 @@ public class ArrowReader implements AutoCloseable {
     for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
       Buffer bufferFB = recordBatchFB.buffers(i);
       LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", bufferFB.offset(), bufferFB.length()));
-      ArrowBuf vectorBuffer =
-          bufferFB.length() == 0 ?
-              allocator.getEmpty()
-              : body.slice((int)bufferFB.offset(), (int)bufferFB.length());
+      ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
       buffers.add(vectorBuffer);
     }
     ArrowRecordBatch arrowRecordBatch = new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);

@@ -53,7 +53,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   public void load(ArrowFieldNode fieldNode, ArrowBuf data) {
     // When the vector is all nulls or all defined, the content of the buffer can be omitted
     if (data.readableBytes() == 0 && fieldNode.getLength() != 0) {
-      data.release();
       int count = fieldNode.getLength();
       allocateNew(count);
       int n = getSizeFromCount(count);
