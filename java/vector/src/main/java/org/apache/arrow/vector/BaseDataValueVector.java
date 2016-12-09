@@ -30,9 +30,6 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
 
   protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
 
-  /** maximum extra size at the end of the buffer */
-  private static final int MAX_BUFFER_PADDING = 64;
-
   public static void load(ArrowFieldNode fieldNode, List<BufferBacked> vectors, List<ArrowBuf> buffers) {
     int expectedSize = vectors.size();
     if (buffers.size() != expectedSize) {
@@ -50,9 +47,6 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
     ArrowBuf buffer = buffers.get(bufferIndex);
     if (buffer.writerIndex() < byteSize) {
       throw new IllegalArgumentException("can not truncate buffer to a larger size " + byteSize + ": " + buffer.writerIndex());
-    }
-    if (buffer.writerIndex() - byteSize > MAX_BUFFER_PADDING) {
-      throw new IllegalArgumentException("Buffer too large to resize to " + byteSize + ": " + buffer.writerIndex());
     }
     buffer.writerIndex(byteSize);
   }
