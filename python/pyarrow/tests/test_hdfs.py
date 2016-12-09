@@ -98,6 +98,29 @@ def test_hdfs_ls(hdfs):
     assert contents == [dir_path, f1_path]
 
 
+def _make_test_file(hdfs, test_name, test_path, test_data):
+    base_path = pjoin(HDFS_TMP_PATH, test_name)
+    hdfs.mkdir(base_path)
+
+    full_path = pjoin(base_path, test_path)
+
+    f = hdfs.open(full_path, 'wb')
+    f.write(test_data)
+
+    return full_path
+
+
+@libhdfs
+def test_hdfs_orphaned_file():
+    hdfs = hdfs_test_client()
+    file_path = _make_test_file(hdfs, 'orphaned_file_test', 'fname',
+                                'foobarbaz')
+
+    f = hdfs.open(file_path)
+    hdfs = None
+    f = None  # noqa
+
+
 @libhdfs
 def test_hdfs_download_upload(hdfs):
     base_path = pjoin(HDFS_TMP_PATH, 'upload-test')

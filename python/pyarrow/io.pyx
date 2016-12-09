@@ -504,7 +504,7 @@ cdef class HdfsClient:
 
         out.mode = mode
         out.buffer_size = c_buffer_size
-        out.parent = self
+        out.parent = _HdfsFileNanny(self, out)
         out.is_open = True
         out.own_file = True
 
@@ -516,47 +516,68 @@ cdef class HdfsClient:
         """
         write_queue = Queue(50)
 
-        f = self.open(path, 'wb')
+        with self.open(path, 'wb') as f:
+            done = False
+            exc_info = None
+            def bg_write():
+                try:
+                    while not done or write_queue.qsize() > 0:
+                        try:
+                            buf = write_queue.get(timeout=0.01)
+                        except QueueEmpty:
+                            continue
 
-        done = False
-        exc_info = None
-        def bg_write():
+                        f.write(buf)
+
+                except Exception as e:
+                    exc_info = sys.exc_info()
+
+            writer_thread = threading.Thread(target=bg_write)
+            writer_thread.start()
+
             try:
-                while not done or write_queue.qsize() > 0:
-                    try:
-                        buf = write_queue.get(timeout=0.01)
-                    except QueueEmpty:
-                        continue
+                while True:
+                    buf = stream.read(buffer_size)
+                    if not buf:
+                        break
 
-                    f.write(buf)
+                    write_queue.put_nowait(buf)
+            finally:
+                done = True
 
-            except Exception as e:
-                exc_info = sys.exc_info()
-
-        writer_thread = threading.Thread(target=bg_write)
-        writer_thread.start()
-
-        try:
-            while True:
-                buf = stream.read(buffer_size)
-                if not buf:
-                    break
-
-                write_queue.put_nowait(buf)
-        finally:
-            done = True
-
-        writer_thread.join()
-        if exc_info is not None:
-            raise exc_info[0], exc_info[1], exc_info[2]
+            writer_thread.join()
+            if exc_info is not None:
+                raise exc_info[0], exc_info[1], exc_info[2]
 
     def download(self, path, stream, buffer_size=None):
-        f = self.open(path, 'rb', buffer_size=buffer_size)
-        f.download(stream)
+        with self.open(path, 'rb', buffer_size=buffer_size) as f:
+            f.download(stream)
 
 
 # ----------------------------------------------------------------------
 # Specialization for HDFS
+
+# ARROW-404: Helper class to ensure that files are closed before the
+# client. During deallocation of the extension class, the attributes are
+# decref'd which can cause the client to get closed first if the file has the
+# last remaining reference
+cdef class _HdfsFileNanny:
+    cdef:
+        object client
+        object file_handle_ref
+
+    def __cinit__(self, client, file_handle):
+        import weakref
+        self.client = client
+        self.file_handle_ref = weakref.ref(file_handle)
+
+    def __dealloc__(self):
+        fh = self.file_handle_ref()
+        if fh:
+            fh.close()
+        # avoid cyclic GC
+        self.file_handle_ref = None
+        self.client = None
 
 
 cdef class HdfsFile(NativeFile):
@@ -564,6 +585,11 @@ cdef class HdfsFile(NativeFile):
         int32_t buffer_size
         object mode
         object parent
+
+    cdef object __weakref__
+
+    def __dealloc__(self):
+        self.parent = None
 
     def read(self, int nbytes):
         """
