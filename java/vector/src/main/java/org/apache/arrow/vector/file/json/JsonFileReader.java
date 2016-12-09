@@ -47,6 +47,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Mutator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -152,6 +153,9 @@ public class JsonFileReader implements AutoCloseable {
           readVector(childField, childVector);
         }
         readToken(END_ARRAY);
+      }
+      if (vector instanceof NullableMapVector) {
+        ((NullableMapVector)vector).valueCount = count;
       }
     }
     readToken(END_OBJECT);
