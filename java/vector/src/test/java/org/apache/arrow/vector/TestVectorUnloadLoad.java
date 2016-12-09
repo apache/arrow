@@ -23,6 +23,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,6 +33,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
@@ -94,6 +96,79 @@ public class TestVectorUnloadLoad {
           Assert.assertEquals(i, intReader.readInteger().intValue());
           bigIntReader.setPosition(i);
           Assert.assertEquals(i, bigIntReader.readLong().longValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testUnloadLoadAddPadding() throws IOException {
+    int count = 10000;
+    Schema schema;
+    try (
+        BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", originalVectorsAllocator, null)) {
+
+      // write some data
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter rootWriter = writer.rootAsMap();
+      ListWriter list = rootWriter.list("list");
+      IntWriter intWriter = list.integer();
+      for (int i = 0; i < count; i++) {
+        list.setPosition(i);
+        list.startList();
+        for (int j = 0; j < i % 4 + 1; j++) {
+          intWriter.writeInt(i);
+        }
+        list.endList();
+      }
+      writer.setValueCount(count);
+
+      // unload it
+      FieldVector root = parent.getChild("root");
+      schema = new Schema(root.getField().getChildren());
+      VectorUnloader vectorUnloader = newVectorUnloader(root);
+      try (
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+          VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
+          ) {
+        List<ArrowBuf> oldBuffers = recordBatch.getBuffers();
+        List<ArrowBuf> newBuffers = new ArrayList<>();
+        for (ArrowBuf oldBuffer : oldBuffers) {
+          int l = oldBuffer.readableBytes();
+          if (l % 64 != 0) {
+            // pad
+            l = l + 64 - l % 64;
+          }
+          ArrowBuf newBuffer = allocator.buffer(l);
+          for (int i = oldBuffer.readerIndex(); i < oldBuffer.writerIndex(); i++) {
+            newBuffer.setByte(i - oldBuffer.readerIndex(), oldBuffer.getByte(i));
+          }
+          newBuffer.readerIndex(0);
+          newBuffer.writerIndex(l);
+          newBuffers.add(newBuffer);
+        }
+
+        try (ArrowRecordBatch newBatch = new ArrowRecordBatch(recordBatch.getLength(), recordBatch.getNodes(), newBuffers);) {
+          // load it
+          VectorLoader vectorLoader = new VectorLoader(newRoot);
+
+          vectorLoader.load(newBatch);
+
+          FieldReader reader = newRoot.getVector("list").getReader();
+          for (int i = 0; i < count; i++) {
+            reader.setPosition(i);
+            List<Integer> expected = new ArrayList<>();
+            for (int j = 0; j < i % 4 + 1; j++) {
+              expected.add(i);
+            }
+            Assert.assertEquals(expected, reader.readObject());
+          }
+        }
+
+        for (ArrowBuf newBuf : newBuffers) {
+          newBuf.release();
         }
       }
     }

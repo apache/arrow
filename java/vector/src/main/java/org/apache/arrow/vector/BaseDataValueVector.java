@@ -31,7 +31,7 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
   protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
 
   /** maximum extra size at the end of the buffer */
-  private static final int MAX_BUFFER_PADDING = 0; // TODO: check
+  private static final int MAX_BUFFER_PADDING = 64;
 
   public static void load(ArrowFieldNode fieldNode, List<BufferBacked> vectors, List<ArrowBuf> buffers) {
     int expectedSize = vectors.size();
