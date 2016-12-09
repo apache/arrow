@@ -151,7 +151,7 @@ inline bool NumericArray<DoubleType>::ApproxEquals(
 
   if (length_ == 0 && other.length_ == 0) { return true; }
 
-  static constexpr float EPSILON = 1E-5;
+  static constexpr double EPSILON = 1E-5;
 
   if (null_count_ > 0) {
     bool equal_bitmap =
