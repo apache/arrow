@@ -21,11 +21,13 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.file.BaseFileTest;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,6 +115,24 @@ public class TestJSONFile extends BaseFileTest {
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
         validateUnionData(count, root);
+      }
+    }
+  }
+
+  @Test
+  public void testSetStructLength() throws IOException {
+    File file = new File("../../integration/data/struct_example.json");
+    try (
+            BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        FieldVector vector = root.getVector("struct_nullable");
+        Assert.assertEquals(7, vector.getAccessor().getValueCount());
       }
     }
   }
