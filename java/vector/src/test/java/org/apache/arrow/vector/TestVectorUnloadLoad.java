@@ -112,7 +112,8 @@ public class TestVectorUnloadLoad {
         new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
         ));
     int count = 10;
-    ArrowBuf validity = allocator.getEmpty();
+    // using Allocator.getEmpty() turns off ref counting
+    ArrowBuf validity = allocator.buffer(10).slice(0, 0);
     ArrowBuf values = allocator.buffer(count * 4); // integers
     for (int i = 0; i < count; i++) {
       values.setInt(i * 4, i);
@@ -153,6 +154,7 @@ public class TestVectorUnloadLoad {
       assertFalse(intDefinedVector.getAccessor().isNull(count + 10));
       assertEquals(1234, intDefinedVector.getAccessor().get(count + 10));
     } finally {
+      validity.release();
       values.release();
     }
   }
