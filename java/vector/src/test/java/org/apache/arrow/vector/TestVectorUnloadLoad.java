@@ -187,7 +187,7 @@ public class TestVectorUnloadLoad {
         new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
         ));
     int count = 10;
-    ArrowBuf validity = allocator.getEmpty();
+    ArrowBuf validity = allocator.buffer(10).slice(0, 0);
     ArrowBuf[] values = new ArrowBuf[2];
     for (int i = 0; i < values.length; i++) {
       ArrowBuf arrowBuf = allocator.buffer(count * 4); // integers
@@ -236,6 +236,7 @@ public class TestVectorUnloadLoad {
       for (ArrowBuf arrowBuf : values) {
         arrowBuf.release();
       }
+      validity.release();
     }
   }
 
