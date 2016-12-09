@@ -50,7 +50,7 @@ public class MapVector extends AbstractMapVector {
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
-  int valueCount;
+  public int valueCount;
 
   public MapVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator, callBack);
