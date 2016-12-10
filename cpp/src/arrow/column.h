@@ -46,7 +46,7 @@ class ARROW_EXPORT ChunkedArray {
 
   int num_chunks() const { return chunks_.size(); }
 
-  const std::shared_ptr<Array>& chunk(int i) const { return chunks_[i]; }
+  std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
  protected:
   ArrayVector chunks_;
@@ -68,16 +68,16 @@ class ARROW_EXPORT Column {
 
   int64_t null_count() const { return data_->null_count(); }
 
-  const std::shared_ptr<Field>& field() const { return field_; }
+  std::shared_ptr<Field> field() const { return field_; }
 
   // @returns: the column's name in the passed metadata
   const std::string& name() const { return field_->name; }
 
   // @returns: the column's type according to the metadata
-  const std::shared_ptr<DataType>& type() const { return field_->type; }
+  std::shared_ptr<DataType> type() const { return field_->type; }
 
   // @returns: the column's data as a chunked logical array
-  const std::shared_ptr<ChunkedArray>& data() const { return data_; }
+  std::shared_ptr<ChunkedArray> data() const { return data_; }
   // Verify that the column's array data is consistent with the passed field's
   // metadata
   Status ValidateData();

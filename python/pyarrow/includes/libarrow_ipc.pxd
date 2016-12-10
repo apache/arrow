@@ -44,7 +44,7 @@ cdef extern from "arrow/ipc/file.h" namespace "arrow::ipc" nogil:
         CStatus Open2" Open"(const shared_ptr[ReadableFileInterface]& file,
                      int64_t footer_offset, shared_ptr[CFileReader]* out)
 
-        const shared_ptr[CSchema]& schema()
+        shared_ptr[CSchema] schema()
 
         int num_dictionaries()
         int num_record_batches()

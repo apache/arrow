@@ -57,12 +57,12 @@ class ARROW_EXPORT ListArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const std::shared_ptr<Array>& values() const { return values_; }
+  std::shared_ptr<Array> values() const { return values_; }
   std::shared_ptr<Buffer> offsets() const {
     return std::static_pointer_cast<Buffer>(offset_buffer_);
   }
 
-  const std::shared_ptr<DataType>& value_type() const { return values_->type(); }
+  std::shared_ptr<DataType> value_type() const { return values_->type(); }
 
   const int32_t* raw_offsets() const { return offsets_; }
 
@@ -152,7 +152,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
   Status AppendNull() { return Append(false); }
 
-  const std::shared_ptr<ArrayBuilder>& value_builder() const {
+  std::shared_ptr<ArrayBuilder> value_builder() const {
     DCHECK(!values_) << "Using value builder is pointless when values_ is set";
     return value_builder_;
   }

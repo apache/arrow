@@ -91,12 +91,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const shared_ptr[CSchema]& other)
 
-        const shared_ptr[CField]& field(int i)
+        shared_ptr[CField] field(int i)
         int num_fields()
         c_string ToString()
 
     cdef cppclass CArray" arrow::Array":
-        const shared_ptr[CDataType]& type()
+        shared_ptr[CDataType] type()
 
         int32_t length()
         int32_t null_count()
@@ -142,8 +142,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const int32_t* offsets()
         int32_t offset(int i)
         int32_t value_length(int i)
-        const shared_ptr[CArray]& values()
-        const shared_ptr[CDataType]& value_type()
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
 
     cdef cppclass CStringArray" arrow::StringArray"(CListArray):
         c_string GetString(int i)
@@ -152,7 +152,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t length()
         int64_t null_count()
         int num_chunks()
-        const shared_ptr[CArray]& chunk(int i)
+        shared_ptr[CArray] chunk(int i)
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,
@@ -164,8 +164,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t length()
         int64_t null_count()
         const c_string& name()
-        const shared_ptr[CDataType]& type()
-        const shared_ptr[CChunkedArray]& data()
+        shared_ptr[CDataType] type()
+        shared_ptr[CChunkedArray] data()
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":
         CRecordBatch(const shared_ptr[CSchema]& schema, int32_t num_rows,
@@ -173,8 +173,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const CRecordBatch& other)
 
-        const shared_ptr[CSchema]& schema()
-        const shared_ptr[CArray]& column(int i)
+        shared_ptr[CSchema] schema()
+        shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
         const vector[shared_ptr[CArray]]& columns()
@@ -191,8 +191,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const c_string& name()
 
-        const shared_ptr[CSchema]& schema()
-        const shared_ptr[CColumn]& column(int i)
+        shared_ptr[CSchema] schema()
+        shared_ptr[CColumn] column(int i)
 
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:

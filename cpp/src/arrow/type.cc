@@ -81,7 +81,7 @@ std::string StructType::ToString() const {
   s << "struct<";
   for (int i = 0; i < this->num_children(); ++i) {
     if (i > 0) { s << ", "; }
-    const std::shared_ptr<Field>& field = this->child(i);
+    std::shared_ptr<Field> field = this->child(i);
     s << field->name << ": " << field->type->ToString();
   }
   s << ">";

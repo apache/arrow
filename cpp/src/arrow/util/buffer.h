@@ -86,7 +86,7 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
 
   int64_t size() const { return size_; }
 
-  const std::shared_ptr<Buffer> parent() const { return parent_; }
+  std::shared_ptr<Buffer> parent() const { return parent_; }
 
  protected:
   bool is_mutable_;

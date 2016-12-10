@@ -51,7 +51,7 @@ Column::Column(
 
 Status Column::ValidateData() {
   for (int i = 0; i < data_->num_chunks(); ++i) {
-    const std::shared_ptr<DataType>& type = data_->chunk(i)->type();
+    std::shared_ptr<DataType> type = data_->chunk(i)->type();
     if (!this->type()->Equals(type)) {
       std::stringstream ss;
       ss << "In chunk " << i << " expected type " << this->type()->ToString()

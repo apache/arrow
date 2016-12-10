@@ -106,7 +106,7 @@ class ARROW_EXPORT FileReader {
   static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
       int64_t footer_offset, std::shared_ptr<FileReader>* reader);
 
-  const std::shared_ptr<Schema>& schema() const;
+  std::shared_ptr<Schema> schema() const;
 
   // Shared dictionaries for dictionary-encoding cross record batches
   // TODO(wesm): Implement dictionary reading when we also have dictionary

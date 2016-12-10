@@ -53,10 +53,10 @@ class ARROW_EXPORT Array {
   int32_t length() const { return length_; }
   int32_t null_count() const { return null_count_; }
 
-  const std::shared_ptr<DataType>& type() const { return type_; }
+  std::shared_ptr<DataType> type() const { return type_; }
   Type::type type_enum() const { return type_->type; }
 
-  const std::shared_ptr<Buffer>& null_bitmap() const { return null_bitmap_; }
+  std::shared_ptr<Buffer> null_bitmap() const { return null_bitmap_; }
 
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 

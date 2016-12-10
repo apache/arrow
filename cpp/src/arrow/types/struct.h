@@ -46,7 +46,7 @@ class ARROW_EXPORT StructArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  const std::shared_ptr<Array>& field(int32_t pos) const {
+  std::shared_ptr<Array> field(int32_t pos) const {
     DCHECK_GT(field_arrays_.size(), 0);
     return field_arrays_[pos];
   }
@@ -99,7 +99,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   Status AppendNull() { return Append(false); }
 
-  const std::shared_ptr<ArrayBuilder> field_builder(int pos) const {
+  std::shared_ptr<ArrayBuilder> field_builder(int pos) const {
     DCHECK_GT(field_builders_.size(), 0);
     return field_builders_[pos];
   }

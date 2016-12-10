@@ -48,11 +48,11 @@ class ARROW_EXPORT RecordBatch {
   bool ApproxEquals(const RecordBatch& other) const;
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const { return schema_; }
+  std::shared_ptr<Schema> schema() const { return schema_; }
 
   // @returns: the i-th column
   // Note: Does not boundscheck
-  const std::shared_ptr<Array>& column(int i) const { return columns_[i]; }
+  std::shared_ptr<Array> column(int i) const { return columns_[i]; }
 
   const std::vector<std::shared_ptr<Array>>& columns() const { return columns_; }
 
@@ -88,11 +88,11 @@ class ARROW_EXPORT Table {
   const std::string& name() const { return name_; }
 
   // @returns: the table's schema
-  const std::shared_ptr<Schema>& schema() const { return schema_; }
+  std::shared_ptr<Schema> schema() const { return schema_; }
 
   // Note: Does not boundscheck
   // @returns: the i-th column
-  const std::shared_ptr<Column>& column(int i) const { return columns_[i]; }
+  std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
   // @returns: the number of columns in the table
   int num_columns() const { return columns_.size(); }
