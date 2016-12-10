@@ -18,6 +18,7 @@
 #ifndef ARROW_TYPES_PRIMITIVE_H
 #define ARROW_TYPES_PRIMITIVE_H
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -124,11 +125,11 @@ inline bool NumericArray<FloatType>::ApproxEquals(
 
     for (int i = 0; i < length_; ++i) {
       if (IsNull(i)) continue;
-      if (std::fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
     }
   } else {
     for (int i = 0; i < length_; ++i) {
-      if (std::fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
     }
   }
   return true;
@@ -160,11 +161,11 @@ inline bool NumericArray<DoubleType>::ApproxEquals(
 
     for (int i = 0; i < length_; ++i) {
       if (IsNull(i)) continue;
-      if (std::fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
     }
   } else {
     for (int i = 0; i < length_; ++i) {
-      if (std::fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
     }
   }
   return true;
