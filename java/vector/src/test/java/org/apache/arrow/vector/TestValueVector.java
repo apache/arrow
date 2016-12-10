@@ -288,12 +288,15 @@ public class TestValueVector {
     try (final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
       final BitVector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
+      m.setValueCount(1024);
 
       // Put and set a few values
       m.set(0, 1);
       m.set(1, 0);
       m.set(100, 0);
       m.set(1022, 1);
+
+      m.setValueCount(1024);
 
       final BitVector.Accessor accessor = vector.getAccessor();
       assertEquals(1, accessor.get(0));
@@ -337,24 +340,23 @@ public class TestValueVector {
 
       assertEquals(0, accessor.getNullCount());
 
-      // re-allocate the vector with a new (odd) size, smaller by more than a byte than the original vector
-      // this allows to ensure that we use one byte less memory than the previous one
       vector.allocateNew(1015);
+      m.setValueCount(1015);
 
       // ensure it has been zeroed
-      assertEquals(1016, accessor.getNullCount());
+      assertEquals(1015, accessor.getNullCount());
 
       m.set(0, 1);
-      m.set(1015, 1); // ensure that the last item of the last byte is allocated
+      m.set(1014, 1); // ensure that the last item of the last byte is allocated
 
-      assertEquals(1014, accessor.getNullCount());
+      assertEquals(1013, accessor.getNullCount());
 
       vector.zeroVector();
-      assertEquals(1016, accessor.getNullCount());
+      assertEquals(1015, accessor.getNullCount());
 
       // set all the array to 1
-      for (int i = 0; i < 1016; ++i) {
-        assertEquals(1016 - i, accessor.getNullCount());
+      for (int i = 0; i < 1015; ++i) {
+        assertEquals(1015 - i, accessor.getNullCount());
         m.set(i, 1);
       }
 

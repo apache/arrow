@@ -393,7 +393,11 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
         // will have 32bits set to 1. Masking the MSB and then adding it back solves the issue.
         count += Integer.bitCount(byteValue & 0x7F) - (byteValue >> 7);
       }
-      return (allocationSizeInBytes * 8) - count;
+      int nullCount = (allocationSizeInBytes * 8) - count;
+      // if the valueCount is not a multiple of 8, the bits on the right were counted as null bits
+      int remainder = valueCount % 8;
+      nullCount -= remainder == 0 ? 0 : 8 - remainder;
+      return nullCount;
     }
   }
 
