@@ -89,13 +89,13 @@ class ARROW_EXPORT ArrayBuilder {
   // this function responsibly.
   Status Advance(int32_t elements);
 
-  const std::shared_ptr<PoolBuffer>& null_bitmap() const { return null_bitmap_; }
+  std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
   // Creates new array object to hold the contents of the builder and transfers
   // ownership of the data.  This resets all variables on the builder.
   virtual Status Finish(std::shared_ptr<Array>* out) = 0;
 
-  const std::shared_ptr<DataType>& type() const { return type_; }
+  std::shared_ptr<DataType> type() const { return type_; }
 
  protected:
   MemoryPool* pool_;

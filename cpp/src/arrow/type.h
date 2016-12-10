@@ -134,7 +134,7 @@ struct ARROW_EXPORT DataType {
     return Equals(other.get());
   }
 
-  const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
+  std::shared_ptr<Field> child(int i) const { return children_[i]; }
 
   const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
 
@@ -319,9 +319,9 @@ struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
     children_ = {value_field};
   }
 
-  const std::shared_ptr<Field>& value_field() const { return children_[0]; }
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
 
-  const std::shared_ptr<DataType>& value_type() const { return children_[0]->type; }
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type; }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;

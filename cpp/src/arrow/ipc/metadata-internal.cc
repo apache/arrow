@@ -285,7 +285,7 @@ Status SchemaToFlatbuffer(
     FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out) {
   std::vector<FieldOffset> field_offsets;
   for (int i = 0; i < schema->num_fields(); ++i) {
-    const std::shared_ptr<Field>& field = schema->field(i);
+    std::shared_ptr<Field> field = schema->field(i);
     FieldOffset offset;
     RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, &offset));
     field_offsets.push_back(offset);

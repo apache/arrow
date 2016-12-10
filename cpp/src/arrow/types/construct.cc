@@ -63,7 +63,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
-      const std::shared_ptr<DataType>& value_type =
+      std::shared_ptr<DataType> value_type =
           static_cast<ListType*>(type.get())->value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
       out->reset(new ListBuilder(pool, value_builder));

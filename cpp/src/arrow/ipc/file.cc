@@ -179,7 +179,7 @@ Status FileReader::ReadFooter() {
   return footer_->GetSchema(&schema_);
 }
 
-const std::shared_ptr<Schema>& FileReader::schema() const {
+std::shared_ptr<Schema> FileReader::schema() const {
   return schema_;
 }
 

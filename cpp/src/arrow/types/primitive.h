@@ -45,7 +45,7 @@ class ARROW_EXPORT PrimitiveArray : public Array {
  public:
   virtual ~PrimitiveArray() {}
 
-  const std::shared_ptr<Buffer>& data() const { return data_; }
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   bool EqualsExact(const PrimitiveArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
