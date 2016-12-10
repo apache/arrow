@@ -18,8 +18,10 @@
 #ifndef ARROW_TYPES_PRIMITIVE_H
 #define ARROW_TYPES_PRIMITIVE_H
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -55,7 +57,7 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   const uint8_t* raw_data_;
 };
 
-template <class TYPE>
+template <typename TYPE>
 class ARROW_EXPORT NumericArray : public PrimitiveArray {
  public:
   using TypeClass = TYPE;
@@ -69,8 +71,10 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
       : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
   bool EqualsExact(const NumericArray<TypeClass>& other) const {
-    return PrimitiveArray::EqualsExact(*static_cast<const PrimitiveArray*>(&other));
+    return PrimitiveArray::EqualsExact(static_cast<const PrimitiveArray&>(other));
   }
+
+  bool ApproxEquals(const std::shared_ptr<Array>& arr) const { return Equals(arr); }
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const ArrayPtr& arr) const override {
@@ -94,6 +98,78 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   value_type Value(int i) const { return raw_data()[i]; }
 };
+
+template <>
+inline bool NumericArray<FloatType>::ApproxEquals(
+    const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (this->type_enum() != arr->type_enum()) { return false; }
+
+  const auto& other = *static_cast<NumericArray<FloatType>*>(arr.get());
+
+  if (this == &other) { return true; }
+  if (null_count_ != other.null_count_) { return false; }
+
+  auto this_data = reinterpret_cast<const float*>(raw_data_);
+  auto other_data = reinterpret_cast<const float*>(other.raw_data_);
+
+  static constexpr float EPSILON = 1E-5;
+
+  if (length_ == 0 && other.length_ == 0) { return true; }
+
+  if (null_count_ > 0) {
+    bool equal_bitmap =
+        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
+    if (!equal_bitmap) { return false; }
+
+    for (int i = 0; i < length_; ++i) {
+      if (IsNull(i)) continue;
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+    }
+  } else {
+    for (int i = 0; i < length_; ++i) {
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+    }
+  }
+  return true;
+}
+
+template <>
+inline bool NumericArray<DoubleType>::ApproxEquals(
+    const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (this->type_enum() != arr->type_enum()) { return false; }
+
+  const auto& other = *static_cast<NumericArray<DoubleType>*>(arr.get());
+
+  if (this == &other) { return true; }
+  if (null_count_ != other.null_count_) { return false; }
+
+  auto this_data = reinterpret_cast<const double*>(raw_data_);
+  auto other_data = reinterpret_cast<const double*>(other.raw_data_);
+
+  if (length_ == 0 && other.length_ == 0) { return true; }
+
+  static constexpr double EPSILON = 1E-5;
+
+  if (null_count_ > 0) {
+    bool equal_bitmap =
+        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
+    if (!equal_bitmap) { return false; }
+
+    for (int i = 0; i < length_; ++i) {
+      if (IsNull(i)) continue;
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+    }
+  } else {
+    for (int i = 0; i < length_; ++i) {
+      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
+    }
+  }
+  return true;
+}
 
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
@@ -265,6 +341,13 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   uint8_t* raw_data_;
 };
 
+// gcc and clang disagree about how to handle template visibility when you have
+// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
 // Only instantiate these templates once
 extern template class ARROW_EXPORT NumericArray<Int8Type>;
 extern template class ARROW_EXPORT NumericArray<UInt8Type>;
@@ -278,6 +361,10 @@ extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
 extern template class ARROW_EXPORT NumericArray<FloatType>;
 extern template class ARROW_EXPORT NumericArray<DoubleType>;
 extern template class ARROW_EXPORT NumericArray<TimestampType>;
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 }  // namespace arrow
 

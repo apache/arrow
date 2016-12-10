@@ -16,7 +16,9 @@
 // under the License.
 
 #include <ostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/pretty_print.h"
@@ -32,20 +34,35 @@ namespace arrow {
 
 class ArrayPrinter : public ArrayVisitor {
  public:
-  ArrayPrinter(const Array& array, std::ostream* sink) : array_(array), sink_(sink) {}
+  ArrayPrinter(const Array& array, int indent, std::ostream* sink)
+      : array_(array), indent_(indent), sink_(sink) {}
 
   Status Print() { return VisitArray(array_); }
 
   Status VisitArray(const Array& array) { return array.Accept(this); }
 
   template <typename T>
-  typename std::enable_if<IsNumeric<T>::value, void>::type WriteDataValues(
+  typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
         (*sink_) << "null";
+      } else {
+        (*sink_) << static_cast<int64_t>(data[i]);
+      }
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
+      const T& array) {
+    const auto data = array.raw_data();
+    for (int i = 0; i < array.length(); ++i) {
+      if (i > 0) { (*sink_) << ", "; }
+      if (array.IsNull(i)) {
+        Write("null");
       } else {
         (*sink_) << data[i];
       }
@@ -60,7 +77,7 @@ class ArrayPrinter : public ArrayVisitor {
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
-        (*sink_) << "null";
+        Write("null");
       } else {
         const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
         (*sink_) << "\"" << std::string(buf, length) << "\"";
@@ -74,9 +91,9 @@ class ArrayPrinter : public ArrayVisitor {
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
-        (*sink_) << "null";
+        Write("null");
       } else {
-        (*sink_) << (array.Value(i) ? "true" : "false");
+        Write(array.Value(i) ? "true" : "false");
       }
     }
   }
@@ -148,20 +165,38 @@ class ArrayPrinter : public ArrayVisitor {
   }
 
   Status Visit(const ListArray& array) override {
-    // auto type = static_cast<const ListType*>(array.type().get());
-    // for (size_t i = 0; i < fields.size(); ++i) {
-    //   RETURN_NOT_OK(VisitArray(fields[i]->name, *arrays[i].get()));
-    // }
-    // return WriteChildren(type->children(), {array.values()});
+    Newline();
+    Write("-- is_valid: ");
+    BooleanArray is_valid(array.length(), array.null_bitmap());
+    PrettyPrint(is_valid, indent_ + 2, sink_);
+
+    Newline();
+    Write("-- offsets: ");
+    Int32Array offsets(array.length() + 1, array.offsets());
+    PrettyPrint(offsets, indent_ + 2, sink_);
+
+    Newline();
+    Write("-- values: ");
+    PrettyPrint(*array.values().get(), indent_ + 2, sink_);
+
     return Status::OK();
   }
 
   Status Visit(const StructArray& array) override {
-    // auto type = static_cast<const StructType*>(array.type().get());
-    // for (size_t i = 0; i < fields.size(); ++i) {
-    //   RETURN_NOT_OK(VisitArray(fields[i]->name, *arrays[i].get()));
-    // }
-    // return WriteChildren(type->children(), array.fields());
+    Newline();
+    Write("-- is_valid: ");
+    BooleanArray is_valid(array.length(), array.null_bitmap());
+    PrettyPrint(is_valid, indent_ + 2, sink_);
+
+    const std::vector<std::shared_ptr<Array>>& fields = array.fields();
+    for (size_t i = 0; i < fields.size(); ++i) {
+      Newline();
+      std::stringstream ss;
+      ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
+      Write(ss.str());
+      PrettyPrint(*fields[i].get(), indent_ + 2, sink_);
+    }
+
     return Status::OK();
   }
 
@@ -169,21 +204,38 @@ class ArrayPrinter : public ArrayVisitor {
     return Status::NotImplemented("union");
   }
 
+  void Write(const char* data) { (*sink_) << data; }
+
+  void Write(const std::string& data) { (*sink_) << data; }
+
+  void Newline() {
+    (*sink_) << "\n";
+    Indent();
+  }
+
+  void Indent() {
+    for (int i = 0; i < indent_; ++i) {
+      (*sink_) << " ";
+    }
+  }
+
  private:
   const Array& array_;
+  int indent_;
+
   std::ostream* sink_;
 };
 
-Status PrettyPrint(const Array& arr, std::ostream* sink) {
-  ArrayPrinter printer(arr, sink);
+Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
+  ArrayPrinter printer(arr, indent, sink);
   return printer.Print();
 }
 
-Status PrettyPrint(const RecordBatch& batch, std::ostream* sink) {
+Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     const std::string& name = batch.column_name(i);
     (*sink) << name << ": ";
-    RETURN_NOT_OK(PrettyPrint(*batch.column(i).get(), sink));
+    RETURN_NOT_OK(PrettyPrint(*batch.column(i).get(), indent + 2, sink));
     (*sink) << "\n";
   }
   return Status::OK();

@@ -60,6 +60,10 @@ bool Array::EqualsExact(const Array& other) const {
   return true;
 }
 
+bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
+  return Equals(arr);
+}
+
 Status Array::Validate() const {
   return Status::OK();
 }

@@ -264,7 +264,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* 
   RETURN_NOT_OK(
       TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));
 
-  *out = std::make_shared<Field>(field->name()->str(), type);
+  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
   return Status::OK();
 }
 

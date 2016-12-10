@@ -27,8 +27,12 @@ namespace arrow {
 
 class Status;
 
-Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, std::ostream* sink);
-Status ARROW_EXPORT PrettyPrint(const Array& arr, std::ostream* sink);
+struct PrettyPrintOptions {
+  int indent;
+};
+
+Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
+Status ARROW_EXPORT PrettyPrint(const Array& arr, int indent, std::ostream* sink);
 
 }  // namespace arrow
 

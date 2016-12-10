@@ -45,6 +45,8 @@ class ARROW_EXPORT RecordBatch {
 
   bool Equals(const RecordBatch& other) const;
 
+  bool ApproxEquals(const RecordBatch& other) const;
+
   // @returns: the table's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 

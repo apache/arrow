@@ -187,6 +187,12 @@ struct IsSignedInt {
 };
 
 template <typename T>
+struct IsInteger {
+  PRIMITIVE_TRAITS(T);
+  static constexpr bool value = std::is_integral<c_type>::value;
+};
+
+template <typename T>
 struct IsFloatingPoint {
   PRIMITIVE_TRAITS(T);
   static constexpr bool value = std::is_floating_point<c_type>::value;

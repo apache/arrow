@@ -418,7 +418,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
   template <typename T>
   void WriteOffsetsField(const T* offsets, int32_t length) {
-    writer_->Key("OFFSETS");
+    writer_->Key("OFFSET");
     writer_->StartArray();
     for (int i = 0; i < length; ++i) {
       writer_->Int64(offsets[i]);
@@ -810,7 +810,7 @@ class JsonArrayReader {
         builder.Append(val.GetUint64());
       } else if (IsFloatingPoint<T>::value) {
         DCHECK(val.IsFloat());
-        builder.Append(val.GetFloat());
+        builder.Append(val.GetDouble());
       } else if (std::is_base_of<BooleanType, T>::value) {
         DCHECK(val.IsBool());
         builder.Append(val.GetBool());
@@ -853,8 +853,8 @@ class JsonArrayReader {
   typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type ReadArray(
       const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    const auto& json_offsets = json_array.FindMember("OFFSETS");
-    RETURN_NOT_ARRAY("OFFSETS", json_offsets, json_array);
+    const auto& json_offsets = json_array.FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
     const auto& json_offsets_arr = json_offsets->value.GetArray();
 
     int32_t null_count = 0;

@@ -48,8 +48,8 @@ class TestArrayPrinter : public ::testing::Test {
 };
 
 template <typename TYPE, typename C_TYPE>
-void CheckPrimitive(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
-    const char* expected) {
+void CheckPrimitive(int indent, const std::vector<bool>& is_valid,
+    const std::vector<C_TYPE>& values, const char* expected) {
   std::ostringstream sink;
 
   MemoryPool* pool = default_memory_pool();
@@ -66,7 +66,7 @@ void CheckPrimitive(const std::vector<bool>& is_valid, const std::vector<C_TYPE>
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
 
-  ASSERT_OK(PrettyPrint(*array.get(), &sink));
+  ASSERT_OK(PrettyPrint(*array.get(), indent, &sink));
 
   std::string result = sink.str();
   ASSERT_EQ(std::string(expected, strlen(expected)), result);
@@ -77,11 +77,11 @@ TEST_F(TestArrayPrinter, PrimitiveType) {
 
   std::vector<int32_t> values = {0, 1, 2, 3, 4};
   static const char* expected = R"expected([0, 1, null, 3, null])expected";
-  CheckPrimitive<Int32Type, int32_t>(is_valid, values, expected);
+  CheckPrimitive<Int32Type, int32_t>(0, is_valid, values, expected);
 
   std::vector<std::string> values2 = {"foo", "bar", "", "baz", ""};
   static const char* ex2 = R"expected(["foo", "bar", null, "baz", null])expected";
-  CheckPrimitive<StringType, std::string>(is_valid, values2, ex2);
+  CheckPrimitive<StringType, std::string>(0, is_valid, values2, ex2);
 }
 
 }  // namespace arrow
