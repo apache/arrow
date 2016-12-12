@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/Message_generated.h"
@@ -30,12 +31,11 @@
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

@@ -21,8 +21,8 @@
 #include <sstream>
 
 #include "arrow/array.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

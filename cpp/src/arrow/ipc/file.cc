@@ -22,14 +22,14 @@
 #include <sstream>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
-#include "arrow/util/buffer.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {

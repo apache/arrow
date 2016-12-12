@@ -22,10 +22,10 @@
 
 #include "arrow/array.h"
 #include "arrow/pretty_print.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

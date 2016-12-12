@@ -20,7 +20,7 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 

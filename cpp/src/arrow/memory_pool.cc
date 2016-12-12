@@ -22,8 +22,8 @@
 #include <sstream>
 #include <stdlib.h>
 
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

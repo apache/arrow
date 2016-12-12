@@ -25,11 +25,11 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+#include "arrow/buffer.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

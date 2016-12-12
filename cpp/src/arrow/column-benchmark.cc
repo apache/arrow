@@ -18,8 +18,8 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/array.h"
+#include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
-#include "arrow/util/memory-pool.h"
 
 namespace arrow {
 namespace {

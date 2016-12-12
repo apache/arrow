@@ -29,12 +29,12 @@
 #include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {
