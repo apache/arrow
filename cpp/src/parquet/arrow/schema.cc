@@ -152,56 +152,118 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
   return Status::OK();
 }
 
-// TODO: Logical Type Handling
+Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
+  switch (primitive->physical_type()) {
+    case ParquetType::BOOLEAN:
+      *out = BOOL;
+      break;
+    case ParquetType::INT32:
+      RETURN_NOT_OK(FromInt32(primitive, out));
+      break;
+    case ParquetType::INT64:
+      RETURN_NOT_OK(FromInt64(primitive, out));
+      break;
+    case ParquetType::INT96:
+      // TODO: Do we have that type in Arrow?
+      // type = TypePtr(new Int96Type());
+      return Status::NotImplemented("int96");
+    case ParquetType::FLOAT:
+      *out = FLOAT;
+      break;
+    case ParquetType::DOUBLE:
+      *out = DOUBLE;
+      break;
+    case ParquetType::BYTE_ARRAY:
+      // TODO: Do we have that type in Arrow?
+      RETURN_NOT_OK(FromByteArray(primitive, out));
+      break;
+    case ParquetType::FIXED_LEN_BYTE_ARRAY:
+      RETURN_NOT_OK(FromFLBA(primitive, out));
+      break;
+  }
+  return Status::OK();
+}
+
+Status StructFromGroup(const GroupNode* group, TypePtr* out) {
+  std::vector<std::shared_ptr<Field>> fields(group->field_count());
+  for (int i = 0; i < group->field_count(); i++) {
+    RETURN_NOT_OK(NodeToField(group->field(i), &fields[i]));
+  }
+  *out = std::make_shared<::arrow::StructType>(fields);
+  return Status::OK();
+}
+
+bool str_endswith_tuple(const std::string& str) {
+  if (str.size() >= 6) { return str.substr(str.size() - 6, 6) == "_tuple"; }
+  return false;
+}
+
+Status NodeToList(const GroupNode* group, TypePtr* out) {
+  if (group->field_count() == 1) {
+    // This attempts to resolve the preferred 3-level list encoding.
+    NodePtr list_node = group->field(0);
+    if (list_node->is_group() && list_node->is_repeated()) {
+      const GroupNode* list_group = static_cast<const GroupNode*>(list_node.get());
+      // Special case mentioned in the format spec:
+      //   If the name is array or ends in _tuple, this should be a list of struct
+      //   even for single child elements.
+      if (list_group->field_count() == 1 && list_node->name() != "array" &&
+          !str_endswith_tuple(list_node->name())) {
+        // List of primitive type
+        std::shared_ptr<Field> item_field;
+        RETURN_NOT_OK(NodeToField(list_group->field(0), &item_field));
+        *out = std::make_shared<::arrow::ListType>(item_field);
+      } else {
+        // List of struct
+        std::shared_ptr<::arrow::DataType> inner_type;
+        RETURN_NOT_OK(StructFromGroup(list_group, &inner_type));
+        auto item_field = std::make_shared<Field>(list_node->name(), inner_type, false);
+        *out = std::make_shared<::arrow::ListType>(item_field);
+      }
+    } else if (list_node->is_repeated()) {
+      // repeated primitive node
+      std::shared_ptr<::arrow::DataType> inner_type;
+      const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(list_node.get());
+      RETURN_NOT_OK(FromPrimitive(primitive, &inner_type));
+      auto item_field = std::make_shared<Field>(list_node->name(), inner_type, false);
+      *out = std::make_shared<::arrow::ListType>(item_field);
+    } else {
+      return Status::NotImplemented(
+          "Non-repeated groups in a LIST-annotated group are not supported.");
+    }
+  } else {
+    return Status::NotImplemented(
+        "Only LIST-annotated groups with a single child can be handled.");
+  }
+  return Status::OK();
+}
+
 Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
   std::shared_ptr<::arrow::DataType> type;
+  bool nullable = !node->is_required();
 
   if (node->is_repeated()) {
-    return Status::NotImplemented("No support yet for repeated node types");
-  }
-
-  if (node->is_group()) {
+    // 1-level LIST encoding fields are required
+    std::shared_ptr<::arrow::DataType> inner_type;
+    const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(node.get());
+    RETURN_NOT_OK(FromPrimitive(primitive, &inner_type));
+    auto item_field = std::make_shared<Field>(node->name(), inner_type, false);
+    type = std::make_shared<::arrow::ListType>(item_field);
+    nullable = false;
+  } else if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
-    std::vector<std::shared_ptr<Field>> fields(group->field_count());
-    for (int i = 0; i < group->field_count(); i++) {
-      RETURN_NOT_OK(NodeToField(group->field(i), &fields[i]));
+    if (node->logical_type() == LogicalType::LIST) {
+      RETURN_NOT_OK(NodeToList(group, &type));
+    } else {
+      RETURN_NOT_OK(StructFromGroup(group, &type));
     }
-    type = std::make_shared<::arrow::StructType>(fields);
   } else {
     // Primitive (leaf) node
     const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(node.get());
-
-    switch (primitive->physical_type()) {
-      case ParquetType::BOOLEAN:
-        type = BOOL;
-        break;
-      case ParquetType::INT32:
-        RETURN_NOT_OK(FromInt32(primitive, &type));
-        break;
-      case ParquetType::INT64:
-        RETURN_NOT_OK(FromInt64(primitive, &type));
-        break;
-      case ParquetType::INT96:
-        // TODO: Do we have that type in Arrow?
-        // type = TypePtr(new Int96Type());
-        return Status::NotImplemented("int96");
-      case ParquetType::FLOAT:
-        type = FLOAT;
-        break;
-      case ParquetType::DOUBLE:
-        type = DOUBLE;
-        break;
-      case ParquetType::BYTE_ARRAY:
-        // TODO: Do we have that type in Arrow?
-        RETURN_NOT_OK(FromByteArray(primitive, &type));
-        break;
-      case ParquetType::FIXED_LEN_BYTE_ARRAY:
-        RETURN_NOT_OK(FromFLBA(primitive, &type));
-        break;
-    }
+    RETURN_NOT_OK(FromPrimitive(primitive, &type));
   }
 
-  *out = std::make_shared<Field>(node->name(), type, !node->is_required());
+  *out = std::make_shared<Field>(node->name(), type, nullable);
   return Status::OK();
 }
 
@@ -220,11 +282,22 @@ Status FromParquetSchema(
   return Status::OK();
 }
 
+Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,
+    bool nullable, const WriterProperties& properties, NodePtr* out) {
+  Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
+
+  NodePtr element;
+  RETURN_NOT_OK(FieldToNode(type->value_field(), properties, &element));
+
+  NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  *out = GroupNode::Make(name, repetition, {list}, LogicalType::LIST);
+  return Status::OK();
+}
+
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
     const std::string& name, bool nullable, const WriterProperties& properties,
     NodePtr* out) {
-  Repetition::type repetition = Repetition::REQUIRED;
-  if (nullable) { repetition = Repetition::OPTIONAL; }
+  Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   std::vector<NodePtr> children(type->num_children());
   for (int i = 0; i < type->num_children(); i++) {
@@ -239,8 +312,8 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     const WriterProperties& properties, NodePtr* out) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
-  Repetition::type repetition = Repetition::REQUIRED;
-  if (field->nullable) { repetition = Repetition::OPTIONAL; }
+  Repetition::type repetition =
+      field->nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
   int length = -1;
 
   switch (field->type->type) {
@@ -323,6 +396,10 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type);
       return StructToNode(struct_type, field->name, field->nullable, properties, out);
+    } break;
+    case ArrowType::LIST: {
+      auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type);
+      return ListToNode(list_type, field->name, field->nullable, properties, out);
     } break;
     default:
       // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR

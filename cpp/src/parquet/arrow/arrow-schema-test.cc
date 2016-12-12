@@ -157,14 +157,193 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
   CheckFlatSchema(arrow_schema);
 }
 
+TEST_F(TestConvertParquetSchema, ParquetLists) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // LIST encoding example taken from parquet-format/LogicalTypes.md
+
+  // // List<String> (list non-null, elements nullable)
+  // required group my_list (LIST) {
+  //   repeated group list {
+  //     optional binary element (UTF8);
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make(
+        "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("string", UTF8, true);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, false));
+  }
+
+  // // List<String> (list nullable, elements non-null)
+  // optional group my_list (LIST) {
+  //   repeated group list {
+  //     required binary element (UTF8);
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make(
+        "string", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("string", UTF8, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // Element types can be nested structures. For example, a list of lists:
+  //
+  // // List<List<Integer>>
+  // optional group array_of_arrays (LIST) {
+  //   repeated group list {
+  //     required group element (LIST) {
+  //       repeated group list {
+  //         required int32 element;
+  //       }
+  //     }
+  //   }
+  // }
+  {
+    auto inner_element =
+        PrimitiveNode::Make("int32", Repetition::REQUIRED, ParquetType::INT32);
+    auto inner_list = GroupNode::Make("list", Repetition::REPEATED, {inner_element});
+    auto element =
+        GroupNode::Make("element", Repetition::REQUIRED, {inner_list}, LogicalType::LIST);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(GroupNode::Make(
+        "array_of_arrays", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+    auto arrow_inner_element = std::make_shared<Field>("int32", INT32, false);
+    auto arrow_inner_list = std::make_shared<::arrow::ListType>(arrow_inner_element);
+    auto arrow_element = std::make_shared<Field>("element", arrow_inner_list, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("array_of_arrays", arrow_list, true));
+  }
+
+  // // List<String> (list nullable, elements non-null)
+  // optional group my_list (LIST) {
+  //   repeated group element {
+  //     required binary str (UTF8);
+  //   };
+  // }
+  {
+    auto element = PrimitiveNode::Make(
+        "str", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto list = GroupNode::Make("element", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("str", UTF8, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // // List<Integer> (nullable list, non-null elements)
+  // optional group my_list (LIST) {
+  //   repeated int32 element;
+  // }
+  {
+    auto element =
+        PrimitiveNode::Make("element", Repetition::REPEATED, ParquetType::INT32);
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("element", INT32, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // // List<Tuple<String, Integer>> (nullable list, non-null elements)
+  // optional group my_list (LIST) {
+  //   repeated group element {
+  //     required binary str (UTF8);
+  //     required int32 num;
+  //   };
+  // }
+  {
+    auto str_element = PrimitiveNode::Make(
+        "str", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto num_element =
+        PrimitiveNode::Make("num", Repetition::REQUIRED, ParquetType::INT32);
+    auto element =
+        GroupNode::Make("element", Repetition::REPEATED, {str_element, num_element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, LogicalType::LIST));
+    auto arrow_str = std::make_shared<Field>("str", UTF8, false);
+    auto arrow_num = std::make_shared<Field>("num", INT32, false);
+    std::vector<std::shared_ptr<Field>> fields({arrow_str, arrow_num});
+    auto arrow_struct = std::make_shared<::arrow::StructType>(fields);
+    auto arrow_element = std::make_shared<Field>("element", arrow_struct, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // // List<OneTuple<String>> (nullable list, non-null elements)
+  // optional group my_list (LIST) {
+  //   repeated group array {
+  //     required binary str (UTF8);
+  //   };
+  // }
+  // Special case: group is named array
+  {
+    auto element = PrimitiveNode::Make(
+        "str", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto array = GroupNode::Make("array", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, LogicalType::LIST));
+    auto arrow_str = std::make_shared<Field>("str", UTF8, false);
+    std::vector<std::shared_ptr<Field>> fields({arrow_str});
+    auto arrow_struct = std::make_shared<::arrow::StructType>(fields);
+    auto arrow_element = std::make_shared<Field>("array", arrow_struct, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // // List<OneTuple<String>> (nullable list, non-null elements)
+  // optional group my_list (LIST) {
+  //   repeated group my_list_tuple {
+  //     required binary str (UTF8);
+  //   };
+  // }
+  // Special case: group named ends in _tuple
+  {
+    auto element = PrimitiveNode::Make(
+        "str", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto array = GroupNode::Make("my_list_tuple", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, LogicalType::LIST));
+    auto arrow_str = std::make_shared<Field>("str", UTF8, false);
+    std::vector<std::shared_ptr<Field>> fields({arrow_str});
+    auto arrow_struct = std::make_shared<::arrow::StructType>(fields);
+    auto arrow_element = std::make_shared<Field>("my_list_tuple", arrow_struct, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
+
+  // One-level encoding: Only allows required lists with required cells
+  //   repeated value_type name
+  {
+    parquet_fields.push_back(
+        PrimitiveNode::Make("name", Repetition::REPEATED, ParquetType::INT32));
+    auto arrow_element = std::make_shared<Field>("name", INT32, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("name", arrow_list, false));
+  }
+
+  auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
+  ASSERT_OK(ConvertSchema(parquet_fields));
+
+  CheckFlatSchema(arrow_schema);
+}
+
 TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   std::vector<NodePtr> unsupported_nodes;
 
   unsupported_nodes.push_back(
       PrimitiveNode::Make("int96", Repetition::REQUIRED, ParquetType::INT96));
-
-  unsupported_nodes.push_back(
-      GroupNode::Make("repeated-group", Repetition::REPEATED, {}));
 
   unsupported_nodes.push_back(PrimitiveNode::Make(
       "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));
@@ -241,6 +420,51 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
   parquet_fields.push_back(PrimitiveNode::Make(
       "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+
+  CheckFlatSchema(parquet_fields);
+}
+
+TEST_F(TestConvertArrowSchema, ParquetLists) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // parquet_arrow will always generate 3-level LIST encodings
+
+  // // List<String> (list non-null, elements nullable)
+  // required group my_list (LIST) {
+  //   repeated group list {
+  //     optional binary element (UTF8);
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make(
+        "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("string", UTF8, true);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, false));
+  }
+
+  // // List<String> (list nullable, elements non-null)
+  // optional group my_list (LIST) {
+  //   repeated group list {
+  //     required binary element (UTF8);
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make(
+        "string", Repetition::REQUIRED, ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+    auto arrow_element = std::make_shared<Field>("string", UTF8, false);
+    auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
+    arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
+  }
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
