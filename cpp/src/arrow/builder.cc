@@ -17,7 +17,9 @@
 
 #include "arrow/builder.h"
 
+#include <cstdint>
 #include <cstring>
+#include <limits>
 
 #include "arrow/array.h"
 #include "arrow/type.h"
