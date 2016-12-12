@@ -18,6 +18,7 @@
 #ifndef ARROW_ARRAY_H
 #define ARROW_ARRAY_H
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
