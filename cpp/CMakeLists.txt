@@ -750,14 +750,6 @@ set(ARROW_SRCS
   src/arrow/table.cc
   src/arrow/type.cc
 
-  src/arrow/types/construct.cc
-  src/arrow/types/decimal.cc
-  src/arrow/types/list.cc
-  src/arrow/types/primitive.cc
-  src/arrow/types/string.cc
-  src/arrow/types/struct.cc
-  src/arrow/types/union.cc
-
   src/arrow/util/bit-util.cc
   src/arrow/util/buffer.cc
   src/arrow/util/memory-pool.cc
@@ -823,7 +815,6 @@ endif()
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
-add_subdirectory(src/arrow/types)
 
 #----------------------------------------------------------------------
 # IPC library

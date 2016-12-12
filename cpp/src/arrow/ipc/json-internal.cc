@@ -28,14 +28,12 @@
 #include "rapidjson/writer.h"
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/schema.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/types/list.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/memory-pool.h"
 #include "arrow/util/status.h"
 

@@ -220,6 +220,12 @@ std::vector<BufferDescr> UnionType::GetBufferLayout() const {
   }
 }
 
+std::string DecimalType::ToString() const {
+  std::stringstream s;
+  s << "decimal(" << precision << ", " << scale << ")";
+  return s.str();
+}
+
 std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
   // TODO(wesm)
   return {};

@@ -24,11 +24,9 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/test-common.h"
 
 namespace arrow {
 

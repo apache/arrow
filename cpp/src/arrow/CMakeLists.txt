@@ -37,6 +37,12 @@ install(FILES
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-decimal-test)
+ADD_ARROW_TEST(array-list-test)
+ADD_ARROW_TEST(array-primitive-test)
+ADD_ARROW_TEST(array-string-test)
+ADD_ARROW_TEST(array-struct-test)
+
 ADD_ARROW_TEST(column-test)
 ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(schema-test)

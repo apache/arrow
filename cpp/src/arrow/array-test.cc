@@ -26,7 +26,6 @@
 #include "arrow/array.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/memory-pool.h"
 

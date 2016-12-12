@@ -15,17 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/types/decimal.h"
+#include "gtest/gtest.h"
 
-#include <sstream>
-#include <string>
+#include "arrow/type.h"
 
 namespace arrow {
 
-std::string DecimalType::ToString() const {
-  std::stringstream s;
-  s << "decimal(" << precision << ", " << scale << ")";
-  return s.str();
+TEST(TypesTest, TestDecimalType) {
+  DecimalType t1(8, 4);
+
+  ASSERT_EQ(t1.type, Type::DECIMAL);
+  ASSERT_EQ(t1.precision, 8);
+  ASSERT_EQ(t1.scale, 4);
+
+  ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
+
+  // Test copy constructor
+  DecimalType t2 = t1;
+  ASSERT_EQ(t2.type, Type::DECIMAL);
+  ASSERT_EQ(t2.precision, 8);
+  ASSERT_EQ(t2.scale, 4);
 }
 
 }  // namespace arrow
