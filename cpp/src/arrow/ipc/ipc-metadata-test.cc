@@ -24,9 +24,9 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

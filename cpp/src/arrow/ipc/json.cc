@@ -23,14 +23,14 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/ipc/json-internal.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {

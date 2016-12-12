@@ -27,7 +27,6 @@
 #include "arrow/schema.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
 
 using std::shared_ptr;
 using std::vector;

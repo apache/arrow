@@ -20,7 +20,7 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
@@ -218,6 +218,12 @@ std::vector<BufferDescr> UnionType::GetBufferLayout() const {
   } else {
     return {kValidityBuffer, kTypeBuffer, kOffsetBuffer};
   }
+}
+
+std::string DecimalType::ToString() const {
+  std::stringstream s;
+  s << "decimal(" << precision << ", " << scale << ")";
+  return s.str();
 }
 
 std::vector<BufferDescr> DecimalType::GetBufferLayout() const {

@@ -26,17 +26,15 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {
@@ -147,7 +145,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
 
   std::shared_ptr<Array> values_array;
-  MakeArray<Int32Type, int32_t>(int32(), values_is_valid, values, &values_array);
+  ArrayFromVector<Int32Type, int32_t>(int32(), values_is_valid, values, &values_array);
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
@@ -188,10 +186,10 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   test::randint<int32_t>(num_rows, 0, 100, &v2_values);
 
   std::shared_ptr<Array> v1;
-  MakeArray<Int8Type, int8_t>(schema->field(0)->type, is_valid, v1_values, &v1);
+  ArrayFromVector<Int8Type, int8_t>(schema->field(0)->type, is_valid, v1_values, &v1);
 
   std::shared_ptr<Array> v2;
-  MakeArray<Int32Type, int32_t>(schema->field(1)->type, is_valid, v2_values, &v2);
+  ArrayFromVector<Int32Type, int32_t>(schema->field(1)->type, is_valid, v2_values, &v2);
 
   static const int kBufferSize = 10;
   static uint8_t buffer[kBufferSize];
@@ -323,13 +321,13 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   std::vector<bool> foo_valid = {true, false, true, true, true};
   std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
   std::shared_ptr<Array> foo;
-  MakeArray<Int32Type, int32_t>(int32(), foo_valid, foo_values, &foo);
+  ArrayFromVector<Int32Type, int32_t>(int32(), foo_valid, foo_values, &foo);
   ASSERT_TRUE(batch->column(0)->Equals(foo));
 
   std::vector<bool> bar_valid = {true, false, false, true, true};
   std::vector<double> bar_values = {1, 2, 3, 4, 5};
   std::shared_ptr<Array> bar;
-  MakeArray<DoubleType, double>(float64(), bar_valid, bar_values, &bar);
+  ArrayFromVector<DoubleType, double>(float64(), bar_valid, bar_values, &bar);
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 

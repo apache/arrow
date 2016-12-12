@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/memory-pool.h"
+#include "arrow/memory_pool.h"
 
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
 #include <stdlib.h>
 
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

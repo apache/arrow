@@ -20,9 +20,12 @@ install(FILES
   api.h
   array.h
   column.h
+  buffer.h
   builder.h
+  memory_pool.h
   pretty_print.h
   schema.h
+  status.h
   table.h
   type.h
   type_fwd.h
@@ -37,9 +40,17 @@ install(FILES
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 ADD_ARROW_TEST(array-test)
+ADD_ARROW_TEST(array-decimal-test)
+ADD_ARROW_TEST(array-list-test)
+ADD_ARROW_TEST(array-primitive-test)
+ADD_ARROW_TEST(array-string-test)
+ADD_ARROW_TEST(array-struct-test)
+ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(column-test)
+ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(schema-test)
+ADD_ARROW_TEST(status-test)
 ADD_ARROW_TEST(table-test)
 
 ADD_ARROW_BENCHMARK(column-benchmark)

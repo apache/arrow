@@ -28,17 +28,18 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/column.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/memory-pool.h"
 #include "arrow/util/random.h"
-#include "arrow/util/status.h"
 
 #define ASSERT_RAISES(ENUM, expr)                  \
   do {                                             \
@@ -253,8 +254,9 @@ Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
 }  // namespace test
 
 template <typename TYPE, typename C_TYPE>
-void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& is_valid,
-    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+    const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+    std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> values_buffer;
   std::shared_ptr<Buffer> values_bitmap;
 
@@ -270,6 +272,37 @@ void MakeArray(const std::shared_ptr<DataType>& type, const std::vector<bool>& i
 
   *out = std::make_shared<ArrayType>(type, static_cast<int32_t>(values.size()),
       values_buffer, null_count, values_bitmap);
+}
+
+class TestBuilder : public ::testing::Test {
+ public:
+  void SetUp() {
+    pool_ = default_memory_pool();
+    type_ = TypePtr(new UInt8Type());
+    builder_.reset(new UInt8Builder(pool_, type_));
+    builder_nn_.reset(new UInt8Builder(pool_, type_));
+  }
+
+ protected:
+  MemoryPool* pool_;
+
+  TypePtr type_;
+  std::unique_ptr<ArrayBuilder> builder_;
+  std::unique_ptr<ArrayBuilder> builder_nn_;
+};
+
+template <class T, class Builder>
+Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
+    int size, Builder* builder, ArrayPtr* out) {
+  // Append the first 1000
+  for (int i = 0; i < size; ++i) {
+    if (valid_bytes[i] > 0) {
+      RETURN_NOT_OK(builder->Append(values[i]));
+    } else {
+      RETURN_NOT_OK(builder->AppendNull());
+    }
+  }
+  return builder->Finish(out);
 }
 
 }  // namespace arrow

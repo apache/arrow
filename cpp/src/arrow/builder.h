@@ -20,18 +20,20 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
 class MemoryPool;
-class PoolBuffer;
 
 static constexpr int32_t kMinBuilderCapacity = 1 << 5;
 
@@ -129,6 +131,315 @@ class ARROW_EXPORT ArrayBuilder {
  private:
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
+
+template <typename Type>
+class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
+ public:
+  using value_type = typename Type::c_type;
+
+  explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
+      : ArrayBuilder(pool, type), data_(nullptr) {}
+
+  virtual ~PrimitiveBuilder() {}
+
+  using ArrayBuilder::Advance;
+
+  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  Status AppendNull() {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(
+      const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+  Status Init(int32_t capacity) override;
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity) override;
+
+ protected:
+  std::shared_ptr<PoolBuffer> data_;
+  value_type* raw_data_;
+};
+
+template <typename T>
+class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
+ public:
+  using typename PrimitiveBuilder<T>::value_type;
+  using PrimitiveBuilder<T>::PrimitiveBuilder;
+
+  using PrimitiveBuilder<T>::Append;
+  using PrimitiveBuilder<T>::Init;
+  using PrimitiveBuilder<T>::Resize;
+  using PrimitiveBuilder<T>::Reserve;
+
+  // Scalar append.
+  Status Append(value_type val) {
+    RETURN_NOT_OK(ArrayBuilder::Reserve(1));
+    UnsafeAppend(val);
+    return Status::OK();
+  }
+
+  // Does not capacity-check; make sure to call Reserve beforehand
+  void UnsafeAppend(value_type val) {
+    BitUtil::SetBit(null_bitmap_data_, length_);
+    raw_data_[length_++] = val;
+  }
+
+ protected:
+  using PrimitiveBuilder<T>::length_;
+  using PrimitiveBuilder<T>::null_bitmap_data_;
+  using PrimitiveBuilder<T>::raw_data_;
+};
+
+// Builders
+
+using UInt8Builder = NumericBuilder<UInt8Type>;
+using UInt16Builder = NumericBuilder<UInt16Type>;
+using UInt32Builder = NumericBuilder<UInt32Type>;
+using UInt64Builder = NumericBuilder<UInt64Type>;
+
+using Int8Builder = NumericBuilder<Int8Type>;
+using Int16Builder = NumericBuilder<Int16Type>;
+using Int32Builder = NumericBuilder<Int32Type>;
+using Int64Builder = NumericBuilder<Int64Type>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
+
+using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
+using FloatBuilder = NumericBuilder<FloatType>;
+using DoubleBuilder = NumericBuilder<DoubleType>;
+
+class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
+ public:
+  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
+      : ArrayBuilder(pool, type), data_(nullptr) {}
+
+  virtual ~BooleanBuilder() {}
+
+  using ArrayBuilder::Advance;
+
+  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  Status AppendNull() {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  // Scalar append
+  Status Append(bool val) {
+    Reserve(1);
+    BitUtil::SetBit(null_bitmap_data_, length_);
+    if (val) {
+      BitUtil::SetBit(raw_data_, length_);
+    } else {
+      BitUtil::ClearBit(raw_data_, length_);
+    }
+    ++length_;
+    return Status::OK();
+  }
+
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(
+      const uint8_t* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+  Status Init(int32_t capacity) override;
+
+  // Increase the capacity of the builder to accommodate at least the indicated
+  // number of elements
+  Status Resize(int32_t capacity) override;
+
+ protected:
+  std::shared_ptr<PoolBuffer> data_;
+  uint8_t* raw_data_;
+};
+
+// ----------------------------------------------------------------------
+// List builder
+
+// Builder class for variable-length list array value types
+//
+// To use this class, you must append values to the child array builder and use
+// the Append function to delimit each distinct list value (once the values
+// have been appended to the child array) or use the bulk API to append
+// a sequence of offests and null values.
+//
+// A note on types.  Per arrow/type.h all types in the c++ implementation are
+// logical so even though this class always builds list array, this can
+// represent multiple different logical types.  If no logical type is provided
+// at construction time, the class defaults to List<T> where t is taken from the
+// value_builder/values that the object is constructed with.
+class ARROW_EXPORT ListBuilder : public ArrayBuilder {
+ public:
+  // Use this constructor to incrementally build the value array along with offsets and
+  // null bitmap.
+  ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
+      const TypePtr& type = nullptr);
+
+  // Use this constructor to build the list with a pre-existing values array
+  ListBuilder(
+      MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
+
+  virtual ~ListBuilder() {}
+
+  Status Init(int32_t elements) override;
+  Status Resize(int32_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+  // Vector append
+  //
+  // If passed, valid_bytes is of equal length to values, and any zero byte
+  // will be considered as a null for that slot
+  Status Append(
+      const int32_t* offsets, int32_t length, const uint8_t* valid_bytes = nullptr) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    offset_builder_.UnsafeAppend<int32_t>(offsets, length);
+    return Status::OK();
+  }
+
+  // Start a new variable-length list slot
+  //
+  // This function should be called before beginning to append elements to the
+  // value builder
+  Status Append(bool is_valid = true) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(is_valid);
+    RETURN_NOT_OK(offset_builder_.Append<int32_t>(value_builder_->length()));
+    return Status::OK();
+  }
+
+  Status AppendNull() { return Append(false); }
+
+  std::shared_ptr<ArrayBuilder> value_builder() const;
+
+ protected:
+  BufferBuilder offset_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<Array> values_;
+
+  void Reset();
+};
+
+// ----------------------------------------------------------------------
+// Binary and String
+
+// BinaryBuilder : public ListBuilder
+class ARROW_EXPORT BinaryBuilder : public ListBuilder {
+ public:
+  explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type);
+  virtual ~BinaryBuilder() {}
+
+  Status Append(const uint8_t* value, int32_t length) {
+    RETURN_NOT_OK(ListBuilder::Append());
+    return byte_builder_->Append(value, length);
+  }
+
+  Status Append(const char* value, int32_t length) {
+    return Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ protected:
+  UInt8Builder* byte_builder_;
+};
+
+// String builder
+class ARROW_EXPORT StringBuilder : public BinaryBuilder {
+ public:
+  explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
+      : BinaryBuilder(pool, type) {}
+
+  using BinaryBuilder::Append;
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+  Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
+};
+
+// ----------------------------------------------------------------------
+// Struct
+
+// ---------------------------------------------------------------------------------
+// StructArray builder
+// Append, Resize and Reserve methods are acting on StructBuilder.
+// Please make sure all these methods of all child-builders' are consistently
+// called to maintain data-structure consistency.
+class ARROW_EXPORT StructBuilder : public ArrayBuilder {
+ public:
+  StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)
+      : ArrayBuilder(pool, type) {
+    field_builders_ = field_builders;
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+  // Null bitmap is of equal length to every child field, and any zero byte
+  // will be considered as a null for that field, but users must using app-
+  // end methods or advance methods of the child builders' independently to
+  // insert data.
+  Status Append(int32_t length, const uint8_t* valid_bytes) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  // Append an element to the Struct. All child-builders' Append method must
+  // be called independently to maintain data-structure consistency.
+  Status Append(bool is_valid = true) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(is_valid);
+    return Status::OK();
+  }
+
+  Status AppendNull() { return Append(false); }
+
+  std::shared_ptr<ArrayBuilder> field_builder(int pos) const;
+
+  const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders() const {
+    return field_builders_;
+  }
+
+ protected:
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
+};
+
+// ----------------------------------------------------------------------
+// Helper functions
+
+Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    std::shared_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 

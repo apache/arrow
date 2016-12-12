@@ -24,6 +24,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/adapter.h"
@@ -31,15 +32,11 @@
 #include "arrow/ipc/test-common.h"
 #include "arrow/ipc/util.h"
 
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
-#include "arrow/types/list.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace ipc {

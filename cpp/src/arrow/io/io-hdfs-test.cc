@@ -25,8 +25,8 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/io/hdfs.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 namespace io {

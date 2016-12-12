@@ -30,7 +30,7 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/test-common.h"
-#include "arrow/util/memory-pool.h"
+#include "arrow/memory_pool.h"
 
 namespace arrow {
 namespace io {

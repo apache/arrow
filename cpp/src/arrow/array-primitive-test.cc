@@ -22,16 +22,14 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/types/construct.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/test-common.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
 
 using std::string;
 using std::shared_ptr;

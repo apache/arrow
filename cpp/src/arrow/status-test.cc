@@ -15,17 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/types/decimal.h"
+#include "gtest/gtest.h"
 
-#include <sstream>
-#include <string>
+#include "arrow/status.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 
-std::string DecimalType::ToString() const {
-  std::stringstream s;
-  s << "decimal(" << precision << ", " << scale << ")";
-  return s.str();
+TEST(StatusTest, TestCodeAndMessage) {
+  Status ok = Status::OK();
+  ASSERT_EQ(StatusCode::OK, ok.code());
+  Status file_error = Status::IOError("file error");
+  ASSERT_EQ(StatusCode::IOError, file_error.code());
+  ASSERT_EQ("file error", file_error.message());
+}
+
+TEST(StatusTest, TestToString) {
+  Status file_error = Status::IOError("file error");
+  ASSERT_EQ("IOError: file error", file_error.ToString());
 }
 
 }  // namespace arrow

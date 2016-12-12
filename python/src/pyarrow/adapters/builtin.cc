@@ -21,7 +21,7 @@
 #include "pyarrow/adapters/builtin.h"
 
 #include "arrow/api.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 #include "pyarrow/helpers.h"
 

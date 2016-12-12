@@ -24,11 +24,10 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
 
 namespace arrow {
 

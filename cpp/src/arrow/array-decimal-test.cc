@@ -15,34 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPES_UNION_H
-#define ARROW_TYPES_UNION_H
+#include "gtest/gtest.h"
 
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "arrow/array.h"
 #include "arrow/type.h"
 
 namespace arrow {
 
-class Buffer;
+TEST(TypesTest, TestDecimalType) {
+  DecimalType t1(8, 4);
 
-class UnionArray : public Array {
- protected:
-  // The data are types encoded as int16
-  Buffer* types_;
-  std::vector<std::shared_ptr<Array>> children_;
-};
+  ASSERT_EQ(t1.type, Type::DECIMAL);
+  ASSERT_EQ(t1.precision, 8);
+  ASSERT_EQ(t1.scale, 4);
 
-class DenseUnionArray : public UnionArray {
- protected:
-  Buffer* offset_buf_;
-};
+  ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
 
-class SparseUnionArray : public UnionArray {};
+  // Test copy constructor
+  DecimalType t2 = t1;
+  ASSERT_EQ(t2.type, Type::DECIMAL);
+  ASSERT_EQ(t2.precision, 8);
+  ASSERT_EQ(t2.scale, 4);
+}
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPES_UNION_H

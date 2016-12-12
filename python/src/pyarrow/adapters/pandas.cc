@@ -31,7 +31,7 @@
 
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 #include "pyarrow/common.h"
 #include "pyarrow/config.h"

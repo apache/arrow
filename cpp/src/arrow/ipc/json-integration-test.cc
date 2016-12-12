@@ -33,9 +33,9 @@
 #include "arrow/ipc/json.h"
 #include "arrow/pretty_print.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
-#include "arrow/util/status.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");

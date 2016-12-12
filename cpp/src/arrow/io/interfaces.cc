@@ -20,8 +20,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
+#include "arrow/buffer.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace io {

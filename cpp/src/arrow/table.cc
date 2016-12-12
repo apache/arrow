@@ -24,7 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 

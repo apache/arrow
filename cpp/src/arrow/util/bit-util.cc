@@ -18,9 +18,9 @@
 #include <cstring>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/status.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
 
 namespace arrow {
 

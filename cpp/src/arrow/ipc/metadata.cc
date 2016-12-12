@@ -28,9 +28,9 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata-internal.h"
 
+#include "arrow/buffer.h"
 #include "arrow/schema.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 

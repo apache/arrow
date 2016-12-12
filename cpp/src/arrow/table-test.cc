@@ -21,13 +21,13 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/types/primitive.h"
-#include "arrow/util/status.h"
 
 using std::shared_ptr;
 using std::vector;

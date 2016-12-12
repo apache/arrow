@@ -21,20 +21,13 @@
 #define ARROW_API_H
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/column.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-
-#include "arrow/types/construct.h"
-#include "arrow/types/list.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/types/struct.h"
-
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 #endif  // ARROW_API_H
