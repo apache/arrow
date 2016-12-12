@@ -743,17 +743,17 @@ set(ARROW_PRIVATE_LINK_LIBS
 
 set(ARROW_SRCS
   src/arrow/array.cc
+  src/arrow/buffer.cc
   src/arrow/builder.cc
   src/arrow/column.cc
+  src/arrow/memory_pool.cc
   src/arrow/pretty_print.cc
   src/arrow/schema.cc
+  src/arrow/status.cc
   src/arrow/table.cc
   src/arrow/type.cc
 
   src/arrow/util/bit-util.cc
-  src/arrow/util/buffer.cc
-  src/arrow/util/memory-pool.cc
-  src/arrow/util/status.cc
 )
 
 add_library(arrow_objlib OBJECT

@@ -26,9 +26,8 @@
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 
 #endif  // ARROW_API_H

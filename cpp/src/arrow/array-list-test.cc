@@ -25,9 +25,9 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/util/status.h"
 
 using std::shared_ptr;
 using std::string;

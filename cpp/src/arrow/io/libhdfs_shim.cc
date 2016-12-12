@@ -53,7 +53,7 @@ extern "C" {
 
 #include <boost/filesystem.hpp>  // NOLINT
 
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace fs = boost::filesystem;

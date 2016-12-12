@@ -28,18 +28,18 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/column.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/memory-pool.h"
 #include "arrow/util/random.h"
-#include "arrow/util/status.h"
 
 #define ASSERT_RAISES(ENUM, expr)                  \
   do {                                             \

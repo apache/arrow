@@ -38,10 +38,9 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-
-#include "arrow/util/buffer.h"
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace io {

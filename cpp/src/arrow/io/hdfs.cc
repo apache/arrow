@@ -22,10 +22,10 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/buffer.h"
 #include "arrow/io/hdfs.h"
-#include "arrow/util/buffer.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace io {

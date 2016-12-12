@@ -21,9 +21,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/buffer.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -110,8 +110,7 @@ typedef std::shared_ptr<Array> ArrayPtr;
 Status ARROW_EXPORT GetEmptyBitmap(
     MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
 
-// Base class for fixed-size logical types.  See MakePrimitiveArray
-// (types/construct.h) for constructing a specific subclass.
+// Base class for fixed-size logical types
 class ARROW_EXPORT PrimitiveArray : public Array {
  public:
   virtual ~PrimitiveArray() {}

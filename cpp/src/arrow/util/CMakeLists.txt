@@ -22,12 +22,9 @@
 # Headers: top level
 install(FILES
   bit-util.h
-  buffer.h
   logging.h
   macros.h
-  memory-pool.h
   random.h
-  status.h
   visibility.h
   DESTINATION include/arrow/util)
 
@@ -72,6 +69,3 @@ if (ARROW_BUILD_BENCHMARKS)
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
-ADD_ARROW_TEST(buffer-test)
-ADD_ARROW_TEST(memory-pool-test)
-ADD_ARROW_TEST(status-test)
