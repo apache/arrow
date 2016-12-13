@@ -148,6 +148,7 @@ template class NumericArray<Int16Type>;
 template class NumericArray<Int32Type>;
 template class NumericArray<Int64Type>;
 template class NumericArray<TimestampType>;
+template class NumericArray<DateType>;
 template class NumericArray<HalfFloatType>;
 template class NumericArray<FloatType>;
 template class NumericArray<DoubleType>;

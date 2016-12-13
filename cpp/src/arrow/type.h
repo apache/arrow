@@ -413,7 +413,7 @@ struct ARROW_EXPORT UnionType : public DataType {
 struct ARROW_EXPORT DateType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DATE;
 
-  using c_type = int32_t;
+  using c_type = int64_t;
 
   DateType() : FixedWidthType(Type::DATE) {}
 

@@ -87,13 +87,15 @@ _NUMERIC_TYPE_DECL(Double);
 #undef _NUMERIC_TYPE_DECL
 
 struct DateType;
-class DateArray;
+using DateArray = NumericArray<DateType>;
+using DateBuilder = NumericBuilder<DateType>;
 
 struct TimeType;
 class TimeArray;
 
 struct TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
 
 struct IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
