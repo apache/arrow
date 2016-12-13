@@ -23,7 +23,7 @@
 #include "parquet/api/io.h"
 #include "parquet/arrow/utils.h"
 
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 
 using arrow::Status;
 using arrow::MemoryPool;

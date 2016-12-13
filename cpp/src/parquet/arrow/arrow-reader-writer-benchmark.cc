@@ -25,10 +25,7 @@
 #include "parquet/file/writer-internal.h"
 #include "parquet/util/input.h"
 
-#include "arrow/column.h"
-#include "arrow/schema.h"
-#include "arrow/table.h"
-#include "arrow/types/primitive.h"
+#include "arrow/api.h"
 
 using arrow::NumericBuilder;
 

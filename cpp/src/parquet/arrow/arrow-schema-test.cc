@@ -22,11 +22,8 @@
 
 #include "parquet/arrow/schema.h"
 
+#include "arrow/api.h"
 #include "arrow/test-util.h"
-#include "arrow/type.h"
-#include "arrow/types/datetime.h"
-#include "arrow/types/decimal.h"
-#include "arrow/util/status.h"
 
 using arrow::Field;
 

@@ -20,17 +20,13 @@
 #include <algorithm>
 #include <vector>
 
+#include "parquet/util/logging.h"
+
 #include "parquet/arrow/io.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/utils.h"
 
-#include "arrow/array.h"
-#include "arrow/column.h"
-#include "arrow/table.h"
-#include "arrow/types/construct.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/util/status.h"
+#include "arrow/api.h"
 
 using arrow::MemoryPool;
 using arrow::PoolBuffer;

@@ -23,9 +23,7 @@
 #include "parquet/api/schema.h"
 #include "parquet/arrow/utils.h"
 
-#include "arrow/types/decimal.h"
-#include "arrow/types/string.h"
-#include "arrow/util/status.h"
+#include "arrow/api.h"
 
 using arrow::Field;
 using arrow::Status;

@@ -20,7 +20,7 @@
 
 #include <sstream>
 
-#include "arrow/util/status.h"
+#include "arrow/status.h"
 #include "parquet/exception.h"
 
 namespace parquet {

@@ -26,7 +26,7 @@
 #include "parquet/api/io.h"
 
 #include "arrow/io/interfaces.h"
-#include "arrow/util/memory-pool.h"
+#include "arrow/memory_pool.h"
 
 namespace parquet {
 

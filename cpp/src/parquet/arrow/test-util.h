@@ -18,9 +18,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/api.h"
 #include "arrow/test-util.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
 
 namespace parquet {
 namespace arrow {

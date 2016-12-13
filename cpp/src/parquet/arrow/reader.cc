@@ -26,13 +26,8 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/utils.h"
 
-#include "arrow/column.h"
-#include "arrow/schema.h"
-#include "arrow/table.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
+#include "arrow/api.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/status.h"
 
 using arrow::Array;
 using arrow::Column;

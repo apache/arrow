@@ -24,13 +24,9 @@
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
 
+#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/test-util.h"
-#include "arrow/types/construct.h"
-#include "arrow/types/primitive.h"
-#include "arrow/types/string.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 using arrow::Array;
 using arrow::ChunkedArray;

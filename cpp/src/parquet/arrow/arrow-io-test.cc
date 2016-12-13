@@ -22,10 +22,9 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/test-util.h"
-#include "arrow/util/memory-pool.h"
-#include "arrow/util/status.h"
 
 #include "parquet/api/io.h"
 #include "parquet/arrow/io.h"
