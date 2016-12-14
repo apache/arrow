@@ -687,5 +687,9 @@ cdef class Table:
         return (self.num_rows, self.num_columns)
 
 
+cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
+    cdef Table table = Table()
+    table.init(ctable)
+    return table
 
 from_pandas_dataframe = Table.from_pandas

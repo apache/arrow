@@ -204,6 +204,10 @@ class build_ext(_build_ext):
             shutil.move(self.get_ext_built(name), ext_path)
             self._found_names.append(name)
 
+            if os.path.exists(self.get_ext_built_api_header(name)):
+                shutil.move(self.get_ext_built_api_header(name),
+                            pjoin(os.path.dirname(ext_path), name + '_api.h'))
+
         os.chdir(saved_cwd)
 
     def _failure_permitted(self, name):
@@ -224,6 +228,13 @@ class build_ext(_build_ext):
             suffix = sysconfig.get_config_var('SO')
         filename = name + suffix
         return pjoin(package_dir, filename)
+
+    def get_ext_built_api_header(self, name):
+        if sys.platform == 'win32':
+            head, tail = os.path.split(name)
+            return pjoin(head, tail + "_api.h")
+        else:
+            return pjoin(name + "_api.h")
 
     def get_ext_built(self, name):
         if sys.platform == 'win32':

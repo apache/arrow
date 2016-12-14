@@ -57,3 +57,5 @@ cdef class RecordBatch:
 
     cdef init(self, const shared_ptr[CRecordBatch]& table)
     cdef _check_nullptr(self)
+
+cdef api object table_from_ctable(const shared_ptr[CTable]& ctable)
