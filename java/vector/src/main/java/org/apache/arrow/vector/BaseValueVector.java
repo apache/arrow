@@ -74,8 +74,15 @@ public abstract class BaseValueVector implements ValueVector {
     }
 
     @Override
+    // override this in case your implementation is faster, see BitVector
     public int getNullCount() {
-      return 0;
+      int nullCount = 0;
+      for (int i = 0; i < getValueCount(); i++) {
+        if (isNull(i)) {
+          nullCount ++;
+        }
+      }
+      return nullCount;
     }
   }
 
