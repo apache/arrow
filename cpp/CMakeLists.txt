@@ -488,19 +488,32 @@ if(ARROW_BUILD_TESTS)
       set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
     endif()
 
-    ExternalProject_Add(googletest_ep
-      URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-      CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
-      # googletest doesn't define install rules, so just build in the
-      # source dir and don't try to install.  See its README for
-      # details.
-      BUILD_IN_SOURCE 1
-      INSTALL_COMMAND "")
-
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB "${GTEST_PREFIX}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
+
+    if (CMAKE_VERSION VERSION_GREATER "3.2")
+      # BUILD_BYPRODUCTS is a 3.2+ feature
+      ExternalProject_Add(googletest_ep
+        URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+        CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
+        # googletest doesn't define install rules, so just build in the
+        # source dir and don't try to install.  See its README for
+        # details.
+        BUILD_IN_SOURCE 1
+        BUILD_BYPRODUCTS "${GTEST_STATIC_LIB}"
+        INSTALL_COMMAND "")
+    else()
+      ExternalProject_Add(googletest_ep
+        URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+        CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
+        # googletest doesn't define install rules, so just build in the
+        # source dir and don't try to install.  See its README for
+        # details.
+        BUILD_IN_SOURCE 1
+        INSTALL_COMMAND "")
+    endif()
   else()
     find_package(GTest REQUIRED)
     set(GTEST_VENDORED 0)
@@ -525,24 +538,34 @@ if(ARROW_BUILD_TESTS)
     endif()
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
-    ExternalProject_Add(gflags_ep
-      GIT_REPOSITORY https://github.com/gflags/gflags.git
-      GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
-      BUILD_IN_SOURCE 1
-      CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                 -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
-                 -DBUILD_SHARED_LIBS=OFF
-                 -DBUILD_STATIC_LIBS=ON
-                 -DBUILD_PACKAGING=OFF
-                 -DBUILD_TESTING=OFF
-                 -BUILD_CONFIG_TESTS=OFF
-                 -DINSTALL_HEADERS=ON
-                 -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
-
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
     set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
     set(GFLAGS_VENDORED 1)
+    set(GFLAGS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                          -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
+                          -DBUILD_SHARED_LIBS=OFF
+                          -DBUILD_STATIC_LIBS=ON
+                          -DBUILD_PACKAGING=OFF
+                          -DBUILD_TESTING=OFF
+                          -BUILD_CONFIG_TESTS=OFF
+                          -DINSTALL_HEADERS=ON
+                          -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
+    if (CMAKE_VERSION VERSION_GREATER "3.2")
+      # BUILD_BYPRODUCTS is a 3.2+ feature
+      ExternalProject_Add(gflags_ep
+        GIT_REPOSITORY https://github.com/gflags/gflags.git
+        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+        BUILD_IN_SOURCE 1
+        BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
+        CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
+    else()
+      ExternalProject_Add(gflags_ep
+        GIT_REPOSITORY https://github.com/gflags/gflags.git
+        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+        BUILD_IN_SOURCE 1
+        CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
+    endif()
   else()
     set(GFLAGS_VENDORED 0)
     find_package(GFlags REQUIRED)
@@ -570,16 +593,24 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
 
     set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
-    ExternalProject_Add(gbenchmark_ep
-      URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
-      CMAKE_ARGS
-        "-DCMAKE_BUILD_TYPE=Release"
-        "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
-        "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
-
     set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
     set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GBENCHMARK_VENDORED 1)
+    set(GBENCHMARK_CMAKE_ARGS
+          "-DCMAKE_BUILD_TYPE=Release"
+          "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
+          "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
+    if (CMAKE_VERSION VERSION_GREATER "3.2")
+      # BUILD_BYPRODUCTS is a 3.2+ feature
+      ExternalProject_Add(gbenchmark_ep
+        URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
+        BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
+        CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS})
+    else()
+      ExternalProject_Add(gbenchmark_ep
+        URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
+        CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS})
+    endif()
   else()
     find_package(GBenchmark REQUIRED)
     set(GBENCHMARK_VENDORED 0)

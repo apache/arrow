@@ -37,8 +37,6 @@ install(FILES
 # Unit tests
 #######################################
 
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(array-decimal-test)
 ADD_ARROW_TEST(array-list-test)
