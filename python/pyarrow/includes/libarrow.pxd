@@ -39,6 +39,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_DOUBLE" arrow::Type::DOUBLE"
 
         Type_TIMESTAMP" arrow::Type::TIMESTAMP"
+        Type_DATE" arrow::Type::DATE"
         Type_STRING" arrow::Type::STRING"
 
         Type_LIST" arrow::Type::LIST"
@@ -130,6 +131,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         uint64_t Value(int i)
 
     cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CDateArray" arrow::DateArray"(CArray):
         int64_t Value(int i)
 
     cdef cppclass CFloatArray" arrow::FloatArray"(CArray):

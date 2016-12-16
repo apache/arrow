@@ -88,6 +88,10 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
+std::string DateType::ToString() const {
+  return std::string("date");
+}
+
 std::string UnionType::ToString() const {
   std::stringstream s;
 

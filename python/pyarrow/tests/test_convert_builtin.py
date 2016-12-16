@@ -18,6 +18,7 @@
 from pyarrow.compat import unittest
 import pyarrow
 
+import datetime
 
 class TestConvertList(unittest.TestCase):
 
@@ -69,6 +70,17 @@ class TestConvertList(unittest.TestCase):
         assert len(arr) == 4
         assert arr.null_count == 1
         assert arr.type == pyarrow.string()
+
+    def test_date(self):
+        data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1), datetime.date(2040, 2, 26)]
+        arr = pyarrow.from_pylist(data)
+        assert len(arr) == 4
+        assert arr.type == pyarrow.date()
+        assert arr.null_count == 1
+        assert arr[0].as_py() == datetime.date(2000, 1, 1)
+        assert arr[1].as_py() is None
+        assert arr[2].as_py() == datetime.date(1970, 1, 1)
+        assert arr[3].as_py() == datetime.date(2040, 2, 26)
 
     def test_mixed_nesting_levels(self):
         pyarrow.from_pylist([1, 2, None])
