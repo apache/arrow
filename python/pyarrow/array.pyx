@@ -167,6 +167,12 @@ cdef class Array:
 
         return PyObject_to_object(np_arr)
 
+    def to_pylist(self):
+        """
+        Convert to an list of native Python objects.
+        """
+        return [x.as_py() for x in self]
+
 
 cdef class NullArray(Array):
     pass

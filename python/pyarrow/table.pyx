@@ -108,6 +108,15 @@ cdef class ChunkedArray:
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
+    def to_pylist(self):
+        """
+        Convert to a list of native Python objects.
+        """
+        result = []
+        for i in range(self.num_chunks):
+            result += self.chunk(i).to_pylist()
+        return result
+
 
 cdef class Column:
     """
@@ -142,6 +151,12 @@ cdef class Column:
                                                    <PyObject*> self, &arr))
 
         return pd.Series(PyObject_to_object(arr), name=self.name)
+
+    def to_pylist(self):
+        """
+        Convert to a list of native Python objects.
+        """
+        return self.data.to_pylist()
 
     cdef _check_nullptr(self):
         if self.column == NULL:

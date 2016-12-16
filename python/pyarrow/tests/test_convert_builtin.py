@@ -22,28 +22,34 @@ import pyarrow
 class TestConvertList(unittest.TestCase):
 
     def test_boolean(self):
-        arr = pyarrow.from_pylist([True, None, False, None])
+        expected = [True, None, False, None]
+        arr = pyarrow.from_pylist(expected)
         assert len(arr) == 4
         assert arr.null_count == 2
         assert arr.type == pyarrow.bool_()
+        assert arr.to_pylist() == expected
 
     def test_empty_list(self):
         arr = pyarrow.from_pylist([])
         assert len(arr) == 0
         assert arr.null_count == 0
         assert arr.type == pyarrow.null()
+        assert arr.to_pylist() == []
 
     def test_all_none(self):
         arr = pyarrow.from_pylist([None, None])
         assert len(arr) == 2
         assert arr.null_count == 2
         assert arr.type == pyarrow.null()
+        assert arr.to_pylist() == [None, None]
 
     def test_integer(self):
-        arr = pyarrow.from_pylist([1, None, 3, None])
+        expected = [1, None, 3, None]
+        arr = pyarrow.from_pylist(expected)
         assert len(arr) == 4
         assert arr.null_count == 2
         assert arr.type == pyarrow.int64()
+        assert arr.to_pylist() == expected
 
     def test_garbage_collection(self):
         import gc
@@ -62,6 +68,7 @@ class TestConvertList(unittest.TestCase):
         assert len(arr) == 6
         assert arr.null_count == 3
         assert arr.type == pyarrow.double()
+        assert arr.to_pylist() == data
 
     def test_string(self):
         data = ['foo', b'bar', None, 'arrow']
@@ -69,6 +76,7 @@ class TestConvertList(unittest.TestCase):
         assert len(arr) == 4
         assert arr.null_count == 1
         assert arr.type == pyarrow.string()
+        assert arr.to_pylist() == ['foo', 'bar', None, 'arrow']
 
     def test_mixed_nesting_levels(self):
         pyarrow.from_pylist([1, 2, None])
@@ -90,3 +98,4 @@ class TestConvertList(unittest.TestCase):
         assert len(arr) == 4
         assert arr.null_count == 1
         assert arr.type == pyarrow.list_(pyarrow.int64())
+        assert arr.to_pylist() == data
