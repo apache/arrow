@@ -35,6 +35,7 @@
 
 #include "pyarrow/common.h"
 #include "pyarrow/config.h"
+#include "pyarrow/util/datetime.h"
 
 namespace pyarrow {
 
@@ -166,6 +167,28 @@ class ArrowSerializer {
 
  private:
   Status ConvertData();
+
+  Status ConvertDates(std::shared_ptr<Array>* out) {
+    PyAcquireGIL lock;
+
+    PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    arrow::TypePtr string_type(new arrow::DateType());
+    arrow::DateBuilder date_builder(pool_, string_type);
+    RETURN_NOT_OK(date_builder.Resize(length_));
+
+    Status s;
+    PyObject* obj;
+    for (int64_t i = 0; i < length_; ++i) {
+      obj = objects[i];
+      if (PyDate_CheckExact(obj)) {
+        PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(obj);
+        date_builder.Append(PyDate_to_ms(pydate));
+      } else {
+        date_builder.AppendNull();
+      }
+    }
+    return date_builder.Finish(out);
+  }
 
   Status ConvertObjectStrings(std::shared_ptr<Array>* out) {
     PyAcquireGIL lock;
@@ -369,6 +392,10 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
 
   // TODO: mask not supported here
   const PyObject** objects = reinterpret_cast<const PyObject**>(PyArray_DATA(arr_));
+  {
+    PyAcquireGIL lock;
+    PyDateTime_IMPORT;
+  }
 
   for (int64_t i = 0; i < length_; ++i) {
     if (PyObject_is_null(objects[i])) {
@@ -377,6 +404,8 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
       return ConvertObjectStrings(out);
     } else if (PyBool_Check(objects[i])) {
       return ConvertBooleans(out);
+    } else if (PyDate_CheckExact(objects[i])) {
+      return ConvertDates(out);
     } else {
       return Status::TypeError("unhandled python type");
     }

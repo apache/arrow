@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import unittest
 
 import numpy as np
@@ -203,6 +204,20 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[ns]')
             })
         self._check_pandas_roundtrip(df, timestamps_to_ms=False)
+
+    def test_date(self):
+        df = pd.DataFrame({
+            'date': [
+                datetime.date(2000, 1, 1),
+                None,
+                datetime.date(1970, 1, 1),
+                datetime.date(2040, 2, 26)
+        ]})
+        table = A.from_pandas_dataframe(df)
+        result = table.to_pandas()
+        expected = df.copy()
+        expected['date'] = pd.to_datetime(df['date'])
+        tm.assert_frame_equal(result, expected)
 
     # def test_category(self):
     #     repeats = 1000
