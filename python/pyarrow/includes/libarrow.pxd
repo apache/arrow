@@ -45,6 +45,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_LIST" arrow::Type::LIST"
         Type_STRUCT" arrow::Type::STRUCT"
 
+    enum TimeUnit" arrow::TimeUnit":
+        TimeUnit_SECOND" arrow::TimeUnit::SECOND"
+        TimeUnit_MILLI" arrow::TimeUnit::MILLI"
+        TimeUnit_MICRO" arrow::TimeUnit::MICRO"
+        TimeUnit_NANO" arrow::TimeUnit::NANO"
+
     cdef cppclass CDataType" arrow::DataType":
         Type type
 
@@ -74,6 +80,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
+
+    cdef cppclass CTimestampType" arrow::TimestampType"(CDataType):
+        TimeUnit unit
 
     cdef cppclass CField" arrow::Field":
         c_string name
@@ -134,6 +143,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t Value(int i)
 
     cdef cppclass CDateArray" arrow::DateArray"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
         int64_t Value(int i)
 
     cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
