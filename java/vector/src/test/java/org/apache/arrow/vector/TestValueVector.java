@@ -288,6 +288,7 @@ public class TestValueVector {
     try (final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
       final BitVector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
+      m.setValueCount(1024);
 
       // Put and set a few values
       m.set(0, 1);
@@ -295,11 +296,15 @@ public class TestValueVector {
       m.set(100, 0);
       m.set(1022, 1);
 
+      m.setValueCount(1024);
+
       final BitVector.Accessor accessor = vector.getAccessor();
       assertEquals(1, accessor.get(0));
       assertEquals(0, accessor.get(1));
       assertEquals(0, accessor.get(100));
       assertEquals(1, accessor.get(1022));
+
+      assertEquals(1022, accessor.getNullCount());
 
       // test setting the same value twice
       m.set(0, 1);
@@ -315,8 +320,47 @@ public class TestValueVector {
       assertEquals(0, accessor.get(0));
       assertEquals(1, accessor.get(1));
 
+      // should not change
+      assertEquals(1022, accessor.getNullCount());
+
       // Ensure unallocated space returns 0
       assertEquals(0, accessor.get(3));
+
+      // unset the previously set bits
+      m.set(1, 0);
+      m.set(1022, 0);
+      // this should set all the array to 0
+      assertEquals(1024, accessor.getNullCount());
+
+      // set all the array to 1
+      for (int i = 0; i < 1024; ++i) {
+        assertEquals(1024 - i, accessor.getNullCount());
+        m.set(i, 1);
+      }
+
+      assertEquals(0, accessor.getNullCount());
+
+      vector.allocateNew(1015);
+      m.setValueCount(1015);
+
+      // ensure it has been zeroed
+      assertEquals(1015, accessor.getNullCount());
+
+      m.set(0, 1);
+      m.set(1014, 1); // ensure that the last item of the last byte is allocated
+
+      assertEquals(1013, accessor.getNullCount());
+
+      vector.zeroVector();
+      assertEquals(1015, accessor.getNullCount());
+
+      // set all the array to 1
+      for (int i = 0; i < 1015; ++i) {
+        assertEquals(1015 - i, accessor.getNullCount());
+        m.set(i, 1);
+      }
+
+      assertEquals(0, accessor.getNullCount());
     }
   }
 

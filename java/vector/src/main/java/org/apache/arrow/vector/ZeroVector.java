@@ -69,6 +69,11 @@ public class ZeroVector implements FieldVector {
     public boolean isNull(int index) {
       return true;
     }
+
+    @Override
+    public int getNullCount() {
+      return 0;
+    }
   };
 
   private final Mutator defaultMutator = new Mutator() {

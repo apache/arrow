@@ -60,15 +60,7 @@ public class VectorUnloader {
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     Accessor accessor = vector.getAccessor();
-    int nullCount = 0;
-    // TODO: should not have to do that
-    // we can do that a lot more efficiently (for example with Long.bitCount(i))
-    for (int i = 0; i < accessor.getValueCount(); i++) {
-      if (accessor.isNull(i)) {
-        nullCount ++;
-      }
-    }
-    nodes.add(new ArrowFieldNode(accessor.getValueCount(), nullCount));
+    nodes.add(new ArrowFieldNode(accessor.getValueCount(), accessor.getNullCount()));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
     if (fieldBuffers.size() != expectedBuffers.size()) {

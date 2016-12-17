@@ -204,6 +204,11 @@ public class NullableMapVector extends MapVector implements FieldVector {
     }
 
     @Override
+    public int getNullCount() {
+      return bits.getAccessor().getNullCount();
+    }
+
+    @Override
     public boolean isNull(int index) {
       return isSet(index) == 0;
     }
