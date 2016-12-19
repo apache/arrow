@@ -43,4 +43,9 @@ mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmod
 
 cd -
 
+cd "${SOURCE_DIR}/../../python"
+sed -i "s/VERSION = '[^']*'/VERSION = '${version}'/g" setup.py
+sed -i "s/ISRELEASED = False/ISRELEASED = True/g" setup.py
+cd -
+
 echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"

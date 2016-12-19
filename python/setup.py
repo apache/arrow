@@ -42,7 +42,25 @@ is_64_bit = sys.maxsize > 2**32
 if Cython.__version__ < '0.19.1':
     raise Exception('Please upgrade to Cython 0.19.1 or newer')
 
+VERSION = '0.1.0'
+ISRELEASED = False
+
+if not ISRELEASED:
+    VERSION += '.dev'
+
 setup_dir = os.path.abspath(os.path.dirname(__file__))
+
+
+def write_version_py(filename=os.path.join(setup_dir, 'pyarrow/version.py')):
+    a = open(filename, 'w')
+    file_content = "\n".join(["",
+                              "# THIS FILE IS GENERATED FROM SETUP.PY",
+                              "version = '%(version)s'",
+                              "isrelease = '%(isrelease)s'"])
+
+    a.write(file_content % {'version': VERSION,
+                            'isrelease': str(ISRELEASED)})
+    a.close()
 
 
 class clean(_clean):
@@ -254,12 +272,15 @@ class build_ext(_build_ext):
         return [self._get_cmake_ext_path(name)
                 for name in self.get_names()]
 
+write_version_py()
+
 DESC = """\
 Python library for Apache Arrow"""
 
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
+    version=VERSION,
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx']},
     # Dummy extension to trigger build_ext
@@ -269,8 +290,6 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
-    use_scm_version = {"root": "..", "relative_to": __file__},
-    setup_requires=['setuptools_scm', 'setuptools_scm_git_archive'],
     install_requires=['cython >= 0.23', 'numpy >= 1.9', 'six >= 1.0.0'],
     description=DESC,
     license='Apache License, Version 2.0',
