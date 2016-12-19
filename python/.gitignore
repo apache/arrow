@@ -16,6 +16,7 @@ Testing/
 *.c
 *.cpp
 pyarrow/version.py
+pyarrow/table_api.h
 # Python files
 
 # setup.py working directory

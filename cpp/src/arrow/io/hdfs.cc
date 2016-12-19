@@ -23,6 +23,7 @@
 #include <string>
 
 #include "arrow/buffer.h"
+#include "arrow/io/hdfs-internal.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -59,21 +60,23 @@ static constexpr int kDefaultHdfsBufferSize = 1 << 16;
 
 class HdfsAnyFileImpl {
  public:
-  void set_members(const std::string& path, hdfsFS fs, hdfsFile handle) {
+  void set_members(
+      const std::string& path, LibHdfsShim* driver, hdfsFS fs, hdfsFile handle) {
     path_ = path;
+    driver_ = driver;
     fs_ = fs;
     file_ = handle;
     is_open_ = true;
   }
 
   Status Seek(int64_t position) {
-    int ret = hdfsSeek(fs_, file_, position);
+    int ret = driver_->Seek(fs_, file_, position);
     CHECK_FAILURE(ret, "seek");
     return Status::OK();
   }
 
   Status Tell(int64_t* offset) {
-    int64_t ret = hdfsTell(fs_, file_);
+    int64_t ret = driver_->Tell(fs_, file_);
     CHECK_FAILURE(ret, "tell");
     *offset = ret;
     return Status::OK();
@@ -83,6 +86,8 @@ class HdfsAnyFileImpl {
 
  protected:
   std::string path_;
+
+  LibHdfsShim* driver_;
 
   // These are pointers in libhdfs, so OK to copy
   hdfsFS fs_;
@@ -98,7 +103,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   Status Close() {
     if (is_open_) {
-      int ret = hdfsCloseFile(fs_, file_);
+      int ret = driver_->CloseFile(fs_, file_);
       CHECK_FAILURE(ret, "CloseFile");
       is_open_ = false;
     }
@@ -106,8 +111,14 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
-    tSize ret = hdfsPread(fs_, file_, static_cast<tOffset>(position),
-        reinterpret_cast<void*>(buffer), nbytes);
+    tSize ret;
+    if (driver_->HasPread()) {
+      ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
+          reinterpret_cast<void*>(buffer), nbytes);
+    } else {
+      RETURN_NOT_OK(Seek(position));
+      return Read(nbytes, bytes_read, buffer);
+    }
     RETURN_NOT_OK(CheckReadResult(ret));
     *bytes_read = ret;
     return Status::OK();
@@ -129,7 +140,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
-      tSize ret = hdfsRead(fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
+      tSize ret = driver_->Read(fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
           std::min<int64_t>(buffer_size_, nbytes - total_bytes));
       RETURN_NOT_OK(CheckReadResult(ret));
       total_bytes += ret;
@@ -153,11 +164,11 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status GetSize(int64_t* size) {
-    hdfsFileInfo* entry = hdfsGetPathInfo(fs_, path_.c_str());
+    hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
     if (entry == nullptr) { return Status::IOError("HDFS: GetPathInfo failed"); }
 
     *size = entry->mSize;
-    hdfsFreeFileInfo(entry, 1);
+    driver_->FreeFileInfo(entry, 1);
     return Status::OK();
   }
 
@@ -227,9 +238,9 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
   Status Close() {
     if (is_open_) {
-      int ret = hdfsFlush(fs_, file_);
+      int ret = driver_->Flush(fs_, file_);
       CHECK_FAILURE(ret, "Flush");
-      ret = hdfsCloseFile(fs_, file_);
+      ret = driver_->CloseFile(fs_, file_);
       CHECK_FAILURE(ret, "CloseFile");
       is_open_ = false;
     }
@@ -237,7 +248,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
   }
 
   Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
-    tSize ret = hdfsWrite(fs_, file_, reinterpret_cast<const void*>(buffer), nbytes);
+    tSize ret = driver_->Write(fs_, file_, reinterpret_cast<const void*>(buffer), nbytes);
     CHECK_FAILURE(ret, "Write");
     *bytes_written = ret;
     return Status::OK();
@@ -297,17 +308,25 @@ class HdfsClient::HdfsClientImpl {
   HdfsClientImpl() {}
 
   Status Connect(const HdfsConnectionConfig* config) {
-    RETURN_NOT_OK(ConnectLibHdfs());
+    if (config->driver == HdfsDriver::LIBHDFS3) {
+      RETURN_NOT_OK(ConnectLibHdfs3(&driver_));
+    } else {
+      RETURN_NOT_OK(ConnectLibHdfs(&driver_));
+    }
 
     // connect to HDFS with the builder object
-    hdfsBuilder* builder = hdfsNewBuilder();
-    if (!config->host.empty()) { hdfsBuilderSetNameNode(builder, config->host.c_str()); }
-    hdfsBuilderSetNameNodePort(builder, config->port);
-    if (!config->user.empty()) { hdfsBuilderSetUserName(builder, config->user.c_str()); }
-    if (!config->kerb_ticket.empty()) {
-      hdfsBuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
+    hdfsBuilder* builder = driver_->NewBuilder();
+    if (!config->host.empty()) {
+      driver_->BuilderSetNameNode(builder, config->host.c_str());
     }
-    fs_ = hdfsBuilderConnect(builder);
+    driver_->BuilderSetNameNodePort(builder, config->port);
+    if (!config->user.empty()) {
+      driver_->BuilderSetUserName(builder, config->user.c_str());
+    }
+    if (!config->kerb_ticket.empty()) {
+      driver_->BuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
+    }
+    fs_ = driver_->BuilderConnect(builder);
 
     if (fs_ == nullptr) { return Status::IOError("HDFS connection failed"); }
     namenode_host_ = config->host;
@@ -319,19 +338,19 @@ class HdfsClient::HdfsClientImpl {
   }
 
   Status CreateDirectory(const std::string& path) {
-    int ret = hdfsCreateDirectory(fs_, path.c_str());
+    int ret = driver_->CreateDirectory(fs_, path.c_str());
     CHECK_FAILURE(ret, "create directory");
     return Status::OK();
   }
 
   Status Delete(const std::string& path, bool recursive) {
-    int ret = hdfsDelete(fs_, path.c_str(), static_cast<int>(recursive));
+    int ret = driver_->Delete(fs_, path.c_str(), static_cast<int>(recursive));
     CHECK_FAILURE(ret, "delete");
     return Status::OK();
   }
 
   Status Disconnect() {
-    int ret = hdfsDisconnect(fs_);
+    int ret = driver_->Disconnect(fs_);
     CHECK_FAILURE(ret, "hdfsFS::Disconnect");
     return Status::OK();
   }
@@ -339,38 +358,38 @@ class HdfsClient::HdfsClientImpl {
   bool Exists(const std::string& path) {
     // hdfsExists does not distinguish between RPC failure and the file not
     // existing
-    int ret = hdfsExists(fs_, path.c_str());
+    int ret = driver_->Exists(fs_, path.c_str());
     return ret == 0;
   }
 
   Status GetCapacity(int64_t* nbytes) {
-    tOffset ret = hdfsGetCapacity(fs_);
+    tOffset ret = driver_->GetCapacity(fs_);
     CHECK_FAILURE(ret, "GetCapacity");
     *nbytes = ret;
     return Status::OK();
   }
 
   Status GetUsed(int64_t* nbytes) {
-    tOffset ret = hdfsGetUsed(fs_);
+    tOffset ret = driver_->GetUsed(fs_);
     CHECK_FAILURE(ret, "GetUsed");
     *nbytes = ret;
     return Status::OK();
   }
 
   Status GetPathInfo(const std::string& path, HdfsPathInfo* info) {
-    hdfsFileInfo* entry = hdfsGetPathInfo(fs_, path.c_str());
+    hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path.c_str());
 
     if (entry == nullptr) { return Status::IOError("HDFS: GetPathInfo failed"); }
 
     SetPathInfo(entry, info);
-    hdfsFreeFileInfo(entry, 1);
+    driver_->FreeFileInfo(entry, 1);
 
     return Status::OK();
   }
 
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing) {
     int num_entries = 0;
-    hdfsFileInfo* entries = hdfsListDirectory(fs_, path.c_str(), &num_entries);
+    hdfsFileInfo* entries = driver_->ListDirectory(fs_, path.c_str(), &num_entries);
 
     if (entries == nullptr) {
       // If the directory is empty, entries is NULL but errno is 0. Non-zero
@@ -391,14 +410,14 @@ class HdfsClient::HdfsClientImpl {
     }
 
     // Free libhdfs file info
-    hdfsFreeFileInfo(entries, num_entries);
+    driver_->FreeFileInfo(entries, num_entries);
 
     return Status::OK();
   }
 
   Status OpenReadable(const std::string& path, int32_t buffer_size,
       std::shared_ptr<HdfsReadableFile>* file) {
-    hdfsFile handle = hdfsOpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
+    hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
       // TODO(wesm): determine cause of failure
@@ -409,7 +428,7 @@ class HdfsClient::HdfsClientImpl {
 
     // std::make_shared does not work with private ctors
     *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile());
-    (*file)->impl_->set_members(path, fs_, handle);
+    (*file)->impl_->set_members(path, driver_, fs_, handle);
     (*file)->impl_->set_buffer_size(buffer_size);
 
     return Status::OK();
@@ -421,7 +440,7 @@ class HdfsClient::HdfsClientImpl {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
-    hdfsFile handle = hdfsOpenFile(
+    hdfsFile handle = driver_->OpenFile(
         fs_, path.c_str(), flags, buffer_size, replication, default_block_size);
 
     if (handle == nullptr) {
@@ -433,18 +452,20 @@ class HdfsClient::HdfsClientImpl {
 
     // std::make_shared does not work with private ctors
     *file = std::shared_ptr<HdfsOutputStream>(new HdfsOutputStream());
-    (*file)->impl_->set_members(path, fs_, handle);
+    (*file)->impl_->set_members(path, driver_, fs_, handle);
 
     return Status::OK();
   }
 
   Status Rename(const std::string& src, const std::string& dst) {
-    int ret = hdfsRename(fs_, src.c_str(), dst.c_str());
+    int ret = driver_->Rename(fs_, src.c_str(), dst.c_str());
     CHECK_FAILURE(ret, "Rename");
     return Status::OK();
   }
 
  private:
+  LibHdfsShim* driver_;
+
   std::string namenode_host_;
   std::string user_;
   int port_;
@@ -528,6 +549,19 @@ Status HdfsClient::OpenWriteable(
 
 Status HdfsClient::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
+}
+
+// ----------------------------------------------------------------------
+// Allow public API users to check whether we are set up correctly
+
+Status HaveLibHdfs() {
+  LibHdfsShim* driver;
+  return ConnectLibHdfs(&driver);
+}
+
+Status HaveLibHdfs3() {
+  LibHdfsShim* driver;
+  return ConnectLibHdfs3(&driver);
 }
 
 }  // namespace io

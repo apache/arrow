@@ -75,7 +75,7 @@ if(ARROW_HDFS)
 
   set(ARROW_HDFS_SRCS
     hdfs.cc
-    libhdfs_shim.cc)
+    hdfs-internal.cc)
 
   set_property(SOURCE ${ARROW_HDFS_SRCS}
     APPEND_STRING PROPERTY

@@ -35,6 +35,7 @@ cimport cpython as cp
 import re
 import sys
 import threading
+import time
 
 
 cdef class NativeFile:
@@ -269,7 +270,15 @@ except ImportError:
 
 def have_libhdfs():
     try:
-        check_status(ConnectLibHdfs())
+        check_status(HaveLibHdfs())
+        return True
+    except:
+        return False
+
+
+def have_libhdfs3():
+    try:
+        check_status(HaveLibHdfs3())
         return True
     except:
         return False
@@ -313,7 +322,8 @@ cdef class HdfsClient:
             raise IOError('HDFS client is closed')
 
     @classmethod
-    def connect(cls, host="default", port=0, user=None, kerb_ticket=None):
+    def connect(cls, host="default", port=0, user=None, kerb_ticket=None,
+                driver='libhdfs'):
         """
         Connect to an HDFS cluster. All parameters are optional and should
         only be set if the defaults need to be overridden.
@@ -328,6 +338,9 @@ cdef class HdfsClient:
         port : NameNode's port. Set to 0 for default or logical (HA) nodes.
         user : Username when connecting to HDFS; None implies login user.
         kerb_ticket : Path to Kerberos ticket cache.
+        driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
+          Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
+          library from Pivotal Labs)
 
         Notes
         -----
@@ -349,6 +362,13 @@ cdef class HdfsClient:
             conf.user = tobytes(user)
         if kerb_ticket is not None:
             conf.kerb_ticket = tobytes(kerb_ticket)
+
+        if driver == 'libhdfs':
+            check_status(HaveLibHdfs())
+            conf.driver = HdfsDriver_LIBHDFS
+        else:
+            check_status(HaveLibHdfs3())
+            conf.driver = HdfsDriver_LIBHDFS3
 
         with nogil:
             check_status(CHdfsClient.Connect(&conf, &out.client))
@@ -541,6 +561,12 @@ cdef class HdfsClient:
                     if not buf:
                         break
 
+                    if writer_thread.is_alive():
+                        while write_queue.full():
+                            time.sleep(0.01)
+                    else:
+                        break
+
                     write_queue.put_nowait(buf)
             finally:
                 done = True
@@ -609,22 +635,13 @@ cdef class HdfsFile(NativeFile):
 
         cdef int64_t total_bytes = 0
 
-        cdef int rpc_chunksize = min(self.buffer_size, nbytes)
-
         try:
             with nogil:
-                while total_bytes < nbytes:
-                    check_status(self.rd_file.get()
-                                 .Read(rpc_chunksize, &bytes_read,
-                                       buf + total_bytes))
+                check_status(self.rd_file.get()
+                             .Read(nbytes, &bytes_read, buf))
 
-                    total_bytes += bytes_read
-
-                    # EOF
-                    if bytes_read == 0:
-                        break
             result = cp.PyBytes_FromStringAndSize(<const char*>buf,
-                                                  total_bytes)
+                                                  bytes_read)
         finally:
             free(buf)
 
