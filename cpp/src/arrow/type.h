@@ -413,14 +413,14 @@ struct ARROW_EXPORT UnionType : public DataType {
 struct ARROW_EXPORT DateType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DATE;
 
-  using c_type = int32_t;
+  using c_type = int64_t;
 
   DateType() : FixedWidthType(Type::DATE) {}
 
   int bit_width() const override { return sizeof(c_type) * 8; }
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return name(); }
+  std::string ToString() const override;
   static std::string name() { return "date"; }
 };
 

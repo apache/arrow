@@ -33,6 +33,8 @@ const std::shared_ptr<Int8Type> INT8 = std::make_shared<Int8Type>();
 const std::shared_ptr<Int16Type> INT16 = std::make_shared<Int16Type>();
 const std::shared_ptr<Int32Type> INT32 = std::make_shared<Int32Type>();
 const std::shared_ptr<Int64Type> INT64 = std::make_shared<Int64Type>();
+const std::shared_ptr<DateType> DATE = std::make_shared<DateType>();
+const std::shared_ptr<TimestampType> TIMESTAMP_US = std::make_shared<TimestampType>(TimeUnit::MICRO);
 const std::shared_ptr<FloatType> FLOAT = std::make_shared<FloatType>();
 const std::shared_ptr<DoubleType> DOUBLE = std::make_shared<DoubleType>();
 const std::shared_ptr<StringType> STRING = std::make_shared<StringType>();
@@ -54,6 +56,10 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
     GET_PRIMITIVE_TYPE(INT32, Int32Type);
     GET_PRIMITIVE_TYPE(UINT64, UInt64Type);
     GET_PRIMITIVE_TYPE(INT64, Int64Type);
+    GET_PRIMITIVE_TYPE(DATE, DateType);
+    case Type::TIMESTAMP:
+      return TIMESTAMP_US;
+      break;
     GET_PRIMITIVE_TYPE(BOOL, BooleanType);
     GET_PRIMITIVE_TYPE(FLOAT, FloatType);
     GET_PRIMITIVE_TYPE(DOUBLE, DoubleType);

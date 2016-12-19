@@ -35,6 +35,7 @@
 
 #include "pyarrow/common.h"
 #include "pyarrow/config.h"
+#include "pyarrow/util/datetime.h"
 
 namespace pyarrow {
 
@@ -166,6 +167,28 @@ class ArrowSerializer {
 
  private:
   Status ConvertData();
+
+  Status ConvertDates(std::shared_ptr<Array>* out) {
+    PyAcquireGIL lock;
+
+    PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    arrow::TypePtr string_type(new arrow::DateType());
+    arrow::DateBuilder date_builder(pool_, string_type);
+    RETURN_NOT_OK(date_builder.Resize(length_));
+
+    Status s;
+    PyObject* obj;
+    for (int64_t i = 0; i < length_; ++i) {
+      obj = objects[i];
+      if (PyDate_CheckExact(obj)) {
+        PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(obj);
+        date_builder.Append(PyDate_to_ms(pydate));
+      } else {
+        date_builder.AppendNull();
+      }
+    }
+    return date_builder.Finish(out);
+  }
 
   Status ConvertObjectStrings(std::shared_ptr<Array>* out) {
     PyAcquireGIL lock;
@@ -369,6 +392,10 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
 
   // TODO: mask not supported here
   const PyObject** objects = reinterpret_cast<const PyObject**>(PyArray_DATA(arr_));
+  {
+    PyAcquireGIL lock;
+    PyDateTime_IMPORT;
+  }
 
   for (int64_t i = 0; i < length_; ++i) {
     if (PyObject_is_null(objects[i])) {
@@ -377,6 +404,8 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
       return ConvertObjectStrings(out);
     } else if (PyBool_Check(objects[i])) {
       return ConvertBooleans(out);
+    } else if (PyDate_CheckExact(objects[i])) {
+      return ConvertDates(out);
     } else {
       return Status::TypeError("unhandled python type");
     }
@@ -548,6 +577,17 @@ struct arrow_traits<arrow::Type::TIMESTAMP> {
 };
 
 template <>
+struct arrow_traits<arrow::Type::DATE> {
+  static constexpr int npy_type = NPY_DATETIME;
+  static constexpr bool supports_nulls = true;
+  static constexpr int64_t na_value = std::numeric_limits<int64_t>::min();
+  static constexpr bool is_boolean = false;
+  static constexpr bool is_pandas_numeric_not_nullable = false;
+  static constexpr bool is_pandas_numeric_nullable = true;
+  typedef typename npy_traits<NPY_DATETIME>::value_type T;
+};
+
+template <>
 struct arrow_traits<arrow::Type::STRING> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
@@ -567,24 +607,28 @@ static inline PyObject* make_pystring(const uint8_t* data, int32_t length) {
 
 inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
   if (type == NPY_DATETIME) {
-    auto timestamp_type = static_cast<arrow::TimestampType*>(datatype);
-    // We only support ms resolution at the moment
     PyArray_Descr* descr = PyArray_DESCR(out);
     auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+    if (datatype->type == arrow::Type::TIMESTAMP) {
+      auto timestamp_type = static_cast<arrow::TimestampType*>(datatype);
 
-    switch (timestamp_type->unit) {
-      case arrow::TimestampType::Unit::SECOND:
-        date_dtype->meta.base = NPY_FR_s;
-        break;
-      case arrow::TimestampType::Unit::MILLI:
-        date_dtype->meta.base = NPY_FR_ms;
-        break;
-      case arrow::TimestampType::Unit::MICRO:
-        date_dtype->meta.base = NPY_FR_us;
-        break;
-      case arrow::TimestampType::Unit::NANO:
-        date_dtype->meta.base = NPY_FR_ns;
-        break;
+      switch (timestamp_type->unit) {
+        case arrow::TimestampType::Unit::SECOND:
+          date_dtype->meta.base = NPY_FR_s;
+          break;
+        case arrow::TimestampType::Unit::MILLI:
+          date_dtype->meta.base = NPY_FR_ms;
+          break;
+        case arrow::TimestampType::Unit::MICRO:
+          date_dtype->meta.base = NPY_FR_us;
+          break;
+        case arrow::TimestampType::Unit::NANO:
+          date_dtype->meta.base = NPY_FR_ns;
+          break;
+      }
+    } else {
+      // datatype->type == arrow::Type::DATE
+      date_dtype->meta.base = NPY_FR_D;
     }
   }
 }
@@ -666,7 +710,7 @@ class ArrowDeserializer {
 
   template <int T2>
   inline typename std::enable_if<
-    arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
+    (T2 != arrow::Type::DATE) & arrow_traits<T2>::is_pandas_numeric_nullable, Status>::type
   ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
     typedef typename arrow_traits<T2>::T T;
     size_t chunk_offset = 0;
@@ -689,6 +733,32 @@ class ArrowDeserializer {
         }
       } else {
         memcpy(out_values, in_values, sizeof(T) * arr->length());
+      }
+
+      chunk_offset += arr->length();
+    }
+
+    return Status::OK();
+  }
+
+  template <int T2>
+  inline typename std::enable_if<
+    T2 == arrow::Type::DATE, Status>::type
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
+    typedef typename arrow_traits<T2>::T T;
+    size_t chunk_offset = 0;
+
+    RETURN_NOT_OK(AllocateOutput(arrow_traits<T2>::npy_type));
+
+    for (int c = 0; c < data->num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data->chunk(c);
+      auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+      auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+      auto out_values = reinterpret_cast<T*>(PyArray_DATA(out_)) + chunk_offset;
+
+      for (int64_t i = 0; i < arr->length(); ++i) {
+        // There are 1000 * 60 * 60 * 24 = 86400000ms in a day
+        out_values[i] = arr->IsNull(i) ? arrow_traits<T2>::na_value : in_values[i] / 86400000;
       }
 
       chunk_offset += arr->length();
@@ -879,6 +949,7 @@ Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_re
     FROM_ARROW_CASE(FLOAT);
     FROM_ARROW_CASE(DOUBLE);
     FROM_ARROW_CASE(STRING);
+    FROM_ARROW_CASE(DATE);
     FROM_ARROW_CASE(TIMESTAMP);
     default:
       return Status::NotImplemented("Arrow type reading not implemented");

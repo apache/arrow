@@ -38,6 +38,8 @@ extern const std::shared_ptr<arrow::Int8Type> INT8;
 extern const std::shared_ptr<arrow::Int16Type> INT16;
 extern const std::shared_ptr<arrow::Int32Type> INT32;
 extern const std::shared_ptr<arrow::Int64Type> INT64;
+extern const std::shared_ptr<arrow::DateType> DATE;
+extern const std::shared_ptr<arrow::TimestampType> TIMESTAMP_US;
 extern const std::shared_ptr<arrow::FloatType> FLOAT;
 extern const std::shared_ptr<arrow::DoubleType> DOUBLE;
 extern const std::shared_ptr<arrow::StringType> STRING;

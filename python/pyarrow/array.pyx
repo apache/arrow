@@ -218,6 +218,10 @@ cdef class UInt64Array(NumericArray):
     pass
 
 
+cdef class DateArray(NumericArray):
+    pass
+
+
 cdef class FloatArray(NumericArray):
     pass
 
@@ -245,6 +249,7 @@ cdef dict _array_classes = {
     Type_INT16: Int16Array,
     Type_INT32: Int32Array,
     Type_INT64: Int64Array,
+    Type_DATE: DateArray,
     Type_FLOAT: FloatArray,
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,
@@ -284,7 +289,7 @@ def from_pylist(object list_obj, DataType type=None):
     if type is None:
         check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
     else:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     return box_arrow_array(sp_array)
 

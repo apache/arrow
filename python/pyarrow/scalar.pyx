@@ -20,6 +20,9 @@ from pyarrow.schema cimport DataType, box_data_type
 from pyarrow.compat import frombytes
 import pyarrow.schema as schema
 
+import datetime
+
+
 NA = None
 
 cdef class NAType(Scalar):
@@ -120,6 +123,32 @@ cdef class UInt64Value(ArrayValue):
         return ap.Value(self.index)
 
 
+cdef class DateValue(ArrayValue):
+
+    def as_py(self):
+        cdef CDateArray* ap = <CDateArray*> self.sp_array.get()
+        return datetime.date.fromtimestamp(ap.Value(self.index) / 1000)
+
+
+cdef class TimestampValue(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CTimestampArray* ap = <CTimestampArray*> self.sp_array.get()
+            CTimestampType* dtype = <CTimestampType*>ap.type().get()
+            int64_t val = ap.Value(self.index)
+
+        if dtype.unit == TimeUnit_SECOND:
+            return datetime.datetime.utcfromtimestamp(val)
+        elif dtype.unit == TimeUnit_MILLI:
+            return datetime.datetime.utcfromtimestamp(float(val) / 1000)
+        elif dtype.unit == TimeUnit_MICRO:
+            return datetime.datetime.utcfromtimestamp(float(val) / 1000000)
+        else:
+            # TimeUnit_NANO
+            raise NotImplementedError("Cannot convert nanosecond timestamps to datetime.datetime")
+
+
 cdef class FloatValue(ArrayValue):
 
     def as_py(self):
@@ -184,6 +213,8 @@ cdef dict _scalar_classes = {
     Type_INT16: Int16Value,
     Type_INT32: Int32Value,
     Type_INT64: Int64Value,
+    Type_DATE: DateValue,
+    Type_TIMESTAMP: TimestampValue,
     Type_FLOAT: FloatValue,
     Type_DOUBLE: DoubleValue,
     Type_LIST: ListValue,

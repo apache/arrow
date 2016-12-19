@@ -164,6 +164,7 @@ cdef set PRIMITIVE_TYPES = set([
     Type_UINT16, Type_INT16,
     Type_UINT32, Type_INT32,
     Type_UINT64, Type_INT64,
+    Type_TIMESTAMP, Type_DATE,
     Type_FLOAT, Type_DOUBLE])
 
 def null():
@@ -195,6 +196,12 @@ def uint64():
 
 def int64():
     return primitive_type(Type_INT64)
+
+def timestamp():
+    return primitive_type(Type_TIMESTAMP)
+
+def date():
+    return primitive_type(Type_DATE)
 
 def float_():
     return primitive_type(Type_FLOAT)

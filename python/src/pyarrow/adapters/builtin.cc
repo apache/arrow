@@ -16,6 +16,7 @@
 // under the License.
 
 #include <Python.h>
+#include <datetime.h>
 #include <sstream>
 
 #include "pyarrow/adapters/builtin.h"
@@ -24,6 +25,7 @@
 #include "arrow/status.h"
 
 #include "pyarrow/helpers.h"
+#include "pyarrow/util/datetime.h"
 
 using arrow::ArrayBuilder;
 using arrow::DataType;
@@ -55,6 +57,8 @@ class ScalarVisitor {
       none_count_(0),
       bool_count_(0),
       int_count_(0),
+      date_count_(0),
+      timestamp_count_(0),
       float_count_(0),
       string_count_(0) {}
 
@@ -68,6 +72,10 @@ class ScalarVisitor {
       ++float_count_;
     } else if (IsPyInteger(obj)) {
       ++int_count_;
+    } else if (PyDate_CheckExact(obj)) {
+      ++date_count_;
+    } else if (PyDateTime_CheckExact(obj)) {
+      ++timestamp_count_;
     } else if (IsPyBaseString(obj)) {
       ++string_count_;
     } else {
@@ -82,6 +90,10 @@ class ScalarVisitor {
     } else if (int_count_) {
       // TODO(wesm): tighter type later
       return INT64;
+    } else if (date_count_) {
+      return DATE;
+    } else if (timestamp_count_) {
+      return TIMESTAMP_US;
     } else if (bool_count_) {
       return BOOL;
     } else if (string_count_) {
@@ -100,6 +112,8 @@ class ScalarVisitor {
   int64_t none_count_;
   int64_t bool_count_;
   int64_t int_count_;
+  int64_t date_count_;
+  int64_t timestamp_count_;
   int64_t float_count_;
   int64_t string_count_;
 
@@ -297,6 +311,56 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
   }
 };
 
+class DateConverter : public TypedConverter<arrow::DateBuilder> {
+ public:
+  Status AppendData(PyObject* seq) override {
+    Py_ssize_t size = PySequence_Size(seq);
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(seq, i));
+      if (item.obj() == Py_None) {
+        typed_builder_->AppendNull();
+      } else {
+        PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
+        typed_builder_->Append(PyDate_to_ms(pydate));
+      }
+    }
+    return Status::OK();
+  }
+};
+
+class TimestampConverter : public TypedConverter<arrow::TimestampBuilder> {
+ public:
+  Status AppendData(PyObject* seq) override {
+    Py_ssize_t size = PySequence_Size(seq);
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef item(PySequence_GetItem(seq, i));
+      if (item.obj() == Py_None) {
+        typed_builder_->AppendNull();
+      } else {
+        PyDateTime_DateTime* pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
+        struct tm datetime = {0};
+        datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
+        datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
+        datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
+        datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
+        datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
+        datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
+        int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
+        RETURN_IF_PYERROR();
+        struct tm epoch = {0};
+        epoch.tm_year = 70;
+        epoch.tm_mday = 1;
+        // Microseconds since the epoch
+        int64_t val = lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us;
+        typed_builder_->Append(val);
+      }
+    }
+    return Status::OK();
+  }
+};
+
 class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
@@ -379,6 +443,10 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<BoolConverter>();
     case Type::INT64:
       return std::make_shared<Int64Converter>();
+    case Type::DATE:
+      return std::make_shared<DateConverter>();
+    case Type::TIMESTAMP:
+      return std::make_shared<TimestampConverter>();
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
     case Type::STRING:
@@ -409,6 +477,7 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
 Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
+  PyDateTime_IMPORT;
   RETURN_NOT_OK(InferArrowType(obj, &size, &type));
 
   // Handle NA / NullType case
