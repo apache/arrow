@@ -55,6 +55,10 @@ class PARQUET_EXPORT RandomAccessSource {
   int64_t size_;
 };
 
+// ----------------------------------------------------------------------
+// Implementations of RandomAccessSource used for testing and internal CLI tools.
+// May not be sufficiently robust for general production use.
+
 class PARQUET_EXPORT LocalFileSource : public RandomAccessSource {
  public:
   explicit LocalFileSource(MemoryAllocator* allocator = default_allocator())

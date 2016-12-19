@@ -134,7 +134,10 @@ void MemoryMapSource::Close() {
 }
 
 void MemoryMapSource::CloseFile() {
-  if (data_ != nullptr) { munmap(data_, size_); }
+  if (data_ != nullptr) {
+    munmap(data_, size_);
+    data_ = nullptr;
+  }
 
   LocalFileSource::CloseFile();
 }
