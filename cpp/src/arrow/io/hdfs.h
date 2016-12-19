@@ -56,11 +56,14 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
+enum class HdfsDriver : char { LIBHDFS, LIBHDFS3 };
+
 struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;
   std::string kerb_ticket;
+  HdfsDriver driver;
 };
 
 class ARROW_EXPORT HdfsClient : public FileSystemClient {
@@ -218,7 +221,8 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
-Status ARROW_EXPORT ConnectLibHdfs();
+Status ARROW_EXPORT HaveLibHdfs();
+Status ARROW_EXPORT HaveLibHdfs3();
 
 }  // namespace io
 }  // namespace arrow

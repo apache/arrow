@@ -87,13 +87,19 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
 
 
 cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
-    CStatus ConnectLibHdfs()
+    CStatus HaveLibHdfs()
+    CStatus HaveLibHdfs3()
+
+    enum HdfsDriver" arrow::io::HdfsDriver":
+        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
+        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
 
     cdef cppclass HdfsConnectionConfig:
         c_string host
         int port
         c_string user
         c_string kerb_ticket
+        HdfsDriver driver
 
     cdef cppclass HdfsPathInfo:
         ObjectType kind;

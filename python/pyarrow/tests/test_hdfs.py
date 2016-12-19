@@ -19,6 +19,7 @@ from io import BytesIO
 from os.path import join as pjoin
 import os
 import random
+import unittest
 
 import pytest
 
@@ -28,7 +29,7 @@ import pyarrow.io as io
 # HDFS tests
 
 
-def hdfs_test_client():
+def hdfs_test_client(driver='libhdfs'):
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
     user = os.environ['ARROW_HDFS_TEST_USER']
     try:
@@ -37,115 +38,119 @@ def hdfs_test_client():
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return io.HdfsClient.connect(host, port, user)
+    return io.HdfsClient.connect(host, port, user, driver=driver)
 
 
-libhdfs = pytest.mark.skipif(not io.have_libhdfs(),
-                             reason='No libhdfs available on system')
+class HdfsTestCases(object):
+
+    def _make_test_file(self, hdfs, test_name, test_path, test_data):
+        base_path = pjoin(self.tmp_path, test_name)
+        hdfs.mkdir(base_path)
+
+        full_path = pjoin(base_path, test_path)
+
+        with hdfs.open(full_path, 'wb') as f:
+            f.write(test_data)
+
+        return full_path
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check_driver()
+        cls.hdfs = hdfs_test_client(cls.DRIVER)
+        cls.tmp_path = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
+        cls.hdfs.mkdir(cls.tmp_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.hdfs.delete(cls.tmp_path, recursive=True)
+        cls.hdfs.close()
+
+    def test_hdfs_close(self):
+        client = hdfs_test_client()
+        assert client.is_open
+        client.close()
+        assert not client.is_open
+
+        with pytest.raises(Exception):
+            client.ls('/')
+
+    def test_hdfs_mkdir(self):
+        path = pjoin(self.tmp_path, 'test-dir/test-dir')
+        parent_path = pjoin(self.tmp_path, 'test-dir')
+
+        self.hdfs.mkdir(path)
+        assert self.hdfs.exists(path)
+
+        self.hdfs.delete(parent_path, recursive=True)
+        assert not self.hdfs.exists(path)
+
+    def test_hdfs_ls(self):
+        base_path = pjoin(self.tmp_path, 'ls-test')
+        self.hdfs.mkdir(base_path)
+
+        dir_path = pjoin(base_path, 'a-dir')
+        f1_path = pjoin(base_path, 'a-file-1')
+
+        self.hdfs.mkdir(dir_path)
+
+        f = self.hdfs.open(f1_path, 'wb')
+        f.write('a' * 10)
+
+        contents = sorted(self.hdfs.ls(base_path, False))
+        assert contents == [dir_path, f1_path]
+
+    def test_hdfs_download_upload(self):
+        base_path = pjoin(self.tmp_path, 'upload-test')
+
+        data = b'foobarbaz'
+        buf = BytesIO(data)
+        buf.seek(0)
+
+        self.hdfs.upload(base_path, buf)
+
+        out_buf = BytesIO()
+        self.hdfs.download(base_path, out_buf)
+        out_buf.seek(0)
+        assert out_buf.getvalue() == data
+
+    def test_hdfs_file_context_manager(self):
+        path = pjoin(self.tmp_path, 'ctx-manager')
+
+        data = b'foo'
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(data)
+
+        with self.hdfs.open(path, 'rb') as f:
+            assert f.size() == 3
+            result = f.read(10)
+            assert result == data
 
 
-HDFS_TMP_PATH = '/tmp/pyarrow-test-{0}'.format(random.randint(0, 1000))
+class TestLibHdfs(HdfsTestCases, unittest.TestCase):
+
+    DRIVER = 'libhdfs'
+
+    @classmethod
+    def check_driver(cls):
+        if not io.have_libhdfs():
+            pytest.skip('No libhdfs available on system')
+
+    def test_hdfs_orphaned_file(self):
+        hdfs = hdfs_test_client()
+        file_path = self._make_test_file(hdfs, 'orphaned_file_test', 'fname',
+                                         'foobarbaz')
+
+        f = hdfs.open(file_path)
+        hdfs = None
+        f = None  # noqa
 
 
-@pytest.fixture(scope='session')
-def hdfs(request):
-    fixture = hdfs_test_client()
+class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
 
-    def teardown():
-        fixture.delete(HDFS_TMP_PATH, recursive=True)
-        fixture.close()
-    request.addfinalizer(teardown)
-    return fixture
+    DRIVER = 'libhdfs3'
 
-
-@libhdfs
-def test_hdfs_close():
-    client = hdfs_test_client()
-    assert client.is_open
-    client.close()
-    assert not client.is_open
-
-    with pytest.raises(Exception):
-        client.ls('/')
-
-
-@libhdfs
-def test_hdfs_mkdir(hdfs):
-    path = pjoin(HDFS_TMP_PATH, 'test-dir/test-dir')
-    parent_path = pjoin(HDFS_TMP_PATH, 'test-dir')
-
-    hdfs.mkdir(path)
-    assert hdfs.exists(path)
-
-    hdfs.delete(parent_path, recursive=True)
-    assert not hdfs.exists(path)
-
-
-@libhdfs
-def test_hdfs_ls(hdfs):
-    base_path = pjoin(HDFS_TMP_PATH, 'ls-test')
-    hdfs.mkdir(base_path)
-
-    dir_path = pjoin(base_path, 'a-dir')
-    f1_path = pjoin(base_path, 'a-file-1')
-
-    hdfs.mkdir(dir_path)
-
-    f = hdfs.open(f1_path, 'wb')
-    f.write('a' * 10)
-
-    contents = sorted(hdfs.ls(base_path, False))
-    assert contents == [dir_path, f1_path]
-
-
-def _make_test_file(hdfs, test_name, test_path, test_data):
-    base_path = pjoin(HDFS_TMP_PATH, test_name)
-    hdfs.mkdir(base_path)
-
-    full_path = pjoin(base_path, test_path)
-
-    f = hdfs.open(full_path, 'wb')
-    f.write(test_data)
-
-    return full_path
-
-
-@libhdfs
-def test_hdfs_orphaned_file():
-    hdfs = hdfs_test_client()
-    file_path = _make_test_file(hdfs, 'orphaned_file_test', 'fname',
-                                'foobarbaz')
-
-    f = hdfs.open(file_path)
-    hdfs = None
-    f = None  # noqa
-
-
-@libhdfs
-def test_hdfs_download_upload(hdfs):
-    base_path = pjoin(HDFS_TMP_PATH, 'upload-test')
-
-    data = b'foobarbaz'
-    buf = BytesIO(data)
-    buf.seek(0)
-
-    hdfs.upload(base_path, buf)
-
-    out_buf = BytesIO()
-    hdfs.download(base_path, out_buf)
-    out_buf.seek(0)
-    assert out_buf.getvalue() == data
-
-
-@libhdfs
-def test_hdfs_file_context_manager(hdfs):
-    path = pjoin(HDFS_TMP_PATH, 'ctx-manager')
-
-    data = b'foo'
-    with hdfs.open(path, 'wb') as f:
-        f.write(data)
-
-    with hdfs.open(path, 'rb') as f:
-        assert f.size() == 3
-        result = f.read(10)
-        assert result == data
+    @classmethod
+    def check_driver(cls):
+        if not io.have_libhdfs3():
+            pytest.skip('No libhdfs3 available on system')

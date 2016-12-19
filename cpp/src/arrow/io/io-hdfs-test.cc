@@ -24,6 +24,7 @@
 
 #include <boost/filesystem.hpp>  // NOLINT
 
+#include "arrow/io/hdfs-internal.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
@@ -37,6 +38,7 @@ std::vector<uint8_t> RandomData(int64_t size) {
   return buffer;
 }
 
+template <typename DRIVER>
 class TestHdfsClient : public ::testing::Test {
  public:
   Status MakeScratchDir() {
@@ -71,15 +73,34 @@ class TestHdfsClient : public ::testing::Test {
     return ss.str();
   }
 
- protected:
   // Set up shared state between unit tests
-  static void SetUpTestCase() {
-    if (!ConnectLibHdfs().ok()) {
-      std::cout << "Loading libhdfs failed, skipping tests gracefully" << std::endl;
-      return;
+  void SetUp() {
+    LibHdfsShim* driver_shim;
+
+    client_ = nullptr;
+    scratch_dir_ =
+        boost::filesystem::unique_path("/tmp/arrow-hdfs/scratch-%%%%").native();
+
+    loaded_driver_ = false;
+
+    Status msg;
+
+    if (DRIVER::type == HdfsDriver::LIBHDFS) {
+      msg = ConnectLibHdfs(&driver_shim);
+      if (!msg.ok()) {
+        std::cout << "Loading libhdfs failed, skipping tests gracefully" << std::endl;
+        return;
+      }
+    } else {
+      msg = ConnectLibHdfs3(&driver_shim);
+      if (!msg.ok()) {
+        std::cout << "Loading libhdfs3 failed, skipping tests gracefully. "
+                  << msg.ToString() << std::endl;
+        return;
+      }
     }
 
-    loaded_libhdfs_ = true;
+    loaded_driver_ = true;
 
     const char* host = std::getenv("ARROW_HDFS_TEST_HOST");
     const char* port = std::getenv("ARROW_HDFS_TEST_PORT");
@@ -94,151 +115,159 @@ class TestHdfsClient : public ::testing::Test {
     ASSERT_OK(HdfsClient::Connect(&conf_, &client_));
   }
 
-  static void TearDownTestCase() {
+  void TearDown() {
     if (client_) {
-      EXPECT_OK(client_->Delete(scratch_dir_, true));
+      if (client_->Exists(scratch_dir_)) {
+        EXPECT_OK(client_->Delete(scratch_dir_, true));
+      }
       EXPECT_OK(client_->Disconnect());
     }
   }
 
-  static bool loaded_libhdfs_;
+  HdfsConnectionConfig conf_;
+  bool loaded_driver_;
 
   // Resources shared amongst unit tests
-  static HdfsConnectionConfig conf_;
-  static std::string scratch_dir_;
-  static std::shared_ptr<HdfsClient> client_;
+  std::string scratch_dir_;
+  std::shared_ptr<HdfsClient> client_;
 };
 
-bool TestHdfsClient::loaded_libhdfs_ = false;
-HdfsConnectionConfig TestHdfsClient::conf_ = HdfsConnectionConfig();
-
-std::string TestHdfsClient::scratch_dir_ =
-    boost::filesystem::unique_path("/tmp/arrow-hdfs/scratch-%%%%").native();
-
-std::shared_ptr<HdfsClient> TestHdfsClient::client_ = nullptr;
-
-#define SKIP_IF_NO_LIBHDFS()                          \
-  if (!loaded_libhdfs_) {                             \
-    std::cout << "No libhdfs, skipping" << std::endl; \
-    return;                                           \
+#define SKIP_IF_NO_DRIVER()                                  \
+  if (!this->loaded_driver_) {                               \
+    std::cout << "Driver not loaded, skipping" << std::endl; \
+    return;                                                  \
   }
 
-TEST_F(TestHdfsClient, ConnectsAgain) {
-  SKIP_IF_NO_LIBHDFS();
+struct JNIDriver {
+  static HdfsDriver type;
+};
+
+struct PivotalDriver {
+  static HdfsDriver type;
+};
+
+HdfsDriver JNIDriver::type = HdfsDriver::LIBHDFS;
+HdfsDriver PivotalDriver::type = HdfsDriver::LIBHDFS3;
+
+typedef ::testing::Types<JNIDriver, PivotalDriver> DriverTypes;
+TYPED_TEST_CASE(TestHdfsClient, DriverTypes);
+
+TYPED_TEST(TestHdfsClient, ConnectsAgain) {
+  SKIP_IF_NO_DRIVER();
 
   std::shared_ptr<HdfsClient> client;
-  ASSERT_OK(HdfsClient::Connect(&conf_, &client));
+  ASSERT_OK(HdfsClient::Connect(&this->conf_, &client));
   ASSERT_OK(client->Disconnect());
 }
 
-TEST_F(TestHdfsClient, CreateDirectory) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, CreateDirectory) {
+  SKIP_IF_NO_DRIVER();
 
-  std::string path = ScratchPath("create-directory");
+  std::string path = this->ScratchPath("create-directory");
 
-  if (client_->Exists(path)) { ASSERT_OK(client_->Delete(path, true)); }
+  if (this->client_->Exists(path)) { ASSERT_OK(this->client_->Delete(path, true)); }
 
-  ASSERT_OK(client_->CreateDirectory(path));
-  ASSERT_TRUE(client_->Exists(path));
-  EXPECT_OK(client_->Delete(path, true));
-  ASSERT_FALSE(client_->Exists(path));
+  ASSERT_OK(this->client_->CreateDirectory(path));
+  ASSERT_TRUE(this->client_->Exists(path));
+  EXPECT_OK(this->client_->Delete(path, true));
+  ASSERT_FALSE(this->client_->Exists(path));
 }
 
-TEST_F(TestHdfsClient, GetCapacityUsed) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, GetCapacityUsed) {
+  SKIP_IF_NO_DRIVER();
 
   // Who knows what is actually in your DFS cluster, but expect it to have
   // positive used bytes and capacity
   int64_t nbytes = 0;
-  ASSERT_OK(client_->GetCapacity(&nbytes));
+  ASSERT_OK(this->client_->GetCapacity(&nbytes));
   ASSERT_LT(0, nbytes);
 
-  ASSERT_OK(client_->GetUsed(&nbytes));
+  ASSERT_OK(this->client_->GetUsed(&nbytes));
   ASSERT_LT(0, nbytes);
 }
 
-TEST_F(TestHdfsClient, GetPathInfo) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, GetPathInfo) {
+  SKIP_IF_NO_DRIVER();
 
   HdfsPathInfo info;
 
-  ASSERT_OK(MakeScratchDir());
+  ASSERT_OK(this->MakeScratchDir());
 
   // Directory info
-  ASSERT_OK(client_->GetPathInfo(scratch_dir_, &info));
+  ASSERT_OK(this->client_->GetPathInfo(this->scratch_dir_, &info));
   ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
-  ASSERT_EQ(HdfsAbsPath(scratch_dir_), info.name);
-  ASSERT_EQ(conf_.user, info.owner);
+  ASSERT_EQ(this->HdfsAbsPath(this->scratch_dir_), info.name);
+  ASSERT_EQ(this->conf_.user, info.owner);
 
   // TODO(wesm): test group, other attrs
 
-  auto path = ScratchPath("test-file");
+  auto path = this->ScratchPath("test-file");
 
   const int size = 100;
 
   std::vector<uint8_t> buffer = RandomData(size);
 
-  ASSERT_OK(WriteDummyFile(path, buffer.data(), size));
-  ASSERT_OK(client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size));
+  ASSERT_OK(this->client_->GetPathInfo(path, &info));
 
   ASSERT_EQ(ObjectType::FILE, info.kind);
-  ASSERT_EQ(HdfsAbsPath(path), info.name);
-  ASSERT_EQ(conf_.user, info.owner);
+  ASSERT_EQ(this->HdfsAbsPath(path), info.name);
+  ASSERT_EQ(this->conf_.user, info.owner);
   ASSERT_EQ(size, info.size);
 }
 
-TEST_F(TestHdfsClient, AppendToFile) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, AppendToFile) {
+  SKIP_IF_NO_DRIVER();
 
-  ASSERT_OK(MakeScratchDir());
+  ASSERT_OK(this->MakeScratchDir());
 
-  auto path = ScratchPath("test-file");
+  auto path = this->ScratchPath("test-file");
   const int size = 100;
 
   std::vector<uint8_t> buffer = RandomData(size);
-  ASSERT_OK(WriteDummyFile(path, buffer.data(), size));
+  ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size));
 
   // now append
-  ASSERT_OK(WriteDummyFile(path, buffer.data(), size, true));
+  ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size, true));
 
   HdfsPathInfo info;
-  ASSERT_OK(client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->client_->GetPathInfo(path, &info));
   ASSERT_EQ(size * 2, info.size);
 }
 
-TEST_F(TestHdfsClient, ListDirectory) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, ListDirectory) {
+  SKIP_IF_NO_DRIVER();
 
   const int size = 100;
   std::vector<uint8_t> data = RandomData(size);
 
-  auto p1 = ScratchPath("test-file-1");
-  auto p2 = ScratchPath("test-file-2");
-  auto d1 = ScratchPath("test-dir-1");
+  auto p1 = this->ScratchPath("test-file-1");
+  auto p2 = this->ScratchPath("test-file-2");
+  auto d1 = this->ScratchPath("test-dir-1");
 
-  ASSERT_OK(MakeScratchDir());
-  ASSERT_OK(WriteDummyFile(p1, data.data(), size));
-  ASSERT_OK(WriteDummyFile(p2, data.data(), size / 2));
-  ASSERT_OK(client_->CreateDirectory(d1));
+  ASSERT_OK(this->MakeScratchDir());
+  ASSERT_OK(this->WriteDummyFile(p1, data.data(), size));
+  ASSERT_OK(this->WriteDummyFile(p2, data.data(), size / 2));
+  ASSERT_OK(this->client_->CreateDirectory(d1));
 
   std::vector<HdfsPathInfo> listing;
-  ASSERT_OK(client_->ListDirectory(scratch_dir_, &listing));
+  ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));
 
   // Do it again, appends!
-  ASSERT_OK(client_->ListDirectory(scratch_dir_, &listing));
+  ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));
 
   ASSERT_EQ(6, static_cast<int>(listing.size()));
 
   // Argh, well, shouldn't expect the listing to be in any particular order
   for (size_t i = 0; i < listing.size(); ++i) {
     const HdfsPathInfo& info = listing[i];
-    if (info.name == HdfsAbsPath(p1)) {
+    if (info.name == this->HdfsAbsPath(p1)) {
       ASSERT_EQ(ObjectType::FILE, info.kind);
       ASSERT_EQ(size, info.size);
-    } else if (info.name == HdfsAbsPath(p2)) {
+    } else if (info.name == this->HdfsAbsPath(p2)) {
       ASSERT_EQ(ObjectType::FILE, info.kind);
       ASSERT_EQ(size / 2, info.size);
-    } else if (info.name == HdfsAbsPath(d1)) {
+    } else if (info.name == this->HdfsAbsPath(d1)) {
       ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
     } else {
       FAIL() << "Unexpected path: " << info.name;
@@ -246,19 +275,19 @@ TEST_F(TestHdfsClient, ListDirectory) {
   }
 }
 
-TEST_F(TestHdfsClient, ReadableMethods) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, ReadableMethods) {
+  SKIP_IF_NO_DRIVER();
 
-  ASSERT_OK(MakeScratchDir());
+  ASSERT_OK(this->MakeScratchDir());
 
-  auto path = ScratchPath("test-file");
+  auto path = this->ScratchPath("test-file");
   const int size = 100;
 
   std::vector<uint8_t> data = RandomData(size);
-  ASSERT_OK(WriteDummyFile(path, data.data(), size));
+  ASSERT_OK(this->WriteDummyFile(path, data.data(), size));
 
   std::shared_ptr<HdfsReadableFile> file;
-  ASSERT_OK(client_->OpenReadable(path, &file));
+  ASSERT_OK(this->client_->OpenReadable(path, &file));
 
   // Test GetSize -- move this into its own unit test if ever needed
   int64_t file_size;
@@ -293,19 +322,19 @@ TEST_F(TestHdfsClient, ReadableMethods) {
   ASSERT_EQ(60, position);
 }
 
-TEST_F(TestHdfsClient, LargeFile) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, LargeFile) {
+  SKIP_IF_NO_DRIVER();
 
-  ASSERT_OK(MakeScratchDir());
+  ASSERT_OK(this->MakeScratchDir());
 
-  auto path = ScratchPath("test-large-file");
+  auto path = this->ScratchPath("test-large-file");
   const int size = 1000000;
 
   std::vector<uint8_t> data = RandomData(size);
-  ASSERT_OK(WriteDummyFile(path, data.data(), size));
+  ASSERT_OK(this->WriteDummyFile(path, data.data(), size));
 
   std::shared_ptr<HdfsReadableFile> file;
-  ASSERT_OK(client_->OpenReadable(path, &file));
+  ASSERT_OK(this->client_->OpenReadable(path, &file));
 
   auto buffer = std::make_shared<PoolBuffer>();
   ASSERT_OK(buffer->Resize(size));
@@ -317,7 +346,7 @@ TEST_F(TestHdfsClient, LargeFile) {
 
   // explicit buffer size
   std::shared_ptr<HdfsReadableFile> file2;
-  ASSERT_OK(client_->OpenReadable(path, 1 << 18, &file2));
+  ASSERT_OK(this->client_->OpenReadable(path, 1 << 18, &file2));
 
   auto buffer2 = std::make_shared<PoolBuffer>();
   ASSERT_OK(buffer2->Resize(size));
@@ -326,22 +355,22 @@ TEST_F(TestHdfsClient, LargeFile) {
   ASSERT_EQ(size, bytes_read);
 }
 
-TEST_F(TestHdfsClient, RenameFile) {
-  SKIP_IF_NO_LIBHDFS();
+TYPED_TEST(TestHdfsClient, RenameFile) {
+  SKIP_IF_NO_DRIVER();
 
-  ASSERT_OK(MakeScratchDir());
+  ASSERT_OK(this->MakeScratchDir());
 
-  auto src_path = ScratchPath("src-file");
-  auto dst_path = ScratchPath("dst-file");
+  auto src_path = this->ScratchPath("src-file");
+  auto dst_path = this->ScratchPath("dst-file");
   const int size = 100;
 
   std::vector<uint8_t> data = RandomData(size);
-  ASSERT_OK(WriteDummyFile(src_path, data.data(), size));
+  ASSERT_OK(this->WriteDummyFile(src_path, data.data(), size));
 
-  ASSERT_OK(client_->Rename(src_path, dst_path));
+  ASSERT_OK(this->client_->Rename(src_path, dst_path));
 
-  ASSERT_FALSE(client_->Exists(src_path));
-  ASSERT_TRUE(client_->Exists(dst_path));
+  ASSERT_FALSE(this->client_->Exists(src_path));
+  ASSERT_TRUE(this->client_->Exists(dst_path));
 }
 
 }  // namespace io
