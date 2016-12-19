@@ -35,6 +35,7 @@ class TestColumn(unittest.TestCase):
         assert column.length() == 5
         assert len(column) == 5
         assert column.shape == (5,)
+        assert column.to_pylist() == [-10, -5, 0, 5, 10]
 
     def test_pandas(self):
         data = [

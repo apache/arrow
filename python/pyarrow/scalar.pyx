@@ -194,7 +194,9 @@ cdef object box_arrow_scalar(DataType type,
                              const shared_ptr[CArray]& sp_array,
                              int index):
     cdef ArrayValue val
-    if sp_array.get().IsNull(index):
+    if type.type.type == Type_NA:
+        return NA
+    elif sp_array.get().IsNull(index):
         return NA
     else:
         val = _scalar_classes[type.type.type]()
