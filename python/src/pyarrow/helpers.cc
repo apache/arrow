@@ -23,47 +23,33 @@ using namespace arrow;
 
 namespace pyarrow {
 
-const std::shared_ptr<NullType> NA = std::make_shared<NullType>();
-const std::shared_ptr<BooleanType> BOOL = std::make_shared<BooleanType>();
-const std::shared_ptr<UInt8Type> UINT8 = std::make_shared<UInt8Type>();
-const std::shared_ptr<UInt16Type> UINT16 = std::make_shared<UInt16Type>();
-const std::shared_ptr<UInt32Type> UINT32 = std::make_shared<UInt32Type>();
-const std::shared_ptr<UInt64Type> UINT64 = std::make_shared<UInt64Type>();
-const std::shared_ptr<Int8Type> INT8 = std::make_shared<Int8Type>();
-const std::shared_ptr<Int16Type> INT16 = std::make_shared<Int16Type>();
-const std::shared_ptr<Int32Type> INT32 = std::make_shared<Int32Type>();
-const std::shared_ptr<Int64Type> INT64 = std::make_shared<Int64Type>();
-const std::shared_ptr<DateType> DATE = std::make_shared<DateType>();
-const std::shared_ptr<TimestampType> TIMESTAMP_US = std::make_shared<TimestampType>(TimeUnit::MICRO);
-const std::shared_ptr<FloatType> FLOAT = std::make_shared<FloatType>();
-const std::shared_ptr<DoubleType> DOUBLE = std::make_shared<DoubleType>();
-const std::shared_ptr<StringType> STRING = std::make_shared<StringType>();
 
-#define GET_PRIMITIVE_TYPE(NAME, Class)         \
+#define GET_PRIMITIVE_TYPE(NAME, FACTORY)       \
   case Type::NAME:                              \
-    return NAME;                                \
+    return FACTORY();                           \
     break;
 
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   switch (type) {
     case Type::NA:
-      return NA;
-    GET_PRIMITIVE_TYPE(UINT8, UInt8Type);
-    GET_PRIMITIVE_TYPE(INT8, Int8Type);
-    GET_PRIMITIVE_TYPE(UINT16, UInt16Type);
-    GET_PRIMITIVE_TYPE(INT16, Int16Type);
-    GET_PRIMITIVE_TYPE(UINT32, UInt32Type);
-    GET_PRIMITIVE_TYPE(INT32, Int32Type);
-    GET_PRIMITIVE_TYPE(UINT64, UInt64Type);
-    GET_PRIMITIVE_TYPE(INT64, Int64Type);
-    GET_PRIMITIVE_TYPE(DATE, DateType);
+      return null();
+    GET_PRIMITIVE_TYPE(UINT8, uint8);
+    GET_PRIMITIVE_TYPE(INT8, int8);
+    GET_PRIMITIVE_TYPE(UINT16, uint16);
+    GET_PRIMITIVE_TYPE(INT16, int16);
+    GET_PRIMITIVE_TYPE(UINT32, uint32);
+    GET_PRIMITIVE_TYPE(INT32, int32);
+    GET_PRIMITIVE_TYPE(UINT64, uint64);
+    GET_PRIMITIVE_TYPE(INT64, int64);
+    GET_PRIMITIVE_TYPE(DATE, date);
     case Type::TIMESTAMP:
-      return TIMESTAMP_US;
+      return arrow::timestamp(arrow::TimeUnit::MICRO);
       break;
-    GET_PRIMITIVE_TYPE(BOOL, BooleanType);
-    GET_PRIMITIVE_TYPE(FLOAT, FloatType);
-    GET_PRIMITIVE_TYPE(DOUBLE, DoubleType);
-    GET_PRIMITIVE_TYPE(STRING, StringType);
+    GET_PRIMITIVE_TYPE(BOOL, boolean);
+    GET_PRIMITIVE_TYPE(FLOAT, float32);
+    GET_PRIMITIVE_TYPE(DOUBLE, float64);
+    GET_PRIMITIVE_TYPE(BINARY, binary);
+    GET_PRIMITIVE_TYPE(STRING, utf8);
     default:
       return nullptr;
   }

@@ -40,6 +40,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         Type_TIMESTAMP" arrow::Type::TIMESTAMP"
         Type_DATE" arrow::Type::DATE"
+        Type_BINARY" arrow::Type::BINARY"
         Type_STRING" arrow::Type::STRING"
 
         Type_LIST" arrow::Type::LIST"
@@ -161,7 +162,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
-    cdef cppclass CStringArray" arrow::StringArray"(CListArray):
+    cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
+        const uint8_t* GetValue(int i, int32_t* length)
+
+    cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         c_string GetString(int i)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":

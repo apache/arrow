@@ -155,12 +155,12 @@ TYPE_FACTORY(binary, BinaryType);
 TYPE_FACTORY(date, DateType);
 
 std::shared_ptr<DataType> timestamp(TimeUnit unit) {
-  static std::shared_ptr<DataType> result = std::make_shared<TimestampType>();
+  static std::shared_ptr<DataType> result = std::make_shared<TimestampType>(unit);
   return result;
 }
 
 std::shared_ptr<DataType> time(TimeUnit unit) {
-  static std::shared_ptr<DataType> result = std::make_shared<TimeType>();
+  static std::shared_ptr<DataType> result = std::make_shared<TimeType>(unit);
   return result;
 }
 
