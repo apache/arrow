@@ -257,6 +257,17 @@ class build_ext(_build_ext):
 DESC = """\
 Python library for Apache Arrow"""
 
+# In the case of a git-archive, we don't have any version information
+# from the SCM to infer a version. The only source is the java/pom.xml.
+#
+# Note that this is only the case for git-archives. sdist tarballs have
+# all relevant information (but not the Java sources).
+if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
+    import xml.etree.ElementTree as ET
+    tree = ET.parse('../java/pom.xml')
+    version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
+    os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace("-SNAPSHOT", "a0")
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
