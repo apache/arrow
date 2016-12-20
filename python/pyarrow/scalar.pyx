@@ -124,13 +124,10 @@ cdef class UInt64Value(ArrayValue):
 
 
 cdef class DateValue(ArrayValue):
-    # fromtimestamp will convert to local time.
-    # This is the offset we need to add to ensure to have the correct date.
-    _timezone_offset = (datetime.datetime(1970, 1, 1) - datetime.datetime.fromtimestamp(0)).total_seconds()
 
     def as_py(self):
         cdef CDateArray* ap = <CDateArray*> self.sp_array.get()
-        return datetime.date.fromtimestamp(ap.Value(self.index) / 1000 + DateValue._timezone_offset)
+        return datetime.datetime.utcfromtimestamp(ap.Value(self.index) / 1000).date()
 
 
 cdef class TimestampValue(ArrayValue):
