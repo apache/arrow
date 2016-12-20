@@ -42,3 +42,6 @@ cdef class NativeFile:
     # suite of Arrow C++ libraries
     cdef read_handle(self, shared_ptr[ReadableFileInterface]* file)
     cdef write_handle(self, shared_ptr[OutputStream]* file)
+
+cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader)
+cdef get_writer(object source, shared_ptr[OutputStream]* writer)
