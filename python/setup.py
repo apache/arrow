@@ -270,7 +270,7 @@ setup(
         'build_ext': build_ext
     },
     use_scm_version = {"root": "..", "relative_to": __file__},
-    setup_requires=['setuptools_scm', 'setuptools_scm_git_archive'],
+    setup_requires=['setuptools_scm'],
     install_requires=['cython >= 0.23', 'numpy >= 1.9', 'six >= 1.0.0'],
     description=DESC,
     license='Apache License, Version 2.0',
