@@ -127,7 +127,7 @@ cdef class DateValue(ArrayValue):
 
     def as_py(self):
         cdef CDateArray* ap = <CDateArray*> self.sp_array.get()
-        return datetime.date.fromtimestamp(ap.Value(self.index) / 1000)
+        return datetime.datetime.utcfromtimestamp(ap.Value(self.index) / 1000).date()
 
 
 cdef class TimestampValue(ArrayValue):
