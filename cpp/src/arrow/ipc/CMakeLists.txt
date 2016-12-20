@@ -44,7 +44,7 @@ set(ARROW_IPC_SRCS
 add_library(arrow_ipc SHARED
   ${ARROW_IPC_SRCS}
 )
-if(RAPIDJSON_VERDORED)
+if(RAPIDJSON_VENDORED)
   add_dependencies(arrow_ipc rapidjson_ep)
 endif()
 if(FLATBUFFERS_VENDORED)
