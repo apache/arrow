@@ -18,6 +18,7 @@
 #include "parquet/arrow/reader.h"
 
 #include <algorithm>
+#include <chrono>
 #include <queue>
 #include <string>
 #include <vector>
@@ -43,6 +44,15 @@ using ParquetReader = parquet::ParquetFileReader;
 
 namespace parquet {
 namespace arrow {
+
+constexpr int64_t kJulianToUnixEpochDays = 2440588L;
+constexpr int64_t kNanosecondsInADay = 86400L * 1000L * 1000L * 1000L;
+
+static inline int64_t impala_timestamp_to_nanoseconds(const Int96& impala_timestamp) {
+  int64_t days_since_epoch = impala_timestamp.value[2] - kJulianToUnixEpochDays;
+  int64_t nanoseconds = *(reinterpret_cast<const int64_t*>(&(impala_timestamp.value)));
+  return days_since_epoch * kNanosecondsInADay + nanoseconds;
+}
 
 template <typename ArrowType>
 struct ArrowTypeTraits {
@@ -239,6 +249,15 @@ void FlatColumnReader::Impl::ReadNonNullableBatch(
 }
 
 template <>
+void FlatColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96Type>(
+    Int96* values, int64_t values_read) {
+  int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
+  for (int64_t i = 0; i < values_read; i++) {
+    out_ptr[i] = impala_timestamp_to_nanoseconds(values[i]);
+  }
+}
+
+template <>
 void FlatColumnReader::Impl::ReadNonNullableBatch<::arrow::BooleanType, BooleanType>(
     bool* values, int64_t values_read) {
   for (int64_t i = 0; i < values_read; i++) {
@@ -260,6 +279,22 @@ void FlatColumnReader::Impl::ReadNullableFlatBatch(const int16_t* def_levels,
     } else {
       ::arrow::BitUtil::SetBit(valid_bits_ptr_, valid_bits_idx_);
       data_ptr[valid_bits_idx_] = values[values_idx++];
+    }
+    valid_bits_idx_++;
+  }
+}
+
+template <>
+void FlatColumnReader::Impl::ReadNullableFlatBatch<::arrow::TimestampType, Int96Type>(
+    const int16_t* def_levels, Int96* values, int64_t values_read, int64_t levels_read) {
+  auto data_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
+  int values_idx = 0;
+  for (int64_t i = 0; i < levels_read; i++) {
+    if (def_levels[i] < descr_->max_definition_level()) {
+      null_count_++;
+    } else {
+      ::arrow::BitUtil::SetBit(valid_bits_ptr_, valid_bits_idx_);
+      data_ptr[valid_bits_idx_] = impala_timestamp_to_nanoseconds(values[values_idx++]);
     }
     valid_bits_idx_++;
   }
@@ -518,7 +553,21 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
     TYPED_BATCH_CASE(FLOAT, ::arrow::FloatType, FloatType)
     TYPED_BATCH_CASE(DOUBLE, ::arrow::DoubleType, DoubleType)
     TYPED_BATCH_CASE(STRING, ::arrow::StringType, ByteArrayType)
-    TYPED_BATCH_CASE(TIMESTAMP, ::arrow::TimestampType, Int64Type)
+    case ::arrow::Type::TIMESTAMP: {
+      ::arrow::TimestampType* timestamp_type =
+          static_cast<::arrow::TimestampType*>(field_->type.get());
+      switch (timestamp_type->unit) {
+        case ::arrow::TimeUnit::MILLI:
+          return TypedReadBatch<::arrow::TimestampType, Int64Type>(batch_size, out);
+          break;
+        case ::arrow::TimeUnit::NANO:
+          return TypedReadBatch<::arrow::TimestampType, Int96Type>(batch_size, out);
+          break;
+        default:
+          return Status::NotImplemented("TimeUnit not supported");
+      }
+      break;
+    }
     default:
       return Status::NotImplemented(field_->type->ToString());
   }

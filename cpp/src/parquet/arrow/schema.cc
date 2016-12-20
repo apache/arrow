@@ -58,6 +58,8 @@ const auto DOUBLE = std::make_shared<::arrow::DoubleType>();
 const auto UTF8 = std::make_shared<::arrow::StringType>();
 const auto TIMESTAMP_MS =
     std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::MILLI);
+const auto TIMESTAMP_NS =
+    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::NANO);
 const auto BINARY =
     std::make_shared<::arrow::ListType>(std::make_shared<::arrow::Field>("", UINT8));
 
@@ -162,9 +164,8 @@ Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
       RETURN_NOT_OK(FromInt64(primitive, out));
       break;
     case ParquetType::INT96:
-      // TODO: Do we have that type in Arrow?
-      // type = TypePtr(new Int96Type());
-      return Status::NotImplemented("int96");
+      *out = TIMESTAMP_NS;
+      break;
     case ParquetType::FLOAT:
       *out = FLOAT;
       break;

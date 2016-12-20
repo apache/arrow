@@ -47,6 +47,8 @@ const auto DOUBLE = std::make_shared<::arrow::DoubleType>();
 const auto UTF8 = std::make_shared<::arrow::StringType>();
 const auto TIMESTAMP_MS =
     std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::MILLI);
+const auto TIMESTAMP_NS =
+    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::NANO);
 // TODO: This requires parquet-cpp implementing the MICROS enum value
 // const auto TIMESTAMP_US = std::make_shared<TimestampType>(TimestampType::Unit::MICRO);
 const auto BINARY =
@@ -98,9 +100,9 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
       ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_MS, false));
 
-  // parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
-  //     ParquetType::INT64, LogicalType::TIMESTAMP_MICROS));
-  // arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_US, false));
+  parquet_fields.push_back(
+      PrimitiveNode::Make("timestamp96", Repetition::REQUIRED, ParquetType::INT96));
+  arrow_fields.push_back(std::make_shared<Field>("timestamp96", TIMESTAMP_NS, false));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("float", Repetition::OPTIONAL, ParquetType::FLOAT));
@@ -338,9 +340,6 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
 
 TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   std::vector<NodePtr> unsupported_nodes;
-
-  unsupported_nodes.push_back(
-      PrimitiveNode::Make("int96", Repetition::REQUIRED, ParquetType::INT96));
 
   unsupported_nodes.push_back(PrimitiveNode::Make(
       "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));

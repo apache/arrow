@@ -391,6 +391,58 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
   this->ReadAndCheckSingleColumnTable(values);
 }
 
+using TestInt96ParquetIO = TestParquetIO<::arrow::TimestampType>;
+
+TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
+  // This test explicitly tests the conversion from an Impala-style timestamp
+  // to a nanoseconds-since-epoch one.
+
+  // 2nd January 1970, 11:35min 145738543ns
+  Int96 day;
+  day.value[2] = 2440589l;
+  int64_t seconds = ((1 * 24 + 11) * 60 + 35) * 60;
+  *(reinterpret_cast<int64_t*>(&(day.value))) =
+      seconds * 1000l * 1000l * 1000l + 145738543;
+  // Compute the corresponding nanosecond timestamp
+  struct tm datetime = {0};
+  datetime.tm_year = 70;
+  datetime.tm_mon = 0;
+  datetime.tm_mday = 2;
+  datetime.tm_hour = 11;
+  datetime.tm_min = 35;
+  struct tm epoch = {0};
+  epoch.tm_year = 70;
+  epoch.tm_mday = 1;
+  // Nanoseconds since the epoch
+  int64_t val = lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000000;
+  val += 145738543;
+
+  std::vector<std::shared_ptr<schema::Node>> fields(
+      {schema::PrimitiveNode::Make("int96", Repetition::REQUIRED, ParquetType::INT96)});
+  std::shared_ptr<schema::GroupNode> schema = std::static_pointer_cast<GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // We cannot write this column with Arrow, so we have to use the plain parquet-cpp API
+  // to write an Int96 file.
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  auto writer = ParquetFileWriter::Open(this->sink_, schema);
+  RowGroupWriter* rg_writer = writer->AppendRowGroup(1);
+  ColumnWriter* c_writer = rg_writer->NextColumn();
+  auto typed_writer = dynamic_cast<TypedColumnWriter<Int96Type>*>(c_writer);
+  ASSERT_NE(typed_writer, nullptr);
+  typed_writer->WriteBatch(1, nullptr, nullptr, &day);
+  c_writer->Close();
+  rg_writer->Close();
+  writer->Close();
+
+  ::arrow::TimestampBuilder builder(
+      default_memory_pool(), ::arrow::timestamp(::arrow::TimeUnit::NANO));
+  builder.Append(val);
+  std::shared_ptr<Array> values;
+  ASSERT_OK(builder.Finish(&values));
+  this->ReadAndCheckSingleColumnFile(values.get());
+}
+
 using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
 TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
