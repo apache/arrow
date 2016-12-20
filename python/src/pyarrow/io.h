@@ -24,7 +24,9 @@
 #include "pyarrow/config.h"
 #include "pyarrow/visibility.h"
 
-namespace arrow { class MemoryPool; }
+namespace arrow {
+class MemoryPool;
+}
 
 namespace pyarrow {
 
@@ -92,6 +94,6 @@ class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
 
 // TODO(wesm): seekable output files
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
 #endif  // PYARROW_IO_H

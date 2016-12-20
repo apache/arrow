@@ -24,7 +24,7 @@
 #include "pyarrow/visibility.h"
 
 #if PY_MAJOR_VERSION >= 3
-  #define PyString_Check PyUnicode_Check
+#define PyString_Check PyUnicode_Check
 #endif
 
 namespace pyarrow {
@@ -38,6 +38,6 @@ void pyarrow_init();
 PYARROW_EXPORT
 void pyarrow_set_numpy_nan(PyObject* obj);
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_CONFIG_H
+#endif  // PYARROW_CONFIG_H

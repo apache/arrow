@@ -33,8 +33,7 @@ namespace pyarrow {
 // ----------------------------------------------------------------------
 // Python file
 
-PythonFile::PythonFile(PyObject* file)
-    : file_(file) {
+PythonFile::PythonFile(PyObject* file) : file_(file) {
   Py_INCREF(file_);
 }
 
@@ -81,8 +80,8 @@ Status PythonFile::Read(int64_t nbytes, PyObject** out) {
 }
 
 Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
-  PyObject* py_data = PyBytes_FromStringAndSize(
-      reinterpret_cast<const char*>(data), nbytes);
+  PyObject* py_data =
+      PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
   ARROW_RETURN_NOT_OK(CheckPyError());
 
   PyObject* result = PyObject_CallMethod(file_, "write", "(O)", py_data);
@@ -102,7 +101,7 @@ Status PythonFile::Tell(int64_t* position) {
   // PyLong_AsLongLong can raise OverflowError
   ARROW_RETURN_NOT_OK(CheckPyError());
 
- return Status::OK();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -156,7 +155,8 @@ Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out)
 Status PyReadableFile::GetSize(int64_t* size) {
   PyGILGuard lock;
 
-  int64_t current_position;;
+  int64_t current_position;
+  ;
   ARROW_RETURN_NOT_OK(file_->Tell(&current_position));
 
   ARROW_RETURN_NOT_OK(file_->Seek(0, 2));
@@ -204,7 +204,7 @@ Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 
 PyBytesReader::PyBytesReader(PyObject* obj)
     : arrow::io::BufferReader(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
-        PyBytes_GET_SIZE(obj)),
+          PyBytes_GET_SIZE(obj)),
       obj_(obj) {
   Py_INCREF(obj_);
 }

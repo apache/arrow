@@ -22,8 +22,8 @@
 #include <datetime.h>
 
 namespace pyarrow {
-  
-inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) { 
+
+inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   struct tm date = {0};
   date.tm_year = PyDateTime_GET_YEAR(pydate) - 1900;
   date.tm_mon = PyDateTime_GET_MONTH(pydate) - 1;
@@ -35,6 +35,6 @@ inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   return lrint(difftime(mktime(&date), mktime(&epoch)) * 1000);
 }
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_UTIL_DATETIME_H
+#endif  // PYARROW_UTIL_DATETIME_H

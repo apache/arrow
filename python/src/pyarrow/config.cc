@@ -21,8 +21,7 @@
 
 namespace pyarrow {
 
-void pyarrow_init() {
-}
+void pyarrow_init() {}
 
 PyObject* numpy_nan = nullptr;
 
@@ -31,4 +30,4 @@ void pyarrow_set_numpy_nan(PyObject* obj) {
   numpy_nan = obj;
 }
 
-} // namespace pyarrow
+}  // namespace pyarrow

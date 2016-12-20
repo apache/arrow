@@ -33,27 +33,42 @@ class Array;
 class Column;
 class MemoryPool;
 class Status;
+class Table;
 
-} // namespace arrow
+}  // namespace arrow
 
 namespace pyarrow {
 
 PYARROW_EXPORT
-arrow::Status ConvertArrayToPandas(const std::shared_ptr<arrow::Array>& arr,
-    PyObject* py_ref, PyObject** out);
+arrow::Status ConvertArrayToPandas(
+    const std::shared_ptr<arrow::Array>& arr, PyObject* py_ref, PyObject** out);
 
 PYARROW_EXPORT
-arrow::Status ConvertColumnToPandas(const std::shared_ptr<arrow::Column>& col,
-    PyObject* py_ref, PyObject** out);
+arrow::Status ConvertColumnToPandas(
+    const std::shared_ptr<arrow::Column>& col, PyObject* py_ref, PyObject** out);
+
+struct PandasOptions {
+  bool strings_to_categorical;
+};
+
+// Convert a whole table as efficiently as possible to a pandas.DataFrame.
+//
+// The returned Python object is a list of tuples consisting of the exact 2D
+// BlockManager structure of the pandas.DataFrame used as of pandas 0.19.x.
+//
+// tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
+PYARROW_EXPORT
+arrow::Status ConvertTableToPandas(
+    const std::shared_ptr<arrow::Table>& table, int nthreads, PyObject** out);
 
 PYARROW_EXPORT
 arrow::Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     std::shared_ptr<arrow::Array>* out);
 
 PYARROW_EXPORT
-arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
-    std::shared_ptr<arrow::Array>* out);
+arrow::Status PandasToArrow(
+    arrow::MemoryPool* pool, PyObject* ao, std::shared_ptr<arrow::Array>* out);
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_ADAPTERS_PANDAS_H
+#endif  // PYARROW_ADAPTERS_PANDAS_H
