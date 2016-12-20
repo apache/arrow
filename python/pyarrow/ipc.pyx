@@ -27,7 +27,7 @@ from pyarrow.includes.libarrow_ipc cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.error cimport check_status
-from pyarrow.io cimport NativeFile
+from pyarrow.io cimport NativeFile, get_reader, get_writer
 from pyarrow.schema cimport Schema
 from pyarrow.table cimport RecordBatch
 
@@ -35,47 +35,6 @@ from pyarrow.compat import frombytes, tobytes
 import pyarrow.io as io
 
 cimport cpython as cp
-
-
-cdef get_reader(source, shared_ptr[ReadableFileInterface]* reader):
-    cdef NativeFile nf
-
-    if isinstance(source, bytes):
-        source = io.BytesReader(source)
-    elif not isinstance(source, io.NativeFile) and hasattr(source, 'read'):
-        # Optimistically hope this is file-like
-        source = io.PythonFileInterface(source, mode='r')
-
-    if isinstance(source, NativeFile):
-        nf = source
-
-        # TODO: what about read-write sources (e.g. memory maps)
-        if not nf.is_readonly:
-            raise IOError('Native file is not readable')
-
-        nf.read_handle(reader)
-    else:
-        raise TypeError('Unable to read from object of type: {0}'
-                        .format(type(source)))
-
-
-cdef get_writer(source, shared_ptr[OutputStream]* writer):
-    cdef NativeFile nf
-
-    if not isinstance(source, io.NativeFile) and hasattr(source, 'write'):
-        # Optimistically hope this is file-like
-        source = io.PythonFileInterface(source, mode='w')
-
-    if isinstance(source, io.NativeFile):
-        nf = source
-
-        if nf.is_readonly:
-            raise IOError('Native file is not writeable')
-
-        nf.write_handle(writer)
-    else:
-        raise TypeError('Unable to read from object of type: {0}'
-                        .format(type(source)))
 
 
 cdef class ArrowFileWriter:

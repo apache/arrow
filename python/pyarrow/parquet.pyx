@@ -31,7 +31,7 @@ from pyarrow.error cimport check_status
 from pyarrow.io import NativeFile
 from pyarrow.table cimport Table
 
-from pyarrow.io cimport NativeFile
+from pyarrow.io cimport NativeFile, get_reader, get_writer
 
 import six
 
@@ -49,22 +49,27 @@ cdef class ParquetReader:
     def __cinit__(self):
         self.allocator.set_pool(default_memory_pool())
 
-    cdef open_local_file(self, file_path):
-        cdef c_string path = tobytes(file_path)
+    def open(self, source):
+        self._open(source)
 
-        # Must be in one expression to avoid calling std::move which is not
-        # possible in Cython (due to missing rvalue support)
+    cdef _open(self, object source):
+        cdef:
+            shared_ptr[ReadableFileInterface] rd_handle
+            c_string path
 
-        # TODO(wesm): ParquetFileReader::OpenFIle can throw?
-        self.reader = unique_ptr[FileReader](
-            new FileReader(default_memory_pool(),
-                           ParquetFileReader.OpenFile(path)))
+        if isinstance(source, six.string_types):
+            path = tobytes(source)
 
-    cdef open_native_file(self, NativeFile file):
-        cdef shared_ptr[ReadableFileInterface] cpp_handle
-        file.read_handle(&cpp_handle)
+            # Must be in one expression to avoid calling std::move which is not
+            # possible in Cython (due to missing rvalue support)
 
-        check_status(OpenFile(cpp_handle, &self.allocator, &self.reader))
+            # TODO(wesm): ParquetFileReader::OpenFile can throw?
+            self.reader = unique_ptr[FileReader](
+                new FileReader(default_memory_pool(),
+                               ParquetFileReader.OpenFile(path)))
+        else:
+            get_reader(source, &rd_handle)
+            check_status(OpenFile(rd_handle, &self.allocator, &self.reader))
 
     def read_all(self):
         cdef:
@@ -137,11 +142,7 @@ def read_table(source, columns=None):
         Content of the file as a table (of columns)
     """
     cdef ParquetReader reader = ParquetReader()
-
-    if isinstance(source, six.string_types):
-        reader.open_local_file(source)
-    elif isinstance(source, NativeFile):
-        reader.open_native_file(source)
+    reader._open(source)
 
     if columns is None:
         return reader.read_all()
@@ -174,7 +175,10 @@ def write_table(table, sink, chunk_size=None, version=None,
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
     cdef shared_ptr[ParquetWriteSink] sink_
+
     cdef shared_ptr[FileOutputStream] filesink_
+    cdef shared_ptr[OutputStream] general_sink
+
     cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
     if chunk_size is None:
@@ -232,10 +236,11 @@ def write_table(table, sink, chunk_size=None, version=None,
                 raise ArrowException("Unsupport compression codec")
 
     if isinstance(sink, six.string_types):
-       check_status(FileOutputStream.Open(tobytes(sink), &filesink_))
-       sink_.reset(new ParquetWriteSink(<shared_ptr[OutputStream]>filesink_))
-    elif isinstance(sink, NativeFile):
-        sink_.reset(new ParquetWriteSink((<NativeFile>sink).wr_file))
+        check_status(FileOutputStream.Open(tobytes(sink), &filesink_))
+        sink_.reset(new ParquetWriteSink(<shared_ptr[OutputStream]>filesink_))
+    else:
+        get_writer(sink, &general_sink)
+        sink_.reset(new ParquetWriteSink(general_sink))
 
     with nogil:
         check_status(WriteFlatTable(ctable_, default_memory_pool(), sink_,

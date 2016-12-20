@@ -256,6 +256,46 @@ def buffer_from_bytes(object obj):
     result.init(buf)
     return result
 
+cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
+    cdef NativeFile nf
+
+    if isinstance(source, bytes):
+        source = BytesReader(source)
+    elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
+        # Optimistically hope this is file-like
+        source = PythonFileInterface(source, mode='r')
+
+    if isinstance(source, NativeFile):
+        nf = source
+
+        # TODO: what about read-write sources (e.g. memory maps)
+        if not nf.is_readonly:
+            raise IOError('Native file is not readable')
+
+        nf.read_handle(reader)
+    else:
+        raise TypeError('Unable to read from object of type: {0}'
+                        .format(type(source)))
+
+
+cdef get_writer(object source, shared_ptr[OutputStream]* writer):
+    cdef NativeFile nf
+
+    if not isinstance(source, NativeFile) and hasattr(source, 'write'):
+        # Optimistically hope this is file-like
+        source = PythonFileInterface(source, mode='w')
+
+    if isinstance(source, NativeFile):
+        nf = source
+
+        if nf.is_readonly:
+            raise IOError('Native file is not writeable')
+
+        nf.write_handle(writer)
+    else:
+        raise TypeError('Unable to read from object of type: {0}'
+                        .format(type(source)))
+
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 

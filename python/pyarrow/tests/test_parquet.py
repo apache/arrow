@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import io
 import pytest
 
 import pyarrow as A
@@ -132,9 +133,8 @@ def test_pandas_column_selection(tmpdir):
 
     pdt.assert_frame_equal(df[['uint8']], df_read)
 
-@parquet
-def test_pandas_parquet_native_file_roundtrip(tmpdir):
-    size = 10000
+
+def _test_dataframe(size=10000):
     np.random.seed(0)
     df = pd.DataFrame({
         'uint8': np.arange(size, dtype=np.uint8),
@@ -149,12 +149,42 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0
     })
+    return df
+
+
+@parquet
+def test_pandas_parquet_native_file_roundtrip(tmpdir):
+    df = _test_dataframe(10000)
     arrow_table = A.from_pandas_dataframe(df)
     imos = paio.InMemoryOutputStream()
     pq.write_table(arrow_table, imos, version="2.0")
     buf = imos.get_result()
     reader = paio.BufferReader(buf)
     df_read = pq.read_table(reader).to_pandas()
+    pdt.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_pandas_parquet_pyfile_roundtrip(tmpdir):
+    filename = tmpdir.join('pandas_pyfile_roundtrip.parquet').strpath
+    size = 5
+    df = pd.DataFrame({
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0,
+        'strings': ['foo', 'bar', None, 'baz', 'qux']
+    })
+
+    arrow_table = A.from_pandas_dataframe(df)
+
+    with open(filename, 'wb') as f:
+        A.parquet.write_table(arrow_table, f, version="1.0")
+
+    data = io.BytesIO(open(filename, 'rb').read())
+
+    table_read = pq.read_table(data)
+    df_read = table_read.to_pandas()
     pdt.assert_frame_equal(df, df_read)
 
 
