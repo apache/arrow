@@ -167,7 +167,15 @@ struct test_traits<::arrow::StringType> {
   static std::string const value;
 };
 
+template <>
+struct test_traits<::arrow::BinaryType> {
+  static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
+  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
+  static std::string const value;
+};
+
 const std::string test_traits<::arrow::StringType>::value("Test");
+const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");
 
 template <typename T>
 using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
@@ -247,7 +255,7 @@ class TestParquetIO : public ::testing::Test {
   std::shared_ptr<InMemoryOutputStream> sink_;
 };
 
-// We habe separate tests for UInt32Type as this is currently the only type
+// We have separate tests for UInt32Type as this is currently the only type
 // where a roundtrip does not yield the identical Array structure.
 // There we write an UInt32 Array but receive an Int64 Array as result for
 // Parquet version 1.0.
@@ -255,7 +263,7 @@ class TestParquetIO : public ::testing::Test {
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
     ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type,
     ::arrow::Int64Type, ::arrow::TimestampType, ::arrow::FloatType, ::arrow::DoubleType,
-    ::arrow::StringType>
+    ::arrow::StringType, ::arrow::BinaryType>
     TestTypes;
 
 TYPED_TEST_CASE(TestParquetIO, TestTypes);
@@ -504,8 +512,7 @@ using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
 TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<Array> values;
-  ::arrow::StringBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::StringType>());
+  ::arrow::StringBuilder builder(::arrow::default_memory_pool(), ::arrow::utf8());
   for (size_t i = 0; i < SMALL_SIZE; i++) {
     builder.Append("");
   }

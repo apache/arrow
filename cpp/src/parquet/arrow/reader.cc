@@ -28,6 +28,7 @@
 #include "parquet/arrow/utils.h"
 
 #include "arrow/api.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 
 using arrow::Array;
@@ -90,8 +91,12 @@ class FlatColumnReader::Impl {
   virtual ~Impl() {}
 
   Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
+
   template <typename ArrowType, typename ParquetType>
   Status TypedReadBatch(int batch_size, std::shared_ptr<Array>* out);
+
+  template <typename ArrowType>
+  Status ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>* out);
 
   template <typename ArrowType>
   Status InitDataBuffer(int batch_size);
@@ -486,11 +491,13 @@ Status FlatColumnReader::Impl::TypedReadBatch<::arrow::BooleanType, BooleanType>
   }
 }
 
-template <>
-Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType>(
+template <typename ArrowType>
+Status FlatColumnReader::Impl::ReadByteArrayBatch(
     int batch_size, std::shared_ptr<Array>* out) {
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
+
   int values_to_read = batch_size;
-  ::arrow::StringBuilder builder(pool_, field_->type);
+  BuilderType builder(pool_, field_->type);
   while ((values_to_read > 0) && column_reader_) {
     values_buffer_.Resize(values_to_read * sizeof(ByteArray));
     if (descr_->max_definition_level() > 0) {
@@ -528,6 +535,18 @@ Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType
   return builder.Finish(out);
 }
 
+template <>
+Status FlatColumnReader::Impl::TypedReadBatch<::arrow::BinaryType, ByteArrayType>(
+    int batch_size, std::shared_ptr<Array>* out) {
+  return ReadByteArrayBatch<::arrow::BinaryType>(batch_size, out);
+}
+
+template <>
+Status FlatColumnReader::Impl::TypedReadBatch<::arrow::StringType, ByteArrayType>(
+    int batch_size, std::shared_ptr<Array>* out) {
+  return ReadByteArrayBatch<::arrow::StringType>(batch_size, out);
+}
+
 #define TYPED_BATCH_CASE(ENUM, ArrowType, ParquetType)              \
   case ::arrow::Type::ENUM:                                         \
     return TypedReadBatch<ArrowType, ParquetType>(batch_size, out); \
@@ -553,6 +572,7 @@ Status FlatColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>*
     TYPED_BATCH_CASE(FLOAT, ::arrow::FloatType, FloatType)
     TYPED_BATCH_CASE(DOUBLE, ::arrow::DoubleType, DoubleType)
     TYPED_BATCH_CASE(STRING, ::arrow::StringType, ByteArrayType)
+    TYPED_BATCH_CASE(BINARY, ::arrow::BinaryType, ByteArrayType)
     case ::arrow::Type::TIMESTAMP: {
       ::arrow::TimestampType* timestamp_type =
           static_cast<::arrow::TimestampType*>(field_->type.get());

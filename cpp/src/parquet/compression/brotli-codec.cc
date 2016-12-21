@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <cstdlib>
 #include <brotli/decode.h>
 #include <brotli/encode.h>
+#include <cstdint>
+#include <cstdlib>
 
 #include "parquet/compression/codec.h"
 #include "parquet/exception.h"

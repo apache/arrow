@@ -37,6 +37,9 @@ template <typename ArrowType>
 using is_arrow_string = std::is_same<ArrowType, ::arrow::StringType>;
 
 template <typename ArrowType>
+using is_arrow_binary = std::is_same<ArrowType, ::arrow::BinaryType>;
+
+template <typename ArrowType>
 using is_arrow_bool = std::is_same<ArrowType, ::arrow::BooleanType>;
 
 template <class ArrowType>
@@ -62,10 +65,11 @@ typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NonNullArr
 }
 
 template <class ArrowType>
-typename std::enable_if<is_arrow_string<ArrowType>::value, Status>::type NonNullArray(
-    size_t size, std::shared_ptr<Array>* out) {
-  ::arrow::StringBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::StringType>());
+typename std::enable_if<
+    is_arrow_string<ArrowType>::value || is_arrow_binary<ArrowType>::value, Status>::type
+NonNullArray(size_t size, std::shared_ptr<Array>* out) {
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
+  BuilderType builder(::arrow::default_memory_pool(), std::make_shared<ArrowType>());
   for (size_t i = 0; i < size; i++) {
     builder.Append("test-string");
   }
@@ -121,16 +125,17 @@ typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NullableAr
 
 // This helper function only supports (size/2) nulls yet.
 template <typename ArrowType>
-typename std::enable_if<is_arrow_string<ArrowType>::value, Status>::type NullableArray(
-    size_t size, size_t num_nulls, std::shared_ptr<::arrow::Array>* out) {
+typename std::enable_if<
+    is_arrow_string<ArrowType>::value || is_arrow_binary<ArrowType>::value, Status>::type
+NullableArray(size_t size, size_t num_nulls, std::shared_ptr<::arrow::Array>* out) {
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
     valid_bytes[i * 2] = 0;
   }
 
-  ::arrow::StringBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::StringType>());
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
+  BuilderType builder(::arrow::default_memory_pool(), std::make_shared<ArrowType>());
   for (size_t i = 0; i < size; i++) {
     builder.Append("test-string");
   }

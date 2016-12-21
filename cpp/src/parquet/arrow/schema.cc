@@ -44,24 +44,8 @@ namespace parquet {
 
 namespace arrow {
 
-const auto BOOL = std::make_shared<::arrow::BooleanType>();
-const auto UINT8 = std::make_shared<::arrow::UInt8Type>();
-const auto INT8 = std::make_shared<::arrow::Int8Type>();
-const auto UINT16 = std::make_shared<::arrow::UInt16Type>();
-const auto INT16 = std::make_shared<::arrow::Int16Type>();
-const auto UINT32 = std::make_shared<::arrow::UInt32Type>();
-const auto INT32 = std::make_shared<::arrow::Int32Type>();
-const auto UINT64 = std::make_shared<::arrow::UInt64Type>();
-const auto INT64 = std::make_shared<::arrow::Int64Type>();
-const auto FLOAT = std::make_shared<::arrow::FloatType>();
-const auto DOUBLE = std::make_shared<::arrow::DoubleType>();
-const auto UTF8 = std::make_shared<::arrow::StringType>();
-const auto TIMESTAMP_MS =
-    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::MILLI);
-const auto TIMESTAMP_NS =
-    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::NANO);
-const auto BINARY =
-    std::make_shared<::arrow::ListType>(std::make_shared<::arrow::Field>("", UINT8));
+const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
+const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
 
 TypePtr MakeDecimalType(const PrimitiveNode* node) {
   int precision = node->decimal_metadata().precision;
@@ -72,14 +56,14 @@ TypePtr MakeDecimalType(const PrimitiveNode* node) {
 static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::UTF8:
-      *out = UTF8;
+      *out = ::arrow::utf8();
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
       break;
     default:
       // BINARY
-      *out = BINARY;
+      *out = ::arrow::binary();
       break;
   }
   return Status::OK();
@@ -88,7 +72,7 @@ static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
 static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
-      *out = BINARY;
+      *out = ::arrow::binary();
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -104,22 +88,22 @@ static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
 static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
-      *out = INT32;
+      *out = ::arrow::int32();
       break;
     case LogicalType::UINT_8:
-      *out = UINT8;
+      *out = ::arrow::uint8();
       break;
     case LogicalType::INT_8:
-      *out = INT8;
+      *out = ::arrow::int8();
       break;
     case LogicalType::UINT_16:
-      *out = UINT16;
+      *out = ::arrow::uint16();
       break;
     case LogicalType::INT_16:
-      *out = INT16;
+      *out = ::arrow::int16();
       break;
     case LogicalType::UINT_32:
-      *out = UINT32;
+      *out = ::arrow::uint32();
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -134,10 +118,10 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
 static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
-      *out = INT64;
+      *out = ::arrow::int64();
       break;
     case LogicalType::UINT_64:
-      *out = UINT64;
+      *out = ::arrow::uint64();
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -155,7 +139,7 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
 Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
   switch (primitive->physical_type()) {
     case ParquetType::BOOLEAN:
-      *out = BOOL;
+      *out = ::arrow::boolean();
       break;
     case ParquetType::INT32:
       RETURN_NOT_OK(FromInt32(primitive, out));
@@ -167,13 +151,12 @@ Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
       *out = TIMESTAMP_NS;
       break;
     case ParquetType::FLOAT:
-      *out = FLOAT;
+      *out = ::arrow::float32();
       break;
     case ParquetType::DOUBLE:
-      *out = DOUBLE;
+      *out = ::arrow::float64();
       break;
     case ParquetType::BYTE_ARRAY:
-      // TODO: Do we have that type in Arrow?
       RETURN_NOT_OK(FromByteArray(primitive, out));
       break;
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
@@ -211,13 +194,13 @@ Status NodeToList(const GroupNode* group, TypePtr* out) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
         RETURN_NOT_OK(NodeToField(list_group->field(0), &item_field));
-        *out = std::make_shared<::arrow::ListType>(item_field);
+        *out = ::arrow::list(item_field);
       } else {
         // List of struct
         std::shared_ptr<::arrow::DataType> inner_type;
         RETURN_NOT_OK(StructFromGroup(list_group, &inner_type));
         auto item_field = std::make_shared<Field>(list_node->name(), inner_type, false);
-        *out = std::make_shared<::arrow::ListType>(item_field);
+        *out = ::arrow::list(item_field);
       }
     } else if (list_node->is_repeated()) {
       // repeated primitive node
@@ -225,7 +208,7 @@ Status NodeToList(const GroupNode* group, TypePtr* out) {
       const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(list_node.get());
       RETURN_NOT_OK(FromPrimitive(primitive, &inner_type));
       auto item_field = std::make_shared<Field>(list_node->name(), inner_type, false);
-      *out = std::make_shared<::arrow::ListType>(item_field);
+      *out = ::arrow::list(item_field);
     } else {
       return Status::NotImplemented(
           "Non-repeated groups in a LIST-annotated group are not supported.");
@@ -247,7 +230,7 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
     const PrimitiveNode* primitive = static_cast<const PrimitiveNode*>(node.get());
     RETURN_NOT_OK(FromPrimitive(primitive, &inner_type));
     auto item_field = std::make_shared<Field>(node->name(), inner_type, false);
-    type = std::make_shared<::arrow::ListType>(item_field);
+    type = ::arrow::list(item_field);
     nullable = false;
   } else if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
@@ -423,5 +406,4 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
 }
 
 }  // namespace arrow
-
 }  // namespace parquet

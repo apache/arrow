@@ -28,11 +28,11 @@
 
 #include "arrow/api.h"
 
+using arrow::BinaryArray;
 using arrow::MemoryPool;
 using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
 using arrow::Status;
-using arrow::StringArray;
 using arrow::Table;
 
 using parquet::ParquetFileWriter;
@@ -82,7 +82,7 @@ class FileWriter::Impl {
   }
 
   Status WriteFlatColumnChunk(const PrimitiveArray* data, int64_t offset, int64_t length);
-  Status WriteFlatColumnChunk(const StringArray* data, int64_t offset, int64_t length);
+  Status WriteFlatColumnChunk(const BinaryArray* data, int64_t offset, int64_t length);
   Status Close();
 
   virtual ~Impl() {}
@@ -253,7 +253,7 @@ Status FileWriter::Impl::WriteFlatColumnChunk(
 }
 
 Status FileWriter::Impl::WriteFlatColumnChunk(
-    const StringArray* data, int64_t offset, int64_t length) {
+    const BinaryArray* data, int64_t offset, int64_t length) {
   ColumnWriter* column_writer;
   PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
   DCHECK((offset + length) <= data->length());
@@ -312,10 +312,11 @@ Status FileWriter::WriteFlatColumnChunk(
     const ::arrow::Array* array, int64_t offset, int64_t length) {
   int64_t real_length = length;
   if (length == -1) { real_length = array->length(); }
-  if (array->type_enum() == ::arrow::Type::STRING) {
-    auto string_array = dynamic_cast<const ::arrow::StringArray*>(array);
-    DCHECK(string_array);
-    return impl_->WriteFlatColumnChunk(string_array, offset, real_length);
+  if (array->type_enum() == ::arrow::Type::STRING ||
+      array->type_enum() == ::arrow::Type::BINARY) {
+    auto binary_array = static_cast<const ::arrow::BinaryArray*>(array);
+    DCHECK(binary_array);
+    return impl_->WriteFlatColumnChunk(binary_array, offset, real_length);
   } else {
     auto primitive_array = dynamic_cast<const PrimitiveArray*>(array);
     if (!primitive_array) {

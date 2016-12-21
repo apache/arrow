@@ -38,21 +38,19 @@ namespace parquet {
 
 namespace arrow {
 
-const auto BOOL = std::make_shared<::arrow::BooleanType>();
-const auto UINT8 = std::make_shared<::arrow::UInt8Type>();
-const auto INT32 = std::make_shared<::arrow::Int32Type>();
-const auto INT64 = std::make_shared<::arrow::Int64Type>();
-const auto FLOAT = std::make_shared<::arrow::FloatType>();
-const auto DOUBLE = std::make_shared<::arrow::DoubleType>();
-const auto UTF8 = std::make_shared<::arrow::StringType>();
-const auto TIMESTAMP_MS =
-    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::MILLI);
-const auto TIMESTAMP_NS =
-    std::make_shared<::arrow::TimestampType>(::arrow::TimestampType::Unit::NANO);
+const auto BOOL = ::arrow::boolean();
+const auto UINT8 = ::arrow::uint8();
+const auto INT32 = ::arrow::int32();
+const auto INT64 = ::arrow::int64();
+const auto FLOAT = ::arrow::float32();
+const auto DOUBLE = ::arrow::float64();
+const auto UTF8 = ::arrow::utf8();
+const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
+const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
+
 // TODO: This requires parquet-cpp implementing the MICROS enum value
 // const auto TIMESTAMP_US = std::make_shared<TimestampType>(TimestampType::Unit::MICRO);
-const auto BINARY =
-    std::make_shared<::arrow::ListType>(std::make_shared<Field>("", UINT8));
+const auto BINARY = ::arrow::binary();
 const auto DECIMAL_8_4 = std::make_shared<::arrow::DecimalType>(8, 4);
 
 class TestConvertParquetSchema : public ::testing::Test {
@@ -412,10 +410,13 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
       PrimitiveNode::Make("double", Repetition::OPTIONAL, ParquetType::DOUBLE));
   arrow_fields.push_back(std::make_shared<Field>("double", DOUBLE));
 
-  // TODO: String types need to be clarified a bit more in the Arrow spec
   parquet_fields.push_back(PrimitiveNode::Make(
       "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
+
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::NONE));
+  arrow_fields.push_back(std::make_shared<Field>("binary", BINARY));
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 

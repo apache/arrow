@@ -96,9 +96,8 @@ static void PrintType(const PrimitiveNode* node, std::ostream& stream) {
 static void PrintLogicalType(const PrimitiveNode* node, std::ostream& stream) {
   auto lt = node->logical_type();
   if (lt == LogicalType::DECIMAL) {
-    stream << " (" <<  LogicalTypeToString(lt) << "(" <<
-      node->decimal_metadata().precision << "," <<
-      node->decimal_metadata().scale << "))";
+    stream << " (" << LogicalTypeToString(lt) << "(" << node->decimal_metadata().precision
+           << "," << node->decimal_metadata().scale << "))";
   } else if (lt != LogicalType::NONE) {
     stream << " (" << LogicalTypeToString(lt) << ")";
   }
@@ -120,10 +119,8 @@ void SchemaPrinter::Visit(const GroupNode* node) {
     PrintRepLevel(node->repetition(), stream_);
     stream_ << " group " << node->name();
     auto lt = node->logical_type();
-    if (lt != LogicalType::NONE) {
-      stream_ << " (" << LogicalTypeToString(lt) << ")";
-    }
-    stream_  << " {" << std::endl;
+    if (lt != LogicalType::NONE) { stream_ << " (" << LogicalTypeToString(lt) << ")"; }
+    stream_ << " {" << std::endl;
   }
 
   indent_ += indent_width_;
