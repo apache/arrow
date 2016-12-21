@@ -134,3 +134,11 @@ install(FILES
 install(TARGETS arrow_io
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
+
+# pkg-config support
+configure_file(arrow-io.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/arrow-io.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-io.pc"
+  DESTINATION "lib/pkgconfig/")
