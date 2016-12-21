@@ -33,6 +33,14 @@ install(FILES
   test-util.h
   DESTINATION include/arrow)
 
+# pkg-config support
+configure_file(arrow.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
+  DESTINATION "lib/pkgconfig/")
+
 #######################################
 # Unit tests
 #######################################

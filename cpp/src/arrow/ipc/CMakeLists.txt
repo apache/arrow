@@ -159,3 +159,11 @@ install(FILES
 install(TARGETS arrow_ipc
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
+
+# pkg-config support
+configure_file(arrow-ipc.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
+  DESTINATION "lib/pkgconfig/")
