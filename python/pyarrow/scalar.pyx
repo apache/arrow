@@ -139,8 +139,6 @@ cdef class TimestampValue(ArrayValue):
             CTimestampType* dtype = <CTimestampType*>ap.type().get()
             int64_t val = ap.Value(self.index)
 
-        print(val)
-
         if dtype.unit == TimeUnit_SECOND:
             return datetime.datetime.utcfromtimestamp(val)
         elif dtype.unit == TimeUnit_MILLI:
