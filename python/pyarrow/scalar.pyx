@@ -22,6 +22,7 @@ import pyarrow.schema as schema
 
 import datetime
 
+cimport cpython as cp
 
 NA = None
 
@@ -170,6 +171,18 @@ cdef class StringValue(ArrayValue):
         return frombytes(ap.GetString(self.index))
 
 
+cdef class BinaryValue(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            const uint8_t* ptr
+            int32_t length
+            CBinaryArray* ap = <CBinaryArray*> self.sp_array.get()
+
+        ptr = ap.GetValue(self.index, &length)
+        return cp.PyBytes_FromStringAndSize(<const char*>(ptr), length)
+
+
 cdef class ListValue(ArrayValue):
 
     def __len__(self):
@@ -218,7 +231,8 @@ cdef dict _scalar_classes = {
     Type_FLOAT: FloatValue,
     Type_DOUBLE: DoubleValue,
     Type_LIST: ListValue,
-    Type_STRING: StringValue
+    Type_BINARY: BinaryValue,
+    Type_STRING: StringValue,
 }
 
 cdef object box_arrow_scalar(DataType type,

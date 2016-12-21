@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import unittest
+from pyarrow.compat import unittest, u
 import pyarrow
 
 import datetime
@@ -71,16 +71,28 @@ class TestConvertList(unittest.TestCase):
         assert arr.type == pyarrow.double()
         assert arr.to_pylist() == data
 
-    def test_string(self):
-        data = ['foo', b'bar', None, 'arrow']
+    def test_unicode(self):
+        data = [u('foo'), u('bar'), None, u('arrow')]
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
         assert arr.type == pyarrow.string()
-        assert arr.to_pylist() == ['foo', 'bar', None, 'arrow']
+        assert arr.to_pylist() == [u('foo'), u('bar'), None, u('arrow')]
+
+    def test_bytes(self):
+        u1 = b'ma\xc3\xb1ana'
+        data = [b'foo',
+                u1.decode('utf-8'),  # unicode gets encoded,
+                None]
+        arr = pyarrow.from_pylist(data)
+        assert len(arr) == 3
+        assert arr.null_count == 1
+        assert arr.type == pyarrow.binary()
+        assert arr.to_pylist() == [b'foo', u1, None]
 
     def test_date(self):
-        data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1), datetime.date(2040, 2, 26)]
+        data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1),
+                datetime.date(2040, 2, 26)]
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
         assert arr.type == pyarrow.date()
@@ -101,10 +113,13 @@ class TestConvertList(unittest.TestCase):
         assert len(arr) == 4
         assert arr.type == pyarrow.timestamp()
         assert arr.null_count == 1
-        assert arr[0].as_py() == datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)
+        assert arr[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                   23, 34, 123456)
         assert arr[1].as_py() is None
-        assert arr[2].as_py() == datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
-        assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5, 46, 57, 437699)
+        assert arr[2].as_py() == datetime.datetime(2006, 1, 13, 12,
+                                                   34, 56, 432539)
+        assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5,
+                                                   46, 57, 437699)
 
     def test_mixed_nesting_levels(self):
         pyarrow.from_pylist([1, 2, None])

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import unittest, u
+from pyarrow.compat import unittest, u, unicode_type
 import pyarrow as A
 
 
@@ -58,19 +58,31 @@ class TestScalars(unittest.TestCase):
         v = arr[2]
         assert v.as_py() == 3.0
 
-    def test_string(self):
-        arr = A.from_pylist(['foo', None, u('bar')])
+    def test_string_unicode(self):
+        arr = A.from_pylist([u('foo'), None, u('bar')])
 
         v = arr[0]
         assert isinstance(v, A.StringValue)
-        assert repr(v) == "'foo'"
         assert v.as_py() == 'foo'
 
         assert arr[1] is A.NA
 
         v = arr[2].as_py()
-        assert v == 'bar'
+        assert v == u('bar')
         assert isinstance(v, str)
+
+    def test_bytes(self):
+        arr = A.from_pylist([b'foo', None, u('bar')])
+
+        v = arr[0]
+        assert isinstance(v, A.BinaryValue)
+        assert v.as_py() == b'foo'
+
+        assert arr[1] is A.NA
+
+        v = arr[2].as_py()
+        assert v == b'bar'
+        assert isinstance(v, bytes)
 
     def test_list(self):
         arr = A.from_pylist([['foo', None], None, ['bar'], []])

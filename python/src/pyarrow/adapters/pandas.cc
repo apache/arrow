@@ -193,6 +193,9 @@ class ArrowSerializer {
   Status ConvertObjectStrings(std::shared_ptr<Array>* out) {
     PyAcquireGIL lock;
 
+    // The output type at this point is inconclusive because there may be bytes
+    // and unicode mixed in the object array
+
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     arrow::TypePtr string_type(new arrow::StringType());
     arrow::StringBuilder string_builder(pool_, string_type);
@@ -200,6 +203,7 @@ class ArrowSerializer {
 
     Status s;
     PyObject* obj;
+    bool have_bytes = false;
     for (int64_t i = 0; i < length_; ++i) {
       obj = objects[i];
       if (PyUnicode_Check(obj)) {
@@ -215,13 +219,21 @@ class ArrowSerializer {
           return s;
         }
       } else if (PyBytes_Check(obj)) {
+        have_bytes = true;
         const int32_t length = PyBytes_GET_SIZE(obj);
         RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
       } else {
         string_builder.AppendNull();
       }
     }
-    return string_builder.Finish(out);
+    RETURN_NOT_OK(string_builder.Finish(out));
+
+    if (have_bytes) {
+      const auto& arr = static_cast<const arrow::StringArray&>(*out->get());
+      *out = std::make_shared<arrow::BinaryArray>(arr.length(), arr.offsets(),
+          arr.data(), arr.null_count(), arr.null_bitmap());
+    }
+    return Status::OK();
   }
 
   Status ConvertBooleans(std::shared_ptr<Array>* out) {
@@ -865,7 +877,7 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  // UTF8
+  // UTF8 strings
   template <int T2>
   inline typename std::enable_if<
     T2 == arrow::Type::STRING, Status>::type
@@ -912,6 +924,54 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
+  template <int T2>
+  inline typename std::enable_if<
+    T2 == arrow::Type::BINARY, Status>::type
+  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
+    size_t chunk_offset = 0;
+    PyAcquireGIL lock;
+
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+
+    for (int c = 0; c < data->num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data->chunk(c);
+      auto binary_arr = static_cast<arrow::BinaryArray*>(arr.get());
+      auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
+
+      const uint8_t* data_ptr;
+      int32_t length;
+      if (data->null_count() > 0) {
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          if (binary_arr->IsNull(i)) {
+            Py_INCREF(Py_None);
+            out_values[i] = Py_None;
+          } else {
+            data_ptr = binary_arr->GetValue(i, &length);
+
+            out_values[i] = PyBytes_FromStringAndSize(
+                reinterpret_cast<const char*>(data_ptr), length);
+            if (out_values[i] == nullptr) {
+              return Status::UnknownError("String initialization failed");
+            }
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < arr->length(); ++i) {
+          data_ptr = binary_arr->GetValue(i, &length);
+          out_values[i] = PyBytes_FromStringAndSize(
+              reinterpret_cast<const char*>(data_ptr), length);
+          if (out_values[i] == nullptr) {
+            return Status::UnknownError("String initialization failed");
+          }
+        }
+      }
+
+      chunk_offset += binary_arr->length();
+    }
+
+    return Status::OK();
+  }
+
  private:
   std::shared_ptr<Column> col_;
   PyObject* py_ref_;
@@ -948,6 +1008,7 @@ Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_re
     FROM_ARROW_CASE(UINT64);
     FROM_ARROW_CASE(FLOAT);
     FROM_ARROW_CASE(DOUBLE);
+    FROM_ARROW_CASE(BINARY);
     FROM_ARROW_CASE(STRING);
     FROM_ARROW_CASE(DATE);
     FROM_ARROW_CASE(TIMESTAMP);

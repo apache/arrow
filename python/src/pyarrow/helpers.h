@@ -28,22 +28,6 @@ namespace pyarrow {
 using arrow::DataType;
 using arrow::Type;
 
-extern const std::shared_ptr<arrow::NullType> NA;
-extern const std::shared_ptr<arrow::BooleanType> BOOL;
-extern const std::shared_ptr<arrow::UInt8Type> UINT8;
-extern const std::shared_ptr<arrow::UInt16Type> UINT16;
-extern const std::shared_ptr<arrow::UInt32Type> UINT32;
-extern const std::shared_ptr<arrow::UInt64Type> UINT64;
-extern const std::shared_ptr<arrow::Int8Type> INT8;
-extern const std::shared_ptr<arrow::Int16Type> INT16;
-extern const std::shared_ptr<arrow::Int32Type> INT32;
-extern const std::shared_ptr<arrow::Int64Type> INT64;
-extern const std::shared_ptr<arrow::DateType> DATE;
-extern const std::shared_ptr<arrow::TimestampType> TIMESTAMP_US;
-extern const std::shared_ptr<arrow::FloatType> FLOAT;
-extern const std::shared_ptr<arrow::DoubleType> DOUBLE;
-extern const std::shared_ptr<arrow::StringType> STRING;
-
 PYARROW_EXPORT
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 

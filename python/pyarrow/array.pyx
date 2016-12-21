@@ -238,6 +238,10 @@ cdef class StringArray(Array):
     pass
 
 
+cdef class BinaryArray(Array):
+    pass
+
+
 cdef dict _array_classes = {
     Type_NA: NullArray,
     Type_BOOL: BooleanArray,
@@ -253,6 +257,7 @@ cdef dict _array_classes = {
     Type_FLOAT: FloatArray,
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,
+    Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
     Type_TIMESTAMP: Int64Array,
 }

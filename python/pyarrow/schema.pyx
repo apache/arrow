@@ -215,6 +215,12 @@ def string():
     """
     return primitive_type(Type_STRING)
 
+def binary():
+    """
+    Binary (PyBytes-like) type
+    """
+    return primitive_type(Type_BINARY)
+
 def list_(DataType value_type):
     cdef DataType out = DataType()
     cdef shared_ptr[CDataType] list_type

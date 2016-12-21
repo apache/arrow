@@ -42,14 +42,6 @@ static inline bool IsPyInteger(PyObject* obj) {
 #endif
 }
 
-static inline bool IsPyBaseString(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyString_Check(obj) || PyUnicode_Check(obj);
-#else
-  return PyUnicode_Check(obj);
-#endif
-}
-
 class ScalarVisitor {
  public:
   ScalarVisitor() :
@@ -60,7 +52,8 @@ class ScalarVisitor {
       date_count_(0),
       timestamp_count_(0),
       float_count_(0),
-      string_count_(0) {}
+      binary_count_(0),
+      unicode_count_(0) {}
 
   void Visit(PyObject* obj) {
     ++total_count_;
@@ -76,8 +69,10 @@ class ScalarVisitor {
       ++date_count_;
     } else if (PyDateTime_CheckExact(obj)) {
       ++timestamp_count_;
-    } else if (IsPyBaseString(obj)) {
-      ++string_count_;
+    } else if (PyBytes_Check(obj)) {
+      ++binary_count_;
+    } else if (PyUnicode_Check(obj)) {
+      ++unicode_count_;
     } else {
       // TODO(wesm): accumulate error information somewhere
     }
@@ -86,20 +81,22 @@ class ScalarVisitor {
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
     if (float_count_) {
-      return DOUBLE;
+      return arrow::float64();
     } else if (int_count_) {
       // TODO(wesm): tighter type later
-      return INT64;
+      return arrow::int64();
     } else if (date_count_) {
-      return DATE;
+      return arrow::date();
     } else if (timestamp_count_) {
-      return TIMESTAMP_US;
+      return arrow::timestamp(arrow::TimeUnit::MICRO);
     } else if (bool_count_) {
-      return BOOL;
-    } else if (string_count_) {
-      return STRING;
+      return arrow::boolean();
+    } else if (binary_count_) {
+      return arrow::binary();
+    } else if (unicode_count_) {
+      return arrow::utf8();
     } else {
-      return NA;
+      return arrow::null();
     }
   }
 
@@ -115,7 +112,8 @@ class ScalarVisitor {
   int64_t date_count_;
   int64_t timestamp_count_;
   int64_t float_count_;
-  int64_t string_count_;
+  int64_t binary_count_;
+  int64_t unicode_count_;
 
   // Place to accumulate errors
   // std::vector<Status> errors_;
@@ -163,7 +161,7 @@ class SeqVisitor {
   std::shared_ptr<DataType> GetType() {
     if (scalars_.total_count() == 0) {
       if (max_nesting_level_ == 0) {
-        return NA;
+        return arrow::null();
       } else {
         return nullptr;
       }
@@ -227,7 +225,7 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
 
   // For 0-length sequences, refuse to guess
   if (*size == 0) {
-    *out_type = NA;
+    *out_type = arrow::null();
   }
 
   SeqVisitor seq_visitor;
@@ -381,7 +379,7 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
   }
 };
 
-class StringConverter : public TypedConverter<arrow::StringBuilder> {
+class BytesConverter : public TypedConverter<arrow::BinaryBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     PyObject* item;
@@ -406,6 +404,38 @@ class StringConverter : public TypedConverter<arrow::StringBuilder> {
       } else {
         return Status::TypeError("Non-string value encountered");
       }
+      // No error checking
+      length = PyBytes_GET_SIZE(bytes_obj);
+      bytes = PyBytes_AS_STRING(bytes_obj);
+      RETURN_NOT_OK(typed_builder_->Append(bytes, length));
+    }
+    return Status::OK();
+  }
+};
+
+class UTF8Converter : public TypedConverter<arrow::StringBuilder> {
+ public:
+  Status AppendData(PyObject* seq) override {
+    PyObject* item;
+    PyObject* bytes_obj;
+    OwnedRef tmp;
+    const char* bytes;
+    int32_t length;
+    Py_ssize_t size = PySequence_Size(seq);
+    for (int64_t i = 0; i < size; ++i) {
+      item = PySequence_GetItem(seq, i);
+      OwnedRef holder(item);
+
+      if (item == Py_None) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+        continue;
+      } else if (!PyUnicode_Check(item)) {
+        return Status::TypeError("Non-unicode value encountered");
+      }
+      tmp.reset(PyUnicode_AsUTF8String(item));
+      RETURN_IF_PYERROR();
+      bytes_obj = tmp.obj();
+
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
       bytes = PyBytes_AS_STRING(bytes_obj);
@@ -449,8 +479,10 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<TimestampConverter>();
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
+    case Type::BINARY:
+      return std::make_shared<BytesConverter>();
     case Type::STRING:
-      return std::make_shared<StringConverter>();
+      return std::make_shared<UTF8Converter>();
     case Type::LIST:
       return std::make_shared<ListConverter>();
     case Type::STRUCT:

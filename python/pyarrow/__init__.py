@@ -40,13 +40,14 @@ from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
                             BooleanValue,
                             Int8Value, Int16Value, Int32Value, Int64Value,
                             UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                            FloatValue, DoubleValue, ListValue, StringValue)
+                            FloatValue, DoubleValue, ListValue,
+                            BinaryValue, StringValue)
 
 from pyarrow.schema import (null, bool_,
                             int8, int16, int32, int64,
                             uint8, uint16, uint32, uint64,
                             timestamp, date,
-                            float_, double, string,
+                            float_, double, binary, string,
                             list_, struct, field,
                             DataType, Field, Schema, schema)
 

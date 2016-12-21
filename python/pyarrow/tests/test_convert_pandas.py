@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import pandas.util.testing as tm
 
+from pyarrow.compat import u
 import pyarrow as A
 
 
@@ -157,13 +158,22 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'bools': arr})
         self._check_pandas_roundtrip(df)
 
-    def test_strings(self):
+    def test_unicode(self):
         repeats = 1000
-        values = [b'foo', None, u'bar', 'qux', np.nan]
+        values = [u('foo'), None, u('bar'), u('qux'), np.nan]
         df = pd.DataFrame({'strings': values * repeats})
 
-        values = ['foo', None, u'bar', 'qux', None]
-        expected = pd.DataFrame({'strings': values * repeats})
+        self._check_pandas_roundtrip(df)
+
+    def test_bytes_to_binary(self):
+        values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
+        df = pd.DataFrame({'strings': values})
+
+        table = A.from_pandas_dataframe(df)
+        assert table[0].type == A.binary()
+
+        values2 = [b'qux', b'foo', None, b'bar', b'qux', np.nan]
+        expected = pd.DataFrame({'strings': values2})
         self._check_pandas_roundtrip(df, expected)
 
     def test_timestamps_notimezone_no_nulls(self):
