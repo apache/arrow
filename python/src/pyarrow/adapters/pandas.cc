@@ -579,13 +579,35 @@ struct arrow_traits<arrow::Type::STRING> {
   static constexpr bool is_numeric_nullable = false;
 };
 
-static inline PyObject* make_pystring(const uint8_t* data, int32_t length) {
+template <>
+struct arrow_traits<arrow::Type::BINARY> {
+  static constexpr int npy_type = NPY_OBJECT;
+  static constexpr bool supports_nulls = true;
+  static constexpr bool is_boolean = false;
+  static constexpr bool is_numeric_not_nullable = false;
+  static constexpr bool is_numeric_nullable = false;
+};
+
+template <typename T>
+struct WrapBytes {};
+
+template <>
+struct WrapBytes<arrow::StringArray> {
+  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
 #if PY_MAJOR_VERSION >= 3
-  return PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+    return PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(data), length);
 #else
-  return PyString_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+    return PyString_FromStringAndSize(reinterpret_cast<const char*>(data), length);
 #endif
-}
+  }
+};
+
+template <>
+struct WrapBytes<arrow::BinaryArray> {
+  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
+    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  }
+};
 
 inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
   if (type == NPY_DATETIME) {
@@ -747,41 +769,29 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  Status ConvertStrings(PyObject** out_values) {
+  template <typename ArrayType>
+  Status ConvertBinaryLike(PyObject** out_values) {
     PyAcquireGIL lock;
     for (int c = 0; c < data_->num_chunks(); c++) {
-      const std::shared_ptr<Array> arr = data_->chunk(c);
-      auto string_arr = static_cast<arrow::StringArray*>(arr.get());
+      auto arr = static_cast<ArrayType*>(data_->chunk(c).get());
 
       const uint8_t* data_ptr;
       int32_t length;
-      if (data_->null_count() > 0) {
-        for (int64_t i = 0; i < arr->length(); ++i) {
-          if (string_arr->IsNull(i)) {
-            Py_INCREF(Py_None);
-            *out_values = Py_None;
-          } else {
-            data_ptr = string_arr->GetValue(i, &length);
-
-            *out_values = make_pystring(data_ptr, length);
-            if (*out_values == nullptr) {
-              return Status::UnknownError("String initialization failed");
-            }
-          }
-          ++out_values;
-        }
-      } else {
-        for (int64_t i = 0; i < arr->length(); ++i) {
-          data_ptr = string_arr->GetValue(i, &length);
-          *out_values = make_pystring(data_ptr, length);
+      const bool has_nulls = data_->null_count() > 0;
+      for (int64_t i = 0; i < arr->length(); ++i) {
+        if (has_nulls && arr->IsNull(i)) {
+          Py_INCREF(Py_None);
+          *out_values = Py_None;
+        } else {
+          data_ptr = arr->GetValue(i, &length);
+          *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
           if (*out_values == nullptr) {
             return Status::UnknownError("String initialization failed");
           }
-          ++out_values;
         }
+        ++out_values;
       }
     }
-
     return Status::OK();
   }
 
@@ -839,6 +849,7 @@ class ArrowDeserializer {
       CONVERT_CASE(UINT64);
       CONVERT_CASE(FLOAT);
       CONVERT_CASE(DOUBLE);
+      CONVERT_CASE(BINARY);
       CONVERT_CASE(STRING);
       CONVERT_CASE(DATE);
       CONVERT_CASE(TIMESTAMP);
@@ -910,7 +921,6 @@ class ArrowDeserializer {
   template <int TYPE>
   inline typename std::enable_if<arrow_traits<TYPE>::is_boolean, Status>::type
   ConvertValues() {
-    PyAcquireGIL lock;
     if (data_->null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
       auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
@@ -927,10 +937,18 @@ class ArrowDeserializer {
   template <int TYPE>
   inline typename std::enable_if<TYPE == arrow::Type::STRING, Status>::type
   ConvertValues() {
-    PyAcquireGIL lock;
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
-    return ConvertStrings(out_values);
+    return ConvertBinaryLike<arrow::StringArray>(out_values);
+  }
+
+  template <int T2>
+  inline typename std::enable_if<
+    T2 == arrow::Type::BINARY, Status>::type
+  ConvertValues() {
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
+    return ConvertBinaryLike<arrow::BinaryArray>(out_values);
   }
 
   // ----------------------------------------------------------------------
@@ -962,54 +980,6 @@ class ArrowDeserializer {
 //     }
 
 #undef CONVERT_CASE
-    return Status::OK();
-  }
-
-  template <int T2>
-  inline typename std::enable_if<
-    T2 == arrow::Type::BINARY, Status>::type
-  ConvertValues(const std::shared_ptr<arrow::ChunkedArray>& data) {
-    size_t chunk_offset = 0;
-    PyAcquireGIL lock;
-
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-
-    for (int c = 0; c < data->num_chunks(); c++) {
-      const std::shared_ptr<Array> arr = data->chunk(c);
-      auto binary_arr = static_cast<arrow::BinaryArray*>(arr.get());
-      auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_)) + chunk_offset;
-
-      const uint8_t* data_ptr;
-      int32_t length;
-      if (data->null_count() > 0) {
-        for (int64_t i = 0; i < arr->length(); ++i) {
-          if (binary_arr->IsNull(i)) {
-            Py_INCREF(Py_None);
-            out_values[i] = Py_None;
-          } else {
-            data_ptr = binary_arr->GetValue(i, &length);
-
-            out_values[i] = PyBytes_FromStringAndSize(
-                reinterpret_cast<const char*>(data_ptr), length);
-            if (out_values[i] == nullptr) {
-              return Status::UnknownError("String initialization failed");
-            }
-          }
-        }
-      } else {
-        for (int64_t i = 0; i < arr->length(); ++i) {
-          data_ptr = binary_arr->GetValue(i, &length);
-          out_values[i] = PyBytes_FromStringAndSize(
-              reinterpret_cast<const char*>(data_ptr), length);
-          if (out_values[i] == nullptr) {
-            return Status::UnknownError("String initialization failed");
-          }
-        }
-      }
-
-      chunk_offset += binary_arr->length();
-    }
-
     return Status::OK();
   }
 
