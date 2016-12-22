@@ -44,16 +44,16 @@ static inline bool IsPyInteger(PyObject* obj) {
 
 class ScalarVisitor {
  public:
-  ScalarVisitor() :
-      total_count_(0),
-      none_count_(0),
-      bool_count_(0),
-      int_count_(0),
-      date_count_(0),
-      timestamp_count_(0),
-      float_count_(0),
-      binary_count_(0),
-      unicode_count_(0) {}
+  ScalarVisitor()
+      : total_count_(0),
+        none_count_(0),
+        bool_count_(0),
+        int_count_(0),
+        date_count_(0),
+        timestamp_count_(0),
+        float_count_(0),
+        binary_count_(0),
+        unicode_count_(0) {}
 
   void Visit(PyObject* obj) {
     ++total_count_;
@@ -215,9 +215,7 @@ static Status InferArrowType(
   }
 
   // For 0-length sequences, refuse to guess
-  if (*size == 0) {
-    *out_type = arrow::null();
-  }
+  if (*size == 0) { *out_type = arrow::null(); }
 
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));

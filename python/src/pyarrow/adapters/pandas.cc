@@ -221,8 +221,8 @@ class ArrowSerializer {
 
     if (have_bytes) {
       const auto& arr = static_cast<const arrow::StringArray&>(*out->get());
-      *out = std::make_shared<arrow::BinaryArray>(arr.length(), arr.offsets(),
-          arr.data(), arr.null_count(), arr.null_bitmap());
+      *out = std::make_shared<arrow::BinaryArray>(
+          arr.length(), arr.offsets(), arr.data(), arr.null_count(), arr.null_bitmap());
     }
     return Status::OK();
   }
@@ -821,8 +821,8 @@ class ArrowDeserializer {
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     npy_intp dims[1] = {col_->length()};
-    out_ =
-        reinterpret_cast<PyArrayObject*>(PyArray_SimpleNewFromData(1, dims, npy_type, data));
+    out_ = reinterpret_cast<PyArrayObject*>(
+        PyArray_SimpleNewFromData(1, dims, npy_type, data));
 
     if (out_ == NULL) {
       // Error occurred, trust that SimpleNew set the error state
@@ -961,8 +961,7 @@ class ArrowDeserializer {
   }
 
   template <int T2>
-  inline typename std::enable_if<
-    T2 == arrow::Type::BINARY, Status>::type
+  inline typename std::enable_if<T2 == arrow::Type::BINARY, Status>::type
   ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(out_));
@@ -995,33 +994,19 @@ Status ConvertColumnToPandas(
 
 class PandasBlock {
  public:
-  enum type {
-    OBJECT,
-    INT,
-    UINT64,
-    FLOAT,
-    DOUBLE,
-    BOOL,
-    DATETIME,
-    CATEGORICAL
-  };
+  enum type { OBJECT, INT, UINT64, FLOAT, DOUBLE, BOOL, DATETIME, CATEGORICAL };
 
   PandasBlock(int64_t num_rows, int num_columns)
       : num_rows_(num_rows), num_columns_(num_columns) {}
 
   virtual Status Allocate() = 0;
-  virtual Status WriteNext(const std::shared_ptr<Column>& col, int placement) = 0;
+  virtual Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) = 0;
 
-  PyObject* block_arr() {
-    return block_arr_.obj();
-  }
+  PyObject* block_arr() { return block_arr_.obj(); }
 
-  PyObject* placement_arr() {
-    return block_arr_.obj();
-  }
+  PyObject* placement_arr() { return placement_arr_.obj(); }
 
  protected:
-
   Status AllocateNDArray(int npy_type) {
     PyAcquireGIL lock;
 
@@ -1033,7 +1018,7 @@ class PandasBlock {
     }
 
     npy_intp placement_dims[1] = {num_columns_};
-    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT32);
+    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
     if (placement_arr == NULL) {
       // TODO(wesm): propagating Python exception
       return Status::OK();
@@ -1046,7 +1031,7 @@ class PandasBlock {
     block_data_ = reinterpret_cast<uint8_t*>(
         PyArray_DATA(reinterpret_cast<PyArrayObject*>(block_arr)));
 
-    placement_data_ = reinterpret_cast<int32_t*>(
+    placement_data_ = reinterpret_cast<int64_t*>(
         PyArray_DATA(reinterpret_cast<PyArrayObject*>(placement_arr)));
 
     return Status::OK();
@@ -1061,25 +1046,22 @@ class PandasBlock {
 
   // ndarray<int32>
   OwnedRef placement_arr_;
-  int32_t* placement_data_;
+  int64_t* placement_data_;
 
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
-
 
 class ObjectBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_OBJECT);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    PyObject** out_buffer = reinterpret_cast<PyObject**>(block_data_) +
-      current_placement_index_ * num_rows_;
+    PyObject** out_buffer =
+        reinterpret_cast<PyObject**>(block_data_) + current_placement_index_ * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
@@ -1091,8 +1073,7 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<arrow::StringArray>(data, out_buffer));
     } else {
       std::stringstream ss;
-      ss << "Unsupported type for object array output: "
-         << col->type()->ToString();
+      ss << "Unsupported type for object array output: " << col->type()->ToString();
       return Status::NotImplemented(ss.str());
     }
 
@@ -1105,32 +1086,36 @@ class Int64Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_INT64);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_INT64); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    int64_t* out_buffer = reinterpret_cast<int64_t*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    int64_t* out_buffer =
+        reinterpret_cast<int64_t*>(block_data_) + current_placement_index_ * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
-#define TYPE_CASE(IN_TYPE)                                          \
-    ConvertIntegerNoNullsCast<IN_TYPE, int64_t>(data, out_buffer);  \
-    break;
+#define TYPE_CASE(IN_TYPE)                                       \
+  ConvertIntegerNoNullsCast<IN_TYPE, int64_t>(data, out_buffer); \
+  break;
 
     if (col->null_count() > 0) {
       return Status::Invalid("Nulls not supported in integer blocks");
     } else {
       switch (type) {
-        case Type::UINT8: TYPE_CASE(uint8_t);
-        case Type::INT8: TYPE_CASE(int8_t);
-        case Type::UINT16: TYPE_CASE(uint16_t);
-        case Type::INT16: TYPE_CASE(int16_t);
-        case Type::UINT32: TYPE_CASE(uint32_t);
-        case Type::INT32: TYPE_CASE(int32_t);
+        case Type::UINT8:
+          TYPE_CASE(uint8_t);
+        case Type::INT8:
+          TYPE_CASE(int8_t);
+        case Type::UINT16:
+          TYPE_CASE(uint16_t);
+        case Type::INT16:
+          TYPE_CASE(int16_t);
+        case Type::UINT32:
+          TYPE_CASE(uint32_t);
+        case Type::INT32:
+          TYPE_CASE(int32_t);
         case Type::INT64:
           ConvertIntegerNoNullsSameType<int64_t>(data, out_buffer);
           break;
@@ -1150,21 +1135,17 @@ class UInt64Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_UINT64);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_UINT64); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    uint64_t* out_buffer = reinterpret_cast<uint64_t*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    uint64_t* out_buffer =
+        reinterpret_cast<uint64_t*>(block_data_) + current_placement_index_ * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
-    if (type != Type::UINT64) {
-      return Status::NotImplemented(col->type()->ToString());
-    }
+    if (type != Type::UINT64) { return Status::NotImplemented(col->type()->ToString()); }
 
     ConvertIntegerNoNullsSameType<uint64_t>(data, out_buffer);
     placement_data_[current_placement_index_++] = placement;
@@ -1176,19 +1157,15 @@ class Float32Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_FLOAT32);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_FLOAT32); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    if (type != Type::FLOAT) {
-      return Status::NotImplemented(col->type()->ToString());
-    }
+    if (type != Type::FLOAT) { return Status::NotImplemented(col->type()->ToString()); }
 
-    float* out_buffer = reinterpret_cast<float*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    float* out_buffer =
+        reinterpret_cast<float*>(block_data_) + current_placement_index_ * num_rows_;
 
     ConvertNumericNullable<float>(*col->data().get(), NAN, out_buffer);
     placement_data_[current_placement_index_++] = placement;
@@ -1200,31 +1177,37 @@ class Float64Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_FLOAT64);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_FLOAT64); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    double* out_buffer = reinterpret_cast<double*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    double* out_buffer =
+        reinterpret_cast<double*>(block_data_) + current_placement_index_ * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
-#define INTEGER_CASE(IN_TYPE)                           \
-    ConvertIntegerWithNulls<IN_TYPE>(data, out_buffer); \
-    break;
+#define INTEGER_CASE(IN_TYPE)                         \
+  ConvertIntegerWithNulls<IN_TYPE>(data, out_buffer); \
+  break;
 
     switch (type) {
-      case Type::UINT8: INTEGER_CASE(uint8_t);
-      case Type::INT8: INTEGER_CASE(int8_t);
-      case Type::UINT16: INTEGER_CASE(uint16_t);
-      case Type::INT16: INTEGER_CASE(int16_t);
-      case Type::UINT32: INTEGER_CASE(uint32_t);
-      case Type::INT32: INTEGER_CASE(int32_t);
-      case Type::UINT64: INTEGER_CASE(int32_t);
-      case Type::INT64: INTEGER_CASE(int32_t);
+      case Type::UINT8:
+        INTEGER_CASE(uint8_t);
+      case Type::INT8:
+        INTEGER_CASE(int8_t);
+      case Type::UINT16:
+        INTEGER_CASE(uint16_t);
+      case Type::INT16:
+        INTEGER_CASE(int16_t);
+      case Type::UINT32:
+        INTEGER_CASE(uint32_t);
+      case Type::INT32:
+        INTEGER_CASE(int32_t);
+      case Type::UINT64:
+        INTEGER_CASE(int32_t);
+      case Type::INT64:
+        INTEGER_CASE(int32_t);
       case Type::FLOAT:
         ConvertNumericNullableCast<float, double>(data, NAN, out_buffer);
         break;
@@ -1246,19 +1229,15 @@ class BoolBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override {
-    return AllocateNDArray(NPY_BOOL);
-  }
+  Status Allocate() override { return AllocateNDArray(NPY_BOOL); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    if (type != Type::BOOL) {
-      return Status::NotImplemented(col->type()->ToString());
-    }
+    if (type != Type::BOOL) { return Status::NotImplemented(col->type()->ToString()); }
 
-    uint8_t* out_buffer = reinterpret_cast<uint8_t*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    uint8_t* out_buffer =
+        reinterpret_cast<uint8_t*>(block_data_) + current_placement_index_ * num_rows_;
 
     ConvertBooleanNoNulls(*col->data().get(), out_buffer);
     placement_data_[current_placement_index_++] = placement;
@@ -1280,15 +1259,15 @@ class DatetimeBlock : public PandasBlock {
     return Status::OK();
   }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int placement) override {
+  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
     if (type != Type::TIMESTAMP) {
       return Status::NotImplemented(col->type()->ToString());
     }
 
-    int64_t* out_buffer = reinterpret_cast<int64_t*>(block_data_) +
-      current_placement_index_ * num_rows_;
+    int64_t* out_buffer =
+        reinterpret_cast<int64_t*>(block_data_) + current_placement_index_ * num_rows_;
 
     ConvertNumericNullable<int64_t>(*col->data().get(), kPandasTimestampNull, out_buffer);
     placement_data_[current_placement_index_++] = placement;
@@ -1297,7 +1276,6 @@ class DatetimeBlock : public PandasBlock {
 };
 
 // class CategoricalBlock : public PandasBlock {};
-
 
 Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     std::shared_ptr<PandasBlock>* block) {
@@ -1339,8 +1317,7 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
 // * placement arrays as we go
 class DataFrameBlockCreator {
  public:
-  DataFrameBlockCreator(const std::shared_ptr<Table>& table)
-      : table_(table) {}
+  DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1361,7 +1338,7 @@ class DataFrameBlockCreator {
 
       switch (col->type()->type) {
         case Type::BOOL:
-          output_type = col->null_count() > 0? PandasBlock::OBJECT : PandasBlock::BOOL;
+          output_type = col->null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
           break;
         case Type::UINT8:
         case Type::INT8:
@@ -1371,7 +1348,7 @@ class DataFrameBlockCreator {
         case Type::INT32:
         case Type::UINT64:
         case Type::INT64:
-          output_type = col->null_count() > 0? PandasBlock::DOUBLE : PandasBlock::INT;
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT;
           break;
         case Type::FLOAT:
           output_type = PandasBlock::FLOAT;
@@ -1424,9 +1401,7 @@ class DataFrameBlockCreator {
       PandasBlock::type output_type = column_types_[i];
 
       auto it = blocks_.find(output_type);
-      if (it == blocks_.end()) {
-        return Status::KeyError("No block allocated");
-      }
+      if (it == blocks_.end()) { return Status::KeyError("No block allocated"); }
       RETURN_NOT_OK(it->second->WriteNext(col, i));
     }
     return Status::OK();
@@ -1437,6 +1412,7 @@ class DataFrameBlockCreator {
     PyObject* result = PyList_New(num_blocks);
     RETURN_IF_PYERROR();
 
+    int i = 0;
     for (const auto& it : blocks_) {
       const std::shared_ptr<PandasBlock> block = it.second;
 
@@ -1450,9 +1426,7 @@ class DataFrameBlockCreator {
       PyTuple_SET_ITEM(item, 0, block_arr);
       PyTuple_SET_ITEM(item, 1, placement_arr);
 
-      if (PyList_Append(result, item) < 0) {
-        RETURN_IF_PYERROR();
-      }
+      if (PyList_SET_ITEM(result, i++, item) < 0) { RETURN_IF_PYERROR(); }
     }
     *out = result;
     return Status::OK();
