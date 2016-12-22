@@ -747,9 +747,11 @@ inline void ConvertNumericNullable(const ChunkedArray& data, T na_value, T* out_
     auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
     auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
 
+    const uint8_t* valid_bits = arr->null_bitmap_data();
+
     if (arr->null_count() > 0) {
       for (int64_t i = 0; i < arr->length(); ++i) {
-        *out_values++ = arr->IsNull(i) ? na_value : in_values[i];
+        *out_values++ = BitUtil::BitNotSet(valid_bits, i) ? na_value : in_values[i];
       }
     } else {
       memcpy(out_values, in_values, sizeof(T) * arr->length());
@@ -782,6 +784,20 @@ inline void ConvertDates(const ChunkedArray& data, T na_value, T* out_values) {
     for (int64_t i = 0; i < arr->length(); ++i) {
       // There are 1000 * 60 * 60 * 24 = 86400000ms in a day
       *out_values++ = arr->IsNull(i) ? na_value : in_values[i] / 86400000;
+    }
+  }
+}
+
+template <typename InType, int SHIFT>
+inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const std::shared_ptr<Array> arr = data.chunk(c);
+    auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+    auto in_values = reinterpret_cast<const InType*>(prim_arr->data()->data());
+
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      *out_values++ = arr->IsNull(i) ? kPandasTimestampNull
+                                     : (static_cast<int64_t>(in_values[i]) * SHIFT);
     }
   }
 }
@@ -994,7 +1010,22 @@ Status ConvertColumnToPandas(
 
 class PandasBlock {
  public:
-  enum type { OBJECT, INT, UINT64, FLOAT, DOUBLE, BOOL, DATETIME, CATEGORICAL };
+  enum type {
+    OBJECT,
+    UINT8,
+    INT8,
+    UINT16,
+    INT16,
+    UINT32,
+    INT32,
+    UINT64,
+    INT64,
+    FLOAT,
+    DOUBLE,
+    BOOL,
+    DATETIME,
+    CATEGORICAL
+  };
 
   PandasBlock(int64_t num_rows, int num_columns)
       : num_rows_(num_rows), num_columns_(num_columns) {}
@@ -1082,76 +1113,39 @@ class ObjectBlock : public PandasBlock {
   }
 };
 
-class Int64Block : public PandasBlock {
+template <int ARROW_TYPE, typename C_TYPE>
+class IntBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
 
-  Status Allocate() override { return AllocateNDArray(NPY_INT64); }
+  Status Allocate() override {
+    return AllocateNDArray(arrow_traits<ARROW_TYPE>::npy_type);
+  }
 
   Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    int64_t* out_buffer =
-        reinterpret_cast<int64_t*>(block_data_) + current_placement_index_ * num_rows_;
+    C_TYPE* out_buffer =
+        reinterpret_cast<C_TYPE*>(block_data_) + current_placement_index_ * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
-#define TYPE_CASE(IN_TYPE)                                       \
-  ConvertIntegerNoNullsCast<IN_TYPE, int64_t>(data, out_buffer); \
-  break;
+    if (type != ARROW_TYPE) { return Status::NotImplemented(col->type()->ToString()); }
 
-    if (col->null_count() > 0) {
-      return Status::Invalid("Nulls not supported in integer blocks");
-    } else {
-      switch (type) {
-        case Type::UINT8:
-          TYPE_CASE(uint8_t);
-        case Type::INT8:
-          TYPE_CASE(int8_t);
-        case Type::UINT16:
-          TYPE_CASE(uint16_t);
-        case Type::INT16:
-          TYPE_CASE(int16_t);
-        case Type::UINT32:
-          TYPE_CASE(uint32_t);
-        case Type::INT32:
-          TYPE_CASE(int32_t);
-        case Type::INT64:
-          ConvertIntegerNoNullsSameType<int64_t>(data, out_buffer);
-          break;
-        default:
-          return Status::NotImplemented(col->type()->ToString());
-      }
-    }
-
-#undef TYPE_CASE
-
+    ConvertIntegerNoNullsSameType<C_TYPE>(data, out_buffer);
     placement_data_[current_placement_index_++] = placement;
     return Status::OK();
   }
 };
 
-class UInt64Block : public PandasBlock {
- public:
-  using PandasBlock::PandasBlock;
-
-  Status Allocate() override { return AllocateNDArray(NPY_UINT64); }
-
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
-    Type::type type = col->type()->type;
-
-    uint64_t* out_buffer =
-        reinterpret_cast<uint64_t*>(block_data_) + current_placement_index_ * num_rows_;
-
-    const ChunkedArray& data = *col->data().get();
-
-    if (type != Type::UINT64) { return Status::NotImplemented(col->type()->ToString()); }
-
-    ConvertIntegerNoNullsSameType<uint64_t>(data, out_buffer);
-    placement_data_[current_placement_index_++] = placement;
-    return Status::OK();
-  }
-};
+using UInt8Block = IntBlock<Type::UINT8, uint8_t>;
+using Int8Block = IntBlock<Type::INT8, int8_t>;
+using UInt16Block = IntBlock<Type::UINT16, uint16_t>;
+using Int16Block = IntBlock<Type::INT16, int16_t>;
+using UInt32Block = IntBlock<Type::UINT32, uint32_t>;
+using Int32Block = IntBlock<Type::INT32, int32_t>;
+using UInt64Block = IntBlock<Type::UINT64, uint64_t>;
+using Int64Block = IntBlock<Type::INT64, int64_t>;
 
 class Float32Block : public PandasBlock {
  public:
@@ -1205,9 +1199,9 @@ class Float64Block : public PandasBlock {
       case Type::INT32:
         INTEGER_CASE(int32_t);
       case Type::UINT64:
-        INTEGER_CASE(int32_t);
+        INTEGER_CASE(uint64_t);
       case Type::INT64:
-        INTEGER_CASE(int32_t);
+        INTEGER_CASE(int64_t);
       case Type::FLOAT:
         ConvertNumericNullableCast<float, double>(data, NAN, out_buffer);
         break;
@@ -1262,14 +1256,33 @@ class DatetimeBlock : public PandasBlock {
   Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
     Type::type type = col->type()->type;
 
-    if (type != Type::TIMESTAMP) {
-      return Status::NotImplemented(col->type()->ToString());
-    }
-
     int64_t* out_buffer =
         reinterpret_cast<int64_t*>(block_data_) + current_placement_index_ * num_rows_;
 
-    ConvertNumericNullable<int64_t>(*col->data().get(), kPandasTimestampNull, out_buffer);
+    const ChunkedArray& data = *col.get()->data();
+
+    if (type == Type::DATE) {
+      // DateType is millisecond timestamp stored as int64_t
+      // TODO(wesm): Do we want to make sure to zero out the milliseconds?
+      ConvertDatetimeNanos<int64_t, 1000000L>(data, out_buffer);
+    } else if (type == Type::TIMESTAMP) {
+      auto ts_type = static_cast<arrow::TimestampType*>(col->type().get());
+
+      if (ts_type->unit == arrow::TimeUnit::NANO) {
+        ConvertNumericNullable<int64_t>(data, kPandasTimestampNull, out_buffer);
+      } else if (ts_type->unit == arrow::TimeUnit::MICRO) {
+        ConvertDatetimeNanos<int64_t, 1000L>(data, out_buffer);
+      } else if (ts_type->unit == arrow::TimeUnit::MILLI) {
+        ConvertDatetimeNanos<int64_t, 1000000L>(data, out_buffer);
+      } else if (ts_type->unit == arrow::TimeUnit::SECOND) {
+        ConvertDatetimeNanos<int64_t, 1000000000L>(data, out_buffer);
+      } else {
+        return Status::NotImplemented("Unsupported time unit");
+      }
+    } else {
+      return Status::NotImplemented(col->type()->ToString());
+    }
+
     placement_data_[current_placement_index_++] = placement;
     return Status::OK();
   }
@@ -1279,31 +1292,30 @@ class DatetimeBlock : public PandasBlock {
 
 Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     std::shared_ptr<PandasBlock>* block) {
+#define BLOCK_CASE(NAME, TYPE)                              \
+  case PandasBlock::NAME:                                   \
+    *block = std::make_shared<TYPE>(num_rows, num_columns); \
+    break;
+
   switch (type) {
-    case PandasBlock::OBJECT:
-      *block = std::make_shared<ObjectBlock>(num_rows, num_columns);
-      break;
-    case PandasBlock::INT:
-      *block = std::make_shared<Int64Block>(num_rows, num_columns);
-      break;
-    case PandasBlock::UINT64:
-      *block = std::make_shared<UInt64Block>(num_rows, num_columns);
-      break;
-    case PandasBlock::FLOAT:
-      *block = std::make_shared<Float32Block>(num_rows, num_columns);
-      break;
-    case PandasBlock::DOUBLE:
-      *block = std::make_shared<Float64Block>(num_rows, num_columns);
-      break;
-    case PandasBlock::BOOL:
-      *block = std::make_shared<BoolBlock>(num_rows, num_columns);
-      break;
-    case PandasBlock::DATETIME:
-      *block = std::make_shared<DatetimeBlock>(num_rows, num_columns);
-      break;
+    BLOCK_CASE(OBJECT, ObjectBlock);
+    BLOCK_CASE(UINT8, UInt8Block);
+    BLOCK_CASE(INT8, Int8Block);
+    BLOCK_CASE(UINT16, UInt16Block);
+    BLOCK_CASE(INT16, Int16Block);
+    BLOCK_CASE(UINT32, UInt32Block);
+    BLOCK_CASE(INT32, Int32Block);
+    BLOCK_CASE(UINT64, UInt64Block);
+    BLOCK_CASE(INT64, Int64Block);
+    BLOCK_CASE(FLOAT, Float32Block);
+    BLOCK_CASE(DOUBLE, Float64Block);
+    BLOCK_CASE(BOOL, BoolBlock);
+    BLOCK_CASE(DATETIME, DatetimeBlock);
     case PandasBlock::CATEGORICAL:
       return Status::NotImplemented("categorical");
   }
+
+#undef BLOCK_CASE
 
   return (*block)->Allocate();
 }
@@ -1341,14 +1353,28 @@ class DataFrameBlockCreator {
           output_type = col->null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
           break;
         case Type::UINT8:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT8;
+          break;
         case Type::INT8:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT8;
+          break;
         case Type::UINT16:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT16;
+          break;
         case Type::INT16:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT16;
+          break;
         case Type::UINT32:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT32;
+          break;
         case Type::INT32:
-        case Type::UINT64:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT32;
+          break;
         case Type::INT64:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT;
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT64;
+          break;
+        case Type::UINT64:
+          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT64;
           break;
         case Type::FLOAT:
           output_type = PandasBlock::FLOAT;
@@ -1359,6 +1385,9 @@ class DataFrameBlockCreator {
         case Type::STRING:
         case Type::BINARY:
           output_type = PandasBlock::OBJECT;
+          break;
+        case Type::DATE:
+          output_type = PandasBlock::DATETIME;
           break;
         case Type::TIMESTAMP:
           output_type = PandasBlock::DATETIME;
