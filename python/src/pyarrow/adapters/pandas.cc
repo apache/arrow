@@ -1012,6 +1012,14 @@ class PandasBlock {
   virtual Status Allocate() = 0;
   virtual Status WriteNext(const std::shared_ptr<Column>& col, int placement) = 0;
 
+  PyObject* block_arr() {
+    return block_arr_.obj();
+  }
+
+  PyObject* placement_arr() {
+    return block_arr_.obj();
+  }
+
  protected:
 
   Status AllocateNDArray(int npy_type) {
@@ -1334,14 +1342,16 @@ class DataFrameBlockCreator {
   DataFrameBlockCreator(const std::shared_ptr<Table>& table)
       : table_(table) {}
 
-  Status Convert() {
+  Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
     type_counts_.clear();
     blocks_.clear();
 
     RETURN_NOT_OK(CountColumnTypes());
     RETURN_NOT_OK(CreateBlocks());
-    RETURN_NOT_OK(WriteTableToBlocks());
+    RETURN_NOT_OK(WriteTableToBlocks(nthreads));
+
+    return GetResultList(output);
   }
 
   Status CountColumnTypes() {
@@ -1404,7 +1414,11 @@ class DataFrameBlockCreator {
     return Status::OK();
   }
 
-  Status WriteTableToBlocks() {
+  Status WriteTableToBlocks(int nthreads) {
+    if (nthreads > 1) {
+      return Status::NotImplemented("multithreading not yet implemented");
+    }
+
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<Column> col = table_->column(i);
       PandasBlock::type output_type = column_types_[i];
@@ -1415,6 +1429,32 @@ class DataFrameBlockCreator {
       }
       RETURN_NOT_OK(it->second->WriteNext(col, i));
     }
+    return Status::OK();
+  }
+
+  Status GetResultList(PyObject** out) {
+    auto num_blocks = static_cast<Py_ssize_t>(blocks_.size());
+    PyObject* result = PyList_New(num_blocks);
+    RETURN_IF_PYERROR();
+
+    for (const auto& it : blocks_) {
+      const std::shared_ptr<PandasBlock> block = it.second;
+
+      PyObject* item = PyTuple_New(2);
+      RETURN_IF_PYERROR();
+
+      PyObject* block_arr = block->block_arr();
+      PyObject* placement_arr = block->placement_arr();
+      Py_INCREF(block_arr);
+      Py_INCREF(placement_arr);
+      PyTuple_SET_ITEM(item, 0, block_arr);
+      PyTuple_SET_ITEM(item, 1, placement_arr);
+
+      if (PyList_Append(result, item) < 0) {
+        RETURN_IF_PYERROR();
+      }
+    }
+    *out = result;
     return Status::OK();
   }
 
@@ -1431,7 +1471,8 @@ class DataFrameBlockCreator {
 
 Status ConvertTableToPandas(
     const std::shared_ptr<Table>& table, int nthreads, PyObject** out) {
-  return Status::OK();
+  DataFrameBlockCreator helper(table);
+  return helper.Convert(nthreads, out);
 }
 
 }  // namespace pyarrow

@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CTable,
                                         CDataType, CStatus, Type, MemoryPool)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
@@ -38,6 +38,9 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
 
     CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
                                   PyObject* py_ref, PyObject** out)
+
+    CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
+                                 int nthreads, PyObject** out)
 
     MemoryPool* get_memory_pool()
 
