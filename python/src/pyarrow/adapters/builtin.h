@@ -40,6 +40,6 @@ namespace pyarrow {
 PYARROW_EXPORT
 arrow::Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_ADAPTERS_BUILTIN_H
+#endif  // PYARROW_ADAPTERS_BUILTIN_H

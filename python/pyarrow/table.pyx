@@ -430,6 +430,32 @@ cdef class RecordBatch:
         return result
 
 
+cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
+    cdef:
+        PyObject* result_obj
+        CColumn* col
+        int i
+
+    from pandas.core.internals import BlockManager, make_block
+    from pandas import RangeIndex
+
+    check_status(pyarrow.ConvertTableToPandas(table, nthreads, &result_obj))
+
+    result = PyObject_to_object(result_obj)
+
+    blocks = []
+    for block_arr, placement_arr in result:
+        blocks.append(make_block(block_arr, placement=placement_arr))
+
+    names = []
+    for i in range(table.get().num_columns()):
+        col = table.get().column(i).get()
+        names.append(frombytes(col.name()))
+
+    axes = [names, RangeIndex(table.get().num_rows())]
+    return BlockManager(blocks, axes)
+
+
 cdef class Table:
     """
     A collection of top-level named, equal length Arrow arrays.
@@ -584,7 +610,7 @@ cdef class Table:
         table.init(c_table)
         return table
 
-    def to_pandas(self):
+    def to_pandas(self, nthreads=1, block_based=True):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -599,17 +625,21 @@ cdef class Table:
 
         import pandas as pd
 
-        names = []
-        data = []
-        for i in range(self.table.num_columns()):
-            col = self.table.column(i)
-            column = self.column(i)
-            check_status(pyarrow.ConvertColumnToPandas(
-                col, <PyObject*> column, &arr))
-            names.append(frombytes(col.get().name()))
-            data.append(PyObject_to_object(arr))
+        if block_based:
+            mgr = table_to_blockmanager(self.sp_table, nthreads)
+            return pd.DataFrame(mgr)
+        else:
+            names = []
+            data = []
+            for i in range(self.table.num_columns()):
+                col = self.table.column(i)
+                column = self.column(i)
+                check_status(pyarrow.ConvertColumnToPandas(
+                    col, <PyObject*> column, &arr))
+                names.append(frombytes(col.get().name()))
+                data.append(PyObject_to_object(arr))
 
-        return pd.DataFrame(dict(zip(names, data)), columns=names)
+            return pd.DataFrame(dict(zip(names, data)), columns=names)
 
     @property
     def name(self):

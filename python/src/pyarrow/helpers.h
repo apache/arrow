@@ -31,6 +31,6 @@ using arrow::Type;
 PYARROW_EXPORT
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_HELPERS_H
+#endif  // PYARROW_HELPERS_H

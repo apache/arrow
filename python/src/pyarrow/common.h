@@ -24,7 +24,9 @@
 #include "arrow/buffer.h"
 #include "arrow/util/macros.h"
 
-namespace arrow { class MemoryPool; }
+namespace arrow {
+class MemoryPool;
+}
 
 namespace pyarrow {
 
@@ -34,27 +36,18 @@ class OwnedRef {
  public:
   OwnedRef() : obj_(nullptr) {}
 
-  OwnedRef(PyObject* obj) :
-      obj_(obj) {}
+  OwnedRef(PyObject* obj) : obj_(obj) {}
 
-  ~OwnedRef() {
-    Py_XDECREF(obj_);
-  }
+  ~OwnedRef() { Py_XDECREF(obj_); }
 
   void reset(PyObject* obj) {
-    if (obj_ != nullptr) {
-      Py_XDECREF(obj_);
-    }
+    if (obj_ != nullptr) { Py_XDECREF(obj_); }
     obj_ = obj;
   }
 
-  void release() {
-    obj_ = nullptr;
-  }
+  void release() { obj_ = nullptr; }
 
-  PyObject* obj() const{
-    return obj_;
-  }
+  PyObject* obj() const { return obj_; }
 
  private:
   PyObject* obj_;
@@ -78,13 +71,10 @@ struct PyObjectStringify {
 
 class PyGILGuard {
  public:
-  PyGILGuard() {
-    state_ = PyGILState_Ensure();
-  }
+  PyGILGuard() { state_ = PyGILState_Ensure(); }
 
-  ~PyGILGuard() {
-    PyGILState_Release(state_);
-  }
+  ~PyGILGuard() { PyGILState_Release(state_); }
+
  private:
   PyGILState_STATE state_;
   DISALLOW_COPY_AND_ASSIGN(PyGILGuard);
@@ -108,8 +98,7 @@ PYARROW_EXPORT arrow::MemoryPool* get_memory_pool();
 
 class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
  public:
-  NumPyBuffer(PyArrayObject* arr)
-    : Buffer(nullptr, 0) {
+  NumPyBuffer(PyArrayObject* arr) : Buffer(nullptr, 0) {
     arr_ = arr;
     Py_INCREF(arr);
 
@@ -118,9 +107,7 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
     capacity_ = size_;
   }
 
-  virtual ~NumPyBuffer() {
-    Py_XDECREF(arr_);
-  }
+  virtual ~NumPyBuffer() { Py_XDECREF(arr_); }
 
  private:
   PyArrayObject* arr_;
@@ -135,22 +122,17 @@ class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
   PyObject* obj_;
 };
 
-
 class PyAcquireGIL {
  public:
-  PyAcquireGIL() {
-    state_ = PyGILState_Ensure();
-  }
+  PyAcquireGIL() { state_ = PyGILState_Ensure(); }
 
-  ~PyAcquireGIL() {
-    PyGILState_Release(state_);
-  }
+  ~PyAcquireGIL() { PyGILState_Release(state_); }
 
  private:
   PyGILState_STATE state_;
   DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_COMMON_H
+#endif  // PYARROW_COMMON_H

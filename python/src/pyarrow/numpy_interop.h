@@ -53,6 +53,6 @@ inline int import_numpy() {
   return 0;
 }
 
-} // namespace pyarrow
+}  // namespace pyarrow
 
-#endif // PYARROW_NUMPY_INTEROP_H
+#endif  // PYARROW_NUMPY_INTEROP_H

@@ -23,36 +23,35 @@ using namespace arrow;
 
 namespace pyarrow {
 
-
-#define GET_PRIMITIVE_TYPE(NAME, FACTORY)       \
-  case Type::NAME:                              \
-    return FACTORY();                           \
+#define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
+  case Type::NAME:                        \
+    return FACTORY();                     \
     break;
 
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   switch (type) {
     case Type::NA:
       return null();
-    GET_PRIMITIVE_TYPE(UINT8, uint8);
-    GET_PRIMITIVE_TYPE(INT8, int8);
-    GET_PRIMITIVE_TYPE(UINT16, uint16);
-    GET_PRIMITIVE_TYPE(INT16, int16);
-    GET_PRIMITIVE_TYPE(UINT32, uint32);
-    GET_PRIMITIVE_TYPE(INT32, int32);
-    GET_PRIMITIVE_TYPE(UINT64, uint64);
-    GET_PRIMITIVE_TYPE(INT64, int64);
-    GET_PRIMITIVE_TYPE(DATE, date);
+      GET_PRIMITIVE_TYPE(UINT8, uint8);
+      GET_PRIMITIVE_TYPE(INT8, int8);
+      GET_PRIMITIVE_TYPE(UINT16, uint16);
+      GET_PRIMITIVE_TYPE(INT16, int16);
+      GET_PRIMITIVE_TYPE(UINT32, uint32);
+      GET_PRIMITIVE_TYPE(INT32, int32);
+      GET_PRIMITIVE_TYPE(UINT64, uint64);
+      GET_PRIMITIVE_TYPE(INT64, int64);
+      GET_PRIMITIVE_TYPE(DATE, date);
     case Type::TIMESTAMP:
       return arrow::timestamp(arrow::TimeUnit::MICRO);
       break;
-    GET_PRIMITIVE_TYPE(BOOL, boolean);
-    GET_PRIMITIVE_TYPE(FLOAT, float32);
-    GET_PRIMITIVE_TYPE(DOUBLE, float64);
-    GET_PRIMITIVE_TYPE(BINARY, binary);
-    GET_PRIMITIVE_TYPE(STRING, utf8);
+      GET_PRIMITIVE_TYPE(BOOL, boolean);
+      GET_PRIMITIVE_TYPE(FLOAT, float32);
+      GET_PRIMITIVE_TYPE(DOUBLE, float64);
+      GET_PRIMITIVE_TYPE(BINARY, binary);
+      GET_PRIMITIVE_TYPE(STRING, utf8);
     default:
       return nullptr;
   }
 }
 
-} // namespace pyarrow
+}  // namespace pyarrow

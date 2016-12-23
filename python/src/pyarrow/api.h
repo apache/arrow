@@ -23,4 +23,4 @@
 #include "pyarrow/adapters/builtin.h"
 #include "pyarrow/adapters/pandas.h"
 
-#endif // PYARROW_API_H
+#endif  // PYARROW_API_H

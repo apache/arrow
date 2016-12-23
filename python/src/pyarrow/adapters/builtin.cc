@@ -44,16 +44,16 @@ static inline bool IsPyInteger(PyObject* obj) {
 
 class ScalarVisitor {
  public:
-  ScalarVisitor() :
-      total_count_(0),
-      none_count_(0),
-      bool_count_(0),
-      int_count_(0),
-      date_count_(0),
-      timestamp_count_(0),
-      float_count_(0),
-      binary_count_(0),
-      unicode_count_(0) {}
+  ScalarVisitor()
+      : total_count_(0),
+        none_count_(0),
+        bool_count_(0),
+        int_count_(0),
+        date_count_(0),
+        timestamp_count_(0),
+        float_count_(0),
+        binary_count_(0),
+        unicode_count_(0) {}
 
   void Visit(PyObject* obj) {
     ++total_count_;
@@ -100,9 +100,7 @@ class ScalarVisitor {
     }
   }
 
-  int64_t total_count() const {
-    return total_count_;
-  }
+  int64_t total_count() const { return total_count_; }
 
  private:
   int64_t total_count_;
@@ -123,17 +121,14 @@ static constexpr int MAX_NESTING_LEVELS = 32;
 
 class SeqVisitor {
  public:
-  SeqVisitor() :
-      max_nesting_level_(0) {
+  SeqVisitor() : max_nesting_level_(0) {
     memset(nesting_histogram_, 0, MAX_NESTING_LEVELS * sizeof(int));
   }
 
-  Status Visit(PyObject* obj, int level=0) {
+  Status Visit(PyObject* obj, int level = 0) {
     Py_ssize_t size = PySequence_Size(obj);
 
-    if (level > max_nesting_level_) {
-      max_nesting_level_ = level;
-    }
+    if (level > max_nesting_level_) { max_nesting_level_ = level; }
 
     for (int64_t i = 0; i < size; ++i) {
       // TODO(wesm): Error checking?
@@ -188,9 +183,7 @@ class SeqVisitor {
   int max_observed_level() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
-      if (nesting_histogram_[i] > 0) {
-        result = i;
-      }
+      if (nesting_histogram_[i] > 0) { result = i; }
     }
     return result;
   }
@@ -198,9 +191,7 @@ class SeqVisitor {
   int num_nesting_levels() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
-      if (nesting_histogram_[i] > 0) {
-        ++result;
-      }
+      if (nesting_histogram_[i] > 0) { ++result; }
     }
     return result;
   }
@@ -214,8 +205,8 @@ class SeqVisitor {
 };
 
 // Non-exhaustive type inference
-static Status InferArrowType(PyObject* obj, int64_t* size,
-    std::shared_ptr<DataType>* out_type) {
+static Status InferArrowType(
+    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
   *size = PySequence_Size(obj);
   if (PyErr_Occurred()) {
     // Not a sequence
@@ -224,9 +215,7 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
   }
 
   // For 0-length sequences, refuse to guess
-  if (*size == 0) {
-    *out_type = arrow::null();
-  }
+  if (*size == 0) { *out_type = arrow::null(); }
 
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));
@@ -234,9 +223,7 @@ static Status InferArrowType(PyObject* obj, int64_t* size,
 
   *out_type = seq_visitor.GetType();
 
-  if (*out_type == nullptr) {
-    return Status::TypeError("Unable to determine data type");
-  }
+  if (*out_type == nullptr) { return Status::TypeError("Unable to determine data type"); }
 
   return Status::OK();
 }
@@ -337,7 +324,8 @@ class TimestampConverter : public TypedConverter<arrow::TimestampBuilder> {
       if (item.obj() == Py_None) {
         typed_builder_->AppendNull();
       } else {
-        PyDateTime_DateTime* pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
+        PyDateTime_DateTime* pydatetime =
+            reinterpret_cast<PyDateTime_DateTime*>(item.obj());
         struct tm datetime = {0};
         datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
         datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
@@ -462,6 +450,7 @@ class ListConverter : public TypedConverter<arrow::ListBuilder> {
     }
     return Status::OK();
   }
+
  protected:
   std::shared_ptr<SeqConverter> value_converter_;
 };
@@ -496,8 +485,8 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   builder_ = builder;
   typed_builder_ = static_cast<arrow::ListBuilder*>(builder.get());
 
-  value_converter_ = GetConverter(static_cast<arrow::ListType*>(
-          builder->type().get())->value_type());
+  value_converter_ =
+      GetConverter(static_cast<arrow::ListType*>(builder->type().get())->value_type());
   if (value_converter_ == nullptr) {
     return Status::NotImplemented("value type not implemented");
   }
@@ -521,8 +510,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<SeqConverter> converter = GetConverter(type);
   if (converter == nullptr) {
     std::stringstream ss;
-    ss << "No type converter implemented for "
-       << type->ToString();
+    ss << "No type converter implemented for " << type->ToString();
     return Status::NotImplemented(ss.str());
   }
 
@@ -536,4 +524,4 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
   return builder->Finish(out);
 }
 
-} // namespace pyarrow
+}  // namespace pyarrow
