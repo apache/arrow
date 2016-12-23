@@ -623,7 +623,6 @@ cdef class Table:
             shared_ptr[CColumn] col
             Column column
 
-        from pandas.core.internals import make_block, BlockManager
         import pandas as pd
 
         if block_based:
