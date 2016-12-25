@@ -42,8 +42,9 @@ class PARQUET_EXPORT ColumnReader {
       MemoryAllocator* allocator = default_allocator());
   virtual ~ColumnReader();
 
-  static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor*,
-      std::unique_ptr<PageReader>, MemoryAllocator* allocator = default_allocator());
+  static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor* descr,
+      std::unique_ptr<PageReader> pager,
+      MemoryAllocator* allocator = default_allocator());
 
   // Returns true if there are still values in this column.
   bool HasNext() {

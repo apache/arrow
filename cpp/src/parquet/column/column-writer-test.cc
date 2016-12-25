@@ -61,11 +61,12 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   Type::type type_num() { return TestType::type_num; }
 
-  void BuildReader(Compression::type compression = Compression::UNCOMPRESSED) {
+  void BuildReader(
+      int64_t num_rows, Compression::type compression = Compression::UNCOMPRESSED) {
     auto buffer = sink_->GetBuffer();
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<SerializedPageReader> page_reader(
-        new SerializedPageReader(std::move(source), compression));
+        new SerializedPageReader(std::move(source), num_rows, compression));
     reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
   }
 
@@ -92,7 +93,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED) {
-    BuildReader(compression);
+    BuildReader(static_cast<int64_t>(this->values_out_.size()), compression);
     reader_->ReadBatch(this->values_out_.size(), definition_levels_out_.data(),
         repetition_levels_out_.data(), this->values_out_ptr_, &values_read_);
     this->SyncValuesOut();
@@ -171,9 +172,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
 template <typename TestType>
 void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compression) {
-  BuildReader(compression);
+  int64_t total_values = static_cast<int64_t>(this->values_out_.size());
+  BuildReader(total_values, compression);
   values_read_ = 0;
-  while (values_read_ < static_cast<int64_t>(this->values_out_.size())) {
+  while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
     reader_->ReadBatch(this->values_out_.size() - values_read_,
         definition_levels_out_.data() + values_read_,
@@ -186,11 +188,12 @@ void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compressio
 
 template <>
 void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression) {
-  BuildReader(compression);
+  int64_t total_values = static_cast<int64_t>(this->values_out_.size());
+  BuildReader(total_values, compression);
   this->data_buffer_.clear();
 
   values_read_ = 0;
-  while (values_read_ < static_cast<int64_t>(this->values_out_.size())) {
+  while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
     reader_->ReadBatch(this->values_out_.size() - values_read_,
         definition_levels_out_.data() + values_read_,

@@ -84,10 +84,10 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL)->Range(1024, 65536
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED)->Range(1024, 65536);
 
 std::unique_ptr<Int64Reader> BuildReader(
-    std::shared_ptr<Buffer>& buffer, ColumnDescriptor* schema) {
+    std::shared_ptr<Buffer>& buffer, int64_t num_values, ColumnDescriptor* schema) {
   std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
   std::unique_ptr<SerializedPageReader> page_reader(
-      new SerializedPageReader(std::move(source), Compression::UNCOMPRESSED));
+      new SerializedPageReader(std::move(source), num_values, Compression::UNCOMPRESSED));
   return std::unique_ptr<Int64Reader>(new Int64Reader(schema, std::move(page_reader)));
 }
 
@@ -114,7 +114,7 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   std::vector<int16_t> definition_levels_out(state.range_y());
   std::vector<int16_t> repetition_levels_out(state.range_y());
   while (state.KeepRunning()) {
-    std::unique_ptr<Int64Reader> reader = BuildReader(src, schema.get());
+    std::unique_ptr<Int64Reader> reader = BuildReader(src, state.range_y(), schema.get());
     int64_t values_read = 0;
     for (size_t i = 0; i < values.size(); i += values_read) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),

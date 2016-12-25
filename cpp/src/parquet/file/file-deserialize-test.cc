@@ -60,11 +60,12 @@ class TestPageSerde : public ::testing::Test {
     ResetStream();
   }
 
-  void InitSerializedPageReader(Compression::type codec = Compression::UNCOMPRESSED) {
+  void InitSerializedPageReader(
+      int64_t num_rows, Compression::type codec = Compression::UNCOMPRESSED) {
     EndStream();
     std::unique_ptr<InputStream> stream;
     stream.reset(new InMemoryInputStream(out_buffer_));
-    page_reader_.reset(new SerializedPageReader(std::move(stream), codec));
+    page_reader_.reset(new SerializedPageReader(std::move(stream), num_rows, codec));
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
@@ -116,11 +117,12 @@ TEST_F(TestPageSerde, DataPage) {
   format::PageHeader out_page_header;
 
   int stats_size = 512;
+  const int32_t num_rows = 4444;
   AddDummyStats(stats_size, data_page_header_);
-  data_page_header_.num_values = 4444;
+  data_page_header_.num_values = num_rows;
 
   WriteDataPageHeader();
-  InitSerializedPageReader();
+  InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   CheckDataPageHeader(data_page_header_, current_page.get());
 }
@@ -130,7 +132,8 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
   AddDummyStats(stats_size, data_page_header_);
 
   // Any number to verify metadata roundtrip
-  data_page_header_.num_values = 4141;
+  const int32_t num_rows = 4141;
+  data_page_header_.num_values = num_rows;
 
   int max_header_size = 512 * 1024;  // 512 KB
   WriteDataPageHeader(max_header_size);
@@ -140,12 +143,14 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
   ASSERT_LE(stats_size, out_stream_->Tell());
   ASSERT_GE(DEFAULT_MAX_PAGE_HEADER_SIZE, out_stream_->Tell());
 
-  InitSerializedPageReader();
+  InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   CheckDataPageHeader(data_page_header_, current_page.get());
 }
 
 TEST_F(TestPageSerde, TestFailLargePageHeaders) {
+  const int32_t num_rows = 1337;  // dummy value
+
   int stats_size = 256 * 1024;  // 256 KB
   AddDummyStats(stats_size, data_page_header_);
 
@@ -156,7 +161,7 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 
   int smaller_max_size = 128 * 1024;
   ASSERT_LE(smaller_max_size, out_stream_->Tell());
-  InitSerializedPageReader();
+  InitSerializedPageReader(num_rows);
 
   // Set the max page header size to 128 KB, which is less than the current
   // header size
@@ -168,8 +173,8 @@ TEST_F(TestPageSerde, Compression) {
   Compression::type codec_types[3] = {
       Compression::GZIP, Compression::SNAPPY, Compression::BROTLI};
 
-  // This is a dummy number
-  data_page_header_.num_values = 32;
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
 
   int num_pages = 10;
 
@@ -198,7 +203,7 @@ TEST_F(TestPageSerde, Compression) {
       out_stream_->Write(buffer.data(), actual_size);
     }
 
-    InitSerializedPageReader(codec_type);
+    InitSerializedPageReader(num_rows * num_pages, codec_type);
 
     std::shared_ptr<Page> page;
     const DataPage* data_page;
@@ -220,7 +225,7 @@ TEST_F(TestPageSerde, LZONotSupported) {
   std::vector<uint8_t> faux_data(data_size);
   WriteDataPageHeader(1024, data_size, data_size);
   out_stream_->Write(faux_data.data(), data_size);
-  ASSERT_THROW(InitSerializedPageReader(Compression::LZO), ParquetException);
+  ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
 }
 
 // ----------------------------------------------------------------------

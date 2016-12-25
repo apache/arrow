@@ -42,8 +42,11 @@ namespace parquet {
 // assembled in a serialized stream for storing in a Parquet files
 
 SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
-    Compression::type codec_type, MemoryAllocator* allocator)
-    : stream_(std::move(stream)), decompression_buffer_(0, allocator) {
+    int64_t total_num_rows, Compression::type codec_type, MemoryAllocator* allocator)
+    : stream_(std::move(stream)),
+      decompression_buffer_(0, allocator),
+      seen_num_rows_(0),
+      total_num_rows_(total_num_rows) {
   max_page_header_size_ = DEFAULT_MAX_PAGE_HEADER_SIZE;
   decompressor_ = Codec::Create(codec_type);
 }
@@ -51,7 +54,7 @@ SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
-  while (true) {
+  while (seen_num_rows_ < total_num_rows_) {
     int64_t bytes_read = 0;
     int64_t bytes_available = 0;
     uint32_t header_size = 0;
@@ -89,7 +92,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     // Read the compressed data page.
     buffer = stream_->Read(compressed_len, &bytes_read);
-    if (bytes_read != compressed_len) ParquetException::EofException();
+    if (bytes_read != compressed_len) { ParquetException::EofException(); }
 
     // Uncompress it if we need to
     if (decompressor_ != NULL) {
@@ -128,14 +131,17 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         }
       }
 
-      auto page = std::make_shared<DataPage>(page_buffer, header.num_values,
+      seen_num_rows_ += header.num_values;
+
+      return std::make_shared<DataPage>(page_buffer, header.num_values,
           FromThrift(header.encoding), FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
-
-      return page;
     } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
+
+      seen_num_rows_ += header.num_values;
+
       return std::make_shared<DataPageV2>(page_buffer, header.num_values,
           header.num_nulls, header.num_rows, FromThrift(header.encoding),
           header.definition_levels_byte_length, header.repetition_levels_byte_length,
@@ -149,6 +155,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
+SerializedRowGroup::SerializedRowGroup(RandomAccessSource* source,
+    FileMetaData* file_metadata, int row_group_number, const ReaderProperties& props)
+    : source_(source), file_metadata_(file_metadata), properties_(props) {
+  row_group_metadata_ = file_metadata->RowGroup(row_group_number);
+}
 const RowGroupMetaData* SerializedRowGroup::metadata() const {
   return row_group_metadata_.get();
 }
@@ -156,6 +167,9 @@ const RowGroupMetaData* SerializedRowGroup::metadata() const {
 const ReaderProperties* SerializedRowGroup::properties() const {
   return &properties_;
 }
+
+// For PARQUET-816
+static constexpr int64_t kMaxDictHeaderSize = 100;
 
 std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
   // Read column chunk from the file
@@ -166,13 +180,24 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
     col_start = col->dictionary_page_offset();
   }
 
-  int64_t bytes_to_read = col->total_compressed_size();
+  int64_t col_length = col->total_compressed_size();
   std::unique_ptr<InputStream> stream;
 
-  stream = properties_.GetStream(source_, col_start, bytes_to_read);
+  // PARQUET-816 workaround for old files created by older parquet-mr
+  const FileMetaData::Version& version = file_metadata_->writer_version();
+  if (version.application == "parquet-mr" && version.VersionLt(1, 2, 9)) {
+    // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+    // dictionary page header size in total_compressed_size and total_uncompressed_size
+    // (see IMPALA-694). We add padding to compensate.
+    int64_t bytes_remaining = source_->Size() - (col_start + col_length);
+    int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
+    col_length += padding;
+  }
 
-  return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), col->compression(), properties_.allocator()));
+  stream = properties_.GetStream(source_, col_start, col_length);
+
+  return std::unique_ptr<PageReader>(new SerializedPageReader(std::move(stream),
+      row_group_metadata_->num_rows(), col->compression(), properties_.allocator()));
 }
 
 // ----------------------------------------------------------------------
@@ -205,7 +230,7 @@ SerializedFile::~SerializedFile() {
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   std::unique_ptr<SerializedRowGroup> contents(
-      new SerializedRowGroup(source_.get(), file_metadata_->RowGroup(i), properties_));
+      new SerializedRowGroup(source_.get(), file_metadata_.get(), i, properties_));
   return std::make_shared<RowGroupReader>(std::move(contents));
 }
 

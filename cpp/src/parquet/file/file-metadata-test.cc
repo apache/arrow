@@ -153,5 +153,15 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(10, rg2_column1->data_page_offset());
   ASSERT_EQ(26, rg2_column2->data_page_offset());
 }
+
+TEST(FileVersion, Basics) {
+  FileMetaData::Version version("parquet-mr version 1.2.8");
+
+  ASSERT_EQ("parquet-mr", version.application);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(2, version.version.minor);
+  ASSERT_EQ(8, version.version.patch);
+}
+
 }  // namespace metadata
 }  // namespace parquet
