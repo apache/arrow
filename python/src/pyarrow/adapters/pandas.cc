@@ -20,6 +20,7 @@
 #include "pyarrow/adapters/pandas.h"
 #include "pyarrow/numpy_interop.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -1440,6 +1441,8 @@ class DataFrameBlockCreator {
       return it->second->Write(col, i, rel_placement);
     };
 
+    nthreads = std::min<int>(nthreads, table_->num_columns());
+
     if (nthreads == 1) {
       for (int i = 0; i < table_->num_columns(); ++i) {
         RETURN_NOT_OK(WriteColumn(i));
@@ -1450,7 +1453,7 @@ class DataFrameBlockCreator {
       std::atomic<int> task_counter(0);
 
       std::mutex error_mtx;
-      bool error_occurred;
+      bool error_occurred = false;
       Status error;
 
       for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
@@ -1480,6 +1483,8 @@ class DataFrameBlockCreator {
   }
 
   Status GetResultList(PyObject** out) {
+    PyAcquireGIL lock;
+
     auto num_blocks = static_cast<Py_ssize_t>(blocks_.size());
     PyObject* result = PyList_New(num_blocks);
     RETURN_IF_PYERROR();
