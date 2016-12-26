@@ -1442,25 +1442,39 @@ class DataFrameBlockCreator {
 
     if (nthreads == 1) {
       for (int i = 0; i < table_->num_columns(); ++i) {
-        WriteColumn(i);
+        RETURN_NOT_OK(WriteColumn(i));
       }
     } else {
       std::vector<std::thread> thread_pool;
       thread_pool.reserve(nthreads);
       std::atomic<int> task_counter(0);
+
+      std::mutex error_mtx;
+      bool error_occurred;
+      Status error;
+
       for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
-        thread_pool.emplace_back([this, &task_counter, &WriteColumn]() {
-          int column_num;
-          while (true) {
-            column_num = task_counter.fetch_add(1);
-            if (column_num >= this->table_->num_columns()) { break; }
-            WriteColumn(column_num);
-          }
-        });
+        thread_pool.emplace_back(
+            [this, &error, &error_occurred, &error_mtx, &task_counter, &WriteColumn]() {
+              int column_num;
+              while (!error_occurred) {
+                column_num = task_counter.fetch_add(1);
+                if (column_num >= this->table_->num_columns()) { break; }
+                Status s = WriteColumn(column_num);
+                if (!s.ok()) {
+                  std::lock_guard<std::mutex> lock(error_mtx);
+                  error_occurred = true;
+                  error = s;
+                  break;
+                }
+              }
+            });
       }
       for (auto&& thread : thread_pool) {
         thread.join();
       }
+
+      if (error_occurred) { return error; }
     }
     return Status::OK();
   }

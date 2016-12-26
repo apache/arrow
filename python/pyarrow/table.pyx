@@ -618,7 +618,10 @@ cdef class Table:
 
         Parameters
         ----------
-        nthreads : int, default multiprocessing.cpu_count()
+        nthreads : int, default max(1, multiprocessing.cpu_count() / 2)
+            For the default, we divide the CPU count by 2 because most modern
+            computers have hyperthreading turned on, so doubling the CPU count
+            beyond the number of physical cores does not help
 
         Returns
         -------
@@ -628,7 +631,7 @@ cdef class Table:
 
         if nthreads is None:
             import multiprocessing
-            nthreads = multiprocessing.cpu_count()
+            nthreads = max(multiprocessing.cpu_count() // 2, 1)
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return pd.DataFrame(mgr)
