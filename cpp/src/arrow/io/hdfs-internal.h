@@ -21,6 +21,11 @@
 #ifndef _WIN32
 #include <dlfcn.h>
 #else
+
+// Windows defines min and max macros that mess up std::min/maxa
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <windows.h>
 
