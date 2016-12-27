@@ -147,7 +147,9 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     return PrimitiveArray::EqualsExact(static_cast<const PrimitiveArray&>(other));
   }
 
-  bool ApproxEquals(const std::shared_ptr<Array>& arr) const { return Equals(arr); }
+  bool ApproxEquals(const std::shared_ptr<Array>& arr) const override {
+    return Equals(arr);
+  }
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const ArrayPtr& arr) const override {
