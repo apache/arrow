@@ -30,6 +30,8 @@
 
 #include <hdfs.h>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Status;
@@ -204,8 +206,9 @@ struct LibHdfsShim {
   Status GetRequiredSymbols();
 };
 
-Status ConnectLibHdfs(LibHdfsShim** driver);
-Status ConnectLibHdfs3(LibHdfsShim** driver);
+// TODO(wesm): Remove these exports when we are linking statically
+Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
+Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver);
 
 }  // namespace io
 }  // namespace arrow
