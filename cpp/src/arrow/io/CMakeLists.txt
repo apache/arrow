@@ -45,50 +45,30 @@ set(ARROW_IO_TEST_LINK_LIBS
 
 set(ARROW_IO_SRCS
   file.cc
+  hdfs.cc
+  hdfs-internal.cc
   interfaces.cc
   memory.cc
 )
 
-if(ARROW_HDFS)
-  if(NOT THIRDPARTY_DIR)
-    message(FATAL_ERROR "THIRDPARTY_DIR not set")
-  endif()
-
-  if (DEFINED ENV{HADOOP_HOME})
-    set(HADOOP_HOME $ENV{HADOOP_HOME})
-    if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
-      message(STATUS "Did not find hdfs.h in expected location, using vendored one")
-      set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-    endif()
-  else()
+# HDFS thirdparty setup
+if (DEFINED ENV{HADOOP_HOME})
+  set(HADOOP_HOME $ENV{HADOOP_HOME})
+  if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
+    message(STATUS "Did not find hdfs.h in expected location, using vendored one")
     set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
   endif()
-
-  set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
-  if (NOT EXISTS ${HDFS_H_PATH})
-    message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
-  endif()
-  message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
-  message(STATUS "Building libhdfs shim component")
-
-  include_directories(SYSTEM "${HADOOP_HOME}/include")
-
-  set(ARROW_HDFS_SRCS
-    hdfs.cc
-    hdfs-internal.cc)
-
-  set_property(SOURCE ${ARROW_HDFS_SRCS}
-    APPEND_STRING PROPERTY
-    COMPILE_FLAGS "-DHAS_HADOOP")
-
-  set(ARROW_IO_SRCS
-    ${ARROW_HDFS_SRCS}
-    ${ARROW_IO_SRCS})
-
-  ADD_ARROW_TEST(io-hdfs-test)
-  ARROW_TEST_LINK_LIBRARIES(io-hdfs-test
-    ${ARROW_IO_TEST_LINK_LIBS})
+else()
+  set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
 endif()
+
+set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
+if (NOT EXISTS ${HDFS_H_PATH})
+  message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
+endif()
+message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
+
+include_directories(SYSTEM "${HADOOP_HOME}/include")
 
 add_library(arrow_io SHARED
   ${ARROW_IO_SRCS}
@@ -117,6 +97,10 @@ endif()
 
 ADD_ARROW_TEST(io-file-test)
 ARROW_TEST_LINK_LIBRARIES(io-file-test
+  ${ARROW_IO_TEST_LINK_LIBS})
+
+ADD_ARROW_TEST(io-hdfs-test)
+ARROW_TEST_LINK_LIBRARIES(io-hdfs-test
   ${ARROW_IO_TEST_LINK_LIBS})
 
 ADD_ARROW_TEST(io-memory-test)

@@ -28,8 +28,6 @@
 // This software may be modified and distributed under the terms
 // of the BSD license. See the LICENSE file for details.
 
-#ifdef HAS_HADOOP
-
 #ifndef _WIN32
 #include <dlfcn.h>
 #else
@@ -586,5 +584,3 @@ Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver) {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // HAS_HADOOP
