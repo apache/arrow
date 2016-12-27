@@ -630,8 +630,7 @@ cdef class Table:
         import pandas as pd
 
         if nthreads is None:
-            import multiprocessing
-            nthreads = max(multiprocessing.cpu_count() // 2, 1)
+            nthreads = pyarrow.config.cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return pd.DataFrame(mgr)

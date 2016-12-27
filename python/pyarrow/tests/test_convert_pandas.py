@@ -40,7 +40,8 @@ def _alltypes_example(size=100):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        # Pandas only support ns resolution, Arrow at the moment only ms
+        # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
+        # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],

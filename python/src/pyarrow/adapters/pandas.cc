@@ -17,6 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
+#include <Python.h>
+
 #include "pyarrow/adapters/pandas.h"
 #include "pyarrow/numpy_interop.h"
 
