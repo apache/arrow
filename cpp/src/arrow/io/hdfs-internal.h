@@ -18,6 +18,16 @@
 #ifndef ARROW_IO_HDFS_INTERNAL
 #define ARROW_IO_HDFS_INTERNAL
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#else
+#include <winsock2.h>
+#include <windows.h>
+
+// TODO(wesm): address when/if we add windows support
+// #include <util/syserr_reporting.hpp>
+#endif
+
 #include <hdfs.h>
 
 namespace arrow {
