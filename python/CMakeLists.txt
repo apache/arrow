@@ -66,7 +66,7 @@ endif(CCACHE_FOUND)
 ############################################################
 
 # compiler flags that are common across debug/release builds
-set(CXX_COMMON_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+set(CXX_COMMON_FLAGS "-std=c++11 -Wall")
 
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
