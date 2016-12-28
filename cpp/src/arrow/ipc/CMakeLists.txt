@@ -143,7 +143,7 @@ add_custom_command(
 )
 
 add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
-add_dependencies(arrow_objlib metadata_fbs)
+add_dependencies(arrow_ipc_objlib metadata_fbs)
 
 # Headers: top level
 install(FILES
