@@ -101,7 +101,7 @@ class ARROW_EXPORT BufferReader : public ReadableFileInterface {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   BufferReader(const uint8_t* data, int64_t size);
-  ~BufferReader();
+  virtual ~BufferReader();
 
   Status Close() override;
   Status Tell(int64_t* position) override;

@@ -19,17 +19,25 @@
 # arrow_ipc
 #######################################
 
-set(ARROW_IPC_LINK_LIBS
-  arrow_io
+set(ARROW_IPC_SHARED_LINK_LIBS
+  arrow_io_shared
   arrow_shared
 )
 
-set(ARROW_IPC_PRIVATE_LINK_LIBS
-  )
+set(ARROW_IPC_STATIC_LINK_LIBS
+  arrow_static
+  arrow_io_static
+)
 
-set(ARROW_IPC_TEST_LINK_LIBS
-  arrow_ipc
-  ${ARROW_IPC_PRIVATE_LINK_LIBS})
+if (ARROW_BUILD_STATIC)
+  set(ARROW_IPC_TEST_LINK_LIBS
+    arrow_io_static
+    arrow_ipc_static)
+else()
+  set(ARROW_IPC_TEST_LINK_LIBS
+    arrow_io_shared
+    arrow_ipc_shared)
+endif()
 
 set(ARROW_IPC_SRCS
   adapter.cc
@@ -40,20 +48,6 @@ set(ARROW_IPC_SRCS
   metadata-internal.cc
 )
 
-# TODO(wesm): SHARED and STATIC targets
-add_library(arrow_ipc SHARED
-  ${ARROW_IPC_SRCS}
-)
-if(RAPIDJSON_VENDORED)
-  add_dependencies(arrow_ipc rapidjson_ep)
-endif()
-if(FLATBUFFERS_VENDORED)
-  add_dependencies(arrow_ipc flatbuffers_ep)
-endif()
-target_link_libraries(arrow_ipc
-  LINK_PUBLIC ${ARROW_IPC_LINK_LIBS}
-  LINK_PRIVATE ${ARROW_IPC_PRIVATE_LINK_LIBS})
-
 if(NOT APPLE)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
@@ -61,15 +55,18 @@ if(NOT APPLE)
   set(ARROW_IPC_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-SET_TARGET_PROPERTIES(arrow_ipc PROPERTIES
-  LINKER_LANGUAGE CXX
-  LINK_FLAGS "${ARROW_IPC_LINK_FLAGS}")
+ADD_ARROW_LIB(arrow_ipc
+    SOURCES ${ARROW_IPC_SRCS}
+    SHARED_LINK_FLAGS ${ARROW_IPC_LINK_FLAGS}
+    SHARED_LINK_LIBS ${ARROW_IPC_SHARED_LINK_LIBS}
+    STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
+)
 
-if (APPLE)
-  set_target_properties(arrow_ipc
-    PROPERTIES
-    BUILD_WITH_INSTALL_RPATH ON
-    INSTALL_NAME_DIR "@rpath")
+if(RAPIDJSON_VENDORED)
+  add_dependencies(arrow_ipc_objlib rapidjson_ep)
+endif()
+if(FLATBUFFERS_VENDORED)
+  add_dependencies(arrow_ipc_objlib flatbuffers_ep)
 endif()
 
 ADD_ARROW_TEST(ipc-adapter-test)
@@ -93,9 +90,9 @@ ADD_ARROW_TEST(json-integration-test)
 if (ARROW_BUILD_TESTS)
   if (APPLE)
     target_link_libraries(json-integration-test
+      arrow_ipc_static
+      arrow_io_static
       arrow_static
-      arrow_io
-      arrow_ipc
       gflags
       gtest
       boost_filesystem_static
@@ -105,9 +102,9 @@ if (ARROW_BUILD_TESTS)
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
   else()
     target_link_libraries(json-integration-test
+      arrow_ipc_static
+      arrow_io_static
       arrow_static
-      arrow_io
-      arrow_ipc
       gflags
       gtest
       pthread
@@ -155,10 +152,6 @@ install(FILES
   json.h
   metadata.h
   DESTINATION include/arrow/ipc)
-
-install(TARGETS arrow_ipc
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
 
 # pkg-config support
 configure_file(arrow-ipc.pc.in
