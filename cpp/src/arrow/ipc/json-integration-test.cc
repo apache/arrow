@@ -221,7 +221,7 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
 }
 
 static std::string temp_path() {
-  return (fs::temp_directory_path() / fs::unique_path()).native();
+  return (fs::temp_directory_path() / fs::unique_path()).string();
 }
 
 class TestJSONIntegration : public ::testing::Test {
