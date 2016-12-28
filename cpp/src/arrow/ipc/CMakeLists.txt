@@ -25,8 +25,8 @@ set(ARROW_IPC_SHARED_LINK_LIBS
 )
 
 set(ARROW_IPC_STATIC_LINK_LIBS
-  arrow_io_static
   arrow_static
+  arrow_io_static
 )
 
 if (ARROW_BUILD_STATIC)
@@ -90,9 +90,9 @@ ADD_ARROW_TEST(json-integration-test)
 if (ARROW_BUILD_TESTS)
   if (APPLE)
     target_link_libraries(json-integration-test
-      arrow_static
-      arrow_io_static
       arrow_ipc_static
+      arrow_io_static
+      arrow_static
       gflags
       gtest
       boost_filesystem_static
@@ -102,9 +102,9 @@ if (ARROW_BUILD_TESTS)
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
   else()
     target_link_libraries(json-integration-test
-      arrow_static
-      arrow_io_static
       arrow_ipc_static
+      arrow_io_static
+      arrow_static
       gflags
       gtest
       pthread
