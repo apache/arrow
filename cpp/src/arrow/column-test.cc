@@ -33,7 +33,70 @@ using std::vector;
 
 namespace arrow {
 
-const auto INT32 = std::make_shared<Int32Type>();
+class TestChunkedArray : public TestBase {
+ protected:
+  void Construct() {
+    one_ = std::make_shared<ChunkedArray>(arrays_one_);
+    another_ = std::make_shared<ChunkedArray>(arrays_another_);
+  }
+
+  ArrayVector arrays_one_;
+  ArrayVector arrays_another_;
+
+  std::shared_ptr<ChunkedArray> one_;
+  std::shared_ptr<ChunkedArray> another_;
+};
+
+TEST_F(TestChunkedArray, BasicEquals) {
+  std::vector<bool> null_bitmap(100, true);
+  std::vector<int32_t> data(100, 1);
+  std::shared_ptr<Array> array;
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data, &array);
+  arrays_one_.push_back(array);
+  arrays_another_.push_back(array);
+
+  Construct();
+  ASSERT_TRUE(one_->Equals(one_));
+  ASSERT_FALSE(one_->Equals(nullptr));
+  ASSERT_TRUE(one_->Equals(another_));
+}
+
+TEST_F(TestChunkedArray, EqualsDifferingTypes) {
+  std::vector<bool> null_bitmap(100, true);
+  std::vector<int32_t> data32(100, 1);
+  std::vector<int64_t> data64(100, 1);
+  std::shared_ptr<Array> array;
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data32, &array);
+  arrays_one_.push_back(array);
+  ArrayFromVector<Int64Type, int64_t>(int64(), null_bitmap, data64, &array);
+  arrays_another_.push_back(array);
+
+  Construct();
+  ASSERT_FALSE(one_->Equals(another_));
+}
+
+TEST_F(TestChunkedArray, EqualsDifferingLengths) {
+  std::vector<bool> null_bitmap100(100, true);
+  std::vector<bool> null_bitmap101(101, true);
+  std::vector<int32_t> data100(100, 1);
+  std::vector<int32_t> data101(101, 1);
+  std::shared_ptr<Array> array;
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap100, data100, &array);
+  arrays_one_.push_back(array);
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap101, data101, &array);
+  arrays_another_.push_back(array);
+
+  Construct();
+  ASSERT_FALSE(one_->Equals(another_));
+
+  std::vector<bool> null_bitmap1(1, true);
+  std::vector<int32_t> data1(1, 1);
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap1, data1, &array);
+  arrays_one_.push_back(array);
+
+  Construct();
+  ASSERT_TRUE(one_->Equals(another_));
+}
 
 class TestColumn : public TestBase {
  protected:
@@ -47,11 +110,11 @@ TEST_F(TestColumn, BasicAPI) {
   arrays.push_back(MakePrimitive<Int32Array>(100, 10));
   arrays.push_back(MakePrimitive<Int32Array>(100, 20));
 
-  auto field = std::make_shared<Field>("c0", INT32);
+  auto field = std::make_shared<Field>("c0", int32());
   column_.reset(new Column(field, arrays));
 
   ASSERT_EQ("c0", column_->name());
-  ASSERT_TRUE(column_->type()->Equals(INT32));
+  ASSERT_TRUE(column_->type()->Equals(int32()));
   ASSERT_EQ(300, column_->length());
   ASSERT_EQ(30, column_->null_count());
   ASSERT_EQ(3, column_->data()->num_chunks());
@@ -62,7 +125,7 @@ TEST_F(TestColumn, ChunksInhomogeneous) {
   arrays.push_back(MakePrimitive<Int32Array>(100));
   arrays.push_back(MakePrimitive<Int32Array>(100, 10));
 
-  auto field = std::make_shared<Field>("c0", INT32);
+  auto field = std::make_shared<Field>("c0", int32());
   column_.reset(new Column(field, arrays));
 
   ASSERT_OK(column_->ValidateData());
