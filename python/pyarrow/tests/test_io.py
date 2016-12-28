@@ -67,7 +67,9 @@ def test_python_file_read():
     f.seek(5)
     assert f.tell() == 5
 
-    assert f.read(50) == b'sample data'
+    v = f.read(50)
+    assert v == b'sample data'
+    assert len(v) == 11
 
     f.close()
 
