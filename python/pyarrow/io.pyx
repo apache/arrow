@@ -39,7 +39,7 @@ import time
 
 # To let us get a PyObject* and avoid Cython auto-ref-counting
 cdef extern from "Python.h":
-    PyObject* PyBytes_Empty" PyBytes_FromStringAndSize"(
+    PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
 cdef class NativeFile:
@@ -131,7 +131,7 @@ cdef class NativeFile:
         self._assert_readable()
 
         # Allocate empty write space
-        obj= PyBytes_Empty(NULL, nbytes)
+        obj = PyBytes_FromStringAndSizeNative(NULL, nbytes)
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
