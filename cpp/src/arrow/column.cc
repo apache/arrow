@@ -47,7 +47,7 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   int32_t this_start_idx = 0;
   int other_chunk_idx = 0;
   int32_t other_start_idx = 0;
-  while (this_chunk_idx < chunks_.size()) {
+  while (this_chunk_idx < static_cast<int32_t>(chunks_.size())) {
     const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
     const std::shared_ptr<Array> other_array = other->chunk(other_chunk_idx);
     int32_t common_length = std::min(
