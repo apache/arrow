@@ -27,6 +27,29 @@ from pyarrow.compat import u
 import pyarrow as A
 
 
+def _alltypes_example(size=100):
+    return pd.DataFrame({
+        'uint8': np.arange(size, dtype=np.uint8),
+        'uint16': np.arange(size, dtype=np.uint16),
+        'uint32': np.arange(size, dtype=np.uint32),
+        'uint64': np.arange(size, dtype=np.uint64),
+        'int8': np.arange(size, dtype=np.int16),
+        'int16': np.arange(size, dtype=np.int16),
+        'int32': np.arange(size, dtype=np.int32),
+        'int64': np.arange(size, dtype=np.int64),
+        'float32': np.arange(size, dtype=np.float32),
+        'float64': np.arange(size, dtype=np.float64),
+        'bool': np.random.randn(size) > 0,
+        # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
+        # us, ns
+        'datetime': np.arange("2016-01-01T00:00:00.001", size,
+                              dtype='datetime64[ms]'),
+        'str': [str(x) for x in range(size)],
+        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
+        'empty_str': [''] * size
+    })
+
+
 class TestPandasConversion(unittest.TestCase):
 
     def setUp(self):
@@ -35,10 +58,10 @@ class TestPandasConversion(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _check_pandas_roundtrip(self, df, expected=None,
+    def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 timestamps_to_ms=False):
         table = A.from_pandas_dataframe(df, timestamps_to_ms=timestamps_to_ms)
-        result = table.to_pandas()
+        result = table.to_pandas(nthreads=nthreads)
         if expected is None:
             expected = df
         tm.assert_frame_equal(result, expected)
@@ -217,17 +240,20 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_date(self):
         df = pd.DataFrame({
-            'date': [
-                datetime.date(2000, 1, 1),
-                None,
-                datetime.date(1970, 1, 1),
-                datetime.date(2040, 2, 26)
-        ]})
+            'date': [datetime.date(2000, 1, 1),
+                     None,
+                     datetime.date(1970, 1, 1),
+                     datetime.date(2040, 2, 26)]})
         table = A.from_pandas_dataframe(df)
         result = table.to_pandas()
         expected = df.copy()
         expected['date'] = pd.to_datetime(df['date'])
         tm.assert_frame_equal(result, expected)
+
+    def test_threaded_conversion(self):
+        df = _alltypes_example()
+        self._check_pandas_roundtrip(df, nthreads=2,
+                                     timestamps_to_ms=False)
 
     # def test_category(self):
     #     repeats = 1000

@@ -439,7 +439,9 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
     from pandas.core.internals import BlockManager, make_block
     from pandas import RangeIndex
 
-    check_status(pyarrow.ConvertTableToPandas(table, nthreads, &result_obj))
+    with nogil:
+        check_status(pyarrow.ConvertTableToPandas(table, nthreads,
+                                                  &result_obj))
 
     result = PyObject_to_object(result_obj)
 
@@ -610,36 +612,28 @@ cdef class Table:
         table.init(c_table)
         return table
 
-    def to_pandas(self, nthreads=1, block_based=True):
+    def to_pandas(self, nthreads=None):
         """
         Convert the arrow::Table to a pandas DataFrame
+
+        Parameters
+        ----------
+        nthreads : int, default max(1, multiprocessing.cpu_count() / 2)
+            For the default, we divide the CPU count by 2 because most modern
+            computers have hyperthreading turned on, so doubling the CPU count
+            beyond the number of physical cores does not help
 
         Returns
         -------
         pandas.DataFrame
         """
-        cdef:
-            PyObject* arr
-            shared_ptr[CColumn] col
-            Column column
-
         import pandas as pd
 
-        if block_based:
-            mgr = table_to_blockmanager(self.sp_table, nthreads)
-            return pd.DataFrame(mgr)
-        else:
-            names = []
-            data = []
-            for i in range(self.table.num_columns()):
-                col = self.table.column(i)
-                column = self.column(i)
-                check_status(pyarrow.ConvertColumnToPandas(
-                    col, <PyObject*> column, &arr))
-                names.append(frombytes(col.get().name()))
-                data.append(PyObject_to_object(arr))
+        if nthreads is None:
+            nthreads = pyarrow.config.cpu_count()
 
-            return pd.DataFrame(dict(zip(names, data)), columns=names)
+        mgr = table_to_blockmanager(self.sp_table, nthreads)
+        return pd.DataFrame(mgr)
 
     @property
     def name(self):

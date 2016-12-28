@@ -26,6 +26,7 @@ except DistributionNotFound:
 
 
 import pyarrow.config
+from pyarrow.config import cpu_count, set_cpu_count
 
 from pyarrow.array import (Array,
                            from_pandas_series, from_pylist,

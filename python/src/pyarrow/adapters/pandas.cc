@@ -19,15 +19,18 @@
 
 #include <Python.h>
 
+#include "pyarrow/adapters/pandas.h"
 #include "pyarrow/numpy_interop.h"
 
-#include "pyarrow/adapters/pandas.h"
-
+#include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 #include "arrow/api.h"
@@ -1031,7 +1034,8 @@ class PandasBlock {
       : num_rows_(num_rows), num_columns_(num_columns) {}
 
   virtual Status Allocate() = 0;
-  virtual Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) = 0;
+  virtual Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) = 0;
 
   PyObject* block_arr() { return block_arr_.obj(); }
 
@@ -1057,7 +1061,6 @@ class PandasBlock {
 
     block_arr_.reset(block_arr);
     placement_arr_.reset(placement_arr);
-    current_placement_index_ = 0;
 
     block_data_ = reinterpret_cast<uint8_t*>(
         PyArray_DATA(reinterpret_cast<PyArrayObject*>(block_arr)));
@@ -1070,7 +1073,6 @@ class PandasBlock {
 
   int64_t num_rows_;
   int num_columns_;
-  int current_placement_index_;
 
   OwnedRef block_arr_;
   uint8_t* block_data_;
@@ -1088,11 +1090,12 @@ class ObjectBlock : public PandasBlock {
 
   Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     PyObject** out_buffer =
-        reinterpret_cast<PyObject**>(block_data_) + current_placement_index_ * num_rows_;
+        reinterpret_cast<PyObject**>(block_data_) + rel_placement * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
@@ -1108,7 +1111,7 @@ class ObjectBlock : public PandasBlock {
       return Status::NotImplemented(ss.str());
     }
 
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1122,18 +1125,19 @@ class IntBlock : public PandasBlock {
     return AllocateNDArray(arrow_traits<ARROW_TYPE>::npy_type);
   }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     C_TYPE* out_buffer =
-        reinterpret_cast<C_TYPE*>(block_data_) + current_placement_index_ * num_rows_;
+        reinterpret_cast<C_TYPE*>(block_data_) + rel_placement * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
     if (type != ARROW_TYPE) { return Status::NotImplemented(col->type()->ToString()); }
 
     ConvertIntegerNoNullsSameType<C_TYPE>(data, out_buffer);
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1153,16 +1157,16 @@ class Float32Block : public PandasBlock {
 
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT32); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     if (type != Type::FLOAT) { return Status::NotImplemented(col->type()->ToString()); }
 
-    float* out_buffer =
-        reinterpret_cast<float*>(block_data_) + current_placement_index_ * num_rows_;
+    float* out_buffer = reinterpret_cast<float*>(block_data_) + rel_placement * num_rows_;
 
     ConvertNumericNullable<float>(*col->data().get(), NAN, out_buffer);
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1173,11 +1177,12 @@ class Float64Block : public PandasBlock {
 
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT64); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     double* out_buffer =
-        reinterpret_cast<double*>(block_data_) + current_placement_index_ * num_rows_;
+        reinterpret_cast<double*>(block_data_) + rel_placement * num_rows_;
 
     const ChunkedArray& data = *col->data().get();
 
@@ -1214,7 +1219,7 @@ class Float64Block : public PandasBlock {
 
 #undef INTEGER_CASE
 
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1225,16 +1230,17 @@ class BoolBlock : public PandasBlock {
 
   Status Allocate() override { return AllocateNDArray(NPY_BOOL); }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     if (type != Type::BOOL) { return Status::NotImplemented(col->type()->ToString()); }
 
     uint8_t* out_buffer =
-        reinterpret_cast<uint8_t*>(block_data_) + current_placement_index_ * num_rows_;
+        reinterpret_cast<uint8_t*>(block_data_) + rel_placement * num_rows_;
 
     ConvertBooleanNoNulls(*col->data().get(), out_buffer);
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1253,11 +1259,12 @@ class DatetimeBlock : public PandasBlock {
     return Status::OK();
   }
 
-  Status WriteNext(const std::shared_ptr<Column>& col, int64_t placement) override {
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+      int64_t rel_placement) override {
     Type::type type = col->type()->type;
 
     int64_t* out_buffer =
-        reinterpret_cast<int64_t*>(block_data_) + current_placement_index_ * num_rows_;
+        reinterpret_cast<int64_t*>(block_data_) + rel_placement * num_rows_;
 
     const ChunkedArray& data = *col.get()->data();
 
@@ -1283,7 +1290,7 @@ class DatetimeBlock : public PandasBlock {
       return Status::NotImplemented(col->type()->ToString());
     }
 
-    placement_data_[current_placement_index_++] = placement;
+    placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
 };
@@ -1333,6 +1340,7 @@ class DataFrameBlockCreator {
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
+    column_block_placement_.resize(table_->num_columns());
     type_counts_.clear();
     blocks_.clear();
 
@@ -1397,7 +1405,9 @@ class DataFrameBlockCreator {
       }
 
       auto it = type_counts_.find(output_type);
+      int block_placement = 0;
       if (it != type_counts_.end()) {
+        block_placement = it->second;
         // Increment count
         it->second += 1;
       } else {
@@ -1406,6 +1416,7 @@ class DataFrameBlockCreator {
       }
 
       column_types_[i] = output_type;
+      column_block_placement_[i] = block_placement;
     }
     return Status::OK();
   }
@@ -1421,22 +1432,61 @@ class DataFrameBlockCreator {
   }
 
   Status WriteTableToBlocks(int nthreads) {
-    if (nthreads > 1) {
-      return Status::NotImplemented("multithreading not yet implemented");
-    }
+    auto WriteColumn = [this](int i) {
+      std::shared_ptr<Column> col = this->table_->column(i);
+      PandasBlock::type output_type = this->column_types_[i];
 
-    for (int i = 0; i < table_->num_columns(); ++i) {
-      std::shared_ptr<Column> col = table_->column(i);
-      PandasBlock::type output_type = column_types_[i];
+      int rel_placement = this->column_block_placement_[i];
 
-      auto it = blocks_.find(output_type);
-      if (it == blocks_.end()) { return Status::KeyError("No block allocated"); }
-      RETURN_NOT_OK(it->second->WriteNext(col, i));
+      auto it = this->blocks_.find(output_type);
+      if (it == this->blocks_.end()) { return Status::KeyError("No block allocated"); }
+      return it->second->Write(col, i, rel_placement);
+    };
+
+    nthreads = std::min<int>(nthreads, table_->num_columns());
+
+    if (nthreads == 1) {
+      for (int i = 0; i < table_->num_columns(); ++i) {
+        RETURN_NOT_OK(WriteColumn(i));
+      }
+    } else {
+      std::vector<std::thread> thread_pool;
+      thread_pool.reserve(nthreads);
+      std::atomic<int> task_counter(0);
+
+      std::mutex error_mtx;
+      bool error_occurred = false;
+      Status error;
+
+      for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
+        thread_pool.emplace_back(
+            [this, &error, &error_occurred, &error_mtx, &task_counter, &WriteColumn]() {
+              int column_num;
+              while (!error_occurred) {
+                column_num = task_counter.fetch_add(1);
+                if (column_num >= this->table_->num_columns()) { break; }
+                Status s = WriteColumn(column_num);
+                if (!s.ok()) {
+                  std::lock_guard<std::mutex> lock(error_mtx);
+                  error_occurred = true;
+                  error = s;
+                  break;
+                }
+              }
+            });
+      }
+      for (auto&& thread : thread_pool) {
+        thread.join();
+      }
+
+      if (error_occurred) { return error; }
     }
     return Status::OK();
   }
 
   Status GetResultList(PyObject** out) {
+    PyAcquireGIL lock;
+
     auto num_blocks = static_cast<Py_ssize_t>(blocks_.size());
     PyObject* result = PyList_New(num_blocks);
     RETURN_IF_PYERROR();
@@ -1463,7 +1513,12 @@ class DataFrameBlockCreator {
 
  private:
   std::shared_ptr<Table> table_;
+
+  // column num -> block type id
   std::vector<PandasBlock::type> column_types_;
+
+  // column num -> relative placement within internal block
+  std::vector<int> column_block_placement_;
 
   // block type -> type count
   std::unordered_map<int, int> type_counts_;

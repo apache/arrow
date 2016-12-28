@@ -29,3 +29,26 @@ pyarrow_init()
 
 import numpy as np
 pyarrow_set_numpy_nan(np.nan)
+
+import multiprocessing
+import os
+cdef int CPU_COUNT = int(
+    os.environ.get('OMP_NUM_THREADS',
+                   max(multiprocessing.cpu_count() // 2, 1)))
+
+def cpu_count():
+    """
+    Returns
+    -------
+    count : Number of CPUs to use by default in parallel operations. Default is
+      max(1, multiprocessing.cpu_count() / 2), but can be overridden by the
+      OMP_NUM_THREADS environment variable. For the default, we divide the CPU
+      count by 2 because most modern computers have hyperthreading turned on,
+      so doubling the CPU count beyond the number of physical cores does not
+      help.
+    """
+    return CPU_COUNT
+
+def set_cpu_count(count):
+    global CPU_COUNT
+    CPU_COUNT = max(int(count), 1)
