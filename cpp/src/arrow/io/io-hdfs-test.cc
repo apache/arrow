@@ -79,7 +79,7 @@ class TestHdfsClient : public ::testing::Test {
 
     client_ = nullptr;
     scratch_dir_ =
-        boost::filesystem::unique_path("/tmp/arrow-hdfs/scratch-%%%%").native();
+        boost::filesystem::unique_path("/tmp/arrow-hdfs/scratch-%%%%").string();
 
     loaded_driver_ = false;
 

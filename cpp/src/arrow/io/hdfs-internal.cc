@@ -28,21 +28,7 @@
 // This software may be modified and distributed under the terms
 // of the BSD license. See the LICENSE file for details.
 
-#ifdef HAS_HADOOP
-
-#ifndef _WIN32
-#include <dlfcn.h>
-#else
-#include <windows.h>
-#include <winsock2.h>
-
-// TODO(wesm): address when/if we add windows support
-// #include <util/syserr_reporting.hpp>
-#endif
-
-extern "C" {
-#include <hdfs.h>
-}
+#include "arrow/io/hdfs-internal.h"
 
 #include <iostream>
 #include <mutex>
@@ -53,7 +39,6 @@ extern "C" {
 
 #include <boost/filesystem.hpp>  // NOLINT
 
-#include "arrow/io/hdfs-internal.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -265,7 +250,8 @@ static inline void* GetLibrarySymbol(void* handle, const char* symbol) {
   return dlsym(handle, symbol);
 #else
 
-  void* ret = reinterpret_cast<void*>(GetProcAddress(handle, symbol));
+  void* ret = reinterpret_cast<void*>(
+      GetProcAddress(reinterpret_cast<HINSTANCE>(handle), symbol));
   if (ret == NULL) {
     // logstream(LOG_INFO) << "GetProcAddress error: "
     //                     << get_last_err_str(GetLastError()) << std::endl;
@@ -537,7 +523,7 @@ Status LibHdfsShim::GetRequiredSymbols() {
   return Status::OK();
 }
 
-Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver) {
+Status ConnectLibHdfs(LibHdfsShim** driver) {
   static std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
 
@@ -562,7 +548,7 @@ Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver) {
   return shim->GetRequiredSymbols();
 }
 
-Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver) {
+Status ConnectLibHdfs3(LibHdfsShim** driver) {
   static std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
 
@@ -586,5 +572,3 @@ Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver) {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // HAS_HADOOP

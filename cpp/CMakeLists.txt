@@ -74,10 +74,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_HDFS
-    "Build the Arrow IO extensions for the Hadoop file system"
-    OFF)
-
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)

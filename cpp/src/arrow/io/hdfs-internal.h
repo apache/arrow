@@ -18,7 +18,24 @@
 #ifndef ARROW_IO_HDFS_INTERNAL
 #define ARROW_IO_HDFS_INTERNAL
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#else
+
+// Windows defines min and max macros that mess up std::min/maxa
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <windows.h>
+
+// TODO(wesm): address when/if we add windows support
+// #include <util/syserr_reporting.hpp>
+#endif
+
 #include <hdfs.h>
+
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -194,8 +211,9 @@ struct LibHdfsShim {
   Status GetRequiredSymbols();
 };
 
-Status ConnectLibHdfs(LibHdfsShim** driver);
-Status ConnectLibHdfs3(LibHdfsShim** driver);
+// TODO(wesm): Remove these exports when we are linking statically
+Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
+Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver);
 
 }  // namespace io
 }  // namespace arrow
