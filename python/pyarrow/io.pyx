@@ -37,6 +37,10 @@ import sys
 import threading
 import time
 
+# To let us get a PyObject* and avoid Cython auto-ref-counting
+cdef extern from "Python.h":
+    PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
+        char *v, Py_ssize_t len) except NULL
 
 cdef class NativeFile:
 
@@ -119,21 +123,24 @@ cdef class NativeFile:
         with nogil:
             check_status(self.wr_file.get().Write(buf, bufsize))
 
-    def read(self, int nbytes):
+    def read(self, int64_t nbytes):
         cdef:
             int64_t bytes_read = 0
-            uint8_t* buf
-            shared_ptr[CBuffer] out
+            PyObject* obj
 
         self._assert_readable()
 
+        # Allocate empty write space
+        obj = PyBytes_FromStringAndSizeNative(NULL, nbytes)
+
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(self.rd_file.get().ReadB(nbytes, &out))
+            check_status(self.rd_file.get().Read(nbytes, &bytes_read, buf))
 
-        result = cp.PyBytes_FromStringAndSize(
-            <const char*>out.get().data(), out.get().size())
+        if bytes_read < nbytes:
+            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
-        return result
+        return PyObject_to_object(obj)
 
 
 # ----------------------------------------------------------------------
@@ -339,31 +346,8 @@ cdef class HdfsClient:
     cdef readonly:
         bint is_open
 
-    def __cinit__(self):
-        self.is_open = False
-
-    def __dealloc__(self):
-        if self.is_open:
-            self.close()
-
-    def close(self):
-        """
-        Disconnect from the HDFS cluster
-        """
-        self._ensure_client()
-        with nogil:
-            check_status(self.client.get().Disconnect())
-        self.is_open = False
-
-    cdef _ensure_client(self):
-        if self.client.get() == NULL:
-            raise IOError('HDFS client improperly initialized')
-        elif not self.is_open:
-            raise IOError('HDFS client is closed')
-
-    @classmethod
-    def connect(cls, host="default", port=0, user=None, kerb_ticket=None,
-                driver='libhdfs'):
+    def __cinit__(self, host="default", port=0, user=None, kerb_ticket=None,
+                  driver='libhdfs'):
         """
         Connect to an HDFS cluster. All parameters are optional and should
         only be set if the defaults need to be overridden.
@@ -391,9 +375,7 @@ cdef class HdfsClient:
         -------
         client : HDFSClient
         """
-        cdef:
-            HdfsClient out = HdfsClient()
-            HdfsConnectionConfig conf
+        cdef HdfsConnectionConfig conf
 
         if host is not None:
             conf.host = tobytes(host)
@@ -411,10 +393,31 @@ cdef class HdfsClient:
             conf.driver = HdfsDriver_LIBHDFS3
 
         with nogil:
-            check_status(CHdfsClient.Connect(&conf, &out.client))
-        out.is_open = True
+            check_status(CHdfsClient.Connect(&conf, &self.client))
+        self.is_open = True
 
-        return out
+    @classmethod
+    def connect(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+
+    def __dealloc__(self):
+        if self.is_open:
+            self.close()
+
+    def close(self):
+        """
+        Disconnect from the HDFS cluster
+        """
+        self._ensure_client()
+        with nogil:
+            check_status(self.client.get().Disconnect())
+        self.is_open = False
+
+    cdef _ensure_client(self):
+        if self.client.get() == NULL:
+            raise IOError('HDFS client improperly initialized')
+        elif not self.is_open:
+            raise IOError('HDFS client is closed')
 
     def exists(self, path):
         """
@@ -656,36 +659,6 @@ cdef class HdfsFile(NativeFile):
 
     def __dealloc__(self):
         self.parent = None
-
-    def read(self, int nbytes):
-        """
-        Read indicated number of bytes from the file, up to EOF
-        """
-        cdef:
-            int64_t bytes_read = 0
-            uint8_t* buf
-
-        self._assert_readable()
-
-        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
-        # the passed buffer, so it's hard for us to avoid doubling the memory
-        buf = <uint8_t*> malloc(nbytes)
-        if buf == NULL:
-            raise MemoryError("Failed to allocate {0} bytes".format(nbytes))
-
-        cdef int64_t total_bytes = 0
-
-        try:
-            with nogil:
-                check_status(self.rd_file.get()
-                             .Read(nbytes, &bytes_read, buf))
-
-            result = cp.PyBytes_FromStringAndSize(<const char*>buf,
-                                                  bytes_read)
-        finally:
-            free(buf)
-
-        return result
 
     def download(self, stream_or_path):
         """
