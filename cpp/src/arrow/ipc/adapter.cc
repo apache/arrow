@@ -522,9 +522,9 @@ class RecordBatchReader {
   Status Read(std::shared_ptr<RecordBatch>* out) {
     std::vector<std::shared_ptr<Array>> arrays(schema_->num_fields());
 
-    // The field_index and buffer_index are incremented in NextArray based on
-    // how much of the batch is "consumed" (through nested data reconstruction,
-    // for example)
+    // The field_index and buffer_index are incremented in the ArrayLoader
+    // based on how much of the batch is "consumed" (through nested data
+    // reconstruction, for example)
     context_.metadata = metadata_.get();
     context_.field_index = 0;
     context_.buffer_index = 0;
