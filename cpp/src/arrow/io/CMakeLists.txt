@@ -18,39 +18,6 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-if (MSVC)
-  set(ARROW_IO_LINK_LIBS
-    arrow_shared
-  )
-else()
-  set(ARROW_IO_LINK_LIBS
-    arrow_shared
-    dl
-  )
-endif()
-
-if (ARROW_BOOST_USE_SHARED)
-  set(ARROW_IO_PRIVATE_LINK_LIBS
-    boost_system_shared
-    boost_filesystem_shared)
-else()
-  set(ARROW_IO_PRIVATE_LINK_LIBS
-    boost_system_static
-    boost_filesystem_static)
-endif()
-
-set(ARROW_IO_TEST_LINK_LIBS
-  arrow_io
-  ${ARROW_IO_PRIVATE_LINK_LIBS})
-
-set(ARROW_IO_SRCS
-  file.cc
-  hdfs.cc
-  hdfs-internal.cc
-  interfaces.cc
-  memory.cc
-)
-
 # HDFS thirdparty setup
 if (DEFINED ENV{HADOOP_HOME})
   set(HADOOP_HOME $ENV{HADOOP_HOME})
@@ -70,12 +37,54 @@ message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
 
 include_directories(SYSTEM "${HADOOP_HOME}/include")
 
-add_library(arrow_io SHARED
-  ${ARROW_IO_SRCS}
+# arrow_io library
+if (MSVC)
+  set(ARROW_IO_STATIC_LINK_LIBS
+    arrow_static
+  )
+  set(ARROW_IO_SHARED_LINK_LIBS
+    arrow_shared
+  )
+else()
+  set(ARROW_IO_STATIC_LINK_LIBS
+    arrow_static
+    dl
+  )
+  set(ARROW_IO_SHARED_LINK_LIBS
+    arrow_shared
+    dl
+  )
+endif()
+
+if (ARROW_BOOST_USE_SHARED)
+  set(ARROW_IO_SHARED_PRIVATE_LINK_LIBS
+    boost_system_shared
+    boost_filesystem_shared)
+else()
+  set(ARROW_IO_SHARED_PRIVATE_LINK_LIBS
+    boost_system_static
+    boost_filesystem_static)
+endif()
+
+set(ARROW_IO_STATIC_PRIVATE_LINK_LIBS
+  boost_system_static
+  boost_filesystem_static)
+
+if (ARROW_BUILD_STATIC)
+  set(ARROW_IO_TEST_LINK_LIBS
+    arrow_io_static)
+else()
+  set(ARROW_IO_TEST_LINK_LIBS
+    arrow_io_shared)
+endif()
+
+set(ARROW_IO_SRCS
+  file.cc
+  hdfs.cc
+  hdfs-internal.cc
+  interfaces.cc
+  memory.cc
 )
-target_link_libraries(arrow_io
-  LINK_PUBLIC ${ARROW_IO_LINK_LIBS}
-  LINK_PRIVATE ${ARROW_IO_PRIVATE_LINK_LIBS})
 
 if(NOT APPLE)
   # Localize thirdparty symbols using a linker version script. This hides them
@@ -84,16 +93,14 @@ if(NOT APPLE)
   set(ARROW_IO_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-SET_TARGET_PROPERTIES(arrow_io PROPERTIES
-  LINKER_LANGUAGE CXX
-  LINK_FLAGS "${ARROW_IO_LINK_FLAGS}")
-
-if (APPLE)
-  set_target_properties(arrow_io
-    PROPERTIES
-    BUILD_WITH_INSTALL_RPATH ON
-    INSTALL_NAME_DIR "@rpath")
-endif()
+ADD_ARROW_LIB(arrow_io
+  SOURCES ${ARROW_IO_SRCS}
+  SHARED_LINK_FLAGS ${ARROW_IO_LINK_FLAGS}
+  SHARED_LINK_LIBS ${ARROW_IO_SHARED_LINK_LIBS}
+  SHARED_PRIVATE_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS ${ARROW_IO_STATIC_LINK_LIBS}
+  STATIC_PRIVATE_LINK_LIBS ${ARROW_IO_STATIC_PRIVATE_LINK_LIBS}
+)
 
 ADD_ARROW_TEST(io-file-test)
 ARROW_TEST_LINK_LIBRARIES(io-file-test
@@ -114,10 +121,6 @@ install(FILES
   interfaces.h
   memory.h
   DESTINATION include/arrow/io)
-
-install(TARGETS arrow_io
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
 
 # pkg-config support
 configure_file(arrow-io.pc.in

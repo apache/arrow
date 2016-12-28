@@ -717,61 +717,19 @@ set(ARROW_SRCS
   src/arrow/util/bit-util.cc
 )
 
-add_library(arrow_objlib OBJECT
-  ${ARROW_SRCS}
-)
-
-# Necessary to make static linking into other shared libraries work properly
-set_property(TARGET arrow_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
-
 if(NOT APPLE)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.
-  set(SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
+  set(ARROW_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
-if (ARROW_BUILD_SHARED)
-  add_library(arrow_shared SHARED $<TARGET_OBJECTS:arrow_objlib>)
-  if(APPLE)
-    set_target_properties(arrow_shared PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  endif()
-  set_target_properties(arrow_shared
-    PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-    LINK_FLAGS "${SHARED_LINK_FLAGS}"
-    OUTPUT_NAME "arrow")
-  target_link_libraries(arrow_shared
-    LINK_PUBLIC ${ARROW_LINK_LIBS}
-    LINK_PRIVATE ${ARROW_PRIVATE_LINK_LIBS})
+include(BuildUtils)
 
-  install(TARGETS arrow_shared
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib)
-endif()
-
-if (ARROW_BUILD_STATIC)
-  add_library(arrow_static STATIC $<TARGET_OBJECTS:arrow_objlib>)
-  set_target_properties(arrow_static
-    PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-    OUTPUT_NAME "arrow")
-
-  target_link_libraries(arrow_static
-    LINK_PUBLIC ${ARROW_LINK_LIBS}
-    LINK_PRIVATE ${ARROW_PRIVATE_LINK_LIBS})
-
-  install(TARGETS arrow_static
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib)
-endif()
-
-if (APPLE)
-  set_target_properties(arrow_shared
-    PROPERTIES
-    BUILD_WITH_INSTALL_RPATH ON
-    INSTALL_NAME_DIR "@rpath")
-endif()
+ADD_ARROW_LIB(arrow
+    SOURCES ${ARROW_SRCS}
+    SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
+)
 
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
