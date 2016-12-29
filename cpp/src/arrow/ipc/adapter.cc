@@ -280,7 +280,7 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   // Do not copy this vector. Ownership must be retained elsewhere
-  const std::vector<std::shared_ptr<Array>> columns_;
+  const std::vector<std::shared_ptr<Array>>& columns_;
   int32_t num_rows_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
