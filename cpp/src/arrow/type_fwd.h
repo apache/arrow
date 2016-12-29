@@ -91,7 +91,8 @@ using DateArray = NumericArray<DateType>;
 using DateBuilder = NumericBuilder<DateType>;
 
 struct TimeType;
-class TimeArray;
+using TimeArray = NumericArray<TimeType>;
+using TimeBuilder = NumericBuilder<TimeType>;
 
 struct TimestampType;
 using TimestampArray = NumericArray<TimestampType>;

@@ -471,6 +471,7 @@ extern template class ARROW_EXPORT NumericArray<FloatType>;
 extern template class ARROW_EXPORT NumericArray<DoubleType>;
 extern template class ARROW_EXPORT NumericArray<TimestampType>;
 extern template class ARROW_EXPORT NumericArray<DateType>;
+extern template class ARROW_EXPORT NumericArray<TimeType>;
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
