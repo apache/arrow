@@ -48,7 +48,7 @@ class ARROW_EXPORT ChunkedArray {
 
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
-  bool Equals(const std::shared_ptr<ChunkedArray>& arr) const;
+  bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 
  protected:
   ArrayVector chunks_;
@@ -80,6 +80,9 @@ class ARROW_EXPORT Column {
 
   // @returns: the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
+
+  bool Equals(const std::shared_ptr<Column>& other) const;
+
   // Verify that the column's array data is consistent with the passed field's
   // metadata
   Status ValidateData();

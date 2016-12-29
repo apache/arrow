@@ -84,6 +84,14 @@ Column::Column(
     const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data)
     : field_(field), data_(data) {}
 
+bool Column::Equals(const std::shared_ptr<Column>& other) const {
+  if (this == other.get()) { return true; }
+  if (!other) { return false; }
+
+  if (!field_->Equals(other->field())) { return false; }
+  return data_->Equals(other->data());
+}
+
 Status Column::ValidateData() {
   for (int i = 0; i < data_->num_chunks(); ++i) {
     std::shared_ptr<DataType> type = data_->chunk(i)->type();

@@ -35,7 +35,7 @@ namespace arrow {
 
 class TestChunkedArray : public TestBase {
  protected:
-  void Construct() {
+  virtual void Construct() {
     one_ = std::make_shared<ChunkedArray>(arrays_one_);
     another_ = std::make_shared<ChunkedArray>(arrays_another_);
   }
@@ -98,10 +98,23 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
   ASSERT_TRUE(one_->Equals(another_));
 }
 
-class TestColumn : public TestBase {
+class TestColumn : public TestChunkedArray {
  protected:
+  void Construct() override {
+    TestChunkedArray::Construct();
+
+    one_col_ = std::make_shared<Column>(one_field_, one_);
+    another_col_ = std::make_shared<Column>(another_field_, another_);
+  }
+
   std::shared_ptr<ChunkedArray> data_;
   std::unique_ptr<Column> column_;
+
+  std::shared_ptr<Field> one_field_;
+  std::shared_ptr<Field> another_field_;
+
+  std::shared_ptr<Column> one_col_;
+  std::shared_ptr<Column> another_col_;
 };
 
 TEST_F(TestColumn, BasicAPI) {
@@ -133,6 +146,34 @@ TEST_F(TestColumn, ChunksInhomogeneous) {
   arrays.push_back(MakePrimitive<Int16Array>(100, 10));
   column_.reset(new Column(field, arrays));
   ASSERT_RAISES(Invalid, column_->ValidateData());
+}
+
+TEST_F(TestColumn, Equals) {
+  std::vector<bool> null_bitmap(100, true);
+  std::vector<int32_t> data(100, 1);
+  std::shared_ptr<Array> array;
+  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data, &array);
+  arrays_one_.push_back(array);
+  arrays_another_.push_back(array);
+
+  one_field_ = std::make_shared<Field>("column", int32());
+  another_field_ = std::make_shared<Field>("column", int32());
+
+  Construct();
+  ASSERT_TRUE(one_col_->Equals(one_col_));
+  ASSERT_FALSE(one_col_->Equals(nullptr));
+  ASSERT_TRUE(one_col_->Equals(another_col_));
+
+  // Field is different
+  another_field_ = std::make_shared<Field>("two", int32());
+  Construct();
+  ASSERT_FALSE(one_col_->Equals(another_col_));
+
+  // ChunkedArray is different
+  another_field_ = std::make_shared<Field>("column", int32());
+  arrays_another_.push_back(array);
+  Construct();
+  ASSERT_FALSE(one_col_->Equals(another_col_));
 }
 
 }  // namespace arrow
