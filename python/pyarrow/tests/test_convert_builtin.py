@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -72,12 +73,12 @@ class TestConvertList(unittest.TestCase):
         assert arr.to_pylist() == data
 
     def test_unicode(self):
-        data = [u('foo'), u('bar'), None, u('arrow')]
+        data = [u'foo', u'bar', None, u'mañana']
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
         assert arr.type == pyarrow.string()
-        assert arr.to_pylist() == [u('foo'), u('bar'), None, u('arrow')]
+        assert arr.to_pylist() == data
 
     def test_bytes(self):
         u1 = b'ma\xc3\xb1ana'

@@ -168,7 +168,7 @@ cdef class StringValue(ArrayValue):
 
     def as_py(self):
         cdef CStringArray* ap = <CStringArray*> self.sp_array.get()
-        return frombytes(ap.GetString(self.index))
+        return ap.GetString(self.index).decode('utf-8')
 
 
 cdef class BinaryValue(ArrayValue):
