@@ -66,7 +66,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         break;
       case UNION:
         UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class));
-        fields.put(child.getName().toLowerCase(), writer);
+        fields.put(child.getName(), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
 <#assign lowerName = minor.class?uncap_first />
@@ -102,7 +102,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(String name) {
-      FieldWriter writer = fields.get(name.toLowerCase());
+      FieldWriter writer = fields.get(name);
     if(writer == null){
       int vectorCount=container.size();
       NullableMapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
@@ -111,7 +111,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(name.toLowerCase(), writer);
+      fields.put(name, writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -145,7 +145,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public ListWriter list(String name) {
-    FieldWriter writer = fields.get(name.toLowerCase());
+    FieldWriter writer = fields.get(name);
     int vectorCount = container.size();
     if(writer == null) {
       writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container);
@@ -153,7 +153,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(name.toLowerCase(), writer);
+      fields.put(name, writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -199,7 +199,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#if minor.class?starts_with("Decimal") >
   public ${minor.class}Writer ${lowerName}(String name) {
     // returns existing writer
-    final FieldWriter writer = fields.get(name.toLowerCase());
+    final FieldWriter writer = fields.get(name);
     assert writer != null;
     return writer;
   }
@@ -209,7 +209,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   @Override
   public ${minor.class}Writer ${lowerName}(String name) {
   </#if>
-    FieldWriter writer = fields.get(name.toLowerCase());
+    FieldWriter writer = fields.get(name);
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
@@ -220,7 +220,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         vector.allocateNewSafe();
       } 
       writer.setPosition(idx());
-      fields.put(name.toLowerCase(), writer);
+      fields.put(name, writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized

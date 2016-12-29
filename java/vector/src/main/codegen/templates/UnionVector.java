@@ -136,6 +136,7 @@ public class UnionVector implements FieldVector {
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
+  <#assign lowerCaseName = name?lower_case/>
   <#if !minor.class?starts_with("Decimal")>
 
   private Nullable${name}Vector ${uncappedName}Vector;
@@ -143,7 +144,7 @@ public class UnionVector implements FieldVector {
   public Nullable${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = internalMap.addOrGet("${uncappedName}", MinorType.${name?upper_case}, Nullable${name}Vector.class);
+      ${uncappedName}Vector = internalMap.addOrGet("${lowerCaseName}", MinorType.${name?upper_case}, Nullable${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {

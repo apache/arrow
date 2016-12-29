@@ -23,7 +23,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -484,5 +486,26 @@ public class TestComplexWriter {
     Assert.assertEquals(64, intType.getBitWidth());
     Assert.assertTrue(intType.getIsSigned());
     Assert.assertEquals(ArrowTypeID.Utf8, field.getChildren().get(1).getType().getTypeID());
+  }
+
+  @Test
+  public void mapWriterMixedCaseFieldNames() {
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    rootWriter.bigInt("int_field");
+    rootWriter.bigInt("Int_Field");
+    rootWriter.float4("float_field");
+    rootWriter.float4("Float_Field");
+
+    List<Field> fields = parent.getField().getChildren().get(0).getChildren();
+    Set<String> fieldNames = new HashSet<>();
+    for (Field field: fields) {
+      fieldNames.add(field.getName());
+    }
+    Assert.assertTrue(fieldNames.contains("int_field"));
+    Assert.assertTrue(fieldNames.contains("Int_Field"));
+    Assert.assertTrue(fieldNames.contains("float_field"));
+    Assert.assertTrue(fieldNames.contains("Float_Field"));
   }
 }
