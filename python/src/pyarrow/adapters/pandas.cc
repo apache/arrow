@@ -603,11 +603,7 @@ struct WrapBytes {};
 template <>
 struct WrapBytes<arrow::StringArray> {
   static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
-#if PY_MAJOR_VERSION >= 3
     return PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(data), length);
-#else
-    return PyString_FromStringAndSize(reinterpret_cast<const char*>(data), length);
-#endif
   }
 };
 

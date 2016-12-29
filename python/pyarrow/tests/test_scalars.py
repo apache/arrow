@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -59,7 +60,7 @@ class TestScalars(unittest.TestCase):
         assert v.as_py() == 3.0
 
     def test_string_unicode(self):
-        arr = A.from_pylist([u('foo'), None, u('bar')])
+        arr = A.from_pylist([u'foo', None, u'mañana'])
 
         v = arr[0]
         assert isinstance(v, A.StringValue)
@@ -68,8 +69,8 @@ class TestScalars(unittest.TestCase):
         assert arr[1] is A.NA
 
         v = arr[2].as_py()
-        assert v == u('bar')
-        assert isinstance(v, str)
+        assert v == u'mañana'
+        assert isinstance(v, unicode_type)
 
     def test_bytes(self):
         arr = A.from_pylist([b'foo', None, u('bar')])

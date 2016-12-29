@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -183,7 +184,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_unicode(self):
         repeats = 1000
-        values = [u('foo'), None, u('bar'), u('qux'), np.nan]
+        values = [u'foo', None, u'bar', u'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
 
         self._check_pandas_roundtrip(df)
