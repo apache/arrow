@@ -34,16 +34,12 @@ using std::vector;
 
 namespace arrow {
 
-const auto INT16 = std::make_shared<Int16Type>();
-const auto UINT8 = std::make_shared<UInt8Type>();
-const auto INT32 = std::make_shared<Int32Type>();
-
 class TestTable : public TestBase {
  public:
   void MakeExample1(int length) {
-    auto f0 = std::make_shared<Field>("f0", INT32);
-    auto f1 = std::make_shared<Field>("f1", UINT8);
-    auto f2 = std::make_shared<Field>("f2", INT16);
+    auto f0 = std::make_shared<Field>("f0", int32());
+    auto f1 = std::make_shared<Field>("f1", uint8());
+    auto f2 = std::make_shared<Field>("f2", int16());
 
     vector<shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
@@ -55,7 +51,7 @@ class TestTable : public TestBase {
   }
 
  protected:
-  std::unique_ptr<Table> table_;
+  std::shared_ptr<Table> table_;
   shared_ptr<Schema> schema_;
   vector<std::shared_ptr<Column>> columns_;
 };
@@ -123,14 +119,40 @@ TEST_F(TestTable, InvalidColumns) {
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
 }
 
+TEST_F(TestTable, Equals) {
+  int length = 100;
+  MakeExample1(length);
+
+  std::string name = "data";
+  table_.reset(new Table(name, schema_, columns_));
+
+  ASSERT_TRUE(table_->Equals(table_));
+  ASSERT_FALSE(table_->Equals(nullptr));
+  // Differing name
+  ASSERT_FALSE(table_->Equals(std::make_shared<Table>("other_name", schema_, columns_)));
+  // Differing schema
+  auto f0 = std::make_shared<Field>("f3", int32());
+  auto f1 = std::make_shared<Field>("f4", uint8());
+  auto f2 = std::make_shared<Field>("f5", int16());
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  auto other_schema = std::make_shared<Schema>(fields);
+  ASSERT_FALSE(table_->Equals(std::make_shared<Table>(name, other_schema, columns_)));
+  // Differing columns
+  std::vector<std::shared_ptr<Column>> other_columns = {
+      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length, 10)),
+      std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length, 10)),
+      std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length, 10))};
+  ASSERT_FALSE(table_->Equals(std::make_shared<Table>(name, schema_, other_columns)));
+}
+
 class TestRecordBatch : public TestBase {};
 
 TEST_F(TestRecordBatch, Equals) {
   const int length = 10;
 
-  auto f0 = std::make_shared<Field>("f0", INT32);
-  auto f1 = std::make_shared<Field>("f1", UINT8);
-  auto f2 = std::make_shared<Field>("f2", INT16);
+  auto f0 = std::make_shared<Field>("f0", int32());
+  auto f1 = std::make_shared<Field>("f1", uint8());
+  auto f2 = std::make_shared<Field>("f2", int16());
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = std::make_shared<Schema>(fields);

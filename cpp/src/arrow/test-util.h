@@ -81,7 +81,7 @@ class TestBase : public ::testing::Test {
     auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
     EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
-    return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
+    return std::make_shared<ArrayType>(length, data, null_count, null_bitmap);
   }
 
  protected:
