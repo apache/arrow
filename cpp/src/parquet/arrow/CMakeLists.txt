@@ -98,6 +98,5 @@ endif()
 install(FILES
   reader.h
   schema.h
-  utils.h
   writer.h
   DESTINATION include/parquet/arrow)
