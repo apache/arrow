@@ -33,9 +33,7 @@
 #include "parquet/file/writer.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
-#include "parquet/util/mem-allocator.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -150,8 +148,8 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     file_writer->Close();
 
     auto buffer = sink->GetBuffer();
-    std::unique_ptr<RandomAccessSource> source(new BufferReader(buffer));
-    auto file_reader = ParquetFileReader::Open(std::move(source));
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+    auto file_reader = ParquetFileReader::Open(source);
     auto rg_reader = file_reader->RowGroup(0);
     auto column_chunk = rg_reader->metadata()->ColumnChunk(0);
     std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
@@ -191,7 +189,8 @@ std::vector<FLBA> TestRowGroupStatistics<FLBAType>::GetDeepCopy(
   std::vector<FLBA> copy;
   MemoryAllocator* allocator = default_allocator();
   for (const FLBA& flba : values) {
-    uint8_t* ptr = allocator->Malloc(FLBA_LENGTH);
+    uint8_t* ptr;
+    PARQUET_THROW_NOT_OK(allocator->Allocate(FLBA_LENGTH, &ptr));
     memcpy(ptr, flba.ptr, FLBA_LENGTH);
     copy.emplace_back(ptr);
   }
@@ -204,7 +203,8 @@ std::vector<ByteArray> TestRowGroupStatistics<ByteArrayType>::GetDeepCopy(
   std::vector<ByteArray> copy;
   MemoryAllocator* allocator = default_allocator();
   for (const ByteArray& ba : values) {
-    uint8_t* ptr = allocator->Malloc(ba.len);
+    uint8_t* ptr;
+    PARQUET_THROW_NOT_OK(allocator->Allocate(ba.len, &ptr));
     memcpy(ptr, ba.ptr, ba.len);
     copy.emplace_back(ba.len, ptr);
   }

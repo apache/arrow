@@ -18,7 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include "parquet/column/levels.h"
-#include "parquet/util/buffer.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -31,7 +31,8 @@ static void BM_RleEncoding(::benchmark::State& state) {
       [&state, &n] { return (n++ % state.range_y()) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
-  auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size);
+  auto buffer_rle = std::make_shared<PoolBuffer>();
+  PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size));
 
   while (state.KeepRunning()) {
     LevelEncoder level_encoder;
@@ -53,7 +54,8 @@ static void BM_RleDecoding(::benchmark::State& state) {
       [&state, &n] { return (n++ % state.range_y()) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
-  auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size + sizeof(uint32_t));
+  auto buffer_rle = std::make_shared<PoolBuffer>();
+  PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size + sizeof(uint32_t)));
   level_encoder.Init(Encoding::RLE, max_level, levels.size(),
       buffer_rle->mutable_data() + sizeof(uint32_t), rle_size);
   level_encoder.Encode(levels.size(), levels.data());

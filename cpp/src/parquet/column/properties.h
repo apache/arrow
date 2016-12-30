@@ -25,8 +25,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema/types.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
-#include "parquet/util/mem-allocator.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -46,7 +45,7 @@ class PARQUET_EXPORT ReaderProperties {
     buffer_size_ = DEFAULT_BUFFER_SIZE;
   }
 
-  MemoryAllocator* allocator() { return allocator_; }
+  MemoryAllocator* allocator() const { return allocator_; }
 
   std::unique_ptr<InputStream> GetStream(
       RandomAccessSource* source, int64_t start, int64_t num_bytes) {

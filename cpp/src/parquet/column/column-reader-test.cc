@@ -214,7 +214,7 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   max_rep_level_ = 0;
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
-  shared_ptr<OwnedMutableBuffer> dummy = std::make_shared<OwnedMutableBuffer>();
+  shared_ptr<PoolBuffer> dummy = std::make_shared<PoolBuffer>();
 
   shared_ptr<DictionaryPage> dict_page =
       std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);

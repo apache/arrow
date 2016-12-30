@@ -33,11 +33,12 @@
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/thrift/util.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
 namespace parquet {
+
+using ::arrow::io::BufferReader;
 
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
@@ -234,11 +235,13 @@ TEST_F(TestPageSerde, LZONotSupported) {
 class TestParquetFileReader : public ::testing::Test {
  public:
   void AssertInvalidFileThrows(const std::shared_ptr<Buffer>& buffer) {
-    std::unique_ptr<BufferReader> reader(new BufferReader(buffer));
     reader_.reset(new ParquetFileReader());
 
+    auto reader = std::make_shared<BufferReader>(buffer);
+    auto wrapper = std::unique_ptr<ArrowInputFile>(new ArrowInputFile(reader));
+
     ASSERT_THROW(
-        reader_->Open(SerializedFile::Open(std::move(reader))), ParquetException);
+        reader_->Open(SerializedFile::Open(std::move(wrapper))), ParquetException);
   }
 
  protected:

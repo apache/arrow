@@ -21,6 +21,7 @@
 #include "parquet/column/statistics.h"
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -55,8 +56,8 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
 }
 
 void ColumnWriter::InitSinks() {
-  definition_levels_sink_.reset(new InMemoryOutputStream());
-  repetition_levels_sink_.reset(new InMemoryOutputStream());
+  definition_levels_sink_.reset(new InMemoryOutputStream(properties_->allocator()));
+  repetition_levels_sink_.reset(new InMemoryOutputStream(properties_->allocator()));
 }
 
 void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
@@ -77,7 +78,8 @@ std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(
   int64_t rle_size =
       LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, num_buffered_values_) +
       sizeof(uint32_t);
-  auto buffer_rle = std::make_shared<OwnedMutableBuffer>(rle_size, allocator_);
+  std::shared_ptr<PoolBuffer> buffer_rle =
+      AllocateBuffer(properties_->allocator(), rle_size);
   level_encoder_.Init(Encoding::RLE, max_level, num_buffered_values_,
       buffer_rle->mutable_data() + sizeof(uint32_t),
       buffer_rle->size() - sizeof(uint32_t));
@@ -87,7 +89,7 @@ std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(
   reinterpret_cast<uint32_t*>(buffer_rle->mutable_data())[0] = level_encoder_.len();
   int64_t encoded_size = level_encoder_.len() + sizeof(uint32_t);
   DCHECK(rle_size >= encoded_size);
-  buffer_rle->Resize(encoded_size);
+  PARQUET_THROW_NOT_OK(buffer_rle->Resize(encoded_size));
   return std::static_pointer_cast<Buffer>(buffer_rle);
 }
 
@@ -110,8 +112,8 @@ void ColumnWriter::AddDataPage() {
       definition_levels->size() + repetition_levels->size() + values->size();
 
   // Concatenate data into a single buffer
-  std::shared_ptr<OwnedMutableBuffer> uncompressed_data =
-      std::make_shared<OwnedMutableBuffer>(uncompressed_size, allocator_);
+  std::shared_ptr<PoolBuffer> uncompressed_data =
+      AllocateBuffer(allocator_, uncompressed_size);
   uint8_t* uncompressed_ptr = uncompressed_data->mutable_data();
   memcpy(uncompressed_ptr, repetition_levels->data(), repetition_levels->size());
   uncompressed_ptr += repetition_levels->size();
@@ -223,7 +225,8 @@ void TypedColumnWriter<Type>::CheckDictionarySizeLimit() {
 template <typename Type>
 void TypedColumnWriter<Type>::WriteDictionaryPage() {
   auto dict_encoder = static_cast<DictEncoder<Type>*>(current_encoder_.get());
-  auto buffer = std::make_shared<OwnedMutableBuffer>(dict_encoder->dict_encoded_size());
+  std::shared_ptr<PoolBuffer> buffer =
+      AllocateBuffer(properties_->allocator(), dict_encoder->dict_encoded_size());
   dict_encoder->WriteDict(buffer->mutable_data());
   // TODO Get rid of this deep call
   dict_encoder->mem_pool()->FreeAll();

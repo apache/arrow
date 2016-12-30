@@ -26,8 +26,7 @@
 #include "parquet/file/writer-internal.h"
 #include "parquet/types.h"
 #include "parquet/util/comparison.h"
-#include "parquet/util/input.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 

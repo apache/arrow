@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "parquet/column/reader.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 

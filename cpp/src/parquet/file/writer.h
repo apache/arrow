@@ -24,7 +24,7 @@
 #include "parquet/column/properties.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/schema/types.h"
-#include "parquet/util/mem-allocator.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -97,7 +97,13 @@ class PARQUET_EXPORT ParquetFileWriter {
   ParquetFileWriter();
   ~ParquetFileWriter();
 
-  static std::unique_ptr<ParquetFileWriter> Open(std::shared_ptr<OutputStream> sink,
+  static std::unique_ptr<ParquetFileWriter> Open(
+      const std::shared_ptr<::arrow::io::OutputStream>& sink,
+      const std::shared_ptr<schema::GroupNode>& schema,
+      const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
+
+  static std::unique_ptr<ParquetFileWriter> Open(
+      const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 

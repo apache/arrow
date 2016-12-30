@@ -25,8 +25,7 @@
 #include "parquet/encodings/encoder.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/util/bit-stream-utils.inline.h"
-#include "parquet/util/buffer.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -163,8 +162,9 @@ class PlainEncoder : public Encoder<DType> {
 
   explicit PlainEncoder(
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
-      : Encoder<DType>(descr, Encoding::PLAIN, allocator),
-        values_sink_(new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, allocator)) {}
+      : Encoder<DType>(descr, Encoding::PLAIN, allocator) {
+    values_sink_.reset(new InMemoryOutputStream(allocator));
+  }
 
   int64_t EstimatedDataEncodedSize() override { return values_sink_->Tell(); }
 
@@ -172,7 +172,7 @@ class PlainEncoder : public Encoder<DType> {
   void Put(const T* src, int num_values) override;
 
  protected:
-  std::shared_ptr<InMemoryOutputStream> values_sink_;
+  std::unique_ptr<InMemoryOutputStream> values_sink_;
 };
 
 template <>
@@ -181,10 +181,10 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
   explicit PlainEncoder(
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
       : Encoder<BooleanType>(descr, Encoding::PLAIN, allocator),
-        bits_available_(IN_MEMORY_DEFAULT_CAPACITY * 8),
-        bits_buffer_(IN_MEMORY_DEFAULT_CAPACITY, allocator),
-        values_sink_(new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, allocator)) {
-    bit_writer_.reset(new BitWriter(bits_buffer_.mutable_data(), bits_buffer_.size()));
+        bits_available_(kInMemoryDefaultCapacity * 8),
+        bits_buffer_(AllocateBuffer(allocator, kInMemoryDefaultCapacity)),
+        values_sink_(new InMemoryOutputStream(allocator)) {
+    bit_writer_.reset(new BitWriter(bits_buffer_->mutable_data(), bits_buffer_->size()));
   }
 
   int64_t EstimatedDataEncodedSize() override {
@@ -196,12 +196,11 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
       bit_writer_->Flush();
       values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
       bit_writer_->Clear();
-      bits_available_ = bits_buffer_.size() * 8;
+      bits_available_ = bits_buffer_->size() * 8;
     }
 
     std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-    values_sink_.reset(
-        new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, this->allocator_));
+    values_sink_.reset(new InMemoryOutputStream(this->allocator_));
     return buffer;
   }
 
@@ -225,7 +224,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
                                                                                   \
     int bits_remaining = num_values - bit_offset;                                 \
     while (bit_offset < num_values) {                                             \
-      bits_available_ = bits_buffer_.size() * 8;                                  \
+      bits_available_ = bits_buffer_->size() * 8;                                 \
                                                                                   \
       int bits_to_write = std::min(bits_available_, bits_remaining);              \
       for (int i = bit_offset; i < bit_offset + bits_to_write; i++) {             \
@@ -249,15 +248,14 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  protected:
   int bits_available_;
   std::unique_ptr<BitWriter> bit_writer_;
-  OwnedMutableBuffer bits_buffer_;
-  std::shared_ptr<InMemoryOutputStream> values_sink_;
+  std::shared_ptr<PoolBuffer> bits_buffer_;
+  std::unique_ptr<InMemoryOutputStream> values_sink_;
 };
 
 template <typename DType>
 inline std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
   std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(
-      new InMemoryOutputStream(IN_MEMORY_DEFAULT_CAPACITY, this->allocator_));
+  values_sink_.reset(new InMemoryOutputStream(this->allocator_));
   return buffer;
 }
 

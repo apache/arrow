@@ -28,13 +28,15 @@
 #include <string>
 #include <vector>
 
+#include <gtest/gtest.h>
+
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
 
 // Depended on by SerializedPageReader test utilities for now
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
-#include "parquet/util/input.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
 using std::vector;
@@ -253,8 +255,8 @@ class DictionaryPageBuilder {
   }
 
   shared_ptr<Buffer> WriteDict() {
-    shared_ptr<OwnedMutableBuffer> dict_buffer =
-        std::make_shared<OwnedMutableBuffer>(encoder_->dict_encoded_size());
+    std::shared_ptr<PoolBuffer> dict_buffer =
+        AllocateBuffer(default_allocator(), encoder_->dict_encoded_size());
     encoder_->WriteDict(dict_buffer->mutable_data());
     return dict_buffer;
   }
@@ -262,7 +264,7 @@ class DictionaryPageBuilder {
   int32_t num_values() const { return num_dict_values_; }
 
  private:
-  MemPool pool_;
+  ChunkedAllocator pool_;
   shared_ptr<DictEncoder<TYPE>> encoder_;
   int32_t num_dict_values_;
   bool have_values_;

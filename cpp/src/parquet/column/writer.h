@@ -28,9 +28,7 @@
 #include "parquet/file/metadata.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
-#include "parquet/util/mem-allocator.h"
-#include "parquet/util/mem-pool.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -111,7 +109,7 @@ class PARQUET_EXPORT ColumnWriter {
   LevelEncoder level_encoder_;
 
   MemoryAllocator* allocator_;
-  MemPool pool_;
+  ChunkedAllocator pool_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For

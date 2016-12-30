@@ -23,6 +23,7 @@
 #include "parquet/file/metadata.h"
 #include "parquet/schema/converter.h"
 #include "parquet/thrift/util.h"
+#include "parquet/util/memory.h"
 
 #include <boost/algorithm/string.hpp>
 

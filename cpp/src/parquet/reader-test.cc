@@ -23,16 +23,19 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/file.h"
+
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/reader.h"
-#include "parquet/util/input.h"
-#include "parquet/util/mem-allocator.h"
+#include "parquet/util/memory.h"
 
 using std::string;
 
 namespace parquet {
+
+using ReadableFile = ::arrow::io::ReadableFile;
 
 const char* data_dir = std::getenv("PARQUET_TEST_DATA");
 
@@ -159,7 +162,7 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
 }
 
-class TestLocalFileSource : public ::testing::Test {
+class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
     std::string dir_string(data_dir);
@@ -168,24 +171,25 @@ class TestLocalFileSource : public ::testing::Test {
     ss << dir_string << "/"
        << "alltypes_plain.parquet";
 
-    file.reset(new LocalFileSource());
-    file->Open(ss.str());
+    PARQUET_THROW_NOT_OK(ReadableFile::Open(ss.str(), &handle));
+    fileno = handle->file_descriptor();
   }
 
   void TearDown() {}
 
  protected:
-  std::unique_ptr<LocalFileSource> file;
+  int fileno;
+  std::shared_ptr<::arrow::io::ReadableFile> handle;
 };
 
-TEST_F(TestLocalFileSource, FileClosedOnDestruction) {
-  int file_desc = file->file_descriptor();
+TEST_F(TestLocalFile, FileClosedOnDestruction) {
   {
-    auto contents = SerializedFile::Open(std::move(file));
+    auto contents = SerializedFile::Open(
+        std::unique_ptr<RandomAccessSource>(new ArrowInputFile(handle)));
     std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
     result->Open(std::move(contents));
   }
-  ASSERT_EQ(-1, fcntl(file_desc, F_GETFD));
+  ASSERT_EQ(-1, fcntl(fileno, F_GETFD));
   ASSERT_EQ(EBADF, errno);
 }
 

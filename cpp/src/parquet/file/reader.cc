@@ -24,14 +24,16 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/file.h"
+
 #include "parquet/column/page.h"
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
 #include "parquet/exception.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
 #include "parquet/util/logging.h"
+#include "parquet/util/memory.h"
 
 using std::string;
 using std::vector;
@@ -69,26 +71,36 @@ ParquetFileReader::~ParquetFileReader() {
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    std::unique_ptr<RandomAccessSource> source, ReaderProperties props) {
-  auto contents = SerializedFile::Open(std::move(source), props);
+    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
+    const ReaderProperties& props) {
+  std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(source));
+  return Open(std::move(io_wrapper), props);
+}
 
+std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
+    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props) {
+  auto contents = SerializedFile::Open(std::move(source), props);
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));
-
   return result;
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
-    const std::string& path, bool memory_map, ReaderProperties props) {
-  std::unique_ptr<LocalFileSource> file;
+    const std::string& path, bool memory_map, const ReaderProperties& props) {
+  std::shared_ptr<::arrow::io::ReadableFileInterface> source;
   if (memory_map) {
-    file.reset(new MemoryMapSource(props.allocator()));
+    std::shared_ptr<::arrow::io::ReadableFile> handle;
+    PARQUET_THROW_NOT_OK(
+        ::arrow::io::ReadableFile::Open(path, props.allocator(), &handle));
+    source = handle;
   } else {
-    file.reset(new LocalFileSource(props.allocator()));
+    std::shared_ptr<::arrow::io::MemoryMappedFile> handle;
+    PARQUET_THROW_NOT_OK(
+        ::arrow::io::MemoryMappedFile::Open(path, ::arrow::io::FileMode::READ, &handle));
+    source = handle;
   }
-  file->Open(path);
 
-  return Open(std::move(file), props);
+  return Open(source, props);
 }
 
 void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> contents) {

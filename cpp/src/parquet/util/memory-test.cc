@@ -15,37 +15,82 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Initially imported from Apache Impala on 2016-02-23, and has been modified
-// since for parquet-cpp
-
 #include <cstdint>
-#include <gtest/gtest.h>
-#include <limits>
+#include <cstdio>
+#include <memory>
 #include <string>
+#include <vector>
 
-#include "parquet/util/bit-util.h"
-#include "parquet/util/mem-pool.h"
+#include <gtest/gtest.h>
+
+#include "parquet/exception.h"
+#include "parquet/util/memory.h"
+#include "parquet/util/test-common.h"
 
 namespace parquet {
 
+class TestBuffer : public ::testing::Test {};
+
+TEST(TestAllocator, AllocateFree) {
+  TrackingAllocator allocator;
+
+  uint8_t* data;
+
+  ASSERT_TRUE(allocator.Allocate(100, &data).ok());
+  ASSERT_TRUE(nullptr != data);
+  data[99] = 55;
+  allocator.Free(data, 100);
+
+  ASSERT_TRUE(allocator.Allocate(0, &data).ok());
+  ASSERT_EQ(nullptr, data);
+  allocator.Free(data, 0);
+
+  int64_t to_alloc = std::numeric_limits<int64_t>::max();
+  ASSERT_FALSE(allocator.Allocate(to_alloc, &data).ok());
+}
+
+TEST(TestAllocator, TotalMax) {
+  TrackingAllocator allocator;
+  ASSERT_EQ(0, allocator.bytes_allocated());
+  ASSERT_EQ(0, allocator.max_memory());
+
+  uint8_t* data;
+  uint8_t* data2;
+  ASSERT_TRUE(allocator.Allocate(100, &data).ok());
+  ASSERT_EQ(100, allocator.bytes_allocated());
+  ASSERT_EQ(100, allocator.max_memory());
+
+  ASSERT_TRUE(allocator.Allocate(10, &data2).ok());
+  ASSERT_EQ(110, allocator.bytes_allocated());
+  ASSERT_EQ(110, allocator.max_memory());
+
+  allocator.Free(data, 100);
+  ASSERT_EQ(10, allocator.bytes_allocated());
+  ASSERT_EQ(110, allocator.max_memory());
+
+  allocator.Free(data2, 10);
+  ASSERT_EQ(0, allocator.bytes_allocated());
+  ASSERT_EQ(110, allocator.max_memory());
+}
+
 // Utility class to call private functions on MemPool.
-class MemPoolTest {
+class ChunkedAllocatorTest {
  public:
-  static bool CheckIntegrity(MemPool* pool, bool current_chunk_empty) {
+  static bool CheckIntegrity(ChunkedAllocator* pool, bool current_chunk_empty) {
     return pool->CheckIntegrity(current_chunk_empty);
   }
 
-  static const int INITIAL_CHUNK_SIZE = MemPool::INITIAL_CHUNK_SIZE;
-  static const int MAX_CHUNK_SIZE = MemPool::MAX_CHUNK_SIZE;
+  static const int INITIAL_CHUNK_SIZE = ChunkedAllocator::INITIAL_CHUNK_SIZE;
+  static const int MAX_CHUNK_SIZE = ChunkedAllocator::MAX_CHUNK_SIZE;
 };
 
-const int MemPoolTest::INITIAL_CHUNK_SIZE;
-const int MemPoolTest::MAX_CHUNK_SIZE;
+const int ChunkedAllocatorTest::INITIAL_CHUNK_SIZE;
+const int ChunkedAllocatorTest::MAX_CHUNK_SIZE;
 
-TEST(MemPoolTest, Basic) {
-  MemPool p;
-  MemPool p2;
-  MemPool p3;
+TEST(ChunkedAllocatorTest, Basic) {
+  ChunkedAllocator p;
+  ChunkedAllocator p2;
+  ChunkedAllocator p3;
 
   for (int iter = 0; iter < 2; ++iter) {
     // allocate a total of 24K in 32-byte pieces (for which we only request 25 bytes)
@@ -135,8 +180,8 @@ TEST(MemPoolTest, Basic) {
 // This case verifies that when chunks are acquired by another memory pool the
 // remaining chunks are consistent if there were more than one used chunk and some
 // free chunks.
-TEST(MemPoolTest, Keep) {
-  MemPool p;
+TEST(ChunkedAllocatorTest, Keep) {
+  ChunkedAllocator p;
   p.Allocate(4 * 1024);
   p.Allocate(8 * 1024);
   p.Allocate(16 * 1024);
@@ -150,7 +195,7 @@ TEST(MemPoolTest, Keep) {
   EXPECT_EQ((1 + 4) * 1024, p.total_allocated_bytes());
   EXPECT_EQ((4 + 8 + 16) * 1024, p.GetTotalChunkSizes());
 
-  MemPool p2;
+  ChunkedAllocator p2;
   p2.AcquireData(&p, true);
   EXPECT_EQ(4 * 1024, p.total_allocated_bytes());
   EXPECT_EQ((8 + 16) * 1024, p.GetTotalChunkSizes());
@@ -162,8 +207,8 @@ TEST(MemPoolTest, Keep) {
 }
 
 // Tests that we can return partial allocations.
-TEST(MemPoolTest, ReturnPartial) {
-  MemPool p;
+TEST(ChunkedAllocatorTest, ReturnPartial) {
+  ChunkedAllocator p;
   uint8_t* ptr = p.Allocate(1024);
   EXPECT_EQ(1024, p.total_allocated_bytes());
   memset(ptr, 0, 1024);
@@ -198,11 +243,11 @@ TEST(MemPoolTest, ReturnPartial) {
   p.FreeAll();
 }
 
-// Test that the MemPool overhead is bounded when we make allocations of
+// Test that the ChunkedAllocator overhead is bounded when we make allocations of
 // INITIAL_CHUNK_SIZE.
-TEST(MemPoolTest, MemoryOverhead) {
-  MemPool p;
-  const int alloc_size = MemPoolTest::INITIAL_CHUNK_SIZE;
+TEST(ChunkedAllocatorTest, MemoryOverhead) {
+  ChunkedAllocator p;
+  const int alloc_size = ChunkedAllocatorTest::INITIAL_CHUNK_SIZE;
   const int num_allocs = 1000;
   int64_t total_allocated = 0;
 
@@ -214,7 +259,7 @@ TEST(MemPoolTest, MemoryOverhead) {
     int64_t wasted_memory = p.GetTotalChunkSizes() - total_allocated;
     // The initial chunk fits evenly into MAX_CHUNK_SIZE, so should have at most
     // one empty chunk at the end.
-    EXPECT_LE(wasted_memory, MemPoolTest::MAX_CHUNK_SIZE);
+    EXPECT_LE(wasted_memory, ChunkedAllocatorTest::MAX_CHUNK_SIZE);
     // The chunk doubling algorithm should not allocate chunks larger than the total
     // amount of memory already allocated.
     EXPECT_LE(wasted_memory, total_allocated);
@@ -223,25 +268,118 @@ TEST(MemPoolTest, MemoryOverhead) {
   p.FreeAll();
 }
 
-// Test that the MemPool overhead is bounded when we make alternating large and small
-// allocations.
-TEST(MemPoolTest, FragmentationOverhead) {
-  MemPool p;
+// Test that the ChunkedAllocator overhead is bounded when we make alternating
+// large and small allocations.
+TEST(ChunkedAllocatorTest, FragmentationOverhead) {
+  ChunkedAllocator p;
   const int num_allocs = 100;
   int64_t total_allocated = 0;
 
   for (int i = 0; i < num_allocs; ++i) {
-    int alloc_size = i % 2 == 0 ? 1 : MemPoolTest::MAX_CHUNK_SIZE;
+    int alloc_size = i % 2 == 0 ? 1 : ChunkedAllocatorTest::MAX_CHUNK_SIZE;
     uint8_t* mem = p.Allocate(alloc_size);
     ASSERT_TRUE(mem != NULL);
     total_allocated += alloc_size;
 
     int64_t wasted_memory = p.GetTotalChunkSizes() - total_allocated;
     // Fragmentation should not waste more than half of each completed chunk.
-    EXPECT_LE(wasted_memory, total_allocated + MemPoolTest::MAX_CHUNK_SIZE);
+    EXPECT_LE(wasted_memory, total_allocated + ChunkedAllocatorTest::MAX_CHUNK_SIZE);
   }
 
   p.FreeAll();
+}
+
+TEST(TestBufferedInputStream, Basics) {
+  int64_t source_size = 256;
+  int64_t stream_offset = 10;
+  int64_t stream_size = source_size - stream_offset;
+  int64_t chunk_size = 50;
+  std::shared_ptr<PoolBuffer> buf = AllocateBuffer(default_allocator(), source_size);
+  ASSERT_EQ(source_size, buf->size());
+  for (int i = 0; i < source_size; i++) {
+    buf->mutable_data()[i] = i;
+  }
+
+  auto wrapper =
+      std::make_shared<ArrowInputFile>(std::make_shared<::arrow::io::BufferReader>(buf));
+
+  TrackingAllocator allocator;
+  std::unique_ptr<BufferedInputStream> stream(new BufferedInputStream(
+      &allocator, chunk_size, wrapper.get(), stream_offset, stream_size));
+
+  const uint8_t* output;
+  int64_t bytes_read;
+
+  // source is at offset 10
+  output = stream->Peek(10, &bytes_read);
+  ASSERT_EQ(10, bytes_read);
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, output[i]) << i;
+  }
+  output = stream->Read(10, &bytes_read);
+  ASSERT_EQ(10, bytes_read);
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, output[i]) << i;
+  }
+  output = stream->Read(10, &bytes_read);
+  ASSERT_EQ(10, bytes_read);
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(20 + i, output[i]) << i;
+  }
+  stream->Advance(5);
+  stream->Advance(5);
+  // source is at offset 40
+  // read across buffer boundary. buffer size is 50
+  output = stream->Read(20, &bytes_read);
+  ASSERT_EQ(20, bytes_read);
+  for (int i = 0; i < 20; i++) {
+    ASSERT_EQ(40 + i, output[i]) << i;
+  }
+  // read more than original chunk_size
+  output = stream->Read(60, &bytes_read);
+  ASSERT_EQ(60, bytes_read);
+  for (int i = 0; i < 60; i++) {
+    ASSERT_EQ(60 + i, output[i]) << i;
+  }
+
+  stream->Advance(120);
+  // source is at offset 240
+  // read outside of source boundary. source size is 256
+  output = stream->Read(30, &bytes_read);
+  ASSERT_EQ(16, bytes_read);
+  for (int i = 0; i < 16; i++) {
+    ASSERT_EQ(240 + i, output[i]) << i;
+  }
+}
+
+TEST(TestArrowInputFile, Basics) {
+  std::string data = "this is the data";
+  auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
+
+  auto file = std::make_shared<::arrow::io::BufferReader>(data_buffer, data.size());
+  auto source = std::make_shared<ArrowInputFile>(file);
+
+  ASSERT_EQ(0, source->Tell());
+  ASSERT_NO_THROW(source->Seek(5));
+  ASSERT_EQ(5, source->Tell());
+  ASSERT_NO_THROW(source->Seek(0));
+
+  // Seek out of bounds
+  ASSERT_THROW(source->Seek(100), ParquetException);
+
+  uint8_t buffer[50];
+
+  ASSERT_NO_THROW(source->Read(4, buffer));
+  ASSERT_EQ(0, std::memcmp(buffer, "this", 4));
+  ASSERT_EQ(4, source->Tell());
+
+  std::shared_ptr<Buffer> pq_buffer;
+
+  ASSERT_NO_THROW(pq_buffer = source->Read(7));
+
+  auto expected_buffer = std::make_shared<Buffer>(data_buffer + 4, 7);
+
+  ASSERT_TRUE(expected_buffer->Equals(*pq_buffer.get()));
 }
 
 }  // namespace parquet

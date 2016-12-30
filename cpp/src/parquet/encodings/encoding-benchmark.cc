@@ -19,7 +19,7 @@
 
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/file/reader-internal.h"
-#include "parquet/util/mem-pool.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -101,23 +101,25 @@ static void DecodeDict(
   typedef typename Type::c_type T;
   int num_values = values.size();
 
-  MemPool pool;
+  ChunkedAllocator pool;
   MemoryAllocator* allocator = default_allocator();
   std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
-  std::shared_ptr<OwnedMutableBuffer> dict_buffer =
-      std::make_shared<OwnedMutableBuffer>();
-  auto indices = std::make_shared<OwnedMutableBuffer>();
 
   DictEncoder<Type> encoder(descr.get(), &pool, allocator);
   for (int i = 0; i < num_values; ++i) {
     encoder.Put(values[i]);
   }
 
-  dict_buffer->Resize(encoder.dict_encoded_size());
+  std::shared_ptr<PoolBuffer> dict_buffer =
+      AllocateBuffer(allocator, encoder.dict_encoded_size());
+
+  std::shared_ptr<PoolBuffer> indices =
+      AllocateBuffer(allocator, encoder.EstimatedDataEncodedSize());
+
   encoder.WriteDict(dict_buffer->mutable_data());
-  indices->Resize(encoder.EstimatedDataEncodedSize());
   int actual_bytes = encoder.WriteIndices(indices->mutable_data(), indices->size());
-  indices->Resize(actual_bytes);
+
+  PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
   while (state.KeepRunning()) {
     PlainDecoder<Type> dict_decoder(descr.get());

@@ -20,7 +20,7 @@
 #include "parquet/column/writer.h"
 #include "parquet/schema/converter.h"
 #include "parquet/thrift/util.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 using parquet::schema::GroupNode;
 using parquet::schema::SchemaFlattener;
@@ -37,6 +37,7 @@ SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type
     ColumnChunkMetaDataBuilder* metadata, MemoryAllocator* allocator)
     : sink_(sink),
       metadata_(metadata),
+      allocator_(allocator),
       num_values_(0),
       dictionary_page_offset_(0),
       data_page_offset_(0),
@@ -71,10 +72,13 @@ std::shared_ptr<Buffer> SerializedPageWriter::Compress(
   // Compress the data
   int64_t max_compressed_size =
       compressor_->MaxCompressedLen(buffer->size(), buffer->data());
-  auto compression_buffer = std::make_shared<OwnedMutableBuffer>(max_compressed_size);
+
+  std::shared_ptr<PoolBuffer> compression_buffer =
+      AllocateBuffer(allocator_, max_compressed_size);
+
   int64_t compressed_size = compressor_->Compress(buffer->size(), buffer->data(),
       max_compressed_size, compression_buffer->mutable_data());
-  compression_buffer->Resize(compressed_size);
+  PARQUET_THROW_NOT_OK(compression_buffer->Resize(compressed_size));
   return compression_buffer;
 }
 
@@ -182,7 +186,7 @@ void RowGroupSerializer::Close() {
 // FileSerializer
 
 std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
-    std::shared_ptr<OutputStream> sink, const std::shared_ptr<GroupNode>& schema,
+    const std::shared_ptr<OutputStream>& sink, const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties) {
   std::unique_ptr<ParquetFileWriter::Contents> result(
       new FileSerializer(sink, schema, properties));
@@ -248,7 +252,7 @@ void FileSerializer::WriteMetaData() {
   sink_->Write(PARQUET_MAGIC, 4);
 }
 
-FileSerializer::FileSerializer(std::shared_ptr<OutputStream> sink,
+FileSerializer::FileSerializer(const std::shared_ptr<OutputStream>& sink,
     const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties)
     : sink_(sink),

@@ -37,7 +37,7 @@
 #include "parquet/exception.h"
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/util/logging.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 

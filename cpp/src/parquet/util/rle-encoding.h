@@ -25,8 +25,8 @@
 
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/bit-util.h"
-#include "parquet/util/buffer.h"
 #include "parquet/util/compiler-util.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 

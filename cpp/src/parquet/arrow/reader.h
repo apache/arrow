@@ -22,7 +22,6 @@
 
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
-#include "parquet/arrow/io.h"
 
 #include "arrow/io/interfaces.h"
 
@@ -142,7 +141,7 @@ class PARQUET_EXPORT FlatColumnReader {
 // readable file
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    ParquetAllocator* allocator, std::unique_ptr<FileReader>* reader);
+    ::arrow::MemoryPool* allocator, std::unique_ptr<FileReader>* reader);
 
 }  // namespace arrow
 }  // namespace parquet

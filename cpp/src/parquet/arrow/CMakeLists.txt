@@ -19,7 +19,6 @@
 # parquet_arrow : Arrow <-> Parquet adapter
 
 set(PARQUET_ARROW_SRCS
-  io.cc
   reader.cc
   schema.cc
   writer.cc
@@ -76,16 +75,13 @@ if (PARQUET_BUILD_STATIC)
 endif()
 
 ADD_PARQUET_TEST(arrow-schema-test)
-ADD_PARQUET_TEST(arrow-io-test)
 ADD_PARQUET_TEST(arrow-reader-writer-test)
 
 if (PARQUET_BUILD_STATIC)
   ADD_PARQUET_LINK_LIBRARIES(arrow-schema-test parquet_arrow_static)
-  ADD_PARQUET_LINK_LIBRARIES(arrow-io-test parquet_arrow_static)
   ADD_PARQUET_LINK_LIBRARIES(arrow-reader-writer-test parquet_arrow_static)
 else()
   ADD_PARQUET_LINK_LIBRARIES(arrow-schema-test parquet_arrow_shared)
-  ADD_PARQUET_LINK_LIBRARIES(arrow-io-test parquet_arrow_shared)
   ADD_PARQUET_LINK_LIBRARIES(arrow-reader-writer-test parquet_arrow_shared)
 endif()
 
@@ -100,7 +96,6 @@ endif()
 
 # Headers: top level
 install(FILES
-  io.h
   reader.h
   schema.h
   utils.h

@@ -29,7 +29,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
-#include "parquet/util/mem-allocator.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -44,7 +44,7 @@ class PARQUET_EXPORT Scanner {
       : batch_size_(batch_size),
         level_offset_(0),
         levels_buffered_(0),
-        value_buffer_(0, allocator),
+        value_buffer_(std::make_shared<PoolBuffer>(allocator)),
         value_offset_(0),
         values_buffered_(0),
         reader_(reader) {
@@ -76,7 +76,7 @@ class PARQUET_EXPORT Scanner {
   int level_offset_;
   int levels_buffered_;
 
-  OwnedMutableBuffer value_buffer_;
+  std::shared_ptr<PoolBuffer> value_buffer_;
   int value_offset_;
   int64_t values_buffered_;
 
@@ -95,8 +95,8 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
       : Scanner(reader, batch_size, allocator) {
     typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
-    value_buffer_.Resize(batch_size_ * value_byte_size);
-    values_ = reinterpret_cast<T*>(&value_buffer_[0]);
+    PARQUET_THROW_NOT_OK(value_buffer_->Resize(batch_size_ * value_byte_size));
+    values_ = reinterpret_cast<T*>(value_buffer_->mutable_data());
   }
 
   virtual ~TypedScanner() {}

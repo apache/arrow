@@ -24,7 +24,7 @@
 
 #include "parquet/encodings/decoder.h"
 #include "parquet/util/bit-stream-utils.inline.h"
-#include "parquet/util/buffer.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -36,7 +36,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
   explicit DeltaBitPackDecoder(
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
       : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED),
-        delta_bit_widths_(0, allocator) {
+        delta_bit_widths_(new PoolBuffer(allocator)) {
     if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
@@ -62,28 +62,31 @@ class DeltaBitPackDecoder : public Decoder<DType> {
     if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&values_current_block_)) { ParquetException::EofException(); }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
-    delta_bit_widths_.Resize(num_mini_blocks_);
+    PARQUET_THROW_NOT_OK(delta_bit_widths_->Resize(num_mini_blocks_));
+
+    uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
 
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
     for (int i = 0; i < num_mini_blocks_; ++i) {
-      if (!decoder_.GetAligned<uint8_t>(1, &delta_bit_widths_[i])) {
+      if (!decoder_.GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException();
       }
     }
     values_per_mini_block_ = block_size / num_mini_blocks_;
     mini_block_idx_ = 0;
-    delta_bit_width_ = delta_bit_widths_[0];
+    delta_bit_width_ = bit_width_data[0];
     values_current_mini_block_ = values_per_mini_block_;
   }
 
   template <typename T>
   int GetInternal(T* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
+    const uint8_t* bit_width_data = delta_bit_widths_->data();
     for (int i = 0; i < max_values; ++i) {
       if (UNLIKELY(values_current_mini_block_ == 0)) {
         ++mini_block_idx_;
-        if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_.size())) {
-          delta_bit_width_ = delta_bit_widths_[mini_block_idx_];
+        if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_->size())) {
+          delta_bit_width_ = bit_width_data[mini_block_idx_];
           values_current_mini_block_ = values_per_mini_block_;
         } else {
           InitBlock();
@@ -112,7 +115,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   int32_t min_delta_;
   size_t mini_block_idx_;
-  OwnedMutableBuffer delta_bit_widths_;
+  std::unique_ptr<PoolBuffer> delta_bit_widths_;
   int delta_bit_width_;
 
   int32_t last_value_;

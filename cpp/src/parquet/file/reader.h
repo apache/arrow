@@ -30,12 +30,12 @@
 #include "parquet/column/statistics.h"
 #include "parquet/file/metadata.h"
 #include "parquet/schema/descriptor.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
 
 class ColumnReader;
-class RandomAccessSource;
 
 class PARQUET_EXPORT RowGroupReader {
  public:
@@ -79,15 +79,27 @@ class PARQUET_EXPORT ParquetFileReader {
   ParquetFileReader();
   ~ParquetFileReader();
 
+  // Create a reader from some implementation of parquet-cpp's generic file
+  // input interface
+  //
+  // If you cannot provide exclusive access to your file resource, create a
+  // subclass of RandomAccessSource that wraps the shared resource
+  static std::unique_ptr<ParquetFileReader> Open(
+      std::unique_ptr<RandomAccessSource> source,
+      const ReaderProperties& props = default_reader_properties());
+
+  // Create a file reader instance from an Arrow file object. Thread-safety is
+  // the responsibility of the file implementation
+  static std::unique_ptr<ParquetFileReader> Open(
+      const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
+      const ReaderProperties& props = default_reader_properties());
+
   // API Convenience to open a serialized Parquet file on disk, using built-in IO
   // interface implementations that were created for testing, and may not be robust for
   // all use cases.
   static std::unique_ptr<ParquetFileReader> OpenFile(const std::string& path,
-      bool memory_map = true, ReaderProperties props = default_reader_properties());
-
-  static std::unique_ptr<ParquetFileReader> Open(
-      std::unique_ptr<RandomAccessSource> source,
-      ReaderProperties props = default_reader_properties());
+      bool memory_map = true,
+      const ReaderProperties& props = default_reader_properties());
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

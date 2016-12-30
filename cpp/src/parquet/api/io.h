@@ -19,9 +19,6 @@
 #define PARQUET_API_IO_H
 
 #include "parquet/exception.h"
-#include "parquet/util/buffer.h"
-#include "parquet/util/input.h"
-#include "parquet/util/mem-allocator.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 #endif  // PARQUET_API_IO_H

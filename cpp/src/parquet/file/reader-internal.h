@@ -29,7 +29,7 @@
 #include "parquet/file/reader.h"
 #include "parquet/thrift/parquet_types.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -62,7 +62,7 @@ class SerializedPageReader : public PageReader {
 
   // Compression codec to use.
   std::unique_ptr<Codec> decompressor_;
-  OwnedMutableBuffer decompression_buffer_;
+  std::shared_ptr<PoolBuffer> decompression_buffer_;
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;
@@ -104,7 +104,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   // lifetime separately
   static std::unique_ptr<ParquetFileReader::Contents> Open(
       std::unique_ptr<RandomAccessSource> source,
-      ReaderProperties props = default_reader_properties());
+      const ReaderProperties& props = default_reader_properties());
   virtual void Close();
   virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i);
   virtual const FileMetaData* metadata() const;
@@ -113,7 +113,7 @@ class SerializedFile : public ParquetFileReader::Contents {
  private:
   // This class takes ownership of the provided data source
   explicit SerializedFile(
-      std::unique_ptr<RandomAccessSource> source, ReaderProperties props);
+      std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props);
 
   std::unique_ptr<RandomAccessSource> source_;
   std::unique_ptr<FileMetaData> file_metadata_;

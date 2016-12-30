@@ -23,7 +23,7 @@
 #include "parquet/column/writer.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/writer-internal.h"
-#include "parquet/util/input.h"
+#include "parquet/util/memory.h"
 
 #include "arrow/api.h"
 
@@ -132,8 +132,8 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
-    auto reader = ParquetFileReader::Open(
-        std::unique_ptr<RandomAccessSource>(new BufferReader(buffer)));
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
     std::shared_ptr<::arrow::Table> table;
     filereader.ReadFlatTable(&table);

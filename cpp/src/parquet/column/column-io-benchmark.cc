@@ -21,7 +21,7 @@
 #include "parquet/column/writer.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/writer-internal.h"
-#include "parquet/util/input.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -67,9 +67,9 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   while (state.KeepRunning()) {
-    InMemoryOutputStream dst;
+    InMemoryOutputStream stream;
     std::unique_ptr<Int64Writer> writer = BuildWriter(
-        state.range_x(), &dst, metadata.get(), schema.get(), properties.get());
+        state.range_x(), &stream, metadata.get(), schema.get(), properties.get());
     writer->WriteBatch(
         values.size(), definition_levels.data(), repetition_levels.data(), values.data());
     writer->Close();
@@ -102,14 +102,14 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   auto metadata = ColumnChunkMetaDataBuilder::Make(
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
-  InMemoryOutputStream dst;
-  std::unique_ptr<Int64Writer> writer =
-      BuildWriter(state.range_x(), &dst, metadata.get(), schema.get(), properties.get());
+  InMemoryOutputStream stream;
+  std::unique_ptr<Int64Writer> writer = BuildWriter(
+      state.range_x(), &stream, metadata.get(), schema.get(), properties.get());
   writer->WriteBatch(
       values.size(), definition_levels.data(), repetition_levels.data(), values.data());
   writer->Close();
 
-  std::shared_ptr<Buffer> src = dst.GetBuffer();
+  std::shared_ptr<Buffer> src = stream.GetBuffer();
   std::vector<int64_t> values_out(state.range_y());
   std::vector<int16_t> definition_levels_out(state.range_y());
   std::vector<int16_t> repetition_levels_out(state.range_y());

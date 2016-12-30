@@ -24,8 +24,7 @@
 #include "parquet/file/reader.h"
 #include "parquet/file/writer.h"
 #include "parquet/types.h"
-#include "parquet/util/input.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -75,8 +74,9 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     file_writer->Close();
 
     auto buffer = sink->GetBuffer();
-    std::unique_ptr<RandomAccessSource> source(new BufferReader(buffer));
-    auto file_reader = ParquetFileReader::Open(std::move(source));
+
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+    auto file_reader = ParquetFileReader::Open(source);
     ASSERT_EQ(num_columns_, file_reader->metadata()->num_columns());
     ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
     ASSERT_EQ(100, file_reader->metadata()->num_rows());

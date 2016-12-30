@@ -21,16 +21,17 @@
 #include "parquet/column/statistics.h"
 #include "parquet/encodings/plain-encoding.h"
 #include "parquet/exception.h"
-#include "parquet/util/buffer.h"
 #include "parquet/util/comparison.h"
-#include "parquet/util/output.h"
+#include "parquet/util/memory.h"
 
 namespace parquet {
 
 template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
     const ColumnDescriptor* schema, MemoryAllocator* allocator)
-    : allocator_(allocator), min_buffer_(0, allocator_), max_buffer_(0, allocator_) {
+    : allocator_(allocator),
+      min_buffer_(AllocateBuffer(allocator_, 0)),
+      max_buffer_(AllocateBuffer(allocator_, 0)) {
   SetDescr(schema);
   Reset();
 }
@@ -40,14 +41,14 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_
     const typename DType::c_type& max, int64_t num_values, int64_t null_count,
     int64_t distinct_count)
     : allocator_(default_allocator()),
-      min_buffer_(0, allocator_),
-      max_buffer_(0, allocator_) {
+      min_buffer_(AllocateBuffer(allocator_, 0)),
+      max_buffer_(AllocateBuffer(allocator_, 0)) {
   IncrementNumValues(num_values);
   IncrementNullCount(null_count);
   IncrementDistinctCount(distinct_count);
 
-  Copy(min, &min_, min_buffer_);
-  Copy(max, &max_, max_buffer_);
+  Copy(min, &min_, min_buffer_.get());
+  Copy(max, &max_, max_buffer_.get());
   has_min_max_ = true;
 }
 
@@ -56,7 +57,9 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* 
     const std::string& encoded_min, const std::string& encoded_max, int64_t num_values,
     int64_t null_count, int64_t distinct_count, bool has_min_max,
     MemoryAllocator* allocator)
-    : allocator_(allocator), min_buffer_(0, allocator_), max_buffer_(0, allocator_) {
+    : allocator_(allocator),
+      min_buffer_(AllocateBuffer(allocator_, 0)),
+      max_buffer_(AllocateBuffer(allocator_, 0)) {
   IncrementNumValues(num_values);
   IncrementNullCount(null_count);
   IncrementDistinctCount(distinct_count);
@@ -94,11 +97,11 @@ void TypedRowGroupStatistics<DType>::Update(
   auto batch_minmax = std::minmax_element(values, values + num_not_null, compare);
   if (!has_min_max_) {
     has_min_max_ = true;
-    Copy(*batch_minmax.first, &min_, min_buffer_);
-    Copy(*batch_minmax.second, &max_, max_buffer_);
+    Copy(*batch_minmax.first, &min_, min_buffer_.get());
+    Copy(*batch_minmax.second, &max_, max_buffer_.get());
   } else {
-    Copy(std::min(min_, *batch_minmax.first, compare), &min_, min_buffer_);
-    Copy(std::max(max_, *batch_minmax.second, compare), &max_, max_buffer_);
+    Copy(std::min(min_, *batch_minmax.first, compare), &min_, min_buffer_.get());
+    Copy(std::max(max_, *batch_minmax.second, compare), &max_, max_buffer_.get());
   }
 }
 
@@ -119,15 +122,15 @@ void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>&
   if (!other.HasMinMax()) return;
 
   if (!has_min_max_) {
-    Copy(other.min_, &this->min_, min_buffer_);
-    Copy(other.max_, &this->max_, max_buffer_);
+    Copy(other.min_, &this->min_, min_buffer_.get());
+    Copy(other.max_, &this->max_, max_buffer_.get());
     has_min_max_ = true;
     return;
   }
 
   Compare<T> compare(descr_);
-  Copy(std::min(this->min_, other.min_, compare), &this->min_, min_buffer_);
-  Copy(std::max(this->max_, other.max_, compare), &this->max_, max_buffer_);
+  Copy(std::min(this->min_, other.min_, compare), &this->min_, min_buffer_.get());
+  Copy(std::max(this->max_, other.max_, compare), &this->max_, max_buffer_.get());
 }
 
 template <typename DType>

@@ -27,11 +27,9 @@
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/encodings/plain-encoding.h"
-#include "parquet/util/buffer.h"
 #include "parquet/util/cpu-info.h"
 #include "parquet/util/hash-util.h"
-#include "parquet/util/mem-allocator.h"
-#include "parquet/util/mem-pool.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/rle-encoding.h"
 
 namespace parquet {
@@ -48,7 +46,7 @@ class DictionaryDecoder : public Decoder<Type> {
       const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
       : Decoder<Type>(descr, Encoding::RLE_DICTIONARY),
         dictionary_(0, allocator),
-        byte_array_data_(0, allocator) {}
+        byte_array_data_(AllocateBuffer(allocator, 0)) {}
 
   // Perform type-specific initiatialization
   void SetDict(Decoder<Type>* dictionary);
@@ -78,7 +76,7 @@ class DictionaryDecoder : public Decoder<Type> {
 
   // Data that contains the byte array data (byte_array_dictionary_ just has the
   // pointers).
-  OwnedMutableBuffer byte_array_data_;
+  std::shared_ptr<PoolBuffer> byte_array_data_;
 
   RleDecoder idx_decoder_;
 };
@@ -106,11 +104,13 @@ inline void DictionaryDecoder<ByteArrayType>::SetDict(
   for (int i = 0; i < num_dictionary_values; ++i) {
     total_size += dictionary_[i].len;
   }
-  byte_array_data_.Resize(total_size);
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size));
   int offset = 0;
+
+  uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int i = 0; i < num_dictionary_values; ++i) {
-    memcpy(&byte_array_data_[offset], dictionary_[i].ptr, dictionary_[i].len);
-    dictionary_[i].ptr = &byte_array_data_[offset];
+    memcpy(bytes_data + offset, dictionary_[i].ptr, dictionary_[i].len);
+    dictionary_[i].ptr = bytes_data + offset;
     offset += dictionary_[i].len;
   }
 }
@@ -124,11 +124,12 @@ inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) 
   int fixed_len = descr_->type_length();
   int total_size = num_dictionary_values * fixed_len;
 
-  byte_array_data_.Resize(total_size);
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size));
+  uint8_t* bytes_data = byte_array_data_->mutable_data();
   int offset = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
-    memcpy(&byte_array_data_[offset], dictionary_[i].ptr, fixed_len);
-    dictionary_[i].ptr = &byte_array_data_[offset];
+    memcpy(bytes_data + offset, dictionary_[i].ptr, fixed_len);
+    dictionary_[i].ptr = bytes_data + offset;
     offset += fixed_len;
   }
 }
@@ -158,7 +159,7 @@ class DictEncoder : public Encoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit DictEncoder(const ColumnDescriptor* desc, MemPool* pool = nullptr,
+  explicit DictEncoder(const ColumnDescriptor* desc, ChunkedAllocator* pool = nullptr,
       MemoryAllocator* allocator = default_allocator())
       : Encoder<DType>(desc, Encoding::PLAIN_DICTIONARY, allocator),
         allocator_(allocator),
@@ -176,7 +177,7 @@ class DictEncoder : public Encoder<DType> {
 
   // TODO(wesm): think about how to address the construction semantics in
   // encodings/dictionary-encoding.h
-  void set_mem_pool(MemPool* pool) { pool_ = pool; }
+  void set_mem_pool(ChunkedAllocator* pool) { pool_ = pool; }
 
   void set_type_length(int type_length) { type_length_ = type_length; }
 
@@ -215,11 +216,11 @@ class DictEncoder : public Encoder<DType> {
   void Put(const T& value);
 
   std::shared_ptr<Buffer> FlushValues() override {
-    auto buffer = std::make_shared<OwnedMutableBuffer>(
-        EstimatedDataEncodedSize(), this->allocator_);
+    std::shared_ptr<PoolBuffer> buffer =
+        AllocateBuffer(this->allocator_, EstimatedDataEncodedSize());
     int result_size = WriteIndices(buffer->mutable_data(), EstimatedDataEncodedSize());
     ClearIndices();
-    buffer->Resize(result_size);
+    PARQUET_THROW_NOT_OK(buffer->Resize(result_size));
     return buffer;
   };
 
@@ -233,7 +234,7 @@ class DictEncoder : public Encoder<DType> {
   /// dict_encoded_size() bytes.
   void WriteDict(uint8_t* buffer);
 
-  MemPool* mem_pool() { return pool_; }
+  ChunkedAllocator* mem_pool() { return pool_; }
 
   /// The number of entries in the dictionary.
   int num_entries() const { return uniques_.size(); }
@@ -242,7 +243,7 @@ class DictEncoder : public Encoder<DType> {
   MemoryAllocator* allocator_;
 
   // For ByteArray / FixedLenByteArray data. Not owned
-  MemPool* pool_;
+  ChunkedAllocator* pool_;
 
   /// Size of the table. Must be a power of 2.
   int hash_table_size_;

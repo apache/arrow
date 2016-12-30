@@ -22,9 +22,7 @@
 
 #include "parquet/util/logging.h"
 
-#include "parquet/arrow/io.h"
 #include "parquet/arrow/schema.h"
-#include "parquet/arrow/utils.h"
 
 #include "arrow/api.h"
 
@@ -371,8 +369,8 @@ Status WriteFlatTable(const Table* table, MemoryPool* pool,
 Status WriteFlatTable(const Table* table, MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties) {
-  auto parquet_sink = std::make_shared<ParquetWriteSink>(sink);
-  return WriteFlatTable(table, pool, parquet_sink, chunk_size, properties);
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  return WriteFlatTable(table, pool, wrapper, chunk_size, properties);
 }
 
 }  // namespace arrow

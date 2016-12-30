@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "parquet/api/schema.h"
-#include "parquet/arrow/utils.h"
 
 #include "arrow/api.h"
 

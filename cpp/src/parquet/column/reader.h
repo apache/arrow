@@ -31,7 +31,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema/descriptor.h"
 #include "parquet/types.h"
-#include "parquet/util/mem-allocator.h"
+#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -221,12 +221,15 @@ inline int64_t TypedColumnReader<DType>::Skip(int64_t num_rows_to_skip) {
       // Jump to the right offset in the Page
       int64_t batch_size = 1024;  // ReadBatch with a smaller memory footprint
       int64_t values_read = 0;
-      auto vals = std::make_shared<OwnedMutableBuffer>(
-          batch_size * type_traits<DType::type_num>::value_byte_size, this->allocator_);
-      auto def_levels = std::make_shared<OwnedMutableBuffer>(
-          batch_size * sizeof(int16_t), this->allocator_);
-      auto rep_levels = std::make_shared<OwnedMutableBuffer>(
-          batch_size * sizeof(int16_t), this->allocator_);
+
+      std::shared_ptr<PoolBuffer> vals = AllocateBuffer(
+          this->allocator_, batch_size * type_traits<DType::type_num>::value_byte_size);
+      std::shared_ptr<PoolBuffer> def_levels =
+          AllocateBuffer(this->allocator_, batch_size * sizeof(int16_t));
+
+      std::shared_ptr<PoolBuffer> rep_levels =
+          AllocateBuffer(this->allocator_, batch_size * sizeof(int16_t));
+
       do {
         batch_size = std::min(batch_size, rows_to_skip);
         values_read =
