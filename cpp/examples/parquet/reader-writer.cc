@@ -21,6 +21,8 @@
 #include <list>
 #include <memory>
 
+#include <arrow/io/file.h>
+
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
 
@@ -101,8 +103,9 @@ int main(int argc, char** argv) {
   // parquet::REPEATED fields require both definition and repetition level values
   try {
     // Create a local file output stream instance.
-    std::shared_ptr<parquet::OutputStream> out_file =
-        std::make_shared<parquet::LocalFileOutputStream>(PARQUET_FILENAME);
+    using FileClass = ::arrow::io::FileOutputStream;
+    std::shared_ptr<FileClass> out_file;
+    PARQUET_THROW_NOT_OK(FileClass::Open(PARQUET_FILENAME, &out_file));
 
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
