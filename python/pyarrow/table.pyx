@@ -36,6 +36,9 @@ from pyarrow.compat import frombytes, tobytes
 
 cimport cpython
 
+from collections import OrderedDict
+
+
 cdef class ChunkedArray:
     """
     Array backed via one or more memory chunks.
@@ -345,6 +348,17 @@ cdef class RecordBatch:
 
         return self.batch.Equals(deref(other.batch))
 
+    def to_pydict(self):
+        """
+        Converted the arrow::RecordBatch to an OrderedDict
+
+        Returns
+        -------
+        OrderedDict
+        """
+        return OrderedDict([(self.batch.column_name(i), self[i].to_pylist()) for i in range(self.batch.num_columns())])
+
+
     def to_pandas(self):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
@@ -634,6 +648,16 @@ cdef class Table:
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return pd.DataFrame(mgr)
+
+    def to_pydict(self):
+        """
+        Converted the arrow::Table to an OrderedDict
+
+        Returns
+        -------
+        OrderedDict
+        """
+        return OrderedDict([(self.column(i).name, self.column(i).to_pylist()) for i in range(self.table.num_columns())])
 
     @property
     def name(self):
