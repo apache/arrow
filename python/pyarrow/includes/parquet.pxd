@@ -120,24 +120,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             shared_ptr[WriterProperties] build()
 
 
-cdef extern from "parquet/arrow/io.h" namespace "parquet::arrow" nogil:
-    cdef cppclass ParquetAllocator:
-        ParquetAllocator()
-        ParquetAllocator(MemoryPool* pool)
-        MemoryPool* pool()
-        void set_pool(MemoryPool* pool)
-
-    cdef cppclass ParquetReadSource:
-        ParquetReadSource(ParquetAllocator* allocator)
-        Open(const shared_ptr[ReadableFileInterface]& file)
-
-    cdef cppclass ParquetWriteSink:
-        ParquetWriteSink(const shared_ptr[OutputStream]& file)
-
-
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
-                     ParquetAllocator* allocator,
+                     MemoryPool* allocator,
                      unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:
@@ -157,6 +142,6 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef CStatus WriteFlatTable(
         const CTable* table, MemoryPool* pool,
-        const shared_ptr[ParquetWriteSink]& sink,
+        const shared_ptr[OutputStream]& sink,
         int64_t chunk_size,
         const shared_ptr[WriterProperties]& properties)

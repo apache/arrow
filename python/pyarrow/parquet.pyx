@@ -42,12 +42,12 @@ __all__ = [
 
 cdef class ParquetReader:
     cdef:
-        ParquetAllocator allocator
+        MemoryPool* allocator
         unique_ptr[FileReader] reader
         column_idx_map
 
     def __cinit__(self):
-        self.allocator.set_pool(default_memory_pool())
+        self.allocator = default_memory_pool()
 
     def open(self, source):
         self._open(source)
@@ -69,7 +69,7 @@ cdef class ParquetReader:
                                ParquetFileReader.OpenFile(path)))
         else:
             get_reader(source, &rd_handle)
-            check_status(OpenFile(rd_handle, &self.allocator, &self.reader))
+            check_status(OpenFile(rd_handle, self.allocator, &self.reader))
 
     def read_all(self):
         cdef:
@@ -174,10 +174,8 @@ def write_table(table, sink, chunk_size=None, version=None,
     """
     cdef Table table_ = table
     cdef CTable* ctable_ = table_.table
-    cdef shared_ptr[ParquetWriteSink] sink_
-
     cdef shared_ptr[FileOutputStream] filesink_
-    cdef shared_ptr[OutputStream] general_sink
+    cdef shared_ptr[OutputStream] sink_
 
     cdef WriterProperties.Builder properties_builder
     cdef int64_t chunk_size_ = 0
@@ -237,10 +235,9 @@ def write_table(table, sink, chunk_size=None, version=None,
 
     if isinstance(sink, six.string_types):
         check_status(FileOutputStream.Open(tobytes(sink), &filesink_))
-        sink_.reset(new ParquetWriteSink(<shared_ptr[OutputStream]>filesink_))
+        sink_ = <shared_ptr[OutputStream]>filesink_
     else:
-        get_writer(sink, &general_sink)
-        sink_.reset(new ParquetWriteSink(general_sink))
+        get_writer(sink, &sink_)
 
     with nogil:
         check_status(WriteFlatTable(ctable_, default_memory_pool(), sink_,
