@@ -270,10 +270,10 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeSparseUnion(std::shared_ptr<RecordBatch>* out) {
+Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_types(
-      {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", boolean())});
+      {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", uint8())});
 
   std::vector<uint8_t> type_codes = {0, 1};
   auto sparse_type =
