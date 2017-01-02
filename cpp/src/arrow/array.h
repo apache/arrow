@@ -430,7 +430,7 @@ class ARROW_EXPORT StructArray : public Array {
 // ----------------------------------------------------------------------
 // Union
 
-class UnionArray : public Array {
+class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
 
