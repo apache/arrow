@@ -318,7 +318,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   this->RandomData(size);
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
-  ArrayPtr array, equal_array, unequal_array;
+  std::shared_ptr<Array> array, equal_array, unequal_array;
   auto builder = this->builder_.get();
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &array));
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &equal_array));

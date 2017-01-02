@@ -89,7 +89,7 @@ class TestListBuilder : public TestBuilder {
 TEST_F(TestListBuilder, Equality) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
-  ArrayPtr array, equal_array, unequal_array;
+  std::shared_ptr<Array> array, equal_array, unequal_array;
   vector<int32_t> equal_offsets = {0, 1, 2, 5};
   vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2};
   vector<int32_t> unequal_offsets = {0, 1, 4};

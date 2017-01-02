@@ -305,7 +305,7 @@ class TestBuilder : public ::testing::Test {
 
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
-    int size, Builder* builder, ArrayPtr* out) {
+    int size, Builder* builder, std::shared_ptr<Array>* out) {
   // Append the first 1000
   for (int i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {

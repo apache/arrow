@@ -56,7 +56,8 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
-ArrayPtr MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool) {
+std::shared_ptr<Array> MakeArrayFromValidBytes(
+    const std::vector<uint8_t>& v, MemoryPool* pool) {
   int32_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(v);
 
@@ -65,7 +66,8 @@ ArrayPtr MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool
     value_builder.Append<int32_t>(0);
   }
 
-  ArrayPtr arr(new Int32Array(v.size(), value_builder.Finish(), null_count, null_buf));
+  std::shared_ptr<Array> arr(
+      new Int32Array(v.size(), value_builder.Finish(), null_count, null_buf));
   return arr;
 }
 

@@ -494,16 +494,14 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 // UnionArray
 
 UnionArray::UnionArray(const TypePtr& type, int32_t length,
-    std::vector<std::shared_ptr<Array>>& children,
+    const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
-    int32_t null_count, std::shared_ptr<Buffer> null_bitmap)
-    : Array(type, length, null_count, null_bitmap) {
-  type_ = type;
-  children_ = children;
-  type_ids_buffer_ = type_ids;
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
+    : Array(type, length, null_count, null_bitmap),
+      children_(children),
+      type_ids_buffer_(type_ids),
+      offsets_buffer_(offsets) {
   type_ids_ = reinterpret_cast<const uint8_t*>(type_ids->data());
-
-  offsets_buffer_ = offsets;
   if (offsets) { offsets_ = reinterpret_cast<const int32_t*>(offsets->data()); }
 }
 
@@ -527,8 +525,8 @@ bool UnionArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_s
   if (Type::UNION != arr->type_enum()) { return false; }
   const auto& other = static_cast<const UnionArray&>(*arr.get());
 
-  if (mode() != other.mode()) { return false; }
-  DCHECK_EQ(mode(), UnionMode::SPARSE) << "Only SPARSE implemented";
+  const UnionMode union_mode = mode();
+  if (union_mode != other.mode()) { return false; }
 
   // Define a mapping from the type id to child number
   const auto& type_codes = static_cast<const UnionType&>(*arr->type().get()).type_ids;
@@ -550,15 +548,24 @@ bool UnionArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_s
   for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
     if (IsNull(i) != other.IsNull(o_i)) { return false; }
     if (IsNull(i)) continue;
-    if (this_ids[i] != other_ids[i]) { return false; }
+    if (this_ids[i] != other_ids[o_i]) { return false; }
 
     id = this_ids[i];
     child_num = type_id_to_child_num[id];
 
     // TODO(wesm): really we should be comparing stretches of non-null data
     // rather than looking at one value at a time.
-    if (!child(child_num)->RangeEquals(i, i + 1, o_i, other.child(child_num))) {
-      return false;
+    if (union_mode == UnionMode::SPARSE) {
+      if (!child(child_num)->RangeEquals(i, i + 1, o_i, other.child(child_num))) {
+        return false;
+      }
+    } else {
+      const int32_t offset = offsets_[i];
+      const int32_t o_offset = other.offsets_[i];
+      if (!child(child_num)->RangeEquals(
+              offset, offset + 1, o_offset, other.child(child_num))) {
+        return false;
+      }
     }
   }
   return true;

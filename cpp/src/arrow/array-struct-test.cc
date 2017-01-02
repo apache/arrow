@@ -261,8 +261,9 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
 }
 
 TEST_F(TestStructBuilder, TestEquality) {
-  ArrayPtr array, equal_array;
-  ArrayPtr unequal_bitmap_array, unequal_offsets_array, unequal_values_array;
+  std::shared_ptr<Array> array, equal_array;
+  std::shared_ptr<Array> unequal_bitmap_array, unequal_offsets_array,
+      unequal_values_array;
 
   vector<int32_t> int_values = {1, 2, 3, 4};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
