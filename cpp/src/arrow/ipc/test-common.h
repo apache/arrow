@@ -270,6 +270,52 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeSparseUnion(std::shared_ptr<RecordBatch>* out) {
+  // Define schema
+  std::vector<std::shared_ptr<Field>> union_types(
+      {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", boolean())});
+
+  std::vector<uint8_t> type_codes = {0, 1};
+  auto type = std::make_shared<UnionType>(union_types, type_codes, UnionMode::SPARSE);
+
+  auto f0 = std::make_shared<Field>("non_null_union", type, false);
+  auto f1 = std::make_shared<Field>("null_union", type);
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  // Create data
+  std::vector<std::shared_ptr<Array>> children(2);
+
+  const int32_t length = 6;
+
+  std::vector<int32_t> f0_values = {0, 1, 2, 3, 4, 5, 6};
+  ArrayFromVector<Int32Type, int32_t>(type->child(0)->type, f0_values, &children[0]);
+
+  std::vector<uint8_t> f1_values = {1, 0, 1, 1, 0, 1};
+  BooleanBuilder bool_builder(default_memory_pool());
+  RETURN_NOT_OK(bool_builder.Append(f1_values.data(), length));
+  RETURN_NOT_OK(bool_builder.Finish(&children[1]));
+
+  std::shared_ptr<Buffer> type_ids_buffer;
+  std::vector<int32_t> type_ids = {0, 1, 0, 0, 1, 1};
+  RETURN_NOT_OK(test::CopyBufferFromVector(type_ids, &type_ids_buffer));
+
+  std::vector<uint8_t> null_bytes(length, 1);
+  null_bytes[2] = 0;
+  std::shared_ptr<Buffer> null_bitmask;
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
+
+  // construct individual nullable/non-nullable struct arrays
+  auto no_nulls = std::make_shared<UnionArray>(type, length, children, type_ids_buffer);
+
+  auto with_nulls = std::make_shared<UnionArray>(
+      type, length, children, type_ids_buffer, nullptr, 1, null_bitmask);
+
+  // construct batch
+  std::vector<ArrayPtr> arrays = {no_nulls, with_nulls};
+  out->reset(new RecordBatch(schema, length, arrays));
+  return Status::OK();
+}
+
 }  // namespace ipc
 }  // namespace arrow
 

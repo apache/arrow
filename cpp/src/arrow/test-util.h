@@ -274,6 +274,18 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
       values_buffer, null_count, values_bitmap);
 }
 
+template <typename TYPE, typename C_TYPE>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> values_buffer;
+
+  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
+
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+  *out = std::make_shared<ArrayType>(
+      type, static_cast<int32_t>(values.size()), values_buffer);
+}
+
 class TestBuilder : public ::testing::Test {
  public:
   void SetUp() {

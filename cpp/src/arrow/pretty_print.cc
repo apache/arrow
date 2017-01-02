@@ -161,44 +161,60 @@ class ArrayPrinter : public ArrayVisitor {
     return Status::NotImplemented("decimal");
   }
 
-  Status Visit(const ListArray& array) override {
+  Status WriteValidityBitmap(const Array& array) {
     Newline();
     Write("-- is_valid: ");
     BooleanArray is_valid(array.length(), array.null_bitmap());
-    PrettyPrint(is_valid, indent_ + 2, sink_);
+    return PrettyPrint(is_valid, indent_ + 2, sink_);
+  }
+
+  Status Visit(const ListArray& array) override {
+    RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
     Write("-- offsets: ");
     Int32Array offsets(array.length() + 1, array.offsets());
-    PrettyPrint(offsets, indent_ + 2, sink_);
+    RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
 
     Newline();
     Write("-- values: ");
-    PrettyPrint(*array.values().get(), indent_ + 2, sink_);
+    RETURN_NOT_OK(PrettyPrint(*array.values().get(), indent_ + 2, sink_));
 
     return Status::OK();
   }
 
-  Status Visit(const StructArray& array) override {
-    Newline();
-    Write("-- is_valid: ");
-    BooleanArray is_valid(array.length(), array.null_bitmap());
-    PrettyPrint(is_valid, indent_ + 2, sink_);
-
-    const std::vector<std::shared_ptr<Array>>& fields = array.fields();
+  Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
       Write(ss.str());
-      PrettyPrint(*fields[i].get(), indent_ + 2, sink_);
+      RETURN_NOT_OK(PrettyPrint(*fields[i].get(), indent_ + 2, sink_));
     }
-
     return Status::OK();
   }
 
+  Status Visit(const StructArray& array) override {
+    RETURN_NOT_OK(WriteValidityBitmap(array));
+    return PrintChildren(array.fields());
+  }
+
   Status Visit(const UnionArray& array) override {
-    return Status::NotImplemented("union");
+    RETURN_NOT_OK(WriteValidityBitmap(array));
+
+    Newline();
+    Write("-- type_ids: ");
+    UInt8Array type_ids(array.length(), array.type_ids());
+    RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + 2, sink_));
+
+    if (array.mode() == UnionMode::DENSE) {
+      Newline();
+      Write("-- offsets: ");
+      Int32Array offsets(array.length(), array.offsets());
+      RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
+    }
+
+    return PrintChildren(array.children());
   }
 
   void Write(const char* data) { (*sink_) << data; }

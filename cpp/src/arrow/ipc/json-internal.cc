@@ -415,11 +415,11 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   template <typename T>
-  void WriteOffsetsField(const T* offsets, int32_t length) {
-    writer_->Key("OFFSET");
+  void WriteIntegerField(const char* name, const T* values, int32_t length) {
+    writer_->Key(name);
     writer_->StartArray();
     for (int i = 0; i < length; ++i) {
-      writer_->Int64(offsets[i]);
+      writer_->Int64(values[i]);
     }
     writer_->EndArray();
   }
@@ -456,7 +456,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   Status WriteVarBytes(const T& array) {
     WriteValidityField(array);
-    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
     WriteDataField(array);
     SetNoChildren();
     return Status::OK();
@@ -524,7 +524,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
-    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
     auto type = static_cast<const ListType*>(array.type().get());
     return WriteChildren(type->children(), {array.values()});
   }
@@ -536,7 +536,14 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    return Status::NotImplemented("union");
+    WriteValidityField(array);
+    auto type = static_cast<const UnionType*>(array.type().get());
+
+    WriteIntegerField("TYPE_IDS", array.raw_type_ids(), array.length());
+    if (type->mode == UnionMode::DENSE) {
+      WriteIntegerField("OFFSET", array.raw_offsets(), array.length());
+    }
+    return WriteChildren(type->children(), array.children());
   }
 
  private:
