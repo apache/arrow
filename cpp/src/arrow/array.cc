@@ -536,7 +536,7 @@ bool UnionArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_s
   }
 
   // Store mapping in a vector for constant time lookups
-  std::vector<uint8_t> type_id_to_child_num(max_code);
+  std::vector<uint8_t> type_id_to_child_num(max_code + 1);
   for (uint8_t i = 0; i < static_cast<uint8_t>(type_codes.size()); ++i) {
     type_id_to_child_num[type_codes[i]] = i;
   }

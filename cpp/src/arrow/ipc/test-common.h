@@ -275,7 +275,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<std::shared_ptr<Field>> union_types(
       {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", uint8())});
 
-  std::vector<uint8_t> type_codes = {0, 1};
+  std::vector<uint8_t> type_codes = {5, 10};
   auto sparse_type =
       std::make_shared<UnionType>(union_types, type_codes, UnionMode::SPARSE);
 
@@ -295,7 +295,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   const int32_t length = 7;
 
   std::shared_ptr<Buffer> type_ids_buffer;
-  std::vector<uint8_t> type_ids = {0, 1, 0, 0, 1, 1, 0};
+  std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
   RETURN_NOT_OK(test::CopyBufferFromVector(type_ids, &type_ids_buffer));
 
   std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
