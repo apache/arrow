@@ -60,7 +60,7 @@
 
 #endif  // _MSC_VER
 
-// defines that
+// defines that don't exist in MinGW
 #if defined(__MINGW32__)
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR
 #elif defined(_MSC_VER)  // Visual Studio
@@ -174,7 +174,8 @@ static inline Status FileOpenReadable(const std::string& filename, int* fd) {
   return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
 }
 
-static inline Status FileOpenWriteable(const std::string& filename, int* fd) {
+static inline Status FileOpenWriteable(
+    const std::string& filename, bool write_only, bool truncate, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 
@@ -186,13 +187,31 @@ static inline Status FileOpenWriteable(const std::string& filename, int* fd) {
   memcpy(wpath.data(), filename.data(), filename.size());
   memcpy(wpath.data() + nwchars, L"\0", sizeof(wchar_t));
 
-  errno_actual = _wsopen_s(fd, wpath.data(), _O_WRONLY | _O_CREAT | _O_BINARY | _O_TRUNC,
-      _SH_DENYNO, _S_IWRITE);
+  int oflag = _O_CREAT | _O_BINARY;
+
+  if (truncate) { oflag |= _O_TRUNC; }
+
+  if (write_only) {
+    oflag |= _O_WRONLY;
+  } else {
+    oflag |= _O_RDWR;
+  }
+
+  errno_actual = _wsopen_s(fd, wpath.data(), oflag, _SH_DENYNO, _S_IWRITE);
   ret = *fd;
 
 #else
-  ret = *fd =
-      open(filename.c_str(), O_WRONLY | O_CREAT | O_BINARY | O_TRUNC, ARROW_WRITE_SHMODE);
+  int oflag = O_CREAT | O_BINARY;
+
+  if (truncate) { oflag |= O_TRUNC; }
+
+  if (write_only) {
+    oflag |= O_WRONLY;
+  } else {
+    oflag |= O_RDWR;
+  }
+
+  ret = *fd = open(filename.c_str(), oflag, ARROW_WRITE_SHMODE);
 #endif
   return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
 }
@@ -296,10 +315,17 @@ class OSFile {
 
   ~OSFile() {}
 
-  Status OpenWritable(const std::string& path) {
-    RETURN_NOT_OK(FileOpenWriteable(path, &fd_));
+  Status OpenWriteable(const std::string& path, bool append, bool write_only) {
+    RETURN_NOT_OK(FileOpenWriteable(path, write_only, !append, &fd_));
     path_ = path;
     is_open_ = true;
+    mode_ = write_only ? FileMode::READ : FileMode::READWRITE;
+
+    if (append) {
+      RETURN_NOT_OK(FileGetSize(fd_, &size_));
+    } else {
+      size_ = 0;
+    }
     return Status::OK();
   }
 
@@ -307,11 +333,9 @@ class OSFile {
     RETURN_NOT_OK(FileOpenReadable(path, &fd_));
     RETURN_NOT_OK(FileGetSize(fd_, &size_));
 
-    // The position should be 0 after GetSize
-    // RETURN_NOT_OK(Seek(0));
-
     path_ = path;
     is_open_ = true;
+    mode_ = FileMode::READ;
     return Status::OK();
   }
 
@@ -346,11 +370,13 @@ class OSFile {
 
   int64_t size() const { return size_; }
 
- private:
+ protected:
   std::string path_;
 
   // File descriptor
   int fd_;
+
+  FileMode::type mode_;
 
   bool is_open_;
   int64_t size_;
@@ -440,7 +466,9 @@ int ReadableFile::file_descriptor() const {
 
 class FileOutputStream::FileOutputStreamImpl : public OSFile {
  public:
-  Status Open(const std::string& path) { return OpenWritable(path); }
+  Status Open(const std::string& path, bool append) {
+    return OpenWriteable(path, append, true);
+  }
 };
 
 FileOutputStream::FileOutputStream() {
@@ -453,9 +481,14 @@ FileOutputStream::~FileOutputStream() {
 
 Status FileOutputStream::Open(
     const std::string& path, std::shared_ptr<FileOutputStream>* file) {
+  return Open(path, false, file);
+}
+
+Status FileOutputStream::Open(
+    const std::string& path, bool append, std::shared_ptr<FileOutputStream>* file) {
   // private ctor
   *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  return (*file)->impl_->Open(path);
+  return (*file)->impl_->Open(path, append);
 }
 
 Status FileOutputStream::Close() {
@@ -472,6 +505,153 @@ Status FileOutputStream::Write(const uint8_t* data, int64_t length) {
 
 int FileOutputStream::file_descriptor() const {
   return impl_->fd();
+}
+
+// ----------------------------------------------------------------------
+// Implement MemoryMappedFile
+
+class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
+ public:
+  MemoryMappedFileImpl() : OSFile(), data_(nullptr) {}
+
+  ~MemoryMappedFileImpl() {
+    if (is_open_) {
+      munmap(data_, size_);
+      OSFile::Close();
+    }
+  }
+
+  Status Open(const std::string& path, FileMode::type mode) {
+    int prot_flags = PROT_READ;
+
+    if (mode != FileMode::READ) {
+      prot_flags |= PROT_WRITE;
+      const bool append = true;
+      RETURN_NOT_OK(OSFile::OpenWriteable(path, append, mode == FileMode::WRITE));
+    } else {
+      RETURN_NOT_OK(OSFile::OpenReadable(path));
+    }
+
+    void* result = mmap(nullptr, size_, prot_flags, MAP_SHARED, fd(), 0);
+    if (result == MAP_FAILED) {
+      std::stringstream ss;
+      ss << "Memory mapping file failed, errno: " << errno;
+      return Status::IOError(ss.str());
+    }
+    data_ = reinterpret_cast<uint8_t*>(result);
+    position_ = 0;
+
+    return Status::OK();
+  }
+
+  int64_t size() const { return size_; }
+
+  Status Seek(int64_t position) {
+    if (position < 0 || position >= size_) {
+      return Status::Invalid("position is out of bounds");
+    }
+    position_ = position;
+    return Status::OK();
+  }
+
+  int64_t position() { return position_; }
+
+  void advance(int64_t nbytes) { position_ = std::min(size_, position_ + nbytes); }
+
+  uint8_t* data() { return data_; }
+
+  uint8_t* head() { return data_ + position_; }
+
+  bool writable() { return mode_ != FileMode::READ; }
+
+  bool opened() { return is_open_; }
+
+ private:
+  int64_t position_;
+
+  // The memory map
+  uint8_t* data_;
+};
+
+MemoryMappedFile::MemoryMappedFile(FileMode::type mode) {
+  ReadableFileInterface::set_mode(mode);
+}
+
+MemoryMappedFile::~MemoryMappedFile() {}
+
+Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
+    std::shared_ptr<MemoryMappedFile>* out) {
+  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile(mode));
+
+  result->impl_.reset(new MemoryMappedFileImpl());
+  RETURN_NOT_OK(result->impl_->Open(path, mode));
+
+  *out = result;
+  return Status::OK();
+}
+
+Status MemoryMappedFile::GetSize(int64_t* size) {
+  *size = impl_->size();
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Tell(int64_t* position) {
+  *position = impl_->position();
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Seek(int64_t position) {
+  return impl_->Seek(position);
+}
+
+Status MemoryMappedFile::Close() {
+  // munmap handled in pimpl dtor
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  nbytes = std::min(nbytes, impl_->size() - impl_->position());
+  std::memcpy(out, impl_->head(), nbytes);
+  *bytes_read = nbytes;
+  impl_->advance(nbytes);
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  nbytes = std::min(nbytes, impl_->size() - impl_->position());
+  *out = std::make_shared<Buffer>(impl_->head(), nbytes);
+  impl_->advance(nbytes);
+  return Status::OK();
+}
+
+bool MemoryMappedFile::supports_zero_copy() const {
+  return true;
+}
+
+Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+  if (!impl_->opened() || !impl_->writable()) {
+    return Status::IOError("Unable to write");
+  }
+
+  RETURN_NOT_OK(impl_->Seek(position));
+  return WriteInternal(data, nbytes);
+}
+
+Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
+  if (!impl_->opened() || !impl_->writable()) {
+    return Status::IOError("Unable to write");
+  }
+  if (nbytes + impl_->position() > impl_->size()) {
+    return Status::Invalid("Cannot write past end of memory map");
+  }
+
+  return WriteInternal(data, nbytes);
+}
+
+Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
+  memcpy(impl_->head(), data, nbytes);
+  impl_->advance(nbytes);
+  return Status::OK();
 }
 
 }  // namespace io

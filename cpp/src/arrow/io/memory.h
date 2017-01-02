@@ -58,45 +58,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   uint8_t* mutable_data_;
 };
 
-// A memory source that uses memory-mapped files for memory interactions
-class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
- public:
-  ~MemoryMappedFile();
-
-  static Status Open(const std::string& path, FileMode::type mode,
-      std::shared_ptr<MemoryMappedFile>* out);
-
-  Status Close() override;
-
-  Status Tell(int64_t* position) override;
-
-  Status Seek(int64_t position) override;
-
-  // Required by ReadableFileInterface, copies memory into out
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
-
-  // Zero copy read
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  bool supports_zero_copy() const override;
-
-  Status Write(const uint8_t* data, int64_t nbytes) override;
-
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
-
-  // @return: the size in bytes of the memory source
-  Status GetSize(int64_t* size) override;
-
- private:
-  explicit MemoryMappedFile(FileMode::type mode);
-
-  Status WriteInternal(const uint8_t* data, int64_t nbytes);
-
-  // Hide the internal details of this class for now
-  class ARROW_NO_EXPORT MemoryMappedFileImpl;
-  std::unique_ptr<MemoryMappedFileImpl> impl_;
-};
-
 class ARROW_EXPORT BufferReader : public ReadableFileInterface {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
