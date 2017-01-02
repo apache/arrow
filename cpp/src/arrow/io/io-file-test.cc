@@ -26,19 +26,6 @@
 #include <sstream>
 #include <string>
 
-// sys/mman.h not present in Visual Studio or Cygwin
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include "arrow/io/mman.h"
-#undef Realloc
-#undef Free
-#include <windows.h>
-#else
-#include <sys/mman.h>
-#endif
-
 #include "gtest/gtest.h"
 
 #include "arrow/io/file.h"
