@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import numpy as np
-
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
 import pytest
@@ -35,6 +35,10 @@ def test_recordbatch_basics():
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
+    assert batch.to_pydict() == OrderedDict([
+        ('c0', [0, 1, 2, 3, 4]),
+        ('c1', [-10, -5, 0, 5, 10])
+    ])
 
 
 def test_recordbatch_from_to_pandas():
@@ -97,6 +101,10 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.to_pydict() == OrderedDict([
+        ('a', [0, 1, 2, 3, 4]),
+        ('b', [-10, -5, 0, 5, 10])
+    ])
 
     for col in table.itercolumns():
         for chunk in col.data.iterchunks():

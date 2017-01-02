@@ -36,6 +36,9 @@ from pyarrow.compat import frombytes, tobytes
 
 cimport cpython
 
+from collections import OrderedDict
+
+
 cdef class ChunkedArray:
     """
     Array backed via one or more memory chunks.
@@ -204,7 +207,7 @@ cdef class Column:
         -------
         str
         """
-        return frombytes(self.column.name())
+        return bytes(self.column.name()).decode('utf8')
 
     @property
     def type(self):
@@ -344,6 +347,22 @@ cdef class RecordBatch:
         other._check_nullptr()
 
         return self.batch.Equals(deref(other.batch))
+
+    def to_pydict(self):
+        """
+        Converted the arrow::RecordBatch to an OrderedDict
+
+        Returns
+        -------
+        OrderedDict
+        """
+        entries = []
+        for i in range(self.batch.num_columns()):
+            name = bytes(self.batch.column_name(i)).decode('utf8')
+            column = self[i].to_pylist()
+            entries.append((name, column))
+        return OrderedDict(entries)
+
 
     def to_pandas(self):
         """
@@ -634,6 +653,21 @@ cdef class Table:
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return pd.DataFrame(mgr)
+
+    def to_pydict(self):
+        """
+        Converted the arrow::Table to an OrderedDict
+
+        Returns
+        -------
+        OrderedDict
+        """
+        entries = []
+        for i in range(self.table.num_columns()):
+            name = self.column(i).name
+            column = self.column(i).to_pylist()
+            entries.append((name, column))
+        return OrderedDict(entries)
 
     @property
     def name(self):
