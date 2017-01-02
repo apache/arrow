@@ -668,7 +668,9 @@ endif (UNIX)
 if (${CLANG_FORMAT_FOUND})
   # runs clang format and updates files in place.
   add_custom_target(format ${BUILD_SUPPORT_DIR}/run-clang-format.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CLANG_FORMAT_BIN} 1
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h | sed -e '/_generated/g'`
+    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h |
+    sed -e '/_generated/g' |
+    sed -e '/windows_compatibility.h/g'`
     `find ${CMAKE_CURRENT_SOURCE_DIR}/../python -name \\*.cc -or -name \\*.h`)
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted

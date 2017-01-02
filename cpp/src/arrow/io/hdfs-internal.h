@@ -20,21 +20,11 @@
 
 #ifndef _WIN32
 #include <dlfcn.h>
-#else
-
-// Windows defines min and max macros that mess up std::min/maxa
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <winsock2.h>
-
-// TODO(wesm): address when/if we add windows support
-// #include <util/syserr_reporting.hpp>
 #endif
 
 #include <hdfs.h>
 
+#include "arrow/io/windows_compatibility.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
