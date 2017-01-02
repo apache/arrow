@@ -48,11 +48,32 @@ TEST_F(TestBufferOutputStream, CloseResizes) {
   const int64_t nbytes = static_cast<int64_t>(data.size());
   const int K = 100;
   for (int i = 0; i < K; ++i) {
-    EXPECT_OK(stream_->Write(reinterpret_cast<const uint8_t*>(data.c_str()), nbytes));
+    EXPECT_OK(stream_->Write(data));
   }
 
   ASSERT_OK(stream_->Close());
   ASSERT_EQ(K * nbytes, buffer_->size());
+}
+
+TEST(TestBufferReader, RetainParentReference) {
+  // ARROW-387
+  std::string data = "data123456";
+
+  std::shared_ptr<Buffer> slice1;
+  std::shared_ptr<Buffer> slice2;
+  {
+    auto buffer = std::make_shared<PoolBuffer>();
+    ASSERT_OK(buffer->Resize(static_cast<int64_t>(data.size())));
+    std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
+    BufferReader reader(buffer);
+    ASSERT_OK(reader.Read(4, &slice1));
+    ASSERT_OK(reader.Read(6, &slice2));
+  }
+
+  ASSERT_TRUE(slice1->parent() != nullptr);
+
+  ASSERT_EQ(0, std::memcmp(slice1->data(), data.c_str(), 4));
+  ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
 }
 
 }  // namespace io
