@@ -100,6 +100,9 @@ class ARROW_EXPORT Table {
   // @returns: the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
 
+  bool Equals(const Table& other) const;
+  bool Equals(const std::shared_ptr<Table>& other) const;
+
   // After construction, perform any checks to validate the input arguments
   Status ValidateColumns() const;
 

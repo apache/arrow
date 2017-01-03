@@ -77,6 +77,23 @@ Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
     : name_(name), schema_(schema), columns_(columns), num_rows_(num_rows) {}
 
+bool Table::Equals(const Table& other) const {
+  if (name_ != other.name()) { return false; }
+  if (!schema_->Equals(other.schema())) { return false; }
+  if (static_cast<int64_t>(columns_.size()) != other.num_columns()) { return false; }
+
+  for (size_t i = 0; i < columns_.size(); i++) {
+    if (!columns_[i]->Equals(other.column(i))) { return false; }
+  }
+  return true;
+}
+
+bool Table::Equals(const std::shared_ptr<Table>& other) const {
+  if (this == other.get()) { return true; }
+  if (!other) { return false; }
+  return Equals(*other.get());
+}
+
 Status Table::ValidateColumns() const {
   if (num_columns() != schema_->num_fields()) {
     return Status::Invalid("Number of columns did not match schema");

@@ -35,6 +35,45 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   }
 }
 
+bool ChunkedArray::Equals(const ChunkedArray& other) const {
+  if (length_ != other.length()) { return false; }
+  if (null_count_ != other.null_count()) { return false; }
+
+  // Check contents of the underlying arrays. This checks for equality of
+  // the underlying data independently of the chunk size.
+  int this_chunk_idx = 0;
+  int32_t this_start_idx = 0;
+  int other_chunk_idx = 0;
+  int32_t other_start_idx = 0;
+  while (this_chunk_idx < static_cast<int32_t>(chunks_.size())) {
+    const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
+    const std::shared_ptr<Array> other_array = other.chunk(other_chunk_idx);
+    int32_t common_length = std::min(
+        this_array->length() - this_start_idx, other_array->length() - other_start_idx);
+    if (!this_array->RangeEquals(this_start_idx, this_start_idx + common_length,
+            other_start_idx, other_array)) {
+      return false;
+    }
+
+    // If we have exhausted the current chunk, proceed to the next one individually.
+    if (this_start_idx + common_length == this_array->length()) {
+      this_chunk_idx++;
+      this_start_idx = 0;
+    }
+    if (other_start_idx + common_length == other_array->length()) {
+      other_chunk_idx++;
+      other_start_idx = 0;
+    }
+  }
+  return true;
+}
+
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
+  if (this == other.get()) { return true; }
+  if (!other) { return false; }
+  return Equals(*other.get());
+}
+
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
     : field_(field) {
   data_ = std::make_shared<ChunkedArray>(chunks);
@@ -48,6 +87,18 @@ Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>
 Column::Column(
     const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data)
     : field_(field), data_(data) {}
+
+bool Column::Equals(const Column& other) const {
+  if (!field_->Equals(other.field())) { return false; }
+  return data_->Equals(other.data());
+}
+
+bool Column::Equals(const std::shared_ptr<Column>& other) const {
+  if (this == other.get()) { return true; }
+  if (!other) { return false; }
+
+  return Equals(*other.get());
+}
 
 Status Column::ValidateData() {
   for (int i = 0; i < data_->num_chunks(); ++i) {
