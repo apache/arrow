@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -67,9 +68,11 @@ class Seekable {
   virtual Status Seek(int64_t position) = 0;
 };
 
-class Writeable {
+class ARROW_EXPORT Writeable {
  public:
   virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
+
+  Status Write(const std::string& data);
 };
 
 class Readable {
