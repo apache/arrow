@@ -71,7 +71,9 @@ class FileTestFixture : public ::testing::Test {
 
 class TestFileOutputStream : public FileTestFixture {
  public:
-  void OpenFile() { ASSERT_OK(FileOutputStream::Open(path_, &file_)); }
+  void OpenFile(bool append = false) {
+    ASSERT_OK(FileOutputStream::Open(path_, append, &file_));
+  }
 
  protected:
   std::shared_ptr<FileOutputStream> file_;
@@ -129,6 +131,24 @@ TEST_F(TestFileOutputStream, Tell) {
   ASSERT_OK(file_->Write(reinterpret_cast<const uint8_t*>(data), 8));
   ASSERT_OK(file_->Tell(&position));
   ASSERT_EQ(8, position);
+}
+
+TEST_F(TestFileOutputStream, TruncatesNewFile) {
+  ASSERT_OK(FileOutputStream::Open(path_, &file_));
+
+  const char* data = "testdata";
+  ASSERT_OK(file_->Write(reinterpret_cast<const uint8_t*>(data), strlen(data)));
+  ASSERT_OK(file_->Close());
+
+  ASSERT_OK(FileOutputStream::Open(path_, &file_));
+  ASSERT_OK(file_->Close());
+
+  std::shared_ptr<ReadableFile> rd_file;
+  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
+
+  int64_t size;
+  ASSERT_OK(rd_file->GetSize(&size));
+  ASSERT_EQ(0, size);
 }
 
 // ----------------------------------------------------------------------
@@ -291,6 +311,100 @@ TEST_F(TestReadableFile, CustomMemoryPool) {
   ASSERT_OK(file_->ReadAt(4, 8, &buffer));
 
   ASSERT_EQ(2, pool.num_allocations());
+}
+
+// ----------------------------------------------------------------------
+// Memory map tests
+
+class TestMemoryMappedFile : public ::testing::Test, public MemoryMapFixture {
+ public:
+  void TearDown() { MemoryMapFixture::TearDown(); }
+};
+
+TEST_F(TestMemoryMappedFile, InvalidUsages) {}
+
+TEST_F(TestMemoryMappedFile, WriteRead) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  const int reps = 5;
+
+  std::string path = "ipc-write-read-test";
+  CreateFile(path, reps * buffer_size);
+
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &result));
+
+  int64_t position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(result->Write(buffer.data(), buffer_size));
+    ASSERT_OK(result->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+
+    position += buffer_size;
+  }
+}
+
+TEST_F(TestMemoryMappedFile, ReadOnly) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  const int reps = 5;
+
+  std::string path = "ipc-read-only-test";
+  CreateFile(path, reps * buffer_size);
+
+  std::shared_ptr<MemoryMappedFile> rwmmap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
+
+  int64_t position = 0;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rwmmap->Close();
+
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
+
+  position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rommap->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rommap->Close();
+}
+
+TEST_F(TestMemoryMappedFile, InvalidMode) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  std::string path = "ipc-invalid-mode-test";
+  CreateFile(path, buffer_size);
+
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
+
+  ASSERT_RAISES(IOError, rommap->Write(buffer.data(), buffer_size));
+}
+
+TEST_F(TestMemoryMappedFile, InvalidFile) {
+  std::string non_existent_path = "invalid-file-name-asfd";
+
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_RAISES(
+      IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
 }
 
 }  // namespace io
