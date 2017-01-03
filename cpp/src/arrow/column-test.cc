@@ -59,6 +59,7 @@ TEST_F(TestChunkedArray, BasicEquals) {
   ASSERT_TRUE(one_->Equals(one_));
   ASSERT_FALSE(one_->Equals(nullptr));
   ASSERT_TRUE(one_->Equals(another_));
+  ASSERT_TRUE(one_->Equals(*another_.get()));
 }
 
 TEST_F(TestChunkedArray, EqualsDifferingTypes) {
@@ -73,6 +74,7 @@ TEST_F(TestChunkedArray, EqualsDifferingTypes) {
 
   Construct();
   ASSERT_FALSE(one_->Equals(another_));
+  ASSERT_FALSE(one_->Equals(*another_.get()));
 }
 
 TEST_F(TestChunkedArray, EqualsDifferingLengths) {
@@ -88,6 +90,7 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
 
   Construct();
   ASSERT_FALSE(one_->Equals(another_));
+  ASSERT_FALSE(one_->Equals(*another_.get()));
 
   std::vector<bool> null_bitmap1(1, true);
   std::vector<int32_t> data1(1, 1);
@@ -96,6 +99,7 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
 
   Construct();
   ASSERT_TRUE(one_->Equals(another_));
+  ASSERT_TRUE(one_->Equals(*another_.get()));
 }
 
 class TestColumn : public TestChunkedArray {
@@ -163,17 +167,20 @@ TEST_F(TestColumn, Equals) {
   ASSERT_TRUE(one_col_->Equals(one_col_));
   ASSERT_FALSE(one_col_->Equals(nullptr));
   ASSERT_TRUE(one_col_->Equals(another_col_));
+  ASSERT_TRUE(one_col_->Equals(*another_col_.get()));
 
   // Field is different
   another_field_ = std::make_shared<Field>("two", int32());
   Construct();
   ASSERT_FALSE(one_col_->Equals(another_col_));
+  ASSERT_FALSE(one_col_->Equals(*another_col_.get()));
 
   // ChunkedArray is different
   another_field_ = std::make_shared<Field>("column", int32());
   arrays_another_.push_back(array);
   Construct();
   ASSERT_FALSE(one_col_->Equals(another_col_));
+  ASSERT_FALSE(one_col_->Equals(*another_col_.get()));
 }
 
 }  // namespace arrow
