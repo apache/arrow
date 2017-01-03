@@ -29,6 +29,7 @@
 #include "arrow/builder.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/json.h"
+#include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -142,10 +143,15 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   auto value_type = int32();
 
   std::vector<bool> values_is_valid = {true, false, true, true, false, true, true};
-  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
 
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   std::shared_ptr<Array> values_array;
   ArrayFromVector<Int32Type, int32_t>(int32(), values_is_valid, values, &values_array);
+
+  std::vector<int16_t> i16_values = {0, 1, 2, 3, 4, 5, 6};
+  std::shared_ptr<Array> i16_values_array;
+  ArrayFromVector<Int16Type, int16_t>(
+      int16(), values_is_valid, i16_values, &i16_values_array);
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
@@ -171,6 +177,16 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   StructArray struct_array(
       struct_type, static_cast<int>(struct_is_valid.size()), fields, 2, struct_bitmap);
   TestArrayRoundTrip(struct_array);
+}
+
+TEST(TestJsonArrayWriter, Unions) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeUnion(&batch));
+
+  for (int i = 0; i < batch->num_columns(); ++i) {
+    std::shared_ptr<Array> col = batch->column(i);
+    TestArrayRoundTrip(*col.get());
+  }
 }
 
 // Data generation for test case below

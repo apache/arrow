@@ -228,7 +228,7 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
-  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type)
+  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type = boolean())
       : ArrayBuilder(pool, type), data_(nullptr) {}
 
   virtual ~BooleanBuilder() {}

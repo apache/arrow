@@ -276,7 +276,16 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    return Status::NotImplemented("union");
+    buffers_.push_back(array.type_ids());
+
+    if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.offsets()); }
+
+    --max_recursion_depth_;
+    for (const auto& field : array.children()) {
+      RETURN_NOT_OK(VisitArray(*field.get()));
+    }
+    ++max_recursion_depth_;
+    return Status::OK();
   }
 
   // Do not copy this vector. Ownership must be retained elsewhere
@@ -464,9 +473,10 @@ class ArrayLoader : public TypeVisitor {
   Status Visit(const ListType& type) override {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap;
-    std::shared_ptr<Buffer> offsets;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+
+    std::shared_ptr<Buffer> offsets;
     RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
 
     const int num_children = type.num_children();
@@ -484,20 +494,25 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
+  Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields,
+      std::vector<std::shared_ptr<Array>>* arrays) {
+    arrays->reserve(static_cast<int>(child_fields.size()));
+
+    for (const auto& child_field : child_fields) {
+      std::shared_ptr<Array> field_array;
+      RETURN_NOT_OK(LoadChild(*child_field.get(), &field_array));
+      arrays->emplace_back(field_array);
+    }
+    return Status::OK();
+  }
+
   Status Visit(const StructType& type) override {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
 
-    const int num_children = type.num_children();
-    std::vector<ArrayPtr> fields;
-    fields.reserve(num_children);
-
-    for (int child_idx = 0; child_idx < num_children; ++child_idx) {
-      std::shared_ptr<Array> field_array;
-      RETURN_NOT_OK(LoadChild(*type.child(child_idx).get(), &field_array));
-      fields.emplace_back(field_array);
-    }
+    std::vector<std::shared_ptr<Array>> fields;
+    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
 
     result_ = std::make_shared<StructArray>(
         field_.type, field_meta.length, fields, field_meta.null_count, null_bitmap);
@@ -505,7 +520,24 @@ class ArrayLoader : public TypeVisitor {
   }
 
   Status Visit(const UnionType& type) override {
-    return Status::NotImplemented(type.ToString());
+    FieldMetadata field_meta;
+    std::shared_ptr<Buffer> null_bitmap;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+
+    std::shared_ptr<Buffer> type_ids;
+    std::shared_ptr<Buffer> offsets = nullptr;
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &type_ids));
+
+    if (type.mode == UnionMode::DENSE) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+    }
+
+    std::vector<std::shared_ptr<Array>> fields;
+    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
+
+    result_ = std::make_shared<UnionArray>(field_.type, field_meta.length, fields,
+        type_ids, offsets, field_meta.null_count, null_bitmap);
+    return Status::OK();
   }
 };
 

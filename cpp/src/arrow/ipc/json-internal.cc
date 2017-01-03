@@ -415,11 +415,11 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   template <typename T>
-  void WriteOffsetsField(const T* offsets, int32_t length) {
-    writer_->Key("OFFSET");
+  void WriteIntegerField(const char* name, const T* values, int32_t length) {
+    writer_->Key(name);
     writer_->StartArray();
     for (int i = 0; i < length; ++i) {
-      writer_->Int64(offsets[i]);
+      writer_->Int64(values[i]);
     }
     writer_->EndArray();
   }
@@ -456,7 +456,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   Status WriteVarBytes(const T& array) {
     WriteValidityField(array);
-    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
     WriteDataField(array);
     SetNoChildren();
     return Status::OK();
@@ -524,7 +524,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
-    WriteOffsetsField(array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
     auto type = static_cast<const ListType*>(array.type().get());
     return WriteChildren(type->children(), {array.values()});
   }
@@ -536,7 +536,14 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    return Status::NotImplemented("union");
+    WriteValidityField(array);
+    auto type = static_cast<const UnionType*>(array.type().get());
+
+    WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
+    if (type->mode == UnionMode::DENSE) {
+      WriteIntegerField("OFFSET", array.raw_offsets(), array.length());
+    }
+    return WriteChildren(type->children(), array.children());
   }
 
  private:
@@ -848,26 +855,34 @@ class JsonArrayReader {
   }
 
   template <typename T>
+  Status GetIntArray(
+      const RjArray& json_array, const int32_t length, std::shared_ptr<Buffer>* out) {
+    auto buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(buffer->Resize(length * sizeof(T)));
+    T* values = reinterpret_cast<T*>(buffer->mutable_data());
+    for (int i = 0; i < length; ++i) {
+      const rj::Value& val = json_array[i];
+      DCHECK(val.IsInt());
+      values[i] = static_cast<T>(val.GetInt());
+    }
+
+    *out = buffer;
+    return Status::OK();
+  }
+
+  template <typename T>
   typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type ReadArray(
       const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    const auto& json_offsets = json_array.FindMember("OFFSET");
-    RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
-    const auto& json_offsets_arr = json_offsets->value.GetArray();
-
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid, &null_count, &validity_buffer));
 
-    auto offsets_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(offsets_buffer->Resize((length + 1) * sizeof(int32_t)));
-    int32_t* offsets = reinterpret_cast<int32_t*>(offsets_buffer->mutable_data());
-
-    for (int i = 0; i < length + 1; ++i) {
-      const rj::Value& val = json_offsets_arr[i];
-      DCHECK(val.IsInt());
-      offsets[i] = val.GetInt();
-    }
+    const auto& json_offsets = json_array.FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
+    std::shared_ptr<Buffer> offsets_buffer;
+    RETURN_NOT_OK(GetIntArray<int32_t>(
+        json_offsets->value.GetArray(), length + 1, &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
     RETURN_NOT_OK(GetChildren(json_array, type, &children));
@@ -892,6 +907,41 @@ class JsonArrayReader {
 
     *array =
         std::make_shared<StructArray>(type, length, fields, null_count, validity_buffer);
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<UnionType, T>::value, Status>::type ReadArray(
+      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    int32_t null_count = 0;
+
+    const auto& union_type = static_cast<const UnionType&>(*type.get());
+
+    std::shared_ptr<Buffer> validity_buffer;
+    std::shared_ptr<Buffer> type_id_buffer;
+    std::shared_ptr<Buffer> offsets_buffer;
+
+    RETURN_NOT_OK(GetValidityBuffer(is_valid, &null_count, &validity_buffer));
+
+    const auto& json_type_ids = json_array.FindMember("TYPE_ID");
+    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, json_array);
+    RETURN_NOT_OK(
+        GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length, &type_id_buffer));
+
+    if (union_type.mode == UnionMode::DENSE) {
+      const auto& json_offsets = json_array.FindMember("OFFSET");
+      RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
+      RETURN_NOT_OK(
+          GetIntArray<int32_t>(json_offsets->value.GetArray(), length, &offsets_buffer));
+    }
+
+    std::vector<std::shared_ptr<Array>> children;
+    RETURN_NOT_OK(GetChildren(json_array, type, &children));
+
+    *array = std::make_shared<UnionArray>(type, length, children, type_id_buffer,
+        offsets_buffer, null_count, validity_buffer);
 
     return Status::OK();
   }
@@ -992,7 +1042,7 @@ class JsonArrayReader {
       NOT_IMPLEMENTED_CASE(INTERVAL);
       TYPE_CASE(ListType);
       TYPE_CASE(StructType);
-      NOT_IMPLEMENTED_CASE(UNION);
+      TYPE_CASE(UnionType);
       default:
         std::stringstream ss;
         ss << type->ToString();

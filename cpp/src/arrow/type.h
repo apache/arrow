@@ -394,10 +394,10 @@ enum class UnionMode : char { SPARSE, DENSE };
 struct ARROW_EXPORT UnionType : public DataType {
   static constexpr Type::type type_id = Type::UNION;
 
-  UnionType(const std::vector<std::shared_ptr<Field>>& child_fields,
+  UnionType(const std::vector<std::shared_ptr<Field>>& fields,
       const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE)
       : DataType(Type::UNION), mode(mode), type_ids(type_ids) {
-    children_ = child_fields;
+    children_ = fields;
   }
 
   std::string ToString() const override;
@@ -407,6 +407,10 @@ struct ARROW_EXPORT UnionType : public DataType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 
   UnionMode mode;
+
+  // The type id used in the data to indicate each data type in the union. For
+  // example, the first type in the union might be denoted by the id 5 (instead
+  // of 0).
   std::vector<uint8_t> type_ids;
 };
 

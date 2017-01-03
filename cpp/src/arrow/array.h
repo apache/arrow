@@ -108,8 +108,6 @@ class ARROW_EXPORT NullArray : public Array {
   Status Accept(ArrayVisitor* visitor) const override;
 };
 
-typedef std::shared_ptr<Array> ArrayPtr;
-
 Status ARROW_EXPORT GetEmptyBitmap(
     MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
 
@@ -152,7 +150,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   }
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const ArrayPtr& arr) const override {
+      const std::shared_ptr<Array>& arr) const override {
     if (this == arr.get()) { return true; }
     if (!arr) { return false; }
     if (this->type_enum() != arr->type_enum()) { return false; }
@@ -256,9 +254,9 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
-  bool Equals(const ArrayPtr& arr) const override;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const ArrayPtr& arr) const override;
+      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
@@ -274,13 +272,13 @@ class ARROW_EXPORT ListArray : public Array {
  public:
   using TypeClass = ListType;
 
-  ListArray(const TypePtr& type, int32_t length, std::shared_ptr<Buffer> offsets,
-      const ArrayPtr& values, int32_t null_count = 0,
-      std::shared_ptr<Buffer> null_bitmap = nullptr)
+  ListArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
+      const std::shared_ptr<Array>& values, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
-    offset_buffer_ = offsets;
+    offsets_buffer_ = offsets;
     offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
-                                                  offset_buffer_->data());
+                                                  offsets_buffer_->data());
     values_ = values;
   }
 
@@ -291,9 +289,7 @@ class ARROW_EXPORT ListArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> values() const { return values_; }
-  std::shared_ptr<Buffer> offsets() const {
-    return std::static_pointer_cast<Buffer>(offset_buffer_);
-  }
+  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
 
   std::shared_ptr<DataType> value_type() const { return values_->type(); }
 
@@ -309,14 +305,14 @@ class ARROW_EXPORT ListArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const ArrayPtr& arr) const override;
+      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
  protected:
-  std::shared_ptr<Buffer> offset_buffer_;
+  std::shared_ptr<Buffer> offsets_buffer_;
   const int32_t* offsets_;
-  ArrayPtr values_;
+  std::shared_ptr<Array> values_;
 };
 
 // ----------------------------------------------------------------------
@@ -346,7 +342,7 @@ class ARROW_EXPORT BinaryArray : public Array {
   }
 
   std::shared_ptr<Buffer> data() const { return data_buffer_; }
-  std::shared_ptr<Buffer> offsets() const { return offset_buffer_; }
+  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
 
   const int32_t* raw_offsets() const { return offsets_; }
 
@@ -359,14 +355,14 @@ class ARROW_EXPORT BinaryArray : public Array {
   bool EqualsExact(const BinaryArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const ArrayPtr& arr) const override;
+      const std::shared_ptr<Array>& arr) const override;
 
   Status Validate() const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
  private:
-  std::shared_ptr<Buffer> offset_buffer_;
+  std::shared_ptr<Buffer> offsets_buffer_;
   const int32_t* offsets_;
 
   std::shared_ptr<Buffer> data_buffer_;
@@ -401,8 +397,9 @@ class ARROW_EXPORT StructArray : public Array {
  public:
   using TypeClass = StructType;
 
-  StructArray(const TypePtr& type, int32_t length, std::vector<ArrayPtr>& field_arrays,
-      int32_t null_count = 0, std::shared_ptr<Buffer> null_bitmap = nullptr)
+  StructArray(const TypePtr& type, int32_t length,
+      const std::vector<std::shared_ptr<Array>>& field_arrays, int32_t null_count = 0,
+      std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
     type_ = type;
     field_arrays_ = field_arrays;
@@ -416,7 +413,7 @@ class ARROW_EXPORT StructArray : public Array {
   // with this array.
   std::shared_ptr<Array> field(int32_t pos) const;
 
-  const std::vector<ArrayPtr>& fields() const { return field_arrays_; }
+  const std::vector<std::shared_ptr<Array>>& fields() const { return field_arrays_; }
 
   bool EqualsExact(const StructArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -427,25 +424,54 @@ class ARROW_EXPORT StructArray : public Array {
 
  protected:
   // The child arrays corresponding to each field of the struct data type.
-  std::vector<ArrayPtr> field_arrays_;
+  std::vector<std::shared_ptr<Array>> field_arrays_;
 };
 
 // ----------------------------------------------------------------------
 // Union
 
-class UnionArray : public Array {
+class ARROW_EXPORT UnionArray : public Array {
+ public:
+  using TypeClass = UnionType;
+
+  UnionArray(const TypePtr& type, int32_t length,
+      const std::vector<std::shared_ptr<Array>>& children,
+      const std::shared_ptr<Buffer>& type_ids,
+      const std::shared_ptr<Buffer>& offsets = nullptr, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+
+  Status Validate() const override;
+
+  virtual ~UnionArray() {}
+
+  std::shared_ptr<Buffer> type_ids() const { return type_ids_buffer_; }
+  const uint8_t* raw_type_ids() const { return type_ids_; }
+
+  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
+  const int32_t* raw_offsets() const { return offsets_; }
+
+  UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
+
+  std::shared_ptr<Array> child(int32_t pos) const;
+
+  const std::vector<std::shared_ptr<Array>>& children() const { return children_; }
+
+  bool EqualsExact(const UnionArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const std::shared_ptr<Array>& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
+
  protected:
-  // The data are types encoded as int16
-  Buffer* types_;
   std::vector<std::shared_ptr<Array>> children_;
-};
 
-class DenseUnionArray : public UnionArray {
- protected:
-  Buffer* offset_buf_;
-};
+  std::shared_ptr<Buffer> type_ids_buffer_;
+  const uint8_t* type_ids_;
 
-class SparseUnionArray : public UnionArray {};
+  std::shared_ptr<Buffer> offsets_buffer_;
+  const int32_t* offsets_;
+};
 
 // ----------------------------------------------------------------------
 // extern templates and other details

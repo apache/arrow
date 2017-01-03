@@ -103,7 +103,7 @@ std::string UnionType::ToString() const {
 
   for (size_t i = 0; i < children_.size(); ++i) {
     if (i) { s << ", "; }
-    s << children_[i]->ToString();
+    s << children_[i]->ToString() << "=" << static_cast<int>(type_ids[i]);
   }
   s << ">";
   return s.str();

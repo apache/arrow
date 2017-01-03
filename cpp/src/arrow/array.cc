@@ -189,14 +189,14 @@ bool BooleanArray::EqualsExact(const BooleanArray& other) const {
   }
 }
 
-bool BooleanArray::Equals(const ArrayPtr& arr) const {
+bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) return true;
   if (Type::BOOL != arr->type_enum()) { return false; }
   return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
 }
 
 bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
-    int32_t other_start_idx, const ArrayPtr& arr) const {
+    int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
@@ -222,7 +222,7 @@ bool ListArray::EqualsExact(const ListArray& other) const {
   if (null_count_ != other.null_count_) { return false; }
 
   bool equal_offsets =
-      offset_buffer_->Equals(*other.offset_buffer_, (length_ + 1) * sizeof(int32_t));
+      offsets_buffer_->Equals(*other.offsets_buffer_, (length_ + 1) * sizeof(int32_t));
   if (!equal_offsets) { return false; }
   bool equal_null_bitmap = true;
   if (null_count_ > 0) {
@@ -269,10 +269,10 @@ bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_st
 
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
-  if (!offset_buffer_) { return Status::Invalid("offset_buffer_ was null"); }
-  if (offset_buffer_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
+  if (!offsets_buffer_) { return Status::Invalid("offsets_buffer_ was null"); }
+  if (offsets_buffer_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
     std::stringstream ss;
-    ss << "offset buffer size (bytes): " << offset_buffer_->size()
+    ss << "offset buffer size (bytes): " << offsets_buffer_->size()
        << " isn't large enough for length: " << length_;
     return Status::Invalid(ss.str());
   }
@@ -337,8 +337,8 @@ BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap),
-      offset_buffer_(offsets),
-      offsets_(reinterpret_cast<const int32_t*>(offset_buffer_->data())),
+      offsets_buffer_(offsets),
+      offsets_(reinterpret_cast<const int32_t*>(offsets_buffer_->data())),
       data_buffer_(data),
       data_(nullptr) {
   if (data_buffer_ != nullptr) { data_ = data_buffer_->data(); }
@@ -353,7 +353,7 @@ bool BinaryArray::EqualsExact(const BinaryArray& other) const {
   if (!Array::EqualsExact(other)) { return false; }
 
   bool equal_offsets =
-      offset_buffer_->Equals(*other.offset_buffer_, (length_ + 1) * sizeof(int32_t));
+      offsets_buffer_->Equals(*other.offsets_buffer_, (length_ + 1) * sizeof(int32_t));
   if (!equal_offsets) { return false; }
 
   if (!data_buffer_ && !(other.data_buffer_)) { return true; }
@@ -433,7 +433,7 @@ bool StructArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (Type::STRUCT != arr->type_enum()) { return false; }
-  const auto other = static_cast<StructArray*>(arr.get());
+  const auto& other = static_cast<const StructArray&>(*arr.get());
 
   bool equal_fields = true;
   for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
@@ -442,7 +442,7 @@ bool StructArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_
     for (size_t j = 0; j < field_arrays_.size(); ++j) {
       // TODO: really we should be comparing stretches of non-null data rather
       // than looking at one value at a time.
-      equal_fields = field(j)->RangeEquals(i, i + 1, o_i, other->field(j));
+      equal_fields = field(j)->RangeEquals(i, i + 1, o_i, other.field(j));
       if (!equal_fields) { return false; }
     }
   }
@@ -491,6 +491,102 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 }
 
 // ----------------------------------------------------------------------
+// UnionArray
+
+UnionArray::UnionArray(const TypePtr& type, int32_t length,
+    const std::vector<std::shared_ptr<Array>>& children,
+    const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
+    : Array(type, length, null_count, null_bitmap),
+      children_(children),
+      type_ids_buffer_(type_ids),
+      offsets_buffer_(offsets) {
+  type_ids_ = reinterpret_cast<const uint8_t*>(type_ids->data());
+  if (offsets) { offsets_ = reinterpret_cast<const int32_t*>(offsets->data()); }
+}
+
+std::shared_ptr<Array> UnionArray::child(int32_t pos) const {
+  DCHECK_GT(children_.size(), 0);
+  return children_[pos];
+}
+
+bool UnionArray::Equals(const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (!this->type_->Equals(arr->type())) { return false; }
+  if (null_count_ != arr->null_count()) { return false; }
+  return RangeEquals(0, length_, 0, arr);
+}
+
+bool UnionArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+    const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (!arr) { return false; }
+  if (Type::UNION != arr->type_enum()) { return false; }
+  const auto& other = static_cast<const UnionArray&>(*arr.get());
+
+  const UnionMode union_mode = mode();
+  if (union_mode != other.mode()) { return false; }
+
+  // Define a mapping from the type id to child number
+  const auto& type_codes = static_cast<const UnionType&>(*arr->type().get()).type_ids;
+  uint8_t max_code = 0;
+  for (uint8_t code : type_codes) {
+    if (code > max_code) { max_code = code; }
+  }
+
+  // Store mapping in a vector for constant time lookups
+  std::vector<uint8_t> type_id_to_child_num(max_code + 1);
+  for (uint8_t i = 0; i < static_cast<uint8_t>(type_codes.size()); ++i) {
+    type_id_to_child_num[type_codes[i]] = i;
+  }
+
+  const uint8_t* this_ids = raw_type_ids();
+  const uint8_t* other_ids = other.raw_type_ids();
+
+  uint8_t id, child_num;
+  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
+    if (IsNull(i) != other.IsNull(o_i)) { return false; }
+    if (IsNull(i)) continue;
+    if (this_ids[i] != other_ids[o_i]) { return false; }
+
+    id = this_ids[i];
+    child_num = type_id_to_child_num[id];
+
+    // TODO(wesm): really we should be comparing stretches of non-null data
+    // rather than looking at one value at a time.
+    if (union_mode == UnionMode::SPARSE) {
+      if (!child(child_num)->RangeEquals(i, i + 1, o_i, other.child(child_num))) {
+        return false;
+      }
+    } else {
+      const int32_t offset = offsets_[i];
+      const int32_t o_offset = other.offsets_[i];
+      if (!child(child_num)->RangeEquals(
+              offset, offset + 1, o_offset, other.child(child_num))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+Status UnionArray::Validate() const {
+  if (length_ < 0) { return Status::Invalid("Length was negative"); }
+
+  if (null_count() > length_) {
+    return Status::Invalid("Null count exceeds the length of this struct");
+  }
+
+  DCHECK(false) << "Validate not yet implemented";
+  return Status::OK();
+}
+
+Status UnionArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+// ----------------------------------------------------------------------
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
   case Type::ENUM:                                                          \
@@ -499,7 +595,7 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 
 Status MakePrimitiveArray(const TypePtr& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, ArrayPtr* out) {
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);

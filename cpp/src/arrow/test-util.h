@@ -274,6 +274,18 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
       values_buffer, null_count, values_bitmap);
 }
 
+template <typename TYPE, typename C_TYPE>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> values_buffer;
+
+  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
+
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+  *out = std::make_shared<ArrayType>(
+      type, static_cast<int32_t>(values.size()), values_buffer);
+}
+
 class TestBuilder : public ::testing::Test {
  public:
   void SetUp() {
@@ -293,7 +305,7 @@ class TestBuilder : public ::testing::Test {
 
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
-    int size, Builder* builder, ArrayPtr* out) {
+    int size, Builder* builder, std::shared_ptr<Array>* out) {
   // Append the first 1000
   for (int i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {

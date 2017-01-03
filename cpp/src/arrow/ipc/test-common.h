@@ -110,7 +110,7 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    const TypePtr& type, int32_t length, MemoryPool* pool, ArrayPtr* out) {
+    const TypePtr& type, int32_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
   Builder builder(pool, type);
@@ -225,7 +225,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   TypePtr type = int32();
 
   MemoryPool* pool = default_memory_pool();
-  ArrayPtr array;
+  std::shared_ptr<Array> array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
   for (int i = 0; i < 63; ++i) {
@@ -235,7 +235,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
 
   auto f0 = std::make_shared<Field>("f0", type);
   std::shared_ptr<Schema> schema(new Schema({f0}));
-  std::vector<ArrayPtr> arrays = {array};
+  std::vector<std::shared_ptr<Array>> arrays = {array};
   out->reset(new RecordBatch(schema, batch_length, arrays));
   return Status::OK();
 }
@@ -244,7 +244,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   // reuse constructed list columns
   std::shared_ptr<RecordBatch> list_batch;
   RETURN_NOT_OK(MakeListRecordBatch(&list_batch));
-  std::vector<ArrayPtr> columns = {
+  std::vector<std::shared_ptr<Array>> columns = {
       list_batch->column(0), list_batch->column(1), list_batch->column(2)};
   auto list_schema = list_batch->schema();
 
@@ -256,17 +256,86 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   // construct individual nullable/non-nullable struct arrays
-  ArrayPtr no_nulls(new StructArray(type, list_batch->num_rows(), columns));
+  std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
   std::shared_ptr<Buffer> null_bitmask;
   RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
-  ArrayPtr with_nulls(
+  std::shared_ptr<Array> with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, 1, null_bitmask));
 
   // construct batch
-  std::vector<ArrayPtr> arrays = {no_nulls, with_nulls};
+  std::vector<std::shared_ptr<Array>> arrays = {no_nulls, with_nulls};
   out->reset(new RecordBatch(schema, list_batch->num_rows(), arrays));
+  return Status::OK();
+}
+
+Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
+  // Define schema
+  std::vector<std::shared_ptr<Field>> union_types(
+      {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", uint8())});
+
+  std::vector<uint8_t> type_codes = {5, 10};
+  auto sparse_type =
+      std::make_shared<UnionType>(union_types, type_codes, UnionMode::SPARSE);
+
+  auto dense_type =
+      std::make_shared<UnionType>(union_types, type_codes, UnionMode::DENSE);
+
+  auto f0 = std::make_shared<Field>("sparse_nonnull", sparse_type, false);
+  auto f1 = std::make_shared<Field>("sparse", sparse_type);
+  auto f2 = std::make_shared<Field>("dense", dense_type);
+
+  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+
+  // Create data
+  std::vector<std::shared_ptr<Array>> sparse_children(2);
+  std::vector<std::shared_ptr<Array>> dense_children(2);
+
+  const int32_t length = 7;
+
+  std::shared_ptr<Buffer> type_ids_buffer;
+  std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
+  RETURN_NOT_OK(test::CopyBufferFromVector(type_ids, &type_ids_buffer));
+
+  std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
+  ArrayFromVector<Int32Type, int32_t>(
+      sparse_type->child(0)->type, u0_values, &sparse_children[0]);
+
+  std::vector<uint8_t> u1_values = {10, 11, 12, 13, 14, 15, 16};
+  ArrayFromVector<UInt8Type, uint8_t>(
+      sparse_type->child(1)->type, u1_values, &sparse_children[1]);
+
+  // dense children
+  u0_values = {0, 2, 3, 7};
+  ArrayFromVector<Int32Type, int32_t>(
+      dense_type->child(0)->type, u0_values, &dense_children[0]);
+
+  u1_values = {11, 14, 15};
+  ArrayFromVector<UInt8Type, uint8_t>(
+      dense_type->child(1)->type, u1_values, &dense_children[1]);
+
+  std::shared_ptr<Buffer> offsets_buffer;
+  std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
+  RETURN_NOT_OK(test::CopyBufferFromVector(offsets, &offsets_buffer));
+
+  std::vector<uint8_t> null_bytes(length, 1);
+  null_bytes[2] = 0;
+  std::shared_ptr<Buffer> null_bitmask;
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
+
+  // construct individual nullable/non-nullable struct arrays
+  auto sparse_no_nulls =
+      std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
+  auto sparse = std::make_shared<UnionArray>(
+      sparse_type, length, sparse_children, type_ids_buffer, nullptr, 1, null_bitmask);
+
+  auto dense = std::make_shared<UnionArray>(dense_type, length, dense_children,
+      type_ids_buffer, offsets_buffer, 1, null_bitmask);
+
+  // construct batch
+  std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
+  out->reset(new RecordBatch(schema, length, arrays));
   return Status::OK();
 }
 

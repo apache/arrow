@@ -95,7 +95,7 @@ TEST_P(TestWriteRecordBatch, RoundTrip) {
 INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
     ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,
                             &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,
-                            &MakeStringTypesRecordBatch, &MakeStruct));
+                            &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
@@ -136,7 +136,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
       int64_t* body_length, std::shared_ptr<Schema>* schema) {
     const int batch_length = 5;
     TypePtr type = int32();
-    ArrayPtr array;
+    std::shared_ptr<Array> array;
     const bool include_nulls = true;
     RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool_, &array));
     for (int i = 0; i < recursion_level; ++i) {
@@ -149,7 +149,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
     *schema = std::shared_ptr<Schema>(new Schema({f0}));
 
-    std::vector<ArrayPtr> arrays = {array};
+    std::vector<std::shared_ptr<Array>> arrays = {array};
     auto batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
 
     std::string path = "test-write-past-max-recursion";
