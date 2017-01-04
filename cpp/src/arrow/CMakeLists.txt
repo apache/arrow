@@ -58,5 +58,6 @@ ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(schema-test)
 ADD_ARROW_TEST(status-test)
 ADD_ARROW_TEST(table-test)
+ADD_ARROW_TEST(type-test)
 
 ADD_ARROW_BENCHMARK(column-benchmark)

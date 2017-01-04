@@ -20,7 +20,9 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -109,11 +111,55 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
+// ----------------------------------------------------------------------
+// DictionaryType
+
+DictionaryType::DictionaryType(
+    const std::shared_ptr<Array>& dictionary, Type::type index_type)
+    : FixedWidthType(Type::DICTIONARY),
+      index_type_(index_type),
+      dictionary_(dictionary) {}
+
+int DictionaryType::bit_width() const {
+  switch (index_type_) {
+    case Type::UINT8:
+    case Type::INT8:
+      return 8;
+    case Type::UINT16:
+    case Type::INT16:
+      return 16;
+    case Type::UINT32:
+    case Type::INT32:
+      return 32;
+    case Type::UINT64:
+    case Type::INT64:
+      return 64;
+    default:
+      DCHECK(false) << "Dictionary indices must be integer";
+      break;
+  }
+  return -1;
+}
+
+std::shared_ptr<Array> DictionaryType::dictionary() const {
+  return dictionary_;
+}
+
+std::string DictionaryType::ToString() const {
+  std::stringstream ss;
+  ss << "dictionary<" << dictionary_->type()->ToString() << ">";
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
+// Null type
+
 std::string NullType::ToString() const {
   return name();
 }
 
-// Visitors and template instantiation
+// ----------------------------------------------------------------------
+// Visitors and factory functions
 
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
@@ -130,6 +176,7 @@ ACCEPT_VISITOR(DateType);
 ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
 ACCEPT_VISITOR(IntervalType);
+ACCEPT_VISITOR(DictionaryType);
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \
@@ -174,10 +221,14 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> ARROW_EXPORT union_(
-    const std::vector<std::shared_ptr<Field>>& child_fields,
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
     const std::vector<uint8_t>& type_ids, UnionMode mode) {
   return std::make_shared<UnionType>(child_fields, type_ids, mode);
+}
+
+std::shared_ptr<DataType> dictionary(
+    const std::shared_ptr<Array>& dict_values, Type::type index_type) {
+  return std::make_shared<DictionaryType>(dict_values, index_type);
 }
 
 std::shared_ptr<Field> field(

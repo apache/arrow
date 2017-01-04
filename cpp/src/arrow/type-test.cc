@@ -15,39 +15,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/io/interfaces.h"
-
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
+#include <numeric>
+#include <vector>
 
+#include "gtest/gtest.h"
+
+#include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/status.h"
+#include "arrow/memory_pool.h"
+#include "arrow/test-util.h"
+#include "arrow/type.h"
 
 namespace arrow {
-namespace io {
 
-FileInterface::~FileInterface() {}
+TEST(TestDictionaryType, Basics) {
+  std::vector<int32_t> values = {100, 1000, 10000, 100000};
+  std::shared_ptr<Array> dict;
+  ArrayFromVector<Int32Type, int32_t>(int32(), values, &dict);
 
-ReadableFileInterface::ReadableFileInterface() {
-  set_mode(FileMode::READ);
+  std::shared_ptr<DictionaryType> type1 =
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(dict, Type::INT16));
+  DictionaryType type2(dict, Type::INT16);
+
+  ASSERT_EQ(Type::INT16, type1->index_type());
+  ASSERT_TRUE(type1->dictionary()->Equals(dict));
+
+  ASSERT_EQ(Type::INT16, type2.index_type());
+  ASSERT_TRUE(type2.dictionary()->Equals(dict));
+
+  ASSERT_EQ("dictionary<int32>", type1->ToString());
 }
 
-Status ReadableFileInterface::ReadAt(
-    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, out);
-}
-
-Status ReadableFileInterface::ReadAt(
-    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, out);
-}
-
-Status Writeable::Write(const std::string& data) {
-  return Write(
-      reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<int64_t>(data.size()));
-}
-
-}  // namespace io
 }  // namespace arrow

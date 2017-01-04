@@ -42,7 +42,7 @@ Status GetEmptyBitmap(
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
+Array::Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap) {
   type_ = type;
   length_ = length;
@@ -91,7 +91,7 @@ Status NullArray::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
+PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap) {
@@ -161,7 +161,7 @@ BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
     : PrimitiveArray(
           std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
 
-BooleanArray::BooleanArray(const TypePtr& type, int32_t length,
+BooleanArray::BooleanArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
@@ -333,7 +333,7 @@ BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& null_bitmap)
     : BinaryArray(kBinary, length, offsets, data, null_count, null_bitmap) {}
 
-BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
+BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap),
@@ -493,7 +493,7 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // UnionArray
 
-UnionArray::UnionArray(const TypePtr& type, int32_t length,
+UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
@@ -587,13 +587,87 @@ Status UnionArray::Accept(ArrayVisitor* visitor) const {
 }
 
 // ----------------------------------------------------------------------
+// DictionaryArray
+
+std::shared_ptr<Array> BoxDictionaryIndices(const DictionaryType* type, int32_t length,
+    const std::shared_ptr<Buffer>& data, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap) {
+  switch (type->index_type()) {
+    case Type::UINT8:
+      return std::make_shared<UInt8Array>(length, data, null_count, null_bitmap);
+    case Type::INT8:
+      return std::make_shared<Int8Array>(length, data, null_count, null_bitmap);
+    case Type::UINT16:
+      return std::make_shared<UInt16Array>(length, data, null_count, null_bitmap);
+    case Type::INT16:
+      return std::make_shared<Int16Array>(length, data, null_count, null_bitmap);
+    case Type::UINT32:
+      return std::make_shared<UInt32Array>(length, data, null_count, null_bitmap);
+    case Type::INT32:
+      return std::make_shared<Int32Array>(length, data, null_count, null_bitmap);
+    case Type::UINT64:
+      return std::make_shared<UInt64Array>(length, data, null_count, null_bitmap);
+    case Type::INT64:
+      return std::make_shared<Int64Array>(length, data, null_count, null_bitmap);
+    default:
+      break;
+  }
+  return nullptr;
+}
+
+DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& indices, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap)
+    : Array(type, length, null_count, null_bitmap),
+      dict_type_(static_cast<const DictionaryType*>(type.get())) {
+  DCHECK_EQ(type->type, Type::DICTIONARY);
+  indices_ = BoxDictionaryIndices(dict_type_, length, indices, null_count, null_bitmap);
+}
+
+DictionaryArray::DictionaryArray(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
+    : Array(type, indices->length(), indices->null_count(), indices->null_bitmap()),
+      dict_type_(static_cast<const DictionaryType*>(type.get())),
+      indices_(indices) {
+  DCHECK_EQ(type->type, Type::DICTIONARY);
+}
+
+Status DictionaryArray::Validate() const {
+  return Status::NotImplemented("TODO(wesm)");
+}
+
+std::shared_ptr<Array> DictionaryArray::dictionary() const {
+  return dict_type_->dictionary();
+}
+
+bool DictionaryArray::EqualsExact(const DictionaryArray& other) const {
+  DCHECK(false) << "Not implemented";
+  return false;
+}
+
+bool DictionaryArray::Equals(const std::shared_ptr<Array>& arr) const {
+  DCHECK(false) << "Not implemented";
+  return false;
+}
+
+bool DictionaryArray::RangeEquals(int32_t start_idx, int32_t end_idx,
+    int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
+  DCHECK(false) << "Not implemented";
+  return false;
+}
+
+Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+// ----------------------------------------------------------------------
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
   case Type::ENUM:                                                          \
     out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
     break;
 
-Status MakePrimitiveArray(const TypePtr& type, int32_t length,
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
   switch (type->type) {
@@ -610,7 +684,6 @@ Status MakePrimitiveArray(const TypePtr& type, int32_t length,
     MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
     MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, TimestampArray);
-    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP_DOUBLE, DoubleArray);
     default:
       return Status::NotImplemented(type->ToString());
   }

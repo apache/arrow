@@ -217,6 +217,10 @@ class ArrayPrinter : public ArrayVisitor {
     return PrintChildren(array.children());
   }
 
+  Status Visit(const DictionaryArray& array) override {
+    return Status::NotImplemented("dictionary");
+  }
+
   void Write(const char* data) { (*sink_) << data; }
 
   void Write(const std::string& data) { (*sink_) << data; }

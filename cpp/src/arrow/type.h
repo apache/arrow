@@ -93,11 +93,8 @@ struct Type {
     // Unions of logical types
     UNION = 32,
 
-    // Timestamp as double seconds since the UNIX epoch
-    TIMESTAMP_DOUBLE = 33,
-
-    // Decimal value encoded as a text string
-    DECIMAL_TEXT = 34,
+    // Dictionary aka Category type
+    DICTIONARY = 50,
   };
 };
 
@@ -414,6 +411,9 @@ struct ARROW_EXPORT UnionType : public DataType {
   std::vector<uint8_t> type_ids;
 };
 
+// ----------------------------------------------------------------------
+// Date and time types
+
 struct ARROW_EXPORT DateType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DATE;
 
@@ -488,6 +488,32 @@ struct ARROW_EXPORT IntervalType : public FixedWidthType {
   static std::string name() { return "date"; }
 };
 
+// ----------------------------------------------------------------------
+// DictionaryType (for categorical or dictionary-encoded data)
+
+class ARROW_EXPORT DictionaryType : public FixedWidthType {
+ public:
+  static constexpr Type::type type_id = Type::DICTIONARY;
+
+  DictionaryType(const std::shared_ptr<Array>& dictionary, Type::type index_type);
+
+  int bit_width() const override;
+
+  Type::type index_type() const { return index_type_; }
+
+  std::shared_ptr<Array> dictionary() const;
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+
+ private:
+  // Must be an integer type (not currently checked)
+  Type::type index_type_;
+
+  std::shared_ptr<Array> dictionary_;
+};
+
+// ----------------------------------------------------------------------
 // Factory functions
 
 std::shared_ptr<DataType> ARROW_EXPORT null();
@@ -520,8 +546,14 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
     const std::vector<std::shared_ptr<Field>>& child_fields,
     const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE);
 
+std::shared_ptr<DataType> ARROW_EXPORT dictionary(
+    const std::shared_ptr<Array>& values, Type::type index_type);
+
 std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
     const std::shared_ptr<DataType>& type, bool nullable = true, int64_t dictionary = 0);
+
+// ----------------------------------------------------------------------
+//
 
 }  // namespace arrow
 

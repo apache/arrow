@@ -334,6 +334,14 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryType& type) override {
+    // WriteName("dictionary", type);
+    // WriteChildren(type.children());
+    // WriteBufferLayout(type.GetBufferLayout());
+    // return Status::OK();
+    return Status::NotImplemented("dictionary type");
+  }
+
  private:
   const Schema& schema_;
   RjWriter* writer_;
@@ -544,6 +552,10 @@ class JsonArrayWriter : public ArrayVisitor {
       WriteIntegerField("OFFSET", array.raw_offsets(), array.length());
     }
     return WriteChildren(type->children(), array.children());
+  }
+
+  Status Visit(const DictionaryArray& array) override {
+    return Status::NotImplemented("dictionary");
   }
 
  private:
@@ -1043,6 +1055,7 @@ class JsonArrayReader {
       TYPE_CASE(ListType);
       TYPE_CASE(StructType);
       TYPE_CASE(UnionType);
+      NOT_IMPLEMENTED_CASE(DICTIONARY);
       default:
         std::stringstream ss;
         ss << type->ToString();

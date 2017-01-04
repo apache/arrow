@@ -32,6 +32,9 @@ class MemoryPool;
 class RecordBatch;
 class Schema;
 
+class DictionaryType;
+class DictionaryArray;
+
 struct NullType;
 class NullArray;
 
@@ -126,6 +129,7 @@ class TypeVisitor {
   virtual Status Visit(const ListType& type) = 0;
   virtual Status Visit(const StructType& type) = 0;
   virtual Status Visit(const UnionType& type) = 0;
+  virtual Status Visit(const DictionaryType& type) = 0;
 };
 
 class ArrayVisitor {
@@ -153,6 +157,7 @@ class ArrayVisitor {
   virtual Status Visit(const ListArray& array) = 0;
   virtual Status Visit(const StructArray& array) = 0;
   virtual Status Visit(const UnionArray& array) = 0;
+  virtual Status Visit(const DictionaryArray& type) = 0;
 };
 
 }  // namespace arrow

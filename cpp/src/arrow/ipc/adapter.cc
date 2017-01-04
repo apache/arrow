@@ -288,6 +288,13 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryArray& array) override {
+    // Dictionary written out separately
+    const auto& indices = static_cast<const PrimitiveArray&>(*array.indices().get());
+    buffers_.push_back(indices.data());
+    return Status::OK();
+  }
+
   // Do not copy this vector. Ownership must be retained elsewhere
   const std::vector<std::shared_ptr<Array>>& columns_;
   int32_t num_rows_;
@@ -539,6 +546,10 @@ class ArrayLoader : public TypeVisitor {
         type_ids, offsets, field_meta.null_count, null_bitmap);
     return Status::OK();
   }
+
+  Status Visit(const DictionaryType& type) override {
+    return Status::NotImplemented("dictionary");
+  };
 };
 
 class RecordBatchReader {
