@@ -226,7 +226,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
         parquet::ParquetFileReader::OpenFile(PARQUET_FILENAME, false);
     // Get the File MetaData
-    const parquet::FileMetaData* file_metadata = parquet_reader->metadata();
+    std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
 
     // Get the number of RowGroups
     int num_row_groups = file_metadata->num_row_groups();
