@@ -476,6 +476,7 @@ FileOutputStream::FileOutputStream() {
 }
 
 FileOutputStream::~FileOutputStream() {
+  // This can fail; better to explicitly call close
   impl_->Close();
 }
 

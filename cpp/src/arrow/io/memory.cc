@@ -43,6 +43,11 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
       position_(0),
       mutable_data_(buffer->mutable_data()) {}
 
+BufferOutputStream::~BufferOutputStream() {
+  // This can fail, better to explicitly call close
+  Close();
+}
+
 Status BufferOutputStream::Close() {
   if (position_ < capacity_) {
     return buffer_->Resize(position_);
