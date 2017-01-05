@@ -353,9 +353,16 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   auto buffer = std::make_shared<::arrow::PoolBuffer>();
-  auto arrow_sink_ = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
-  ASSERT_OK_NO_THROW(WriteFlatTable(
-      table.get(), default_memory_pool(), arrow_sink_, 512, default_writer_properties()));
+
+  {
+    // BufferOutputStream closed on gc
+    auto arrow_sink_ = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
+    ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), default_memory_pool(), arrow_sink_,
+        512, default_writer_properties()));
+
+    // XXX: Remove this after ARROW-455 completed
+    ASSERT_OK(arrow_sink_->Close());
+  }
 
   auto pbuffer = std::make_shared<Buffer>(buffer->data(), buffer->size());
 

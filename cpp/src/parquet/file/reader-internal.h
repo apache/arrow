@@ -98,16 +98,16 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
 class SerializedFile : public ParquetFileReader::Contents {
  public:
-  // Open the valid and validate the header, footer, and parse the Thrift metadata
-  //
-  // This class does _not_ take ownership of the data source. You must manage its
-  // lifetime separately
+  // Open the file. If no metadata is passed, it is parsed from the footer of
+  // the file
   static std::unique_ptr<ParquetFileReader::Contents> Open(
       std::unique_ptr<RandomAccessSource> source,
-      const ReaderProperties& props = default_reader_properties());
-  virtual void Close();
-  virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i);
-  virtual const FileMetaData* metadata() const;
+      const ReaderProperties& props = default_reader_properties(),
+      const std::shared_ptr<FileMetaData>& metadata = nullptr);
+
+  void Close() override;
+  std::shared_ptr<RowGroupReader> GetRowGroup(int i) override;
+  std::shared_ptr<FileMetaData> metadata() const override;
   virtual ~SerializedFile();
 
  private:
@@ -116,7 +116,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props);
 
   std::unique_ptr<RandomAccessSource> source_;
-  std::unique_ptr<FileMetaData> file_metadata_;
+  std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
 
   void ParseMetaData();

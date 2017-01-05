@@ -120,7 +120,7 @@ class PARQUET_EXPORT FileMetaData {
   };
 
   // API convenience to get a MetaData accessor
-  static std::unique_ptr<FileMetaData> Make(
+  static std::shared_ptr<FileMetaData> Make(
       const uint8_t* serialized_metadata, uint32_t* metadata_len);
 
   ~FileMetaData();

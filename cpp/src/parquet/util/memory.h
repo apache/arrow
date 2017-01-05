@@ -286,7 +286,9 @@ class PARQUET_EXPORT OutputStream : virtual public FileInterface {
 
 class PARQUET_EXPORT ArrowFileMethods : virtual public FileInterface {
  public:
+  // No-op. Closing the file is the responsibility of the owner of the handle
   void Close() override;
+
   int64_t Tell() override;
 
  protected:

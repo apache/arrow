@@ -347,9 +347,9 @@ bool ChunkedAllocator::CheckIntegrity(bool current_chunk_empty) {
 // ----------------------------------------------------------------------
 // Arrow IO wrappers
 
-// Close the output stream
 void ArrowFileMethods::Close() {
-  PARQUET_THROW_NOT_OK(file_interface()->Close());
+  // Closing the file is the responsibility of the owner of the handle
+  return;
 }
 
 // Return the current position in the output stream relative to the start

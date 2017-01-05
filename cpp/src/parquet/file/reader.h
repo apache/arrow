@@ -73,7 +73,7 @@ class PARQUET_EXPORT ParquetFileReader {
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
-    virtual const FileMetaData* metadata() const = 0;
+    virtual std::shared_ptr<FileMetaData> metadata() const = 0;
   };
 
   ParquetFileReader();
@@ -86,20 +86,21 @@ class PARQUET_EXPORT ParquetFileReader {
   // subclass of RandomAccessSource that wraps the shared resource
   static std::unique_ptr<ParquetFileReader> Open(
       std::unique_ptr<RandomAccessSource> source,
-      const ReaderProperties& props = default_reader_properties());
+      const ReaderProperties& props = default_reader_properties(),
+      const std::shared_ptr<FileMetaData>& metadata = nullptr);
 
   // Create a file reader instance from an Arrow file object. Thread-safety is
   // the responsibility of the file implementation
   static std::unique_ptr<ParquetFileReader> Open(
       const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
-      const ReaderProperties& props = default_reader_properties());
+      const ReaderProperties& props = default_reader_properties(),
+      const std::shared_ptr<FileMetaData>& metadata = nullptr);
 
-  // API Convenience to open a serialized Parquet file on disk, using built-in IO
-  // interface implementations that were created for testing, and may not be robust for
-  // all use cases.
+  // API Convenience to open a serialized Parquet file on disk, using Arrow IO
+  // interfaces.
   static std::unique_ptr<ParquetFileReader> OpenFile(const std::string& path,
-      bool memory_map = true,
-      const ReaderProperties& props = default_reader_properties());
+      bool memory_map = true, const ReaderProperties& props = default_reader_properties(),
+      const std::shared_ptr<FileMetaData>& metadata = nullptr);
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();
@@ -107,8 +108,8 @@ class PARQUET_EXPORT ParquetFileReader {
   // The RowGroupReader is owned by the FileReader
   std::shared_ptr<RowGroupReader> RowGroup(int i);
 
-  // Returns the file metadata
-  const FileMetaData* metadata() const;
+  // Returns the file metadata. Only one instance is ever created
+  std::shared_ptr<FileMetaData> metadata() const;
 
   void DebugPrint(
       std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
@@ -117,6 +118,10 @@ class PARQUET_EXPORT ParquetFileReader {
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
 };
+
+// Read only Parquet file metadata
+std::shared_ptr<FileMetaData> PARQUET_EXPORT ReadMetaData(
+    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source);
 
 }  // namespace parquet
 

@@ -206,15 +206,20 @@ static constexpr uint32_t FOOTER_SIZE = 8;
 static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 
 std::unique_ptr<ParquetFileReader::Contents> SerializedFile::Open(
-    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props) {
+    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
+    const std::shared_ptr<FileMetaData>& metadata) {
   std::unique_ptr<ParquetFileReader::Contents> result(
       new SerializedFile(std::move(source), props));
 
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
 
-  // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
-  file->ParseMetaData();
+  if (metadata == nullptr) {
+    // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
+    file->ParseMetaData();
+  } else {
+    file->file_metadata_ = metadata;
+  }
 
   return result;
 }
@@ -233,8 +238,8 @@ std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   return std::make_shared<RowGroupReader>(std::move(contents));
 }
 
-const FileMetaData* SerializedFile::metadata() const {
-  return file_metadata_.get();
+std::shared_ptr<FileMetaData> SerializedFile::metadata() const {
+  return file_metadata_;
 }
 
 SerializedFile::SerializedFile(std::unique_ptr<RandomAccessSource> source,

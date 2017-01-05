@@ -182,15 +182,48 @@ class TestLocalFile : public ::testing::Test {
   std::shared_ptr<::arrow::io::ReadableFile> handle;
 };
 
+class HelperFileClosed : public ArrowInputFile {
+ public:
+  explicit HelperFileClosed(
+      const std::shared_ptr<::arrow::io::ReadableFileInterface>& file, bool* close_called)
+      : ArrowInputFile(file), close_called_(close_called) {}
+
+  void Close() override { *close_called_ = true; }
+
+ private:
+  bool* close_called_;
+};
+
 TEST_F(TestLocalFile, FileClosedOnDestruction) {
+  bool close_called = false;
   {
     auto contents = SerializedFile::Open(
-        std::unique_ptr<RandomAccessSource>(new ArrowInputFile(handle)));
+        std::unique_ptr<RandomAccessSource>(new HelperFileClosed(handle, &close_called)));
     std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
     result->Open(std::move(contents));
   }
-  ASSERT_EQ(-1, fcntl(fileno, F_GETFD));
-  ASSERT_EQ(EBADF, errno);
+  ASSERT_TRUE(close_called);
+}
+
+TEST_F(TestLocalFile, OpenWithMetadata) {
+  // PARQUET-808
+  std::stringstream ss;
+  std::shared_ptr<FileMetaData> metadata = ReadMetaData(handle);
+
+  auto reader = ParquetFileReader::Open(handle, default_reader_properties(), metadata);
+
+  // Compare pointers
+  ASSERT_EQ(metadata.get(), reader->metadata().get());
+
+  std::list<int> columns;
+  reader->DebugPrint(ss, columns, true);
+
+  // Make sure OpenFile passes on the external metadata, too
+  auto reader2 = ParquetFileReader::OpenFile(
+      alltypes_plain(), false, default_reader_properties(), metadata);
+
+  // Compare pointers
+  ASSERT_EQ(metadata.get(), reader2->metadata().get());
 }
 
 TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {

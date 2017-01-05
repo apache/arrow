@@ -72,21 +72,23 @@ ParquetFileReader::~ParquetFileReader() {
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
     const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
-    const ReaderProperties& props) {
+    const ReaderProperties& props, const std::shared_ptr<FileMetaData>& metadata) {
   std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(source));
-  return Open(std::move(io_wrapper), props);
+  return Open(std::move(io_wrapper), props, metadata);
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props) {
-  auto contents = SerializedFile::Open(std::move(source), props);
+    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
+    const std::shared_ptr<FileMetaData>& metadata) {
+  auto contents = SerializedFile::Open(std::move(source), props, metadata);
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));
   return result;
 }
 
-std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
-    const std::string& path, bool memory_map, const ReaderProperties& props) {
+std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(const std::string& path,
+    bool memory_map, const ReaderProperties& props,
+    const std::shared_ptr<FileMetaData>& metadata) {
   std::shared_ptr<::arrow::io::ReadableFileInterface> source;
   if (memory_map) {
     std::shared_ptr<::arrow::io::ReadableFile> handle;
@@ -100,7 +102,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     source = handle;
   }
 
-  return Open(source, props);
+  return Open(source, props, metadata);
 }
 
 void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> contents) {
@@ -111,7 +113,7 @@ void ParquetFileReader::Close() {
   if (contents_) { contents_->Close(); }
 }
 
-const FileMetaData* ParquetFileReader::metadata() const {
+std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
   return contents_->metadata();
 }
 
@@ -130,7 +132,7 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 
 void ParquetFileReader::DebugPrint(
     std::ostream& stream, std::list<int> selected_columns, bool print_values) {
-  const FileMetaData* file_metadata = metadata();
+  const FileMetaData* file_metadata = metadata().get();
 
   stream << "File statistics:\n";
   stream << "Version: " << file_metadata->version() << "\n";
@@ -234,6 +236,14 @@ void ParquetFileReader::DebugPrint(
       stream << "\n";
     } while (hasRow);
   }
+}
+
+// ----------------------------------------------------------------------
+// File metadata helpers
+
+std::shared_ptr<FileMetaData> ReadMetaData(
+    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source) {
+  return ParquetFileReader::Open(source)->metadata();
 }
 
 }  // namespace parquet

@@ -364,12 +364,6 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       type = ParquetType::INT64;
       logical_type = LogicalType::TIMESTAMP_MILLIS;
     } break;
-    case ArrowType::TIMESTAMP_DOUBLE:
-      type = ParquetType::INT64;
-      // This is specified as seconds since the UNIX epoch
-      // TODO: Converted type in Parquet?
-      // logical_type = LogicalType::TIMESTAMP_MILLIS;
-      break;
     case ArrowType::TIME:
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MILLIS;
