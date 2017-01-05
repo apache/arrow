@@ -71,6 +71,60 @@ TEST_F(TestSchemaDescriptor, InitNonGroup) {
   ASSERT_THROW(descr_.Init(node), ParquetException);
 }
 
+TEST_F(TestSchemaDescriptor, Equals) {
+  NodePtr schema;
+
+  NodePtr inta = Int32("a", Repetition::REQUIRED);
+  NodePtr intb = Int64("b", Repetition::OPTIONAL);
+  NodePtr intb2 = Int64("b2", Repetition::OPTIONAL);
+  NodePtr intc = ByteArray("c", Repetition::REPEATED);
+
+  NodePtr item1 = Int64("item1", Repetition::REQUIRED);
+  NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
+  NodePtr item3 = Int32("item3", Repetition::REPEATED);
+  NodePtr list(GroupNode::Make(
+      "records", Repetition::REPEATED, {item1, item2, item3}, LogicalType::LIST));
+
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
+  NodePtr bag2(GroupNode::Make("bag", Repetition::REQUIRED, {list}));
+
+  SchemaDescriptor descr1;
+  descr1.Init(GroupNode::Make("schema", Repetition::REPEATED,
+          {inta, intb, intc, bag}));
+
+  ASSERT_TRUE(descr1.Equals(descr1));
+
+  SchemaDescriptor descr2;
+  descr2.Init(GroupNode::Make("schema", Repetition::REPEATED,
+          {inta, intb, intc, bag2}));
+  ASSERT_FALSE(descr1.Equals(descr2));
+
+  SchemaDescriptor descr3;
+  descr3.Init(GroupNode::Make("schema", Repetition::REPEATED,
+          {inta, intb2, intc, bag}));
+  ASSERT_FALSE(descr1.Equals(descr3));
+
+  // Robust to name of parent node
+  SchemaDescriptor descr4;
+  descr4.Init(GroupNode::Make("SCHEMA", Repetition::REPEATED,
+          {inta, intb, intc, bag}));
+  ASSERT_TRUE(descr1.Equals(descr4));
+
+  SchemaDescriptor descr5;
+  descr5.Init(GroupNode::Make("schema", Repetition::REPEATED,
+          {inta, intb, intc, bag, intb2}));
+  ASSERT_FALSE(descr1.Equals(descr5));
+
+  // Different max repetition / definition levels
+  ColumnDescriptor col1(inta, 5, 1);
+  ColumnDescriptor col2(inta, 6, 1);
+  ColumnDescriptor col3(inta, 5, 2);
+
+  ASSERT_TRUE(col1.Equals(col1));
+  ASSERT_FALSE(col1.Equals(col2));
+  ASSERT_FALSE(col1.Equals(col3));
+}
+
 TEST_F(TestSchemaDescriptor, BuildTree) {
   NodeVector fields;
   NodePtr schema;

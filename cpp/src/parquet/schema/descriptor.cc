@@ -47,6 +47,20 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
   }
 }
 
+bool SchemaDescriptor::Equals(const SchemaDescriptor& other) const {
+  if (this->num_columns() != other.num_columns()) {
+    return false;
+  }
+
+  for (int i = 0; i < this->num_columns(); ++i) {
+    if (!this->Column(i)->Equals(*other.Column(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
     int16_t max_rep_level, const NodePtr& base) {
   if (node->is_optional()) {
@@ -80,6 +94,12 @@ ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
       schema_descr_(schema_descr) {
   if (!node_->is_primitive()) { throw ParquetException("Must be a primitive type"); }
   primitive_node_ = static_cast<const PrimitiveNode*>(node_.get());
+}
+
+bool ColumnDescriptor::Equals(const ColumnDescriptor& other) const {
+  return primitive_node_->Equals(other.primitive_node_) &&
+    max_repetition_level() == other.max_repetition_level() &&
+    max_definition_level() == other.max_definition_level();
 }
 
 const ColumnDescriptor* SchemaDescriptor::Column(int i) const {

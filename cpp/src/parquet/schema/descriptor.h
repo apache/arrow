@@ -42,6 +42,8 @@ class PARQUET_EXPORT ColumnDescriptor {
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
       int16_t max_repetition_level, const SchemaDescriptor* schema_descr = nullptr);
 
+  bool Equals(const ColumnDescriptor& other) const;
+
   int16_t max_definition_level() const { return max_definition_level_; }
 
   int16_t max_repetition_level() const { return max_repetition_level_; }
@@ -96,6 +98,8 @@ class PARQUET_EXPORT SchemaDescriptor {
   void Init(const schema::NodePtr& schema);
 
   const ColumnDescriptor* Column(int i) const;
+
+  bool Equals(const SchemaDescriptor& other) const;
 
   // The number of physical columns appearing in the file
   int num_columns() const { return leaves_.size(); }
