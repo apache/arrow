@@ -59,4 +59,5 @@ ADD_ARROW_TEST(schema-test)
 ADD_ARROW_TEST(status-test)
 ADD_ARROW_TEST(table-test)
 
+ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)
