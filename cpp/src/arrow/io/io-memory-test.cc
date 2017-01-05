@@ -42,17 +42,28 @@ class TestBufferOutputStream : public ::testing::Test {
   std::unique_ptr<OutputStream> stream_;
 };
 
+TEST_F(TestBufferOutputStream, DtorCloses) {
+  std::string data = "data123456";
+
+  const int K = 100;
+  for (int i = 0; i < K; ++i) {
+    EXPECT_OK(stream_->Write(data));
+  }
+
+  stream_ = nullptr;
+  ASSERT_EQ(static_cast<int64_t>(K * data.size()), buffer_->size());
+}
+
 TEST_F(TestBufferOutputStream, CloseResizes) {
   std::string data = "data123456";
 
-  const int64_t nbytes = static_cast<int64_t>(data.size());
   const int K = 100;
   for (int i = 0; i < K; ++i) {
     EXPECT_OK(stream_->Write(data));
   }
 
   ASSERT_OK(stream_->Close());
-  ASSERT_EQ(K * nbytes, buffer_->size());
+  ASSERT_EQ(static_cast<int64_t>(K * data.size()), buffer_->size());
 }
 
 TEST(TestBufferReader, RetainParentReference) {

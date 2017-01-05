@@ -43,6 +43,8 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
+  ~BufferOutputStream();
+
   // Implement the OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) override;
