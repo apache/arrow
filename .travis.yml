@@ -15,6 +15,7 @@ addons:
     - libboost-dev
     - libboost-filesystem-dev
     - libboost-system-dev
+    - libjemalloc-dev
 
 matrix:
   fast_finish: true
