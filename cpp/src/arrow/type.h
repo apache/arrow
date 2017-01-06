@@ -592,7 +592,7 @@ static inline bool is_integer(Type::type type_id) {
       return true;
     default:
       break;
-  };
+  }
   return false;
 }
 
@@ -604,7 +604,7 @@ static inline bool is_floating(Type::type type_id) {
       return true;
     default:
       break;
-  };
+  }
   return false;
 }
 
