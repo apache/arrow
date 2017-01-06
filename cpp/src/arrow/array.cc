@@ -613,7 +613,11 @@ DictionaryArray::DictionaryArray(
 }
 
 Status DictionaryArray::Validate() const {
-  return Status::NotImplemented("TODO(wesm)");
+  Type::type index_type_id = indices_->type()->type;
+  if (!is_integer(index_type_id)) {
+    return Status::Invalid("Dictionary indices must be integer type");
+  }
+  return Status::OK();
 }
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {

@@ -37,64 +37,64 @@ namespace arrow {
 struct Type {
   enum type {
     // A degenerate NULL type represented as 0 bytes/bits
-    NA = 0,
+    NA,
 
     // A boolean value represented as 1 bit
-    BOOL = 1,
+    BOOL,
 
     // Little-endian integer types
-    UINT8 = 2,
-    INT8 = 3,
-    UINT16 = 4,
-    INT16 = 5,
-    UINT32 = 6,
-    INT32 = 7,
-    UINT64 = 8,
-    INT64 = 9,
+    UINT8,
+    INT8,
+    UINT16,
+    INT16,
+    UINT32,
+    INT32,
+    UINT64,
+    INT64,
 
     // 2-byte floating point value
-    HALF_FLOAT = 10,
+    HALF_FLOAT,
 
     // 4-byte floating point value
-    FLOAT = 11,
+    FLOAT,
 
     // 8-byte floating point value
-    DOUBLE = 12,
+    DOUBLE,
 
     // UTF8 variable-length string as List<Char>
-    STRING = 13,
+    STRING,
 
     // Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY = 14,
+    BINARY,
 
     // By default, int32 days since the UNIX epoch
-    DATE = 16,
+    DATE,
 
     // Exact timestamp encoded with int64 since UNIX epoch
     // Default unit millisecond
-    TIMESTAMP = 17,
+    TIMESTAMP,
 
     // Exact time encoded with int64, default unit millisecond
-    TIME = 18,
+    TIME,
 
     // YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL = 19,
+    INTERVAL,
 
     // Precision- and scale-based decimal type. Storage type depends on the
     // parameters.
-    DECIMAL = 20,
+    DECIMAL,
 
     // A list of some logical data type
-    LIST = 30,
+    LIST,
 
     // Struct of logical types
-    STRUCT = 31,
+    STRUCT,
 
     // Unions of logical types
-    UNION = 32,
+    UNION,
 
     // Dictionary aka Category type
-    DICTIONARY = 50,
+    DICTIONARY
   };
 };
 
@@ -110,6 +110,34 @@ class BufferDescr {
  private:
   BufferType type_;
   int bit_width_;
+};
+
+class TypeVisitor {
+ public:
+  virtual Status Visit(const NullType& type) = 0;
+  virtual Status Visit(const BooleanType& type) = 0;
+  virtual Status Visit(const Int8Type& type) = 0;
+  virtual Status Visit(const Int16Type& type) = 0;
+  virtual Status Visit(const Int32Type& type) = 0;
+  virtual Status Visit(const Int64Type& type) = 0;
+  virtual Status Visit(const UInt8Type& type) = 0;
+  virtual Status Visit(const UInt16Type& type) = 0;
+  virtual Status Visit(const UInt32Type& type) = 0;
+  virtual Status Visit(const UInt64Type& type) = 0;
+  virtual Status Visit(const HalfFloatType& type) = 0;
+  virtual Status Visit(const FloatType& type) = 0;
+  virtual Status Visit(const DoubleType& type) = 0;
+  virtual Status Visit(const StringType& type) = 0;
+  virtual Status Visit(const BinaryType& type) = 0;
+  virtual Status Visit(const DateType& type) = 0;
+  virtual Status Visit(const TimeType& type) = 0;
+  virtual Status Visit(const TimestampType& type) = 0;
+  virtual Status Visit(const IntervalType& type) = 0;
+  virtual Status Visit(const DecimalType& type) = 0;
+  virtual Status Visit(const ListType& type) = 0;
+  virtual Status Visit(const StructType& type) = 0;
+  virtual Status Visit(const UnionType& type) = 0;
+  virtual Status Visit(const DictionaryType& type) = 0;
 };
 
 struct ARROW_EXPORT DataType {
@@ -550,6 +578,35 @@ std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
 
 // ----------------------------------------------------------------------
 //
+
+static inline bool is_integer(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+    case Type::INT8:
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::UINT64:
+    case Type::INT64:
+      return true;
+    default:
+      break;
+  };
+  return false;
+}
+
+static inline bool is_floating(Type::type type_id) {
+  switch (type_id) {
+    case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return true;
+    default:
+      break;
+  };
+  return false;
+}
 
 }  // namespace arrow
 

@@ -26,6 +26,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -35,6 +36,34 @@ namespace arrow {
 class MemoryPool;
 class MutableBuffer;
 class Status;
+
+class ArrayVisitor {
+ public:
+  virtual Status Visit(const NullArray& array) = 0;
+  virtual Status Visit(const BooleanArray& array) = 0;
+  virtual Status Visit(const Int8Array& array) = 0;
+  virtual Status Visit(const Int16Array& array) = 0;
+  virtual Status Visit(const Int32Array& array) = 0;
+  virtual Status Visit(const Int64Array& array) = 0;
+  virtual Status Visit(const UInt8Array& array) = 0;
+  virtual Status Visit(const UInt16Array& array) = 0;
+  virtual Status Visit(const UInt32Array& array) = 0;
+  virtual Status Visit(const UInt64Array& array) = 0;
+  virtual Status Visit(const HalfFloatArray& array) = 0;
+  virtual Status Visit(const FloatArray& array) = 0;
+  virtual Status Visit(const DoubleArray& array) = 0;
+  virtual Status Visit(const StringArray& array) = 0;
+  virtual Status Visit(const BinaryArray& array) = 0;
+  virtual Status Visit(const DateArray& array) = 0;
+  virtual Status Visit(const TimeArray& array) = 0;
+  virtual Status Visit(const TimestampArray& array) = 0;
+  virtual Status Visit(const IntervalArray& array) = 0;
+  virtual Status Visit(const DecimalArray& array) = 0;
+  virtual Status Visit(const ListArray& array) = 0;
+  virtual Status Visit(const StructArray& array) = 0;
+  virtual Status Visit(const UnionArray& array) = 0;
+  virtual Status Visit(const DictionaryArray& type) = 0;
+};
 
 // Immutable data array with some logical type and some length. Any memory is
 // owned by the respective Buffer instance (or its parents).

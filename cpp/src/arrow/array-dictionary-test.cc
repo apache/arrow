@@ -31,7 +31,7 @@
 
 namespace arrow {
 
-TEST(TestDictionaryType, Basics) {
+TEST(TestDictionary, Basics) {
   std::vector<int32_t> values = {100, 1000, 10000, 100000};
   std::shared_ptr<Array> dict;
   ArrayFromVector<Int32Type, int32_t>(int32(), values, &dict);
@@ -49,7 +49,7 @@ TEST(TestDictionaryType, Basics) {
   ASSERT_EQ("dictionary<int32, int16>", type1->ToString());
 }
 
-TEST(TestDictionaryType, Equals) {
+TEST(TestDictionary, Equals) {
   std::vector<bool> is_valid = {true, true, false, true, true, true};
 
   std::shared_ptr<Array> dict;
@@ -93,6 +93,36 @@ TEST(TestDictionaryType, Equals) {
   // RangeEquals
   ASSERT_TRUE(arr->RangeEquals(3, 6, 3, arr4));
   ASSERT_FALSE(arr->RangeEquals(1, 3, 1, arr4));
+}
+
+TEST(TestDictionary, Validate) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+
+  std::shared_ptr<Array> dict;
+  std::vector<std::string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, std::string>(utf8(), dict_values, &dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+
+  std::shared_ptr<Array> indices;
+  std::vector<uint8_t> indices_values = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<UInt8Type, uint8_t>(uint8(), is_valid, indices_values, &indices);
+
+  std::shared_ptr<Array> indices2;
+  std::vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
+  ArrayFromVector<FloatType, float>(float32(), is_valid, indices2_values, &indices2);
+
+  std::shared_ptr<Array> indices3;
+  std::vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, indices3_values, &indices3);
+
+  std::shared_ptr<Array> arr = std::make_shared<DictionaryArray>(dict_type, indices);
+  std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
+  std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
+
+  // Only checking index type for now
+  ASSERT_OK(arr->Validate());
+  ASSERT_RAISES(Invalid, arr2->Validate());
+  ASSERT_OK(arr3->Validate());
 }
 
 }  // namespace arrow
