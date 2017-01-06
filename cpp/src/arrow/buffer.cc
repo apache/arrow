@@ -80,13 +80,11 @@ Status PoolBuffer::Reserve(int64_t new_capacity) {
     uint8_t* new_data;
     new_capacity = BitUtil::RoundUpToMultipleOf64(new_capacity);
     if (mutable_data_) {
-      RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
-      memcpy(new_data, mutable_data_, size_);
-      pool_->Free(mutable_data_, capacity_);
+      RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
     } else {
       RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
+      mutable_data_ = new_data;
     }
-    mutable_data_ = new_data;
     data_ = mutable_data_;
     capacity_ = new_capacity;
   }

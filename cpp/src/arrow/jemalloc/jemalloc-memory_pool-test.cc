@@ -51,4 +51,3 @@ TEST(JemallocMemoryPool, OOM) {
 }  // namespace test
 }  // namespace jemalloc
 }  // namespace arrow
-

@@ -45,8 +45,8 @@ Status ReadableFileInterface::ReadAt(
 }
 
 Status Writeable::Write(const std::string& data) {
-  return Write(reinterpret_cast<const uint8_t*>(data.c_str()),
-      static_cast<int64_t>(data.size()));
+  return Write(
+      reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<int64_t>(data.size()));
 }
 
 }  // namespace io

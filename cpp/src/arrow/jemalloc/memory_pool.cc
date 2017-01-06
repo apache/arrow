@@ -35,16 +35,29 @@ MemoryPool* MemoryPool::default_pool() {
 
 MemoryPool::MemoryPool() : allocated_size_(0) {}
 
-MemoryPool::~MemoryPool() {};
-  
+MemoryPool::~MemoryPool(){};
+
 Status MemoryPool::Allocate(int64_t size, uint8_t** out) {
   *out = reinterpret_cast<uint8_t*>(mallocx(size, MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
     return Status::OutOfMemory(ss.str());
-  } 
+  }
   allocated_size_ += size;
+  return Status::OK();
+}
+
+Status MemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
+  if (*ptr == NULL) {
+    std::stringstream ss;
+    ss << "realloc of size " << new_size << " failed";
+    return Status::OutOfMemory(ss.str());
+  }
+
+  allocated_size_ += new_size - old_size;
+
   return Status::OK();
 }
 
@@ -57,5 +70,5 @@ int64_t MemoryPool::bytes_allocated() const {
   return allocated_size_.load();
 }
 
-} // jemalloc
-} // arrow
+}  // jemalloc
+}  // arrow

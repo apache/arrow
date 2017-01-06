@@ -25,22 +25,24 @@ namespace arrow {
 
 constexpr int64_t kFinalSize = 256;
 
-static void BM_BuildPrimitiveArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
-  // 1 MiB block
+static void BM_BuildPrimitiveArrayNoNulls(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // 2 MiB block
   std::vector<int64_t> data(256 * 1024, 100);
   while (state.KeepRunning()) {
     Int64Builder builder(jemalloc::MemoryPool::default_pool(), arrow::int64());
     for (int i = 0; i < kFinalSize; i++) {
-      // Build up an array of 256 MiB in size 
+      // Build up an array of 512 MiB in size
       builder.Append(data.data(), data.size(), nullptr);
     }
     std::shared_ptr<Array> out;
     builder.Finish(&out);
   }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
+  state.SetBytesProcessed(
+      state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
 }
 
-BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);;
+BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
+;
 
 }  // namespace arrow
-

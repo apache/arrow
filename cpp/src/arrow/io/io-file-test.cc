@@ -291,6 +291,9 @@ class MyMemoryPool : public MemoryPool {
   }
 
   void Free(uint8_t* buffer, int64_t size) override { std::free(buffer); }
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
+  }
 
   int64_t bytes_allocated() const override { return -1; }
 
