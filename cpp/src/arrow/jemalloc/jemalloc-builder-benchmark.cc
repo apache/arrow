@@ -43,6 +43,5 @@ static void BM_BuildPrimitiveArrayNoNulls(
 }
 
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
-;
 
 }  // namespace arrow

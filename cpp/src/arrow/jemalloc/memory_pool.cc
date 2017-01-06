@@ -35,7 +35,7 @@ MemoryPool* MemoryPool::default_pool() {
 
 MemoryPool::MemoryPool() : allocated_size_(0) {}
 
-MemoryPool::~MemoryPool(){};
+MemoryPool::~MemoryPool() {}
 
 Status MemoryPool::Allocate(int64_t size, uint8_t** out) {
   *out = reinterpret_cast<uint8_t*>(mallocx(size, MALLOCX_ALIGN(kAlignment)));
@@ -70,5 +70,5 @@ int64_t MemoryPool::bytes_allocated() const {
   return allocated_size_.load();
 }
 
-}  // jemalloc
-}  // arrow
+}  // namespace jemalloc
+}  // namespace arrow

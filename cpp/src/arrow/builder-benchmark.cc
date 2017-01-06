@@ -43,7 +43,6 @@ static void BM_BuildPrimitiveArrayNoNulls(
 }
 
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
-;
 
 static void BM_BuildVectorNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
@@ -61,6 +60,5 @@ static void BM_BuildVectorNoNulls(
 }
 
 BENCHMARK(BM_BuildVectorNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
-;
 
 }  // namespace arrow
