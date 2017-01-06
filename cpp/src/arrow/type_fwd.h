@@ -32,6 +32,9 @@ class MemoryPool;
 class RecordBatch;
 class Schema;
 
+class DictionaryType;
+class DictionaryArray;
+
 struct NullType;
 class NullArray;
 
@@ -100,60 +103,6 @@ using TimestampBuilder = NumericBuilder<TimestampType>;
 
 struct IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
-
-class TypeVisitor {
- public:
-  virtual Status Visit(const NullType& type) = 0;
-  virtual Status Visit(const BooleanType& type) = 0;
-  virtual Status Visit(const Int8Type& type) = 0;
-  virtual Status Visit(const Int16Type& type) = 0;
-  virtual Status Visit(const Int32Type& type) = 0;
-  virtual Status Visit(const Int64Type& type) = 0;
-  virtual Status Visit(const UInt8Type& type) = 0;
-  virtual Status Visit(const UInt16Type& type) = 0;
-  virtual Status Visit(const UInt32Type& type) = 0;
-  virtual Status Visit(const UInt64Type& type) = 0;
-  virtual Status Visit(const HalfFloatType& type) = 0;
-  virtual Status Visit(const FloatType& type) = 0;
-  virtual Status Visit(const DoubleType& type) = 0;
-  virtual Status Visit(const StringType& type) = 0;
-  virtual Status Visit(const BinaryType& type) = 0;
-  virtual Status Visit(const DateType& type) = 0;
-  virtual Status Visit(const TimeType& type) = 0;
-  virtual Status Visit(const TimestampType& type) = 0;
-  virtual Status Visit(const IntervalType& type) = 0;
-  virtual Status Visit(const DecimalType& type) = 0;
-  virtual Status Visit(const ListType& type) = 0;
-  virtual Status Visit(const StructType& type) = 0;
-  virtual Status Visit(const UnionType& type) = 0;
-};
-
-class ArrayVisitor {
- public:
-  virtual Status Visit(const NullArray& array) = 0;
-  virtual Status Visit(const BooleanArray& array) = 0;
-  virtual Status Visit(const Int8Array& array) = 0;
-  virtual Status Visit(const Int16Array& array) = 0;
-  virtual Status Visit(const Int32Array& array) = 0;
-  virtual Status Visit(const Int64Array& array) = 0;
-  virtual Status Visit(const UInt8Array& array) = 0;
-  virtual Status Visit(const UInt16Array& array) = 0;
-  virtual Status Visit(const UInt32Array& array) = 0;
-  virtual Status Visit(const UInt64Array& array) = 0;
-  virtual Status Visit(const HalfFloatArray& array) = 0;
-  virtual Status Visit(const FloatArray& array) = 0;
-  virtual Status Visit(const DoubleArray& array) = 0;
-  virtual Status Visit(const StringArray& array) = 0;
-  virtual Status Visit(const BinaryArray& array) = 0;
-  virtual Status Visit(const DateArray& array) = 0;
-  virtual Status Visit(const TimeArray& array) = 0;
-  virtual Status Visit(const TimestampArray& array) = 0;
-  virtual Status Visit(const IntervalArray& array) = 0;
-  virtual Status Visit(const DecimalArray& array) = 0;
-  virtual Status Visit(const ListArray& array) = 0;
-  virtual Status Visit(const StructArray& array) = 0;
-  virtual Status Visit(const UnionArray& array) = 0;
-};
 
 }  // namespace arrow
 

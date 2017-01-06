@@ -257,33 +257,27 @@ template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
     const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
     std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> values_buffer;
-  std::shared_ptr<Buffer> values_bitmap;
-
-  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
-  ASSERT_OK(test::GetBitmapFromBoolVector(is_valid, &values_bitmap));
-
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
-
-  int32_t null_count = 0;
-  for (bool val : is_valid) {
-    if (!val) { ++null_count; }
+  MemoryPool* pool = default_memory_pool();
+  typename TypeTraits<TYPE>::BuilderType builder(pool, std::make_shared<TYPE>());
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (is_valid[i]) {
+      ASSERT_OK(builder.Append(values[i]));
+    } else {
+      ASSERT_OK(builder.AppendNull());
+    }
   }
-
-  *out = std::make_shared<ArrayType>(type, static_cast<int32_t>(values.size()),
-      values_buffer, null_count, values_bitmap);
+  ASSERT_OK(builder.Finish(out));
 }
 
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
     const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> values_buffer;
-
-  ASSERT_OK(test::CopyBufferFromVector(values, &values_buffer));
-
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
-  *out = std::make_shared<ArrayType>(
-      type, static_cast<int32_t>(values.size()), values_buffer);
+  MemoryPool* pool = default_memory_pool();
+  typename TypeTraits<TYPE>::BuilderType builder(pool, std::make_shared<TYPE>());
+  for (size_t i = 0; i < values.size(); ++i) {
+    ASSERT_OK(builder.Append(values[i]));
+  }
+  ASSERT_OK(builder.Finish(out));
 }
 
 class TestBuilder : public ::testing::Test {

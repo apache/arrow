@@ -45,9 +45,9 @@ cdef class DataType:
 
     def __richcmp__(DataType self, DataType other, int op):
         if op == cpython.Py_EQ:
-            return self.type.Equals(other.type)
+            return self.type.Equals(other.sp_type)
         elif op == cpython.Py_NE:
-            return not self.type.Equals(other.type)
+            return not self.type.Equals(other.sp_type)
         else:
             raise TypeError('Invalid comparison')
 

@@ -42,13 +42,19 @@ Status GetEmptyBitmap(
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const TypePtr& type, int32_t length, int32_t null_count,
+Array::Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap) {
   type_ = type;
   length_ = length;
   null_count_ = null_count;
   null_bitmap_ = null_bitmap;
   if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
+}
+
+bool Array::BaseEquals(const std::shared_ptr<Array>& other) const {
+  if (this == other.get()) { return true; }
+  if (!other) { return false; }
+  return EqualsExact(*other.get());
 }
 
 bool Array::EqualsExact(const Array& other) const {
@@ -91,7 +97,7 @@ Status NullArray::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // Primitive array base
 
-PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
+PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap) {
@@ -100,14 +106,9 @@ PrimitiveArray::PrimitiveArray(const TypePtr& type, int32_t length,
 }
 
 bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
-  if (this == &other) { return true; }
-  if (null_count_ != other.null_count_) { return false; }
+  if (!Array::EqualsExact(other)) { return false; }
 
   if (null_count_ > 0) {
-    bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
-    if (!equal_bitmap) { return false; }
-
     const uint8_t* this_data = raw_data_;
     const uint8_t* other_data = other.raw_data_;
 
@@ -131,7 +132,7 @@ bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (!arr) { return false; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(*static_cast<const PrimitiveArray*>(arr.get()));
+  return EqualsExact(static_cast<const PrimitiveArray&>(*arr.get()));
 }
 
 template <typename T>
@@ -161,7 +162,7 @@ BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
     : PrimitiveArray(
           std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
 
-BooleanArray::BooleanArray(const TypePtr& type, int32_t length,
+BooleanArray::BooleanArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap)
     : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
@@ -192,7 +193,7 @@ bool BooleanArray::EqualsExact(const BooleanArray& other) const {
 bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) return true;
   if (Type::BOOL != arr->type_enum()) { return false; }
-  return EqualsExact(*static_cast<const BooleanArray*>(arr.get()));
+  return EqualsExact(static_cast<const BooleanArray&>(*arr.get()));
 }
 
 bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
@@ -238,7 +239,7 @@ bool ListArray::EqualsExact(const ListArray& other) const {
 bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(*static_cast<const ListArray*>(arr.get()));
+  return EqualsExact(static_cast<const ListArray&>(*arr.get()));
 }
 
 bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
@@ -333,7 +334,7 @@ BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& null_bitmap)
     : BinaryArray(kBinary, length, offsets, data, null_count, null_bitmap) {}
 
-BinaryArray::BinaryArray(const TypePtr& type, int32_t length,
+BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
     : Array(type, length, null_count, null_bitmap),
@@ -364,7 +365,7 @@ bool BinaryArray::EqualsExact(const BinaryArray& other) const {
 bool BinaryArray::Equals(const std::shared_ptr<Array>& arr) const {
   if (this == arr.get()) { return true; }
   if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(*static_cast<const BinaryArray*>(arr.get()));
+  return EqualsExact(static_cast<const BinaryArray&>(*arr.get()));
 }
 
 bool BinaryArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
@@ -493,7 +494,7 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // UnionArray
 
-UnionArray::UnionArray(const TypePtr& type, int32_t length,
+UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
     int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
@@ -587,13 +588,73 @@ Status UnionArray::Accept(ArrayVisitor* visitor) const {
 }
 
 // ----------------------------------------------------------------------
+// DictionaryArray
+
+Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& indices, int32_t null_count,
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<DictionaryArray>* out) {
+  DCHECK_EQ(type->type, Type::DICTIONARY);
+  const auto& dict_type = static_cast<const DictionaryType*>(type.get());
+
+  std::shared_ptr<Array> boxed_indices;
+  RETURN_NOT_OK(MakePrimitiveArray(
+      dict_type->index_type(), length, indices, null_count, null_bitmap, &boxed_indices));
+
+  *out = std::make_shared<DictionaryArray>(type, boxed_indices);
+  return Status::OK();
+}
+
+DictionaryArray::DictionaryArray(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
+    : Array(type, indices->length(), indices->null_count(), indices->null_bitmap()),
+      dict_type_(static_cast<const DictionaryType*>(type.get())),
+      indices_(indices) {
+  DCHECK_EQ(type->type, Type::DICTIONARY);
+}
+
+Status DictionaryArray::Validate() const {
+  Type::type index_type_id = indices_->type()->type;
+  if (!is_integer(index_type_id)) {
+    return Status::Invalid("Dictionary indices must be integer type");
+  }
+  return Status::OK();
+}
+
+std::shared_ptr<Array> DictionaryArray::dictionary() const {
+  return dict_type_->dictionary();
+}
+
+bool DictionaryArray::EqualsExact(const DictionaryArray& other) const {
+  if (!dictionary()->Equals(other.dictionary())) { return false; }
+  return indices_->Equals(other.indices());
+}
+
+bool DictionaryArray::Equals(const std::shared_ptr<Array>& arr) const {
+  if (this == arr.get()) { return true; }
+  if (Type::DICTIONARY != arr->type_enum()) { return false; }
+  return EqualsExact(static_cast<const DictionaryArray&>(*arr.get()));
+}
+
+bool DictionaryArray::RangeEquals(int32_t start_idx, int32_t end_idx,
+    int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
+  if (Type::DICTIONARY != arr->type_enum()) { return false; }
+  const auto& dict_other = static_cast<const DictionaryArray&>(*arr.get());
+  if (!dictionary()->Equals(dict_other.dictionary())) { return false; }
+  return indices_->RangeEquals(start_idx, end_idx, other_start_idx, dict_other.indices());
+}
+
+Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+// ----------------------------------------------------------------------
 
 #define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
   case Type::ENUM:                                                          \
     out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
     break;
 
-Status MakePrimitiveArray(const TypePtr& type, int32_t length,
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
     const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
   switch (type->type) {
@@ -610,7 +671,6 @@ Status MakePrimitiveArray(const TypePtr& type, int32_t length,
     MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
     MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, TimestampArray);
-    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP_DOUBLE, DoubleArray);
     default:
       return Status::NotImplemented(type->ToString());
   }

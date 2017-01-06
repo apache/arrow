@@ -217,6 +217,18 @@ class ArrayPrinter : public ArrayVisitor {
     return PrintChildren(array.children());
   }
 
+  Status Visit(const DictionaryArray& array) override {
+    RETURN_NOT_OK(WriteValidityBitmap(array));
+
+    Newline();
+    Write("-- dictionary: ");
+    RETURN_NOT_OK(PrettyPrint(*array.dictionary().get(), indent_ + 2, sink_));
+
+    Newline();
+    Write("-- indices: ");
+    return PrettyPrint(*array.indices().get(), indent_ + 2, sink_);
+  }
+
   void Write(const char* data) { (*sink_) << data; }
 
   void Write(const std::string& data) { (*sink_) << data; }

@@ -26,6 +26,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -35,6 +36,34 @@ namespace arrow {
 class MemoryPool;
 class MutableBuffer;
 class Status;
+
+class ArrayVisitor {
+ public:
+  virtual Status Visit(const NullArray& array) = 0;
+  virtual Status Visit(const BooleanArray& array) = 0;
+  virtual Status Visit(const Int8Array& array) = 0;
+  virtual Status Visit(const Int16Array& array) = 0;
+  virtual Status Visit(const Int32Array& array) = 0;
+  virtual Status Visit(const Int64Array& array) = 0;
+  virtual Status Visit(const UInt8Array& array) = 0;
+  virtual Status Visit(const UInt16Array& array) = 0;
+  virtual Status Visit(const UInt32Array& array) = 0;
+  virtual Status Visit(const UInt64Array& array) = 0;
+  virtual Status Visit(const HalfFloatArray& array) = 0;
+  virtual Status Visit(const FloatArray& array) = 0;
+  virtual Status Visit(const DoubleArray& array) = 0;
+  virtual Status Visit(const StringArray& array) = 0;
+  virtual Status Visit(const BinaryArray& array) = 0;
+  virtual Status Visit(const DateArray& array) = 0;
+  virtual Status Visit(const TimeArray& array) = 0;
+  virtual Status Visit(const TimestampArray& array) = 0;
+  virtual Status Visit(const IntervalArray& array) = 0;
+  virtual Status Visit(const DecimalArray& array) = 0;
+  virtual Status Visit(const ListArray& array) = 0;
+  virtual Status Visit(const StructArray& array) = 0;
+  virtual Status Visit(const UnionArray& array) = 0;
+  virtual Status Visit(const DictionaryArray& type) = 0;
+};
 
 // Immutable data array with some logical type and some length. Any memory is
 // owned by the respective Buffer instance (or its parents).
@@ -63,6 +92,7 @@ class ARROW_EXPORT Array {
 
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
+  bool BaseEquals(const std::shared_ptr<Array>& arr) const;
   bool EqualsExact(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
   virtual bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
@@ -122,8 +152,9 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
-  PrimitiveArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
   std::shared_ptr<Buffer> data_;
   const uint8_t* raw_data_;
 };
@@ -137,8 +168,9 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(
             std::make_shared<TypeClass>(), length, data, null_count, null_bitmap) {}
-  NumericArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+  NumericArray(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
   bool EqualsExact(const NumericArray<TypeClass>& other) const {
@@ -146,7 +178,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   }
 
   bool ApproxEquals(const std::shared_ptr<Array>& arr) const override {
-    return Equals(arr);
+    return PrimitiveArray::Equals(arr);
   }
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
@@ -250,8 +282,9 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
       int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
-  BooleanArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& data,
-      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  BooleanArray(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   bool EqualsExact(const BooleanArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
@@ -272,9 +305,9 @@ class ARROW_EXPORT ListArray : public Array {
  public:
   using TypeClass = ListType;
 
-  ListArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const std::shared_ptr<Array>& values, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr)
+  ListArray(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Array>& values,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
     offsets_buffer_ = offsets;
     offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
@@ -328,9 +361,9 @@ class ARROW_EXPORT BinaryArray : public Array {
 
   // Constructor that allows sub-classes/builders to propagate there logical type up the
   // class hierarchy.
-  BinaryArray(const TypePtr& type, int32_t length, const std::shared_ptr<Buffer>& offsets,
-      const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
+      int32_t null_count = 0, const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
   // Return the pointer to the given elements bytes
   // TODO(emkornfield) introduce a StringPiece or something similar to capture zero-copy
@@ -397,7 +430,7 @@ class ARROW_EXPORT StructArray : public Array {
  public:
   using TypeClass = StructType;
 
-  StructArray(const TypePtr& type, int32_t length,
+  StructArray(const std::shared_ptr<DataType>& type, int32_t length,
       const std::vector<std::shared_ptr<Array>>& field_arrays, int32_t null_count = 0,
       std::shared_ptr<Buffer> null_bitmap = nullptr)
       : Array(type, length, null_count, null_bitmap) {
@@ -434,7 +467,7 @@ class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
 
-  UnionArray(const TypePtr& type, int32_t length,
+  UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
       const std::vector<std::shared_ptr<Array>>& children,
       const std::shared_ptr<Buffer>& type_ids,
       const std::shared_ptr<Buffer>& offsets = nullptr, int32_t null_count = 0,
@@ -471,6 +504,54 @@ class ARROW_EXPORT UnionArray : public Array {
 
   std::shared_ptr<Buffer> offsets_buffer_;
   const int32_t* offsets_;
+};
+
+// ----------------------------------------------------------------------
+// DictionaryArray (categorical and dictionary-encoded in memory)
+
+// A dictionary array contains an array of non-negative integers (the
+// "dictionary indices") along with a data type containing a "dictionary"
+// corresponding to the distinct values represented in the data.
+//
+// For example, the array
+//
+//   ["foo", "bar", "foo", "bar", "foo", "bar"]
+//
+// with dictionary ["bar", "foo"], would have dictionary array representation
+//
+//   indices: [1, 0, 1, 0, 1, 0]
+//   dictionary: ["bar", "foo"]
+//
+// The indices in principle may have any integer type (signed or unsigned),
+// though presently data in IPC exchanges must be signed int32.
+class ARROW_EXPORT DictionaryArray : public Array {
+ public:
+  using TypeClass = DictionaryType;
+
+  DictionaryArray(
+      const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices);
+
+  // Alternate ctor; other attributes (like null count) are inherited from the
+  // passed indices array
+  static Status FromBuffer(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& indices, int32_t null_count,
+      const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<DictionaryArray>* out);
+
+  Status Validate() const override;
+
+  std::shared_ptr<Array> indices() const { return indices_; }
+  std::shared_ptr<Array> dictionary() const;
+
+  bool EqualsExact(const DictionaryArray& other) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const override;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const std::shared_ptr<Array>& arr) const override;
+
+  Status Accept(ArrayVisitor* visitor) const override;
+
+ protected:
+  const DictionaryType* dict_type_;
+  std::shared_ptr<Array> indices_;
 };
 
 // ----------------------------------------------------------------------

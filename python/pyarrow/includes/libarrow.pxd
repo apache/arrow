@@ -55,7 +55,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDataType" arrow::DataType":
         Type type
 
-        c_bool Equals(const CDataType* other)
+        c_bool Equals(const shared_ptr[CDataType]& other)
+        c_bool Equals(const CDataType& other)
 
         c_string ToString()
 

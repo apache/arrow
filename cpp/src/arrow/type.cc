@@ -20,9 +20,21 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
+
+bool Field::Equals(const Field& other) const {
+  return (this == &other) ||
+         (this->name == other.name && this->nullable == other.nullable &&
+             this->dictionary == dictionary && this->type->Equals(*other.type.get()));
+}
+
+bool Field::Equals(const std::shared_ptr<Field>& other) const {
+  return Equals(*other.get());
+}
 
 std::string Field::ToString() const {
   std::stringstream ss;
@@ -33,14 +45,14 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType* other) const {
-  bool equals = other && ((this == other) ||
-                             ((this->type == other->type) &&
-                                 ((this->num_children() == other->num_children()))));
+bool DataType::Equals(const DataType& other) const {
+  bool equals =
+      ((this == &other) || ((this->type == other.type) &&
+                               ((this->num_children() == other.num_children()))));
   if (equals) {
     for (int i = 0; i < num_children(); ++i) {
       // TODO(emkornfield) limit recursion
-      if (!children_[i]->Equals(other->children_[i])) { return false; }
+      if (!children_[i]->Equals(other.children_[i])) { return false; }
     }
   }
   return equals;
@@ -109,11 +121,47 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
+// ----------------------------------------------------------------------
+// DictionaryType
+
+DictionaryType::DictionaryType(
+    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& dictionary)
+    : FixedWidthType(Type::DICTIONARY),
+      index_type_(index_type),
+      dictionary_(dictionary) {}
+
+int DictionaryType::bit_width() const {
+  return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
+}
+
+std::shared_ptr<Array> DictionaryType::dictionary() const {
+  return dictionary_;
+}
+
+bool DictionaryType::Equals(const DataType& other) const {
+  if (other.type != Type::DICTIONARY) { return false; }
+  const auto& other_dict = static_cast<const DictionaryType&>(other);
+
+  return index_type_->Equals(other_dict.index_type_) &&
+         dictionary_->Equals(other_dict.dictionary_);
+}
+
+std::string DictionaryType::ToString() const {
+  std::stringstream ss;
+  ss << "dictionary<" << dictionary_->type()->ToString() << ", "
+     << index_type_->ToString() << ">";
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
+// Null type
+
 std::string NullType::ToString() const {
   return name();
 }
 
-// Visitors and template instantiation
+// ----------------------------------------------------------------------
+// Visitors and factory functions
 
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
@@ -130,6 +178,7 @@ ACCEPT_VISITOR(DateType);
 ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
 ACCEPT_VISITOR(IntervalType);
+ACCEPT_VISITOR(DictionaryType);
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \
@@ -174,10 +223,14 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> ARROW_EXPORT union_(
-    const std::vector<std::shared_ptr<Field>>& child_fields,
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
     const std::vector<uint8_t>& type_ids, UnionMode mode) {
   return std::make_shared<UnionType>(child_fields, type_ids, mode);
+}
+
+std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<Array>& dict_values) {
+  return std::make_shared<DictionaryType>(index_type, dict_values);
 }
 
 std::shared_ptr<Field> field(

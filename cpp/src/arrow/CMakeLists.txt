@@ -47,6 +47,7 @@ install(
 
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(array-decimal-test)
+ADD_ARROW_TEST(array-dictionary-test)
 ADD_ARROW_TEST(array-list-test)
 ADD_ARROW_TEST(array-primitive-test)
 ADD_ARROW_TEST(array-string-test)

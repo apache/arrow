@@ -36,8 +36,8 @@ TEST(TypesTest, BinaryType) {
   BinaryType t1;
   BinaryType e1;
   StringType t2;
-  EXPECT_TRUE(t1.Equals(&e1));
-  EXPECT_FALSE(t1.Equals(&t2));
+  EXPECT_TRUE(t1.Equals(e1));
+  EXPECT_FALSE(t1.Equals(t2));
   ASSERT_EQ(t1.type, Type::BINARY);
   ASSERT_EQ(t1.ToString(), std::string("binary"));
 }

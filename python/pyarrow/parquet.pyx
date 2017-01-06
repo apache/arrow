@@ -98,8 +98,8 @@ cdef class ParquetReader:
             Integer index of the position of the column
         """
         cdef:
-            const FileMetaData* metadata = (self.reader.get()
-                                            .parquet_reader().metadata())
+            const FileMetaData* metadata = (self.reader.get().parquet_reader()
+                                            .metadata().get())
             int i = 0
 
         if self.column_idx_map is None:
