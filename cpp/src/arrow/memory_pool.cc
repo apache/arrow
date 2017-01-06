@@ -17,6 +17,7 @@
 
 #include "arrow/memory_pool.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
