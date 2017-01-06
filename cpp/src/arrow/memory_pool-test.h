@@ -17,6 +17,8 @@
 
 #include "gtest/gtest.h"
 
+#include <limits>
+
 #include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
 
