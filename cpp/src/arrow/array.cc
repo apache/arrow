@@ -634,8 +634,10 @@ bool DictionaryArray::Equals(const std::shared_ptr<Array>& arr) const {
 
 bool DictionaryArray::RangeEquals(int32_t start_idx, int32_t end_idx,
     int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
-  DCHECK(false) << "Not implemented";
-  return false;
+  if (Type::DICTIONARY != arr->type_enum()) { return false; }
+  const auto& dict_other = static_cast<const DictionaryArray&>(*arr.get());
+  if (!dictionary()->Equals(dict_other.dictionary())) { return false; }
+  return indices_->RangeEquals(start_idx, end_idx, other_start_idx, dict_other.indices());
 }
 
 Status DictionaryArray::Accept(ArrayVisitor* visitor) const {

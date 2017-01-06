@@ -98,7 +98,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         # TODO: Some default arguments are missing
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
-        const FileMetaData* metadata();
+        shared_ptr[FileMetaData] metadata();
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:

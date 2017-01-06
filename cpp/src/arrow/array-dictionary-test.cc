@@ -49,4 +49,50 @@ TEST(TestDictionaryType, Basics) {
   ASSERT_EQ("dictionary<int32, int16>", type1->ToString());
 }
 
+TEST(TestDictionaryType, Equals) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+
+  std::shared_ptr<Array> dict;
+  std::vector<std::string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, std::string>(utf8(), dict_values, &dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+
+  std::shared_ptr<Array> dict2;
+  std::vector<std::string> dict2_values = {"foo", "bar", "baz", "qux"};
+  ArrayFromVector<StringType, std::string>(utf8(), dict2_values, &dict2);
+  std::shared_ptr<DataType> dict2_type = dictionary(int16(), dict2);
+
+  std::shared_ptr<Array> indices;
+  std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices_values, &indices);
+
+  std::shared_ptr<Array> indices2;
+  std::vector<int16_t> indices2_values = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices2_values, &indices2);
+
+  std::shared_ptr<Array> indices3;
+  std::vector<int16_t> indices3_values = {1, 1, 0, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices3_values, &indices3);
+
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices);
+  auto arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
+  auto arr3 = std::make_shared<DictionaryArray>(dict2_type, indices);
+  auto arr4 = std::make_shared<DictionaryArray>(dict_type, indices3);
+
+  ASSERT_TRUE(arr->Equals(arr));
+
+  // Equal, because the unequal index is masked by null
+  ASSERT_TRUE(arr->Equals(arr2));
+
+  // Unequal dictionaries
+  ASSERT_FALSE(arr->Equals(arr3));
+
+  // Unequal indices
+  ASSERT_FALSE(arr->Equals(arr4));
+
+  // RangeEquals
+  ASSERT_TRUE(arr->RangeEquals(3, 6, 3, arr4));
+  ASSERT_FALSE(arr->RangeEquals(1, 3, 1, arr4));
+}
+
 }  // namespace arrow
