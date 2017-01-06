@@ -60,6 +60,7 @@ variables
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
+* jemalloc: `JEMALLOC_HOME` (only required for the jemalloc-based memory pool)
 
 ## Continuous Integration
 
