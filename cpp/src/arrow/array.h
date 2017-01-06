@@ -63,7 +63,8 @@ class ARROW_EXPORT Array {
 
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
-  bool EqualsExact(const Array& arr) const;
+  bool BaseEquals(const std::shared_ptr<Array>& arr) const;
+  bool BaseEquals(const Array& arr) const;
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
   virtual bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
 
@@ -118,7 +119,7 @@ class ARROW_EXPORT PrimitiveArray : public Array {
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  bool EqualsExact(const PrimitiveArray& other) const;
+  bool Equals(const PrimitiveArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
@@ -143,12 +144,12 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
-  bool EqualsExact(const NumericArray<TypeClass>& other) const {
-    return PrimitiveArray::EqualsExact(static_cast<const PrimitiveArray&>(other));
+  bool Equals(const NumericArray<TypeClass>& other) const {
+    return PrimitiveArray::Equals(static_cast<const PrimitiveArray&>(other));
   }
 
   bool ApproxEquals(const std::shared_ptr<Array>& arr) const override {
-    return Equals(arr);
+    return PrimitiveArray::Equals(arr);
   }
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
@@ -256,7 +257,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
 
-  bool EqualsExact(const BooleanArray& other) const;
+  bool Equals(const BooleanArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
@@ -304,7 +305,7 @@ class ARROW_EXPORT ListArray : public Array {
   int32_t value_offset(int i) const { return offsets_[i]; }
   int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
 
-  bool EqualsExact(const ListArray& other) const;
+  bool Equals(const ListArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
 
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
@@ -355,7 +356,7 @@ class ARROW_EXPORT BinaryArray : public Array {
   int32_t value_offset(int i) const { return offsets_[i]; }
   int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
 
-  bool EqualsExact(const BinaryArray& other) const;
+  bool Equals(const BinaryArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
@@ -418,7 +419,7 @@ class ARROW_EXPORT StructArray : public Array {
 
   const std::vector<std::shared_ptr<Array>>& fields() const { return field_arrays_; }
 
-  bool EqualsExact(const StructArray& other) const;
+  bool Equals(const StructArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
@@ -459,7 +460,7 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const std::vector<std::shared_ptr<Array>>& children() const { return children_; }
 
-  bool EqualsExact(const UnionArray& other) const;
+  bool Equals(const UnionArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
@@ -512,7 +513,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices() const { return indices_; }
   std::shared_ptr<Array> dictionary() const;
 
-  bool EqualsExact(const DictionaryArray& other) const;
+  bool Equals(const DictionaryArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const override;
