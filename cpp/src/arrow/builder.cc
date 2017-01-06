@@ -136,10 +136,8 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
 
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
-#ifdef ARROW_VALGRIND
   // TODO(emkornfield) valgrind complains without this
   memset(data_->mutable_data(), 0, nbytes);
-#endif
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
@@ -154,16 +152,12 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
     RETURN_NOT_OK(Init(capacity));
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-#ifdef ARROW_VALGRIND
     const int64_t old_bytes = data_->size();
-#endif
     const int64_t new_bytes = TypeTraits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-#ifdef ARROW_VALGRIND
     // TODO(emkornfield) valgrind complains without this
     memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
-#endif
   }
   return Status::OK();
 }
