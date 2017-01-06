@@ -15,30 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MEMORY_POOL_H
-#define ARROW_UTIL_MEMORY_POOL_H
-
 #include <cstdint>
+#include <limits>
 
-#include "arrow/util/visibility.h"
+#include "gtest/gtest.h"
+
+#include "arrow/jemalloc/memory_pool.h"
+#include "arrow/memory_pool-test.h"
 
 namespace arrow {
+namespace jemalloc {
+namespace test {
 
-class Status;
-
-class ARROW_EXPORT MemoryPool {
+class TestJemallocMemoryPool : public ::arrow::test::TestMemoryPoolBase {
  public:
-  virtual ~MemoryPool();
-
-  virtual Status Allocate(int64_t size, uint8_t** out) = 0;
-  virtual Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) = 0;
-  virtual void Free(uint8_t* buffer, int64_t size) = 0;
-
-  virtual int64_t bytes_allocated() const = 0;
+  ::arrow::MemoryPool* memory_pool() override {
+    return ::arrow::jemalloc::MemoryPool::default_pool();
+  }
 };
 
-ARROW_EXPORT MemoryPool* default_memory_pool();
+TEST_F(TestJemallocMemoryPool, MemoryTracking) {
+  this->TestMemoryTracking();
+}
 
+TEST_F(TestJemallocMemoryPool, OOM) {
+  this->TestOOM();
+}
+
+TEST_F(TestJemallocMemoryPool, Reallocate) {
+  this->TestReallocate();
+}
+
+}  // namespace test
+}  // namespace jemalloc
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_MEMORY_POOL_H

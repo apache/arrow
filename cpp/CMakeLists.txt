@@ -28,7 +28,7 @@ set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
 set(GFLAGS_VERSION "2.1.2")
 set(GTEST_VERSION "1.7.0")
-set(GBENCHMARK_VERSION "1.0.0")
+set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.3.0")
 
 find_package(ClangTools)
@@ -72,6 +72,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
+    ON)
+
+  option(ARROW_JEMALLOC
+    "Build the Arrow jemalloc-based allocator"
     ON)
 
   option(ARROW_BOOST_USE_SHARED
@@ -236,6 +240,16 @@ function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
   get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
 
   add_dependencies(${BENCHMARK_NAME} ${ARGN})
+endfunction()
+
+# A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
+function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
+  if(NO_TESTS)
+    return()
+  endif()
+  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
+
+  target_link_libraries(${BENCHMARK_NAME} ${ARGN})
 endfunction()
 
 
@@ -526,7 +540,11 @@ if(ARROW_BUILD_BENCHMARKS)
     set(GBENCHMARK_CMAKE_ARGS
           "-DCMAKE_BUILD_TYPE=Release"
           "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
+          "-DBENCHMARK_ENABLE_TESTING=OFF"
           "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
+    if (APPLE)
+      set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
+    endif()
     if (CMAKE_VERSION VERSION_GREATER "3.2")
       # BUILD_BYPRODUCTS is a 3.2+ feature
       ExternalProject_Add(gbenchmark_ep
@@ -574,6 +592,12 @@ else()
 endif()
 message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
 include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+
+if (ARROW_JEMALLOC)
+  find_package(jemalloc REQUIRED)
+  ADD_THIRDPARTY_LIB(jemalloc
+      SHARED_LIB ${JEMALLOC_SHARED_LIB})
+endif()
 
 ## Google PerfTools
 ##
@@ -736,6 +760,10 @@ ADD_ARROW_LIB(arrow
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
+
+if(ARROW_JEMALLOC)
+  add_subdirectory(src/arrow/jemalloc)
+endif()
 
 #----------------------------------------------------------------------
 # IPC library

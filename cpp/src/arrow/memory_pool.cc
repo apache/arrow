@@ -17,6 +17,7 @@
 
 #include "arrow/memory_pool.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
@@ -67,6 +68,7 @@ class InternalMemoryPool : public MemoryPool {
   virtual ~InternalMemoryPool();
 
   Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
 
   void Free(uint8_t* buffer, int64_t size) override;
 
@@ -81,6 +83,28 @@ Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
   std::lock_guard<std::mutex> guard(pool_lock_);
   RETURN_NOT_OK(AllocateAligned(size, out));
   bytes_allocated_ += size;
+
+  return Status::OK();
+}
+
+Status InternalMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  std::lock_guard<std::mutex> guard(pool_lock_);
+
+  // Note: We cannot use realloc() here as it doesn't guarantee alignment.
+
+  // Allocate new chunk
+  uint8_t* out;
+  RETURN_NOT_OK(AllocateAligned(new_size, &out));
+  // Copy contents and release old memory chunk
+  memcpy(out, *ptr, std::min(new_size, old_size));
+#ifdef _MSC_VER
+  _aligned_free(*ptr);
+#else
+  std::free(*ptr);
+#endif
+  *ptr = out;
+
+  bytes_allocated_ += new_size - old_size;
 
   return Status::OK();
 }

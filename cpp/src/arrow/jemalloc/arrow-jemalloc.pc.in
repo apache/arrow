@@ -15,25 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Operating system (build VM template)
-os: Visual Studio 2015
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
 
-environment:
-  matrix:
-    - GENERATOR: Visual Studio 14 2015 Win64
-    # - GENERATOR: Visual Studio 14 2015
-  MSVC_DEFAULT_OPTIONS: ON
-  BOOST_ROOT: C:\Libraries\boost_1_59_0
-  BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
-
-build_script:
- - cd cpp
- - mkdir build
- - cd build
- # A lot of features are still deactivated as they do not build on Windows
- #  * gbenchmark doesn't build with MSVC
- - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_JEMALLOC=OFF ..
- - cmake --build . --config Debug
-
-# test_script:
-#  - ctest -VV
+Name: Apache Arrow jemalloc-based allocator
+Description: jemalloc allocator for Arrow.
+Version: @ARROW_VERSION@
+Libs: -L${libdir} -larrow_jemalloc
+Cflags: -I${includedir}
+Requires: arrow

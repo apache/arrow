@@ -47,6 +47,20 @@ class PyArrowMemoryPool : public arrow::MemoryPool {
     return Status::OK();
   }
 
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
+
+    if (*ptr == NULL) {
+      std::stringstream ss;
+      ss << "realloc of size " << new_size << " failed";
+      return Status::OutOfMemory(ss.str());
+    }
+
+    bytes_allocated_ += new_size - old_size;
+
+    return Status::OK();
+  }
+
   int64_t bytes_allocated() const override {
     std::lock_guard<std::mutex> guard(pool_lock_);
     return bytes_allocated_;

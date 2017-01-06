@@ -17,6 +17,11 @@ set -ex
 
 : ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
 
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  brew update > /dev/null
+  brew install jemalloc
+fi
+
 mkdir $CPP_BUILD_DIR
 pushd $CPP_BUILD_DIR
 

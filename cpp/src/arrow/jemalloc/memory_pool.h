@@ -15,30 +15,43 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MEMORY_POOL_H
-#define ARROW_UTIL_MEMORY_POOL_H
+// Public API for the jemalloc-based allocator
 
-#include <cstdint>
+#ifndef ARROW_JEMALLOC_MEMORY_POOL_H
+#define ARROW_JEMALLOC_MEMORY_POOL_H
 
-#include "arrow/util/visibility.h"
+#include "arrow/memory_pool.h"
+
+#include <atomic>
 
 namespace arrow {
 
 class Status;
 
-class ARROW_EXPORT MemoryPool {
+namespace jemalloc {
+
+class ARROW_EXPORT MemoryPool : public ::arrow::MemoryPool {
  public:
+  static MemoryPool* default_pool();
+
+  MemoryPool(MemoryPool const&) = delete;
+  MemoryPool& operator=(MemoryPool const&) = delete;
+
   virtual ~MemoryPool();
 
-  virtual Status Allocate(int64_t size, uint8_t** out) = 0;
-  virtual Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) = 0;
-  virtual void Free(uint8_t* buffer, int64_t size) = 0;
+  Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+  void Free(uint8_t* buffer, int64_t size) override;
 
-  virtual int64_t bytes_allocated() const = 0;
+  int64_t bytes_allocated() const override;
+
+ private:
+  MemoryPool();
+
+  std::atomic<int64_t> allocated_size_;
 };
 
-ARROW_EXPORT MemoryPool* default_memory_pool();
-
+}  // namespace jemalloc
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_MEMORY_POOL_H
+#endif  // ARROW_JEMALLOC_MEMORY_POOL_H

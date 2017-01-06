@@ -17,37 +17,31 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/builder.h"
+#include "arrow/jemalloc/memory_pool.h"
 #include "arrow/test-util.h"
 
 namespace arrow {
-namespace {
-template <typename ArrayType>
-std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
-  auto pool = default_memory_pool();
-  auto data = std::make_shared<PoolBuffer>(pool);
-  auto null_bitmap = std::make_shared<PoolBuffer>(pool);
-  data->Resize(length * sizeof(typename ArrayType::value_type));
-  null_bitmap->Resize(BitUtil::BytesForBits(length));
-  return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
-}
-}  // anonymous namespace
 
-static void BM_BuildInt32ColumnByChunk(
+constexpr int64_t kFinalSize = 256;
+
+static void BM_BuildPrimitiveArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
-  ArrayVector arrays;
-  for (int chunk_n = 0; chunk_n < state.range(0); ++chunk_n) {
-    arrays.push_back(MakePrimitive<Int32Array>(100, 10));
-  }
-  const auto INT32 = std::make_shared<Int32Type>();
-  const auto field = std::make_shared<Field>("c0", INT32);
-  std::unique_ptr<Column> column;
+  // 2 MiB block
+  std::vector<int64_t> data(256 * 1024, 100);
   while (state.KeepRunning()) {
-    column.reset(new Column(field, arrays));
+    Int64Builder builder(jemalloc::MemoryPool::default_pool(), arrow::int64());
+    for (int i = 0; i < kFinalSize; i++) {
+      // Build up an array of 512 MiB in size
+      builder.Append(data.data(), data.size(), nullptr);
+    }
+    std::shared_ptr<Array> out;
+    builder.Finish(&out);
   }
+  state.SetBytesProcessed(
+      state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
 }
 
-BENCHMARK(BM_BuildInt32ColumnByChunk)->Range(5, 50000);
+BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
 
 }  // namespace arrow
