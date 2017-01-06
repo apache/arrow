@@ -62,6 +62,15 @@ variables
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
 * jemalloc: `JEMALLOC_HOME` (only required for the jemalloc-based memory pool)
 
+### API documentation
+
+To generate the (html) API documentation, run the following command in the apidoc
+directoy:
+
+    doxygen Doxyfile
+
+This requires [Doxygen](http://www.doxygen.org) to be installed.
+
 ## Continuous Integration
 
 Pull requests are run through travis-ci for continuous integration.  You can avoid
