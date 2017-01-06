@@ -26,6 +26,16 @@
 
 namespace arrow {
 
+bool Field::Equals(const Field& other) const {
+  return (this == &other) ||
+         (this->name == other.name && this->nullable == other.nullable &&
+             this->dictionary == dictionary && this->type->Equals(*other.type.get()));
+}
+
+bool Field::Equals(const std::shared_ptr<Field>& other) const {
+  return Equals(*other.get());
+}
+
 std::string Field::ToString() const {
   std::stringstream ss;
   ss << this->name << ": " << this->type->ToString();
@@ -35,14 +45,14 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType* other) const {
-  bool equals = other && ((this == other) ||
-                             ((this->type == other->type) &&
-                                 ((this->num_children() == other->num_children()))));
+bool DataType::Equals(const DataType& other) const {
+  bool equals =
+      ((this == &other) || ((this->type == other.type) &&
+                               ((this->num_children() == other.num_children()))));
   if (equals) {
     for (int i = 0; i < num_children(); ++i) {
       // TODO(emkornfield) limit recursion
-      if (!children_[i]->Equals(other->children_[i])) { return false; }
+      if (!children_[i]->Equals(other.children_[i])) { return false; }
     }
   }
   return equals;
@@ -115,39 +125,31 @@ std::string UnionType::ToString() const {
 // DictionaryType
 
 DictionaryType::DictionaryType(
-    const std::shared_ptr<Array>& dictionary, Type::type index_type)
+    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& dictionary)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
       dictionary_(dictionary) {}
 
 int DictionaryType::bit_width() const {
-  switch (index_type_) {
-    case Type::UINT8:
-    case Type::INT8:
-      return 8;
-    case Type::UINT16:
-    case Type::INT16:
-      return 16;
-    case Type::UINT32:
-    case Type::INT32:
-      return 32;
-    case Type::UINT64:
-    case Type::INT64:
-      return 64;
-    default:
-      DCHECK(false) << "Dictionary indices must be integer";
-      break;
-  }
-  return -1;
+  return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
 }
 
 std::shared_ptr<Array> DictionaryType::dictionary() const {
   return dictionary_;
 }
 
+bool DictionaryType::Equals(const DataType& other) const {
+  if (other.type != Type::DICTIONARY) { return false; }
+  const auto& other_dict = static_cast<const DictionaryType&>(other);
+
+  return index_type_->Equals(other_dict.index_type_) &&
+         dictionary_->Equals(other_dict.dictionary_);
+}
+
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
-  ss << "dictionary<" << dictionary_->type()->ToString() << ">";
+  ss << "dictionary<" << dictionary_->type()->ToString() << ", "
+     << index_type_->ToString() << ">";
   return ss.str();
 }
 
@@ -226,9 +228,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
   return std::make_shared<UnionType>(child_fields, type_ids, mode);
 }
 
-std::shared_ptr<DataType> dictionary(
-    const std::shared_ptr<Array>& dict_values, Type::type index_type) {
-  return std::make_shared<DictionaryType>(dict_values, index_type);
+std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<Array>& dict_values) {
+  return std::make_shared<DictionaryType>(index_type, dict_values);
 }
 
 std::shared_ptr<Field> field(

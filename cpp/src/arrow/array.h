@@ -498,14 +498,14 @@ class ARROW_EXPORT DictionaryArray : public Array {
  public:
   using TypeClass = DictionaryType;
 
-  DictionaryArray(const std::shared_ptr<DataType>& type, int32_t length,
-      const std::shared_ptr<Buffer>& indices, int32_t null_count = 0,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr);
+  DictionaryArray(
+      const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices);
 
   // Alternate ctor; other attributes (like null count) are inherited from the
   // passed indices array
-  DictionaryArray(
-      const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices);
+  static Status FromBuffer(const std::shared_ptr<DataType>& type, int32_t length,
+      const std::shared_ptr<Buffer>& indices, int32_t null_count,
+      const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<DictionaryArray>* out);
 
   Status Validate() const override;
 

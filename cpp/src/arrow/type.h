@@ -125,10 +125,10 @@ struct ARROW_EXPORT DataType {
   //
   // Types that are logically convertable from one to another e.g. List<UInt8>
   // and Binary are NOT equal).
-  virtual bool Equals(const DataType* other) const;
+  virtual bool Equals(const DataType& other) const;
 
   bool Equals(const std::shared_ptr<DataType>& other) const {
-    return Equals(other.get());
+    return Equals(*other.get());
   }
 
   std::shared_ptr<Field> child(int i) const { return children_[i]; }
@@ -186,16 +186,9 @@ struct ARROW_EXPORT Field {
       : name(name), type(type), nullable(nullable), dictionary(dictionary) {}
 
   bool operator==(const Field& other) const { return this->Equals(other); }
-
   bool operator!=(const Field& other) const { return !this->Equals(other); }
-
-  bool Equals(const Field& other) const {
-    return (this == &other) ||
-           (this->name == other.name && this->nullable == other.nullable &&
-               this->dictionary == dictionary && this->type->Equals(other.type.get()));
-  }
-
-  bool Equals(const std::shared_ptr<Field>& other) const { return Equals(*other.get()); }
+  bool Equals(const Field& other) const;
+  bool Equals(const std::shared_ptr<Field>& other) const;
 
   std::string ToString() const;
 };
@@ -495,20 +488,23 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
 
-  DictionaryType(const std::shared_ptr<Array>& dictionary, Type::type index_type);
+  DictionaryType(const std::shared_ptr<DataType>& index_type,
+      const std::shared_ptr<Array>& dictionary);
 
   int bit_width() const override;
 
-  Type::type index_type() const { return index_type_; }
+  std::shared_ptr<DataType> index_type() const { return index_type_; }
 
   std::shared_ptr<Array> dictionary() const;
+
+  bool Equals(const DataType& other) const override;
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
  private:
   // Must be an integer type (not currently checked)
-  Type::type index_type_;
+  std::shared_ptr<DataType> index_type_;
 
   std::shared_ptr<Array> dictionary_;
 };
@@ -547,7 +543,7 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
     const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE);
 
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
-    const std::shared_ptr<Array>& values, Type::type index_type);
+    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
 std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
     const std::shared_ptr<DataType>& type, bool nullable = true, int64_t dictionary = 0);

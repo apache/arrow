@@ -47,6 +47,7 @@ install(
 
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(array-decimal-test)
+ADD_ARROW_TEST(array-dictionary-test)
 ADD_ARROW_TEST(array-list-test)
 ADD_ARROW_TEST(array-primitive-test)
 ADD_ARROW_TEST(array-string-test)
@@ -58,6 +59,5 @@ ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(schema-test)
 ADD_ARROW_TEST(status-test)
 ADD_ARROW_TEST(table-test)
-ADD_ARROW_TEST(type-test)
 
 ADD_ARROW_BENCHMARK(column-benchmark)

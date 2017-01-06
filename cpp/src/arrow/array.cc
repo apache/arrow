@@ -589,39 +589,18 @@ Status UnionArray::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-std::shared_ptr<Array> BoxDictionaryIndices(const DictionaryType* type, int32_t length,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap) {
-  switch (type->index_type()) {
-    case Type::UINT8:
-      return std::make_shared<UInt8Array>(length, data, null_count, null_bitmap);
-    case Type::INT8:
-      return std::make_shared<Int8Array>(length, data, null_count, null_bitmap);
-    case Type::UINT16:
-      return std::make_shared<UInt16Array>(length, data, null_count, null_bitmap);
-    case Type::INT16:
-      return std::make_shared<Int16Array>(length, data, null_count, null_bitmap);
-    case Type::UINT32:
-      return std::make_shared<UInt32Array>(length, data, null_count, null_bitmap);
-    case Type::INT32:
-      return std::make_shared<Int32Array>(length, data, null_count, null_bitmap);
-    case Type::UINT64:
-      return std::make_shared<UInt64Array>(length, data, null_count, null_bitmap);
-    case Type::INT64:
-      return std::make_shared<Int64Array>(length, data, null_count, null_bitmap);
-    default:
-      break;
-  }
-  return nullptr;
-}
-
-DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type, int32_t length,
+Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& indices, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
-    : Array(type, length, null_count, null_bitmap),
-      dict_type_(static_cast<const DictionaryType*>(type.get())) {
+    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<DictionaryArray>* out) {
   DCHECK_EQ(type->type, Type::DICTIONARY);
-  indices_ = BoxDictionaryIndices(dict_type_, length, indices, null_count, null_bitmap);
+  const auto& dict_type = static_cast<const DictionaryType*>(type.get());
+
+  std::shared_ptr<Array> boxed_indices;
+  RETURN_NOT_OK(MakePrimitiveArray(
+      dict_type->index_type(), length, indices, null_count, null_bitmap, &boxed_indices));
+
+  *out = std::make_shared<DictionaryArray>(type, boxed_indices);
+  return Status::OK();
 }
 
 DictionaryArray::DictionaryArray(

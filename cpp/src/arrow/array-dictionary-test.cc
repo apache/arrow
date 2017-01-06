@@ -37,16 +37,16 @@ TEST(TestDictionaryType, Basics) {
   ArrayFromVector<Int32Type, int32_t>(int32(), values, &dict);
 
   std::shared_ptr<DictionaryType> type1 =
-      std::dynamic_pointer_cast<DictionaryType>(dictionary(dict, Type::INT16));
-  DictionaryType type2(dict, Type::INT16);
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
+  DictionaryType type2(int16(), dict);
 
-  ASSERT_EQ(Type::INT16, type1->index_type());
+  ASSERT_TRUE(int16()->Equals(type1->index_type()));
   ASSERT_TRUE(type1->dictionary()->Equals(dict));
 
-  ASSERT_EQ(Type::INT16, type2.index_type());
+  ASSERT_TRUE(int16()->Equals(type2.index_type()));
   ASSERT_TRUE(type2.dictionary()->Equals(dict));
 
-  ASSERT_EQ("dictionary<int32>", type1->ToString());
+  ASSERT_EQ("dictionary<int32, int16>", type1->ToString());
 }
 
 }  // namespace arrow

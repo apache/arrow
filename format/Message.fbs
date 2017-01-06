@@ -256,7 +256,7 @@ table RecordBatch {
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
-/// There is one dictionary batch per dictionary
+/// There is one vector / column per dictionary
 ///
 
 table DictionaryBatch {
