@@ -37,7 +37,7 @@ std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
 static void BM_BuildInt32ColumnByChunk(
     benchmark::State& state) {  // NOLINT non-const reference
   ArrayVector arrays;
-  for (int chunk_n = 0; chunk_n < state.range_x(); ++chunk_n) {
+  for (int chunk_n = 0; chunk_n < state.range(0); ++chunk_n) {
     arrays.push_back(MakePrimitive<Int32Array>(100, 10));
   }
   const auto INT32 = std::make_shared<Int32Type>();
