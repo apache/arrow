@@ -584,7 +584,7 @@ cdef class Table:
         return result
 
     @staticmethod
-    def from_batches(batches):
+    def from_batches(batches, name=None):
         """
         Construct a Table from a list of Arrow RecordBatches
 
@@ -596,37 +596,22 @@ cdef class Table:
         """
 
         cdef:
-            vector[shared_ptr[CArray]] c_array_chunks
-            vector[shared_ptr[CColumn]] c_columns
+            vector[shared_ptr[CRecordBatch]] c_batches
             shared_ptr[CTable] c_table
-            Array arr
-            Schema schema
+            RecordBatch batch
+            Table table
 
-        import pandas as pd
+        if name is None:
+            name = b''
+        else:
+            name = tobytes(name)
 
-        schema = batches[0].schema
+        for batch in batches:
+            c_batches.push_back(batch.sp_batch)
 
-        # check schemas are equal
-        for other in batches[1:]:
-            if not schema.equals(other.schema):
-                raise ArrowException("Error converting list of RecordBatches "
-                        "to DataFrame, not all schemas are equal: {%s} != {%s}"
-                        % (str(schema), str(other.schema)))
+        with nogil:
+            check_status(CTable.FromRecordBatches(name, c_batches, &c_table))
 
-        cdef int K = batches[0].num_columns
-
-        # create chunked columns from the batches
-        c_columns.resize(K)
-        for i in range(K):
-            for batch in batches:
-                arr = batch[i]
-                c_array_chunks.push_back(arr.sp_array)
-            c_columns[i].reset(new CColumn(schema.sp_schema.get().field(i),
-                               c_array_chunks))
-            c_array_chunks.clear()
-
-        # create a Table from columns and convert to DataFrame
-        c_table.reset(new CTable('', schema.sp_schema, c_columns))
         table = Table()
         table.init(c_table)
         return table

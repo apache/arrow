@@ -207,6 +207,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CColumn]]& columns)
 
+        @staticmethod
+        CStatus FromRecordBatches(
+            const c_string& name,
+            const vector[shared_ptr[CRecordBatch]]& batches,
+            shared_ptr[CTable]* table)
+
         int num_columns()
         int num_rows()
 
