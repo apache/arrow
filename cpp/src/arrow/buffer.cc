@@ -92,7 +92,25 @@ Status PoolBuffer::Reserve(int64_t new_capacity) {
 }
 
 Status PoolBuffer::Resize(int64_t new_size) {
-  RETURN_NOT_OK(Reserve(new_size));
+  if (new_size > size_) {
+    RETURN_NOT_OK(Reserve(new_size));
+  } else {
+    // Buffer is not growing, so shrink to the requested size without
+    // excess space.
+    if (capacity_ != new_size) {
+      // Buffer hasn't got yet the requested size.
+      if (new_size == 0) {
+        pool_->Free(mutable_data_, capacity_);
+        capacity_ = 0;
+        mutable_data_ = nullptr;
+        data_ = nullptr;
+      } else {
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_size, &mutable_data_));
+        data_ = mutable_data_;
+        capacity_ = new_size;
+      }
+    }
+  }
   size_ = new_size;
   return Status::OK();
 }

@@ -184,7 +184,7 @@ static inline void random_ascii(int n, uint32_t seed, uint8_t* out) {
 
 template <typename T>
 void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
-  DCHECK(out);
+  DCHECK(out || (n == 0));
   std::mt19937 gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
