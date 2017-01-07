@@ -89,30 +89,26 @@ TEST_F(TestSchemaDescriptor, Equals) {
   NodePtr bag2(GroupNode::Make("bag", Repetition::REQUIRED, {list}));
 
   SchemaDescriptor descr1;
-  descr1.Init(GroupNode::Make("schema", Repetition::REPEATED,
-          {inta, intb, intc, bag}));
+  descr1.Init(GroupNode::Make("schema", Repetition::REPEATED, {inta, intb, intc, bag}));
 
   ASSERT_TRUE(descr1.Equals(descr1));
 
   SchemaDescriptor descr2;
-  descr2.Init(GroupNode::Make("schema", Repetition::REPEATED,
-          {inta, intb, intc, bag2}));
+  descr2.Init(GroupNode::Make("schema", Repetition::REPEATED, {inta, intb, intc, bag2}));
   ASSERT_FALSE(descr1.Equals(descr2));
 
   SchemaDescriptor descr3;
-  descr3.Init(GroupNode::Make("schema", Repetition::REPEATED,
-          {inta, intb2, intc, bag}));
+  descr3.Init(GroupNode::Make("schema", Repetition::REPEATED, {inta, intb2, intc, bag}));
   ASSERT_FALSE(descr1.Equals(descr3));
 
   // Robust to name of parent node
   SchemaDescriptor descr4;
-  descr4.Init(GroupNode::Make("SCHEMA", Repetition::REPEATED,
-          {inta, intb, intc, bag}));
+  descr4.Init(GroupNode::Make("SCHEMA", Repetition::REPEATED, {inta, intb, intc, bag}));
   ASSERT_TRUE(descr1.Equals(descr4));
 
   SchemaDescriptor descr5;
-  descr5.Init(GroupNode::Make("schema", Repetition::REPEATED,
-          {inta, intb, intc, bag, intb2}));
+  descr5.Init(
+      GroupNode::Make("schema", Repetition::REPEATED, {inta, intb, intc, bag, intb2}));
   ASSERT_FALSE(descr1.Equals(descr5));
 
   // Different max repetition / definition levels

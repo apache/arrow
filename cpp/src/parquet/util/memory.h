@@ -18,11 +18,11 @@
 #ifndef PARQUET_UTIL_MEMORY_H
 #define PARQUET_UTIL_MEMORY_H
 
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -72,19 +72,19 @@ PARQUET_EXPORT MemoryAllocator* default_allocator();
 
 class PARQUET_EXPORT TrackingAllocator : public MemoryAllocator {
  public:
-  TrackingAllocator() : total_memory_(0), max_memory_(0) {}
+  explicit TrackingAllocator(MemoryAllocator* allocator = ::arrow::default_memory_pool())
+      : allocator_(allocator), max_memory_(0) {}
 
   ::arrow::Status Allocate(int64_t size, uint8_t** out) override;
+  ::arrow::Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
   void Free(uint8_t* p, int64_t size) override;
 
-  int64_t bytes_allocated() const override { return total_memory_; }
-
-  int64_t max_memory() { return max_memory_; }
+  int64_t max_memory() const;
+  int64_t bytes_allocated() const override;
 
  private:
-  std::mutex stats_mutex_;
-  int64_t total_memory_;
-  int64_t max_memory_;
+  MemoryAllocator* allocator_;
+  std::atomic<int64_t> max_memory_;
 };
 
 template <class T>

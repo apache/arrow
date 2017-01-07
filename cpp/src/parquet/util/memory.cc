@@ -22,6 +22,8 @@
 #include <cstdio>
 #include <string>
 
+#include "arrow/status.h"
+
 #include "parquet/exception.h"
 #include "parquet/types.h"
 #include "parquet/util/bit-util.h"
@@ -30,31 +32,34 @@
 namespace parquet {
 
 ::arrow::Status TrackingAllocator::Allocate(int64_t size, uint8_t** out) {
-  if (0 == size) {
+  if (size == 0) {
     *out = nullptr;
     return ::arrow::Status::OK();
   }
+  ARROW_RETURN_NOT_OK(allocator_->Allocate(size, out));
+  const int64_t total_memory = allocator_->bytes_allocated();
+  if (total_memory > max_memory_) { max_memory_ = total_memory; }
+  return ::arrow::Status::OK();
+}
 
-  uint8_t* p = static_cast<uint8_t*>(std::malloc(size));
-  if (!p) { return ::arrow::Status::OutOfMemory("memory allocation failed"); }
-  {
-    std::lock_guard<std::mutex> lock(stats_mutex_);
-    total_memory_ += size;
-    if (total_memory_ > max_memory_) { max_memory_ = total_memory_; }
-  }
-  *out = p;
+::arrow::Status TrackingAllocator::Reallocate(
+    int64_t old_size, int64_t new_size, uint8_t** out) {
+  ARROW_RETURN_NOT_OK(allocator_->Reallocate(old_size, new_size, out));
+  const int64_t total_memory = allocator_->bytes_allocated();
+  if (total_memory > max_memory_) { max_memory_ = total_memory; }
   return ::arrow::Status::OK();
 }
 
 void TrackingAllocator::Free(uint8_t* p, int64_t size) {
-  if (nullptr != p && size > 0) {
-    {
-      std::lock_guard<std::mutex> lock(stats_mutex_);
-      DCHECK_GE(total_memory_, size) << "Attempting to free too much memory";
-      total_memory_ -= size;
-    }
-    std::free(p);
-  }
+  allocator_->Free(p, size);
+}
+
+int64_t TrackingAllocator::max_memory() const {
+  return max_memory_.load();
+}
+
+int64_t TrackingAllocator::bytes_allocated() const {
+  return allocator_->bytes_allocated();
 }
 
 MemoryAllocator* default_allocator() {

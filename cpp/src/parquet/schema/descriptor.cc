@@ -48,14 +48,10 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
 }
 
 bool SchemaDescriptor::Equals(const SchemaDescriptor& other) const {
-  if (this->num_columns() != other.num_columns()) {
-    return false;
-  }
+  if (this->num_columns() != other.num_columns()) { return false; }
 
   for (int i = 0; i < this->num_columns(); ++i) {
-    if (!this->Column(i)->Equals(*other.Column(i))) {
-      return false;
-    }
+    if (!this->Column(i)->Equals(*other.Column(i))) { return false; }
   }
 
   return true;
@@ -98,8 +94,8 @@ ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
 
 bool ColumnDescriptor::Equals(const ColumnDescriptor& other) const {
   return primitive_node_->Equals(other.primitive_node_) &&
-    max_repetition_level() == other.max_repetition_level() &&
-    max_definition_level() == other.max_definition_level();
+         max_repetition_level() == other.max_repetition_level() &&
+         max_definition_level() == other.max_definition_level();
 }
 
 const ColumnDescriptor* SchemaDescriptor::Column(int i) const {

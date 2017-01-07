@@ -252,6 +252,7 @@ void FlatColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96T
   for (int64_t i = 0; i < values_read; i++) {
     out_ptr[i] = impala_timestamp_to_nanoseconds(values[i]);
   }
+  valid_bits_idx_ += values_read;
 }
 
 template <>
