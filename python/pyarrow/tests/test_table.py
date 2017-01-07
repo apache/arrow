@@ -110,13 +110,14 @@ def test_table_basics():
         for chunk in col.data.iterchunks():
             assert chunk is not None
 
+
 def test_concat_tables():
     data = [
-        range(5),
+        list(range(5)),
         [-10., -5., 0., 5., 10.]
     ]
     data2 = [
-        range(5, 10),
+        list(range(5, 10)),
         [1., 2., 3., 4., 5.]
     ]
 
