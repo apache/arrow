@@ -45,7 +45,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   int32_t this_start_idx = 0;
   int other_chunk_idx = 0;
   int32_t other_start_idx = 0;
-  while (this_chunk_idx < static_cast<int32_t>(chunks_.size())) {
+
+  int64_t elements_compared = 0;
+  while (elements_compared < length_) {
     const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
     const std::shared_ptr<Array> other_array = other.chunk(other_chunk_idx);
     int32_t common_length = std::min(
@@ -55,14 +57,21 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
       return false;
     }
 
+    elements_compared += common_length;
+
     // If we have exhausted the current chunk, proceed to the next one individually.
     if (this_start_idx + common_length == this_array->length()) {
       this_chunk_idx++;
       this_start_idx = 0;
+    } else {
+      this_start_idx += common_length;
     }
+
     if (other_start_idx + common_length == other_array->length()) {
       other_chunk_idx++;
       other_start_idx = 0;
+    } else {
+      other_start_idx += common_length;
     }
   }
   return true;

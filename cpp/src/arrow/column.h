@@ -48,6 +48,8 @@ class ARROW_EXPORT ChunkedArray {
 
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
+  const ArrayVector& chunks() const { return chunks_; }
+
   bool Equals(const ChunkedArray& other) const;
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 

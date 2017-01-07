@@ -90,11 +90,6 @@ class ARROW_EXPORT Table {
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
-  // Construct table from multiple input tables
-  Status Concatenate(const std::string& output_name,
-      const std::vector<std::shared_ptr<Table>>& others,
-      std::shared_ptr<Table>* table);
-
   // @returns: the table's name, if any (may be length 0)
   const std::string& name() const { return name_; }
 
@@ -126,6 +121,11 @@ class ARROW_EXPORT Table {
 
   int64_t num_rows_;
 };
+
+// Construct table from multiple input tables. Return Status::Invalid if
+// schemas are not equal
+Status ARROW_EXPORT ConcatenateTables(const std::string& output_name,
+    const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table);
 
 }  // namespace arrow
 

@@ -71,23 +71,6 @@
 
 namespace arrow {
 
-class TestBase : public ::testing::Test {
- public:
-  void SetUp() { pool_ = default_memory_pool(); }
-
-  template <typename ArrayType>
-  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
-    auto data = std::make_shared<PoolBuffer>(pool_);
-    auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
-    EXPECT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
-    EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
-    return std::make_shared<ArrayType>(length, data, null_count, null_bitmap);
-  }
-
- protected:
-  MemoryPool* pool_;
-};
-
 namespace test {
 
 template <typename T>
@@ -252,6 +235,32 @@ Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
 }
 
 }  // namespace test
+
+class TestBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    pool_ = default_memory_pool();
+    random_seed_ = 0;
+  }
+
+  template <typename ArrayType>
+  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+    auto data = std::make_shared<PoolBuffer>(pool_);
+    const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
+    EXPECT_OK(data->Resize(data_nbytes));
+
+    // Fill with random data
+    test::random_bytes(data_nbytes, random_seed_++, data->mutable_data());
+
+    auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
+    EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
+    return std::make_shared<ArrayType>(length, data, null_count, null_bitmap);
+  }
+
+ protected:
+  uint32_t random_seed_;
+  MemoryPool* pool_;
+};
 
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,

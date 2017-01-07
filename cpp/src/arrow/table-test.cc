@@ -44,13 +44,10 @@ class TestTable : public TestBase {
     vector<shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
-    arrays_ = {
-      MakePrimitive<Int32Array>(length),
-      MakePrimitive<UInt8Array>(length),
-      MakePrimitive<Int16Array>(length)};
+    arrays_ = {MakePrimitive<Int32Array>(length), MakePrimitive<UInt8Array>(length),
+        MakePrimitive<Int16Array>(length)};
 
-    columns_ = {
-        std::make_shared<Column>(schema_->field(0), arrays_[0]),
+    columns_ = {std::make_shared<Column>(schema_->field(0), arrays_[0]),
         std::make_shared<Column>(schema_->field(1), arrays_[1]),
         std::make_shared<Column>(schema_->field(2), arrays_[2])};
   }
@@ -184,6 +181,38 @@ TEST_F(TestTable, FromRecordBatches) {
   std::vector<std::shared_ptr<Array>> other_arrays = {arrays_[0], arrays_[1]};
   auto batch2 = std::make_shared<RecordBatch>(other_schema, length, other_arrays);
   ASSERT_RAISES(Invalid, Table::FromRecordBatches("", {batch1, batch2}, &result));
+}
+
+TEST_F(TestTable, ConcatenateTables) {
+  const int32_t length = 10;
+
+  MakeExample1(length);
+  auto batch1 = std::make_shared<RecordBatch>(schema_, length, arrays_);
+
+  // generate different data
+  MakeExample1(length);
+  auto batch2 = std::make_shared<RecordBatch>(schema_, length, arrays_);
+
+  std::shared_ptr<Table> t1, t2, t3, result, expected;
+  ASSERT_OK(Table::FromRecordBatches("foo", {batch1}, &t1));
+  ASSERT_OK(Table::FromRecordBatches("foo", {batch2}, &t2));
+
+  ASSERT_OK(ConcatenateTables("bar", {t1, t2}, &result));
+  ASSERT_OK(Table::FromRecordBatches("bar", {batch1, batch2}, &expected));
+  ASSERT_TRUE(result->Equals(expected));
+
+  // Error states
+  std::vector<std::shared_ptr<Table>> empty_tables;
+  ASSERT_RAISES(Invalid, ConcatenateTables("", empty_tables, &result));
+
+  std::vector<std::shared_ptr<Field>> fields = {schema_->field(0), schema_->field(1)};
+  auto other_schema = std::make_shared<Schema>(fields);
+
+  std::vector<std::shared_ptr<Array>> other_arrays = {arrays_[0], arrays_[1]};
+  auto batch3 = std::make_shared<RecordBatch>(other_schema, length, other_arrays);
+  ASSERT_OK(Table::FromRecordBatches("", {batch3}, &t3));
+
+  ASSERT_RAISES(Invalid, ConcatenateTables("foo", {t1, t3}, &result));
 }
 
 class TestRecordBatch : public TestBase {};

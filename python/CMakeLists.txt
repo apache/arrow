@@ -70,6 +70,9 @@ include(SetupCxxFlags)
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
+# Suppress Cython warnings
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+
 # Determine compiler version
 include(CompilerInfo)
 

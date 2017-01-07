@@ -155,6 +155,31 @@ cdef class Column:
 
         return pd.Series(PyObject_to_object(arr), name=self.name)
 
+    def equals(self, Column other):
+        """
+        Check if contents of two columns are equal
+
+        Parameters
+        ----------
+        other : pyarrow.Column
+
+        Returns
+        -------
+        are_equal : boolean
+        """
+        cdef:
+            CColumn* my_col = self.column
+            CColumn* other_col = other.column
+            c_bool result
+
+        self._check_nullptr()
+        other._check_nullptr()
+
+        with nogil:
+            result = my_col.Equals(deref(other_col))
+
+        return result
+
     def to_pylist(self):
         """
         Convert to a list of native Python objects.
@@ -343,10 +368,18 @@ cdef class RecordBatch:
         return arr
 
     def equals(self, RecordBatch other):
+        cdef:
+            CRecordBatch* my_batch = self.batch
+            CRecordBatch* other_batch = other.batch
+            c_bool result
+
         self._check_nullptr()
         other._check_nullptr()
 
-        return self.batch.Equals(deref(other.batch))
+        with nogil:
+            result = my_batch.Equals(deref(other_batch))
+
+        return result
 
     def to_pydict(self):
         """
@@ -424,7 +457,6 @@ cdef class RecordBatch:
         """
         cdef:
             Array arr
-            RecordBatch result
             c_string c_name
             shared_ptr[CSchema] schema
             shared_ptr[CRecordBatch] batch
@@ -442,11 +474,7 @@ cdef class RecordBatch:
             c_arrays.push_back(arr.sp_array)
 
         batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
-
-        result = RecordBatch()
-        result.init(batch)
-
-        return result
+        return batch_from_cbatch(batch)
 
 
 cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
@@ -498,6 +526,31 @@ cdef class Table:
             raise ReferenceError("Table object references a NULL pointer."
                     "Not initialized.")
 
+    def equals(self, Table other):
+        """
+        Check if contents of two tables are equal
+
+        Parameters
+        ----------
+        other : pyarrow.Table
+
+        Returns
+        -------
+        are_equal : boolean
+        """
+        cdef:
+            CTable* my_table = self.table
+            CTable* other_table = other.table
+            c_bool result
+
+        self._check_nullptr()
+        other._check_nullptr()
+
+        with nogil:
+            result = my_table.Equals(deref(other_table))
+
+        return result
+
     @classmethod
     def from_pandas(cls, df, name=None, timestamps_to_ms=False):
         """
@@ -527,7 +580,7 @@ cdef class Table:
             ...     'int': [1, 2],
             ...     'str': ['a', 'b']
             ... })
-        >>> pa.table.from_pandas_dataframe(df)
+        >>> pa.Table.from_pandas(df)
         <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
         names, arrays = _dataframe_to_arrays(df, name=name,
@@ -559,7 +612,6 @@ cdef class Table:
             c_string c_name
             vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
-            Table result
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
 
@@ -577,11 +629,7 @@ cdef class Table:
             c_name = tobytes(name)
 
         table.reset(new CTable(c_name, schema, columns))
-
-        result = Table()
-        result.init(table)
-
-        return result
+        return table_from_ctable(table)
 
     @staticmethod
     def from_batches(batches, name=None):
@@ -594,7 +642,6 @@ cdef class Table:
         batches: list of RecordBatch
             RecordBatch list to be converted, schemas must be equal
         """
-
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
             shared_ptr[CTable] c_table
@@ -743,9 +790,40 @@ cdef class Table:
         return (self.num_rows, self.num_columns)
 
 
+def concat_tables(tables, output_name=None):
+    """
+    Perform zero-copy concatenation of pyarrow.Table objects. Raises exception
+    if all of the Table schemas are not the same
+
+    Parameters
+    ----------
+    tables : iterable of pyarrow.Table objects
+    output_name : string, default None
+      A name for the output table, if any
+    """
+    cdef:
+        vector[shared_ptr[CTable]] c_tables
+        shared_ptr[CTable] c_result
+        Table table
+        c_string c_name
+
+    c_name = b'' if output_name is None else tobytes(output_name)
+
+    for table in tables:
+        c_tables.push_back(table.sp_table)
+
+    with nogil:
+        check_status(ConcatenateTables(c_name, c_tables, &c_result))
+
+    return table_from_ctable(c_result)
+
+
 cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
     cdef Table table = Table()
     table.init(ctable)
     return table
 
-from_pandas_dataframe = Table.from_pandas
+cdef api object batch_from_cbatch(const shared_ptr[CRecordBatch]& cbatch):
+    cdef RecordBatch batch = RecordBatch()
+    batch.init(cbatch)
+    return batch

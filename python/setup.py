@@ -143,7 +143,10 @@ class build_ext(_build_ext):
                              cmake_options + [source])
 
             self.spawn(cmake_command)
-            args = ['make', 'VERBOSE=1']
+            args = ['make']
+            if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                args.append('VERBOSE=1')
+
             if 'PYARROW_PARALLEL' in os.environ:
                 args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
             self.spawn(args)
