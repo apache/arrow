@@ -244,7 +244,7 @@ endfunction()
 
 # A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
 function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
-  if(NO_TESTS)
+    if(NO_BENCHMARKS)
     return()
   endif()
   get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
@@ -595,6 +595,8 @@ include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 
 if (ARROW_JEMALLOC)
   find_package(jemalloc REQUIRED)
+
+  include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(jemalloc
       SHARED_LIB ${JEMALLOC_SHARED_LIB})
 endif()

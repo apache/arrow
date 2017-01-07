@@ -19,6 +19,8 @@
 
 #include <sstream>
 
+// Needed to support jemalloc 3 and 4
+#define JEMALLOC_MANGLE
 #include <jemalloc/jemalloc.h>
 
 #include "arrow/status.h"
