@@ -600,17 +600,15 @@ cdef class Table:
             shared_ptr[CTable] c_table
             RecordBatch batch
             Table table
+            c_string c_name
 
-        if name is None:
-            name = b''
-        else:
-            name = tobytes(name)
+        c_name = b'' if name is None else tobytes(name)
 
         for batch in batches:
             c_batches.push_back(batch.sp_batch)
 
         with nogil:
-            check_status(CTable.FromRecordBatches(name, c_batches, &c_table))
+            check_status(CTable.FromRecordBatches(c_name, c_batches, &c_table))
 
         table = Table()
         table.init(c_table)
