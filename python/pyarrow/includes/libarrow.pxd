@@ -182,6 +182,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CColumn(const shared_ptr[CField]& field,
                 const vector[shared_ptr[CArray]]& chunks)
 
+        c_bool Equals(const CColumn& other)
+        c_bool Equals(const shared_ptr[CColumn]& other)
+
         int64_t length()
         int64_t null_count()
         const c_string& name()
@@ -207,13 +210,26 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CColumn]]& columns)
 
+        @staticmethod
+        CStatus FromRecordBatches(
+            const c_string& name,
+            const vector[shared_ptr[CRecordBatch]]& batches,
+            shared_ptr[CTable]* table)
+
         int num_columns()
         int num_rows()
+
+        c_bool Equals(const CTable& other)
+        c_bool Equals(const shared_ptr[CTable]& other)
 
         const c_string& name()
 
         shared_ptr[CSchema] schema()
         shared_ptr[CColumn] column(int i)
+
+    CStatus ConcatenateTables(const c_string& output_name,
+                              const vector[shared_ptr[CTable]]& tables,
+                              shared_ptr[CTable]* result)
 
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:

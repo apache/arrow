@@ -111,6 +111,33 @@ def test_table_basics():
             assert chunk is not None
 
 
+def test_concat_tables():
+    data = [
+        list(range(5)),
+        [-10., -5., 0., 5., 10.]
+    ]
+    data2 = [
+        list(range(5, 10)),
+        [1., 2., 3., 4., 5.]
+    ]
+
+    t1 = pa.Table.from_arrays(('a', 'b'), [pa.from_pylist(x)
+                                           for x in data], 'table_name')
+    t2 = pa.Table.from_arrays(('a', 'b'), [pa.from_pylist(x)
+                                           for x in data2], 'table_name')
+
+    result = pa.concat_tables([t1, t2], output_name='foo')
+    assert result.name == 'foo'
+    assert len(result) == 10
+
+    expected = pa.Table.from_arrays(
+        ('a', 'b'), [pa.from_pylist(x + y)
+                     for x, y in zip(data, data2)],
+        'foo')
+
+    assert result.equals(expected)
+
+
 def test_table_pandas():
     data = [
         pa.from_pylist(range(5)),

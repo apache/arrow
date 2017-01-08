@@ -91,6 +91,29 @@ cdef class Array:
         """
         return from_pandas_series(obj, mask)
 
+    @staticmethod
+    def from_list(object list_obj, DataType type=None):
+        """
+        Convert Python list to Arrow array
+
+        Parameters
+        ----------
+        list_obj : array_like
+
+        Returns
+        -------
+        pyarrow.array.Array
+        """
+        cdef:
+            shared_ptr[CArray] sp_array
+
+        if type is None:
+            check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
+        else:
+            raise NotImplementedError()
+
+        return box_arrow_array(sp_array)
+
     property null_count:
 
         def __get__(self):
@@ -348,3 +371,5 @@ cdef object series_as_ndarray(object obj):
         result = obj
 
     return result
+
+from_pylist = Array.from_list

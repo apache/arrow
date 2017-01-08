@@ -79,7 +79,7 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
         'empty_str': [''] * size
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = A.from_pandas_dataframe(df, timestamps_to_ms=True)
+    arrow_table = A.Table.from_pandas(df, timestamps_to_ms=True)
     A.parquet.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
@@ -107,7 +107,7 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
         'empty_str': [''] * size
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.Table.from_pandas(df)
     A.parquet.write_table(arrow_table, filename.strpath, version="1.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
@@ -126,7 +126,7 @@ def test_pandas_column_selection(tmpdir):
         'uint16': np.arange(size, dtype=np.uint16)
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.Table.from_pandas(df)
     A.parquet.write_table(arrow_table, filename.strpath)
     table_read = pq.read_table(filename.strpath, columns=['uint8'])
     df_read = table_read.to_pandas()
@@ -155,7 +155,7 @@ def _test_dataframe(size=10000):
 @parquet
 def test_pandas_parquet_native_file_roundtrip(tmpdir):
     df = _test_dataframe(10000)
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.Table.from_pandas(df)
     imos = paio.InMemoryOutputStream()
     pq.write_table(arrow_table, imos, version="2.0")
     buf = imos.get_result()
@@ -176,7 +176,7 @@ def test_pandas_parquet_pyfile_roundtrip(tmpdir):
         'strings': ['foo', 'bar', None, 'baz', 'qux']
     })
 
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.Table.from_pandas(df)
 
     with open(filename, 'wb') as f:
         A.parquet.write_table(arrow_table, f, version="1.0")
@@ -206,7 +206,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
         'bool': np.random.randn(size) > 0
     })
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = A.from_pandas_dataframe(df)
+    arrow_table = A.Table.from_pandas(df)
 
     for use_dictionary in [True, False]:
         A.parquet.write_table(

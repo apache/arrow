@@ -61,7 +61,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 timestamps_to_ms=False):
-        table = A.from_pandas_dataframe(df, timestamps_to_ms=timestamps_to_ms)
+        table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms)
         result = table.to_pandas(nthreads=nthreads)
         if expected is None:
             expected = df
@@ -193,7 +193,7 @@ class TestPandasConversion(unittest.TestCase):
         values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values})
 
-        table = A.from_pandas_dataframe(df)
+        table = A.Table.from_pandas(df)
         assert table[0].type == A.binary()
 
         values2 = [b'qux', b'foo', None, b'bar', b'qux', np.nan]
@@ -245,7 +245,7 @@ class TestPandasConversion(unittest.TestCase):
                      None,
                      datetime.date(1970, 1, 1),
                      datetime.date(2040, 2, 26)]})
-        table = A.from_pandas_dataframe(df)
+        table = A.Table.from_pandas(df)
         result = table.to_pandas()
         expected = df.copy()
         expected['date'] = pd.to_datetime(df['date'])

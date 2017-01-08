@@ -49,10 +49,10 @@ class PandasConversionsToArrow(PandasConversionsBase):
     params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
 
     def time_from_series(self, n, dtype):
-        A.from_pandas_dataframe(self.data)
+        A.Table.from_pandas(self.data)
 
     def peakmem_from_series(self, n, dtype):
-        A.from_pandas_dataframe(self.data)
+        A.Table.from_pandas(self.data)
 
 
 class PandasConversionsFromArrow(PandasConversionsBase):
@@ -61,7 +61,7 @@ class PandasConversionsFromArrow(PandasConversionsBase):
 
     def setup(self, n, dtype):
         super(PandasConversionsFromArrow, self).setup(n, dtype)
-        self.arrow_data = A.from_pandas_dataframe(self.data)
+        self.arrow_data = A.Table.from_pandas(self.data)
 
     def time_to_series(self, n, dtype):
         self.arrow_data.to_pandas()
@@ -80,4 +80,3 @@ class ScalarAccess(object):
     def time_as_py(self, n):
         for i in range(n):
             self._array[i].as_py()
-

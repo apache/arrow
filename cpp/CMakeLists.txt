@@ -76,7 +76,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    ON)
+    OFF)
 
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"

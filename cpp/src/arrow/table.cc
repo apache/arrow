@@ -77,6 +77,77 @@ Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
     : name_(name), schema_(schema), columns_(columns), num_rows_(num_rows) {}
 
+Status Table::FromRecordBatches(const std::string& name,
+    const std::vector<std::shared_ptr<RecordBatch>>& batches,
+    std::shared_ptr<Table>* table) {
+  if (batches.size() == 0) {
+    return Status::Invalid("Must pass at least one record batch");
+  }
+
+  std::shared_ptr<Schema> schema = batches[0]->schema();
+
+  const int nbatches = static_cast<int>(batches.size());
+  const int ncolumns = static_cast<int>(schema->num_fields());
+
+  for (int i = 1; i < nbatches; ++i) {
+    if (!batches[i]->schema()->Equals(schema)) {
+      std::stringstream ss;
+      ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
+         << schema->ToString() << "\nvs\n"
+         << batches[i]->schema()->ToString();
+      return Status::Invalid(ss.str());
+    }
+  }
+
+  std::vector<std::shared_ptr<Column>> columns(ncolumns);
+  std::vector<std::shared_ptr<Array>> column_arrays(nbatches);
+
+  for (int i = 0; i < ncolumns; ++i) {
+    for (int j = 0; j < nbatches; ++j) {
+      column_arrays[j] = batches[j]->column(i);
+    }
+    columns[i] = std::make_shared<Column>(schema->field(i), column_arrays);
+  }
+
+  *table = std::make_shared<Table>(name, schema, columns);
+  return Status::OK();
+}
+
+Status ConcatenateTables(const std::string& output_name,
+    const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table) {
+  if (tables.size() == 0) { return Status::Invalid("Must pass at least one table"); }
+
+  std::shared_ptr<Schema> schema = tables[0]->schema();
+
+  const int ntables = static_cast<int>(tables.size());
+  const int ncolumns = static_cast<int>(schema->num_fields());
+
+  for (int i = 1; i < ntables; ++i) {
+    if (!tables[i]->schema()->Equals(schema)) {
+      std::stringstream ss;
+      ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
+         << schema->ToString() << "\nvs\n"
+         << tables[i]->schema()->ToString();
+      return Status::Invalid(ss.str());
+    }
+  }
+
+  std::vector<std::shared_ptr<Column>> columns(ncolumns);
+  for (int i = 0; i < ncolumns; ++i) {
+    std::vector<std::shared_ptr<Array>> column_arrays;
+    for (int j = 0; j < ntables; ++j) {
+      const std::vector<std::shared_ptr<Array>>& chunks =
+          tables[j]->column(i)->data()->chunks();
+      for (const auto& chunk : chunks) {
+        column_arrays.push_back(chunk);
+      }
+    }
+    columns[i] = std::make_shared<Column>(schema->field(i), column_arrays);
+  }
+  *table = std::make_shared<Table>(output_name, schema, columns);
+  return Status::OK();
+}
+
 bool Table::Equals(const Table& other) const {
   if (name_ != other.name()) { return false; }
   if (!schema_->Equals(other.schema())) { return false; }

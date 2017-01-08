@@ -301,7 +301,6 @@ class MyMemoryPool : public MemoryPool {
       return Status::OutOfMemory(ss.str());
     }
 
-
     return Status::OK();
   }
 
