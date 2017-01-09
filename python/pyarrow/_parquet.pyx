@@ -38,14 +38,48 @@ from pyarrow.io cimport NativeFile, get_reader, get_writer
 import six
 
 
-# cdef class ParquetRowGroupMetadata:
-#     cdef:
-#         unique_ptr[CRowGroupMetadata] metadata
-#         CRowGroupMetadata metadata
-#         object parent
+cdef class RowGroupMetaData:
+    cdef:
+        unique_ptr[CRowGroupMetaData] up_metadata
+        CRowGroupMetaData* metadata
+        object parent
+
+    def __cinit__(self):
+        pass
+
+    cdef init_from_file(self, FileMetaData parent, int i):
+        if i < 0 or i >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(i))
+        self.up_metadata = parent.metadata.RowGroup(i)
+        self.metadata = self.up_metadata.get()
+        self.parent = parent
+
+    def __repr__(self):
+        return """{0}
+  num_columns: {1}
+  num_rows: {2}
+  total_byte_size: {3}""".format(object.__repr__(self),
+                                 self.num_columns,
+                                 self.num_rows,
+                                 self.total_byte_size)
+
+    property num_columns:
+
+        def __get__(self):
+            return self.metadata.num_columns()
+
+    property num_rows:
+
+        def __get__(self):
+            return self.metadata.num_rows()
+
+    property total_byte_size:
+
+        def __get__(self):
+            return self.metadata.total_byte_size()
 
 
-cdef class ParquetFileMetadata:
+cdef class FileMetaData:
     cdef:
         shared_ptr[CFileMetaData] sp_metadata
         CFileMetaData* metadata
@@ -76,7 +110,7 @@ cdef class ParquetFileMetadata:
         if self._schema is not None:
             return self._schema
 
-        cdef ParquetSchema schema = ParquetSchema()
+        cdef Schema schema = Schema()
         schema.init_from_filemeta(self)
         self._schema = schema
         return schema
@@ -104,22 +138,31 @@ cdef class ParquetFileMetadata:
     property format_version:
 
         def __get__(self):
-            if self.metadata.version() == 2:
+            cdef int version = self.metadata.version()
+            if version == 2:
                 return '2.0'
+            elif version == 1:
+                return '1.0'
             else:
+                print('Unrecognized file version, assuming 1.0: {0}'
+                      .format(version))
                 return '1.0'
 
     property created_by:
 
         def __get__(self):
-            return self.metadata.created_by()
+            return frombytes(self.metadata.created_by())
 
     def row_group(self, int i):
-        raise NotImplementedError
+        """
+
+        """
+        cdef RowGroupMetaData result = RowGroupMetaData()
+        result.init_from_file(self, i)
+        return result
 
 
-
-cdef class ParquetSchema:
+cdef class Schema:
     cdef:
         object parent  # the FileMetaData owning the SchemaDescriptor
         const SchemaDescriptor* schema
@@ -143,7 +186,7 @@ cdef class ParquetSchema:
 {1}
  """.format(object.__repr__(self), '\n'.join(elements))
 
-    cdef init_from_filemeta(self, ParquetFileMetadata container):
+    cdef init_from_filemeta(self, FileMetaData container):
         self.parent = container
         self.schema = container.metadata.schema()
 
@@ -157,12 +200,12 @@ cdef class ParquetSchema:
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
 
-        cdef ParquetColumnSchema col = ParquetColumnSchema()
+        cdef ColumnSchema col = ColumnSchema()
         col.init_from_schema(self, i)
         return col
 
 
-cdef class ParquetColumnSchema:
+cdef class ColumnSchema:
     cdef:
         object parent
         const ColumnDescriptor* descr
@@ -170,7 +213,7 @@ cdef class ParquetColumnSchema:
     def __cinit__(self):
         self.descr = NULL
 
-    cdef init_from_schema(self, ParquetSchema schema, int i):
+    cdef init_from_schema(self, Schema schema, int i):
         self.parent = schema
         self.descr = schema.schema.Column(i)
 
@@ -288,7 +331,7 @@ cdef class ParquetReader:
         MemoryPool* allocator
         unique_ptr[FileReader] reader
         column_idx_map
-        ParquetFileMetadata _metadata
+        FileMetaData _metadata
 
     def __cinit__(self):
         self.allocator = default_memory_pool()
@@ -317,13 +360,13 @@ cdef class ParquetReader:
     def metadata(self):
         cdef:
             shared_ptr[CFileMetaData] metadata
-            ParquetFileMetadata result
+            FileMetaData result
         if self._metadata is not None:
             return self._metadata
 
         metadata = self.reader.get().parquet_reader().metadata()
 
-        self._metadata = result = ParquetFileMetadata()
+        self._metadata = result = FileMetaData()
         result.init(metadata)
         return result
 
@@ -354,7 +397,7 @@ cdef class ParquetReader:
             Integer index of the position of the column
         """
         cdef:
-            ParquetFileMetadata container = self.metadata
+            FileMetaData container = self.metadata
             const CFileMetaData* metadata = container.metadata
             int i = 0
 
