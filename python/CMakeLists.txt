@@ -428,7 +428,7 @@ if (PYARROW_BUILD_PARQUET)
     parquet_arrow)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
-    parquet)
+    _parquet)
 endif()
 
 add_library(pyarrow SHARED
