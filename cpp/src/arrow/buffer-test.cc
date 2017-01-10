@@ -53,8 +53,17 @@ TEST_F(TestBuffer, Resize) {
   ASSERT_EQ(200, buf.size());
 
   // Make it smaller, too
-  ASSERT_OK(buf.Resize(50));
+  ASSERT_OK(buf.Resize(50, true));
   ASSERT_EQ(50, buf.size());
+  // We have actually shrunken in size
+  // The spec requires that capacity is a multiple of 64
+  ASSERT_EQ(64, buf.capacity());
+
+  // Resize to a larger capacity again to test shrink_to_fit = false
+  ASSERT_OK(buf.Resize(100));
+  ASSERT_EQ(128, buf.capacity());
+  ASSERT_OK(buf.Resize(50, false));
+  ASSERT_EQ(128, buf.capacity());
 }
 
 TEST_F(TestBuffer, ResizeOOM) {

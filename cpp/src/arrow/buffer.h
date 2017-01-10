@@ -127,10 +127,13 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
 
 class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
  public:
-  // Change buffer reported size to indicated size, allocating memory if
-  // necessary.  This will ensure that the capacity of the buffer is a multiple
-  // of 64 bytes as defined in Layout.md.
-  virtual Status Resize(int64_t new_size) = 0;
+  /// Change buffer reported size to indicated size, allocating memory if
+  /// necessary.  This will ensure that the capacity of the buffer is a multiple
+  /// of 64 bytes as defined in Layout.md.
+  ///
+  /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
+  /// decrease.
+  virtual Status Resize(int64_t new_size, bool shrink_to_fit = true) = 0;
 
   // Ensure that buffer has enough memory allocated to fit the indicated
   // capacity (and meets the 64 byte padding requirement in Layout.md).
@@ -147,7 +150,7 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
   explicit PoolBuffer(MemoryPool* pool = nullptr);
   virtual ~PoolBuffer();
 
-  Status Resize(int64_t new_size) override;
+  Status Resize(int64_t new_size, bool shrink_to_fit = true) override;
   Status Reserve(int64_t new_capacity) override;
 
  private:
