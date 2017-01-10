@@ -23,18 +23,24 @@ include_directories(SYSTEM "{JEMALLOC_INCLUDE_DIR}")
 # arrow_jemalloc library
 set(ARROW_JEMALLOC_STATIC_LINK_LIBS
   arrow_static
-  jemalloc
+  jemalloc_static
 )
+
+if (NOT APPLE)
+  set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} pthread)
+endif()
+
 set(ARROW_JEMALLOC_SHARED_LINK_LIBS
   arrow_shared
-  jemalloc
+  jemalloc_shared
 )
 
 if (ARROW_BUILD_STATIC)
   set(ARROW_JEMALLOC_TEST_LINK_LIBS
+    ${ARROW_JEMALLOC_STATIC_LINK_LIBS}
     arrow_jemalloc_static)
 else()
-  set(ARROW_jemalloc_TEST_LINK_LIBS
+  set(ARROW_JEMALLOC_TEST_LINK_LIBS
     arrow_jemalloc_shared)
 endif()
 

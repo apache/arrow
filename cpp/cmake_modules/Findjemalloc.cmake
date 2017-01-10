@@ -47,11 +47,16 @@ if ( _jemalloc_roots )
     find_library( JEMALLOC_SHARED_LIB NAMES ${LIBJEMALLOC_NAMES}
         PATHS ${_jemalloc_roots} NO_DEFAULT_PATH
         PATH_SUFFIXES "lib" )
+    find_library( JEMALLOC_STATIC_LIB NAMES jemalloc_pic
+        PATHS ${_jemalloc_roots} NO_DEFAULT_PATH
+        PATH_SUFFIXES "lib" )
 else ()
     find_path( JEMALLOC_INCLUDE_DIR NAMES jemalloc/jemalloc.h )
     message(STATUS ${JEMALLOC_INCLUDE_DIR})
     find_library( JEMALLOC_SHARED_LIB NAMES ${LIBJEMALLOC_NAMES})
     message(STATUS ${JEMALLOC_SHARED_LIB})
+    find_library( JEMALLOC_STATIC_LIB NAMES jemalloc_pic)
+    message(STATUS ${JEMALLOC_STATIC_LIB})
 endif ()
 
 if (JEMALLOC_INCLUDE_DIR AND JEMALLOC_SHARED_LIB)

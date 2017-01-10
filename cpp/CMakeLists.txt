@@ -30,6 +30,7 @@ set(GFLAGS_VERSION "2.1.2")
 set(GTEST_VERSION "1.7.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.3.0")
+set(JEMALLOC_VERSION "4.4.0")
 
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
@@ -76,7 +77,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    OFF)
+    ON)
 
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
@@ -594,11 +595,43 @@ message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
 include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 
 if (ARROW_JEMALLOC)
-  find_package(jemalloc REQUIRED)
+  find_package(jemalloc)
+
+  if(NOT JEMALLOC_FOUND)
+    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep")
+    set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
+    set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
+    set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(JEMALLOC_VENDORED 1)
+    if (CMAKE_VERSION VERSION_GREATER "3.2")
+      # BUILD_BYPRODUCTS is a 3.2+ feature
+      ExternalProject_Add(jemalloc_ep
+        URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
+        CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
+        BUILD_IN_SOURCE 1
+        BUILD_COMMAND ${MAKE}
+        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}")
+    else()
+      ExternalProject_Add(jemalloc_ep
+        URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
+        CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
+        BUILD_IN_SOURCE 1
+        BUILD_COMMAND ${MAKE})
+    endif()
+  else()
+    set(JEMALLOC_VENDORED 0)
+  endif()
 
   include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(jemalloc
+      STATIC_LIB ${JEMALLOC_STATIC_LIB}
       SHARED_LIB ${JEMALLOC_SHARED_LIB})
+
+  if (JEMALLOC_VENDORED)
+    add_dependencies(jemalloc_shared jemalloc_ep)
+    add_dependencies(jemalloc_static jemalloc_ep)
+  endif()
 endif()
 
 ## Google PerfTools
