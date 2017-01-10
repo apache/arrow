@@ -31,7 +31,10 @@ TEST(Metadata, TestBuildAccess) {
   parquet::schema::NodePtr root;
   parquet::SchemaDescriptor schema;
 
-  std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+  WriterProperties::Builder prop_builder;
+
+  std::shared_ptr<WriterProperties> props =
+      prop_builder.version(ParquetVersion::PARQUET_2_0)->build();
 
   fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
   fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
@@ -84,7 +87,7 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(nrows, f_accessor->num_rows());
   ASSERT_LE(0, f_accessor->size());
   ASSERT_EQ(2, f_accessor->num_row_groups());
-  ASSERT_EQ(DEFAULT_WRITER_VERSION, f_accessor->version());
+  ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
   ASSERT_EQ(3, f_accessor->num_schema_elements());
 
@@ -110,8 +113,8 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
   ASSERT_EQ(nrows / 2, rg1_column1->num_values());
   ASSERT_EQ(nrows / 2, rg1_column2->num_values());
-  ASSERT_EQ(2, rg1_column1->encodings().size());
-  ASSERT_EQ(2, rg1_column2->encodings().size());
+  ASSERT_EQ(3, rg1_column1->encodings().size());
+  ASSERT_EQ(3, rg1_column2->encodings().size());
   ASSERT_EQ(512, rg1_column1->total_compressed_size());
   ASSERT_EQ(512, rg1_column2->total_compressed_size());
   ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
@@ -142,8 +145,8 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(nrows / 2, rg2_column2->num_values());
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
   ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-  ASSERT_EQ(2, rg2_column1->encodings().size());
-  ASSERT_EQ(2, rg2_column2->encodings().size());
+  ASSERT_EQ(3, rg2_column1->encodings().size());
+  ASSERT_EQ(3, rg2_column2->encodings().size());
   ASSERT_EQ(512, rg2_column1->total_compressed_size());
   ASSERT_EQ(512, rg2_column2->total_compressed_size());
   ASSERT_EQ(600, rg2_column1->total_uncompressed_size());

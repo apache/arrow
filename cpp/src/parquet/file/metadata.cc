@@ -358,8 +358,17 @@ int FileMetaData::num_row_groups() const {
   return impl_->num_row_groups();
 }
 
-int32_t FileMetaData::version() const {
-  return impl_->version();
+ParquetVersion::type FileMetaData::version() const {
+  switch (impl_->version()) {
+    case 1:
+      return ParquetVersion::PARQUET_1_0;
+    case 2:
+      return ParquetVersion::PARQUET_2_0;
+    default:
+      // Improperly set version, assuming Parquet 1.0
+      break;
+  }
+  return ParquetVersion::PARQUET_1_0;
 }
 
 const FileMetaData::Version& FileMetaData::writer_version() const {
@@ -656,7 +665,17 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     }
     metadata_->__set_num_rows(total_rows);
     metadata_->__set_row_groups(row_groups);
-    metadata_->__set_version(properties_->version());
+
+    int32_t file_version = 0;
+    switch (properties_->version()) {
+      case ParquetVersion::PARQUET_1_0:
+        file_version = 1;
+      case ParquetVersion::PARQUET_2_0:
+        file_version = 2;
+      default:
+        break;
+    }
+    metadata_->__set_version(file_version);
     metadata_->__set_created_by(properties_->created_by());
     parquet::schema::SchemaFlattener flattener(
         static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),

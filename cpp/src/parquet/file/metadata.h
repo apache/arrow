@@ -130,7 +130,7 @@ class PARQUET_EXPORT FileMetaData {
   int num_columns() const;
   int64_t num_rows() const;
   int num_row_groups() const;
-  int32_t version() const;
+  ParquetVersion::type version() const;
   const std::string& created_by() const;
   int num_schema_elements() const;
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) const;
