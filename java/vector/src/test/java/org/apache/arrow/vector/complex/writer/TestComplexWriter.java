@@ -490,22 +490,47 @@ public class TestComplexWriter {
 
   @Test
   public void mapWriterMixedCaseFieldNames() {
+    // test case-sensitive MapWriter
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
-    rootWriter.bigInt("int_field");
-    rootWriter.bigInt("Int_Field");
-    rootWriter.float4("float_field");
-    rootWriter.float4("Float_Field");
+    MapWriter rootWriterCaseSensitive = writer.rootAsMap(true);
+    rootWriterCaseSensitive.bigInt("int_field");
+    rootWriterCaseSensitive.bigInt("Int_Field");
+    rootWriterCaseSensitive.float4("float_field");
+    rootWriterCaseSensitive.float4("Float_Field");
 
-    List<Field> fields = parent.getField().getChildren().get(0).getChildren();
-    Set<String> fieldNames = new HashSet<>();
-    for (Field field: fields) {
-      fieldNames.add(field.getName());
+    List<Field> fieldsCaseSensitive = parent.getField().getChildren().get(0).getChildren();
+    Set<String> fieldNamesCaseSensitive = new HashSet<>();
+    for (Field field: fieldsCaseSensitive) {
+      fieldNamesCaseSensitive.add(field.getName());
     }
-    Assert.assertTrue(fieldNames.contains("int_field"));
-    Assert.assertTrue(fieldNames.contains("Int_Field"));
-    Assert.assertTrue(fieldNames.contains("float_field"));
-    Assert.assertTrue(fieldNames.contains("Float_Field"));
+    Assert.assertEquals(4, fieldNamesCaseSensitive.size());
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("int_field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("Int_Field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("float_field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("Float_Field"));
+
+    try {
+      writer.rootAsMap(false);
+      Assert.fail("IllegalArgumentException expected");
+    } catch (IllegalArgumentException ignored) {}
+
+    // test case-insensitive MapWriter
+    ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent);
+    MapWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsMap(false);
+
+    rootWriterCaseInsensitive.bigInt("int_field");
+    rootWriterCaseInsensitive.bigInt("Int_Field");
+    rootWriterCaseInsensitive.float4("float_field");
+    rootWriterCaseInsensitive.float4("Float_Field");
+
+    List<Field> fieldsCaseInsensitive = parent.getField().getChildren().get(1).getChildren();
+    Set<String> fieldNamesCaseInsensitive = new HashSet<>();
+    for (Field field: fieldsCaseInsensitive) {
+      fieldNamesCaseInsensitive.add(field.getName());
+    }
+    Assert.assertEquals(2, fieldNamesCaseInsensitive.size());
+    Assert.assertTrue(fieldNamesCaseInsensitive.contains("int_field"));
+    Assert.assertTrue(fieldNamesCaseInsensitive.contains("float_field"));
   }
 }

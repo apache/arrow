@@ -48,14 +48,16 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
+  private final boolean caseSensitive;
 
-  public ${mode}MapWriter(${containerClass} container) {
+  public ${mode}MapWriter(${containerClass} container, boolean caseSensitive) {
     <#if mode == "Single">
     if (container instanceof NullableMapVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
     this.container = container;
+    this.caseSensitive = caseSensitive;
     for (Field child : container.getField().getChildren()) {
       switch (Types.getMinorTypeForArrowType(child.getType())) {
       case MAP:
@@ -66,7 +68,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         break;
       case UNION:
         UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class));
-        fields.put(child.getName(), writer);
+        fields.put(handleCase(child.getName()), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
 <#assign lowerName = minor.class?uncap_first />
@@ -83,6 +85,18 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 </#list></#list>
       }
     }
+  }
+
+  public ${mode}MapWriter(${containerClass} container) {
+    this(container, false);
+  }
+
+  private String handleCase(final String input) {
+    return this.caseSensitive? input : input.toLowerCase();
+  }
+
+  public boolean getCaseSensitivity() {
+    return this.caseSensitive;
   }
 
   @Override
@@ -102,7 +116,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(String name) {
-      FieldWriter writer = fields.get(name);
+      FieldWriter writer = fields.get(handleCase(name));
     if(writer == null){
       int vectorCount=container.size();
       NullableMapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
@@ -111,7 +125,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(name, writer);
+      fields.put(handleCase(name), writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -145,7 +159,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public ListWriter list(String name) {
-    FieldWriter writer = fields.get(name);
+    FieldWriter writer = fields.get(handleCase(name));
     int vectorCount = container.size();
     if(writer == null) {
       writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container);
@@ -153,7 +167,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(name, writer);
+      fields.put(handleCase(name), writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -199,7 +213,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#if minor.class?starts_with("Decimal") >
   public ${minor.class}Writer ${lowerName}(String name) {
     // returns existing writer
-    final FieldWriter writer = fields.get(name);
+    final FieldWriter writer = fields.get(handleCase(name));
     assert writer != null;
     return writer;
   }
@@ -209,7 +223,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   @Override
   public ${minor.class}Writer ${lowerName}(String name) {
   </#if>
-    FieldWriter writer = fields.get(name);
+    FieldWriter writer = fields.get(handleCase(name));
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
@@ -220,7 +234,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         vector.allocateNewSafe();
       } 
       writer.setPosition(idx());
-      fields.put(name, writer);
+      fields.put(handleCase(name), writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized

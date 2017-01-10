@@ -139,17 +139,22 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public MapWriter rootAsMap() {
+  public MapWriter rootAsMap(Boolean caseSensitive) {
     switch(mode){
 
     case INIT:
       NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      mapRoot = new NullableMapWriter(map);
+      boolean caseSensitivityPrimitive = caseSensitive == null? false : caseSensitive;
+      mapRoot = new NullableMapWriter(map, caseSensitivityPrimitive);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
 
     case MAP:
+      if (caseSensitive != null && caseSensitive != mapRoot.getCaseSensitivity()) {
+        throw new IllegalArgumentException("Writer has been initialized with case sensitivity of \"" +
+            String.valueOf(mapRoot.getCaseSensitivity()) + "\"");
+      }
       break;
 
     default:
@@ -157,6 +162,11 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     }
 
     return mapRoot;
+  }
+
+  @Override
+  public MapWriter rootAsMap() {
+    return rootAsMap(null);
   }
 
 
