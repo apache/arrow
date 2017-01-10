@@ -32,7 +32,7 @@ build_script:
  - cd build
  # A lot of features are still deactivated as they do not build on Windows
  #  * gbenchmark doesn't build with MSVC
- - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF ..
+ - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_JEMALLOC=OFF ..
  - cmake --build . --config Debug
 
 # test_script:
