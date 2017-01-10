@@ -95,7 +95,7 @@ class build_ext(_build_ext):
         'error',
         'io',
         'ipc',
-        'parquet',
+        '_parquet',
         'scalar',
         'schema',
         'table']
@@ -214,7 +214,7 @@ class build_ext(_build_ext):
         os.chdir(saved_cwd)
 
     def _failure_permitted(self, name):
-        if name == 'parquet' and not self.with_parquet:
+        if name == '_parquet' and not self.with_parquet:
             return True
         return False
 

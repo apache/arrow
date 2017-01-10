@@ -55,10 +55,8 @@ def test_single_pylist_column_roundtrip(tmpdir):
             assert data_written.equals(data_read)
 
 
-@parquet
-def test_pandas_parquet_2_0_rountrip(tmpdir):
-    size = 10000
-    np.random.seed(0)
+def alltypes_sample(size=10000, seed=0):
+    np.random.seed(seed)
     df = pd.DataFrame({
         'uint8': np.arange(size, dtype=np.uint8),
         'uint16': np.arange(size, dtype=np.uint16),
@@ -71,13 +69,21 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        # Pandas only support ns resolution, Arrow at the moment only ms
+        # TODO(wesm): Test other timestamp resolutions now that arrow supports
+        # them
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
     })
+    return df
+
+
+@parquet
+def test_pandas_parquet_2_0_rountrip(tmpdir):
+    df = alltypes_sample(size=10000)
+
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = A.Table.from_pandas(df, timestamps_to_ms=True)
     A.parquet.write_table(arrow_table, filename.strpath, version="2.0")
@@ -116,6 +122,7 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     df['uint32'] = df['uint32'].values.astype(np.int64)
 
     pdt.assert_frame_equal(df, df_read)
+
 
 @parquet
 def test_pandas_column_selection(tmpdir):
@@ -227,3 +234,57 @@ def test_pandas_parquet_configuration_options(tmpdir):
         table_read = pq.read_table(filename.strpath)
         df_read = table_read.to_pandas()
         pdt.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_parquet_metadata_api():
+    df = alltypes_sample(size=10000)
+    df = df.reindex(columns=sorted(df.columns))
+
+    a_table = A.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(a_table, buf, compression='snappy', version='2.0')
+
+    buf.seek(0)
+    fileh = pq.ParquetFile(buf)
+
+    ncols = len(df.columns)
+
+    # Series of sniff tests
+    meta = fileh.metadata
+    repr(meta)
+    assert meta.num_rows == len(df)
+    assert meta.num_columns == ncols
+    assert meta.num_row_groups == 1
+    assert meta.format_version == '2.0'
+    assert 'parquet-cpp' in meta.created_by
+
+    # Schema
+    schema = fileh.schema
+    assert meta.schema is schema
+    assert len(schema) == ncols
+    repr(schema)
+
+    col = schema[0]
+    repr(col)
+    assert col.name == df.columns[0]
+    assert col.max_definition_level == 1
+    assert col.max_repetition_level == 0
+    assert col.max_repetition_level == 0
+
+    assert col.physical_type == 'BOOLEAN'
+    assert col.logical_type == 'NONE'
+
+    with pytest.raises(IndexError):
+        schema[ncols]
+
+    with pytest.raises(IndexError):
+        schema[-1]
+
+    # Row group
+    rg_meta = meta.row_group(0)
+    repr(rg_meta)
+
+    assert rg_meta.num_rows == len(df)
+    assert rg_meta.num_columns == ncols
