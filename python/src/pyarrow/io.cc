@@ -203,14 +203,8 @@ Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 // A readable file that is backed by a PyBytes
 
 PyBytesReader::PyBytesReader(PyObject* obj)
-    : arrow::io::BufferReader(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
-          PyBytes_GET_SIZE(obj)),
-      obj_(obj) {
-  Py_INCREF(obj_);
-}
+    : arrow::io::BufferReader(std::make_shared<PyBytesBuffer>(obj)) {}
 
-PyBytesReader::~PyBytesReader() {
-  Py_DECREF(obj_);
-}
+PyBytesReader::~PyBytesReader() {}
 
 }  // namespace pyarrow

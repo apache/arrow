@@ -22,6 +22,8 @@
 #include "arrow/io/memory.h"
 
 #include "pyarrow/config.h"
+
+#include "pyarrow/common.h"
 #include "pyarrow/visibility.h"
 
 namespace arrow {
@@ -87,9 +89,6 @@ class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
  public:
   explicit PyBytesReader(PyObject* obj);
   virtual ~PyBytesReader();
-
- private:
-  PyObject* obj_;
 };
 
 // TODO(wesm): seekable output files

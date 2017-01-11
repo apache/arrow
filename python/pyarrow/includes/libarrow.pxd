@@ -1,4 +1,4 @@
-# Licensed to the Apache Software Foundation (ASF) under one
+# Licensed to the Apache Sftware Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -66,6 +66,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CBuffer" arrow::Buffer":
         uint8_t* data()
         int64_t size()
+        shared_ptr[CBuffer] parent()
 
     cdef cppclass ResizableBuffer(CBuffer):
         CStatus Resize(int64_t nbytes)

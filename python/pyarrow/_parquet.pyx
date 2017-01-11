@@ -138,11 +138,11 @@ cdef class FileMetaData:
     property format_version:
 
         def __get__(self):
-            cdef int version = self.metadata.version()
-            if version == 2:
-                return '2.0'
-            elif version == 1:
+            cdef ParquetVersion version = self.metadata.version()
+            if version == ParquetVersion_V1:
                 return '1.0'
+            if version == ParquetVersion_V2:
+                return '2.0'
             else:
                 print('Unrecognized file version, assuming 1.0: {0}'
                       .format(version))
