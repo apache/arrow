@@ -110,7 +110,7 @@ def test_bytes_reader_retains_parent_reference():
         data = b'some sample data' * 1000
         reader = io.BytesReader(data)
         reader.seek(5)
-        return reader.buffer_read(6)
+        return reader.read_buffer(6)
 
     buf = get_buffer()
     gc.collect()

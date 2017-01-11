@@ -148,7 +148,7 @@ cdef class NativeFile:
 
         return PyObject_to_object(obj)
 
-    def buffer_read(self, nbytes=None):
+    def read_buffer(self, nbytes=None):
         cdef:
             int64_t c_nbytes
             int64_t bytes_read = 0
