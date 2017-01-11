@@ -88,8 +88,11 @@ class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
   explicit PyBytesReader(PyObject* obj);
   virtual ~PyBytesReader();
 
+  arrow::Status Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) override;
+
  private:
   PyObject* obj_;
+  bool hasZeroCopyRef_;
 };
 
 // TODO(wesm): seekable output files
