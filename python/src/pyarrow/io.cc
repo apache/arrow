@@ -205,12 +205,22 @@ Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 PyBytesReader::PyBytesReader(PyObject* obj)
     : arrow::io::BufferReader(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
           PyBytes_GET_SIZE(obj)),
-      obj_(obj) {
+      obj_(obj),
+      hasZeroCopyRef_(false) {
   Py_INCREF(obj_);
 }
 
 PyBytesReader::~PyBytesReader() {
   Py_DECREF(obj_);
+}
+
+Status PyBytesReader::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
+  Status status = arrow::io::BufferReader::Read(nbytes, out);
+  if (!hasZeroCopyRef_) {
+      Py_INCREF(obj_);
+      hasZeroCopyRef_ = true;
+  }
+  return status;
 }
 
 }  // namespace pyarrow
