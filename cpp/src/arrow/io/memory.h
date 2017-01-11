@@ -79,6 +79,8 @@ class ARROW_EXPORT BufferReader : public ReadableFileInterface {
 
   bool supports_zero_copy() const override;
 
+  std::shared_ptr<Buffer> buffer() const { return buffer_; }
+
  private:
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;

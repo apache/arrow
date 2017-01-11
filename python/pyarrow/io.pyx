@@ -123,10 +123,16 @@ cdef class NativeFile:
         with nogil:
             check_status(self.wr_file.get().Write(buf, bufsize))
 
-    def read(self, int64_t nbytes):
+    def read(self, nbytes=None):
         cdef:
+            int64_t c_nbytes
             int64_t bytes_read = 0
             PyObject* obj
+
+        if nbytes is None:
+            c_nbytes = self.size() - self.tell()
+        else:
+            c_nbytes = nbytes
 
         self._assert_readable()
 
@@ -135,16 +141,34 @@ cdef class NativeFile:
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(self.rd_file.get().Read(nbytes, &bytes_read, buf))
+            check_status(self.rd_file.get().Read(c_nbytes, &bytes_read, buf))
 
-        if bytes_read < nbytes:
+        if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
 
+    def read_buffer(self, nbytes=None):
+        cdef:
+            int64_t c_nbytes
+            int64_t bytes_read = 0
+            shared_ptr[CBuffer] output
+        self._assert_readable()
+
+        if nbytes is None:
+            c_nbytes = self.size() - self.tell()
+        else:
+            c_nbytes = nbytes
+
+        with nogil:
+            check_status(self.rd_file.get().ReadB(c_nbytes, &output))
+
+        return wrap_buffer(output)
+
 
 # ----------------------------------------------------------------------
 # Python file-like objects
+
 
 cdef class PythonFileInterface(NativeFile):
     cdef:
@@ -199,6 +223,16 @@ cdef class Buffer:
         def __get__(self):
             return self.buffer.get().size()
 
+    property parent:
+
+        def __get__(self):
+            cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
+
+            if parent_buf.get() == NULL:
+                return None
+            else:
+                return wrap_buffer(parent_buf)
+
     def __getitem__(self, key):
         # TODO(wesm): buffer slicing
         raise NotImplementedError
@@ -207,6 +241,12 @@ cdef class Buffer:
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
+
+
+cdef wrap_buffer(const shared_ptr[CBuffer]& buffer):
+    cdef Buffer result = Buffer()
+    result.buffer = buffer
+    return result
 
 
 cdef shared_ptr[PoolBuffer] allocate_buffer():

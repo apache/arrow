@@ -102,6 +102,20 @@ def test_bytes_reader_non_bytes():
         io.BytesReader(u('some sample data'))
 
 
+def test_bytes_reader_retains_parent_reference():
+    import gc
+
+    # ARROW-421
+    def get_buffer():
+        data = b'some sample data' * 1000
+        reader = io.BytesReader(data)
+        reader.seek(5)
+        return reader.read_buffer(6)
+
+    buf = get_buffer()
+    gc.collect()
+    assert buf.to_pybytes() == b'sample'
+    assert buf.parent is not None
 
 # ----------------------------------------------------------------------
 # Buffers

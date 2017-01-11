@@ -156,7 +156,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int num_columns()
         int64_t num_rows()
         int num_row_groups()
-        int32_t version()
+        ParquetVersion version()
         const c_string created_by()
         int num_schema_elements()
 
