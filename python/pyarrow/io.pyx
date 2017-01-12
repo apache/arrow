@@ -208,13 +208,13 @@ cdef class MemoryMappedFile(NativeFile):
             shared_ptr[CMemoryMappedFile] handle
             c_string c_path = encode_file_path(path)
 
+        self.is_readable = self.is_writeable = 0
+
         if mode in ('r', 'rb'):
             c_mode = FileMode_READ
             self.is_readable = 1
-            self.is_writeable = 0
         elif mode in ('w', 'wb'):
             c_mode = FileMode_WRITE
-            self.is_readable = 0
             self.is_writeable = 1
         elif mode == 'r+w':
             c_mode = FileMode_READWRITE
@@ -228,6 +228,51 @@ cdef class MemoryMappedFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[ReadableFileInterface]> handle
         self.is_open = True
+
+
+cdef class OSFile(NativeFile):
+    """
+    Supports 'r', 'w' modes
+    """
+    cdef:
+        object path
+
+    def __cinit__(self, path, mode='r'):
+        self.path = path
+
+        cdef:
+            FileMode c_mode
+            shared_ptr[Readable] handle
+            c_string c_path = encode_file_path(path)
+
+        self.is_readable = self.is_writeable = 0
+
+        if mode in ('r', 'rb'):
+            self._open_readable(c_path)
+        elif mode in ('w', 'wb'):
+            self._open_writeable(c_path)
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        self.is_open = True
+
+    cdef _open_readable(self, c_string path):
+        cdef shared_ptr[ReadableFile] handle
+
+        with nogil:
+            check_status(ReadableFile.Open(path, pyarrow.get_memory_pool(),
+                                           &handle))
+
+        self.is_readable = 1
+        self.rd_file = <shared_ptr[ReadableFileInterface]> handle
+
+    cdef _open_writeable(self, c_string path):
+        cdef shared_ptr[FileOutputStream] handle
+
+        with nogil:
+            check_status(FileOutputStream.Open(path, &handle))
+        self.is_writeable = 1
+        self.wr_file = <shared_ptr[OutputStream]> handle
 
 
 cdef class BytesReader(NativeFile):
