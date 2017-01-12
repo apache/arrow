@@ -532,8 +532,8 @@ class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
       // Memory mapping has permission failures if PROT_READ not set
       prot_flags = PROT_READ | PROT_WRITE;
       map_mode = MAP_SHARED;
-      static const bool append = true;
-      static const bool write_only = false;
+      constexpr bool append = true;
+      constexpr bool write_only = false;
       RETURN_NOT_OK(OSFile::OpenWriteable(path, append, write_only));
       mode_ = mode;
     } else {
