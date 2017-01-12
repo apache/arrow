@@ -19,13 +19,15 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CTable,
-                                        CDataType, CStatus, Type, MemoryPool)
+                                        CDataType, CStatus, Type, MemoryPool,
+                                        TimeUnit)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
 
 
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
+    shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
     CStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
     CStatus PandasToArrow(MemoryPool* pool, object ao,

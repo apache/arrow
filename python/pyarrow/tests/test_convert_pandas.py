@@ -60,65 +60,79 @@ class TestPandasConversion(unittest.TestCase):
         pass
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
-                                timestamps_to_ms=False):
+                                timestamps_to_ms=False, expected_schema=None):
         table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms)
         result = table.to_pandas(nthreads=nthreads)
+        if expected_schema:
+            assert table.schema.equals(expected_schema)
         if expected is None:
             expected = df
         tm.assert_frame_equal(result, expected)
 
     def test_float_no_nulls(self):
         data = {}
-        numpy_dtypes = ['f4', 'f8']
+        fields = []
+        dtypes = [('f4', A.float_()), ('f8', A.double())]
         num_values = 100
 
-        for dtype in numpy_dtypes:
+        for numpy_dtype, arrow_dtype in dtypes:
             values = np.random.randn(num_values)
-            data[dtype] = values.astype(dtype)
+            data[numpy_dtype] = values.astype(numpy_dtype)
+            fields.append(A.Field.from_py(numpy_dtype, arrow_dtype))
 
         df = pd.DataFrame(data)
-        self._check_pandas_roundtrip(df)
+        schema = A.Schema.from_fields(fields)
+        self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_float_nulls(self):
         num_values = 100
 
         null_mask = np.random.randint(0, 10, size=num_values) < 3
-        dtypes = ['f4', 'f8']
+        dtypes = [('f4', A.float_()), ('f8', A.double())]
+        names = ['f4', 'f8']
         expected_cols = []
 
         arrays = []
-        for name in dtypes:
+        fields = []
+        for name, arrow_dtype in dtypes:
             values = np.random.randn(num_values).astype(name)
 
             arr = A.from_pandas_series(values, null_mask)
             arrays.append(arr)
-
+            fields.append(A.Field.from_py(name, arrow_dtype))
             values[null_mask] = np.nan
 
             expected_cols.append(values)
 
-        ex_frame = pd.DataFrame(dict(zip(dtypes, expected_cols)),
-                                columns=dtypes)
+        ex_frame = pd.DataFrame(dict(zip(names, expected_cols)),
+                                columns=names)
 
-        table = A.Table.from_arrays(dtypes, arrays)
+        table = A.Table.from_arrays(names, arrays)
+        assert table.schema.equals(A.Schema.from_fields(fields))
         result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
 
     def test_integer_no_nulls(self):
         data = {}
+        fields = []
 
-        numpy_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8']
+        numpy_dtypes = [('i1', A.int8()), ('i2', A.int16()),
+                        ('i4', A.int32()), ('i8', A.int64()),
+                        ('u1', A.uint8()), ('u2', A.uint16()),
+                        ('u4', A.uint32()), ('u8', A.uint64())]
         num_values = 100
 
-        for dtype in numpy_dtypes:
+        for dtype, arrow_dtype in numpy_dtypes:
             info = np.iinfo(dtype)
             values = np.random.randint(info.min,
                                        min(info.max, np.iinfo('i8').max),
                                        size=num_values)
             data[dtype] = values.astype(dtype)
+            fields.append(A.Field.from_py(dtype, arrow_dtype))
 
         df = pd.DataFrame(data)
-        self._check_pandas_roundtrip(df)
+        schema = A.Schema.from_fields(fields)
+        self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
@@ -155,7 +169,9 @@ class TestPandasConversion(unittest.TestCase):
         np.random.seed(0)
 
         df = pd.DataFrame({'bools': np.random.randn(num_values) > 0})
-        self._check_pandas_roundtrip(df)
+        field = A.Field.from_py('bools', A.bool_())
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_boolean_nulls(self):
         # pandas requires upcast to object dtype
@@ -170,9 +186,12 @@ class TestPandasConversion(unittest.TestCase):
         expected = values.astype(object)
         expected[mask] = None
 
+        field = A.Field.from_py('bools', A.bool_())
+        schema = A.Schema.from_fields([field])
         ex_frame = pd.DataFrame({'bools': expected})
 
         table = A.Table.from_arrays(['bools'], [arr])
+        assert table.schema.equals(schema)
         result = table.to_pandas()
 
         tm.assert_frame_equal(result, ex_frame)
@@ -180,14 +199,18 @@ class TestPandasConversion(unittest.TestCase):
     def test_boolean_object_nulls(self):
         arr = np.array([False, None, True] * 100, dtype=object)
         df = pd.DataFrame({'bools': arr})
-        self._check_pandas_roundtrip(df)
+        field = A.Field.from_py('bools', A.bool_())
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_unicode(self):
         repeats = 1000
         values = [u'foo', None, u'bar', u'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
+        field = A.Field.from_py('strings', A.string())
+        schema = A.Schema.from_fields([field])
 
-        self._check_pandas_roundtrip(df)
+        self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_bytes_to_binary(self):
         values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
@@ -208,7 +231,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
             })
-        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
+        field = A.Field.from_py('datetime64', A.timestamp('ms'))
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True, expected_schema=schema)
 
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -217,7 +242,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
             })
-        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
+        field = A.Field.from_py('datetime64', A.timestamp('ns'))
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False, expected_schema=schema)
 
     def test_timestamps_notimezone_nulls(self):
         df = pd.DataFrame({
@@ -227,8 +254,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
             })
-        df.info()
-        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
+        field = A.Field.from_py('datetime64', A.timestamp('ms'))
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True, expected_schema=schema)
 
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -237,7 +265,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
             })
-        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
+        field = A.Field.from_py('datetime64', A.timestamp('ns'))
+        schema = A.Schema.from_fields([field])
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False, expected_schema=schema)
 
     def test_date(self):
         df = pd.DataFrame({
@@ -246,6 +276,9 @@ class TestPandasConversion(unittest.TestCase):
                      datetime.date(1970, 1, 1),
                      datetime.date(2040, 2, 26)]})
         table = A.Table.from_pandas(df)
+        field = A.Field.from_py('date', A.date())
+        schema = A.Schema.from_fields([field])
+        assert table.schema.equals(schema)
         result = table.to_pandas()
         expected = df.copy()
         expected['date'] = pd.to_datetime(df['date'])

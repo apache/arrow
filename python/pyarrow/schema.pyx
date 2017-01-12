@@ -197,8 +197,28 @@ def uint64():
 def int64():
     return primitive_type(Type_INT64)
 
-def timestamp():
-    return primitive_type(Type_TIMESTAMP)
+cdef dict _timestamp_type_cache = {}
+
+def timestamp(unit_str):
+    cdef TimeUnit unit
+    if unit_str == "s":
+        unit = TimeUnit_SECOND
+    elif unit_str == 'ms':
+        unit = TimeUnit_MILLI
+    elif unit_str == 'us':
+        unit = TimeUnit_MICRO
+    elif unit_str == 'ns':
+        unit = TimeUnit_NANO
+    else:
+        raise TypeError('Invalid TimeUnit string')
+
+    if unit in _timestamp_type_cache:
+        return _timestamp_type_cache[unit]
+
+    cdef DataType out = DataType()
+    out.init(pyarrow.GetTimestampType(unit))
+    _timestamp_type_cache[unit] = out
+    return out
 
 def date():
     return primitive_type(Type_DATE)
