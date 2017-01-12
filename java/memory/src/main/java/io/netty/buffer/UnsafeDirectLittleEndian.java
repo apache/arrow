@@ -18,8 +18,6 @@
 
 package io.netty.buffer;
 
-import io.netty.util.internal.PlatformDependent;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,7 +30,7 @@ import io.netty.util.internal.PlatformDependent;
  * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to abstract away the
  * Netty classes and underlying Netty memory management.
  */
-public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
+public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private static final boolean NATIVE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
 
@@ -40,34 +38,24 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private final AbstractByteBuf wrapped;
   private final long memoryAddress;
 
-  private final AtomicLong bufferCount;
-  private final AtomicLong bufferSize;
-  private final long initCap;
-
   UnsafeDirectLittleEndian(DuplicatedByteBuf buf) {
-    this(buf, true, null, null);
+    this(buf, true);
   }
 
   UnsafeDirectLittleEndian(LargeBuffer buf) {
-    this(buf, true, null, null);
+    this(buf, true);
   }
 
-  UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong bufferCount, AtomicLong bufferSize) {
-    this(buf, true, bufferCount, bufferSize);
+  UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf) {
+    this(buf, true);
 
   }
 
-  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake, AtomicLong bufferCount, AtomicLong bufferSize) {
+  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
     super(buf);
     if (!NATIVE_ORDER || buf.order() != ByteOrder.BIG_ENDIAN) {
       throw new IllegalStateException("Arrow only runs on LittleEndian systems.");
     }
-
-    this.bufferCount = bufferCount;
-    this.bufferSize = bufferSize;
-
-    // initCap is used if we're tracking memory release. If we're in non-debug mode, we'll skip this.
-    this.initCap = ASSERT_ENABLED ? buf.capacity() : -1;
 
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
@@ -242,16 +230,6 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public boolean release() {
     return release(1);
-  }
-
-  @Override
-  public boolean release(int decrement) {
-    final boolean released = super.release(decrement);
-    if (ASSERT_ENABLED && released && bufferCount != null && bufferSize != null) {
-      bufferCount.decrementAndGet();
-      bufferSize.addAndGet(-initCap);
-    }
-    return released;
   }
 
   @Override

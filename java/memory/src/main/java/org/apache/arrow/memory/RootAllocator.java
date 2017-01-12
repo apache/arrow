@@ -24,9 +24,12 @@ import com.google.common.annotations.VisibleForTesting;
  * tree of descendant child allocators.
  */
 public class RootAllocator extends BaseAllocator {
-
   public RootAllocator(final long limit) {
-    super(null, "ROOT", 0, limit);
+    this(AllocationListener.NOOP, limit);
+  }
+
+  public RootAllocator(final AllocationListener listener, final long limit) {
+    super(listener, "ROOT", 0, limit);
   }
 
   /**

@@ -17,43 +17,16 @@
  */
 package io.netty.buffer;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * A MutableWrappedByteBuf that also maintains a metric of the number of huge buffer bytes and counts.
  */
 public class LargeBuffer extends MutableWrappedByteBuf {
-
-  private final AtomicLong hugeBufferSize;
-  private final AtomicLong hugeBufferCount;
-
-  private final int initCap;
-
-  public LargeBuffer(ByteBuf buffer, AtomicLong hugeBufferSize, AtomicLong hugeBufferCount) {
+  public LargeBuffer(ByteBuf buffer) {
     super(buffer);
-    initCap = buffer.capacity();
-    this.hugeBufferCount = hugeBufferCount;
-    this.hugeBufferSize = hugeBufferSize;
   }
 
   @Override
   public ByteBuf copy(int index, int length) {
-    return new LargeBuffer(buffer.copy(index, length), hugeBufferSize, hugeBufferCount);
+    return new LargeBuffer(buffer.copy(index, length));
   }
-
-  @Override
-  public boolean release() {
-    return release(1);
-  }
-
-  @Override
-  public boolean release(int decrement) {
-    boolean released = unwrap().release(decrement);
-    if (released) {
-      hugeBufferSize.addAndGet(-initCap);
-      hugeBufferCount.decrementAndGet();
-    }
-    return released;
-  }
-
 }

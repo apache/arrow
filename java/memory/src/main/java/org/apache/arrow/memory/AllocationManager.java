@@ -18,9 +18,6 @@
 package org.apache.arrow.memory;
 
 import static org.apache.arrow.memory.BaseAllocator.indent;
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.PooledByteBufAllocatorL;
-import io.netty.buffer.UnsafeDirectLittleEndian;
 
 import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,9 +28,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.AutoCloseableLock;
 import org.apache.arrow.memory.util.HistoricalLog;
-import org.apache.arrow.memory.util.Metrics;
 
 import com.google.common.base.Preconditions;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.PooledByteBufAllocatorL;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
  * Manages the relationship between one or more allocators and a particular UDLE. Ensures that one allocator owns the
@@ -56,7 +56,10 @@ public class AllocationManager {
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
-  static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL(Metrics.getInstance());
+  private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
+
+  static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
+  static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final RootAllocator root;
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();

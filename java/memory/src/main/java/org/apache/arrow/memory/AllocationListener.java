@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,26 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.memory.util;
+package org.apache.arrow.memory;
 
-import com.codahale.metrics.MetricRegistry;
-
-public class Metrics {
-
-  private Metrics() {
-
-  }
-
-  private static class RegistryHolder {
-    public static final MetricRegistry REGISTRY;
-
-    static {
-      REGISTRY = new MetricRegistry();
+/**
+ * An allocation listener being notified for allocation/deallocation
+ *
+ * It is expected to be called from multiple threads and as such,
+ * provider should take care of making the implementation thread-safe
+ */
+public interface AllocationListener {
+  public static final AllocationListener NOOP = new AllocationListener() {
+    @Override
+    public void onAllocation(long size) {
     }
+  };
 
-  }
+  /**
+   * Called each time a new buffer is allocated
+   *
+   * @param size the buffer size being allocated
+   */
+  void onAllocation(long size);
 
-  public static MetricRegistry getInstance() {
-    return RegistryHolder.REGISTRY;
-  }
 }
