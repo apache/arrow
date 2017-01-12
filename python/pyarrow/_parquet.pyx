@@ -19,8 +19,9 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from pyarrow._parquet cimport *
+from cython.operator cimport dereference as deref
 
+from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_io cimport (ReadableFileInterface, OutputStream,
                                            FileOutputStream)
@@ -196,6 +197,12 @@ cdef class Schema:
     def __getitem__(self, i):
         return self.column(i)
 
+    def equals(self, Schema other):
+        """
+        Returns True if the Parquet schemas are equal
+        """
+        return self.schema.Equals(deref(other.schema))
+
     def column(self, i):
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
@@ -216,6 +223,12 @@ cdef class ColumnSchema:
     cdef init_from_schema(self, Schema schema, int i):
         self.parent = schema
         self.descr = schema.schema.Column(i)
+
+    def equals(self, ColumnSchema other):
+        """
+        Returns True if the column schemas are equal
+        """
+        return self.descr.Equals(deref(other.descr))
 
     def __repr__(self):
         physical_type = self.physical_type

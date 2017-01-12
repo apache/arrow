@@ -99,8 +99,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetVersion_V2" parquet::ParquetVersion::PARQUET_2_0"
 
     cdef cppclass ColumnDescriptor:
-        shared_ptr[ColumnPath] path()
+        c_bool Equals(const ColumnDescriptor& other)
 
+        shared_ptr[ColumnPath] path()
         int16_t max_definition_level()
         int16_t max_repetition_level()
 
@@ -115,6 +116,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         const ColumnDescriptor* Column(int i)
         shared_ptr[Node] schema()
         GroupNode* group()
+        c_bool Equals(const SchemaDescriptor& other)
         int num_columns()
 
 
