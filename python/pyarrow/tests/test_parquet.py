@@ -244,7 +244,7 @@ def test_parquet_metadata_api():
     a_table = A.Table.from_pandas(df, timestamps_to_ms=True)
 
     buf = io.BytesIO()
-    pq.write_table(a_table, buf, compression='snappy', version='2.0')
+    pq.write_table(a_table, buf, compression='SNAPPY', version='2.0')
 
     buf.seek(0)
     fileh = pq.ParquetFile(buf)

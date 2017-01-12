@@ -112,7 +112,7 @@ class TestConvertList(unittest.TestCase):
         ]
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
-        assert arr.type == pyarrow.timestamp()
+        assert arr.type == pyarrow.timestamp('us')
         assert arr.null_count == 1
         assert arr[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                    23, 34, 123456)
