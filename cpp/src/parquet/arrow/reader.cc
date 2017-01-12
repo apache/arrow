@@ -190,12 +190,20 @@ FileReader::~FileReader() {}
 
 // Static ctor
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
-  // TODO(wesm): reader properties
+    MemoryPool* allocator, const ReaderProperties& props,
+    const std::shared_ptr<FileMetaData>& metadata, std::unique_ptr<FileReader>* reader) {
+  std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
   std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(file));
+  PARQUET_CATCH_NOT_OK(
+      pq_reader = ParquetReader::Open(std::move(io_wrapper), props, metadata));
   reader->reset(new FileReader(allocator, std::move(pq_reader)));
   return Status::OK();
+}
+
+Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+    MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
+  return OpenFile(file, allocator, ::parquet::default_reader_properties(),
+      nullptr, reader);
 }
 
 Status FileReader::GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out) {

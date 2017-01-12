@@ -203,16 +203,17 @@ class TestParquetIO : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
-  std::unique_ptr<ParquetFileReader> ReaderFromSink() {
+  void ReaderFromSink(std::unique_ptr<FileReader>* out) {
     std::shared_ptr<Buffer> buffer = sink_->GetBuffer();
-    return ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+            ::arrow::default_memory_pool(), ::parquet::default_reader_properties(),
+            nullptr, out));
   }
 
   void ReadSingleColumnFile(
-      std::unique_ptr<ParquetFileReader> file_reader, std::shared_ptr<Array>* out) {
-    FileReader reader(::arrow::default_memory_pool(), std::move(file_reader));
+      std::unique_ptr<FileReader> file_reader, std::shared_ptr<Array>* out) {
     std::unique_ptr<FlatColumnReader> column_reader;
-    ASSERT_OK_NO_THROW(reader.GetFlatColumn(0, &column_reader));
+    ASSERT_OK_NO_THROW(file_reader->GetFlatColumn(0, &column_reader));
     ASSERT_NE(nullptr, column_reader.get());
 
     ASSERT_OK(column_reader->NextBatch(SMALL_SIZE, out));
@@ -221,20 +222,24 @@ class TestParquetIO : public ::testing::Test {
 
   void ReadAndCheckSingleColumnFile(::arrow::Array* values) {
     std::shared_ptr<::arrow::Array> out;
-    ReadSingleColumnFile(ReaderFromSink(), &out);
+
+    std::unique_ptr<FileReader> reader;
+    ReaderFromSink(&reader);
+    ReadSingleColumnFile(std::move(reader), &out);
     ASSERT_TRUE(values->Equals(out));
   }
 
   void ReadTableFromFile(
-      std::unique_ptr<ParquetFileReader> file_reader, std::shared_ptr<Table>* out) {
-    FileReader reader(::arrow::default_memory_pool(), std::move(file_reader));
-    ASSERT_OK_NO_THROW(reader.ReadFlatTable(out));
+      std::unique_ptr<FileReader> reader, std::shared_ptr<Table>* out) {
+    ASSERT_OK_NO_THROW(reader->ReadFlatTable(out));
     ASSERT_NE(nullptr, out->get());
   }
 
   void ReadAndCheckSingleColumnTable(const std::shared_ptr<::arrow::Array>& values) {
     std::shared_ptr<::arrow::Table> out;
-    ReadTableFromFile(ReaderFromSink(), &out);
+    std::unique_ptr<FileReader> reader;
+    ReaderFromSink(&reader);
+    ReadTableFromFile(std::move(reader), &out);
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(values->length(), out->num_rows());
 
@@ -287,7 +292,9 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
       this->sink_, values->length(), default_writer_properties()));
 
   std::shared_ptr<Table> out;
-  this->ReadTableFromFile(this->ReaderFromSink(), &out);
+  std::unique_ptr<FileReader> reader;
+  this->ReaderFromSink(&reader);
+  this->ReadTableFromFile(std::move(reader), &out);
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(100, out->num_rows());
 
@@ -368,7 +375,9 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
 
   auto source = std::make_shared<BufferReader>(pbuffer);
   std::shared_ptr<::arrow::Table> out;
-  this->ReadTableFromFile(ParquetFileReader::Open(std::move(source)), &out);
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(source, ::arrow::default_memory_pool(), &reader));
+  this->ReadTableFromFile(std::move(reader), &out);
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(values->length(), out->num_rows());
 
@@ -530,7 +539,9 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
       this->sink_, values->length(), default_writer_properties()));
 
   std::shared_ptr<Table> out;
-  this->ReadTableFromFile(this->ReaderFromSink(), &out);
+  std::unique_ptr<FileReader> reader;
+  this->ReaderFromSink(&reader);
+  this->ReadTableFromFile(std::move(reader), &out);
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(100, out->num_rows());
 
@@ -558,7 +569,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
   typedef typename c_type_trait<TestType>::ArrowCType T;
 
   void MakeTestFile(std::vector<T>& values, int num_chunks,
-      std::unique_ptr<ParquetFileReader>* file_reader) {
+      std::unique_ptr<FileReader>* reader) {
     std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
     std::unique_ptr<ParquetFileWriter> file_writer = this->MakeWriter(schema);
     size_t chunk_size = values.size() / num_chunks;
@@ -578,12 +589,12 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
       row_group_writer->Close();
     }
     file_writer->Close();
-    *file_reader = this->ReaderFromSink();
+    this->ReaderFromSink(reader);
   }
 
   void CheckSingleColumnRequiredTableRead(int num_chunks) {
     std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
-    std::unique_ptr<ParquetFileReader> file_reader;
+    std::unique_ptr<FileReader> file_reader;
     ASSERT_NO_THROW(MakeTestFile(values, num_chunks, &file_reader));
 
     std::shared_ptr<Table> out;
@@ -598,7 +609,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
   void CheckSingleColumnRequiredRead(int num_chunks) {
     std::vector<T> values(SMALL_SIZE, test_traits<TestType>::value);
-    std::unique_ptr<ParquetFileReader> file_reader;
+    std::unique_ptr<FileReader> file_reader;
     ASSERT_NO_THROW(MakeTestFile(values, num_chunks, &file_reader));
 
     std::shared_ptr<Array> out;
