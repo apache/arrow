@@ -242,6 +242,7 @@ def make_sample_file(df):
     buf = io.BytesIO()
     pq.write_table(a_table, buf, compression='snappy', version='2.0')
 
+    buf.seek(0)
     return pq.ParquetFile(buf)
 
 
@@ -307,3 +308,23 @@ def test_compare_schemas():
 
     assert fileh.schema[0].equals(fileh.schema[0])
     assert not fileh.schema[0].equals(fileh.schema[1])
+
+
+@parquet
+def test_pass_separate_metadata():
+    # ARROW-471
+    df = alltypes_sample(size=10000)
+
+    a_table = A.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(a_table, buf, compression='snappy', version='2.0')
+
+    buf.seek(0)
+    metadata = pq.ParquetFile(buf).metadata
+
+    buf.seek(0)
+
+    fileh = pq.ParquetFile(buf, metadata=metadata)
+
+    pdt.assert_frame_equal(df, fileh.read().to_pandas())

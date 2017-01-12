@@ -33,7 +33,7 @@ class ParquetFile(object):
     """
     def __init__(self, source, metadata=None):
         self.reader = _parquet.ParquetReader()
-        self.reader.open(source)
+        self.reader.open(source, metadata=metadata)
 
     @property
     def metadata(self):
