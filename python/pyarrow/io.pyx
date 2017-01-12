@@ -139,7 +139,7 @@ cdef class NativeFile:
         self._assert_readable()
 
         # Allocate empty write space
-        obj = PyBytes_FromStringAndSizeNative(NULL, nbytes)
+        obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:

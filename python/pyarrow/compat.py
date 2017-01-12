@@ -54,6 +54,10 @@ if PY2:
     range = xrange
     long = long
 
+    def guid():
+        from uuid import uuid4
+        return uuid4().get_hex()
+
     def u(s):
         return unicode(s, "unicode_escape")
 
@@ -75,6 +79,10 @@ else:
         return list(x.values())
     from decimal import Decimal
     range = range
+
+    def guid():
+        from uuid import uuid4
+        return uuid4().hex
 
     def u(s):
         return s
