@@ -95,7 +95,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     return this.caseSensitive? input : input.toLowerCase();
   }
 
-  public boolean getCaseSensitivity() {
+  public boolean isCaseSensitive() {
     return this.caseSensitive;
   }
 

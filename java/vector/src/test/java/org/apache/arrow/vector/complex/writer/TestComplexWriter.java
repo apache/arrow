@@ -492,8 +492,8 @@ public class TestComplexWriter {
   public void mapWriterMixedCaseFieldNames() {
     // test case-sensitive MapWriter
     MapVector parent = new MapVector("parent", allocator, null);
-    ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriterCaseSensitive = writer.rootAsMap(true);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent, false, true);
+    MapWriter rootWriterCaseSensitive = writer.rootAsMap();
     rootWriterCaseSensitive.bigInt("int_field");
     rootWriterCaseSensitive.bigInt("Int_Field");
     rootWriterCaseSensitive.float4("float_field");
@@ -510,14 +510,9 @@ public class TestComplexWriter {
     Assert.assertTrue(fieldNamesCaseSensitive.contains("float_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("Float_Field"));
 
-    try {
-      writer.rootAsMap(false);
-      Assert.fail("IllegalArgumentException expected");
-    } catch (IllegalArgumentException ignored) {}
-
     // test case-insensitive MapWriter
-    ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent);
-    MapWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsMap(false);
+    ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent, false, false);
+    MapWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsMap();
 
     rootWriterCaseInsensitive.bigInt("int_field");
     rootWriterCaseInsensitive.bigInt("Int_Field");

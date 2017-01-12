@@ -90,7 +90,6 @@ package org.apache.arrow.vector.complex.writer;
     void clear();
     void copyReader(FieldReader reader);
     MapWriter rootAsMap();
-    MapWriter rootAsMap(Boolean caseSensitive);
     ListWriter rootAsList();
 
     void setPosition(int index);

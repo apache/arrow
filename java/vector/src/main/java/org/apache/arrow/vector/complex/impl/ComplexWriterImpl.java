@@ -37,13 +37,19 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   Mode mode = Mode.INIT;
   private final String name;
   private final boolean unionEnabled;
+  private final boolean caseSensitive;
 
   private enum Mode { INIT, MAP, LIST };
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled){
+  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled, boolean caseSensitive){
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
+    this.caseSensitive = caseSensitive;
+  }
+
+  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled) {
+    this(name, container, unionEnabled, false);
   }
 
   public ComplexWriterImpl(String name, MapVector container){
@@ -139,22 +145,17 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public MapWriter rootAsMap(Boolean caseSensitive) {
+  public MapWriter rootAsMap() {
     switch(mode){
 
     case INIT:
       NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      boolean caseSensitivityPrimitive = caseSensitive == null? false : caseSensitive;
-      mapRoot = new NullableMapWriter(map, caseSensitivityPrimitive);
+      mapRoot = new NullableMapWriter(map, this.caseSensitive);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
 
     case MAP:
-      if (caseSensitive != null && caseSensitive != mapRoot.getCaseSensitivity()) {
-        throw new IllegalArgumentException("Writer has been initialized with case sensitivity of \"" +
-            String.valueOf(mapRoot.getCaseSensitivity()) + "\"");
-      }
       break;
 
     default:
@@ -163,12 +164,6 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     return mapRoot;
   }
-
-  @Override
-  public MapWriter rootAsMap() {
-    return rootAsMap(null);
-  }
-
 
   @Override
   public void allocate() {
