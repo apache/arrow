@@ -181,10 +181,10 @@ def sample_disk_data(request):
     return path, data
 
 
-def test_memory_map_reader(sample_disk_data):
-    path, data = sample_disk_data
+def _check_native_file_reader(KLASS, sample_data):
+    path, data = sample_data
 
-    f = io.MemoryMappedFile(path, mode='r')
+    f = KLASS(path, mode='r')
 
     assert f.read(10) == data[:10]
     assert f.read(0) == b''
@@ -201,6 +201,14 @@ def test_memory_map_reader(sample_disk_data):
     f.seek(len(data) + 1)
     assert f.tell() == len(data) + 1
     assert f.read(5) == b''
+
+
+def test_memory_map_reader(sample_disk_data):
+    _check_native_file_reader(io.MemoryMappedFile, sample_disk_data)
+
+
+def test_os_file_reader(sample_disk_data):
+    _check_native_file_reader(io.OSFile, sample_disk_data)
 
 
 def _try_delete(path):
@@ -250,5 +258,28 @@ def test_memory_map_writer():
 
         f.seek(0)
         assert f.read(3) == b'foo'
+    finally:
+        _try_delete(path)
+
+
+def test_os_file_writer():
+    SIZE = 4096
+    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    data = arr.tobytes()[:SIZE]
+
+    path = guid()
+    try:
+        with open(path, 'wb') as f:
+            f.write(data)
+
+        # Truncates file
+        f2 = io.OSFile(path, mode='w')
+        f2.write('foo')
+
+        with io.OSFile(path) as f3:
+            assert f3.size() == 3
+
+        with pytest.raises(IOError):
+            f2.read(5)
     finally:
         _try_delete(path)
