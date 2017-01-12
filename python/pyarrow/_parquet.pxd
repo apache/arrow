@@ -165,8 +165,18 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
 
+    cdef cppclass ReaderProperties:
+        pass
+
+    ReaderProperties default_reader_properties()
+
     cdef cppclass ParquetFileReader:
-        # TODO: Some default arguments are missing
+        @staticmethod
+        unique_ptr[ParquetFileReader] Open(
+            const shared_ptr[ReadableFileInterface]& file,
+            const ReaderProperties& props,
+            const shared_ptr[CFileMetaData]& metadata)
+
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
         shared_ptr[CFileMetaData] metadata();
@@ -195,6 +205,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
                      MemoryPool* allocator,
+                     const ReaderProperties& properties,
+                     const shared_ptr[CFileMetaData]& metadata,
                      unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:

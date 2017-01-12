@@ -17,8 +17,6 @@
 
 # distutils: language = c++
 
-from cython.operator cimport dereference as deref
-
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool
 from libcpp.memory cimport shared_ptr, unique_ptr

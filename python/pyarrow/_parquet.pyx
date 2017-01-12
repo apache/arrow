@@ -350,24 +350,20 @@ cdef class ParquetReader:
         self.allocator = default_memory_pool()
         self._metadata = None
 
-    def open(self, object source):
+    def open(self, object source, FileMetaData metadata=None):
         cdef:
             shared_ptr[ReadableFileInterface] rd_handle
+            shared_ptr[CFileMetaData] c_metadata
+            ReaderProperties properties = default_reader_properties()
             c_string path
 
-        if isinstance(source, six.string_types):
-            path = tobytes(source)
+        if metadata is not None:
+            c_metadata = metadata.sp_metadata
 
-            # Must be in one expression to avoid calling std::move which is not
-            # possible in Cython (due to missing rvalue support)
-
-            # TODO(wesm): ParquetFileReader::OpenFile can throw?
-            self.reader = unique_ptr[FileReader](
-                new FileReader(default_memory_pool(),
-                               ParquetFileReader.OpenFile(path)))
-        else:
-            get_reader(source, &rd_handle)
-            check_status(OpenFile(rd_handle, self.allocator, &self.reader))
+        get_reader(source, &rd_handle)
+        with nogil:
+            check_status(OpenFile(rd_handle, self.allocator, properties,
+                                  c_metadata, &self.reader))
 
     @property
     def metadata(self):

@@ -32,7 +32,8 @@ cdef class NativeFile:
     cdef:
         shared_ptr[ReadableFileInterface] rd_file
         shared_ptr[OutputStream] wr_file
-        bint is_readonly
+        bint is_readable
+        bint is_writeable
         bint is_open
         bint own_file
 

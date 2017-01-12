@@ -69,6 +69,8 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
 
 
 cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
+
+
     cdef cppclass FileOutputStream(OutputStream):
         @staticmethod
         CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
@@ -82,6 +84,14 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
         @staticmethod
         CStatus Open(const c_string& path, MemoryPool* memory_pool,
                      shared_ptr[ReadableFile]* file)
+
+        int file_descriptor()
+
+    cdef cppclass CMemoryMappedFile" arrow::io::MemoryMappedFile"\
+        (ReadWriteFileInterface):
+        @staticmethod
+        CStatus Open(const c_string& path, FileMode mode,
+                     shared_ptr[CMemoryMappedFile]* file)
 
         int file_descriptor()
 

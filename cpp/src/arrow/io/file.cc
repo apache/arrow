@@ -655,5 +655,9 @@ Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
   return Status::OK();
 }
 
+int MemoryMappedFile::file_descriptor() const {
+  return impl_->fd();
+}
+
 }  // namespace io
 }  // namespace arrow
