@@ -395,13 +395,11 @@ def buffer_from_bytes(object obj):
 cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
     cdef NativeFile nf
 
-    if isinstance(source, bytes):
-        source = BytesReader(source)
+    if isinstance(source, six.string_types):
+        source = MemoryMappedFile(source, mode='r')
     elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
         # Optimistically hope this is file-like
         source = PythonFileInterface(source, mode='r')
-    elif isinstance(source, six.string_types):
-        source = MemoryMappedFile(source, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
