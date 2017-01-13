@@ -27,12 +27,13 @@ from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.libarrow_io cimport *
 
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.compat import frombytes, tobytes, encode_file_path
 from pyarrow.error cimport check_status
 
 cimport cpython as cp
 
 import re
+import six
 import sys
 import threading
 import time
@@ -41,6 +42,7 @@ import time
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
 
 cdef class NativeFile:
 
@@ -61,7 +63,7 @@ cdef class NativeFile:
     def close(self):
         if self.is_open:
             with nogil:
-                if self.is_readonly:
+                if self.is_readable:
                     check_status(self.rd_file.get().Close())
                 else:
                     check_status(self.wr_file.get().Close())
@@ -76,15 +78,15 @@ cdef class NativeFile:
         file[0] = <shared_ptr[OutputStream]> self.wr_file
 
     def _assert_readable(self):
-        if not self.is_readonly:
+        if not self.is_readable:
             raise IOError("only valid on readonly files")
 
         if not self.is_open:
             raise IOError("file not open")
 
     def _assert_writeable(self):
-        if self.is_readonly:
-            raise IOError("only valid on writeonly files")
+        if not self.is_writeable:
+            raise IOError("only valid on writeable files")
 
         if not self.is_open:
             raise IOError("file not open")
@@ -99,7 +101,7 @@ cdef class NativeFile:
     def tell(self):
         cdef int64_t position
         with nogil:
-            if self.is_readonly:
+            if self.is_readable:
                 check_status(self.rd_file.get().Tell(&position))
             else:
                 check_status(self.wr_file.get().Tell(&position))
@@ -137,7 +139,7 @@ cdef class NativeFile:
         self._assert_readable()
 
         # Allocate empty write space
-        obj = PyBytes_FromStringAndSizeNative(NULL, nbytes)
+        obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
@@ -179,14 +181,98 @@ cdef class PythonFileInterface(NativeFile):
 
         if mode.startswith('w'):
             self.wr_file.reset(new pyarrow.PyOutputStream(handle))
-            self.is_readonly = 0
+            self.is_readable = 0
+            self.is_writeable = 1
         elif mode.startswith('r'):
             self.rd_file.reset(new pyarrow.PyReadableFile(handle))
-            self.is_readonly = 1
+            self.is_readable = 1
+            self.is_writeable = 0
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
         self.is_open = True
+
+
+cdef class MemoryMappedFile(NativeFile):
+    """
+    Supports 'r', 'r+w', 'w' modes
+    """
+    cdef:
+        object path
+
+    def __cinit__(self, path, mode='r'):
+        self.path = path
+
+        cdef:
+            FileMode c_mode
+            shared_ptr[CMemoryMappedFile] handle
+            c_string c_path = encode_file_path(path)
+
+        self.is_readable = self.is_writeable = 0
+
+        if mode in ('r', 'rb'):
+            c_mode = FileMode_READ
+            self.is_readable = 1
+        elif mode in ('w', 'wb'):
+            c_mode = FileMode_WRITE
+            self.is_writeable = 1
+        elif mode == 'r+w':
+            c_mode = FileMode_READWRITE
+            self.is_readable = 1
+            self.is_writeable = 1
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
+
+        self.wr_file = <shared_ptr[OutputStream]> handle
+        self.rd_file = <shared_ptr[ReadableFileInterface]> handle
+        self.is_open = True
+
+
+cdef class OSFile(NativeFile):
+    """
+    Supports 'r', 'w' modes
+    """
+    cdef:
+        object path
+
+    def __cinit__(self, path, mode='r'):
+        self.path = path
+
+        cdef:
+            FileMode c_mode
+            shared_ptr[Readable] handle
+            c_string c_path = encode_file_path(path)
+
+        self.is_readable = self.is_writeable = 0
+
+        if mode in ('r', 'rb'):
+            self._open_readable(c_path)
+        elif mode in ('w', 'wb'):
+            self._open_writeable(c_path)
+        else:
+            raise ValueError('Invalid file mode: {0}'.format(mode))
+
+        self.is_open = True
+
+    cdef _open_readable(self, c_string path):
+        cdef shared_ptr[ReadableFile] handle
+
+        with nogil:
+            check_status(ReadableFile.Open(path, pyarrow.get_memory_pool(),
+                                           &handle))
+
+        self.is_readable = 1
+        self.rd_file = <shared_ptr[ReadableFileInterface]> handle
+
+    cdef _open_writeable(self, c_string path):
+        cdef shared_ptr[FileOutputStream] handle
+
+        with nogil:
+            check_status(FileOutputStream.Open(path, &handle))
+        self.is_writeable = 1
+        self.wr_file = <shared_ptr[OutputStream]> handle
 
 
 cdef class BytesReader(NativeFile):
@@ -198,7 +284,8 @@ cdef class BytesReader(NativeFile):
             raise ValueError('Must pass bytes object')
 
         self.obj = obj
-        self.is_readonly = 1
+        self.is_readable = 1
+        self.is_writeable = 0
         self.is_open = True
 
         self.rd_file.reset(new pyarrow.PyBytesReader(obj))
@@ -264,7 +351,8 @@ cdef class InMemoryOutputStream(NativeFile):
         self.buffer = allocate_buffer()
         self.wr_file.reset(new BufferOutputStream(
             <shared_ptr[ResizableBuffer]> self.buffer))
-        self.is_readonly = 0
+        self.is_readable = 0
+        self.is_writeable = 1
         self.is_open = True
 
     def get_result(self):
@@ -285,7 +373,8 @@ cdef class BufferReader(NativeFile):
         self.buffer = buffer
         self.rd_file.reset(new CBufferReader(buffer.buffer.get().data(),
                                              buffer.buffer.get().size()))
-        self.is_readonly = 1
+        self.is_readable = 1
+        self.is_writeable = 0
         self.is_open = True
 
 
@@ -311,12 +400,14 @@ cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
     elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
         # Optimistically hope this is file-like
         source = PythonFileInterface(source, mode='r')
+    elif isinstance(source, six.string_types):
+        source = MemoryMappedFile(source, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
 
         # TODO: what about read-write sources (e.g. memory maps)
-        if not nf.is_readonly:
+        if not nf.is_readable:
             raise IOError('Native file is not readable')
 
         nf.read_handle(reader)
@@ -335,7 +426,7 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     if isinstance(source, NativeFile):
         nf = source
 
-        if nf.is_readonly:
+        if nf.is_readable:
             raise IOError('Native file is not writeable')
 
         nf.write_handle(writer)
@@ -593,14 +684,16 @@ cdef class HdfsClient:
 
             out.wr_file = <shared_ptr[OutputStream]> wr_handle
 
-            out.is_readonly = False
+            out.is_readable = False
+            out.is_writeable = 1
         else:
             with nogil:
                 check_status(self.client.get()
                              .OpenReadable(c_path, &rd_handle))
 
             out.rd_file = <shared_ptr[ReadableFileInterface]> rd_handle
-            out.is_readonly = True
+            out.is_readable = True
+            out.is_writeable = 0
 
         if c_buffer_size == 0:
             c_buffer_size = 2 ** 16

@@ -236,19 +236,22 @@ def test_pandas_parquet_configuration_options(tmpdir):
         pdt.assert_frame_equal(df, df_read)
 
 
-@parquet
-def test_parquet_metadata_api():
-    df = alltypes_sample(size=10000)
-    df = df.reindex(columns=sorted(df.columns))
-
+def make_sample_file(df):
     a_table = A.Table.from_pandas(df, timestamps_to_ms=True)
 
     buf = io.BytesIO()
     pq.write_table(a_table, buf, compression='SNAPPY', version='2.0')
 
     buf.seek(0)
-    fileh = pq.ParquetFile(buf)
+    return pq.ParquetFile(buf)
 
+
+@parquet
+def test_parquet_metadata_api():
+    df = alltypes_sample(size=10000)
+    df = df.reindex(columns=sorted(df.columns))
+
+    fileh = make_sample_file(df)
     ncols = len(df.columns)
 
     # Series of sniff tests
@@ -288,3 +291,40 @@ def test_parquet_metadata_api():
 
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols
+
+
+@parquet
+def test_compare_schemas():
+    df = alltypes_sample(size=10000)
+
+    fileh = make_sample_file(df)
+    fileh2 = make_sample_file(df)
+    fileh3 = make_sample_file(df[df.columns[::2]])
+
+    assert fileh.schema.equals(fileh.schema)
+    assert fileh.schema.equals(fileh2.schema)
+
+    assert not fileh.schema.equals(fileh3.schema)
+
+    assert fileh.schema[0].equals(fileh.schema[0])
+    assert not fileh.schema[0].equals(fileh.schema[1])
+
+
+@parquet
+def test_pass_separate_metadata():
+    # ARROW-471
+    df = alltypes_sample(size=10000)
+
+    a_table = A.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(a_table, buf, compression='snappy', version='2.0')
+
+    buf.seek(0)
+    metadata = pq.ParquetFile(buf).metadata
+
+    buf.seek(0)
+
+    fileh = pq.ParquetFile(buf, metadata=metadata)
+
+    pdt.assert_frame_equal(df, fileh.read().to_pandas())
