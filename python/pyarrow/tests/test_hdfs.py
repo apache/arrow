@@ -126,6 +126,18 @@ class HdfsTestCases(object):
             result = f.read(10)
             assert result == data
 
+    def test_hdfs_read_whole_file(self):
+        path = pjoin(self.tmp_path, 'read-whole-file')
+
+        data = b'foo' * 1000
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(data)
+
+        with self.hdfs.open(path, 'rb') as f:
+            result = f.read()
+
+        assert result == data
+
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
