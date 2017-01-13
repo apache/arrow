@@ -27,7 +27,7 @@ class ParquetFile(object):
     ----------
     source : str or pyarrow.io.NativeFile
         Readable source. For passing Python file objects or byte buffers,
-        see pyarrow.io.PythonFileInterface or pyarrow.io.BytesReader.
+        see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     metadata : ParquetFileMetadata, default None
         Use existing metadata object, rather than reading from file.
     """
@@ -78,7 +78,7 @@ def read_table(source, columns=None):
     ----------
     source: str or pyarrow.io.NativeFile
         Readable source. For passing Python file objects or byte buffers, see
-        pyarrow.io.PythonFileInterface or pyarrow.io.BytesReader.
+        pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
         If not None, only these columns will be read from the file.
 
