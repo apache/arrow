@@ -23,8 +23,20 @@
 # cython: embedsignature = True
 
 from pyarrow.compat import frombytes, tobytes
-from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
+                                        Type_NA, Type_BOOL,
+                                        Type_UINT8, Type_INT8,
+                                        Type_UINT16, Type_INT16,
+                                        Type_UINT32, Type_INT32,
+                                        Type_UINT64, Type_INT64,
+                                        Type_TIMESTAMP, Type_DATE,
+                                        Type_FLOAT, Type_DOUBLE,
+                                        Type_STRING, Type_BINARY, 
+                                        TimeUnit_SECOND, TimeUnit_MILLI,
+                                        TimeUnit_MICRO, TimeUnit_NANO,
+                                        Type, TimeUnit)
 cimport pyarrow.includes.pyarrow as pyarrow
+cimport pyarrow.includes.libarrow as libarrow
 
 cimport cpython
 
@@ -216,7 +228,7 @@ def timestamp(unit_str):
         return _timestamp_type_cache[unit]
 
     cdef DataType out = DataType()
-    out.init(pyarrow.GetTimestampType(unit))
+    out.init(libarrow.timestamp(unit))
     _timestamp_type_cache[unit] = out
     return out
 

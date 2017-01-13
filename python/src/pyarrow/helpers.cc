@@ -51,8 +51,4 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-std::shared_ptr<DataType> GetTimestampType(TimeUnit unit) {
-  return timestamp(unit);
-}
-
 }  // namespace pyarrow

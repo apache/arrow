@@ -60,6 +60,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
 
+    shared_ptr[CDataType] timestamp(TimeUnit unit)
+
     cdef cppclass MemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
