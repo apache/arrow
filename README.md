@@ -47,9 +47,9 @@ components:
 - Columnar vector/array and table row batch containers supporting nested data
 - Fast, language agnostic metadata messaging layer (using Google's Flatbuffers
   library)
-- Reference counted off-heap buffer memory management, for zero-copy memory
-  sharing and handling memory-mapped file
-- Low-overhead IO interfaces to file system, HDFS (C++ only)
+- Reference-counted off-heap buffer memory management, for zero-copy memory
+  sharing and handling memory-mapped files
+- Low-overhead IO interfaces to files on disk, HDFS (C++ only)
 - A self-contained binary "file format" for remote procedure calls (RPC) and
   interprocess communication (IPC)
 - Integration tests for verifying binary compatibility between the
