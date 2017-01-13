@@ -22,6 +22,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
                                         Type_NA, Type_BOOL,
@@ -31,7 +33,7 @@ from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
                                         Type_UINT64, Type_INT64,
                                         Type_TIMESTAMP, Type_DATE,
                                         Type_FLOAT, Type_DOUBLE,
-                                        Type_STRING, Type_BINARY, 
+                                        Type_STRING, Type_BINARY,
                                         TimeUnit_SECOND, TimeUnit_MILLI,
                                         TimeUnit_MICRO, TimeUnit_NANO,
                                         Type, TimeUnit)
@@ -57,9 +59,9 @@ cdef class DataType:
 
     def __richcmp__(DataType self, DataType other, int op):
         if op == cpython.Py_EQ:
-            return self.type.Equals(other.sp_type)
+            return self.type.Equals(deref(other.type))
         elif op == cpython.Py_NE:
-            return not self.type.Equals(other.sp_type)
+            return not self.type.Equals(deref(other.type))
         else:
             raise TypeError('Invalid comparison')
 
