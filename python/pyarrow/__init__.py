@@ -38,8 +38,7 @@ from pyarrow.array import (Array,
 from pyarrow.error import ArrowException
 
 from pyarrow.io import (HdfsClient, HdfsFile, NativeFile, PythonFileInterface,
-                        BytesReader, Buffer, InMemoryOutputStream,
-                        BufferReader)
+                        Buffer, InMemoryOutputStream, BufferReader)
 
 from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
                             BooleanValue,

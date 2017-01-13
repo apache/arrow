@@ -275,21 +275,6 @@ cdef class OSFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
 
 
-cdef class BytesReader(NativeFile):
-    cdef:
-        object obj
-
-    def __cinit__(self, obj):
-        if not isinstance(obj, bytes):
-            raise ValueError('Must pass bytes object')
-
-        self.obj = obj
-        self.is_readable = 1
-        self.is_writeable = 0
-        self.is_open = True
-
-        self.rd_file.reset(new pyarrow.PyBytesReader(obj))
-
 # ----------------------------------------------------------------------
 # Arrow buffers
 
@@ -330,12 +315,6 @@ cdef class Buffer:
             self.buffer.get().size())
 
 
-cdef wrap_buffer(const shared_ptr[CBuffer]& buffer):
-    cdef Buffer result = Buffer()
-    result.buffer = buffer
-    return result
-
-
 cdef shared_ptr[PoolBuffer] allocate_buffer():
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pyarrow.get_memory_pool()))
@@ -356,23 +335,35 @@ cdef class InMemoryOutputStream(NativeFile):
         self.is_open = True
 
     def get_result(self):
-        cdef Buffer result = Buffer()
-
         check_status(self.wr_file.get().Close())
-        result.init(<shared_ptr[CBuffer]> self.buffer)
-
         self.is_open = False
-        return result
+        return wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
 
 cdef class BufferReader(NativeFile):
+    """
+    Zero-copy reader from objects convertible to Arrow buffer
+
+    Parameters
+    ----------
+    obj : Python bytes or pyarrow.io.Buffer
+    """
     cdef:
         Buffer buffer
 
-    def __cinit__(self, Buffer buffer):
-        self.buffer = buffer
-        self.rd_file.reset(new CBufferReader(buffer.buffer.get().data(),
-                                             buffer.buffer.get().size()))
+    def __cinit__(self, object obj):
+        cdef shared_ptr[CBuffer] buf
+
+        if isinstance(obj, Buffer):
+            self.buffer = obj
+        elif isinstance(obj, bytes):
+            buf.reset(new pyarrow.PyBytesBuffer(obj))
+            self.buffer = wrap_buffer(buf)
+        else:
+            raise ValueError('Unable to convert value to buffer: {0}'
+                             .format(type(obj)))
+
+        self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = 1
         self.is_writeable = 0
         self.is_open = True
@@ -382,15 +373,19 @@ def buffer_from_bytes(object obj):
     """
     Construct an Arrow buffer from a Python bytes object
     """
+    cdef shared_ptr[CBuffer] buf
     if not isinstance(obj, bytes):
         raise ValueError('Must pass bytes object')
 
-    cdef shared_ptr[CBuffer] buf
     buf.reset(new pyarrow.PyBytesBuffer(obj))
+    return wrap_buffer(buf)
 
+
+cdef Buffer wrap_buffer(const shared_ptr[CBuffer]& buf):
     cdef Buffer result = Buffer()
     result.init(buf)
     return result
+
 
 cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
     cdef NativeFile nf

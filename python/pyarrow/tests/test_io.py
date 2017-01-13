@@ -23,7 +23,6 @@ import numpy as np
 
 from pyarrow.compat import u, guid
 import pyarrow.io as io
-import pyarrow as pa
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -81,7 +80,7 @@ def test_python_file_read():
 def test_bytes_reader():
     # Like a BytesIO, but zero-copy underneath for C++ consumers
     data = b'some sample data'
-    f = io.BytesReader(data)
+    f = io.BufferReader(data)
 
     assert f.tell() == 0
 
@@ -103,7 +102,7 @@ def test_bytes_reader():
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(ValueError):
-        io.BytesReader(u('some sample data'))
+        io.BufferReader(u('some sample data'))
 
 
 def test_bytes_reader_retains_parent_reference():
@@ -112,7 +111,7 @@ def test_bytes_reader_retains_parent_reference():
     # ARROW-421
     def get_buffer():
         data = b'some sample data' * 1000
-        reader = io.BytesReader(data)
+        reader = io.BufferReader(data)
         reader.seek(5)
         return reader.read_buffer(6)
 

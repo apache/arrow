@@ -162,6 +162,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
 cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
     cdef cppclass CBufferReader" arrow::io::BufferReader"\
         (ReadableFileInterface):
+        CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
     cdef cppclass BufferOutputStream(OutputStream):

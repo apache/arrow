@@ -63,7 +63,7 @@ class RoundtripTest(object):
         writer.close()
 
         file_contents = self._get_source()
-        reader = ipc.ArrowFileReader(aio.BytesReader(file_contents))
+        reader = ipc.ArrowFileReader(aio.BufferReader(file_contents))
 
         assert reader.num_record_batches == num_batches
 
