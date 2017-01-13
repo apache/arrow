@@ -209,8 +209,8 @@ TEST_F(TestReadableFile, SeekTellSize) {
   ASSERT_OK(file_->Seek(100));
   ASSERT_OK(file_->Tell(&position));
 
-  // now at EOF
-  ASSERT_EQ(8, position);
+  // Can seek past end of file
+  ASSERT_EQ(100, position);
 
   int64_t size;
   ASSERT_OK(file_->GetSize(&size));

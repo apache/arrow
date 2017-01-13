@@ -127,6 +127,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   // @return: the size in bytes of the memory source
   Status GetSize(int64_t* size) override;
 
+  int file_descriptor() const;
+
  private:
   explicit MemoryMappedFile(FileMode::type mode);
 

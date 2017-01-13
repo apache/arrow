@@ -19,8 +19,9 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from pyarrow._parquet cimport *
+from cython.operator cimport dereference as deref
 
+from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_io cimport (ReadableFileInterface, OutputStream,
                                            FileOutputStream)
@@ -196,6 +197,12 @@ cdef class Schema:
     def __getitem__(self, i):
         return self.column(i)
 
+    def equals(self, Schema other):
+        """
+        Returns True if the Parquet schemas are equal
+        """
+        return self.schema.Equals(deref(other.schema))
+
     def column(self, i):
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
@@ -216,6 +223,12 @@ cdef class ColumnSchema:
     cdef init_from_schema(self, Schema schema, int i):
         self.parent = schema
         self.descr = schema.schema.Column(i)
+
+    def equals(self, ColumnSchema other):
+        """
+        Returns True if the column schemas are equal
+        """
+        return self.descr.Equals(deref(other.descr))
 
     def __repr__(self):
         physical_type = self.physical_type
@@ -337,24 +350,20 @@ cdef class ParquetReader:
         self.allocator = default_memory_pool()
         self._metadata = None
 
-    def open(self, object source):
+    def open(self, object source, FileMetaData metadata=None):
         cdef:
             shared_ptr[ReadableFileInterface] rd_handle
+            shared_ptr[CFileMetaData] c_metadata
+            ReaderProperties properties = default_reader_properties()
             c_string path
 
-        if isinstance(source, six.string_types):
-            path = tobytes(source)
+        if metadata is not None:
+            c_metadata = metadata.sp_metadata
 
-            # Must be in one expression to avoid calling std::move which is not
-            # possible in Cython (due to missing rvalue support)
-
-            # TODO(wesm): ParquetFileReader::OpenFile can throw?
-            self.reader = unique_ptr[FileReader](
-                new FileReader(default_memory_pool(),
-                               ParquetFileReader.OpenFile(path)))
-        else:
-            get_reader(source, &rd_handle)
-            check_status(OpenFile(rd_handle, self.allocator, &self.reader))
+        get_reader(source, &rd_handle)
+        with nogil:
+            check_status(OpenFile(rd_handle, self.allocator, properties,
+                                  c_metadata, &self.reader))
 
     @property
     def metadata(self):

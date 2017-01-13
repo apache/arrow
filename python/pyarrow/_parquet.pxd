@@ -99,8 +99,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetVersion_V2" parquet::ParquetVersion::PARQUET_2_0"
 
     cdef cppclass ColumnDescriptor:
-        shared_ptr[ColumnPath] path()
+        c_bool Equals(const ColumnDescriptor& other)
 
+        shared_ptr[ColumnPath] path()
         int16_t max_definition_level()
         int16_t max_repetition_level()
 
@@ -115,6 +116,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         const ColumnDescriptor* Column(int i)
         shared_ptr[Node] schema()
         GroupNode* group()
+        c_bool Equals(const SchemaDescriptor& other)
         int num_columns()
 
 
@@ -163,8 +165,18 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
 
+    cdef cppclass ReaderProperties:
+        pass
+
+    ReaderProperties default_reader_properties()
+
     cdef cppclass ParquetFileReader:
-        # TODO: Some default arguments are missing
+        @staticmethod
+        unique_ptr[ParquetFileReader] Open(
+            const shared_ptr[ReadableFileInterface]& file,
+            const ReaderProperties& props,
+            const shared_ptr[CFileMetaData]& metadata)
+
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
         shared_ptr[CFileMetaData] metadata();
@@ -193,6 +205,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
                      MemoryPool* allocator,
+                     const ReaderProperties& properties,
+                     const shared_ptr[CFileMetaData]& metadata,
                      unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:

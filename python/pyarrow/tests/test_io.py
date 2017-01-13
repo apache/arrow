@@ -16,10 +16,14 @@
 # under the License.
 
 from io import BytesIO
+import os
 import pytest
 
-from pyarrow.compat import u
+import numpy as np
+
+from pyarrow.compat import u, guid
 import pyarrow.io as io
+import pyarrow as pa
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -155,3 +159,127 @@ def test_inmemory_write_after_closed():
 
     with pytest.raises(IOError):
         f.write(b'not ok')
+
+
+# ----------------------------------------------------------------------
+# OS files and memory maps
+
+@pytest.fixture(scope='session')
+def sample_disk_data(request):
+
+    SIZE = 4096
+    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    data = arr.tobytes()[:SIZE]
+
+    path = guid()
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    def teardown():
+        _try_delete(path)
+    request.addfinalizer(teardown)
+    return path, data
+
+
+def _check_native_file_reader(KLASS, sample_data):
+    path, data = sample_data
+
+    f = KLASS(path, mode='r')
+
+    assert f.read(10) == data[:10]
+    assert f.read(0) == b''
+    assert f.tell() == 10
+
+    assert f.read() == data[10:]
+
+    assert f.size() == len(data)
+
+    f.seek(0)
+    assert f.tell() == 0
+
+    # Seeking past end of file not supported in memory maps
+    f.seek(len(data) + 1)
+    assert f.tell() == len(data) + 1
+    assert f.read(5) == b''
+
+
+def test_memory_map_reader(sample_disk_data):
+    _check_native_file_reader(io.MemoryMappedFile, sample_disk_data)
+
+
+def test_os_file_reader(sample_disk_data):
+    _check_native_file_reader(io.OSFile, sample_disk_data)
+
+
+def _try_delete(path):
+    try:
+        os.remove(path)
+    except os.error:
+        pass
+
+
+def test_memory_map_writer():
+    SIZE = 4096
+    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    data = arr.tobytes()[:SIZE]
+
+    path = guid()
+    try:
+        with open(path, 'wb') as f:
+            f.write(data)
+
+        f = io.MemoryMappedFile(path, mode='r+w')
+
+        f.seek(10)
+        f.write('peekaboo')
+        assert f.tell() == 18
+
+        f.seek(10)
+        assert f.read(8) == b'peekaboo'
+
+        f2 = io.MemoryMappedFile(path, mode='r+w')
+
+        f2.seek(10)
+        f2.write(b'booapeak')
+        f2.seek(10)
+
+        f.seek(10)
+        assert f.read(8) == b'booapeak'
+
+        # Does not truncate file
+        f3 = io.MemoryMappedFile(path, mode='w')
+        f3.write('foo')
+
+        with io.MemoryMappedFile(path) as f4:
+            assert f4.size() == SIZE
+
+        with pytest.raises(IOError):
+            f3.read(5)
+
+        f.seek(0)
+        assert f.read(3) == b'foo'
+    finally:
+        _try_delete(path)
+
+
+def test_os_file_writer():
+    SIZE = 4096
+    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
+    data = arr.tobytes()[:SIZE]
+
+    path = guid()
+    try:
+        with open(path, 'wb') as f:
+            f.write(data)
+
+        # Truncates file
+        f2 = io.OSFile(path, mode='w')
+        f2.write('foo')
+
+        with io.OSFile(path) as f3:
+            assert f3.size() == 3
+
+        with pytest.raises(IOError):
+            f2.read(5)
+    finally:
+        _try_delete(path)

@@ -22,7 +22,7 @@
 from cython.operator cimport dereference as deref
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.common cimport PyObject_to_object
+from pyarrow.includes.common cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config

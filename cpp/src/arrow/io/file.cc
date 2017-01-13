@@ -188,6 +188,8 @@ static inline Status FileOpenWriteable(
   memcpy(wpath.data() + nwchars, L"\0", sizeof(wchar_t));
 
   int oflag = _O_CREAT | _O_BINARY;
+  int sh_flag = _S_IWRITE;
+  if (!write_only) { sh_flag |= _S_IREAD; }
 
   if (truncate) { oflag |= _O_TRUNC; }
 
@@ -197,7 +199,7 @@ static inline Status FileOpenWriteable(
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, wpath.data(), oflag, _SH_DENYNO, _S_IWRITE);
+  errno_actual = _wsopen_s(fd, wpath.data(), oflag, _SH_DENYNO, sh_flag);
   ret = *fd;
 
 #else
@@ -319,7 +321,7 @@ class OSFile {
     RETURN_NOT_OK(FileOpenWriteable(path, write_only, !append, &fd_));
     path_ = path;
     is_open_ = true;
-    mode_ = write_only ? FileMode::READ : FileMode::READWRITE;
+    mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (append) {
       RETURN_NOT_OK(FileGetSize(fd_, &size_));
@@ -352,7 +354,7 @@ class OSFile {
   }
 
   Status Seek(int64_t pos) {
-    if (pos > size_) { pos = size_; }
+    if (pos < 0) { return Status::Invalid("Invalid position"); }
     return FileSeek(fd_, pos);
   }
 
@@ -523,17 +525,24 @@ class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
   }
 
   Status Open(const std::string& path, FileMode::type mode) {
-    int prot_flags = PROT_READ;
+    int prot_flags;
+    int map_mode;
 
     if (mode != FileMode::READ) {
-      prot_flags |= PROT_WRITE;
-      const bool append = true;
-      RETURN_NOT_OK(OSFile::OpenWriteable(path, append, mode == FileMode::WRITE));
+      // Memory mapping has permission failures if PROT_READ not set
+      prot_flags = PROT_READ | PROT_WRITE;
+      map_mode = MAP_SHARED;
+      constexpr bool append = true;
+      constexpr bool write_only = false;
+      RETURN_NOT_OK(OSFile::OpenWriteable(path, append, write_only));
+      mode_ = mode;
     } else {
+      prot_flags = PROT_READ;
+      map_mode = MAP_PRIVATE;  // Changes are not to be committed back to the file
       RETURN_NOT_OK(OSFile::OpenReadable(path));
     }
 
-    void* result = mmap(nullptr, size_, prot_flags, MAP_SHARED, fd(), 0);
+    void* result = mmap(nullptr, size_, prot_flags, map_mode, fd(), 0);
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
@@ -548,16 +557,14 @@ class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
   int64_t size() const { return size_; }
 
   Status Seek(int64_t position) {
-    if (position < 0 || position >= size_) {
-      return Status::Invalid("position is out of bounds");
-    }
+    if (position < 0) { return Status::Invalid("position is out of bounds"); }
     position_ = position;
     return Status::OK();
   }
 
   int64_t position() { return position_; }
 
-  void advance(int64_t nbytes) { position_ = std::min(size_, position_ + nbytes); }
+  void advance(int64_t nbytes) { position_ = position_ + nbytes; }
 
   uint8_t* data() { return data_; }
 
@@ -611,16 +618,18 @@ Status MemoryMappedFile::Close() {
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  nbytes = std::min(nbytes, impl_->size() - impl_->position());
-  std::memcpy(out, impl_->head(), nbytes);
+  nbytes = std::max<int64_t>(0, std::min(nbytes, impl_->size() - impl_->position()));
+  if (nbytes > 0) { std::memcpy(out, impl_->head(), nbytes); }
   *bytes_read = nbytes;
   impl_->advance(nbytes);
   return Status::OK();
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  nbytes = std::min(nbytes, impl_->size() - impl_->position());
-  *out = std::make_shared<Buffer>(impl_->head(), nbytes);
+  nbytes = std::max<int64_t>(0, std::min(nbytes, impl_->size() - impl_->position()));
+
+  const uint8_t* data = nbytes > 0 ? impl_->head() : nullptr;
+  *out = std::make_shared<Buffer>(data, nbytes);
   impl_->advance(nbytes);
   return Status::OK();
 }
@@ -653,6 +662,10 @@ Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
   memcpy(impl_->head(), data, nbytes);
   impl_->advance(nbytes);
   return Status::OK();
+}
+
+int MemoryMappedFile::file_descriptor() const {
+  return impl_->fd();
 }
 
 }  // namespace io
