@@ -41,9 +41,6 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(UINT64, uint64);
       GET_PRIMITIVE_TYPE(INT64, int64);
       GET_PRIMITIVE_TYPE(DATE, date);
-    case Type::TIMESTAMP:
-      return arrow::timestamp(arrow::TimeUnit::MICRO);
-      break;
       GET_PRIMITIVE_TYPE(BOOL, boolean);
       GET_PRIMITIVE_TYPE(FLOAT, float32);
       GET_PRIMITIVE_TYPE(DOUBLE, float64);
