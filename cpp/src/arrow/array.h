@@ -65,11 +65,12 @@ class ArrayVisitor {
   virtual Status Visit(const DictionaryArray& type) = 0;
 };
 
-// Immutable data array with some logical type and some length. Any memory is
-// owned by the respective Buffer instance (or its parents).
-//
-// The base class is only required to have a null bitmap buffer if the null
-// count is greater than 0
+/// Immutable data array with some logical type and some length.
+///
+/// Any memory is owned by the respective Buffer instance (or its parents).
+///
+/// The base class is only required to have a null bitmap buffer if the null
+/// count is greater than 0
 class ARROW_EXPORT Array {
  public:
   Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count = 0,
@@ -77,19 +78,28 @@ class ARROW_EXPORT Array {
 
   virtual ~Array() = default;
 
-  // Determine if a slot is null. For inner loops. Does *not* boundscheck
+  /// Determine if a slot is null. For inner loops. Does *not* boundscheck
   bool IsNull(int i) const {
     return null_count_ > 0 && BitUtil::BitNotSet(null_bitmap_data_, i);
   }
 
+  /// Size in the number of elements this array contains.
   int32_t length() const { return length_; }
+
+  /// The number of null entries in the array.
   int32_t null_count() const { return null_count_; }
 
   std::shared_ptr<DataType> type() const { return type_; }
   Type::type type_enum() const { return type_->type; }
 
+  /// Buffer for the null bitmap.
+  ///
+  /// Note that for `null_count == 0`, this can be a `nullptr`.
   std::shared_ptr<Buffer> null_bitmap() const { return null_bitmap_; }
 
+  /// Raw pointer to the null bitmap.
+  ///
+  /// Note that for `null_count == 0`, this can be a `nullptr`.
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   bool BaseEquals(const std::shared_ptr<Array>& arr) const;
@@ -97,13 +107,14 @@ class ARROW_EXPORT Array {
   virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
   virtual bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
 
-  // Compare if the range of slots specified are equal for the given array and
-  // this array.  end_idx exclusive.  This methods does not bounds check.
+  /// Compare if the range of slots specified are equal for the given array and
+  /// this array.  end_idx exclusive.  This methods does not bounds check.
   virtual bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
       const std::shared_ptr<Array>& arr) const = 0;
 
-  // Determines if the array is internally consistent.  Defaults to always
-  // returning Status::OK.  This can be an expensive check.
+  /// Determines if the array is internally consistent.
+  ///
+  /// Defaults to always returning Status::OK. This can be an expensive check.
   virtual Status Validate() const;
 
   virtual Status Accept(ArrayVisitor* visitor) const = 0;
@@ -121,7 +132,7 @@ class ARROW_EXPORT Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
-// Degenerate null type Array
+/// Degenerate null type Array
 class ARROW_EXPORT NullArray : public Array {
  public:
   using TypeClass = NullType;
@@ -141,7 +152,7 @@ class ARROW_EXPORT NullArray : public Array {
 Status ARROW_EXPORT GetEmptyBitmap(
     MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
 
-// Base class for fixed-size logical types
+/// Base class for fixed-size logical types
 class ARROW_EXPORT PrimitiveArray : public Array {
  public:
   virtual ~PrimitiveArray() {}
