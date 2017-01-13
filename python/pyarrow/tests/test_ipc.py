@@ -23,7 +23,7 @@ from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
 import pyarrow as A
-import pyarrow.io as arrow_io
+import pyarrow.io as aio
 import pyarrow.ipc as ipc
 
 
@@ -63,7 +63,7 @@ class RoundtripTest(object):
         writer.close()
 
         file_contents = self._get_source()
-        reader = ipc.ArrowFileReader(file_contents)
+        reader = ipc.ArrowFileReader(aio.BytesReader(file_contents))
 
         assert reader.num_record_batches == num_batches
 
@@ -76,7 +76,7 @@ class RoundtripTest(object):
 class InMemoryStreamTest(RoundtripTest):
 
     def _get_sink(self):
-        return arrow_io.InMemoryOutputStream()
+        return aio.InMemoryOutputStream()
 
     def _get_source(self):
         return self.sink.get_result()
@@ -91,10 +91,10 @@ def test_ipc_zero_copy_numpy():
     df = pd.DataFrame({'foo': [1.5]})
 
     batch = A.RecordBatch.from_pandas(df)
-    sink = arrow_io.InMemoryOutputStream()
+    sink = aio.InMemoryOutputStream()
     write_file(batch, sink)
     buffer = sink.get_result()
-    reader = arrow_io.BufferReader(buffer)
+    reader = aio.BufferReader(buffer)
 
     batches = read_file(reader)
 
@@ -118,7 +118,7 @@ def big_batch():
 
 
 def write_to_memory2(batch):
-    sink = arrow_io.InMemoryOutputStream()
+    sink = aio.InMemoryOutputStream()
     write_file(batch, sink)
     return sink.get_result()
 
