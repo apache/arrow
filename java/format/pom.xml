@@ -111,6 +111,7 @@
               <argument>${flatc.generated.files}</argument>
               <argument>../../format/Message.fbs</argument>
               <argument>../../format/File.fbs</argument>
+              <argument>../../format/Stream.fbs</argument>
             </arguments>
           </configuration>
         </execution>

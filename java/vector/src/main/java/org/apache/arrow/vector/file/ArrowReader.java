@@ -20,16 +20,10 @@ package org.apache.arrow.vector.file;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
-import org.apache.arrow.flatbuf.Buffer;
-import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Footer;
-import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +32,6 @@ import io.netty.buffer.ArrowBuf;
 
 public class ArrowReader implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowReader.class);
-
-  private static final byte[] MAGIC = "ARROW1".getBytes();
 
   private final SeekableByteChannel in;
 
@@ -73,28 +65,21 @@ public class ArrowReader implements AutoCloseable {
     return total;
   }
 
-  private static int bytesToInt(byte[] bytes) {
-    return ((int)(bytes[3] & 255) << 24) +
-           ((int)(bytes[2] & 255) << 16) +
-           ((int)(bytes[1] & 255) <<  8) +
-           ((int)(bytes[0] & 255) <<  0);
-  }
-
   public ArrowFooter readFooter() throws IOException {
     if (footer == null) {
-      if (in.size() <= (MAGIC.length * 2 + 4)) {
+      if (in.size() <= (ArrowReadUtil.MAGIC.length * 2 + 4)) {
         throw new InvalidArrowFileException("file too small: " + in.size());
       }
-      ByteBuffer buffer = ByteBuffer.allocate(4 + MAGIC.length);
+      ByteBuffer buffer = ByteBuffer.allocate(4 + ArrowReadUtil.MAGIC.length);
       long footerLengthOffset = in.size() - buffer.remaining();
       in.position(footerLengthOffset);
       readFully(buffer);
       byte[] array = buffer.array();
-      if (!Arrays.equals(MAGIC, Arrays.copyOfRange(array, 4, array.length))) {
+      if (!Arrays.equals(ArrowReadUtil.MAGIC, Arrays.copyOfRange(array, 4, array.length))) {
         throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
       }
-      int footerLength = bytesToInt(array);
-      if (footerLength <= 0 || footerLength + MAGIC.length * 2 + 4 > in.size()) {
+      int footerLength = ArrowReadUtil.bytesToInt(array);
+      if (footerLength <= 0 || footerLength + ArrowReadUtil.MAGIC.length * 2 + 4 > in.size()) {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }
       long footerOffset = footerLengthOffset - footerLength;
@@ -124,30 +109,11 @@ public class ArrowReader implements AutoCloseable {
       throw new IllegalStateException(n + " != " + l);
     }
 
-    // Record batch flatbuffer is prefixed by its size as int32le
-    final ArrowBuf metadata = buffer.slice(4, recordBatchBlock.getMetadataLength() - 4);
-    RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(metadata.nioBuffer().asReadOnlyBuffer());
-
-    int nodesLength = recordBatchFB.nodesLength();
-    final ArrowBuf body = buffer.slice(recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
-    List<ArrowFieldNode> nodes = new ArrayList<>();
-    for (int i = 0; i < nodesLength; ++i) {
-      FieldNode node = recordBatchFB.nodes(i);
-      nodes.add(new ArrowFieldNode(node.length(), node.nullCount()));
-    }
-    List<ArrowBuf> buffers = new ArrayList<>();
-    for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
-      Buffer bufferFB = recordBatchFB.buffers(i);
-      LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", bufferFB.offset(), bufferFB.length()));
-      ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
-      buffers.add(vectorBuffer);
-    }
-    ArrowRecordBatch arrowRecordBatch = new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);
-    LOGGER.debug("released buffer " + buffer);
-    buffer.release();
-    return arrowRecordBatch;
+    return ArrowReadUtil.constructRecordBatch(buffer,
+        recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
   }
 
+  @Override
   public void close() throws IOException {
     in.close();
   }
