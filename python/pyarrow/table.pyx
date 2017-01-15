@@ -397,6 +397,22 @@ cdef class RecordBatch:
         return OrderedDict(entries)
 
 
+    def to_pydict(self):
+        """
+        Converted the arrow::RecordBatch to an OrderedDict
+
+        Returns
+        -------
+        OrderedDict
+        """
+        entries = []
+        for i in range(self.batch.num_columns()):
+            name = bytes(self.batch.column_name(i)).decode('utf8')
+            column = self[i].to_pylist()
+            entries.append((name, column))
+        return OrderedDict(entries)
+
+
     def to_pandas(self):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
