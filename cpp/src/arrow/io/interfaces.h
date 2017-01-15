@@ -83,12 +83,12 @@ class Readable {
   virtual Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 };
 
-class OutputStream : public FileInterface, public Writeable {
+class OutputStream : virtual public FileInterface, public Writeable {
  protected:
   OutputStream() {}
 };
 
-class InputStream : public FileInterface, public Readable {
+class InputStream : virtual public FileInterface, public Readable {
  protected:
   InputStream() {}
 };

@@ -419,5 +419,10 @@ TEST_F(TestMemoryMappedFile, InvalidFile) {
       IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
 }
 
+TEST_F(TestMemoryMappedFile, CastableToFileInterface) {
+  std::shared_ptr<MemoryMappedFile> memory_mapped_file;
+  std::shared_ptr<FileInterface> file = memory_mapped_file;
+}
+
 }  // namespace io
 }  // namespace arrow
