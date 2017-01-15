@@ -50,7 +50,8 @@ components:
 - Reference-counted off-heap buffer memory management, for zero-copy memory
   sharing and handling memory-mapped files
 - Low-overhead IO interfaces to files on disk, HDFS (C++ only)
-- A self-contained binary "file format" for remote procedure calls (RPC) and
+- Self-describing binary wire formats (streaming and batch/file-like) for
+  remote procedure calls (RPC) and
   interprocess communication (IPC)
 - Integration tests for verifying binary compatibility between the
   implementations (e.g. sending data from Java to C++)
