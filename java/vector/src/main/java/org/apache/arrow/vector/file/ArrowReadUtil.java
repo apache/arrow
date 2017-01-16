@@ -46,12 +46,13 @@ public class ArrowReadUtil {
    * Reconstructs an ArrowRecordBatch from a serialized ArrowBuf.
    */
   public static ArrowRecordBatch constructRecordBatch(final ArrowBuf buffer,
-      int metadataLength, int bodyLength) {
+      int metadataLength, int bodyLength, boolean withSizePrefix) {
     LOGGER.debug(String.format(
         "Reconstructing batch with metadataLength: %d bodyLength: %d",
         metadataLength, bodyLength));
-    // Record batch flatbuffer is prefixed by its size as int32le
-    final ArrowBuf metadata = buffer.slice(4, metadataLength - 4);
+    // Record batch flatbuffer is optionally prefixed by its size as int32le
+    int metadataStart = withSizePrefix ? 4 : 0;
+    final ArrowBuf metadata = buffer.slice(metadataStart, metadataLength - metadataStart);
     RecordBatch recordBatchFB =
         RecordBatch.getRootAsRecordBatch(metadata.nioBuffer().asReadOnlyBuffer());
 

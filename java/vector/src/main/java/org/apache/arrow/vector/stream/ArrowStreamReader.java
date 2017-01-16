@@ -121,7 +121,7 @@ public class ArrowStreamReader implements AutoCloseable {
       throw new InvalidArrowStreamException(
           "Unexpected end of stream reading batch bytes: " + dataLen);
     }
-    return ArrowReadUtil.constructRecordBatch(buffer, metadataLength, bodyLength);
+    return ArrowReadUtil.constructRecordBatch(buffer, metadataLength, bodyLength, false);
   }
 
   @Override

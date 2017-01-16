@@ -110,7 +110,7 @@ public class ArrowReader implements AutoCloseable {
     }
 
     return ArrowReadUtil.constructRecordBatch(buffer,
-        recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
+        recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength(), true);
   }
 
   @Override

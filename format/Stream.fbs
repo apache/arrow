@@ -28,9 +28,9 @@ namespace org.apache.arrow.flatbuf;
 ///   - Block*
 ///
 /// Block:
-///   1. Metadata Length (i32 little endian): Includes 4 byte meta size prefix. Size of 3).
+///   1. Metadata Length (i32 little endian): Size of 3).
 ///   2. Body Length (i32 little endian). Size of 4).
-///   3. RecordBatch header flatbuffer (with i32 size prefix)
+///   3. RecordBatch header flatbuffer (no size prefix)
 ///   4. Data buffers
 /// No padding between the 4 elements.
 

@@ -87,11 +87,12 @@ public class ArrowStreamWriter implements AutoCloseable {
     //   Body
     int bodyLength = computeBodyLength(recordBatch);
     ByteBuffer metadata = WriteChannel.serialize(recordBatch);
-    // Metadata is the length of the metadata including i32 prefix.
-    out.writeIntLittleEndian(metadata.remaining() + 4);
+    // Metadata is the length of the metadata without the size prefix.
+    out.writeIntLittleEndian(metadata.remaining());
     out.writeIntLittleEndian(bodyLength);
+
     // write header
-    out.write(recordBatch, true);
+    out.write(metadata);
 
     // write body
     long bodyOffset = out.getCurrentPosition();
