@@ -44,7 +44,8 @@ Arrow is an [Apache Software Foundation](www.apache.org) project. Learn more at
 The reference Arrow implementations contain a number of distinct software
 components:
 
-- Columnar vector/array and table row batch containers supporting nested data
+- Columnar vector and table-like containers (similar to data frames) supporting
+  flat or nested types
 - Fast, language agnostic metadata messaging layer (using Google's Flatbuffers
   library)
 - Reference-counted off-heap buffer memory management, for zero-copy memory
