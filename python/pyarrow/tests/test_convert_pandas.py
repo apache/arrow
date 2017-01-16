@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
+
 import datetime
 import unittest
 
@@ -283,6 +285,38 @@ class TestPandasConversion(unittest.TestCase):
         expected = df.copy()
         expected['date'] = pd.to_datetime(df['date'])
         tm.assert_frame_equal(result, expected)
+
+    def test_column_of_lists(self):
+        dtypes = [('i1', A.int8()), ('i2', A.int16()),
+                  ('i4', A.int32()), ('i8', A.int64()),
+                  ('u1', A.uint8()), ('u2', A.uint16()),
+                  ('u4', A.uint32()), ('u8', A.uint64()),
+                  ('f4', A.float_()), ('f8', A.double())]
+
+        arrays = OrderedDict()
+        fields = []
+        for dtype, arrow_dtype in dtypes:
+            fields.append(A.field(dtype, A.list_(arrow_dtype)))
+            arrays[dtype] = [
+                np.arange(10, dtype=dtype),
+                np.arange(5, dtype=dtype),
+                None,
+                np.arange(1, dtype=dtype)
+            ]
+
+        # Strings
+        # fields.append(A.field('str', A.list_(A.string())))
+        # arrays['str'] = [
+        #     np.array([u"1", u"ä"]),
+        #     None,
+        #     np.array([u"1"]),
+        #     np.array([u"1", u"2", u"3"])
+        # ]
+
+        df = pd.DataFrame(arrays)
+        schema = A.Schema.from_fields(fields)
+        table = A.Table.from_pandas(df, schema=schema)
+        assert table.schema.equals(schema)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()

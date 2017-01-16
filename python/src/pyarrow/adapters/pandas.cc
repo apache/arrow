@@ -50,6 +50,8 @@ using arrow::ChunkedArray;
 using arrow::Column;
 using arrow::Field;
 using arrow::DataType;
+using arrow::ListType;
+using arrow::ListBuilder;
 using arrow::Status;
 using arrow::Table;
 using arrow::Type;
@@ -66,6 +68,7 @@ template <>
 struct npy_traits<NPY_BOOL> {
   typedef uint8_t value_type;
   using TypeClass = arrow::BooleanType;
+  using BuilderClass = arrow::BooleanBuilder;
 
   static constexpr bool supports_nulls = false;
   static inline bool isnull(uint8_t v) { return false; }
@@ -76,6 +79,7 @@ struct npy_traits<NPY_BOOL> {
   struct npy_traits<NPY_##TYPE> {                    \
     typedef T value_type;                            \
     using TypeClass = arrow::CapType##Type;          \
+    using BuilderClass = arrow::CapType##Builder;    \
                                                      \
     static constexpr bool supports_nulls = false;    \
     static inline bool isnull(T v) { return false; } \
@@ -94,6 +98,7 @@ template <>
 struct npy_traits<NPY_FLOAT32> {
   typedef float value_type;
   using TypeClass = arrow::FloatType;
+  using BuilderClass = arrow::FloatBuilder;
 
   static constexpr bool supports_nulls = true;
 
@@ -104,6 +109,7 @@ template <>
 struct npy_traits<NPY_FLOAT64> {
   typedef double value_type;
   using TypeClass = arrow::DoubleType;
+  using BuilderClass = arrow::DoubleBuilder;
 
   static constexpr bool supports_nulls = true;
 
@@ -114,6 +120,7 @@ template <>
 struct npy_traits<NPY_DATETIME> {
   typedef int64_t value_type;
   using TypeClass = arrow::TimestampType;
+  using BuilderClass = arrow::TimestampBuilder;
 
   static constexpr bool supports_nulls = true;
 
@@ -132,12 +139,73 @@ struct npy_traits<NPY_OBJECT> {
   static constexpr bool supports_nulls = true;
 };
 
+static inline bool PyObject_is_null(const PyObject* obj) {
+  return obj == Py_None || obj == numpy_nan;
+}
+
+static inline bool PyObject_is_string(const PyObject* obj) {
+#if PY_MAJOR_VERSION >= 3
+  return PyUnicode_Check(obj) || PyBytes_Check(obj);
+#else
+  return PyString_Check(obj) || PyUnicode_Check(obj);
+#endif
+}
+
+static inline bool PyObject_is_bool(const PyObject* obj) {
+#if PY_MAJOR_VERSION >= 3
+  return PyString_Check(obj) || PyBytes_Check(obj);
+#else
+  return PyString_Check(obj) || PyUnicode_Check(obj);
+#endif
+}
+
+template <int TYPE>
+static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap) {
+  typedef npy_traits<TYPE> traits;
+  typedef typename traits::value_type T;
+
+  int64_t null_count = 0;
+  const T* values = reinterpret_cast<const T*>(data);
+
+  // TODO(wesm): striding
+  for (int i = 0; i < length; ++i) {
+    if (traits::isnull(values[i])) {
+      ++null_count;
+    } else {
+      BitUtil::SetBit(bitmap, i);
+    }
+  }
+
+  return null_count;
+}
+
+template <int TYPE>
+static int64_t ValuesToBytemap(const void* data, int64_t length, uint8_t* valid_bytes) {
+  typedef npy_traits<TYPE> traits;
+  typedef typename traits::value_type T;
+
+  int64_t null_count = 0;
+  const T* values = reinterpret_cast<const T*>(data);
+
+  // TODO(wesm): striding
+  for (int i = 0; i < length; ++i) {
+    valid_bytes[i] = not traits::isnull(values[i]);
+    if (traits::isnull(values[i])) null_count++;
+  }
+
+  return null_count;
+}
+
 template <int TYPE>
 class ArrowSerializer {
  public:
   ArrowSerializer(arrow::MemoryPool* pool, PyArrayObject* arr, PyArrayObject* mask)
       : pool_(pool), arr_(arr), mask_(mask) {
     length_ = PyArray_SIZE(arr_);
+  }
+
+  void IndicateType(const std::shared_ptr<Field> field) {
+    field_indicator_ = field;
   }
 
   Status Convert(std::shared_ptr<Array>* out);
@@ -258,6 +326,91 @@ class ArrowSerializer {
     return Status::OK();
   }
 
+  template <int ITEM_TYPE>
+  Status ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+    typedef npy_traits<ITEM_TYPE> traits;
+    typedef typename traits::value_type T;
+    typedef typename traits::BuilderClass BuilderT;
+    /*if (mask_ != nullptr) {
+      null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
+    } else if (traits::supports_nulls) {
+      null_count = ValuesToBitmap<TYPE>(PyArray_DATA(arr_), length_, null_bitmap_data_);
+    }*/
+
+    auto value_builder = std::make_shared<BuilderT>(pool_, field->type);
+    ListBuilder list_builder(pool_, value_builder);
+    PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    for (int64_t i = 0; i < length_; ++i) {
+      if (PyObject_is_null(objects[i])) {
+        RETURN_NOT_OK(list_builder.AppendNull());
+      } else if (PyArray_Check(objects[i])) {
+        auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
+        RETURN_NOT_OK(list_builder.Append(true));
+
+        if (PyArray_NDIM(numpy_array) != 1) {
+          return Status::Invalid("only handle 1-dimensional arrays");
+        }
+
+        if (PyArray_DESCR(numpy_array)->type_num != ITEM_TYPE) {
+          return Status::Invalid("can only handle exact conversions");
+        }
+
+        npy_intp* astrides = PyArray_STRIDES(arr_);
+        if (astrides[0] != PyArray_DESCR(arr_)->elsize) {
+          return Status::Invalid("No support for strided arrays in lists yet");
+        }
+
+        int32_t size = PyArray_DIM(numpy_array, 0);
+        auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
+        if (traits::supports_nulls) {
+          null_bitmap_->Resize(size, false);
+          // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't currently support this.
+          // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
+          ValuesToBytemap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
+          RETURN_NOT_OK(value_builder->Append(data, size, null_bitmap_->data()));
+        } else {
+          RETURN_NOT_OK(value_builder->Append(data, size));
+        }
+      } else if (PyList_Check(objects[i])) {
+        return Status::TypeError("Python lists are not yet supported");
+      } else {
+        return Status::TypeError("Unsupported Python type for list items");
+      }
+    }
+    return list_builder.Finish(out);
+  }
+
+#define LIST_CASE(TYPE) \
+  case Type::TYPE: {     \
+      return ConvertTypedLists<NPY_##TYPE>(field, out); \
+    }
+
+
+  Status ConvertLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+    // TODO: Support:
+    //  * numpy masked array
+    //  * lists
+    switch (field->type->type) {
+      LIST_CASE(UINT8)
+      LIST_CASE(INT8)
+      LIST_CASE(UINT16)
+      LIST_CASE(INT16)
+      LIST_CASE(UINT32)
+      LIST_CASE(INT32)
+      LIST_CASE(UINT64)
+      LIST_CASE(INT64)
+      LIST_CASE(FLOAT)
+      LIST_CASE(DOUBLE)
+      case Type::STRING:
+        return Status::TypeError("Unknown list item type");
+        // TODO: date, timestamp, bool
+      default:
+        return Status::TypeError("Unknown list item type");
+    }
+
+    return Status::TypeError("Unknown list type");
+  }
+
   Status MakeDataType(std::shared_ptr<DataType>* out);
 
   arrow::MemoryPool* pool_;
@@ -267,6 +420,7 @@ class ArrowSerializer {
 
   int64_t length_;
 
+  std::shared_ptr<Field> field_indicator_;
   std::shared_ptr<arrow::Buffer> data_;
   std::shared_ptr<arrow::ResizableBuffer> null_bitmap_;
   uint8_t* null_bitmap_data_;
@@ -284,26 +438,6 @@ static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap
       BitUtil::SetBit(bitmap, i);
     }
   }
-  return null_count;
-}
-
-template <int TYPE>
-static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap) {
-  typedef npy_traits<TYPE> traits;
-  typedef typename traits::value_type T;
-
-  int64_t null_count = 0;
-  const T* values = reinterpret_cast<const T*>(data);
-
-  // TODO(wesm): striding
-  for (int i = 0; i < length; ++i) {
-    if (traits::isnull(values[i])) {
-      ++null_count;
-    } else {
-      BitUtil::SetBit(bitmap, i);
-    }
-  }
-
   return null_count;
 }
 
@@ -361,26 +495,6 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-static inline bool PyObject_is_null(const PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan;
-}
-
-static inline bool PyObject_is_string(const PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
-  return PyUnicode_Check(obj) || PyBytes_Check(obj);
-#else
-  return PyString_Check(obj) || PyUnicode_Check(obj);
-#endif
-}
-
-static inline bool PyObject_is_bool(const PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
-  return PyString_Check(obj) || PyBytes_Check(obj);
-#else
-  return PyString_Check(obj) || PyUnicode_Check(obj);
-#endif
-}
-
 template <>
 inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) {
   // Python object arrays are annoying, since we could have one of:
@@ -401,17 +515,34 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
     PyDateTime_IMPORT;
   }
 
-  for (int64_t i = 0; i < length_; ++i) {
-    if (PyObject_is_null(objects[i])) {
-      continue;
-    } else if (PyObject_is_string(objects[i])) {
-      return ConvertObjectStrings(out);
-    } else if (PyBool_Check(objects[i])) {
-      return ConvertBooleans(out);
-    } else if (PyDate_CheckExact(objects[i])) {
-      return ConvertDates(out);
-    } else {
-      return Status::TypeError("unhandled python type");
+  if (field_indicator_) {
+    switch (field_indicator_->type->type) {
+      case Type::STRING:
+        return ConvertObjectStrings(out);
+      case Type::BOOL:
+        return ConvertBooleans(out);
+      case Type::DATE:
+        return ConvertDates(out);
+      case Type::LIST: {
+        auto list_field = static_cast<ListType*>(field_indicator_->type.get());
+        return ConvertLists(list_field->value_field(), out);
+        }
+      default:
+        return Status::TypeError("No known conversion to Arrow type");
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      if (PyObject_is_null(objects[i])) {
+        continue;
+      } else if (PyObject_is_string(objects[i])) {
+        return ConvertObjectStrings(out);
+      } else if (PyBool_Check(objects[i])) {
+        return ConvertBooleans(out);
+      } else if (PyDate_CheckExact(objects[i])) {
+        return ConvertDates(out);
+      } else {
+        return Status::TypeError("unhandled python type");
+      }
     }
   }
 
@@ -461,7 +592,8 @@ inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
   } break;
 
 Status PandasMaskedToArrow(
-    arrow::MemoryPool* pool, PyObject* ao, PyObject* mo, std::shared_ptr<Array>* out) {
+    arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+    const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
   PyArrayObject* mask = nullptr;
 
@@ -484,7 +616,11 @@ Status PandasMaskedToArrow(
     TO_ARROW_CASE(FLOAT32);
     TO_ARROW_CASE(FLOAT64);
     TO_ARROW_CASE(DATETIME);
-    TO_ARROW_CASE(OBJECT);
+    case NPY_OBJECT: {
+      ArrowSerializer<NPY_OBJECT> converter(pool, arr, mask);
+      converter.IndicateType(field);
+      RETURN_NOT_OK(converter.Convert(out));
+      } break;
     default:
       std::stringstream ss;
       ss << "unsupported type " << PyArray_DESCR(arr)->type_num << std::endl;
@@ -493,8 +629,9 @@ Status PandasMaskedToArrow(
   return Status::OK();
 }
 
-Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, std::shared_ptr<Array>* out) {
-  return PandasMaskedToArrow(pool, ao, nullptr, out);
+Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
+    const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+  return PandasMaskedToArrow(pool, ao, nullptr, field, out);
 }
 
 // ----------------------------------------------------------------------

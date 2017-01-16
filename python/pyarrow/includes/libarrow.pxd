@@ -107,6 +107,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const shared_ptr[CSchema]& other)
 
         shared_ptr[CField] field(int i)
+        shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()
 
