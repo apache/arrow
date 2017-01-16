@@ -32,17 +32,39 @@ Arrow is a set of technologies that enable big-data systems to process and move 
 Initial implementations include:
 
  - [The Arrow Format](https://github.com/apache/arrow/tree/master/format)
- - [Arrow Structures and APIs in C++](https://github.com/apache/arrow/tree/master/cpp)
- - [Arrow Structures and APIs in Java](https://github.com/apache/arrow/tree/master/java)
+ - [Java implementation](https://github.com/apache/arrow/tree/master/java)
+ - [C++ implementation](https://github.com/apache/arrow/tree/master/cpp)
+ - [Python interface to C++ libraries](https://github.com/apache/arrow/tree/master/python)
 
-Arrow is an [Apache Software Foundation](www.apache.org) project. More info can be found at [arrow.apache.org](http://arrow.apache.org).
+Arrow is an [Apache Software Foundation](www.apache.org) project. Learn more at
+[arrow.apache.org](http://arrow.apache.org).
+
+#### What's in the Arrow libraries?
+
+The reference Arrow implementations contain a number of distinct software
+components:
+
+- Columnar vector and table-like containers (similar to data frames) supporting
+  flat or nested types
+- Fast, language agnostic metadata messaging layer (using Google's Flatbuffers
+  library)
+- Reference-counted off-heap buffer memory management, for zero-copy memory
+  sharing and handling memory-mapped files
+- Low-overhead IO interfaces to files on disk, HDFS (C++ only)
+- Self-describing binary wire formats (streaming and batch/file-like) for
+  remote procedure calls (RPC) and
+  interprocess communication (IPC)
+- Integration tests for verifying binary compatibility between the
+  implementations (e.g. sending data from Java to C++)
+- Conversions to and from other in-memory data structures (e.g. Python's pandas
+  library)
 
 #### Getting involved
 
-Right now the primary audience for Apache Arrow are the designers and
-developers of data systems; most people will use Apache Arrow indirectly
-through systems that use it for internal data handling and interoperating with
-other Arrow-enabled systems.
+Right now the primary audience for Apache Arrow are the developers of data
+systems; most people will use Apache Arrow indirectly through systems that use
+it for internal data handling and interoperating with other Arrow-enabled
+systems.
 
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
