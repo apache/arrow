@@ -36,6 +36,7 @@
 #include "arrow/api.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 
@@ -876,6 +877,56 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
   return Status::OK();
 }
 
+template <typename ArrowType>
+inline Status ConvertListsLike(const std::shared_ptr<Column>& col, PyObject** out_values) {
+  typedef arrow_traits<ArrowType::type_id> traits;
+  typedef typename ::arrow::TypeTraits<ArrowType>::ArrayType ArrayType;
+
+  const ChunkedArray& data = *col->data().get();
+  auto list_type = std::static_pointer_cast<ListType>(col->type());
+
+  // Get column of underlying value arrays
+  std::vector<std::shared_ptr<Array>> value_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto arr = std::static_pointer_cast<arrow::ListArray>(data.chunk(c));
+    value_arrays.emplace_back(arr->values());
+  }
+  auto flat_column = std::make_shared<Column>(list_type->value_field(), value_arrays);
+  // TODO(uwe): Add an ARROW story before the PR is merged.
+  // TODO(uwe): Currently we don't have a Python reference for single columns.
+  //    Storing a reference to the whole Array would be to expensive.
+  PyObject* numpy_array;
+  RETURN_NOT_OK(ConvertColumnToPandas(flat_column, nullptr, &numpy_array));
+
+  PyAcquireGIL lock;
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto arr = std::static_pointer_cast<arrow::ListArray>(data.chunk(c));
+
+    const uint8_t* data_ptr;
+    int32_t length;
+    const bool has_nulls = data.null_count() > 0;
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      if (has_nulls && arr->IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        PyObject* start = PyLong_FromLong(arr->value_offset(i));
+        PyObject* end = PyLong_FromLong(arr->value_offset(i + 1));
+        PyObject* slice = PySlice_New(start, end, NULL);
+        *out_values = PyObject_GetItem(numpy_array, slice);
+        Py_DECREF(start);
+        Py_DECREF(end);
+        Py_DECREF(slice);
+      }
+      ++out_values;
+    }
+  }
+
+  Py_XDECREF(numpy_array);
+  return Status::OK();
+}
+
 template <typename T>
 inline void ConvertNumericNullable(const ChunkedArray& data, T na_value, T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -1023,8 +1074,11 @@ class ArrowDeserializer {
       CONVERT_CASE(STRING);
       CONVERT_CASE(DATE);
       CONVERT_CASE(TIMESTAMP);
-      default:
-        return Status::NotImplemented("Arrow type reading not implemented");
+      default: {
+          std::stringstream ss;
+          ss << "Arrow type reading not implemented for " << col_->type()->ToString();
+          return Status::NotImplemented(ss.str());
+        }
     }
 
 #undef CONVERT_CASE
@@ -1040,7 +1094,7 @@ class ArrowDeserializer {
     typedef typename arrow_traits<TYPE>::T T;
     int npy_type = arrow_traits<TYPE>::npy_type;
 
-    if (data_.num_chunks() == 1 && data_.null_count() == 0) {
+    if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
       return ConvertValuesZeroCopy<TYPE>(npy_type, data_.chunk(0));
     }
 
@@ -1070,7 +1124,7 @@ class ArrowDeserializer {
     typedef typename arrow_traits<TYPE>::T T;
     int npy_type = arrow_traits<TYPE>::npy_type;
 
-    if (data_.num_chunks() == 1 && data_.null_count() == 0) {
+    if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
       return ConvertValuesZeroCopy<TYPE>(npy_type, data_.chunk(0));
     }
 
@@ -1165,6 +1219,7 @@ class PandasBlock {
 
   PandasBlock(int64_t num_rows, int num_columns)
       : num_rows_(num_rows), num_columns_(num_columns) {}
+  virtual ~PandasBlock() {}
 
   virtual Status Allocate() = 0;
   virtual Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1217,9 +1272,15 @@ class PandasBlock {
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
+#define CONVERTLISTSLIKE_NUMERIC_CASE(ArrowType, ArrowEnum) \
+        case Type::ArrowEnum: \
+          RETURN_NOT_OK((ConvertListsLike<::arrow::ArrowType>(col, out_buffer))); \
+          break;
+
 class ObjectBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
+  virtual ~ObjectBlock() {}
 
   Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
@@ -1238,6 +1299,25 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<arrow::BinaryArray>(data, out_buffer));
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<arrow::StringArray>(data, out_buffer));
+    } else if (type == Type::LIST) {
+      auto list_type = std::static_pointer_cast<ListType>(col->type());
+      switch (list_type->value_type()->type) {
+        CONVERTLISTSLIKE_NUMERIC_CASE(UInt8Type, UINT8)
+        CONVERTLISTSLIKE_NUMERIC_CASE(Int8Type, INT8)
+        CONVERTLISTSLIKE_NUMERIC_CASE(UInt16Type, UINT16)
+        CONVERTLISTSLIKE_NUMERIC_CASE(Int16Type, INT16)
+        CONVERTLISTSLIKE_NUMERIC_CASE(UInt32Type, UINT32)
+        CONVERTLISTSLIKE_NUMERIC_CASE(Int32Type, INT32)
+        CONVERTLISTSLIKE_NUMERIC_CASE(UInt64Type, UINT64)
+        CONVERTLISTSLIKE_NUMERIC_CASE(Int64Type, INT64)
+        CONVERTLISTSLIKE_NUMERIC_CASE(FloatType, FLOAT)
+        CONVERTLISTSLIKE_NUMERIC_CASE(DoubleType, DOUBLE)
+        default: {
+            std::stringstream ss;
+            ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
+            return Status::NotImplemented(ss.str());
+          }
+      }
     } else {
       std::stringstream ss;
       ss << "Unsupported type for object array output: " << col->type()->ToString();
@@ -1533,6 +1613,29 @@ class DataFrameBlockCreator {
         case Type::TIMESTAMP:
           output_type = PandasBlock::DATETIME;
           break;
+        case Type::LIST: {
+          auto list_type = std::static_pointer_cast<ListType>(col->type());
+          switch (list_type->value_type()->type) {
+            case Type::UINT8:
+            case Type::INT8:
+            case Type::UINT16:
+            case Type::INT16:
+            case Type::UINT32:
+            case Type::INT32:
+            case Type::INT64:
+            case Type::UINT64:
+            case Type::FLOAT:
+            case Type::DOUBLE:
+              // The above types are all supported.
+              break;
+            default: {
+                std::stringstream ss;
+                ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
+                return Status::NotImplemented(ss.str());
+              }
+            }
+            output_type = PandasBlock::OBJECT;
+          } break;
         default:
           return Status::NotImplemented(col->type()->ToString());
       }

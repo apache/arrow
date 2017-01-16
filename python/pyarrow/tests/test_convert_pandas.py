@@ -317,6 +317,7 @@ class TestPandasConversion(unittest.TestCase):
         schema = A.Schema.from_fields(fields)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)
+        df_new = table.to_pandas(nthreads=1)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
