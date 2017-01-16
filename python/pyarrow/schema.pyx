@@ -145,7 +145,7 @@ cdef class Schema:
         -------
         field: pyarrow.Field
         """
-        return box_field(self.schema.GetFieldByName(name))
+        return box_field(self.schema.GetFieldByName(tobytes(name)))
 
     @classmethod
     def from_fields(cls, fields):
