@@ -150,7 +150,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      mapRoot = new NullableMapWriter(map, this.caseSensitive);
+      mapRoot = this.caseSensitive? new NullableCaseSensitiveMapWriter(map) : new NullableMapWriter(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;

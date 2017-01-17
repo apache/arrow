@@ -48,16 +48,14 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
-  private final boolean caseSensitive;
 
-  public ${mode}MapWriter(${containerClass} container, boolean caseSensitive) {
+  public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
     if (container instanceof NullableMapVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
     this.container = container;
-    this.caseSensitive = caseSensitive;
     for (Field child : container.getField().getChildren()) {
       switch (Types.getMinorTypeForArrowType(child.getType())) {
       case MAP:
@@ -87,16 +85,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     }
   }
 
-  public ${mode}MapWriter(${containerClass} container) {
-    this(container, false);
-  }
-
-  private String handleCase(final String input) {
-    return this.caseSensitive? input : input.toLowerCase();
-  }
-
-  public boolean isCaseSensitive() {
-    return this.caseSensitive;
+  protected String handleCase(final String input) {
+    return input.toLowerCase();
   }
 
   @Override
