@@ -213,7 +213,8 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
   return Status::OK();
 }
 
-Status AppendObjectStrings(arrow::StringBuilder& string_builder, PyObject** objects, int64_t objects_length, bool* have_bytes) {
+Status AppendObjectStrings(arrow::StringBuilder& string_builder, PyObject** objects,
+    int64_t objects_length, bool* have_bytes) {
   PyObject* obj;
 
   for (int64_t i = 0; i < objects_length; ++i) {
@@ -248,9 +249,7 @@ class ArrowSerializer {
     length_ = PyArray_SIZE(arr_);
   }
 
-  void IndicateType(const std::shared_ptr<Field> field) {
-    field_indicator_ = field;
-  }
+  void IndicateType(const std::shared_ptr<Field> field) { field_indicator_ = field; }
 
   Status Convert(std::shared_ptr<Array>* out);
 
@@ -351,13 +350,13 @@ class ArrowSerializer {
   }
 
   template <int ITEM_TYPE, typename ArrowType>
-  Status ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out);
+  Status ConvertTypedLists(
+      const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out);
 
-#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType) \
-  case Type::TYPE: {     \
-      return ConvertTypedLists<NUMPY_TYPE, ::arrow::ArrowType>(field, out); \
-    }
-
+#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
+  case Type::TYPE: {                                                      \
+    return ConvertTypedLists<NUMPY_TYPE, ::arrow::ArrowType>(field, out); \
+  }
 
   Status ConvertLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
     switch (field->type->type) {
@@ -495,7 +494,7 @@ inline Status ArrowSerializer<NPY_OBJECT>::Convert(std::shared_ptr<Array>* out) 
       case Type::LIST: {
         auto list_field = static_cast<ListType*>(field_indicator_->type.get());
         return ConvertLists(list_field->value_field(), out);
-        }
+      }
       default:
         return Status::TypeError("No known conversion to Arrow type");
     }
@@ -551,7 +550,8 @@ inline Status ArrowSerializer<NPY_BOOL>::ConvertData() {
 
 template <int TYPE>
 template <int ITEM_TYPE, typename ArrowType>
-inline Status ArrowSerializer<TYPE>::ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+inline Status ArrowSerializer<TYPE>::ConvertTypedLists(
+    const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   typedef npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
@@ -573,7 +573,8 @@ inline Status ArrowSerializer<TYPE>::ConvertTypedLists(const std::shared_ptr<Fie
       auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
       if (traits::supports_nulls) {
         null_bitmap_->Resize(size, false);
-        // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't currently support this.
+        // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't
+        // currently support this.
         // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
         ValuesToBytemap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
         RETURN_NOT_OK(value_builder->Append(data, size, null_bitmap_->data()));
@@ -591,8 +592,9 @@ inline Status ArrowSerializer<TYPE>::ConvertTypedLists(const std::shared_ptr<Fie
 
 template <>
 template <>
-inline Status ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(const std::shared_ptr<Field>& field,
-      std::shared_ptr<Array>* out) {
+inline Status
+ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(
+    const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
 
@@ -621,7 +623,6 @@ inline Status ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow
   return list_builder.Finish(out);
 }
 
-
 template <>
 inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
   return Status::TypeError("NYI");
@@ -633,8 +634,7 @@ inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
     RETURN_NOT_OK(converter.Convert(out));                  \
   } break;
 
-Status PandasMaskedToArrow(
-    arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
   PyArrayObject* mask = nullptr;
@@ -662,7 +662,7 @@ Status PandasMaskedToArrow(
       ArrowSerializer<NPY_OBJECT> converter(pool, arr, mask);
       converter.IndicateType(field);
       RETURN_NOT_OK(converter.Convert(out));
-      } break;
+    } break;
     default:
       std::stringstream ss;
       ss << "unsupported type " << PyArray_DESCR(arr)->type_num << std::endl;
@@ -919,7 +919,8 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
 }
 
 template <typename ArrowType>
-inline Status ConvertListsLike(const std::shared_ptr<Column>& col, PyObject** out_values) {
+inline Status ConvertListsLike(
+    const std::shared_ptr<Column>& col, PyObject** out_values) {
   typedef arrow_traits<ArrowType::type_id> traits;
   typedef typename ::arrow::TypeTraits<ArrowType>::ArrayType ArrayType;
 
@@ -1115,10 +1116,10 @@ class ArrowDeserializer {
       CONVERT_CASE(DATE);
       CONVERT_CASE(TIMESTAMP);
       default: {
-          std::stringstream ss;
-          ss << "Arrow type reading not implemented for " << col_->type()->ToString();
-          return Status::NotImplemented(ss.str());
-        }
+        std::stringstream ss;
+        ss << "Arrow type reading not implemented for " << col_->type()->ToString();
+        return Status::NotImplemented(ss.str());
+      }
     }
 
 #undef CONVERT_CASE
@@ -1312,10 +1313,10 @@ class PandasBlock {
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
-#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum) \
-        case Type::ArrowEnum: \
-          RETURN_NOT_OK((ConvertListsLike<::arrow::ArrowType>(col, out_buffer))); \
-          break;
+#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum)                         \
+  case Type::ArrowEnum:                                                     \
+    RETURN_NOT_OK((ConvertListsLike<::arrow::ArrowType>(col, out_buffer))); \
+    break;
 
 class ObjectBlock : public PandasBlock {
  public:
@@ -1355,10 +1356,10 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         default: {
-            std::stringstream ss;
-            ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
-            return Status::NotImplemented(ss.str());
-          }
+          std::stringstream ss;
+          ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
+          return Status::NotImplemented(ss.str());
+        }
       }
     } else {
       std::stringstream ss;
@@ -1673,13 +1674,14 @@ class DataFrameBlockCreator {
               // The above types are all supported.
               break;
             default: {
-                std::stringstream ss;
-                ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
-                return Status::NotImplemented(ss.str());
-              }
+              std::stringstream ss;
+              ss << "Not implemented type for lists: "
+                 << list_type->value_type()->ToString();
+              return Status::NotImplemented(ss.str());
             }
-            output_type = PandasBlock::OBJECT;
-          } break;
+          }
+          output_type = PandasBlock::OBJECT;
+        } break;
         default:
           return Status::NotImplemented(col->type()->ToString());
       }

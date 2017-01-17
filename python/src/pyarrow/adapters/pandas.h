@@ -67,10 +67,8 @@ arrow::Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObjec
     const std::shared_ptr<arrow::Field>& field, std::shared_ptr<arrow::Array>* out);
 
 PYARROW_EXPORT
-arrow::Status PandasToArrow(
-    arrow::MemoryPool* pool, PyObject* ao,
-    const std::shared_ptr<arrow::Field>& field,
-    std::shared_ptr<arrow::Array>* out);
+arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
+    const std::shared_ptr<arrow::Field>& field, std::shared_ptr<arrow::Array>* out);
 
 }  // namespace pyarrow
 
