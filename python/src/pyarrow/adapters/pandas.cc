@@ -634,12 +634,12 @@ inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
     RETURN_NOT_OK(converter.Convert(out));                  \
   } break;
 
-Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
+Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
   PyArrayObject* mask = nullptr;
 
-  if (mo != nullptr) { mask = reinterpret_cast<PyArrayObject*>(mo); }
+  if (mo != nullptr and mo != Py_None) { mask = reinterpret_cast<PyArrayObject*>(mo); }
 
   if (PyArray_NDIM(arr) != 1) {
     return Status::Invalid("only handle 1-dimensional arrays");
@@ -669,11 +669,6 @@ Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
       return Status::NotImplemented(ss.str());
   }
   return Status::OK();
-}
-
-Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
-    const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
-  return PandasMaskedToArrow(pool, ao, nullptr, field, out);
 }
 
 // ----------------------------------------------------------------------
@@ -909,7 +904,11 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
         data_ptr = arr->GetValue(i, &length);
         *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
         if (*out_values == nullptr) {
-          return Status::UnknownError("String initialization failed");
+          PyErr_Clear();
+          std::stringstream ss;
+          ss << "Wrapping " << std::string(reinterpret_cast<const char*>(data_ptr), length)
+             << " failed";
+          return Status::UnknownError(ss.str());
         }
       }
       ++out_values;
@@ -921,9 +920,6 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
 template <typename ArrowType>
 inline Status ConvertListsLike(
     const std::shared_ptr<Column>& col, PyObject** out_values) {
-  typedef arrow_traits<ArrowType::type_id> traits;
-  typedef typename ::arrow::TypeTraits<ArrowType>::ArrayType ArrayType;
-
   const ChunkedArray& data = *col->data().get();
   auto list_type = std::static_pointer_cast<ListType>(col->type());
 
@@ -1551,7 +1547,44 @@ class DatetimeBlock : public PandasBlock {
   }
 };
 
-// class CategoricalBlock : public PandasBlock {};
+// template <int ARROW_INDEX_TYPE>
+// class CategoricalBlock : public PandasBlock {
+//  public:
+//   using PandasBlock::PandasBlock;
+
+//   Status Allocate() override {
+//     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
+
+//     if (!(npy_type == NPY_INT8 || npy_type == NPY_INT16 ||
+//             npy_type == NPY_INT32 || npy_type == NPY_INT64)) {
+//       return Status::Invalid("Category indices must be signed integers");
+//     }
+//     return AllocateNDArray(npy_type);
+//   }
+
+//   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+//       int64_t rel_placement) override {
+//     using T = typename arrow_traits<ARROW_INDEX_TYPE>::T;
+
+//     T* out_values = reinterpret_cast<T*>(block_data_) + rel_placement * num_rows_;
+
+//     const ChunkedArray& data = *col->data().get();
+
+//     for (int c = 0; c < data.num_chunks(); c++) {
+//       const std::shared_ptr<Array> arr = data.chunk(c);
+//       auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
+//       auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+
+//       // Null is -1 in CategoricalBlock
+//       for (int i = 0; i < arr->length(); ++i) {
+//         *out_values++ = prim_arr->IsNull(i) ? -1 : in_values[i];
+//       }
+//     }
+
+//     placement_data_[rel_placement] = abs_placement;
+//     return Status::OK();
+//   }
+// };
 
 Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     std::shared_ptr<PandasBlock>* block) {
@@ -1575,7 +1608,8 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     BLOCK_CASE(BOOL, BoolBlock);
     BLOCK_CASE(DATETIME, DatetimeBlock);
     case PandasBlock::CATEGORICAL:
-      return Status::NotImplemented("categorical");
+      // *block = std::make_shared<CategoricalBlock>(num_rows, num_columns);
+      break;
   }
 
 #undef BLOCK_CASE

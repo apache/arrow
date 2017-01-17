@@ -30,11 +30,9 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
     CStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
-    CStatus PandasToArrow(MemoryPool* pool, object ao, shared_ptr[CField] field,
+    CStatus PandasToArrow(MemoryPool* pool, object ao, object mo,
+                          shared_ptr[CField] field,
                           shared_ptr[CArray]* out)
-    CStatus PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
-                                shared_ptr[CField] field,
-                                shared_ptr[CArray]* out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
                                  PyObject* py_ref, PyObject** out)

@@ -39,6 +39,11 @@ cimport cpython
 from collections import OrderedDict
 
 
+cdef _pandas():
+    import pandas as pd
+    return pd
+
+
 cdef class ChunkedArray:
     """
     Array backed via one or more memory chunks.
@@ -148,12 +153,10 @@ cdef class Column:
         cdef:
             PyObject* arr
 
-        import pandas as pd
-
         check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
                                                    <PyObject*> self, &arr))
 
-        return pd.Series(PyObject_to_object(arr), name=self.name)
+        return _pandas().Series(PyObject_to_object(arr), name=self.name)
 
     def equals(self, Column other):
         """
@@ -278,8 +281,6 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
 
 
 cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
-    from pyarrow.array import from_pandas_series
-
     cdef:
         list names = []
         list arrays = []
@@ -289,9 +290,8 @@ cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
         col = df[name]
         if schema is not None:
             field = schema.field_by_name(name)
-        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms,
-                                 field=field)
-
+        arr = Array.from_pandas(col, timestamps_to_ms=timestamps_to_ms,
+                                field=field)
         names.append(name)
         arrays.append(arr)
 
@@ -304,7 +304,8 @@ cdef class RecordBatch:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    Do not call this class's constructor directly, use one of the ``from_*``
+    methods instead.
     """
 
     def __cinit__(self):
@@ -401,7 +402,7 @@ cdef class RecordBatch:
         return OrderedDict(entries)
 
 
-    def to_pandas(self):
+    def to_pandas(self, nthreads=None):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -409,23 +410,7 @@ cdef class RecordBatch:
         -------
         pandas.DataFrame
         """
-        cdef:
-            PyObject* np_arr
-            shared_ptr[CArray] arr
-            Column column
-
-        import pandas as pd
-
-        names = []
-        data = []
-        for i in range(self.batch.num_columns()):
-            arr = self.batch.column(i)
-            check_status(pyarrow.ConvertArrayToPandas(arr, <PyObject*> self,
-                                                      &np_arr))
-            names.append(frombytes(self.batch.column_name(i)))
-            data.append(PyObject_to_object(np_arr))
-
-        return pd.DataFrame(dict(zip(names, data)), columns=names)
+        return Table.from_batches([self]).to_pandas(nthreads=nthreads)
 
     @classmethod
     def from_pandas(cls, df, schema=None):
@@ -518,7 +503,8 @@ cdef class Table:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    Do not call this class's constructor directly, use one of the ``from_*``
+    methods instead.
     """
 
     def __cinit__(self):
@@ -688,13 +674,11 @@ cdef class Table:
         -------
         pandas.DataFrame
         """
-        import pandas as pd
-
         if nthreads is None:
             nthreads = pyarrow.config.cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
-        return pd.DataFrame(mgr)
+        return _pandas().DataFrame(mgr)
 
     def to_pydict(self):
         """
@@ -834,6 +818,7 @@ cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
     cdef Table table = Table()
     table.init(ctable)
     return table
+
 
 cdef api object batch_from_cbatch(const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch()

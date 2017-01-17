@@ -55,6 +55,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 endif()
 
+if(NOT PYARROW_BUILD_TESTS)
+  set(NO_TESTS 1)
+endif()
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -338,6 +342,12 @@ set(PYARROW_MIN_TEST_LIBS
   pyarrow_test_main
   pyarrow
   ${PYARROW_BASE_LIBS})
+
+if(NOT APPLE)
+  ADD_THIRDPARTY_LIB(python
+    SHARED_LIB "${PYTHON_LIBRARIES}")
+  list(APPEND PYARROW_MIN_TEST_LIBS python)
+endif()
 
 set(PYARROW_TEST_LINK_LIBS ${PYARROW_MIN_TEST_LIBS})
 

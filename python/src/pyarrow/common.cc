@@ -93,7 +93,7 @@ PyBytesBuffer::PyBytesBuffer(PyObject* obj)
 }
 
 PyBytesBuffer::~PyBytesBuffer() {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   Py_DECREF(obj_);
 }
 

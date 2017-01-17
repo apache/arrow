@@ -66,6 +66,19 @@ cdef class DataType:
             raise TypeError('Invalid comparison')
 
 
+cdef class DictionaryType(DataType):
+
+    cdef init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.dict_type = <const CDictionaryType*> type.get()
+
+    def __str__(self):
+        return frombytes(self.type.ToString())
+
+    def __repr__(self):
+        return 'DictionaryType({0})'.format(str(self))
+
+
 cdef class Field:
 
     def __cinit__(self):

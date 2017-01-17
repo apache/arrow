@@ -553,6 +553,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices() const { return indices_; }
   std::shared_ptr<Array> dictionary() const;
 
+  const DictionaryType* dict_type() { return dict_type_; }
+
   bool EqualsExact(const DictionaryArray& other) const;
   bool Equals(const std::shared_ptr<Array>& arr) const override;
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,

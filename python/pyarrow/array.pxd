@@ -47,35 +47,50 @@ cdef class NumericArray(Array):
     pass
 
 
-cdef class Int8Array(NumericArray):
+cdef class IntegerArray(NumericArray):
+    pass
+
+cdef class FloatingPointArray(NumericArray):
     pass
 
 
-cdef class UInt8Array(NumericArray):
+cdef class Int8Array(IntegerArray):
     pass
 
 
-cdef class Int16Array(NumericArray):
+cdef class UInt8Array(IntegerArray):
     pass
 
 
-cdef class UInt16Array(NumericArray):
+cdef class Int16Array(IntegerArray):
     pass
 
 
-cdef class Int32Array(NumericArray):
+cdef class UInt16Array(IntegerArray):
     pass
 
 
-cdef class UInt32Array(NumericArray):
+cdef class Int32Array(IntegerArray):
     pass
 
 
-cdef class Int64Array(NumericArray):
+cdef class UInt32Array(IntegerArray):
     pass
 
 
-cdef class UInt64Array(NumericArray):
+cdef class Int64Array(IntegerArray):
+    pass
+
+
+cdef class UInt64Array(IntegerArray):
+    pass
+
+
+cdef class FloatArray(FloatingPointArray):
+    pass
+
+
+cdef class DoubleArray(FloatingPointArray):
     pass
 
 
@@ -84,4 +99,12 @@ cdef class ListArray(Array):
 
 
 cdef class StringArray(Array):
+    pass
+
+
+cdef class BinaryArray(Array):
+    pass
+
+
+cdef class DictionaryArray(Array):
     pass

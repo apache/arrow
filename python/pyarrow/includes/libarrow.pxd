@@ -45,6 +45,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         Type_LIST" arrow::Type::LIST"
         Type_STRUCT" arrow::Type::STRUCT"
+        Type_DICTIONARY" arrow::Type::DICTIONARY"
 
     enum TimeUnit" arrow::TimeUnit":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
@@ -59,6 +60,33 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CDataType& other)
 
         c_string ToString()
+
+    cdef cppclass CArray" arrow::Array":
+        shared_ptr[CDataType] type()
+
+        int32_t length()
+        int32_t null_count()
+        Type type_enum()
+
+        c_bool Equals(const shared_ptr[CArray]& arr)
+        c_bool IsNull(int i)
+
+    cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
+        int bit_width()
+
+    cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
+        CDictionaryArray(const shared_ptr[CDataType]& type,
+                         const shared_ptr[CArray]& indices)
+
+        shared_ptr[CArray] indices()
+        shared_ptr[CArray] dictionary()
+
+    cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
+        CDictionaryType(const shared_ptr[CDataType]& index_type,
+                        const shared_ptr[CArray]& dictionary)
+
+        shared_ptr[CDataType] index_type()
+        shared_ptr[CArray] dictionary()
 
     shared_ptr[CDataType] timestamp(TimeUnit unit)
 
@@ -110,16 +138,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()
-
-    cdef cppclass CArray" arrow::Array":
-        shared_ptr[CDataType] type()
-
-        int32_t length()
-        int32_t null_count()
-        Type type_enum()
-
-        c_bool Equals(const shared_ptr[CArray]& arr)
-        c_bool IsNull(int i)
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)
