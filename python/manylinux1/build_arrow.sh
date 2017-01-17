@@ -30,10 +30,12 @@ source /multibuild/manylinux_utils.sh
 cd /arrow/python
 
 # PyArrow build configuration
-export PYARROW_CMAKE_OPTIONS='-DCMAKE_BUILD_TYPE=Release'
+export PYARROW_BUILD_TYPE='release'
+export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_PARQUET=ON'
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
 export ARROW_HOME="/usr"
+export PARQUET_HOME="/usr"
 
 # Ensure the target directory exists
 mkdir -p /io/dist
@@ -53,7 +55,7 @@ function repair_wheelhouse {
             cp $whl $out_dir
         else
             # Store libraries directly in . not .libs to fix problems with libpyarrow.so linkage.
-            auditwheel -v repair -L . $whl -w $out_dir/
+            $PY35_BIN/auditwheel -v repair -L . $whl -w $out_dir/
         fi
     done
     chmod -R a+rwX $out_dir
@@ -67,10 +69,10 @@ for PYTHON in ${PYTHON_VERSIONS}; do
 
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.24"
+    $PIPI_IO "cmake"
 
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
-    rm_mkdir fixed_wheels
     repair_wheelhouse dist /io/dist
 done
 

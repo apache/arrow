@@ -27,6 +27,18 @@ function(ADD_ARROW_LIB LIB_NAME)
   add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES}
   )
+  if (ARG_STATIC_LINK_LIBS)
+    add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_LINK_LIBS})
+  endif()
+  if (ARG_STATIC_PRIVATE_LINK_LIBS)
+    add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_PRIVATE_LINK_LIBS})
+  endif()
+  if (ARG_SHARED_LINK_LIBS)
+    add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_LINK_LIBS})
+  endif()
+  if(ARG_SHARED_PRIVATE_LINK_LIBS)
+    add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_PRIVATE_LINK_LIBS})
+  endif()
 
   # Necessary to make static linking into other shared libraries work properly
   set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
