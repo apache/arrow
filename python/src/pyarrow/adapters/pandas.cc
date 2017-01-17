@@ -197,6 +197,49 @@ static int64_t ValuesToBytemap(const void* data, int64_t length, uint8_t* valid_
   return null_count;
 }
 
+Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
+  if (PyArray_NDIM(numpy_array) != 1) {
+    return Status::Invalid("only handle 1-dimensional arrays");
+  }
+
+  if (PyArray_DESCR(numpy_array)->type_num != np_type) {
+    return Status::Invalid("can only handle exact conversions");
+  }
+
+  npy_intp* astrides = PyArray_STRIDES(numpy_array);
+  if (astrides[0] != PyArray_DESCR(numpy_array)->elsize) {
+    return Status::Invalid("No support for strided arrays in lists yet");
+  }
+  return Status::OK();
+}
+
+Status AppendObjectStrings(arrow::StringBuilder& string_builder, PyObject** objects, int64_t objects_length, bool* have_bytes) {
+  PyObject* obj;
+
+  for (int64_t i = 0; i < objects_length; ++i) {
+    obj = objects[i];
+    if (PyUnicode_Check(obj)) {
+      obj = PyUnicode_AsUTF8String(obj);
+      if (obj == NULL) {
+        PyErr_Clear();
+        return Status::TypeError("failed converting unicode to UTF8");
+      }
+      const int32_t length = PyBytes_GET_SIZE(obj);
+      Status s = string_builder.Append(PyBytes_AS_STRING(obj), length);
+      Py_DECREF(obj);
+      if (!s.ok()) { return s; }
+    } else if (PyBytes_Check(obj)) {
+      *have_bytes = true;
+      const int32_t length = PyBytes_GET_SIZE(obj);
+      RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
+    } else {
+      string_builder.AppendNull();
+    }
+  }
+
+  return Status::OK();
+}
+
 template <int TYPE>
 class ArrowSerializer {
  public:
@@ -267,28 +310,8 @@ class ArrowSerializer {
     RETURN_NOT_OK(string_builder.Resize(length_));
 
     Status s;
-    PyObject* obj;
     bool have_bytes = false;
-    for (int64_t i = 0; i < length_; ++i) {
-      obj = objects[i];
-      if (PyUnicode_Check(obj)) {
-        obj = PyUnicode_AsUTF8String(obj);
-        if (obj == NULL) {
-          PyErr_Clear();
-          return Status::TypeError("failed converting unicode to UTF8");
-        }
-        const int32_t length = PyBytes_GET_SIZE(obj);
-        s = string_builder.Append(PyBytes_AS_STRING(obj), length);
-        Py_DECREF(obj);
-        if (!s.ok()) { return s; }
-      } else if (PyBytes_Check(obj)) {
-        have_bytes = true;
-        const int32_t length = PyBytes_GET_SIZE(obj);
-        RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
-      } else {
-        string_builder.AppendNull();
-      }
-    }
+    RETURN_NOT_OK(AppendObjectStrings(string_builder, objects, length_, &have_bytes));
     RETURN_NOT_OK(string_builder.Finish(out));
 
     if (have_bytes) {
@@ -327,84 +350,29 @@ class ArrowSerializer {
     return Status::OK();
   }
 
-  template <int ITEM_TYPE>
-  Status ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
-    typedef npy_traits<ITEM_TYPE> traits;
-    typedef typename traits::value_type T;
-    typedef typename traits::BuilderClass BuilderT;
-    /*if (mask_ != nullptr) {
-      null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
-    } else if (traits::supports_nulls) {
-      null_count = ValuesToBitmap<TYPE>(PyArray_DATA(arr_), length_, null_bitmap_data_);
-    }*/
+  template <int ITEM_TYPE, typename ArrowType>
+  Status ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out);
 
-    auto value_builder = std::make_shared<BuilderT>(pool_, field->type);
-    ListBuilder list_builder(pool_, value_builder);
-    PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    for (int64_t i = 0; i < length_; ++i) {
-      if (PyObject_is_null(objects[i])) {
-        RETURN_NOT_OK(list_builder.AppendNull());
-      } else if (PyArray_Check(objects[i])) {
-        auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
-        RETURN_NOT_OK(list_builder.Append(true));
-
-        if (PyArray_NDIM(numpy_array) != 1) {
-          return Status::Invalid("only handle 1-dimensional arrays");
-        }
-
-        if (PyArray_DESCR(numpy_array)->type_num != ITEM_TYPE) {
-          return Status::Invalid("can only handle exact conversions");
-        }
-
-        npy_intp* astrides = PyArray_STRIDES(arr_);
-        if (astrides[0] != PyArray_DESCR(arr_)->elsize) {
-          return Status::Invalid("No support for strided arrays in lists yet");
-        }
-
-        int32_t size = PyArray_DIM(numpy_array, 0);
-        auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
-        if (traits::supports_nulls) {
-          null_bitmap_->Resize(size, false);
-          // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't currently support this.
-          // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
-          ValuesToBytemap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
-          RETURN_NOT_OK(value_builder->Append(data, size, null_bitmap_->data()));
-        } else {
-          RETURN_NOT_OK(value_builder->Append(data, size));
-        }
-      } else if (PyList_Check(objects[i])) {
-        return Status::TypeError("Python lists are not yet supported");
-      } else {
-        return Status::TypeError("Unsupported Python type for list items");
-      }
-    }
-    return list_builder.Finish(out);
-  }
-
-#define LIST_CASE(TYPE) \
+#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType) \
   case Type::TYPE: {     \
-      return ConvertTypedLists<NPY_##TYPE>(field, out); \
+      return ConvertTypedLists<NUMPY_TYPE, ::arrow::ArrowType>(field, out); \
     }
 
 
   Status ConvertLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
-    // TODO: Support:
-    //  * numpy masked array
-    //  * lists
     switch (field->type->type) {
-      LIST_CASE(UINT8)
-      LIST_CASE(INT8)
-      LIST_CASE(UINT16)
-      LIST_CASE(INT16)
-      LIST_CASE(UINT32)
-      LIST_CASE(INT32)
-      LIST_CASE(UINT64)
-      LIST_CASE(INT64)
-      LIST_CASE(FLOAT)
-      LIST_CASE(DOUBLE)
-      case Type::STRING:
-        return Status::TypeError("Unknown list item type");
-        // TODO: date, timestamp, bool
+      LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
+      LIST_CASE(INT8, NPY_INT8, Int8Type)
+      LIST_CASE(UINT16, NPY_UINT16, UInt16Type)
+      LIST_CASE(INT16, NPY_INT16, Int16Type)
+      LIST_CASE(UINT32, NPY_UINT32, UInt32Type)
+      LIST_CASE(INT32, NPY_INT32, Int32Type)
+      LIST_CASE(UINT64, NPY_UINT64, UInt64Type)
+      LIST_CASE(INT64, NPY_INT64, Int64Type)
+      LIST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+      LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
+      LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
+      LIST_CASE(STRING, NPY_OBJECT, StringType)
       default:
         return Status::TypeError("Unknown list item type");
     }
@@ -580,6 +548,79 @@ inline Status ArrowSerializer<NPY_BOOL>::ConvertData() {
 
   return Status::OK();
 }
+
+template <int TYPE>
+template <int ITEM_TYPE, typename ArrowType>
+inline Status ArrowSerializer<TYPE>::ConvertTypedLists(const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+  typedef npy_traits<ITEM_TYPE> traits;
+  typedef typename traits::value_type T;
+  typedef typename traits::BuilderClass BuilderT;
+
+  auto value_builder = std::make_shared<BuilderT>(pool_, field->type);
+  ListBuilder list_builder(pool_, value_builder);
+  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  for (int64_t i = 0; i < length_; ++i) {
+    if (PyObject_is_null(objects[i])) {
+      RETURN_NOT_OK(list_builder.AppendNull());
+    } else if (PyArray_Check(objects[i])) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
+      RETURN_NOT_OK(list_builder.Append(true));
+
+      // TODO(uwe): Support more complex numpy array structures
+      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, ITEM_TYPE));
+
+      int32_t size = PyArray_DIM(numpy_array, 0);
+      auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
+      if (traits::supports_nulls) {
+        null_bitmap_->Resize(size, false);
+        // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't currently support this.
+        // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
+        ValuesToBytemap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
+        RETURN_NOT_OK(value_builder->Append(data, size, null_bitmap_->data()));
+      } else {
+        RETURN_NOT_OK(value_builder->Append(data, size));
+      }
+    } else if (PyList_Check(objects[i])) {
+      return Status::TypeError("Python lists are not yet supported");
+    } else {
+      return Status::TypeError("Unsupported Python type for list items");
+    }
+  }
+  return list_builder.Finish(out);
+}
+
+template <>
+template <>
+inline Status ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(const std::shared_ptr<Field>& field,
+      std::shared_ptr<Array>* out) {
+  // TODO: If there are bytes involed, convert to Binary representation
+  bool have_bytes = false;
+
+  auto value_builder = std::make_shared<arrow::StringBuilder>(pool_, field->type);
+  ListBuilder list_builder(pool_, value_builder);
+  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  for (int64_t i = 0; i < length_; ++i) {
+    if (PyObject_is_null(objects[i])) {
+      RETURN_NOT_OK(list_builder.AppendNull());
+    } else if (PyArray_Check(objects[i])) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
+      RETURN_NOT_OK(list_builder.Append(true));
+
+      // TODO(uwe): Support more complex numpy array structures
+      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
+
+      int32_t size = PyArray_DIM(numpy_array, 0);
+      auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
+      RETURN_NOT_OK(AppendObjectStrings(*value_builder.get(), data, size, &have_bytes));
+    } else if (PyList_Check(objects[i])) {
+      return Status::TypeError("Python lists are not yet supported");
+    } else {
+      return Status::TypeError("Unsupported Python type for list items");
+    }
+  }
+  return list_builder.Finish(out);
+}
+
 
 template <>
 inline Status ArrowSerializer<NPY_OBJECT>::ConvertData() {
@@ -892,8 +933,7 @@ inline Status ConvertListsLike(const std::shared_ptr<Column>& col, PyObject** ou
     value_arrays.emplace_back(arr->values());
   }
   auto flat_column = std::make_shared<Column>(list_type->value_field(), value_arrays);
-  // TODO(uwe): Add an ARROW story before the PR is merged.
-  // TODO(uwe): Currently we don't have a Python reference for single columns.
+  // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be to expensive.
   PyObject* numpy_array;
   RETURN_NOT_OK(ConvertColumnToPandas(flat_column, nullptr, &numpy_array));
@@ -1272,7 +1312,7 @@ class PandasBlock {
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
-#define CONVERTLISTSLIKE_NUMERIC_CASE(ArrowType, ArrowEnum) \
+#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum) \
         case Type::ArrowEnum: \
           RETURN_NOT_OK((ConvertListsLike<::arrow::ArrowType>(col, out_buffer))); \
           break;
@@ -1302,16 +1342,18 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->type) {
-        CONVERTLISTSLIKE_NUMERIC_CASE(UInt8Type, UINT8)
-        CONVERTLISTSLIKE_NUMERIC_CASE(Int8Type, INT8)
-        CONVERTLISTSLIKE_NUMERIC_CASE(UInt16Type, UINT16)
-        CONVERTLISTSLIKE_NUMERIC_CASE(Int16Type, INT16)
-        CONVERTLISTSLIKE_NUMERIC_CASE(UInt32Type, UINT32)
-        CONVERTLISTSLIKE_NUMERIC_CASE(Int32Type, INT32)
-        CONVERTLISTSLIKE_NUMERIC_CASE(UInt64Type, UINT64)
-        CONVERTLISTSLIKE_NUMERIC_CASE(Int64Type, INT64)
-        CONVERTLISTSLIKE_NUMERIC_CASE(FloatType, FLOAT)
-        CONVERTLISTSLIKE_NUMERIC_CASE(DoubleType, DOUBLE)
+        CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
+        CONVERTLISTSLIKE_CASE(Int8Type, INT8)
+        CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
+        CONVERTLISTSLIKE_CASE(Int16Type, INT16)
+        CONVERTLISTSLIKE_CASE(UInt32Type, UINT32)
+        CONVERTLISTSLIKE_CASE(Int32Type, INT32)
+        CONVERTLISTSLIKE_CASE(UInt64Type, UINT64)
+        CONVERTLISTSLIKE_CASE(Int64Type, INT64)
+        CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
+        CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
+        CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
+        CONVERTLISTSLIKE_CASE(StringType, STRING)
         default: {
             std::stringstream ss;
             ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
@@ -1626,6 +1668,8 @@ class DataFrameBlockCreator {
             case Type::UINT64:
             case Type::FLOAT:
             case Type::DOUBLE:
+            case Type::STRING:
+            case Type::TIMESTAMP:
               // The above types are all supported.
               break;
             default: {
