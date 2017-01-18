@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
+
 import datetime
 import unittest
 
@@ -60,8 +62,8 @@ class TestPandasConversion(unittest.TestCase):
         pass
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
-                                timestamps_to_ms=False, expected_schema=None):
-        table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms)
+                                timestamps_to_ms=False, expected_schema=None, schema=None):
+        table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms, schema=schema)
         result = table.to_pandas(nthreads=nthreads)
         if expected_schema:
             assert table.schema.equals(expected_schema)
@@ -283,6 +285,53 @@ class TestPandasConversion(unittest.TestCase):
         expected = df.copy()
         expected['date'] = pd.to_datetime(df['date'])
         tm.assert_frame_equal(result, expected)
+
+    def test_column_of_lists(self):
+        dtypes = [('i1', A.int8()), ('i2', A.int16()),
+                  ('i4', A.int32()), ('i8', A.int64()),
+                  ('u1', A.uint8()), ('u2', A.uint16()),
+                  ('u4', A.uint32()), ('u8', A.uint64()),
+                  ('f4', A.float_()), ('f8', A.double())]
+
+        arrays = OrderedDict()
+        fields = []
+        for dtype, arrow_dtype in dtypes:
+            fields.append(A.field(dtype, A.list_(arrow_dtype)))
+            arrays[dtype] = [
+                np.arange(10, dtype=dtype),
+                np.arange(5, dtype=dtype),
+                None,
+                np.arange(1, dtype=dtype)
+            ]
+
+        fields.append(A.field('str', A.list_(A.string())))
+        arrays['str'] = [
+            np.array([u"1", u"ä"], dtype="object"),
+            None,
+            np.array([u"1"], dtype="object"),
+            np.array([u"1", u"2", u"3"], dtype="object")
+        ]
+
+        fields.append(A.field('datetime64', A.list_(A.timestamp('ns'))))
+        arrays['datetime64'] = [
+            np.array(['2007-07-13T01:23:34.123456789',
+                      None,
+                      '2010-08-13T05:46:57.437699912'],
+                      dtype='datetime64[ns]'),
+            None,
+            None,
+            np.array(['2007-07-13T02',
+                      None,
+                      '2010-08-13T05:46:57.437699912'],
+                      dtype='datetime64[ns]'),
+        ]
+
+        df = pd.DataFrame(arrays)
+        schema = A.Schema.from_fields(fields)
+        self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
+        table = A.Table.from_pandas(df, schema=schema)
+        assert table.schema.equals(schema)
+        df_new = table.to_pandas(nthreads=1)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()

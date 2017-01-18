@@ -44,4 +44,5 @@ cdef class Schema:
     cdef init_schema(self, const shared_ptr[CSchema]& schema)
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type)
+cdef Field box_field(const shared_ptr[CField]& field)
 cdef Schema box_schema(const shared_ptr[CSchema]& schema)

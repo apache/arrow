@@ -18,9 +18,9 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CTable,
-                                        CDataType, CStatus, Type, MemoryPool,
-                                        TimeUnit)
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CField,
+                                        CTable, CDataType, CStatus, Type,
+                                        MemoryPool, TimeUnit)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
 
@@ -30,9 +30,10 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
     CStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
 
-    CStatus PandasToArrow(MemoryPool* pool, object ao,
+    CStatus PandasToArrow(MemoryPool* pool, object ao, shared_ptr[CField] field,
                           shared_ptr[CArray]* out)
     CStatus PandasMaskedToArrow(MemoryPool* pool, object ao, object mo,
+                                shared_ptr[CField] field,
                                 shared_ptr[CArray]* out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,

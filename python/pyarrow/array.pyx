@@ -33,7 +33,7 @@ from pyarrow.error cimport check_status
 cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
-from pyarrow.schema cimport Schema
+from pyarrow.schema cimport Field, Schema
 import pyarrow.schema as schema
 
 cimport cpython
@@ -322,7 +322,7 @@ def from_pylist(object list_obj, DataType type=None):
     return box_arrow_array(sp_array)
 
 
-def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
+def from_pandas_series(object series, object mask=None, timestamps_to_ms=False, Field field=None):
     """
     Convert pandas.Series to an Arrow Array.
 
@@ -338,26 +338,32 @@ def from_pandas_series(object series, object mask=None, timestamps_to_ms=False):
         compability with other functionality like Parquet I/O which
         only supports milliseconds.
 
+    field: pyarrow.Field
+        Schema indicator to what type this column should render in Arrow
+
     Returns
     -------
     pyarrow.array.Array
     """
     cdef:
         shared_ptr[CArray] out
+        shared_ptr[CField] c_field
 
     series_values = series_as_ndarray(series)
     if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
         series_values = series_values.astype('datetime64[ms]')
+    if field is not None:
+        c_field = field.sp_field
 
     if mask is None:
         with nogil:
             check_status(pyarrow.PandasToArrow(pyarrow.get_memory_pool(),
-                                               series_values, &out))
+                                               series_values, c_field, &out))
     else:
         mask = series_as_ndarray(mask)
         with nogil:
             check_status(pyarrow.PandasMaskedToArrow(
-                pyarrow.get_memory_pool(), series_values, mask, &out))
+                pyarrow.get_memory_pool(), series_values, mask, c_field, &out))
 
     return box_arrow_array(out)
 

@@ -133,6 +133,20 @@ cdef class Schema:
 
         return self.sp_schema.get().Equals(_other.sp_schema)
 
+    def field_by_name(self, name):
+        """
+        Access a field by its name rather than the column index.
+
+        Parameters
+        ----------
+        name: str
+
+        Returns
+        -------
+        field: pyarrow.Field
+        """
+        return box_field(self.schema.GetFieldByName(tobytes(name)))
+
     @classmethod
     def from_fields(cls, fields):
         cdef:
@@ -285,6 +299,11 @@ def schema(fields):
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):
     cdef DataType out = DataType()
     out.init(type)
+    return out
+
+cdef Field box_field(const shared_ptr[CField]& field):
+    cdef Field out = Field()
+    out.init(field)
     return out
 
 cdef Schema box_schema(const shared_ptr[CSchema]& type):

@@ -30,7 +30,7 @@ import pyarrow.config
 from pyarrow.array cimport Array, box_arrow_array
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
-from pyarrow.schema cimport box_data_type, box_schema
+from pyarrow.schema cimport box_data_type, box_schema, Field
 
 from pyarrow.compat import frombytes, tobytes
 
@@ -277,16 +277,20 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
 
 
 
-cdef _dataframe_to_arrays(df, name, timestamps_to_ms):
+cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
     from pyarrow.array import from_pandas_series
 
     cdef:
         list names = []
         list arrays = []
+        Field field = None
 
     for name in df.columns:
         col = df[name]
-        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms)
+        if schema is not None:
+            field = schema.field_by_name(name)
+        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms,
+                                 field=field)
 
         names.append(name)
         arrays.append(arr)
@@ -424,19 +428,22 @@ cdef class RecordBatch:
         return pd.DataFrame(dict(zip(names, data)), columns=names)
 
     @classmethod
-    def from_pandas(cls, df):
+    def from_pandas(cls, df, schema=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
         Parameters
         ----------
         df: pandas.DataFrame
+        schema: pyarrow.Schema (optional)
+            The expected schema of the RecordBatch. This can be used to
+            indicate the type of columns if we cannot infer it automatically.
 
         Returns
         -------
         pyarrow.table.RecordBatch
         """
-        names, arrays = _dataframe_to_arrays(df, None, False)
+        names, arrays = _dataframe_to_arrays(df, None, False, schema)
         return cls.from_arrays(names, arrays)
 
     @staticmethod
@@ -552,7 +559,7 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(cls, df, name=None, timestamps_to_ms=False):
+    def from_pandas(cls, df, name=None, timestamps_to_ms=False, schema=None):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -566,6 +573,10 @@ cdef class Table:
             Convert datetime columns to ms resolution. This is needed for
             compability with other functionality like Parquet I/O which
             only supports milliseconds.
+
+        schema: pyarrow.Schema (optional)
+            The expected schema of the Arrow Table. This can be used to
+            indicate the type of columns if we cannot infer it automatically.
 
         Returns
         -------
@@ -584,7 +595,8 @@ cdef class Table:
         <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
         names, arrays = _dataframe_to_arrays(df, name=name,
-                                             timestamps_to_ms=timestamps_to_ms)
+                                             timestamps_to_ms=timestamps_to_ms,
+                                             schema=schema)
         return cls.from_arrays(names, arrays, name=name)
 
     @staticmethod
