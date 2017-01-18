@@ -16,32 +16,23 @@ FROM quay.io/pypa/manylinux1_x86_64:latest
 RUN yum install -y flex openssl-devel
 
 WORKDIR /
-ADD http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz /boost_1_60_0.tar.gz
+RUN wget http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz -O /boost_1_60_0.tar.gz
 RUN tar xf boost_1_60_0.tar.gz
 WORKDIR /boost_1_60_0
 RUN ./bootstrap.sh
 RUN ./bjam cxxflags=-fPIC cflags=-fPIC --prefix=/usr --with-filesystem --with-date_time --with-system install
 
 WORKDIR /
-ADD https://cmake.org/files/v3.5/cmake-3.5.2.tar.gz /cmake-3.5.2.tar.gz
-RUN tar xf cmake-3.5.2.tar.gz
-WORKDIR /cmake-3.5.2
-RUN ./configure --prefix=/usr
-RUN make -j5 install
-
-WORKDIR /
-ADD https://github.com/google/flatbuffers/archive/v1.3.0.tar.gz /flatbuffers-1.3.0.tar.gz
-RUN tar xf flatbuffers-1.3.0.tar.gz
-WORKDIR /flatbuffers-1.3.0
-RUN CXXFLAGS='-fPIC' cmake -DFLATBUFFERS_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr .
-RUN make -j5 install
+# Install cmake manylinux1 package
+RUN /opt/python/cp35-cp35m/bin/pip install cmake
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git
 WORKDIR /multibuild
 RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 
+
 ADD arrow /arrow
 WORKDIR /arrow/cpp
-RUN FLATBUFFERS_HOME=/usr cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DARROW_HDFS=ON -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF .
+RUN /opt/python/cp35-cp35m/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DARROW_HDFS=ON -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=ON .
 RUN make -j5 install

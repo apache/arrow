@@ -598,7 +598,7 @@ if (ARROW_JEMALLOC)
   find_package(jemalloc)
 
   if(NOT JEMALLOC_FOUND)
-    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep")
+    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
     set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
     set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
     set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
@@ -611,7 +611,7 @@ if (ARROW_JEMALLOC)
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
-        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}")
+        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}")
     else()
       ExternalProject_Add(jemalloc_ep
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2

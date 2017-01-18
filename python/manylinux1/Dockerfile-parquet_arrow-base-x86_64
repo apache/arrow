@@ -13,28 +13,7 @@
 FROM arrow-base-x86_64
 
 WORKDIR /
-ADD http://zlib.net/zlib-1.2.8.tar.gz /zlib-1.2.8.tar.gz
-RUN tar xf zlib-1.2.8.tar.gz
-WORKDIR zlib-1.2.8
-RUN CFLAGS=-fPIC cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_BUILD_TYPE=Release .
-RUN make -j5 install
-
-WORKDIR /
-ADD https://github.com/google/snappy/releases/download/1.1.3/snappy-1.1.3.tar.gz /snappy-1.1.3.tar.gz
-RUN tar xf snappy-1.1.3.tar.gz
-WORKDIR /snappy-1.1.3
-RUN ./configure --with-pic --prefix=/usr
-RUN make -j5 install
-
-WORKDIR /
-ADD http://archive.apache.org/dist/thrift/0.9.1/thrift-0.9.1.tar.gz /thrift-0.9.1.tar.gz
-RUN tar xf thrift-0.9.1.tar.gz
-WORKDIR /thrift-0.9.1
-RUN ./configure LDFLAGS='-L/usr/lib64' CXXFLAGS='-fPIC' --without-qt4 --without-c_glib --without-csharp --without-java --without-erlang --without-nodejs --without-lua --without-python --without-perl --without-php --without-php_extension --without-ruby --without-haskell --without-go --without-d --without-tests --with-cpp --prefix=/usr --disable-shared --enable-static
-RUN make -j5 install
-
-WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
 WORKDIR /parquet-cpp
-RUN ARROW_HOME=/usr THRIFT_HOME=/usr cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DPARQUET_BUILD_TESTS=OFF -DPARQUET_ARROW=ON .
+RUN ARROW_HOME=/usr /opt/python/cp35-cp35m/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DPARQUET_BUILD_TESTS=OFF -DPARQUET_ARROW=ON .
 RUN make -j5 install
