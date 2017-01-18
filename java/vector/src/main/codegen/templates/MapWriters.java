@@ -48,7 +48,6 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
-
   public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
     if (container instanceof NullableMapVector) {
@@ -65,7 +64,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         list(child.getName());
         break;
       case UNION:
-        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class));
+        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class), getNullableMapWriterFactory());
         fields.put(handleCase(child.getName()), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
@@ -89,6 +88,10 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     return input.toLowerCase();
   }
 
+  protected NullableMapWriterFactory getNullableMapWriterFactory() {
+    return NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
+  }
+
   @Override
   public int getValueCapacity() {
     return container.getValueCapacity();
@@ -106,16 +109,17 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(String name) {
-      FieldWriter writer = fields.get(handleCase(name));
+    String finalName = handleCase(name);
+    FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
       NullableMapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      writer = new PromotableWriter(vector, container);
+      writer = new PromotableWriter(vector, container, getNullableMapWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(handleCase(name), writer);
+      fields.put(finalName, writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -149,15 +153,16 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public ListWriter list(String name) {
-    FieldWriter writer = fields.get(handleCase(name));
+    String finalName = handleCase(name);
+    FieldWriter writer = fields.get(handleCase(finalName));
     int vectorCount = container.size();
     if(writer == null) {
-      writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container);
+      writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container, getNullableMapWriterFactory());
       if (container.size() > vectorCount) {
         writer.allocate();
       }
       writer.setPosition(idx());
-      fields.put(handleCase(name), writer);
+      fields.put(finalName, writer);
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
@@ -218,7 +223,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
       ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class<#if minor.class == "Decimal"> , new int[] {precision, scale}</#if>);
-      writer = new PromotableWriter(v, container);
+      writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;
       if (currentVector == null || currentVector != vector) {
         vector.allocateNewSafe();

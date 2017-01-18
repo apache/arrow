@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.impl.NullableMapWriterFactory;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionWriter.java" />
 
@@ -38,9 +40,15 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   private MapWriter mapWriter;
   private UnionListWriter listWriter;
   private List<BaseWriter> writers = Lists.newArrayList();
+  private final NullableMapWriterFactory nullableMapWriterFactory;
 
   public UnionWriter(UnionVector vector) {
+    this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+  }
+
+  public UnionWriter(UnionVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
     data = vector;
+    this.nullableMapWriterFactory = nullableMapWriterFactory;
   }
 
   @Override
@@ -76,7 +84,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private MapWriter getMapWriter() {
     if (mapWriter == null) {
-      mapWriter = new NullableMapWriter(data.getMap());
+      mapWriter = nullableMapWriterFactory.build(data.getMap());
       mapWriter.setPosition(idx());
       writers.add(mapWriter);
     }
@@ -90,7 +98,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private ListWriter getListWriter() {
     if (listWriter == null) {
-      listWriter = new UnionListWriter(data.getList());
+      listWriter = new UnionListWriter(data.getList(), nullableMapWriterFactory);
       listWriter.setPosition(idx());
       writers.add(listWriter);
     }

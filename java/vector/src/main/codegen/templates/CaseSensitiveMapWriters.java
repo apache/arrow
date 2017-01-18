@@ -36,7 +36,6 @@ package org.apache.arrow.vector.complex.impl;
  */
 @SuppressWarnings("unused")
 public class ${mode}CaseSensitiveMapWriter extends ${mode}MapWriter {
-
   public ${mode}CaseSensitiveMapWriter(${containerClass} container) {
     super(container);
   }
@@ -44,6 +43,11 @@ public class ${mode}CaseSensitiveMapWriter extends ${mode}MapWriter {
   @Override
   protected String handleCase(final String input){
     return input;
+  }
+
+  @Override
+  protected NullableMapWriterFactory getNullableMapWriterFactory() {
+    return NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance();
   }
 
 }

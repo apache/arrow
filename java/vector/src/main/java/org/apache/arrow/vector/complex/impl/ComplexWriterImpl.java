@@ -37,7 +37,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   Mode mode = Mode.INIT;
   private final String name;
   private final boolean unionEnabled;
-  private final boolean caseSensitive;
+  private final NullableMapWriterFactory nullableMapWriterFactory;
 
   private enum Mode { INIT, MAP, LIST };
 
@@ -45,7 +45,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    this.caseSensitive = caseSensitive;
+    nullableMapWriterFactory = caseSensitive? NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance() :
+        NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
   }
 
   public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled) {
@@ -128,8 +129,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      NullableMapVector map = (NullableMapVector) container;
-      mapRoot = new NullableMapWriter(map);
+      mapRoot = nullableMapWriterFactory.build((NullableMapVector) container);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -150,7 +150,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
-      mapRoot = this.caseSensitive? new NullableCaseSensitiveMapWriter(map) : new NullableMapWriter(map);
+      mapRoot = nullableMapWriterFactory.build(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
       break;
@@ -184,7 +184,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       if (container.size() > vectorCount) {
         listVector.allocateNew();
       }
-      listRoot = new UnionListWriter(listVector);
+      listRoot = new UnionListWriter(listVector, nullableMapWriterFactory);
       listRoot.setPosition(idx());
       mode = Mode.LIST;
       break;
