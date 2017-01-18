@@ -32,8 +32,7 @@ namespace parquet {
 namespace test {
 
 typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type, FloatType,
-    DoubleType, ByteArrayType, FLBAType>
-    ParquetTypes;
+    DoubleType, ByteArrayType, FLBAType> ParquetTypes;
 
 template <typename T>
 static inline void assert_vector_equal(const vector<T>& left, const vector<T>& right) {

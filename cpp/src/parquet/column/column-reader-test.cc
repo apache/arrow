@@ -43,6 +43,23 @@ using schema::NodePtr;
 
 namespace test {
 
+template <typename T>
+static inline bool vector_equal_with_def_levels(const vector<T>& left,
+    const vector<int16_t> def_levels, int16_t max_def_levels, const vector<T>& right) {
+  size_t i_left = 0;
+  for (size_t i = 0; i < right.size(); ++i) {
+    if (def_levels[i] != max_def_levels) { continue; }
+    if (left[i_left] != right[i]) {
+      std::cerr << "index " << i << " left was " << left[i_left] << " right was "
+                << right[i] << std::endl;
+      return false;
+    }
+    i_left++;
+  }
+
+  return true;
+}
+
 class TestPrimitiveReader : public ::testing::Test {
  public:
   void InitReader(const ColumnDescriptor* d) {
@@ -84,17 +101,69 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(0, values_read);
   }
 
+  void CheckResultsSpaced() {
+    vector<int32_t> vresult(num_levels_, -1);
+    vector<int16_t> dresult(num_levels_, -1);
+    vector<int16_t> rresult(num_levels_, -1);
+    vector<uint8_t> valid_bits(num_levels_, 255);
+    int total_values_read = 0;
+    int batch_actual = 0;
+    int null_count = -1;
+
+    Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
+    int32_t batch_size = 8;
+    int batch = 0;
+    // This will cover both the cases
+    // 1) batch_size < page_size (multiple ReadBatch from a single page)
+    // 2) batch_size > page_size (BatchRead limits to a single page)
+    do {
+      batch = reader->ReadBatchSpaced(batch_size, dresult.data() + batch_actual,
+          rresult.data() + batch_actual, vresult.data() + batch_actual, &null_count,
+          valid_bits.data() + batch_actual, 0);
+      total_values_read += batch - null_count;
+      batch_actual += batch;
+      batch_size = std::max(batch_size * 2, 4096);
+    } while (batch > 0);
+
+    if (max_def_level_ > 0) {
+      ASSERT_TRUE(vector_equal(def_levels_, dresult));
+      ASSERT_TRUE(
+          vector_equal_with_def_levels(values_, dresult, max_def_level_, vresult));
+    } else {
+      ASSERT_TRUE(vector_equal(values_, vresult));
+    }
+    if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
+    ASSERT_EQ(num_levels_, batch_actual);
+    ASSERT_EQ(num_values_, total_values_read);
+    // catch improper writes at EOS
+    batch_actual = reader->ReadBatchSpaced(
+        5, nullptr, nullptr, nullptr, &null_count, valid_bits.data(), 0);
+    ASSERT_EQ(0, batch_actual);
+    ASSERT_EQ(0, null_count);
+  }
+
+  void Clear() {
+    values_.clear();
+    def_levels_.clear();
+    rep_levels_.clear();
+    pages_.clear();
+    reader_.reset();
+  }
+
   void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
     num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
         rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
-    values_.clear();
-    def_levels_.clear();
-    rep_levels_.clear();
-    pages_.clear();
-    reader_.reset();
+    Clear();
+
+    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
+        rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_levels_ = num_pages * levels_per_page;
+    InitReader(d);
+    CheckResultsSpaced();
+    Clear();
   }
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
@@ -103,6 +172,14 @@ class TestPrimitiveReader : public ::testing::Test {
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
+    Clear();
+
+    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
+        rep_levels_, values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+    num_levels_ = num_pages * levels_per_page;
+    InitReader(d);
+    CheckResultsSpaced();
+    Clear();
   }
 
  protected:

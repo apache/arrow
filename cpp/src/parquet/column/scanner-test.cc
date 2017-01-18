@@ -146,8 +146,7 @@ static int num_pages = 20;
 static int batch_size = 32;
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType>
-    TestTypes;
+    ByteArrayType> TestTypes;
 
 using TestBooleanFlatScanner = TestFlatScanner<BooleanType>;
 using TestFLBAFlatScanner = TestFlatScanner<FLBAType>;

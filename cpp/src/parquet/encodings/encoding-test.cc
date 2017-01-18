@@ -237,8 +237,7 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
 // Dictionary encoding tests
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType>
-    DictEncodedTypes;
+    ByteArrayType, FLBAType> DictEncodedTypes;
 
 template <typename Type>
 class TestDictionaryEncoding : public TestEncodingBase<Type> {
@@ -270,6 +269,14 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     // TODO(wesm): The DictionaryDecoder must stay alive because the decoded
     // values' data is owned by a buffer inside the DictionaryEncoder. We
     // should revisit when data lifetime is reviewed more generally.
+    VerifyResults<T>(decode_buf_, draws_, num_values_);
+
+    // Also test spaced decoding
+    decoder.SetData(num_values_, indices->data(), indices->size());
+    std::vector<uint8_t> valid_bits(BitUtil::RoundUpNumBytes(num_values_) + 1, 255);
+    values_decoded =
+        decoder.DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
+    ASSERT_EQ(num_values_, values_decoded);
     VerifyResults<T>(decode_buf_, draws_, num_values_);
   }
 

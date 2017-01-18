@@ -20,6 +20,8 @@
 
 #include <cstdint>
 
+#include <arrow/util/bit-util.h>
+
 #include "parquet/exception.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
@@ -46,6 +48,29 @@ class Decoder {
   // except for end of the current data page.
   virtual int Decode(T* buffer, int max_values) {
     throw ParquetException("Decoder does not implement this type.");
+  }
+
+  // Decode the values in this data page but leave spaces for null entries.
+  //
+  // num_values is the size of the def_levels and buffer arrays including the number of
+  // null values.
+  virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
+      const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    int values_to_read = num_values - null_count;
+    int values_read = Decode(buffer, values_to_read);
+    if (values_read != values_to_read) {
+      throw ParquetException("Number of values / definition_levels read did not match");
+    }
+
+    // Add spacing for null entries. As we have filled the buffer from the front,
+    // we need to add the spacing from the back.
+    int values_to_move = values_read;
+    for (int i = num_values - 1; i >= 0; i--) {
+      if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+        buffer[i] = buffer[--values_to_move];
+      }
+    }
+    return num_values;
   }
 
   // Returns the number of values left (for the last call to SetData()). This is
