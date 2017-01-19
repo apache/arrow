@@ -246,8 +246,6 @@ cdef wrap_array_output(PyObject* output):
     else:
         return obj
 
-    return values
-
 
 cdef class NullArray(Array):
     pass
@@ -405,8 +403,10 @@ cdef object get_series_values(object obj):
 
     if isinstance(obj, pd.Series):
         result = obj.values
-    else:
+    elif isinstance(obj, np.ndarray):
         result = obj
+    else:
+        result = pd.Series(obj).values
 
     return result
 

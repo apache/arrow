@@ -161,6 +161,7 @@ else()
         set(_PYTHON_LIBS_SEARCH "${PYTHON_PREFIX}/lib" "${PYTHON_LIBRARY_PATH}")
     endif()
     message(STATUS "Searching for Python libs in ${_PYTHON_LIBS_SEARCH}")
+    message(STATUS "Looking for python${PYTHON_LIBRARY_SUFFIX}")
     # Probably this needs to be more involved. It would be nice if the config
     # information the python interpreter itself gave us were more complete.
     find_library(PYTHON_LIBRARY
