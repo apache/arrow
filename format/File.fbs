@@ -37,10 +37,7 @@ struct Block {
 
   offset: long;
 
-  metaDataLength: int;
-
-  bodyLength: long;
-
+  length: int;
 }
 
 root_type Footer;

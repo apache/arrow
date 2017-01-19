@@ -29,6 +29,7 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.flatbuf.MetadataVersion;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowBuffer;
@@ -52,7 +53,8 @@ import io.netty.buffer.ArrowBuf;
  * For RecordBatch messages the serialization is:
  *   1. 4 byte little endian batch metadata header
  *   2. FB serialized RowBatch
- *   3. serialized RowBatch buffers.
+ *   3. Padding to align to 8 byte boundary.
+ *   4. serialized RowBatch buffers.
  */
 public class MessageSerializer {
 
@@ -98,26 +100,41 @@ public class MessageSerializer {
   }
 
   /**
-   * Serializes an ArrowRecordBatch.
+   * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
    */
-  public static long serialize(WriteChannel out, ArrowRecordBatch batch)
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch)
       throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
-
     ByteBuffer metadata = WriteChannel.serialize(batch);
+
+    int messageLength = 4 + metadata.remaining() + bodyLength;
     ByteBuffer serializedHeader =
-        serializeHeader(MessageHeader.RecordBatch, bodyLength + metadata.remaining() + 4);
+        serializeHeader(MessageHeader.RecordBatch, messageLength);
+
+    // Compute the required alignment. This is not a great way to do it. The issue is
+    // that we need to know the message size to serialize the message header but the
+    // size depends on the alignment, which depends on the message header.
+    // This will serialize the header again with the updated size alignment adjusted.
+    // TODO: We really just want sizeof(MessageHeader) from the serializeHeader() above.
+    // Is there a way to do this?
+    long bufferOffset = start + 4 + serializedHeader.remaining() + 4 + metadata.remaining();
+    if (bufferOffset % 8 != 0) {
+      messageLength += 8 - bufferOffset % 8;
+      serializedHeader = serializeHeader(MessageHeader.RecordBatch, messageLength);
+    }
 
     // Write message header.
     out.writeIntLittleEndian(serializedHeader.remaining());
     out.write(serializedHeader);
 
-    // Write the metadata, with the 4 byte little endian prefix
+    // Write batch header. with the 4 byte little endian prefix
     out.writeIntLittleEndian(metadata.remaining());
     out.write(metadata);
 
-    // Write batch header.
+    // Align the output to 8 byte boundary.
+    out.align();
+
     long offset = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
     List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -135,7 +152,7 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
-    return out.getCurrentPosition() - start;
+    return new ArrowBlock(start, (int)(out.getCurrentPosition() - start));
   }
 
   /**
@@ -149,17 +166,59 @@ public class MessageSerializer {
     int messageLen = (int)header.bodyLength();
     // Now read the buffer. This has the metadata followed by the data.
     ArrowBuf buffer = alloc.buffer(messageLen);
+    long readPosition = in.getCurrentPositiion();
+    if (in.readFully(buffer, messageLen) != messageLen) {
+      throw new IOException("Unexpected end of input trying to read batch.");
+    }
+    return deserializeRecordBatch(buffer, readPosition, messageLen);
+  }
+
+  /**
+   * Deserializes a RecordBatch knowing the size of the entire message up front. This
+   * minimizes the number of reads to the underlying stream.
+   */
+  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, int messageLen,
+      BufferAllocator alloc) throws IOException {
+    ArrowBuf buffer = alloc.buffer(messageLen);
+    long readPosition = in.getCurrentPositiion();
     if (in.readFully(buffer, messageLen) != messageLen) {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
+    byte[] headerLenBytes = new byte[4];
+    buffer.getBytes(0, headerLenBytes);
+    int headerLen = bytesToInt(headerLenBytes);
+    buffer = buffer.slice(4, messageLen - 4);
+    messageLen -=4;
+    readPosition += 4;
+
+    Message header = Message.getRootAsMessage(buffer.nioBuffer());
+    if (header.headerType() != MessageHeader.RecordBatch) {
+      throw new IOException("Invalid message: expecting " + MessageHeader.RecordBatch +
+          ". Message contained: " + header.headerType());
+    }
+
+    buffer = buffer.slice(headerLen, messageLen - headerLen);
+    messageLen -= headerLen;
+    readPosition += headerLen;
+    return deserializeRecordBatch(buffer, readPosition, messageLen);
+  }
+
+  private static ArrowRecordBatch deserializeRecordBatch(
+      ArrowBuf buffer, long readPosition, int bufferLen) {
     // Read the metadata. It starts with the 4 byte size of the metadata.
     int metadataSize = buffer.readInt();
     RecordBatch recordBatchFB =
-        RecordBatch.getRootAsRecordBatch( buffer.nioBuffer().asReadOnlyBuffer());
+        RecordBatch.getRootAsRecordBatch(buffer.nioBuffer().asReadOnlyBuffer());
 
-    // No read the body
-    final ArrowBuf body = buffer.slice(4 + metadataSize, messageLen - metadataSize - 4);
+    int bufferOffset = 4 + metadataSize;
+    readPosition += bufferOffset;
+    if (readPosition % 8 != 0) {
+      bufferOffset += (int)(8 - readPosition % 8);
+    }
+
+    // Now read the body
+    final ArrowBuf body = buffer.slice(bufferOffset, bufferLen - bufferOffset);
     int nodesLength = recordBatchFB.nodesLength();
     List<ArrowFieldNode> nodes = new ArrayList<>();
     for (int i = 0; i < nodesLength; ++i) {

@@ -109,8 +109,6 @@ public class TestArrowFile extends BaseFileTest {
 
         List<ArrowBlock> recordBatches = footer.getRecordBatches();
         for (ArrowBlock rbBlock : recordBatches) {
-          Assert.assertEquals(0, rbBlock.getOffset() % 8);
-          Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
           try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
             List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
             for (ArrowBuffer arrowBuffer : buffersLayout) {
@@ -271,8 +269,6 @@ public class TestArrowFile extends BaseFileTest {
         for (ArrowBlock rbBlock : recordBatches) {
           Assert.assertTrue(rbBlock.getOffset() + " > " + previousOffset, rbBlock.getOffset() > previousOffset);
           previousOffset = rbBlock.getOffset();
-          Assert.assertEquals(0, rbBlock.getOffset() % 8);
-          Assert.assertEquals(0, rbBlock.getMetadataLength() % 8);
           try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
             Assert.assertEquals("RB #" + i, counts[i], recordBatch.getLength());
             List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();

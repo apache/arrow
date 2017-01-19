@@ -25,39 +25,32 @@ import com.google.flatbuffers.FlatBufferBuilder;
 public class ArrowBlock implements FBSerializable {
 
   private final long offset;
-  private final int metadataLength;
-  private final long bodyLength;
+  private final int length;
 
-  public ArrowBlock(long offset, int metadataLength, long bodyLength) {
+  public ArrowBlock(long offset, int length) {
     super();
     this.offset = offset;
-    this.metadataLength = metadataLength;
-    this.bodyLength = bodyLength;
+    this.length = length;
   }
 
   public long getOffset() {
     return offset;
   }
 
-  public int getMetadataLength() {
-    return metadataLength;
-  }
-
-  public long getBodyLength() {
-    return bodyLength;
+  public int getLength() {
+    return length;
   }
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return Block.createBlock(builder, offset, metadataLength, bodyLength);
+    return Block.createBlock(builder, offset, length);
   }
 
   @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + (int) (bodyLength ^ (bodyLength >>> 32));
-    result = prime * result + metadataLength;
+    result = prime * result + (length ^ (length >>> 32));
     result = prime * result + (int) (offset ^ (offset >>> 32));
     return result;
   }
@@ -71,9 +64,7 @@ public class ArrowBlock implements FBSerializable {
     if (getClass() != obj.getClass())
       return false;
     ArrowBlock other = (ArrowBlock) obj;
-    if (bodyLength != other.bodyLength)
-      return false;
-    if (metadataLength != other.metadataLength)
+    if (length != other.length)
       return false;
     if (offset != other.offset)
       return false;
