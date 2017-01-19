@@ -38,7 +38,7 @@ from pyarrow.array import (Array,
                            Int32Array, UInt32Array,
                            Int64Array, UInt64Array,
                            ListArray, StringArray,
-                           DictionaryArray, dictionary)
+                           DictionaryArray)
 
 from pyarrow.error import ArrowException
 
@@ -57,7 +57,7 @@ from pyarrow.schema import (null, bool_,
                             uint8, uint16, uint32, uint64,
                             timestamp, date,
                             float_, double, binary, string,
-                            list_, struct, field,
+                            list_, struct, dictionary, field,
                             DataType, Field, Schema, schema)
 
 from pyarrow.table import Column, RecordBatch, Table, concat_tables

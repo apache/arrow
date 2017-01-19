@@ -413,14 +413,3 @@ cdef object get_series_values(object obj):
 
 from_pylist = Array.from_list
 from_pandas_series = Array.from_pandas
-
-
-def dictionary(DataType index_type, Array dictionary):
-    """
-    Dictionary (categorical, or simply encoded) type
-    """
-    cdef DictionaryType out = schema.DictionaryType()
-    cdef shared_ptr[CDataType] dict_type
-    dict_type.reset(new CDictionaryType(index_type.sp_type, dictionary.sp_array))
-    out.init(dict_type)
-    return out

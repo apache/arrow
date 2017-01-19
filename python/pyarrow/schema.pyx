@@ -25,6 +25,7 @@
 from cython.operator cimport dereference as deref
 
 from pyarrow.compat import frombytes, tobytes
+from pyarrow.array cimport Array
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
                                         Type_NA, Type_BOOL,
                                         Type_UINT8, Type_INT8,
@@ -282,12 +283,26 @@ def binary():
     """
     return primitive_type(Type_BINARY)
 
+
 def list_(DataType value_type):
     cdef DataType out = DataType()
     cdef shared_ptr[CDataType] list_type
     list_type.reset(new CListType(value_type.sp_type))
     out.init(list_type)
     return out
+
+
+def dictionary(DataType index_type, Array dictionary):
+    """
+    Dictionary (categorical, or simply encoded) type
+    """
+    cdef DictionaryType out = DictionaryType()
+    cdef shared_ptr[CDataType] dict_type
+    dict_type.reset(new CDictionaryType(index_type.sp_type,
+                                        dictionary.sp_array))
+    out.init(dict_type)
+    return out
+
 
 def struct(fields):
     """
