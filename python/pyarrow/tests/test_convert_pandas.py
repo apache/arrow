@@ -73,6 +73,13 @@ class TestPandasConversion(unittest.TestCase):
             expected = df
         tm.assert_frame_equal(result, expected)
 
+    def _check_array_roundtrip(self, values, expected=None,
+                                timestamps_to_ms=False, field=None):
+        arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
+                                  field=field)
+        result = arr.to_pandas()
+        tm.assert_series_equal(pd.Series(result), pd.Series(values))
+
     def test_float_no_nulls(self):
         data = {}
         fields = []
@@ -360,3 +367,11 @@ class TestPandasConversion(unittest.TestCase):
                            'strings2': v1 * repeats,
                            'strings3': v3 * repeats})
         self._check_pandas_roundtrip(df)
+
+        arrays = [
+            pd.Categorical(v1 * repeats),
+            pd.Categorical(v2 * repeats),
+            pd.Categorical(v3 * repeats)
+        ]
+        for values in arrays:
+            self._check_array_roundtrip(values)

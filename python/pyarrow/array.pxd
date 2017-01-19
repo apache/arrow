@@ -22,6 +22,8 @@ from pyarrow.scalar import NA
 
 from pyarrow.schema cimport DataType
 
+from cpython cimport PyObject
+
 cdef extern from "Python.h":
     int PySlice_Check(object)
 
@@ -108,3 +110,6 @@ cdef class BinaryArray(Array):
 
 cdef class DictionaryArray(Array):
     pass
+
+
+cdef wrap_array_output(PyObject* output)

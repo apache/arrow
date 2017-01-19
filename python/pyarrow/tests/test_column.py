@@ -47,4 +47,3 @@ class TestColumn(unittest.TestCase):
         assert series.name == 'a'
         assert series.shape == (5,)
         assert series.iloc[0] == -10
-

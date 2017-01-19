@@ -27,7 +27,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
 
-from pyarrow.array cimport Array, box_arrow_array
+from pyarrow.array cimport Array, box_arrow_array, wrap_array_output
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport box_data_type, box_schema, Field
@@ -151,12 +151,12 @@ cdef class Column:
         pandas.Series
         """
         cdef:
-            PyObject* arr
+            PyObject* out
 
         check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
-                                                   <PyObject*> self, &arr))
+                                                   <PyObject*> self, &out))
 
-        return _pandas().Series(PyObject_to_object(arr), name=self.name)
+        return _pandas().Series(wrap_array_output(out), name=self.name)
 
     def equals(self, Column other):
         """
@@ -489,7 +489,7 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
         block_arr = item['block']
         placement = item['placement']
         if 'dictionary' in item:
-            cat = Categorical(block_arr[0],
+            cat = Categorical(block_arr,
                               categories=item['dictionary'],
                               ordered=False, fastpath=True)
             block = _int.make_block(cat, placement=placement,

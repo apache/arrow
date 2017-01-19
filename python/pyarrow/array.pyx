@@ -221,18 +221,32 @@ cdef class Array:
         RecordBatch.to_pandas
         """
         cdef:
-            PyObject* np_arr
+            PyObject* out
 
-        check_status(pyarrow.ConvertArrayToPandas(
-            self.sp_array, <PyObject*> self, &np_arr))
-
-        return PyObject_to_object(np_arr)
+        with nogil:
+            check_status(
+                pyarrow.ConvertArrayToPandas(self.sp_array, <PyObject*> self,
+                                             &out))
+        return wrap_array_output(out)
 
     def to_pylist(self):
         """
         Convert to an list of native Python objects.
         """
         return [x.as_py() for x in self]
+
+
+cdef wrap_array_output(PyObject* output):
+    cdef object obj = PyObject_to_object(output)
+
+    if isinstance(obj, dict):
+        return _pandas().Categorical(obj['indices'],
+                                     categories=obj['dictionary'],
+                                     fastpath=True)
+    else:
+        return obj
+
+    return values
 
 
 cdef class NullArray(Array):
