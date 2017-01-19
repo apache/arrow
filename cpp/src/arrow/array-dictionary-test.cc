@@ -46,7 +46,7 @@ TEST(TestDictionary, Basics) {
   ASSERT_TRUE(int16()->Equals(type2.index_type()));
   ASSERT_TRUE(type2.dictionary()->Equals(dict));
 
-  ASSERT_EQ("dictionary<int32, int16>", type1->ToString());
+  ASSERT_EQ("dictionary<values=int32, indices=int16>", type1->ToString());
 }
 
 TEST(TestDictionary, Equals) {

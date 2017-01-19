@@ -27,7 +27,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
 
-from pyarrow.array cimport Array, box_arrow_array
+from pyarrow.array cimport Array, box_arrow_array, wrap_array_output
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport box_data_type, box_schema, Field
@@ -37,6 +37,11 @@ from pyarrow.compat import frombytes, tobytes
 cimport cpython
 
 from collections import OrderedDict
+
+
+cdef _pandas():
+    import pandas as pd
+    return pd
 
 
 cdef class ChunkedArray:
@@ -146,14 +151,12 @@ cdef class Column:
         pandas.Series
         """
         cdef:
-            PyObject* arr
-
-        import pandas as pd
+            PyObject* out
 
         check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
-                                                   <PyObject*> self, &arr))
+                                                   <PyObject*> self, &out))
 
-        return pd.Series(PyObject_to_object(arr), name=self.name)
+        return _pandas().Series(wrap_array_output(out), name=self.name)
 
     def equals(self, Column other):
         """
@@ -278,8 +281,6 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
 
 
 cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
-    from pyarrow.array import from_pandas_series
-
     cdef:
         list names = []
         list arrays = []
@@ -289,9 +290,8 @@ cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
         col = df[name]
         if schema is not None:
             field = schema.field_by_name(name)
-        arr = from_pandas_series(col, timestamps_to_ms=timestamps_to_ms,
-                                 field=field)
-
+        arr = Array.from_pandas(col, timestamps_to_ms=timestamps_to_ms,
+                                field=field)
         names.append(name)
         arrays.append(arr)
 
@@ -304,7 +304,8 @@ cdef class RecordBatch:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    Do not call this class's constructor directly, use one of the ``from_*``
+    methods instead.
     """
 
     def __cinit__(self):
@@ -401,7 +402,7 @@ cdef class RecordBatch:
         return OrderedDict(entries)
 
 
-    def to_pandas(self):
+    def to_pandas(self, nthreads=None):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -409,23 +410,7 @@ cdef class RecordBatch:
         -------
         pandas.DataFrame
         """
-        cdef:
-            PyObject* np_arr
-            shared_ptr[CArray] arr
-            Column column
-
-        import pandas as pd
-
-        names = []
-        data = []
-        for i in range(self.batch.num_columns()):
-            arr = self.batch.column(i)
-            check_status(pyarrow.ConvertArrayToPandas(arr, <PyObject*> self,
-                                                      &np_arr))
-            names.append(frombytes(self.batch.column_name(i)))
-            data.append(PyObject_to_object(np_arr))
-
-        return pd.DataFrame(dict(zip(names, data)), columns=names)
+        return Table.from_batches([self]).to_pandas(nthreads=nthreads)
 
     @classmethod
     def from_pandas(cls, df, schema=None):
@@ -490,8 +475,8 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
         CColumn* col
         int i
 
-    from pandas.core.internals import BlockManager, make_block
-    from pandas import RangeIndex
+    import pandas.core.internals as _int
+    from pandas import RangeIndex, Categorical
 
     with nogil:
         check_status(pyarrow.ConvertTableToPandas(table, nthreads,
@@ -500,8 +485,19 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
     result = PyObject_to_object(result_obj)
 
     blocks = []
-    for block_arr, placement_arr in result:
-        blocks.append(make_block(block_arr, placement=placement_arr))
+    for item in result:
+        block_arr = item['block']
+        placement = item['placement']
+        if 'dictionary' in item:
+            cat = Categorical(block_arr,
+                              categories=item['dictionary'],
+                              ordered=False, fastpath=True)
+            block = _int.make_block(cat, placement=placement,
+                                    klass=_int.CategoricalBlock,
+                                    fastpath=True)
+        else:
+            block = _int.make_block(block_arr, placement=placement)
+        blocks.append(block)
 
     names = []
     for i in range(table.get().num_columns()):
@@ -509,7 +505,7 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
         names.append(frombytes(col.name()))
 
     axes = [names, RangeIndex(table.get().num_rows())]
-    return BlockManager(blocks, axes)
+    return _int.BlockManager(blocks, axes)
 
 
 cdef class Table:
@@ -518,7 +514,8 @@ cdef class Table:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*`` methods instead.
+    Do not call this class's constructor directly, use one of the ``from_*``
+    methods instead.
     """
 
     def __cinit__(self):
@@ -688,13 +685,11 @@ cdef class Table:
         -------
         pandas.DataFrame
         """
-        import pandas as pd
-
         if nthreads is None:
             nthreads = pyarrow.config.cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
-        return pd.DataFrame(mgr)
+        return _pandas().DataFrame(mgr)
 
     def to_pydict(self):
         """
@@ -834,6 +829,7 @@ cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
     cdef Table table = Table()
     table.init(ctable)
     return table
+
 
 cdef api object batch_from_cbatch(const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch()

@@ -25,6 +25,7 @@
 from cython.operator cimport dereference as deref
 
 from pyarrow.compat import frombytes, tobytes
+from pyarrow.array cimport Array
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
                                         Type_NA, Type_BOOL,
                                         Type_UINT8, Type_INT8,
@@ -64,6 +65,19 @@ cdef class DataType:
             return not self.type.Equals(deref(other.type))
         else:
             raise TypeError('Invalid comparison')
+
+
+cdef class DictionaryType(DataType):
+
+    cdef init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.dict_type = <const CDictionaryType*> type.get()
+
+    def __str__(self):
+        return frombytes(self.type.ToString())
+
+    def __repr__(self):
+        return 'DictionaryType({0})'.format(str(self))
 
 
 cdef class Field:
@@ -269,12 +283,26 @@ def binary():
     """
     return primitive_type(Type_BINARY)
 
+
 def list_(DataType value_type):
     cdef DataType out = DataType()
     cdef shared_ptr[CDataType] list_type
     list_type.reset(new CListType(value_type.sp_type))
     out.init(list_type)
     return out
+
+
+def dictionary(DataType index_type, Array dictionary):
+    """
+    Dictionary (categorical, or simply encoded) type
+    """
+    cdef DictionaryType out = DictionaryType()
+    cdef shared_ptr[CDataType] dict_type
+    dict_type.reset(new CDictionaryType(index_type.sp_type,
+                                        dictionary.sp_array))
+    out.init(dict_type)
+    return out
+
 
 def struct(fields):
     """

@@ -128,6 +128,7 @@ class build_ext(_build_ext):
 
         cmake_options = [
             '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+            '-DPYARROW_BUILD_TESTS=off',
             static_lib_option,
             build_tests_option,
         ]

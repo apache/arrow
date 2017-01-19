@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -33,7 +34,6 @@
 namespace arrow {
 
 class Array;
-class MemoryPool;
 
 static constexpr int32_t kMinBuilderCapacity = 1 << 5;
 
@@ -378,7 +378,10 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
 // String builder
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
-  explicit StringBuilder(MemoryPool* pool, const TypePtr& type)
+  explicit StringBuilder(MemoryPool* pool = default_memory_pool())
+      : BinaryBuilder(pool, utf8()) {}
+
+  explicit StringBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
       : BinaryBuilder(pool, type) {}
 
   using BinaryBuilder::Append;

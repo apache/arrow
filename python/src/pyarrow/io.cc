@@ -114,22 +114,22 @@ PyReadableFile::PyReadableFile(PyObject* file) {
 PyReadableFile::~PyReadableFile() {}
 
 Status PyReadableFile::Close() {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Close();
 }
 
 Status PyReadableFile::Seek(int64_t position) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Seek(position, 0);
 }
 
 Status PyReadableFile::Tell(int64_t* position) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Tell(position);
 }
 
 Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   PyObject* bytes_obj;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
 
@@ -141,7 +141,7 @@ Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
 }
 
 Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
 
   PyObject* bytes_obj;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
@@ -153,7 +153,7 @@ Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out)
 }
 
 Status PyReadableFile::GetSize(int64_t* size) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
 
   int64_t current_position;
   ;
@@ -185,17 +185,17 @@ PyOutputStream::PyOutputStream(PyObject* file) {
 PyOutputStream::~PyOutputStream() {}
 
 Status PyOutputStream::Close() {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Close();
 }
 
 Status PyOutputStream::Tell(int64_t* position) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Tell(position);
 }
 
 Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
-  PyGILGuard lock;
+  PyAcquireGIL lock;
   return file_->Write(data, nbytes);
 }
 

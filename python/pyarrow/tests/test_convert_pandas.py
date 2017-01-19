@@ -62,14 +62,23 @@ class TestPandasConversion(unittest.TestCase):
         pass
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
-                                timestamps_to_ms=False, expected_schema=None, schema=None):
-        table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms, schema=schema)
+                                timestamps_to_ms=False, expected_schema=None,
+                                schema=None):
+        table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms,
+                                    schema=schema)
         result = table.to_pandas(nthreads=nthreads)
         if expected_schema:
             assert table.schema.equals(expected_schema)
         if expected is None:
             expected = df
         tm.assert_frame_equal(result, expected)
+
+    def _check_array_roundtrip(self, values, expected=None,
+                                timestamps_to_ms=False, field=None):
+        arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
+                                  field=field)
+        result = arr.to_pandas()
+        tm.assert_series_equal(pd.Series(result), pd.Series(values))
 
     def test_float_no_nulls(self):
         data = {}
@@ -235,7 +244,8 @@ class TestPandasConversion(unittest.TestCase):
             })
         field = A.Field.from_py('datetime64', A.timestamp('ms'))
         schema = A.Schema.from_fields([field])
-        self._check_pandas_roundtrip(df, timestamps_to_ms=True, expected_schema=schema)
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True,
+                                     expected_schema=schema)
 
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -246,7 +256,8 @@ class TestPandasConversion(unittest.TestCase):
             })
         field = A.Field.from_py('datetime64', A.timestamp('ns'))
         schema = A.Schema.from_fields([field])
-        self._check_pandas_roundtrip(df, timestamps_to_ms=False, expected_schema=schema)
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False,
+                                     expected_schema=schema)
 
     def test_timestamps_notimezone_nulls(self):
         df = pd.DataFrame({
@@ -258,7 +269,8 @@ class TestPandasConversion(unittest.TestCase):
             })
         field = A.Field.from_py('datetime64', A.timestamp('ms'))
         schema = A.Schema.from_fields([field])
-        self._check_pandas_roundtrip(df, timestamps_to_ms=True, expected_schema=schema)
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True,
+                                     expected_schema=schema)
 
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -269,7 +281,8 @@ class TestPandasConversion(unittest.TestCase):
             })
         field = A.Field.from_py('datetime64', A.timestamp('ns'))
         schema = A.Schema.from_fields([field])
-        self._check_pandas_roundtrip(df, timestamps_to_ms=False, expected_schema=schema)
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False,
+                                     expected_schema=schema)
 
     def test_date(self):
         df = pd.DataFrame({
@@ -317,13 +330,13 @@ class TestPandasConversion(unittest.TestCase):
             np.array(['2007-07-13T01:23:34.123456789',
                       None,
                       '2010-08-13T05:46:57.437699912'],
-                      dtype='datetime64[ns]'),
+                     dtype='datetime64[ns]'),
             None,
             None,
             np.array(['2007-07-13T02',
                       None,
                       '2010-08-13T05:46:57.437699912'],
-                      dtype='datetime64[ns]'),
+                     dtype='datetime64[ns]'),
         ]
 
         df = pd.DataFrame(arrays)
@@ -331,16 +344,34 @@ class TestPandasConversion(unittest.TestCase):
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)
-        df_new = table.to_pandas(nthreads=1)
+
+        # it works!
+        table.to_pandas(nthreads=1)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
         self._check_pandas_roundtrip(df, nthreads=2,
                                      timestamps_to_ms=False)
 
-    # def test_category(self):
-    #     repeats = 1000
-    #     values = [b'foo', None, u'bar', 'qux', np.nan]
-    #     df = pd.DataFrame({'strings': values * repeats})
-    #     df['strings'] = df['strings'].astype('category')
-    #     self._check_pandas_roundtrip(df)
+    def test_category(self):
+        repeats = 5
+        v1 = ['foo', None, 'bar', 'qux', np.nan]
+        v2 = [4, 5, 6, 7, 8]
+        v3 = [b'foo', None, b'bar', b'qux', np.nan]
+        df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
+                           'cat_ints': pd.Categorical(v2 * repeats),
+                           'cat_binary': pd.Categorical(v3 * repeats),
+                           'ints': v2 * repeats,
+                           'ints2': v2 * repeats,
+                           'strings': v1 * repeats,
+                           'strings2': v1 * repeats,
+                           'strings3': v3 * repeats})
+        self._check_pandas_roundtrip(df)
+
+        arrays = [
+            pd.Categorical(v1 * repeats),
+            pd.Categorical(v2 * repeats),
+            pd.Categorical(v3 * repeats)
+        ]
+        for values in arrays:
+            self._check_array_roundtrip(values)

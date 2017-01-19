@@ -63,11 +63,7 @@ arrow::Status ConvertTableToPandas(
     const std::shared_ptr<arrow::Table>& table, int nthreads, PyObject** out);
 
 PYARROW_EXPORT
-arrow::Status PandasMaskedToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
-    const std::shared_ptr<arrow::Field>& field, std::shared_ptr<arrow::Array>* out);
-
-PYARROW_EXPORT
-arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao,
+arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<arrow::Field>& field, std::shared_ptr<arrow::Array>* out);
 
 }  // namespace pyarrow

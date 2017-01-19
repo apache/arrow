@@ -31,9 +31,14 @@ from pyarrow.config import cpu_count, set_cpu_count
 from pyarrow.array import (Array,
                            from_pandas_series, from_pylist,
                            total_allocated_bytes,
-                           BooleanArray, NumericArray,
+                           NumericArray, IntegerArray, FloatingPointArray,
+                           BooleanArray,
                            Int8Array, UInt8Array,
-                           ListArray, StringArray)
+                           Int16Array, UInt16Array,
+                           Int32Array, UInt32Array,
+                           Int64Array, UInt64Array,
+                           ListArray, StringArray,
+                           DictionaryArray)
 
 from pyarrow.error import ArrowException
 
@@ -52,7 +57,7 @@ from pyarrow.schema import (null, bool_,
                             uint8, uint16, uint32, uint64,
                             timestamp, date,
                             float_, double, binary, string,
-                            list_, struct, field,
+                            list_, struct, dictionary, field,
                             DataType, Field, Schema, schema)
 
 from pyarrow.table import Column, RecordBatch, Table, concat_tables

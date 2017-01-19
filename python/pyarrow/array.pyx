@@ -33,10 +33,15 @@ from pyarrow.error cimport check_status
 cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
-from pyarrow.schema cimport Field, Schema
+from pyarrow.schema cimport Field, Schema, DictionaryType
 import pyarrow.schema as schema
 
 cimport cpython
+
+
+cdef _pandas():
+    import pandas as pd
+    return pd
 
 
 def total_allocated_bytes():
@@ -53,20 +58,22 @@ cdef class Array:
         self.type.init(self.sp_array.get().type())
 
     @staticmethod
-    def from_pandas(obj, mask=None):
+    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None):
         """
-        Create an array from a pandas.Series
+        Convert pandas.Series to an Arrow Array.
 
         Parameters
         ----------
-        obj : pandas.Series or numpy.ndarray
-            vector holding the data
-        mask : numpy.ndarray, optional
+        series : pandas.Series or numpy.ndarray
+
+        mask : pandas.Series or numpy.ndarray, optional
             boolean mask if the object is valid or null
 
-        Returns
-        -------
-        pyarrow.Array
+        timestamps_to_ms : bool, optional
+            Convert datetime columns to ms resolution. This is needed for
+            compability with other functionality like Parquet I/O which
+            only supports milliseconds.
+
 
         Examples
         --------
@@ -80,16 +87,47 @@ cdef class Array:
           2
         ]
 
-
         >>> import numpy as np
-        >>> pa.Array.from_pandas(pd.Series([1, 2]), np.array([0, 1], dtype=bool))
+        >>> pa.Array.from_pandas(pd.Series([1, 2]), np.array([0, 1],
+        ... dtype=bool))
         <pyarrow.array.Int64Array object at 0x7f9019e11208>
         [
           1,
           NA
         ]
+
+        Returns
+        -------
+        pyarrow.array.Array
         """
-        return from_pandas_series(obj, mask)
+        cdef:
+            shared_ptr[CArray] out
+            shared_ptr[CField] c_field
+
+        pd = _pandas()
+
+        if field is not None:
+            c_field = field.sp_field
+
+        if mask is not None:
+            mask = get_series_values(mask)
+
+        series_values = get_series_values(obj)
+
+        if isinstance(series_values, pd.Categorical):
+            return DictionaryArray.from_arrays(series_values.codes,
+                                               series_values.categories.values,
+                                               mask=mask)
+        else:
+            if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
+                series_values = series_values.astype('datetime64[ms]')
+
+            with nogil:
+                check_status(pyarrow.PandasToArrow(
+                    pyarrow.get_memory_pool(), series_values, mask,
+                    c_field, &out))
+
+            return box_arrow_array(out)
 
     @staticmethod
     def from_list(object list_obj, DataType type=None):
@@ -183,18 +221,30 @@ cdef class Array:
         RecordBatch.to_pandas
         """
         cdef:
-            PyObject* np_arr
+            PyObject* out
 
-        check_status(pyarrow.ConvertArrayToPandas(
-            self.sp_array, <PyObject*> self, &np_arr))
-
-        return PyObject_to_object(np_arr)
+        with nogil:
+            check_status(
+                pyarrow.ConvertArrayToPandas(self.sp_array, <PyObject*> self,
+                                             &out))
+        return wrap_array_output(out)
 
     def to_pylist(self):
         """
         Convert to an list of native Python objects.
         """
         return [x.as_py() for x in self]
+
+
+cdef wrap_array_output(PyObject* output):
+    cdef object obj = PyObject_to_object(output)
+
+    if isinstance(obj, dict):
+        return _pandas().Categorical(obj['indices'],
+                                     categories=obj['dictionary'],
+                                     fastpath=True)
+    else:
+        return obj
 
 
 cdef class NullArray(Array):
@@ -209,35 +259,43 @@ cdef class NumericArray(Array):
     pass
 
 
-cdef class Int8Array(NumericArray):
+cdef class IntegerArray(NumericArray):
     pass
 
 
-cdef class UInt8Array(NumericArray):
+cdef class FloatingPointArray(NumericArray):
     pass
 
 
-cdef class Int16Array(NumericArray):
+cdef class Int8Array(IntegerArray):
     pass
 
 
-cdef class UInt16Array(NumericArray):
+cdef class UInt8Array(IntegerArray):
     pass
 
 
-cdef class Int32Array(NumericArray):
+cdef class Int16Array(IntegerArray):
     pass
 
 
-cdef class UInt32Array(NumericArray):
+cdef class UInt16Array(IntegerArray):
     pass
 
 
-cdef class Int64Array(NumericArray):
+cdef class Int32Array(IntegerArray):
     pass
 
 
-cdef class UInt64Array(NumericArray):
+cdef class UInt32Array(IntegerArray):
+    pass
+
+
+cdef class Int64Array(IntegerArray):
+    pass
+
+
+cdef class UInt64Array(IntegerArray):
     pass
 
 
@@ -245,11 +303,11 @@ cdef class DateArray(NumericArray):
     pass
 
 
-cdef class FloatArray(NumericArray):
+cdef class FloatArray(FloatingPointArray):
     pass
 
 
-cdef class DoubleArray(NumericArray):
+cdef class DoubleArray(FloatingPointArray):
     pass
 
 
@@ -263,6 +321,46 @@ cdef class StringArray(Array):
 
 cdef class BinaryArray(Array):
     pass
+
+
+cdef class DictionaryArray(Array):
+
+    @staticmethod
+    def from_arrays(indices, dictionary, mask=None):
+        """
+        Construct Arrow DictionaryArray from array of indices (must be
+        non-negative integers) and corresponding array of dictionary values
+
+        Parameters
+        ----------
+        indices : ndarray or pandas.Series, integer type
+        dictionary : ndarray or pandas.Series
+        mask : ndarray or pandas.Series, boolean type
+            True values indicate that indices are actually null
+
+        Returns
+        -------
+        dict_array : DictionaryArray
+        """
+        cdef:
+            Array arrow_indices, arrow_dictionary
+            DictionaryArray result
+            shared_ptr[CDataType] c_type
+            shared_ptr[CArray] c_result
+
+        arrow_indices = Array.from_pandas(indices, mask=mask)
+        arrow_dictionary = Array.from_pandas(dictionary)
+
+        if not isinstance(arrow_indices, IntegerArray):
+            raise ValueError('Indices must be integer type')
+
+        c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
+                                         arrow_dictionary.sp_array))
+        c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
+
+        result = DictionaryArray()
+        result.init(c_result)
+        return result
 
 
 cdef dict _array_classes = {
@@ -283,6 +381,7 @@ cdef dict _array_classes = {
     Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
     Type_TIMESTAMP: Int64Array,
+    Type_DICTIONARY: DictionaryArray
 }
 
 cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
@@ -299,83 +398,18 @@ cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
-def from_pylist(object list_obj, DataType type=None):
-    """
-    Convert Python list to Arrow array
-
-    Parameters
-    ----------
-    list_obj : array_like
-
-    Returns
-    -------
-    pyarrow.array.Array
-    """
-    cdef:
-        shared_ptr[CArray] sp_array
-
-    if type is None:
-        check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
-    else:
-        raise NotImplementedError()
-
-    return box_arrow_array(sp_array)
-
-
-def from_pandas_series(object series, object mask=None, timestamps_to_ms=False, Field field=None):
-    """
-    Convert pandas.Series to an Arrow Array.
-
-    Parameters
-    ----------
-    series : pandas.Series or numpy.ndarray
-
-    mask : pandas.Series or numpy.ndarray, optional
-        array to mask null entries in the series
-
-    timestamps_to_ms : bool, optional
-        Convert datetime columns to ms resolution. This is needed for
-        compability with other functionality like Parquet I/O which
-        only supports milliseconds.
-
-    field: pyarrow.Field
-        Schema indicator to what type this column should render in Arrow
-
-    Returns
-    -------
-    pyarrow.array.Array
-    """
-    cdef:
-        shared_ptr[CArray] out
-        shared_ptr[CField] c_field
-
-    series_values = series_as_ndarray(series)
-    if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
-        series_values = series_values.astype('datetime64[ms]')
-    if field is not None:
-        c_field = field.sp_field
-
-    if mask is None:
-        with nogil:
-            check_status(pyarrow.PandasToArrow(pyarrow.get_memory_pool(),
-                                               series_values, c_field, &out))
-    else:
-        mask = series_as_ndarray(mask)
-        with nogil:
-            check_status(pyarrow.PandasMaskedToArrow(
-                pyarrow.get_memory_pool(), series_values, mask, c_field, &out))
-
-    return box_arrow_array(out)
-
-
-cdef object series_as_ndarray(object obj):
+cdef object get_series_values(object obj):
     import pandas as pd
 
     if isinstance(obj, pd.Series):
         result = obj.values
-    else:
+    elif isinstance(obj, np.ndarray):
         result = obj
+    else:
+        result = pd.Series(obj).values
 
     return result
 
+
 from_pylist = Array.from_list
+from_pandas_series = Array.from_pandas

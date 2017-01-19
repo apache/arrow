@@ -16,7 +16,8 @@
 # under the License.
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport CDataType, CField, CSchema
+from pyarrow.includes.libarrow cimport (CDataType, CDictionaryType,
+                                        CField, CSchema)
 
 cdef class DataType:
     cdef:
@@ -24,6 +25,11 @@ cdef class DataType:
         CDataType* type
 
     cdef init(self, const shared_ptr[CDataType]& type)
+
+
+cdef class DictionaryType(DataType):
+    cdef:
+        const CDictionaryType* dict_type
 
 cdef class Field:
     cdef:

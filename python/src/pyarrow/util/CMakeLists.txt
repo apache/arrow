@@ -20,7 +20,7 @@
 #######################################
 
 if (PYARROW_BUILD_TESTS)
-  add_library(pyarrow_test_main
+  add_library(pyarrow_test_main STATIC
 	test_main.cc)
 
   if (APPLE)

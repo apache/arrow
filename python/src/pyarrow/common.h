@@ -30,6 +30,17 @@ class MemoryPool;
 
 namespace pyarrow {
 
+class PyAcquireGIL {
+ public:
+  PyAcquireGIL() { state_ = PyGILState_Ensure(); }
+
+  ~PyAcquireGIL() { PyGILState_Release(state_); }
+
+ private:
+  PyGILState_STATE state_;
+  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
+};
+
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
 class OwnedRef {
@@ -38,7 +49,10 @@ class OwnedRef {
 
   OwnedRef(PyObject* obj) : obj_(obj) {}
 
-  ~OwnedRef() { Py_XDECREF(obj_); }
+  ~OwnedRef() {
+    PyAcquireGIL lock;
+    Py_XDECREF(obj_);
+  }
 
   void reset(PyObject* obj) {
     if (obj_ != nullptr) { Py_XDECREF(obj_); }
@@ -69,17 +83,6 @@ struct PyObjectStringify {
   }
 };
 
-class PyGILGuard {
- public:
-  PyGILGuard() { state_ = PyGILState_Ensure(); }
-
-  ~PyGILGuard() { PyGILState_Release(state_); }
-
- private:
-  PyGILState_STATE state_;
-  DISALLOW_COPY_AND_ASSIGN(PyGILGuard);
-};
-
 // TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR()                         \
   if (PyErr_Occurred()) {                           \
@@ -88,8 +91,9 @@ class PyGILGuard {
     PyObjectStringify stringified(exc_value);       \
     std::string message(stringified.bytes);         \
     Py_DECREF(exc_type);                            \
-    Py_DECREF(exc_value);                           \
-    Py_DECREF(traceback);                           \
+    Py_XDECREF(exc_value);                          \
+    Py_XDECREF(traceback);                          \
+    PyErr_Clear();                                  \
     return Status::UnknownError(message);           \
   }
 
@@ -120,17 +124,6 @@ class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
 
  private:
   PyObject* obj_;
-};
-
-class PyAcquireGIL {
- public:
-  PyAcquireGIL() { state_ = PyGILState_Ensure(); }
-
-  ~PyAcquireGIL() { PyGILState_Release(state_); }
-
- private:
-  PyGILState_STATE state_;
-  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
 
 }  // namespace pyarrow

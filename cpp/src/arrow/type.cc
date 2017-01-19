@@ -148,8 +148,8 @@ bool DictionaryType::Equals(const DataType& other) const {
 
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
-  ss << "dictionary<" << dictionary_->type()->ToString() << ", "
-     << index_type_->ToString() << ">";
+  ss << "dictionary<values=" << dictionary_->type()->ToString()
+     << ", indices=" << index_type_->ToString() << ">";
   return ss.str();
 }
 
