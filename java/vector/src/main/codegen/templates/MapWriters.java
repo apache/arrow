@@ -154,7 +154,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   @Override
   public ListWriter list(String name) {
     String finalName = handleCase(name);
-    FieldWriter writer = fields.get(handleCase(finalName));
+    FieldWriter writer = fields.get(finalName);
     int vectorCount = container.size();
     if(writer == null) {
       writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class), container, getNullableMapWriterFactory());
