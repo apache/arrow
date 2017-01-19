@@ -301,8 +301,7 @@ public class TestArrowFile extends BaseFileTest {
       int i = 0;
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator);) {
         VectorLoader vectorLoader = new VectorLoader(root);
-        Assert.assertEquals(2, arrowReader.getTotalBatches());
-        for (int n = 0; n < arrowReader.getTotalBatches(); n++) {
+        for (int n = 0; n < 2; n++) {
           try (ArrowRecordBatch recordBatch = arrowReader.nextRecordBatch()) {
             assertTrue(recordBatch != null);
             Assert.assertEquals("RB #" + i, counts[i], recordBatch.getLength());

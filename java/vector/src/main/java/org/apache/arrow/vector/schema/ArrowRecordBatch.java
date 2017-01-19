@@ -19,6 +19,7 @@ package org.apache.arrow.vector.schema;
 
 import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -130,6 +131,28 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
         + buffersLayout + ", closed=" + closed + "]";
   }
 
+  /**
+   * Computes the size of the serialized body for this recordBatch.
+   */
+  public int computeBodyLength() {
+    int size = 0;
 
+    List<ArrowBuf> buffers = getBuffers();
+    List<ArrowBuffer> buffersLayout = getBuffersLayout();
+    if (buffers.size() != buffersLayout.size()) {
+      throw new IllegalStateException("the layout does not match: " +
+          buffers.size() + " != " + buffersLayout.size());
+    }
+
+    for (int i = 0; i < buffers.size(); i++) {
+      ArrowBuf buffer = buffers.get(i);
+      ArrowBuffer layout = buffersLayout.get(i);
+      size += (layout.getOffset() - size);
+      ByteBuffer nioBuffer =
+          buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
+      size += nioBuffer.remaining();
+    }
+    return size;
+  }
 
 }

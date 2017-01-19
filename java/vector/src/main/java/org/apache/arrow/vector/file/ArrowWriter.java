@@ -117,7 +117,7 @@ public class ArrowWriter implements AutoCloseable {
   }
 
   private void writeMagic() throws IOException {
-    out.write(ArrowReadUtil.MAGIC);
+    out.write(ArrowReader.MAGIC);
     LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
   }
 

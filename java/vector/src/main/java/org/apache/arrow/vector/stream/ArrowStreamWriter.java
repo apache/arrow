@@ -19,21 +19,16 @@ package org.apache.arrow.vector.stream;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.List;
 
 import org.apache.arrow.vector.file.WriteChannel;
-import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import io.netty.buffer.ArrowBuf;
-
 public class ArrowStreamWriter implements AutoCloseable {
   private final WriteChannel out;
-  private final ArrowStreamHeader header;
+  private final Schema schema;
   private boolean headerSent = false;
 
   /**
@@ -42,7 +37,7 @@ public class ArrowStreamWriter implements AutoCloseable {
    */
   public ArrowStreamWriter(WritableByteChannel out, Schema schema, int totalBatches) {
     this.out = new WriteChannel(out);
-    this.header = new ArrowStreamHeader(schema, totalBatches);
+    this.schema = schema;
   }
 
   public ArrowStreamWriter(OutputStream out, Schema schema, int totalBatches)
@@ -52,70 +47,10 @@ public class ArrowStreamWriter implements AutoCloseable {
 
   public long bytesWritten() { return out.getCurrentPosition(); }
 
-  /**
-   * Computes the size of the serialized body for this recordBatch.
-   */
-  public int computeBodyLength(ArrowRecordBatch recordBatch) {
-    int size = 0;
-
-    List<ArrowBuf> buffers = recordBatch.getBuffers();
-    List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
-    if (buffers.size() != buffersLayout.size()) {
-      throw new IllegalStateException("the layout does not match: " +
-          buffers.size() + " != " + buffersLayout.size());
-    }
-
-    for (int i = 0; i < buffers.size(); i++) {
-      ArrowBuf buffer = buffers.get(i);
-      ArrowBuffer layout = buffersLayout.get(i);
-      size += (layout.getOffset() - size);
-      ByteBuffer nioBuffer =
-          buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
-      size += nioBuffer.remaining();
-    }
-    return size;
-  }
-
-  public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
+  public void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     // Send the header if we have not yet.
     checkAndSendHeader();
-
-    // We want to write:
-    //   MetadataLength (int32 little endian)
-    //   BodyLength (int32 little endian)
-    //   Metadata
-    //   Body
-    int bodyLength = computeBodyLength(recordBatch);
-    ByteBuffer metadata = WriteChannel.serialize(recordBatch);
-    // Metadata is the length of the metadata without the size prefix.
-    out.writeIntLittleEndian(metadata.remaining());
-    out.writeIntLittleEndian(bodyLength);
-
-    // write header
-    out.write(metadata);
-
-    // write body
-    long bodyOffset = out.getCurrentPosition();
-    List<ArrowBuf> buffers = recordBatch.getBuffers();
-    List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
-
-    for (int i = 0; i < buffers.size(); i++) {
-      ArrowBuf buffer = buffers.get(i);
-      ArrowBuffer layout = buffersLayout.get(i);
-      long startPosition = bodyOffset + layout.getOffset();
-      if (startPosition != out.getCurrentPosition()) {
-        out.writeZeros((int)(startPosition - out.getCurrentPosition()));
-      }
-      out.write(buffer);
-      if (out.getCurrentPosition() != startPosition + layout.getSize()) {
-        throw new IllegalStateException("wrong buffer size: " + out.getCurrentPosition() +
-            " != " + startPosition + layout.getSize());
-      }
-    }
-    if (bodyLength != out.getCurrentPosition() - bodyOffset) {
-      throw new IllegalStateException("Wrong computed body size: " + bodyLength +
-          " Actual size: " + (out.getCurrentPosition() - bodyOffset));
-    }
+    MessageSerializer.serialize(out, batch);
   }
 
   @Override
@@ -128,7 +63,7 @@ public class ArrowStreamWriter implements AutoCloseable {
 
   private void checkAndSendHeader() throws IOException {
     if (!headerSent) {
-      this.out.write(header, true);
+      MessageSerializer.serialize(out, schema);
       headerSent = true;
     }
   }

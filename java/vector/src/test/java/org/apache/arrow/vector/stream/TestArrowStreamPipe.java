@@ -18,7 +18,6 @@
 package org.apache.arrow.vector.stream;
 
 import static java.util.Arrays.asList;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -26,23 +25,18 @@ import java.io.IOException;
 import java.nio.channels.Pipe;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.util.Collections;
-import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
 import io.netty.buffer.ArrowBuf;
 
 public class TestArrowStreamPipe {
-  Schema schema = new Schema(asList(new Field(
-      "testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
+  Schema schema = MessageSerializerTest.testSchema();
   // second half is "undefined"
   byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
@@ -60,11 +54,11 @@ public class TestArrowStreamPipe {
     public void run() {
       BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
       try {
-        ArrowBuf valuesb =  TestArrowStream.buf(alloc, values);
+        ArrowBuf valuesb =  MessageSerializerTest.buf(alloc, values);
         for (int i = 0; i < numBatches; i++) {
           // Send a changing byte id first.
           byte[] validity = new byte[] { (byte)i, 0};
-          ArrowBuf validityb = TestArrowStream.buf(alloc, validity);
+          ArrowBuf validityb = MessageSerializerTest.buf(alloc, validity);
           writer.writeRecordBatch(new ArrowRecordBatch(
               16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb)));
         }
@@ -84,7 +78,7 @@ public class TestArrowStreamPipe {
     private final BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
     public ReaderThread(ReadableByteChannel sourceChannel)
-        throws InvalidArrowStreamException, IOException {
+        throws IOException {
       reader = new ArrowStreamReader(sourceChannel, alloc);
     }
 
@@ -102,19 +96,8 @@ public class TestArrowStreamPipe {
         while (true) {
           ArrowRecordBatch batch = reader.nextRecordBatch();
           if (batch == null) break;
-
-          List<ArrowFieldNode> nodes = batch.getNodes();
-          assertEquals(1, nodes.size());
-          ArrowFieldNode node = nodes.get(0);
-          assertEquals(16, node.getLength());
-          assertEquals(8, node.getNullCount());
-          List<ArrowBuf> buffers = batch.getBuffers();
-          assertEquals(2, buffers.size());
-
           byte[] validity = new byte[] { (byte)batchesRead, 0};
-          assertArrayEquals(validity, TestArrowStream.array(buffers.get(0)));
-          assertArrayEquals(values, TestArrowStream.array(buffers.get(1)));
-
+          MessageSerializerTest.verifyBatch(batch, validity, values);
           batchesRead++;
         }
       } catch (IOException e) {
