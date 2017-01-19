@@ -31,6 +31,7 @@ import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.stream.MessageSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +40,7 @@ import io.netty.buffer.ArrowBuf;
 public class ArrowReader implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowReader.class);
 
-  private static final byte[] MAGIC = "ARROW1".getBytes();
+  public static final byte[] MAGIC = "ARROW1".getBytes();
 
   private final SeekableByteChannel in;
 
@@ -73,13 +74,6 @@ public class ArrowReader implements AutoCloseable {
     return total;
   }
 
-  private static int bytesToInt(byte[] bytes) {
-    return ((int)(bytes[3] & 255) << 24) +
-           ((int)(bytes[2] & 255) << 16) +
-           ((int)(bytes[1] & 255) <<  8) +
-           ((int)(bytes[0] & 255) <<  0);
-  }
-
   public ArrowFooter readFooter() throws IOException {
     if (footer == null) {
       if (in.size() <= (MAGIC.length * 2 + 4)) {
@@ -93,7 +87,7 @@ public class ArrowReader implements AutoCloseable {
       if (!Arrays.equals(MAGIC, Arrays.copyOfRange(array, 4, array.length))) {
         throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
       }
-      int footerLength = bytesToInt(array);
+      int footerLength = MessageSerializer.bytesToInt(array);
       if (footerLength <= 0 || footerLength + MAGIC.length * 2 + 4 > in.size()) {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }

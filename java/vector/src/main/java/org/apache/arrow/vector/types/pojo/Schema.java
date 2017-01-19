@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -63,6 +64,10 @@ public class Schema {
 
   public static Schema fromJSON(String json) throws IOException {
     return reader.readValue(checkNotNull(json));
+  }
+
+  public static Schema deserialize(ByteBuffer buffer) {
+    return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }
 
   public static Schema convertSchema(org.apache.arrow.flatbuf.Schema schema) {

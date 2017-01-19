@@ -18,12 +18,16 @@
 package org.apache.arrow.vector.file;
 
 import static org.apache.arrow.vector.TestVectorUnloadLoad.newVectorUnloader;
+import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -35,6 +39,8 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Test;
@@ -52,7 +58,7 @@ public class TestArrowFile extends BaseFileTest {
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", vectorAllocator, null)) {
       writeData(count, parent);
-      write(parent.getChild("root"), file);
+      write(parent.getChild("root"), file, new ByteArrayOutputStream());
     }
   }
 
@@ -66,13 +72,14 @@ public class TestArrowFile extends BaseFileTest {
       writeComplexData(count, parent);
       FieldVector root = parent.getChild("root");
       validateComplexContent(count, new VectorSchemaRoot(root));
-      write(root, file);
+      write(root, file, new ByteArrayOutputStream());
     }
   }
 
   @Test
   public void testWriteRead() throws IOException {
     File file = new File("target/mytest.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
     int count = COUNT;
 
     // write
@@ -80,7 +87,7 @@ public class TestArrowFile extends BaseFileTest {
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
       writeData(count, parent);
-      write(parent.getChild("root"), file);
+      write(parent.getChild("root"), file, stream);
     }
 
     // read
@@ -116,11 +123,40 @@ public class TestArrowFile extends BaseFileTest {
         }
       }
     }
+
+    // Read from stream.
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+        ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      arrowReader.init();
+      Schema schema = arrowReader.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator)) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        while (true) {
+          try (ArrowRecordBatch recordBatch = arrowReader.nextRecordBatch()) {
+            if (recordBatch == null) break;
+            List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+            for (ArrowBuffer arrowBuffer : buffersLayout) {
+              Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+            }
+            vectorLoader.load(recordBatch);
+          }
+        }
+        validateContent(count, root);
+      }
+    }
   }
 
   @Test
   public void testWriteReadComplex() throws IOException {
     File file = new File("target/mytest_complex.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
     int count = COUNT;
 
     // write
@@ -128,7 +164,7 @@ public class TestArrowFile extends BaseFileTest {
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = new MapVector("parent", originalVectorAllocator, null)) {
       writeComplexData(count, parent);
-      write(parent.getChild("root"), file);
+      write(parent.getChild("root"), file, stream);
     }
 
     // read
@@ -156,11 +192,36 @@ public class TestArrowFile extends BaseFileTest {
         }
       }
     }
+
+    // Read from stream.
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+        ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      arrowReader.init();
+      Schema schema = arrowReader.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator)) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        while (true) {
+          try (ArrowRecordBatch recordBatch = arrowReader.nextRecordBatch()) {
+            if (recordBatch == null) break;
+            vectorLoader.load(recordBatch);
+          }
+        }
+        validateComplexContent(count, root);
+      }
+    }
   }
 
   @Test
   public void testWriteReadMultipleRBs() throws IOException {
     File file = new File("target/mytest_multiple.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
     int[] counts = { 10, 5 };
 
     // write
@@ -172,10 +233,12 @@ public class TestArrowFile extends BaseFileTest {
       VectorUnloader vectorUnloader0 = newVectorUnloader(parent.getChild("root"));
       Schema schema = vectorUnloader0.getSchema();
       Assert.assertEquals(2, schema.getFields().size());
-      try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);) {
+      try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
+          ArrowStreamWriter streamWriter = new ArrowStreamWriter(stream, schema, 2)) {
         try (ArrowRecordBatch recordBatch = vectorUnloader0.getRecordBatch()) {
           Assert.assertEquals("RB #0", counts[0], recordBatch.getLength());
           arrowWriter.writeRecordBatch(recordBatch);
+          streamWriter.writeRecordBatch(recordBatch);
         }
         parent.allocateNew();
         writeData(counts[1], parent); // if we write the same data we don't catch that the metadata is stored in the wrong order.
@@ -183,6 +246,7 @@ public class TestArrowFile extends BaseFileTest {
         try (ArrowRecordBatch recordBatch = vectorUnloader1.getRecordBatch()) {
           Assert.assertEquals("RB #1", counts[1], recordBatch.getLength());
           arrowWriter.writeRecordBatch(recordBatch);
+          streamWriter.writeRecordBatch(recordBatch);
         }
       }
     }
@@ -222,11 +286,42 @@ public class TestArrowFile extends BaseFileTest {
         }
       }
     }
+
+    // read stream
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+        ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      arrowReader.init();
+      Schema schema = arrowReader.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+      int i = 0;
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator);) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        for (int n = 0; n < 2; n++) {
+          try (ArrowRecordBatch recordBatch = arrowReader.nextRecordBatch()) {
+            assertTrue(recordBatch != null);
+            Assert.assertEquals("RB #" + i, counts[i], recordBatch.getLength());
+            List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
+            for (ArrowBuffer arrowBuffer : buffersLayout) {
+              Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+            }
+            vectorLoader.load(recordBatch);
+            validateContent(counts[i], root);
+          }
+          ++i;
+        }
+      }
+    }
   }
 
   @Test
   public void testWriteReadUnion() throws IOException {
     File file = new File("target/mytest_write_union.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
@@ -238,9 +333,9 @@ public class TestArrowFile extends BaseFileTest {
 
       validateUnionData(count, new VectorSchemaRoot(parent.getChild("root")));
 
-      write(parent.getChild("root"), file);
+      write(parent.getChild("root"), file, stream);
     }
- // read
+    // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
         FileInputStream fileInputStream = new FileInputStream(file);
@@ -263,9 +358,37 @@ public class TestArrowFile extends BaseFileTest {
         }
       }
     }
+
+    // Read from stream.
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+        ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator);
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)
+        ) {
+      arrowReader.init();
+      Schema schema = arrowReader.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, vectorAllocator)) {
+        VectorLoader vectorLoader = new VectorLoader(root);
+        while (true) {
+          try (ArrowRecordBatch recordBatch = arrowReader.nextRecordBatch()) {
+            if (recordBatch == null) break;
+            vectorLoader.load(recordBatch);
+          }
+        }
+        validateUnionData(count, root);
+      }
+    }
   }
 
-  private void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
+  /**
+   * Writes the contents of parents to file. If outStream is non-null, also writes it
+   * to outStream in the streaming serialized format.
+   */
+  private void write(FieldVector parent, File file, OutputStream outStream) throws FileNotFoundException, IOException {
     VectorUnloader vectorUnloader = newVectorUnloader(parent);
     Schema schema = vectorUnloader.getSchema();
     LOGGER.debug("writing schema: " + schema);
@@ -275,6 +398,16 @@ public class TestArrowFile extends BaseFileTest {
         ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
             ) {
       arrowWriter.writeRecordBatch(recordBatch);
+    }
+
+    // Also try serializing to the stream writer.
+    if (outStream != null) {
+      try (
+          ArrowStreamWriter arrowWriter = new ArrowStreamWriter(outStream, schema, -1);
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          ) {
+        arrowWriter.writeRecordBatch(recordBatch);
+      }
     }
   }
 }
