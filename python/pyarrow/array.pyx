@@ -106,22 +106,22 @@ cdef class Array:
 
         pd = _pandas()
 
-        series_values = get_series_values(obj)
-        if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
-            series_values = series_values.astype('datetime64[ms]')
-
         if field is not None:
             c_field = field.sp_field
 
         if mask is not None:
             mask = get_series_values(mask)
 
+        series_values = get_series_values(obj)
+
         if isinstance(series_values, pd.Categorical):
-            indices = Array.from_pandas(series_values.codes)
-            dictionary = Array.from_pandas(series_values.categories.values)
-            return DictionaryArray.from_arrays(indices, dictionary,
+            return DictionaryArray.from_arrays(series_values.codes,
+                                               series_values.categories.values,
                                                mask=mask)
         else:
+            if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
+                series_values = series_values.astype('datetime64[ms]')
+
             with nogil:
                 check_status(pyarrow.PandasToArrow(
                     pyarrow.get_memory_pool(), series_values, mask,

@@ -24,9 +24,9 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/test-util.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
+#include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "pyarrow/adapters/pandas.h"
 
@@ -49,10 +49,8 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", utf8());
   std::vector<std::shared_ptr<Field>> fields = {f1, f2, f3};
-  std::vector<std::shared_ptr<Column>> cols = {
-    std::make_shared<Column>(f1, arr),
-    std::make_shared<Column>(f2, arr),
-    std::make_shared<Column>(f3, arr)};
+  std::vector<std::shared_ptr<Column>> cols = {std::make_shared<Column>(f1, arr),
+      std::make_shared<Column>(f2, arr), std::make_shared<Column>(f3, arr)};
 
   auto schema = std::make_shared<Schema>(fields);
   auto table = std::make_shared<Table>("", schema, cols);

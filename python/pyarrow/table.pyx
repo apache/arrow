@@ -475,8 +475,8 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
         CColumn* col
         int i
 
-    from pandas.core.internals import BlockManager, make_block
-    from pandas import RangeIndex
+    import pandas.core.internals as _int
+    from pandas import RangeIndex, Categorical
 
     with nogil:
         check_status(pyarrow.ConvertTableToPandas(table, nthreads,
@@ -485,8 +485,19 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
     result = PyObject_to_object(result_obj)
 
     blocks = []
-    for block_arr, placement_arr in result:
-        blocks.append(make_block(block_arr, placement=placement_arr))
+    for item in result:
+        block_arr = item['block']
+        placement = item['placement']
+        if 'dictionary' in item:
+            cat = Categorical(block_arr[0],
+                              categories=item['dictionary'],
+                              ordered=False, fastpath=True)
+            block = _int.make_block(cat, placement=placement,
+                                    klass=_int.CategoricalBlock,
+                                    fastpath=True)
+        else:
+            block = _int.make_block(block_arr, placement=placement)
+        blocks.append(block)
 
     names = []
     for i in range(table.get().num_columns()):
@@ -494,7 +505,7 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
         names.append(frombytes(col.name()))
 
     axes = [names, RangeIndex(table.get().num_rows())]
-    return BlockManager(blocks, axes)
+    return _int.BlockManager(blocks, axes)
 
 
 cdef class Table:

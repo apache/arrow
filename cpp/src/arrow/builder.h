@@ -379,10 +379,10 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   explicit StringBuilder(MemoryPool* pool = default_memory_pool())
-    : BinaryBuilder(pool, utf8()) {}
+      : BinaryBuilder(pool, utf8()) {}
 
   explicit StringBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : BinaryBuilder(pool, type) {}
+      : BinaryBuilder(pool, type) {}
 
   using BinaryBuilder::Append;
 
