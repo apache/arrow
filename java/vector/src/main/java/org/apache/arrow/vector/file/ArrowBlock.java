@@ -26,9 +26,9 @@ public class ArrowBlock implements FBSerializable {
 
   private final long offset;
   private final int metadataLength;
-  private final int bodyLength;
+  private final long bodyLength;
 
-  public ArrowBlock(long offset, int metadataLength, int bodyLength) {
+  public ArrowBlock(long offset, int metadataLength, long bodyLength) {
     super();
     this.offset = offset;
     this.metadataLength = metadataLength;
@@ -43,7 +43,7 @@ public class ArrowBlock implements FBSerializable {
     return metadataLength;
   }
 
-  public int getBodyLength() {
+  public long getBodyLength() {
     return bodyLength;
   }
 
@@ -56,7 +56,7 @@ public class ArrowBlock implements FBSerializable {
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + bodyLength;
+    result = prime * result + (int) (bodyLength ^ (bodyLength >>> 32));
     result = prime * result + metadataLength;
     result = prime * result + (int) (offset ^ (offset >>> 32));
     return result;

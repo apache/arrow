@@ -154,7 +154,7 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
-    return new ArrowBlock(batchStart, metadataSize, (int)(out.getCurrentPosition() - bufferStart));
+    return new ArrowBlock(batchStart, metadataSize, out.getCurrentPosition() - bufferStart);
   }
 
   /**
@@ -188,18 +188,23 @@ public class MessageSerializer {
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
       BufferAllocator alloc) throws IOException {
     long readPosition = in.getCurrentPositiion();
-    int totalLen = block.getMetadataLength() + block.getBodyLength();
+    long totalLen = block.getMetadataLength() + block.getBodyLength();
     if ((readPosition + block.getMetadataLength()) % 8 != 0) {
       // Compute padded size.
       totalLen += (8 - (readPosition + block.getMetadataLength()) % 8);
     }
 
-    ArrowBuf buffer = alloc.buffer(totalLen);
-    if (in.readFully(buffer, totalLen) != totalLen) {
+    if (totalLen > Integer.MAX_VALUE) {
+      throw new IOException("Cannot currently deserialize record batches over 2GB");
+    }
+
+
+    ArrowBuf buffer = alloc.buffer((int) totalLen);
+    if (in.readFully(buffer, (int) totalLen) != totalLen) {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    return deserializeRecordBatch(buffer, readPosition, block.getMetadataLength(), totalLen);
+    return deserializeRecordBatch(buffer, readPosition, block.getMetadataLength(), (int) totalLen);
   }
 
   // Deserializes a record batch. Buffer should start at the RecordBatch and include
