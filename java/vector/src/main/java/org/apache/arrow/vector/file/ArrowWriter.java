@@ -54,8 +54,10 @@ public class ArrowWriter implements AutoCloseable {
   public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
     checkStarted();
     ArrowBlock batchDesc = MessageSerializer.serialize(out, recordBatch);
-    LOGGER.debug(String.format("RecordBatch at offset: %d len: %d",
-        batchDesc.getOffset(), batchDesc.getLength()));
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        batchDesc.getOffset(), batchDesc.getMetadataLength(), batchDesc.getBodyLength()));
+
+    // add metadata to footer
     recordBatches.add(batchDesc);
   }
 

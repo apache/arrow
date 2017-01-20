@@ -55,11 +55,10 @@ public class ArrowFooter implements FBSerializable {
   private static List<ArrowBlock> recordBatches(Footer footer) {
     List<ArrowBlock> recordBatches = new ArrayList<>();
     Block tempBlock = new Block();
-
     int recordBatchesLength = footer.recordBatchesLength();
     for (int i = 0; i < recordBatchesLength; i++) {
       Block block = footer.recordBatches(tempBlock, i);
-      recordBatches.add(new ArrowBlock(block.offset(), block.length()));
+      recordBatches.add(new ArrowBlock(block.offset(), block.metaDataLength(), block.bodyLength()));
     }
     return recordBatches;
   }
@@ -71,7 +70,7 @@ public class ArrowFooter implements FBSerializable {
     int dictionariesLength = footer.dictionariesLength();
     for (int i = 0; i < dictionariesLength; i++) {
       Block block = footer.dictionaries(tempBlock, i);
-      dictionaries.add(new ArrowBlock(block.offset(), block.length()));
+      dictionaries.add(new ArrowBlock(block.offset(), block.metaDataLength(), block.bodyLength()));
     }
     return dictionaries;
   }

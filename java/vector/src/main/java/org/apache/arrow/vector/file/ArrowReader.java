@@ -88,11 +88,12 @@ public class ArrowReader implements AutoCloseable {
   // TODO: read dictionaries
 
   public ArrowRecordBatch readRecordBatch(ArrowBlock block) throws IOException {
-    LOGGER.debug(String.format("RecordBatch at offset %d len: %d",
-        block.getOffset(), block.getLength()));
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        block.getOffset(), block.getMetadataLength(),
+        block.getBodyLength()));
     in.position(block.getOffset());
     ArrowRecordBatch batch =  MessageSerializer.deserializeRecordBatch(
-        new ReadChannel(in, block.getOffset()), (int)block.getLength(), allocator);
+        new ReadChannel(in, block.getOffset()), block, allocator);
     if (batch == null) {
       throw new IOException("Invalid file. No batch at offset: " + block.getOffset());
     }

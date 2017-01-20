@@ -24,10 +24,13 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.flatbuf.FieldNode;
+import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
@@ -96,6 +99,17 @@ public class TestArrowReaderWriter {
       assertArrayEquals(validity, array(buffers.get(0)));
       assertArrayEquals(values, array(buffers.get(1)));
 
+      // Read just the header. This demonstrates being able to read without need to
+      // deserialize the buffer.
+      ByteBuffer headerBuffer = ByteBuffer.allocate(recordBatches.get(0).getMetadataLength());
+      headerBuffer.put(byteArray, (int)recordBatches.get(0).getOffset(), headerBuffer.capacity());
+      headerBuffer.rewind();
+      RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(headerBuffer);
+      assertEquals(2, recordBatchFB.buffersLength());
+      assertEquals(1, recordBatchFB.nodesLength());
+      FieldNode nodeFB = recordBatchFB.nodes(0);
+      assertEquals(16, nodeFB.length());
+      assertEquals(8, nodeFB.nullCount());
     }
   }
 

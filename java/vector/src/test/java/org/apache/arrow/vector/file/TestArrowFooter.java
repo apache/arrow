@@ -45,8 +45,8 @@ public class TestArrowFooter {
     assertEquals(footer, newFooter);
 
     List<ArrowBlock> ids = new ArrayList<>();
-    ids.add(new ArrowBlock(0, 1));
-    ids.add(new ArrowBlock(4, 5));
+    ids.add(new ArrowBlock(0, 1, 2));
+    ids.add(new ArrowBlock(4, 5, 6));
     footer = new ArrowFooter(schema, ids, ids);
     assertEquals(footer, roundTrip(footer));
   }

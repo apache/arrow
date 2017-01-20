@@ -35,9 +35,15 @@ table Footer {
 
 struct Block {
 
+  /// Index to the start of the RecordBlock (note this is past the Message header)
   offset: long;
 
-  length: int;
+  /// Length of the metadata
+  metaDataLength: int;
+
+  /// Length of the data (this is aligned so there can be a gap between this and
+  /// the metatdata).
+  bodyLength: int;
 }
 
 root_type Footer;

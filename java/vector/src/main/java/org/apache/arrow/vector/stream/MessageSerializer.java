@@ -130,19 +130,21 @@ public class MessageSerializer {
 
     // Write batch header. with the 4 byte little endian prefix
     out.writeIntLittleEndian(metadata.remaining());
+    int metadataSize = metadata.remaining();
+    long batchStart = out.getCurrentPosition();
     out.write(metadata);
 
     // Align the output to 8 byte boundary.
     out.align();
 
-    long offset = out.getCurrentPosition();
+    long bufferStart = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
     List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
 
     for (int i = 0; i < buffers.size(); i++) {
       ArrowBuf buffer = buffers.get(i);
       ArrowBuffer layout = buffersLayout.get(i);
-      long startPosition = offset + layout.getOffset();
+      long startPosition = bufferStart + layout.getOffset();
       if (startPosition != out.getCurrentPosition()) {
         out.writeZeros((int)(startPosition - out.getCurrentPosition()));
       }
@@ -152,7 +154,7 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
-    return new ArrowBlock(start, (int)(out.getCurrentPosition() - start));
+    return new ArrowBlock(batchStart, metadataSize, (int)(out.getCurrentPosition() - bufferStart));
   }
 
   /**
@@ -170,48 +172,45 @@ public class MessageSerializer {
     if (in.readFully(buffer, messageLen) != messageLen) {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
-    return deserializeRecordBatch(buffer, readPosition, messageLen);
+
+    // Read the length of the metadata.
+    int metadataLen = buffer.readInt();
+    buffer = buffer.slice(4, messageLen - 4);
+    readPosition += 4;
+    messageLen -= 4;
+    return deserializeRecordBatch(buffer, readPosition, metadataLen, messageLen);
   }
 
   /**
    * Deserializes a RecordBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, int messageLen,
+  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
       BufferAllocator alloc) throws IOException {
-    ArrowBuf buffer = alloc.buffer(messageLen);
     long readPosition = in.getCurrentPositiion();
-    if (in.readFully(buffer, messageLen) != messageLen) {
+    int totalLen = block.getMetadataLength() + block.getBodyLength();
+    if ((readPosition + block.getMetadataLength()) % 8 != 0) {
+      // Compute padded size.
+      totalLen += (8 - (readPosition + block.getMetadataLength()) % 8);
+    }
+
+    ArrowBuf buffer = alloc.buffer(totalLen);
+    if (in.readFully(buffer, totalLen) != totalLen) {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    byte[] headerLenBytes = new byte[4];
-    buffer.getBytes(0, headerLenBytes);
-    int headerLen = bytesToInt(headerLenBytes);
-    buffer = buffer.slice(4, messageLen - 4);
-    messageLen -=4;
-    readPosition += 4;
-
-    Message header = Message.getRootAsMessage(buffer.nioBuffer());
-    if (header.headerType() != MessageHeader.RecordBatch) {
-      throw new IOException("Invalid message: expecting " + MessageHeader.RecordBatch +
-          ". Message contained: " + header.headerType());
-    }
-
-    buffer = buffer.slice(headerLen, messageLen - headerLen);
-    messageLen -= headerLen;
-    readPosition += headerLen;
-    return deserializeRecordBatch(buffer, readPosition, messageLen);
+    return deserializeRecordBatch(buffer, readPosition, block.getMetadataLength(), totalLen);
   }
 
+  // Deserializes a record batch. Buffer should start at the RecordBatch and include
+  // all the bytes for the metadata and then data buffers.
   private static ArrowRecordBatch deserializeRecordBatch(
-      ArrowBuf buffer, long readPosition, int bufferLen) {
-    // Read the metadata. It starts with the 4 byte size of the metadata.
-    int metadataSize = buffer.readInt();
+      ArrowBuf buffer, long readPosition, int metadataLen, int bufferLen) {
+    // Read the metadata.
     RecordBatch recordBatchFB =
         RecordBatch.getRootAsRecordBatch(buffer.nioBuffer().asReadOnlyBuffer());
 
-    int bufferOffset = 4 + metadataSize;
+    int bufferOffset = metadataLen;
     readPosition += bufferOffset;
     if (readPosition % 8 != 0) {
       bufferOffset += (int)(8 - readPosition % 8);
