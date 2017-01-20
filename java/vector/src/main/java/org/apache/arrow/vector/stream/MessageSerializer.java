@@ -169,8 +169,6 @@ public class MessageSerializer {
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
       BufferAllocator alloc) throws IOException {
-    long readPosition = in.getCurrentPositiion();
-
     // Metadata length contains integer prefix plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
