@@ -155,7 +155,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    */
   @Override
   public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
-    final ValueVector v = vectors.get(name.toLowerCase());
+    final ValueVector v = vectors.get(name);
     if (v == null) {
       return null;
     }
@@ -191,7 +191,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    */
   protected void putVector(String name, FieldVector vector) {
     final ValueVector old = vectors.put(
-        Preconditions.checkNotNull(name, "field name cannot be null").toLowerCase(),
+        Preconditions.checkNotNull(name, "field name cannot be null"),
         Preconditions.checkNotNull(vector, "vector cannot be null")
     );
     if (old != null && old != vector) {
@@ -254,7 +254,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    */
   @Override
   public VectorWithOrdinal getChildVectorWithOrdinal(String name) {
-    final int ordinal = vectors.getOrdinal(name.toLowerCase());
+    final int ordinal = vectors.getOrdinal(name);
     if (ordinal < 0) {
       return null;
     }
