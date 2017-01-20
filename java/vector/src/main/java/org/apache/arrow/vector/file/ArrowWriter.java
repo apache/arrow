@@ -23,13 +23,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.stream.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.buffer.ArrowBuf;
 
 public class ArrowWriter implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
@@ -39,7 +37,6 @@ public class ArrowWriter implements AutoCloseable {
   private final Schema schema;
 
   private final List<ArrowBlock> recordBatches = new ArrayList<>();
-
   private boolean started = false;
 
   public ArrowWriter(WritableByteChannel out, Schema schema) {
@@ -49,47 +46,19 @@ public class ArrowWriter implements AutoCloseable {
 
   private void start() throws IOException {
     writeMagic();
+    MessageSerializer.serialize(out, schema);
   }
-
 
   // TODO: write dictionaries
 
   public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
     checkStarted();
-    out.align();
+    ArrowBlock batchDesc = MessageSerializer.serialize(out, recordBatch);
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        batchDesc.getOffset(), batchDesc.getMetadataLength(), batchDesc.getBodyLength()));
 
-    // write metadata header with int32 size prefix
-    long offset = out.getCurrentPosition();
-    out.write(recordBatch, true);
-    out.align();
-    // write body
-    long bodyOffset = out.getCurrentPosition();
-    List<ArrowBuf> buffers = recordBatch.getBuffers();
-    List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
-    if (buffers.size() != buffersLayout.size()) {
-      throw new IllegalStateException("the layout does not match: " + buffers.size() + " != " + buffersLayout.size());
-    }
-    for (int i = 0; i < buffers.size(); i++) {
-      ArrowBuf buffer = buffers.get(i);
-      ArrowBuffer layout = buffersLayout.get(i);
-      long startPosition = bodyOffset + layout.getOffset();
-      if (startPosition != out.getCurrentPosition()) {
-        out.writeZeros((int)(startPosition - out.getCurrentPosition()));
-      }
-
-      out.write(buffer);
-      if (out.getCurrentPosition() != startPosition + layout.getSize()) {
-        throw new IllegalStateException("wrong buffer size: " + out.getCurrentPosition() + " != " + startPosition + layout.getSize());
-      }
-    }
-    int metadataLength = (int)(bodyOffset - offset);
-    if (metadataLength <= 0) {
-      throw new InvalidArrowFileException("invalid recordBatch");
-    }
-    long bodyLength = out.getCurrentPosition() - bodyOffset;
-    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d", offset, metadataLength, bodyLength));
     // add metadata to footer
-    recordBatches.add(new ArrowBlock(offset, metadataLength, bodyLength));
+    recordBatches.add(batchDesc);
   }
 
   private void checkStarted() throws IOException {

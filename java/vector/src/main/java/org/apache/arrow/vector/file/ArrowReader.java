@@ -20,22 +20,14 @@ package org.apache.arrow.vector.file;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
-import org.apache.arrow.flatbuf.Buffer;
-import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Footer;
-import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.MessageSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.buffer.ArrowBuf;
 
 public class ArrowReader implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowReader.class);
@@ -52,15 +44,6 @@ public class ArrowReader implements AutoCloseable {
     super();
     this.in = in;
     this.allocator = allocator;
-  }
-
-  private int readFully(ArrowBuf buffer, int l) throws IOException {
-    int n = readFully(buffer.nioBuffer(buffer.writerIndex(), l));
-    buffer.writerIndex(n);
-    if (n != l) {
-      throw new IllegalStateException(n + " != " + l);
-    }
-    return n;
   }
 
   private int readFully(ByteBuffer buffer) throws IOException {
@@ -104,46 +87,21 @@ public class ArrowReader implements AutoCloseable {
 
   // TODO: read dictionaries
 
-  public ArrowRecordBatch readRecordBatch(ArrowBlock recordBatchBlock) throws IOException {
-    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d", recordBatchBlock.getOffset(), recordBatchBlock.getMetadataLength(), recordBatchBlock.getBodyLength()));
-    int l = (int)(recordBatchBlock.getMetadataLength() + recordBatchBlock.getBodyLength());
-    if (l < 0) {
-      throw new InvalidArrowFileException("block invalid: " + recordBatchBlock);
+  public ArrowRecordBatch readRecordBatch(ArrowBlock block) throws IOException {
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        block.getOffset(), block.getMetadataLength(),
+        block.getBodyLength()));
+    in.position(block.getOffset());
+    ArrowRecordBatch batch =  MessageSerializer.deserializeRecordBatch(
+        new ReadChannel(in, block.getOffset()), block, allocator);
+    if (batch == null) {
+      throw new IOException("Invalid file. No batch at offset: " + block.getOffset());
     }
-    final ArrowBuf buffer = allocator.buffer(l);
-    LOGGER.debug("allocated buffer " + buffer);
-    in.position(recordBatchBlock.getOffset());
-    int n = readFully(buffer, l);
-    if (n != l) {
-      throw new IllegalStateException(n + " != " + l);
-    }
-
-    // Record batch flatbuffer is prefixed by its size as int32le
-    final ArrowBuf metadata = buffer.slice(4, recordBatchBlock.getMetadataLength() - 4);
-    RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(metadata.nioBuffer().asReadOnlyBuffer());
-
-    int nodesLength = recordBatchFB.nodesLength();
-    final ArrowBuf body = buffer.slice(recordBatchBlock.getMetadataLength(), (int)recordBatchBlock.getBodyLength());
-    List<ArrowFieldNode> nodes = new ArrayList<>();
-    for (int i = 0; i < nodesLength; ++i) {
-      FieldNode node = recordBatchFB.nodes(i);
-      nodes.add(new ArrowFieldNode(node.length(), node.nullCount()));
-    }
-    List<ArrowBuf> buffers = new ArrayList<>();
-    for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
-      Buffer bufferFB = recordBatchFB.buffers(i);
-      LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", bufferFB.offset(), bufferFB.length()));
-      ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
-      buffers.add(vectorBuffer);
-    }
-    ArrowRecordBatch arrowRecordBatch = new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);
-    LOGGER.debug("released buffer " + buffer);
-    buffer.release();
-    return arrowRecordBatch;
+    return batch;
   }
 
+  @Override
   public void close() throws IOException {
     in.close();
   }
-
 }

@@ -32,9 +32,16 @@ public class ReadChannel implements AutoCloseable {
 
   private ReadableByteChannel in;
   private long bytesRead = 0;
+  // The starting byte offset into 'in'.
+  private final long startByteOffset;
+
+  public ReadChannel(ReadableByteChannel in, long startByteOffset) {
+    this.in = in;
+    this.startByteOffset = startByteOffset;
+  }
 
   public ReadChannel(ReadableByteChannel in) {
-    this.in = in;
+    this(in, 0);
   }
 
   public long bytesRead() { return bytesRead; }
@@ -64,6 +71,8 @@ public class ReadChannel implements AutoCloseable {
     buffer.writerIndex(n);
     return n;
   }
+
+  public long getCurrentPositiion() { return startByteOffset + bytesRead; }
 
   @Override
   public void close() throws IOException {

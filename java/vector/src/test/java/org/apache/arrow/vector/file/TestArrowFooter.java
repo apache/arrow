@@ -21,7 +21,9 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -41,6 +43,12 @@ public class TestArrowFooter {
     ArrowFooter footer = new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
     ArrowFooter newFooter = roundTrip(footer);
     assertEquals(footer, newFooter);
+
+    List<ArrowBlock> ids = new ArrayList<>();
+    ids.add(new ArrowBlock(0, 1, 2));
+    ids.add(new ArrowBlock(4, 5, 6));
+    footer = new ArrowFooter(schema, ids, ids);
+    assertEquals(footer, roundTrip(footer));
   }
 
 

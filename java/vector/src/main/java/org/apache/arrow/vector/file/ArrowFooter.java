@@ -65,10 +65,11 @@ public class ArrowFooter implements FBSerializable {
 
   private static List<ArrowBlock> dictionaries(Footer footer) {
     List<ArrowBlock> dictionaries = new ArrayList<>();
-    Block tempBLock = new Block();
+    Block tempBlock = new Block();
+
     int dictionariesLength = footer.dictionariesLength();
     for (int i = 0; i < dictionariesLength; i++) {
-      Block block = footer.dictionaries(tempBLock, i);
+      Block block = footer.dictionaries(tempBlock, i);
       dictionaries.add(new ArrowBlock(block.offset(), block.metaDataLength(), block.bodyLength()));
     }
     return dictionaries;
