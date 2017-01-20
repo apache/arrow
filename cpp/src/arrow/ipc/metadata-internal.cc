@@ -320,23 +320,10 @@ Status MessageBuilder::SetRecordBatch(int32_t length, int64_t body_length,
 Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
-  flatbuffers::FlatBufferBuilder fbb;
-
-  auto batch = flatbuf::CreateRecordBatch(
-      fbb, length, fbb.CreateVectorOfStructs(nodes), fbb.CreateVectorOfStructs(buffers));
-
-  fbb.Finish(batch);
-
-  int32_t size = fbb.GetSize();
-
-  auto result = std::make_shared<PoolBuffer>();
-  RETURN_NOT_OK(result->Resize(size));
-
-  uint8_t* dst = result->mutable_data();
-  memcpy(dst, fbb.GetBufferPointer(), size);
-
-  *out = result;
-  return Status::OK();
+  MessageBuilder builder;
+  RETURN_NOT_OK(builder.SetRecordBatch(length, body_length, nodes, buffers));
+  RETURN_NOT_OK(builder.Finish());
+  return builder.GetBuffer(out);
 }
 
 Status MessageBuilder::Finish() {

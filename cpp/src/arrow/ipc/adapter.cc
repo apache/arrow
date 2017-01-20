@@ -129,13 +129,12 @@ class RecordBatchWriter : public ArrayVisitor {
         num_rows_, body_length, field_nodes_, buffer_meta_, &metadata_fb));
 
     // Need to write 4 bytes (metadata size), the metadata, plus padding to
-    // fall on a 64-byte offset
-    int64_t padded_metadata_length =
-        BitUtil::RoundUpToMultipleOf64(metadata_fb->size() + 4);
+    // fall on an 8-byte offset
+    int64_t padded_metadata_length = BitUtil::CeilByte(metadata_fb->size() + 4);
 
     // The returned metadata size includes the length prefix, the flatbuffer,
     // plus padding
-    *metadata_length = padded_metadata_length;
+    *metadata_length = static_cast<int32_t>(padded_metadata_length);
 
     // Write the flatbuffer size prefix
     int32_t flatbuffer_size = metadata_fb->size();
@@ -604,7 +603,9 @@ Status ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
     return Status::Invalid(ss.str());
   }
 
-  *metadata = std::make_shared<RecordBatchMetadata>(buffer, sizeof(int32_t));
+  std::shared_ptr<Message> message;
+  RETURN_NOT_OK(Message::Open(buffer, 4, &message));
+  *metadata = std::make_shared<RecordBatchMetadata>(message);
   return Status::OK();
 }
 

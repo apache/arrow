@@ -43,7 +43,7 @@ struct Block {
 
   /// Length of the data (this is aligned so there can be a gap between this and
   /// the metatdata).
-  bodyLength: int;
+  bodyLength: long;
 }
 
 root_type Footer;
