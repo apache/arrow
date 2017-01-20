@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.FieldNode;
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -103,8 +104,9 @@ public class TestArrowReaderWriter {
       // deserialize the buffer.
       ByteBuffer headerBuffer = ByteBuffer.allocate(recordBatches.get(0).getMetadataLength());
       headerBuffer.put(byteArray, (int)recordBatches.get(0).getOffset(), headerBuffer.capacity());
-      headerBuffer.rewind();
-      RecordBatch recordBatchFB = RecordBatch.getRootAsRecordBatch(headerBuffer);
+      headerBuffer.position(4);
+      Message messageFB = Message.getRootAsMessage(headerBuffer);
+      RecordBatch recordBatchFB = (RecordBatch) messageFB.header(new RecordBatch());
       assertEquals(2, recordBatchFB.buffersLength());
       assertEquals(1, recordBatchFB.nodesLength());
       FieldNode nodeFB = recordBatchFB.nodes(0);

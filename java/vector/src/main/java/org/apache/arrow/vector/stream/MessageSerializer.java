@@ -108,8 +108,8 @@ public class MessageSerializer {
 
     // Add extra padding bytes so that length prefix + metadata is a multiple
     // of 8 after alignment
-    if ((metadataLength + 4) % 8 != 0) {
-        metadataLength += 8 - (metadataLength + 4) % 8;
+    if ((start + metadataLength + 4) % 8 != 0) {
+        metadataLength += 8 - (start + metadataLength + 4) % 8;
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -183,17 +183,15 @@ public class MessageSerializer {
 
     ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
 
-    // Read the metadata.
-    RecordBatch recordBatchFB =
-        RecordBatch.getRootAsRecordBatch(metadataBuffer.nioBuffer().asReadOnlyBuffer());
+    Message messageFB =
+        Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
+
+    RecordBatch recordBatchFB = (RecordBatch) messageFB.header(new RecordBatch());
 
     // Now read the body
     final ArrowBuf body = buffer.slice(block.getMetadataLength(),
         (int) totalLen - block.getMetadataLength());
     ArrowRecordBatch result = deserializeRecordBatch(recordBatchFB, body);
-
-    metadataBuffer.release();
-    buffer.release();
 
     return result;
   }
