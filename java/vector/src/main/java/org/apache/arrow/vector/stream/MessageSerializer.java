@@ -104,14 +104,19 @@ public class MessageSerializer {
     ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.RecordBatch,
         batchOffset, bodyLength);
 
-    long metadataStart = out.getCurrentPosition();
-    out.writeIntLittleEndian(serializedMessage.remaining());
+    int metadataLength = serializedMessage.remaining();
+
+    // Add extra padding bytes so that length prefix + metadata is a multiple
+    // of 8 after alignment
+    if ((metadataLength + 4) % 8 != 0) {
+        metadataLength += 8 - (metadataLength + 4) % 8;
+    }
+
+    out.writeIntLittleEndian(metadataLength);
     out.write(serializedMessage);
 
     // Align the output to 8 byte boundary.
     out.align();
-
-    long metadataSize = out.getCurrentPosition() - metadataStart;
 
     long bufferStart = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
@@ -130,7 +135,8 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
-    return new ArrowBlock(start, (int) metadataSize, out.getCurrentPosition() - bufferStart);
+    // Metadata size in the Block account for the size prefix
+    return new ArrowBlock(start, metadataLength + 4, out.getCurrentPosition() - bufferStart);
   }
 
   /**
@@ -165,7 +171,7 @@ public class MessageSerializer {
       BufferAllocator alloc) throws IOException {
     long readPosition = in.getCurrentPositiion();
 
-    // Metadata length contains byte padding
+    // Metadata length contains integer prefix plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
     if (totalLen > Integer.MAX_VALUE) {
@@ -177,22 +183,21 @@ public class MessageSerializer {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    return deserializeRecordBatch(buffer, block.getMetadataLength(), (int) totalLen);
-  }
+    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
 
-  // Deserializes a record batch. Buffer should start at the RecordBatch and include
-  // all the bytes for the metadata and then data buffers.
-  private static ArrowRecordBatch deserializeRecordBatch(ArrowBuf buffer, int metadataLen,
-      int bufferLen) {
     // Read the metadata.
     RecordBatch recordBatchFB =
-        RecordBatch.getRootAsRecordBatch(buffer.nioBuffer().asReadOnlyBuffer());
-
-    int bufferOffset = metadataLen;
+        RecordBatch.getRootAsRecordBatch(metadataBuffer.nioBuffer().asReadOnlyBuffer());
 
     // Now read the body
-    final ArrowBuf body = buffer.slice(bufferOffset, bufferLen - bufferOffset);
-    return deserializeRecordBatch(recordBatchFB, body);
+    final ArrowBuf body = buffer.slice(block.getMetadataLength(),
+        (int) totalLen - block.getMetadataLength());
+    ArrowRecordBatch result = deserializeRecordBatch(recordBatchFB, body);
+
+    metadataBuffer.release();
+    buffer.release();
+
+    return result;
   }
 
   // Deserializes a record batch given the Flatbuffer metadata and in-memory body
