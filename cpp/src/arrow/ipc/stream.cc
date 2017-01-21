@@ -28,6 +28,7 @@
 #include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -87,6 +88,14 @@ Status BaseStreamWriter::WriteRecordBatch(const RecordBatch& batch, FileBlock* b
 
 // ----------------------------------------------------------------------
 // StreamWriter implementation
+
+Status StreamWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    std::shared_ptr<StreamWriter>* out) {
+  // ctor is private
+  *out = std::shared_ptr<StreamWriter>(new StreamWriter(sink, schema));
+  RETURN_NOT_OK((*out)->UpdatePosition());
+  return Status::OK();
+}
 
 Status StreamWriter::Start() {
   std::shared_ptr<Buffer> schema_fb;
@@ -148,9 +157,17 @@ Status StreamReader::ReadNextMessage(std::shared_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
 
+  if (buffer->size() != sizeof(int32_t)) {
+    *message = nullptr;
+    return Status::OK();
+  }
+
   int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
 
   RETURN_NOT_OK(stream_->Read(message_length, &buffer));
+  if (buffer->size() != message_length) {
+    return Status::IOError("Unexpected end of stream trying to read message");
+  }
   return Message::Open(buffer, 0, message);
 }
 
@@ -160,12 +177,27 @@ Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
   std::shared_ptr<Message> message;
   RETURN_NOT_OK(ReadNextMessage(&message));
 
+  if (message == nullptr) {
+    // End of stream
+    *batch = nullptr;
+    return Status::OK();
+  }
+
+  if (message->type() != Message::RECORD_BATCH) {
+    return Status::IOError("Metadata not record batch");
+  }
+
   auto batch_metadata = std::make_shared<RecordBatchMetadata>(message);
 
   std::shared_ptr<Buffer> batch_body;
   RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
 
+  if (batch_body->size() < message->body_length()) {
+    return Status::IOError("Unexpected EOS when reading message body");
+  }
+
   io::BufferReader reader(batch_body);
+
   return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
 }
 

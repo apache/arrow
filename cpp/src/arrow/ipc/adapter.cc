@@ -128,15 +128,22 @@ class RecordBatchWriter : public ArrayVisitor {
         batch_.num_rows(), body_length, field_nodes_, buffer_meta_, &metadata_fb));
 
     // Need to write 4 bytes (metadata size), the metadata, plus padding to
-    // fall on an 8-byte offset
-    int64_t padded_metadata_length = BitUtil::CeilByte(metadata_fb->size() + 4);
+    // end on an 8-byte offset
+    int64_t start_offset;
+    RETURN_NOT_OK(dst->Tell(&start_offset));
+
+    int64_t padded_metadata_length = metadata_fb->size() + 4;
+    const int remainder = (padded_metadata_length + start_offset) % 8;
+    if (remainder != 0) {
+      padded_metadata_length += 8 - remainder;
+    }
 
     // The returned metadata size includes the length prefix, the flatbuffer,
     // plus padding
     *metadata_length = static_cast<int32_t>(padded_metadata_length);
 
-    // Write the flatbuffer size prefix
-    int32_t flatbuffer_size = metadata_fb->size();
+    // Write the flatbuffer size prefix including padding
+    int32_t flatbuffer_size = padded_metadata_length - 4;
     RETURN_NOT_OK(
         dst->Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
 

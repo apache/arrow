@@ -102,6 +102,7 @@ class ARROW_EXPORT StreamReader {
 
   std::shared_ptr<Schema> schema() const;
 
+  // Returned batch is nullptr when end of stream reached
   Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
 
  private:

@@ -116,13 +116,13 @@ Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) 
 Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   int64_t size = std::min(nbytes, size_ - position_);
 
-  if (buffer_ != nullptr) {
+  if (size > 0 && buffer_ != nullptr) {
     *out = SliceBuffer(buffer_, position_, size);
   } else {
     *out = std::make_shared<Buffer>(data_ + position_, size);
   }
 
-  position_ += nbytes;
+  position_ += size;
   return Status::OK();
 }
 
