@@ -55,8 +55,8 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
 
     const int64_t buffer_offset = 0;
 
-    RETURN_NOT_OK(WriteRecordBatch(batch.columns(), batch.num_rows(), buffer_offset,
-        mmap_.get(), &metadata_length, &body_length));
+    RETURN_NOT_OK(WriteRecordBatch(
+        batch, buffer_offset, mmap_.get(), &metadata_length, &body_length));
 
     std::shared_ptr<RecordBatchMetadata> metadata;
     RETURN_NOT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
@@ -102,9 +102,8 @@ void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   int32_t mock_metadata_length = -1;
   int64_t mock_body_length = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRecordBatch(batch->columns(), batch->num_rows(), 0, &mock,
-      &mock_metadata_length, &mock_body_length));
-  ASSERT_OK(GetRecordBatchSize(batch.get(), &size));
+  ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length));
+  ASSERT_OK(GetRecordBatchSize(*batch, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
 
@@ -157,11 +156,10 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
 
     if (override_level) {
-      return WriteRecordBatch(batch->columns(), batch->num_rows(), 0, mmap_.get(),
-          metadata_length, body_length, recursion_level + 1);
+      return WriteRecordBatch(
+          *batch, 0, mmap_.get(), metadata_length, body_length, recursion_level + 1);
     } else {
-      return WriteRecordBatch(batch->columns(), batch->num_rows(), 0, mmap_.get(),
-          metadata_length, body_length);
+      return WriteRecordBatch(*batch, 0, mmap_.get(), metadata_length, body_length);
     }
   }
 

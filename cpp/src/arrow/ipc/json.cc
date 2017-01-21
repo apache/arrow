@@ -64,25 +64,23 @@ class JsonWriter::JsonWriterImpl {
     return Status::OK();
   }
 
-  Status WriteRecordBatch(
-      const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
-    DCHECK_EQ(static_cast<int>(columns.size()), schema_->num_fields());
+  Status WriteRecordBatch(const RecordBatch& batch) {
+    DCHECK_EQ(batch.num_columns(), schema_->num_fields());
 
     writer_->StartObject();
     writer_->Key("count");
-    writer_->Int(num_rows);
+    writer_->Int(batch.num_rows());
 
     writer_->Key("columns");
     writer_->StartArray();
 
     for (int i = 0; i < schema_->num_fields(); ++i) {
-      const std::shared_ptr<Array>& column = columns[i];
+      const std::shared_ptr<Array>& column = batch.column(i);
 
-      DCHECK_EQ(num_rows, column->length())
+      DCHECK_EQ(batch.num_rows(), column->length())
           << "Array length did not match record batch length";
 
-      RETURN_NOT_OK(
-          WriteJsonArray(schema_->field(i)->name, *column.get(), writer_.get()));
+      RETURN_NOT_OK(WriteJsonArray(schema_->field(i)->name, *column, writer_.get()));
     }
 
     writer_->EndArray();
@@ -113,9 +111,8 @@ Status JsonWriter::Finish(std::string* result) {
   return impl_->Finish(result);
 }
 
-Status JsonWriter::WriteRecordBatch(
-    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
-  return impl_->WriteRecordBatch(columns, num_rows);
+Status JsonWriter::WriteRecordBatch(const RecordBatch& batch) {
+  return impl_->WriteRecordBatch(batch);
 }
 
 // ----------------------------------------------------------------------

@@ -46,6 +46,7 @@ set(ARROW_IPC_SRCS
   json-internal.cc
   metadata.cc
   metadata-internal.cc
+  stream.cc
 )
 
 if(NOT APPLE)
@@ -151,6 +152,7 @@ install(FILES
   file.h
   json.h
   metadata.h
+  stream.h
   DESTINATION include/arrow/ipc)
 
 # pkg-config support

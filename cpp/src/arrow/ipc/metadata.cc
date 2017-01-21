@@ -38,7 +38,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
-Status WriteSchema(const Schema* schema, std::shared_ptr<Buffer>* out) {
+Status WriteSchema(const Schema& schema, std::shared_ptr<Buffer>* out) {
   MessageBuilder message;
   RETURN_NOT_OK(message.SetSchema(schema));
   RETURN_NOT_OK(message.Finish());
@@ -230,125 +230,6 @@ int RecordBatchMetadata::num_buffers() const {
 
 int RecordBatchMetadata::num_fields() const {
   return impl_->num_fields();
-}
-
-// ----------------------------------------------------------------------
-// File footer
-
-static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
-FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
-  std::vector<flatbuf::Block> fb_blocks;
-
-  for (const FileBlock& block : blocks) {
-    fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
-  }
-
-  return fbb.CreateVectorOfStructs(fb_blocks);
-}
-
-Status WriteFileFooter(const Schema* schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, io::OutputStream* out) {
-  FBB fbb;
-
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, &fb_schema));
-
-  auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
-  auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
-
-  auto footer = flatbuf::CreateFooter(
-      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
-
-  fbb.Finish(footer);
-
-  int32_t size = fbb.GetSize();
-
-  return out->Write(fbb.GetBufferPointer(), size);
-}
-
-static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
-  return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
-}
-
-class FileFooter::FileFooterImpl {
- public:
-  FileFooterImpl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Footer* footer)
-      : buffer_(buffer), footer_(footer) {}
-
-  int num_dictionaries() const { return footer_->dictionaries()->size(); }
-
-  int num_record_batches() const { return footer_->recordBatches()->size(); }
-
-  MetadataVersion::type version() const {
-    switch (footer_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        return MetadataVersion::V2;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V2;
-    }
-  }
-
-  FileBlock record_batch(int i) const {
-    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
-  }
-
-  FileBlock dictionary(int i) const {
-    return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
-  }
-
-  Status GetSchema(std::shared_ptr<Schema>* out) const {
-    auto schema_msg = std::make_shared<SchemaMetadata>(nullptr, footer_->schema());
-    return schema_msg->GetSchema(out);
-  }
-
- private:
-  // Retain reference to memory
-  std::shared_ptr<Buffer> buffer_;
-
-  const flatbuf::Footer* footer_;
-};
-
-FileFooter::FileFooter() {}
-
-FileFooter::~FileFooter() {}
-
-Status FileFooter::Open(
-    const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out) {
-  const flatbuf::Footer* footer = flatbuf::GetFooter(buffer->data());
-
-  *out = std::unique_ptr<FileFooter>(new FileFooter());
-
-  // TODO(wesm): Verify the footer
-  (*out)->impl_.reset(new FileFooterImpl(buffer, footer));
-
-  return Status::OK();
-}
-
-int FileFooter::num_dictionaries() const {
-  return impl_->num_dictionaries();
-}
-
-int FileFooter::num_record_batches() const {
-  return impl_->num_record_batches();
-}
-
-MetadataVersion::type FileFooter::version() const {
-  return impl_->version();
-}
-
-FileBlock FileFooter::record_batch(int i) const {
-  return impl_->record_batch(i);
-}
-
-FileBlock FileFooter::dictionary(int i) const {
-  return impl_->dictionary(i);
-}
-
-Status FileFooter::GetSchema(std::shared_ptr<Schema>* out) const {
-  return impl_->GetSchema(out);
 }
 
 }  // namespace ipc

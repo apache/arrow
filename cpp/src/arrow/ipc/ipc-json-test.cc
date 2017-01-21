@@ -245,8 +245,9 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
     std::vector<std::shared_ptr<Array>> arrays;
 
     MakeBatchArrays(schema, num_rows, &arrays);
-    batches.emplace_back(std::make_shared<RecordBatch>(schema, num_rows, arrays));
-    ASSERT_OK(writer->WriteRecordBatch(arrays, num_rows));
+    auto batch = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+    batches.push_back(batch);
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
   }
 
   std::string result;

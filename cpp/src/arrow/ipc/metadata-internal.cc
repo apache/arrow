@@ -282,10 +282,10 @@ flatbuf::Endianness endianness() {
 }
 
 Status SchemaToFlatbuffer(
-    FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out) {
+    FBB& fbb, const Schema& schema, flatbuffers::Offset<flatbuf::Schema>* out) {
   std::vector<FieldOffset> field_offsets;
-  for (int i = 0; i < schema->num_fields(); ++i) {
-    std::shared_ptr<Field> field = schema->field(i);
+  for (int i = 0; i < schema.num_fields(); ++i) {
+    std::shared_ptr<Field> field = schema.field(i);
     FieldOffset offset;
     RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, &offset));
     field_offsets.push_back(offset);
@@ -295,7 +295,7 @@ Status SchemaToFlatbuffer(
   return Status::OK();
 }
 
-Status MessageBuilder::SetSchema(const Schema* schema) {
+Status MessageBuilder::SetSchema(const Schema& schema) {
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, &fb_schema));
 

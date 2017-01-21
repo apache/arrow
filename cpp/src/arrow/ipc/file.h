@@ -25,13 +25,12 @@
 #include <vector>
 
 #include "arrow/ipc/metadata.h"
+#include "arrow/ipc/stream.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Array;
 class Buffer;
-struct Field;
 class RecordBatch;
 class Schema;
 class Status;
@@ -45,40 +44,43 @@ class ReadableFileInterface;
 
 namespace ipc {
 
-class ARROW_EXPORT FileWriter {
+Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out);
+
+class ARROW_EXPORT FileFooter {
+ public:
+  ~FileFooter();
+
+  static Status Open(
+      const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out);
+
+  int num_dictionaries() const;
+  int num_record_batches() const;
+  MetadataVersion::type version() const;
+
+  FileBlock record_batch(int i) const;
+  FileBlock dictionary(int i) const;
+
+  Status GetSchema(std::shared_ptr<Schema>* out) const;
+
+ private:
+  FileFooter();
+  class FileFooterImpl;
+  std::unique_ptr<FileFooterImpl> impl_;
+};
+
+class ARROW_EXPORT FileWriter : public StreamWriter {
  public:
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
 
-  // TODO(wesm): Write dictionaries
-
-  Status WriteRecordBatch(
-      const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows);
-
-  Status Close();
+  Status WriteRecordBatch(const RecordBatch& batch) override;
+  Status Close() override;
 
  private:
-  FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  using StreamWriter::StreamWriter;
 
-  Status CheckStarted();
-  Status Start();
-
-  Status UpdatePosition();
-
-  // Adds padding bytes if necessary to ensure all memory blocks are written on
-  // 8-byte boundaries.
-  Status Align();
-
-  // Write data and update position
-  Status Write(const uint8_t* data, int64_t nbytes);
-
-  // Write and align
-  Status WriteAligned(const uint8_t* data, int64_t nbytes);
-
-  io::OutputStream* sink_;
-  std::shared_ptr<Schema> schema_;
-  int64_t position_;
-  bool started_;
+  Status Start() override;
 
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;

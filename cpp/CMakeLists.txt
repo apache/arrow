@@ -90,7 +90,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_ALTIVEC
     "Build Arrow with Altivec"
     ON)
-
 endif()
 
 if(NOT ARROW_BUILD_TESTS)

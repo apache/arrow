@@ -26,6 +26,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/adapter.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
@@ -35,39 +36,133 @@ namespace arrow {
 namespace ipc {
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
+// ----------------------------------------------------------------------
+// File footer
+
+static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
+FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
+  std::vector<flatbuf::Block> fb_blocks;
+
+  for (const FileBlock& block : blocks) {
+    fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
+  }
+
+  return fbb.CreateVectorOfStructs(fb_blocks);
+}
+
+Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, io::OutputStream* out) {
+  FBB fbb;
+
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, &fb_schema));
+
+  auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
+  auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
+
+  auto footer = flatbuf::CreateFooter(
+      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
+
+  fbb.Finish(footer);
+
+  int32_t size = fbb.GetSize();
+
+  return out->Write(fbb.GetBufferPointer(), size);
+}
+
+static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
+  return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
+}
+
+class FileFooter::FileFooterImpl {
+ public:
+  FileFooterImpl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Footer* footer)
+      : buffer_(buffer), footer_(footer) {}
+
+  int num_dictionaries() const { return footer_->dictionaries()->size(); }
+
+  int num_record_batches() const { return footer_->recordBatches()->size(); }
+
+  MetadataVersion::type version() const {
+    switch (footer_->version()) {
+      case flatbuf::MetadataVersion_V1:
+        return MetadataVersion::V1;
+      case flatbuf::MetadataVersion_V2:
+        return MetadataVersion::V2;
+      // Add cases as other versions become available
+      default:
+        return MetadataVersion::V2;
+    }
+  }
+
+  FileBlock record_batch(int i) const {
+    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
+  }
+
+  FileBlock dictionary(int i) const {
+    return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
+  }
+
+  Status GetSchema(std::shared_ptr<Schema>* out) const {
+    auto schema_msg = std::make_shared<SchemaMetadata>(nullptr, footer_->schema());
+    return schema_msg->GetSchema(out);
+  }
+
+ private:
+  // Retain reference to memory
+  std::shared_ptr<Buffer> buffer_;
+
+  const flatbuf::Footer* footer_;
+};
+
+FileFooter::FileFooter() {}
+
+FileFooter::~FileFooter() {}
+
+Status FileFooter::Open(
+    const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out) {
+  const flatbuf::Footer* footer = flatbuf::GetFooter(buffer->data());
+
+  *out = std::unique_ptr<FileFooter>(new FileFooter());
+
+  // TODO(wesm): Verify the footer
+  (*out)->impl_.reset(new FileFooterImpl(buffer, footer));
+
+  return Status::OK();
+}
+
+int FileFooter::num_dictionaries() const {
+  return impl_->num_dictionaries();
+}
+
+int FileFooter::num_record_batches() const {
+  return impl_->num_record_batches();
+}
+
+MetadataVersion::type FileFooter::version() const {
+  return impl_->version();
+}
+
+FileBlock FileFooter::record_batch(int i) const {
+  return impl_->record_batch(i);
+}
+
+FileBlock FileFooter::dictionary(int i) const {
+  return impl_->dictionary(i);
+}
+
+Status FileFooter::GetSchema(std::shared_ptr<Schema>* out) const {
+  return impl_->GetSchema(out);
+}
 
 // ----------------------------------------------------------------------
-// Writer implementation
-
-FileWriter::FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
-    : sink_(sink), schema_(schema), position_(-1), started_(false) {}
-
-Status FileWriter::UpdatePosition() {
-  return sink_->Tell(&position_);
-}
+// File writer implementation
 
 Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     std::shared_ptr<FileWriter>* out) {
   *out = std::shared_ptr<FileWriter>(new FileWriter(sink, schema));  // ctor is private
   RETURN_NOT_OK((*out)->UpdatePosition());
   return Status::OK();
-}
-
-Status FileWriter::Write(const uint8_t* data, int64_t nbytes) {
-  RETURN_NOT_OK(sink_->Write(data, nbytes));
-  position_ += nbytes;
-  return Status::OK();
-}
-
-Status FileWriter::Align() {
-  int64_t remainder = PaddedLength(position_) - position_;
-  if (remainder > 0) { return Write(kPaddingBytes, remainder); }
-  return Status::OK();
-}
-
-Status FileWriter::WriteAligned(const uint8_t* data, int64_t nbytes) {
-  RETURN_NOT_OK(Write(data, nbytes));
-  return Align();
 }
 
 Status FileWriter::Start() {
@@ -77,40 +172,18 @@ Status FileWriter::Start() {
   return Status::OK();
 }
 
-Status FileWriter::CheckStarted() {
-  if (!started_) { return Start(); }
-  return Status::OK();
-}
-
-Status FileWriter::WriteRecordBatch(
-    const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows) {
-  RETURN_NOT_OK(CheckStarted());
-
-  int64_t offset = position_;
-
-  // There may be padding ever the end of the metadata, so we cannot rely on
-  // position_
-  int32_t metadata_length;
-  int64_t body_length;
-
-  // Frame of reference in file format is 0, see ARROW-384
-  const int64_t buffer_start_offset = 0;
-  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
-      columns, num_rows, buffer_start_offset, sink_, &metadata_length, &body_length));
-  RETURN_NOT_OK(UpdatePosition());
-
-  DCHECK(position_ % 8 == 0) << "ipc::WriteRecordBatch did not perform aligned writes";
-
+Status FileWriter::WriteRecordBatch(const RecordBatch& batch) {
+  // Push an empty FileBlock
   // Append metadata, to be written in the footer later
-  record_batches_.emplace_back(offset, metadata_length, body_length);
-
-  return Status::OK();
+  record_batches_.emplace_back(0, 0, 0);
+  return StreamWriter::WriteRecordBatch(
+      batch, &record_batches_[record_batches_.size() - 1]);
 }
 
 Status FileWriter::Close() {
   // Write metadata
   int64_t initial_position = position_;
-  RETURN_NOT_OK(WriteFileFooter(schema_.get(), dictionaries_, record_batches_, sink_));
+  RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
   RETURN_NOT_OK(UpdatePosition());
 
   // Write footer length
