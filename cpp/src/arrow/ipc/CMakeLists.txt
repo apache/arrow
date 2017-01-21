@@ -152,6 +152,7 @@ install(FILES
   file.h
   json.h
   metadata.h
+  stream.h
   DESTINATION include/arrow/ipc)
 
 # pkg-config support
