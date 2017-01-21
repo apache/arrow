@@ -197,8 +197,8 @@ class RecordBatchWriter : public ArrayVisitor {
 
   Status GetTotalSize(int64_t* size) {
     // emulates the behavior of Write without actually writing
-    int32_t metadata_length;
-    int64_t body_length;
+    int32_t metadata_length = 0;
+    int64_t body_length = 0;
     MockOutputStream dst;
     RETURN_NOT_OK(Write(&dst, &metadata_length, &body_length));
     *size = dst.GetExtentBytesWritten();
