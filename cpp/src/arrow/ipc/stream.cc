@@ -36,41 +36,40 @@ namespace arrow {
 namespace ipc {
 
 // ----------------------------------------------------------------------
-// Implement base stream writer functions
+// Stream writer implementation
 
-BaseStreamWriter::~BaseStreamWriter() {}
+StreamWriter::~StreamWriter() {}
 
-BaseStreamWriter::BaseStreamWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
+StreamWriter::StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
     : sink_(sink), schema_(schema), position_(-1), started_(false) {}
 
-Status BaseStreamWriter::UpdatePosition() {
+Status StreamWriter::UpdatePosition() {
   return sink_->Tell(&position_);
 }
 
-Status BaseStreamWriter::Write(const uint8_t* data, int64_t nbytes) {
+Status StreamWriter::Write(const uint8_t* data, int64_t nbytes) {
   RETURN_NOT_OK(sink_->Write(data, nbytes));
   position_ += nbytes;
   return Status::OK();
 }
 
-Status BaseStreamWriter::Align() {
+Status StreamWriter::Align() {
   int64_t remainder = PaddedLength(position_) - position_;
   if (remainder > 0) { return Write(kPaddingBytes, remainder); }
   return Status::OK();
 }
 
-Status BaseStreamWriter::WriteAligned(const uint8_t* data, int64_t nbytes) {
+Status StreamWriter::WriteAligned(const uint8_t* data, int64_t nbytes) {
   RETURN_NOT_OK(Write(data, nbytes));
   return Align();
 }
 
-Status BaseStreamWriter::CheckStarted() {
+Status StreamWriter::CheckStarted() {
   if (!started_) { return Start(); }
   return Status::OK();
 }
 
-Status BaseStreamWriter::WriteRecordBatch(const RecordBatch& batch, FileBlock* block) {
+Status StreamWriter::WriteRecordBatch(const RecordBatch& batch, FileBlock* block) {
   RETURN_NOT_OK(CheckStarted());
 
   block->offset = position_;
@@ -114,7 +113,7 @@ Status StreamWriter::Start() {
 Status StreamWriter::WriteRecordBatch(const RecordBatch& batch) {
   // Pass FileBlock, but results not used
   FileBlock dummy_block;
-  return BaseStreamWriter::WriteRecordBatch(batch, &dummy_block);
+  return WriteRecordBatch(batch, &dummy_block);
 }
 
 Status StreamWriter::Close() {

@@ -69,7 +69,7 @@ class ARROW_EXPORT FileFooter {
   std::unique_ptr<FileFooterImpl> impl_;
 };
 
-class ARROW_EXPORT FileWriter : public BaseStreamWriter {
+class ARROW_EXPORT FileWriter : public StreamWriter {
  public:
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
@@ -78,7 +78,7 @@ class ARROW_EXPORT FileWriter : public BaseStreamWriter {
   Status Close() override;
 
  private:
-  using BaseStreamWriter::BaseStreamWriter;
+  using StreamWriter::StreamWriter;
 
   Status Start() override;
 

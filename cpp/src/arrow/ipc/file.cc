@@ -176,7 +176,7 @@ Status FileWriter::WriteRecordBatch(const RecordBatch& batch) {
   // Push an empty FileBlock
   // Append metadata, to be written in the footer later
   record_batches_.emplace_back(0, 0, 0);
-  return BaseStreamWriter::WriteRecordBatch(
+  return StreamWriter::WriteRecordBatch(
       batch, &record_batches_[record_batches_.size() - 1]);
 }
 

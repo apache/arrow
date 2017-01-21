@@ -46,16 +46,20 @@ namespace ipc {
 class FileBlock;
 class Message;
 
-class ARROW_EXPORT BaseStreamWriter {
+class ARROW_EXPORT StreamWriter {
  public:
-  ~BaseStreamWriter();
-  virtual Status WriteRecordBatch(const RecordBatch& batch) = 0;
-  virtual Status Close() = 0;
+  virtual ~StreamWriter();
+
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      std::shared_ptr<StreamWriter>* out);
+
+  virtual Status WriteRecordBatch(const RecordBatch& batch);
+  virtual Status Close();
 
  protected:
-  BaseStreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
-  virtual Status Start() = 0;
+  virtual Status Start();
 
   Status CheckStarted();
   Status UpdatePosition();
@@ -76,20 +80,6 @@ class ARROW_EXPORT BaseStreamWriter {
   std::shared_ptr<Schema> schema_;
   int64_t position_;
   bool started_;
-};
-
-class ARROW_EXPORT StreamWriter : public BaseStreamWriter {
- public:
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<StreamWriter>* out);
-
-  Status WriteRecordBatch(const RecordBatch& batch) override;
-  Status Close() override;
-
- private:
-  using BaseStreamWriter::BaseStreamWriter;
-
-  Status Start() override;
 };
 
 class ARROW_EXPORT StreamReader {
