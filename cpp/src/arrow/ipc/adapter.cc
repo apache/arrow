@@ -134,9 +134,7 @@ class RecordBatchWriter : public ArrayVisitor {
 
     int64_t padded_metadata_length = metadata_fb->size() + 4;
     const int remainder = (padded_metadata_length + start_offset) % 8;
-    if (remainder != 0) {
-      padded_metadata_length += 8 - remainder;
-    }
+    if (remainder != 0) { padded_metadata_length += 8 - remainder; }
 
     // The returned metadata size includes the length prefix, the flatbuffer,
     // plus padding

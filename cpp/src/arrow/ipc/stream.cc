@@ -171,7 +171,9 @@ Status StreamReader::ReadNextMessage(std::shared_ptr<Message>* message) {
   return Message::Open(buffer, 0, message);
 }
 
-std::shared_ptr<Schema> StreamReader::schema() const { return schema_; }
+std::shared_ptr<Schema> StreamReader::schema() const {
+  return schema_;
+}
 
 Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
   std::shared_ptr<Message> message;

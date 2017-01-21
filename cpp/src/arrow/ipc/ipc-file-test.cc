@@ -45,11 +45,11 @@ namespace ipc {
 void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
   ASSERT_TRUE(left.schema()->Equals(right.schema()));
   ASSERT_EQ(left.num_columns(), right.num_columns())
-    << left.schema()->ToString() << " result: " << right.schema()->ToString();
+      << left.schema()->ToString() << " result: " << right.schema()->ToString();
   EXPECT_EQ(left.num_rows(), right.num_rows());
   for (int i = 0; i < left.num_columns(); ++i) {
     EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
-      << "Idx: " << i << " Name: " << left.column_name(i);
+        << "Idx: " << i << " Name: " << left.column_name(i);
   }
 }
 
@@ -116,7 +116,6 @@ TEST_P(TestFileFormat, RoundTrip) {
   // Compare batches
   for (size_t i = 0; i < in_batches.size(); ++i) {
     CompareBatch(*in_batches[i], *out_batches[i]);
-
   }
 }
 
@@ -149,9 +148,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
     std::shared_ptr<RecordBatch> chunk;
     while (true) {
       RETURN_NOT_OK(reader->GetNextRecordBatch(&chunk));
-      if (chunk == nullptr) {
-        break;
-      }
+      if (chunk == nullptr) { break; }
       out_batches->emplace_back(chunk);
     }
     return Status::OK();
@@ -178,10 +175,10 @@ TEST_P(TestStreamFormat, RoundTrip) {
   }
 }
 
-#define BATCH_CASES()                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch,          \
-      &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
-      &MakeStringTypesRecordBatch, &MakeStruct);
+#define BATCH_CASES()                                                                   \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
+      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
+      &MakeStruct);
 
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());

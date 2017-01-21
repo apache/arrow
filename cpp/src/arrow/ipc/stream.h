@@ -116,7 +116,6 @@ class ARROW_EXPORT StreamReader {
   std::shared_ptr<Schema> schema_;
 };
 
-
 }  // namespace ipc
 }  // namespace arrow
 
