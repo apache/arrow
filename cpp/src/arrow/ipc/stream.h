@@ -36,14 +36,15 @@ class Status;
 
 namespace io {
 
+class InputStream;
 class OutputStream;
-class ReadableFileInterface;
 
 }  // namespace io
 
 namespace ipc {
 
 class FileBlock;
+class Message;
 
 class ARROW_EXPORT BaseStreamWriter {
  public:
@@ -91,10 +92,29 @@ class ARROW_EXPORT StreamWriter : public BaseStreamWriter {
   Status Start() override;
 };
 
-class ARROW_EXPORT BaseStreamReader {
+class ARROW_EXPORT StreamReader {
  public:
-  ~BaseStreamReader();
+  ~StreamReader();
+
+  // Open an stream.
+  static Status Open(const std::shared_ptr<io::InputStream>& stream,
+      std::shared_ptr<StreamReader>* reader);
+
+  std::shared_ptr<Schema> schema() const;
+
+  Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
+
+ private:
+  explicit StreamReader(const std::shared_ptr<io::InputStream>& stream);
+
+  Status ReadSchema();
+
+  Status ReadNextMessage(std::shared_ptr<Message>* message);
+
+  std::shared_ptr<io::InputStream> stream_;
+  std::shared_ptr<Schema> schema_;
 };
+
 
 }  // namespace ipc
 }  // namespace arrow

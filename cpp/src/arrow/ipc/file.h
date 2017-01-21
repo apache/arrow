@@ -30,9 +30,7 @@
 
 namespace arrow {
 
-class Array;
 class Buffer;
-struct Field;
 class RecordBatch;
 class Schema;
 class Status;
@@ -88,7 +86,7 @@ class ARROW_EXPORT FileWriter : public BaseStreamWriter {
   std::vector<FileBlock> record_batches_;
 };
 
-class ARROW_EXPORT FileReader : public BaseStreamReader {
+class ARROW_EXPORT FileReader {
  public:
   ~FileReader();
 

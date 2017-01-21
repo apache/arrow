@@ -115,9 +115,59 @@ Status StreamWriter::Close() {
 }
 
 // ----------------------------------------------------------------------
-// Base stream reader functions
+// StreamReader implementation
 
-BaseStreamReader::~BaseStreamReader() {}
+StreamReader::StreamReader(const std::shared_ptr<io::InputStream>& stream)
+    : stream_(stream), schema_(nullptr) {}
+
+StreamReader::~StreamReader() {}
+
+Status StreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+    std::shared_ptr<StreamReader>* reader) {
+  // Private ctor
+  *reader = std::shared_ptr<StreamReader>(new StreamReader(stream));
+  return (*reader)->ReadSchema();
+}
+
+Status StreamReader::ReadSchema() {
+  std::shared_ptr<Message> message;
+  RETURN_NOT_OK(ReadNextMessage(&message));
+
+  if (message->type() != Message::SCHEMA) {
+    return Status::IOError("First message was not schema type");
+  }
+
+  SchemaMetadata schema_meta(message);
+
+  // TODO(wesm): If the schema contains dictionaries, we must read all the
+  // dictionaries from the stream before constructing the final Schema
+  return schema_meta.GetSchema(&schema_);
+}
+
+Status StreamReader::ReadNextMessage(std::shared_ptr<Message>* message) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
+
+  int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+  RETURN_NOT_OK(stream_->Read(message_length, &buffer));
+  return Message::Open(buffer, 0, message);
+}
+
+std::shared_ptr<Schema> StreamReader::schema() const { return schema_; }
+
+Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+  std::shared_ptr<Message> message;
+  RETURN_NOT_OK(ReadNextMessage(&message));
+
+  auto batch_metadata = std::make_shared<RecordBatchMetadata>(message);
+
+  std::shared_ptr<Buffer> batch_body;
+  RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
+
+  io::BufferReader reader(batch_body);
+  return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+}
 
 }  // namespace ipc
 }  // namespace arrow
