@@ -43,7 +43,7 @@ class OutputStream;
 
 namespace ipc {
 
-class FileBlock;
+struct FileBlock;
 class Message;
 
 class ARROW_EXPORT StreamWriter {
