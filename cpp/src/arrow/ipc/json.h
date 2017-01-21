@@ -46,8 +46,7 @@ class ARROW_EXPORT JsonWriter {
 
   // TODO(wesm): Write dictionaries
 
-  Status WriteRecordBatch(
-      const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows);
+  Status WriteRecordBatch(const RecordBatch& batch);
 
   Status Finish(std::string* result);
 

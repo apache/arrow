@@ -36,6 +36,15 @@
 namespace arrow {
 namespace ipc {
 
+static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
+  if (!lhs.Equals(rhs)) {
+    std::stringstream ss;
+    ss << "left schema: " << lhs.ToString() << std::endl
+       << "right schema: " << rhs.ToString() << std::endl;
+    FAIL() << ss.str();
+  }
+}
+
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 

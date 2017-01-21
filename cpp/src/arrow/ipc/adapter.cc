@@ -49,10 +49,9 @@ namespace ipc {
 
 class RecordBatchWriter : public ArrayVisitor {
  public:
-  RecordBatchWriter(const std::vector<std::shared_ptr<Array>>& columns, int32_t num_rows,
-      int64_t buffer_start_offset, int max_recursion_depth)
-      : columns_(columns),
-        num_rows_(num_rows),
+  RecordBatchWriter(
+      const RecordBatch& batch, int64_t buffer_start_offset, int max_recursion_depth)
+      : batch_(batch),
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset) {}
 
@@ -79,8 +78,8 @@ class RecordBatchWriter : public ArrayVisitor {
     }
 
     // Perform depth-first traversal of the row-batch
-    for (size_t i = 0; i < columns_.size(); ++i) {
-      RETURN_NOT_OK(VisitArray(*columns_[i].get()));
+    for (int i = 0; i < batch_.num_columns(); ++i) {
+      RETURN_NOT_OK(VisitArray(*batch_.column(i)));
     }
 
     // The position for the start of a buffer relative to the passed frame of
@@ -126,7 +125,7 @@ class RecordBatchWriter : public ArrayVisitor {
     // itself as an int32_t.
     std::shared_ptr<Buffer> metadata_fb;
     RETURN_NOT_OK(WriteRecordBatchMetadata(
-        num_rows_, body_length, field_nodes_, buffer_meta_, &metadata_fb));
+        batch_.num_rows(), body_length, field_nodes_, buffer_meta_, &metadata_fb));
 
     // Need to write 4 bytes (metadata size), the metadata, plus padding to
     // fall on an 8-byte offset
@@ -294,9 +293,7 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  // Do not copy this vector. Ownership must be retained elsewhere
-  const std::vector<std::shared_ptr<Array>>& columns_;
-  int32_t num_rows_;
+  const RecordBatch& batch_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
@@ -306,18 +303,16 @@ class RecordBatchWriter : public ArrayVisitor {
   int64_t buffer_start_offset_;
 };
 
-Status WriteRecordBatch(const std::vector<std::shared_ptr<Array>>& columns,
-    int32_t num_rows, int64_t buffer_start_offset, io::OutputStream* dst,
-    int32_t* metadata_length, int64_t* body_length, int max_recursion_depth) {
+Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
+    int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RecordBatchWriter serializer(
-      columns, num_rows, buffer_start_offset, max_recursion_depth);
+  RecordBatchWriter serializer(batch, buffer_start_offset, max_recursion_depth);
   return serializer.Write(dst, metadata_length, body_length);
 }
 
-Status GetRecordBatchSize(const RecordBatch* batch, int64_t* size) {
-  RecordBatchWriter serializer(
-      batch->columns(), batch->num_rows(), 0, kMaxIpcRecursionDepth);
+Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
+  RecordBatchWriter serializer(batch, 0, kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }

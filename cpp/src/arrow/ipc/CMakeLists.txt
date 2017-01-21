@@ -46,6 +46,7 @@ set(ARROW_IPC_SRCS
   json-internal.cc
   metadata.cc
   metadata-internal.cc
+  stream.cc
 )
 
 if(NOT APPLE)

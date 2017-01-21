@@ -81,7 +81,7 @@ static Status ConvertJsonToArrow(
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->GetRecordBatch(i, &batch));
-    RETURN_NOT_OK(writer->WriteRecordBatch(batch->columns(), batch->num_rows()));
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
   return writer->Close();
 }
@@ -108,7 +108,7 @@ static Status ConvertArrowToJson(
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->GetRecordBatch(i, &batch));
-    RETURN_NOT_OK(writer->WriteRecordBatch(batch->columns(), batch->num_rows()));
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
   std::string result;

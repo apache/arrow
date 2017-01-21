@@ -49,11 +49,11 @@ static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVe
 Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
 
 Status SchemaToFlatbuffer(
-    FBB& fbb, const Schema* schema, flatbuffers::Offset<flatbuf::Schema>* out);
+    FBB& fbb, const Schema& schema, flatbuffers::Offset<flatbuf::Schema>* out);
 
 class MessageBuilder {
  public:
-  Status SetSchema(const Schema* schema);
+  Status SetSchema(const Schema& schema);
 
   Status SetRecordBatch(int32_t length, int64_t body_length,
       const std::vector<flatbuf::FieldNode>& nodes,

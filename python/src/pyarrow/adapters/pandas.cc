@@ -254,16 +254,16 @@ struct arrow_traits<Type::BOOL> {
   static constexpr bool is_numeric_nullable = false;
 };
 
-#define INT_DECL(TYPE)                                      \
-  template <>                                               \
-  struct arrow_traits<Type::TYPE> {                         \
-    static constexpr int npy_type = NPY_##TYPE;             \
-    static constexpr bool supports_nulls = false;           \
-    static constexpr double na_value = NAN;                 \
-    static constexpr bool is_boolean = false;               \
-    static constexpr bool is_numeric_not_nullable = true;   \
-    static constexpr bool is_numeric_nullable = false;      \
-    typedef typename npy_traits<NPY_##TYPE>::value_type T;  \
+#define INT_DECL(TYPE)                                     \
+  template <>                                              \
+  struct arrow_traits<Type::TYPE> {                        \
+    static constexpr int npy_type = NPY_##TYPE;            \
+    static constexpr bool supports_nulls = false;          \
+    static constexpr double na_value = NAN;                \
+    static constexpr bool is_boolean = false;              \
+    static constexpr bool is_numeric_not_nullable = true;  \
+    static constexpr bool is_numeric_nullable = false;     \
+    typedef typename npy_traits<NPY_##TYPE>::value_type T; \
   };
 
 INT_DECL(INT8);
@@ -1803,7 +1803,7 @@ class ArrowDeserializer {
   // types
 
   Status Convert(PyObject** out) {
-#define CONVERT_CASE(TYPE)                             \
+#define CONVERT_CASE(TYPE)                      \
   case Type::TYPE: {                            \
     RETURN_NOT_OK(ConvertValues<Type::TYPE>()); \
   } break;
@@ -1857,8 +1857,7 @@ class ArrowDeserializer {
   }
 
   template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DATE, Status>::type
-  ConvertValues() {
+  inline typename std::enable_if<TYPE == Type::DATE, Status>::type ConvertValues() {
     typedef typename arrow_traits<TYPE>::T T;
 
     RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
@@ -1910,24 +1909,21 @@ class ArrowDeserializer {
 
   // UTF8 strings
   template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::STRING, Status>::type
-  ConvertValues() {
+  inline typename std::enable_if<TYPE == Type::STRING, Status>::type ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertBinaryLike<arrow::StringArray>(data_, out_values);
   }
 
   template <int T2>
-  inline typename std::enable_if<T2 == Type::BINARY, Status>::type
-  ConvertValues() {
+  inline typename std::enable_if<T2 == Type::BINARY, Status>::type ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertBinaryLike<arrow::BinaryArray>(data_, out_values);
   }
 
   template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DICTIONARY, Status>::type
-  ConvertValues() {
+  inline typename std::enable_if<TYPE == Type::DICTIONARY, Status>::type ConvertValues() {
     std::shared_ptr<PandasBlock> block;
     RETURN_NOT_OK(MakeCategoricalBlock(col_->type(), col_->length(), &block));
     RETURN_NOT_OK(block->Write(col_, 0, 0));
