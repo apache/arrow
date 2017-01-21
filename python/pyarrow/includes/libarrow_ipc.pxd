@@ -29,8 +29,7 @@ cdef extern from "arrow/ipc/file.h" namespace "arrow::ipc" nogil:
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
                      shared_ptr[CFileWriter]* out)
 
-        CStatus WriteRecordBatch(const vector[shared_ptr[CArray]]& columns,
-                                 int32_t num_rows)
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
 
         CStatus Close()
 

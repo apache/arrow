@@ -21,6 +21,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_io cimport *
 from pyarrow.includes.libarrow_ipc cimport *
@@ -58,10 +60,9 @@ cdef class ArrowFileWriter:
             self.close()
 
     def write_record_batch(self, RecordBatch batch):
-        cdef CRecordBatch* bptr = batch.batch
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(bptr.columns(), bptr.num_rows()))
+                         .WriteRecordBatch(deref(batch.batch)))
 
     def close(self):
         with nogil:
