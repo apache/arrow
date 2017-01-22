@@ -72,7 +72,7 @@ class ParquetFile(object):
             return Table.from_arrays(arrays, names=columns)
 
 
-def read_table(source, columns=None):
+def read_table(source, columns=None, metadata=None):
     """
     Read a Table from Parquet format
 
@@ -83,13 +83,15 @@ def read_table(source, columns=None):
         pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
         If not None, only these columns will be read from the file.
+    metadata : FileMetaData
+        If separately computed
 
     Returns
     -------
     pyarrow.Table
         Content of the file as a table (of columns)
     """
-    return ParquetFile(source).read(columns=columns)
+    return ParquetFile(source, metadata=metadata).read(columns=columns)
 
 
 def read_multiple_files(paths, columns=None, filesystem=None, metadata=None,
@@ -118,12 +120,11 @@ def read_multiple_files(paths, columns=None, filesystem=None, metadata=None,
         Content of the file as a table (of columns)
     """
     if filesystem is None:
-        def open_file(path, metadata=None):
-            return ParquetFile(path, metadata=metadata)
+        def open_file(path, meta=None):
+            return ParquetFile(path, metadata=meta)
     else:
-        def open_file(path, metadata=None):
-            return ParquetFile(filesystem.open(path, mode='rb'),
-                               metadata=metadata)
+        def open_file(path, meta=None):
+            return ParquetFile(filesystem.open(path, mode='rb'), metadata=meta)
 
     if len(paths) == 0:
         raise ValueError('Must pass at least one file path')
@@ -145,7 +146,7 @@ def read_multiple_files(paths, columns=None, filesystem=None, metadata=None,
     # Read the tables
     tables = []
     for path, path_metadata in zip(paths, all_file_metadata):
-        reader = open_file(path, metadata=path_metadata)
+        reader = open_file(path, meta=path_metadata)
         table = reader.read(columns=columns)
         tables.append(table)
 

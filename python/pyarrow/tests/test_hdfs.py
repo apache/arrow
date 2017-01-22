@@ -21,9 +21,14 @@ import os
 import random
 import unittest
 
+import numpy as np
 import pytest
 
+from pyarrow.compat import guid
 import pyarrow.io as io
+import pyarrow as pa
+
+import pyarrow.tests.test_parquet as test_parquet
 
 # ----------------------------------------------------------------------
 # HDFS tests
@@ -137,6 +142,39 @@ class HdfsTestCases(object):
             result = f.read()
 
         assert result == data
+
+    @test_parquet.parquet
+    def test_hdfs_read_multiple_parquet_files(self):
+        import pyarrow.parquet as pq
+
+        nfiles = 10
+        size = 5
+
+        tmpdir = pjoin(self.tmp_path, 'multi-parquet')
+
+        self.hdfs.mkdir(tmpdir)
+
+        test_data = []
+        paths = []
+        for i in range(nfiles):
+            df = test_parquet._test_dataframe(size, seed=i)
+
+            # Hack so that we don't have a dtype cast in v1 files
+            df['uint32'] = df['uint32'].astype(np.int64)
+
+            path = pjoin(tmpdir, '{0}.parquet'.format(guid()))
+
+            table = pa.Table.from_pandas(df)
+            with self.hdfs.open(path, 'wb') as f:
+                pq.write_table(table, f)
+
+            test_data.append(table)
+            paths.append(path)
+
+        result = pq.read_multiple_files(paths, filesystem=self.hdfs)
+        expected = pa.concat_tables(test_data)
+
+        assert result.equals(expected)
 
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
