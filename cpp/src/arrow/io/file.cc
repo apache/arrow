@@ -623,7 +623,8 @@ Status MemoryMappedFile::Close() {
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
+  nbytes = std::max<int64_t>(
+      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
   if (nbytes > 0) { std::memcpy(out, memory_map_->head(), nbytes); }
   *bytes_read = nbytes;
   memory_map_->advance(nbytes);
@@ -631,7 +632,8 @@ Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
+  nbytes = std::max<int64_t>(
+      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
 
   if (nbytes > 0) {
     *out = SliceBuffer(memory_map_, memory_map_->position(), nbytes);
