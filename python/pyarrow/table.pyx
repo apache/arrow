@@ -265,16 +265,35 @@ cdef class Column:
 cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
     cdef:
         Array arr
+        Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
+        cdef shared_ptr[CDataType] type_
 
     cdef int K = len(arrays)
 
     fields.resize(K)
-    for i in range(K):
-        arr = arrays[i]
-        c_name = tobytes(names[i])
-        fields[i].reset(new CField(c_name, arr.type.sp_type, True))
+
+    if len(arrays) == 0:
+        raise ValueError('Must pass at least one array')
+
+    if isinstance(arrays[0], Array):
+        if names is None:
+            raise ValueError('Must pass names when constructing '
+                             'from Array objects')
+        for i in range(K):
+            arr = arrays[i]
+            type_ = arr.type.sp_type
+            c_name = tobytes(names[i])
+            fields[i].reset(new CField(c_name, type_, True))
+    elif isinstance(arrays[0], Column):
+        for i in range(K):
+            col = arrays[i]
+            type_ = col.sp_column.get().type()
+            c_name = tobytes(col.name)
+            fields[i].reset(new CField(c_name, type_, True))
+    else:
+        raise TypeError(type(arrays[0]))
 
     schema.reset(new CSchema(fields))
 
@@ -429,19 +448,19 @@ cdef class RecordBatch:
         pyarrow.table.RecordBatch
         """
         names, arrays = _dataframe_to_arrays(df, None, False, schema)
-        return cls.from_arrays(names, arrays)
+        return cls.from_arrays(arrays, names)
 
     @staticmethod
-    def from_arrays(names, arrays):
+    def from_arrays(arrays, names):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
         Parameters
         ----------
-        names: list of str
-            Labels for the columns
         arrays: list of pyarrow.Array
             column-wise data vectors
+        names: list of str
+            Labels for the columns
 
         Returns
         -------
@@ -594,20 +613,20 @@ cdef class Table:
         names, arrays = _dataframe_to_arrays(df, name=name,
                                              timestamps_to_ms=timestamps_to_ms,
                                              schema=schema)
-        return cls.from_arrays(names, arrays, name=name)
+        return cls.from_arrays(arrays, names=names, name=name)
 
     @staticmethod
-    def from_arrays(names, arrays, name=None):
+    def from_arrays(arrays, names=None, name=None):
         """
-        Construct a Table from Arrow Arrays
+        Construct a Table from Arrow arrays or columns
 
         Parameters
         ----------
-
-        names: list of str
-            Names for the table columns
-        arrays: list of pyarrow.array.Array
+        arrays: list of pyarrow.Array or pyarrow.Column
             Equal-length arrays that should form the table.
+        names: list of str, optional
+            Names for the table columns. If Columns passed, will be
+            inferred. If Arrays passed, this argument is required
         name: str, optional
             name for the Table
 
@@ -617,7 +636,6 @@ cdef class Table:
 
         """
         cdef:
-            Array arr
             c_string c_name
             vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
@@ -628,9 +646,15 @@ cdef class Table:
 
         cdef int K = len(arrays)
         columns.resize(K)
+
         for i in range(K):
-            arr = arrays[i]
-            columns[i].reset(new CColumn(schema.get().field(i), arr.sp_array))
+            if isinstance(arrays[i], Array):
+                columns[i].reset(new CColumn(schema.get().field(i),
+                                             (<Array> arrays[i]).sp_array))
+            elif isinstance(arrays[i], Column):
+                columns[i] = (<Column> arrays[i]).sp_column
+            else:
+                raise ValueError(type(arrays[i]))
 
         if name is None:
             c_name = ''

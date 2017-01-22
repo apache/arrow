@@ -32,7 +32,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, A.BooleanValue)
         assert repr(v) == "True"
-        assert v.as_py() == True
+        assert v.as_py() is True
 
         assert arr[1] is A.NA
 

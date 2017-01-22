@@ -21,7 +21,34 @@ from pandas.util.testing import assert_frame_equal
 import pandas as pd
 import pytest
 
+from pyarrow.compat import unittest
 import pyarrow as pa
+
+
+class TestColumn(unittest.TestCase):
+
+    def test_basics(self):
+        data = [
+            pa.from_pylist([-10, -5, 0, 5, 10])
+        ]
+        table = pa.Table.from_arrays(data, names=['a'], name='table_name')
+        column = table.column(0)
+        assert column.name == 'a'
+        assert column.length() == 5
+        assert len(column) == 5
+        assert column.shape == (5,)
+        assert column.to_pylist() == [-10, -5, 0, 5, 10]
+
+    def test_pandas(self):
+        data = [
+            pa.from_pylist([-10, -5, 0, 5, 10])
+        ]
+        table = pa.Table.from_arrays(data, names=['a'], name='table_name')
+        column = table.column(0)
+        series = column.to_pandas()
+        assert series.name == 'a'
+        assert series.shape == (5,)
+        assert series.iloc[0] == -10
 
 
 def test_recordbatch_basics():
@@ -30,7 +57,7 @@ def test_recordbatch_basics():
         pa.from_pylist([-10, -5, 0, 5, 10])
     ]
 
-    batch = pa.RecordBatch.from_arrays(['c0', 'c1'], data)
+    batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
 
     assert len(batch) == 5
     assert batch.num_rows == 5
@@ -95,7 +122,7 @@ def test_table_basics():
         pa.from_pylist(range(5)),
         pa.from_pylist([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(('a', 'b'), data, 'table_name')
+    table = pa.Table.from_arrays(data, names=('a', 'b'), name='table_name')
     assert table.name == 'table_name'
     assert len(table) == 5
     assert table.num_rows == 5
@@ -121,19 +148,19 @@ def test_concat_tables():
         [1., 2., 3., 4., 5.]
     ]
 
-    t1 = pa.Table.from_arrays(('a', 'b'), [pa.from_pylist(x)
-                                           for x in data], 'table_name')
-    t2 = pa.Table.from_arrays(('a', 'b'), [pa.from_pylist(x)
-                                           for x in data2], 'table_name')
+    t1 = pa.Table.from_arrays([pa.from_pylist(x) for x in data],
+                              names=('a', 'b'), name='table_name')
+    t2 = pa.Table.from_arrays([pa.from_pylist(x) for x in data2],
+                              names=('a', 'b'), name='table_name')
 
     result = pa.concat_tables([t1, t2], output_name='foo')
     assert result.name == 'foo'
     assert len(result) == 10
 
-    expected = pa.Table.from_arrays(
-        ('a', 'b'), [pa.from_pylist(x + y)
-                     for x, y in zip(data, data2)],
-        'foo')
+    expected = pa.Table.from_arrays([pa.from_pylist(x + y)
+                                     for x, y in zip(data, data2)],
+                                    names=('a', 'b'),
+                                    name='foo')
 
     assert result.equals(expected)
 
@@ -143,7 +170,8 @@ def test_table_pandas():
         pa.from_pylist(range(5)),
         pa.from_pylist([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(('a', 'b'), data, 'table_name')
+    table = pa.Table.from_arrays(data, names=('a', 'b'),
+                                 name='table_name')
 
     # TODO: Use this part once from_pandas is implemented
     # data = {'a': range(5), 'b': [-10, -5, 0, 5, 10]}

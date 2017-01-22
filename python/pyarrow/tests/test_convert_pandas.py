@@ -74,7 +74,7 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(result, expected)
 
     def _check_array_roundtrip(self, values, expected=None,
-                                timestamps_to_ms=False, field=None):
+                               timestamps_to_ms=False, field=None):
         arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
                                   field=field)
         result = arr.to_pandas()
@@ -118,7 +118,7 @@ class TestPandasConversion(unittest.TestCase):
         ex_frame = pd.DataFrame(dict(zip(names, expected_cols)),
                                 columns=names)
 
-        table = A.Table.from_arrays(names, arrays)
+        table = A.Table.from_arrays(arrays, names)
         assert table.schema.equals(A.Schema.from_fields(fields))
         result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
@@ -169,7 +169,7 @@ class TestPandasConversion(unittest.TestCase):
         ex_frame = pd.DataFrame(dict(zip(int_dtypes, expected_cols)),
                                 columns=int_dtypes)
 
-        table = A.Table.from_arrays(int_dtypes, arrays)
+        table = A.Table.from_arrays(arrays, int_dtypes)
         result = table.to_pandas()
 
         tm.assert_frame_equal(result, ex_frame)
@@ -201,7 +201,7 @@ class TestPandasConversion(unittest.TestCase):
         schema = A.Schema.from_fields([field])
         ex_frame = pd.DataFrame({'bools': expected})
 
-        table = A.Table.from_arrays(['bools'], [arr])
+        table = A.Table.from_arrays([arr], ['bools'])
         assert table.schema.equals(schema)
         result = table.to_pandas()
 

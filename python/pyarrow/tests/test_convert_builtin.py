@@ -16,10 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import unittest, u
+from pyarrow.compat import unittest, u  # noqa
 import pyarrow
 
 import datetime
+
 
 class TestConvertList(unittest.TestCase):
 
