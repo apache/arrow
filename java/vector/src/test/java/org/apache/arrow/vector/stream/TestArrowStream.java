@@ -42,7 +42,7 @@ public class TestArrowStream extends BaseFileTest {
 
     // Write the stream.
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (ArrowStreamWriter writer = new ArrowStreamWriter(out, schema, -1)) {
+    try (ArrowStreamWriter writer = new ArrowStreamWriter(out, schema)) {
     }
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
@@ -66,7 +66,7 @@ public class TestArrowStream extends BaseFileTest {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     long bytesWritten = 0;
-    try (ArrowStreamWriter writer = new ArrowStreamWriter(out, schema, numBatches)) {
+    try (ArrowStreamWriter writer = new ArrowStreamWriter(out, schema)) {
       ArrowBuf validityb = MessageSerializerTest.buf(alloc, validity);
       ArrowBuf valuesb =  MessageSerializerTest.buf(alloc, values);
       for (int i = 0; i < numBatches; i++) {

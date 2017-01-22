@@ -235,11 +235,10 @@ public class MessageSerializer {
   private static Message deserializeMessage(ReadChannel in, byte headerType) throws IOException {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
-    if (in.readFully(buffer) != 4) {
-      return null;
-    }
-
+    if (in.readFully(buffer) != 4) return null;
     int messageLength = bytesToInt(buffer.array());
+    if (messageLength == 0) return null;
+
     buffer = ByteBuffer.allocate(messageLength);
     if (in.readFully(buffer) != messageLength) {
       throw new IOException(

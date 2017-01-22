@@ -47,7 +47,7 @@ public class TestArrowStreamPipe {
     public WriterThread(int numBatches, WritableByteChannel sinkChannel)
         throws IOException {
       this.numBatches = numBatches;
-      writer = new ArrowStreamWriter(sinkChannel, schema, -1);
+      writer = new ArrowStreamWriter(sinkChannel, schema);
     }
 
     @Override
