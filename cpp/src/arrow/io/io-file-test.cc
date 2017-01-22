@@ -396,6 +396,37 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   rommap->Close();
 }
 
+TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
+  // ARROW-494
+
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(1024, 0, buffer.data());
+
+  std::string path = "ipc-read-only-test";
+  CreateFile(path, buffer_size);
+
+  {
+    std::shared_ptr<MemoryMappedFile> rwmmap;
+    ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
+    ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    ASSERT_OK(rwmmap->Close());
+  }
+
+  std::shared_ptr<Buffer> out_buffer;
+
+  {
+    std::shared_ptr<MemoryMappedFile> rommap;
+    ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
+    ASSERT_OK(rommap->Read(buffer_size, &out_buffer));
+    ASSERT_OK(rommap->Close());
+  }
+
+  // valgrind will catch if memory is unmapped
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+}
+
 TEST_F(TestMemoryMappedFile, InvalidMode) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
