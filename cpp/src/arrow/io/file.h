@@ -130,13 +130,12 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   int file_descriptor() const;
 
  private:
-  explicit MemoryMappedFile(FileMode::type mode);
+  MemoryMappedFile();
 
   Status WriteInternal(const uint8_t* data, int64_t nbytes);
 
-  // Hide the internal details of this class for now
-  class ARROW_NO_EXPORT MemoryMappedFileImpl;
-  std::unique_ptr<MemoryMappedFileImpl> impl_;
+  class ARROW_NO_EXPORT MemoryMap;
+  std::shared_ptr<MemoryMap> memory_map_;
 };
 
 }  // namespace io
