@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from os.path import join as pjoin
 import io
+import os
 import pytest
 
 from pyarrow.compat import guid
@@ -343,6 +345,9 @@ def test_read_multiple_files(tmpdir):
     nfiles = 10
     size = 5
 
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
     test_data = []
     paths = []
     for i in range(nfiles):
@@ -351,7 +356,7 @@ def test_read_multiple_files(tmpdir):
         # Hack so that we don't have a dtype cast in v1 files
         df['uint32'] = df['uint32'].astype(np.int64)
 
-        path = tmpdir.join('{0}.parquet'.format(guid())).strpath
+        path = pjoin(dirpath, '{0}.parquet'.format(i))
 
         table = pa.Table.from_pandas(df)
         pq.write_table(table, path)
@@ -370,12 +375,13 @@ def test_read_multiple_files(tmpdir):
     result2 = pq.read_multiple_files(paths, metadata=metadata)
     assert result2.equals(expected)
 
-    result3 = pq.read_multiple_files(paths, schema=metadata.schema)
+    result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
     assert result3.equals(expected)
 
     # Read column subset
     to_read = [result[0], result[3], result[6]]
-    result = pq.read_multiple_files(paths, columns=[c.name for c in to_read])
+    result = pa.localfs.read_parquet(
+        dirpath, columns=[c.name for c in to_read])
     expected = pa.Table.from_arrays(to_read)
     assert result.equals(expected)
 
