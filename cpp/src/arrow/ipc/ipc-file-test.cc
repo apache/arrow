@@ -75,6 +75,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
       RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
     }
     RETURN_NOT_OK(writer->Close());
+    RETURN_NOT_OK(sink_->Close());
 
     // Current offset into stream is the end of the file
     int64_t footer_offset;
@@ -138,6 +139,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
       RETURN_NOT_OK(writer->WriteRecordBatch(batch));
     }
     RETURN_NOT_OK(writer->Close());
+    RETURN_NOT_OK(sink_->Close());
 
     // Open the file
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
