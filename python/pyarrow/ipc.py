@@ -21,11 +21,35 @@ import pyarrow.io as io
 
 
 class StreamReader(io._StreamReader):
-    pass
+    """
+    Reader for the Arrow streaming binary format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    """
+    def __init__(self, source):
+        self._open(source)
+
+    def __iter__(self):
+        while True:
+            yield self.get_next_batch()
 
 
 class StreamWriter(io._StreamWriter):
-    pass
+    """
+    Writer for the Arrow streaming binary format
+
+    Parameters
+    ----------
+    sink : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a writeable file object
+    schema : pyarrow.Schema
+        The Arrow schema for data to be written to the file
+    """
+    def __init__(self, sink, schema):
+        self._open(sink, schema)
 
 
 class FileReader(io._FileReader):

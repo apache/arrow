@@ -117,9 +117,9 @@ Status StreamWriter::WriteRecordBatch(const RecordBatch& batch) {
 }
 
 Status StreamWriter::Close() {
-  // Close the stream
-  RETURN_NOT_OK(CheckStarted());
-  return sink_->Close();
+  // Write the schema if not already written
+  // User is responsible for closing the OutputStream
+  return CheckStarted();
 }
 
 // ----------------------------------------------------------------------

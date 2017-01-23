@@ -905,7 +905,7 @@ cdef class _StreamReader:
     def __cinit__(self):
         pass
 
-    def _open(self, source, footer_offset=None):
+    def _open(self, source):
         cdef:
             shared_ptr[ReadableFileInterface] reader
             shared_ptr[InputStream] in_stream
@@ -920,6 +920,10 @@ cdef class _StreamReader:
         schema.init_schema(self.reader.get().schema())
 
     def get_next_batch(self):
+        """
+        Read next RecordBatch from the stream. Raises StopIteration at end of
+        stream
+        """
         cdef shared_ptr[CRecordBatch] batch
 
         with nogil:
