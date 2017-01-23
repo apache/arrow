@@ -991,3 +991,7 @@ cdef class _FileReader:
             check_status(self.reader.get().GetRecordBatch(i, &batch))
 
         return batch_from_cbatch(batch)
+
+    # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
+    # time has passed
+    get_record_batch = get_batch
