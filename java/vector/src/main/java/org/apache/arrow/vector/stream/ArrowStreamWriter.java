@@ -35,14 +35,14 @@ public class ArrowStreamWriter implements AutoCloseable {
    * Creates the stream writer. non-blocking.
    * totalBatches can be set if the writer knows beforehand. Can be -1 if unknown.
    */
-  public ArrowStreamWriter(WritableByteChannel out, Schema schema, int totalBatches) {
+  public ArrowStreamWriter(WritableByteChannel out, Schema schema) {
     this.out = new WriteChannel(out);
     this.schema = schema;
   }
 
-  public ArrowStreamWriter(OutputStream out, Schema schema, int totalBatches)
+  public ArrowStreamWriter(OutputStream out, Schema schema)
       throws IOException {
-    this(Channels.newChannel(out), schema, totalBatches);
+    this(Channels.newChannel(out), schema);
   }
 
   public long bytesWritten() { return out.getCurrentPosition(); }
@@ -51,6 +51,14 @@ public class ArrowStreamWriter implements AutoCloseable {
     // Send the header if we have not yet.
     checkAndSendHeader();
     MessageSerializer.serialize(out, batch);
+  }
+
+  /**
+   * End the stream. This is not required and this object can simply be closed.
+   */
+  public void end() throws IOException {
+    checkAndSendHeader();
+    out.writeIntLittleEndian(0);
   }
 
   @Override

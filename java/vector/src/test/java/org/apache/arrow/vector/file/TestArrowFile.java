@@ -232,7 +232,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = vectorUnloader0.getSchema();
       Assert.assertEquals(2, schema.getFields().size());
       try (ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
-          ArrowStreamWriter streamWriter = new ArrowStreamWriter(stream, schema, 2)) {
+          ArrowStreamWriter streamWriter = new ArrowStreamWriter(stream, schema)) {
         try (ArrowRecordBatch recordBatch = vectorUnloader0.getRecordBatch()) {
           Assert.assertEquals("RB #0", counts[0], recordBatch.getLength());
           arrowWriter.writeRecordBatch(recordBatch);
@@ -399,7 +399,7 @@ public class TestArrowFile extends BaseFileTest {
     // Also try serializing to the stream writer.
     if (outStream != null) {
       try (
-          ArrowStreamWriter arrowWriter = new ArrowStreamWriter(outStream, schema, -1);
+          ArrowStreamWriter arrowWriter = new ArrowStreamWriter(outStream, schema);
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
           ) {
         arrowWriter.writeRecordBatch(recordBatch);
