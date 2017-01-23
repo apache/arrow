@@ -76,6 +76,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
@@ -350,6 +351,7 @@ class OSFile {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+    std::lock_guard<std::mutex> guard(lock_);
     return FileRead(fd_, out, nbytes, bytes_read);
   }
 
@@ -361,6 +363,7 @@ class OSFile {
   Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
 
   Status Write(const uint8_t* data, int64_t length) {
+    std::lock_guard<std::mutex> guard(lock_);
     if (length < 0) { return Status::IOError("Length must be non-negative"); }
     return FileWrite(fd_, data, length);
   }
@@ -376,6 +379,8 @@ class OSFile {
 
  protected:
   std::string path_;
+
+  std::mutex lock_;
 
   // File descriptor
   int fd_;
@@ -649,6 +654,8 @@ bool MemoryMappedFile::supports_zero_copy() const {
 }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+  std::lock_guard<std::mutex> guard(lock_);
+
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
@@ -658,13 +665,14 @@ Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t 
 }
 
 Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
+  std::lock_guard<std::mutex> guard(lock_);
+
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
   if (nbytes + memory_map_->position() > memory_map_->size()) {
     return Status::Invalid("Cannot write past end of memory map");
   }
-
   return WriteInternal(data, nbytes);
 }
 

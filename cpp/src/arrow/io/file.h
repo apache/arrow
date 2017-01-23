@@ -50,6 +50,8 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   // OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) override;
+
+  // Write bytes to the stream. Thread-safe
   Status Write(const uint8_t* data, int64_t nbytes) override;
 
   int file_descriptor() const;
@@ -76,6 +78,7 @@ class ARROW_EXPORT ReadableFile : public ReadableFileInterface {
   Status Close() override;
   Status Tell(int64_t* position) override;
 
+  // Read bytes from the file. Thread-safe
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
@@ -112,16 +115,18 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   Status Seek(int64_t position) override;
 
-  // Required by ReadableFileInterface, copies memory into out
+  // Required by ReadableFileInterface, copies memory into out. Not thread-safe
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
 
-  // Zero copy read
+  // Zero copy read. Not thread-safe
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   bool supports_zero_copy() const override;
 
+  /// Write data at the current position in the file. Thread-safe
   Status Write(const uint8_t* data, int64_t nbytes) override;
 
+  /// Write data at a particular position in the file. Thread-safe
   Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
 
   // @return: the size in bytes of the memory source
