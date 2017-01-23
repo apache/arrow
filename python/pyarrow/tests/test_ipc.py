@@ -46,7 +46,7 @@ class RoundtripTest(object):
             'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
 
         batch = A.RecordBatch.from_pandas(df)
-        writer = ipc.ArrowFileWriter(self.sink, batch.schema)
+        writer = ipc.FileWriter(self.sink, batch.schema)
 
         num_batches = 5
         frames = []
@@ -56,20 +56,20 @@ class RoundtripTest(object):
             unique_df['one'] = np.random.randn(nrows)
 
             batch = A.RecordBatch.from_pandas(unique_df)
-            writer.write_record_batch(batch)
+            writer.write_batch(batch)
             frames.append(unique_df)
             batches.append(batch)
 
         writer.close()
 
         file_contents = self._get_source()
-        reader = ipc.ArrowFileReader(aio.BufferReader(file_contents))
+        reader = ipc.FileReader(aio.BufferReader(file_contents))
 
         assert reader.num_record_batches == num_batches
 
         for i in range(num_batches):
             # it works. Must convert back to DataFrame
-            batch = reader.get_record_batch(i)
+            batch = reader.get_batch(i)
             assert batches[i].equals(batch)
 
 
@@ -103,48 +103,13 @@ def test_ipc_zero_copy_numpy():
     assert_frame_equal(df, rdf)
 
 
-# XXX: For benchmarking
-
-def big_batch():
-    K = 2**4
-    N = 2**20
-    df = pd.DataFrame(
-        np.random.randn(K, N).T,
-        columns=[str(i) for i in range(K)]
-    )
-
-    df = pd.concat([df] * 2 ** 3, ignore_index=True)
-    return df
-
-
-def write_to_memory2(batch):
-    sink = aio.InMemoryOutputStream()
-    write_file(batch, sink)
-    return sink.get_result()
-
-
-def write_to_memory(batch):
-    sink = io.BytesIO()
-    write_file(batch, sink)
-    return sink.getvalue()
-
-
 def write_file(batch, sink):
-    writer = ipc.ArrowFileWriter(sink, batch.schema)
-    writer.write_record_batch(batch)
+    writer = ipc.FileWriter(sink, batch.schema)
+    writer.write_batch(batch)
     writer.close()
 
 
 def read_file(source):
-    reader = ipc.ArrowFileReader(source)
-    return [reader.get_record_batch(i)
+    reader = ipc.FileReader(source)
+    return [reader.get_batch(i)
             for i in range(reader.num_record_batches)]
-
-# df = big_batch()
-# batch = A.RecordBatch.from_pandas(df)
-# mem = write_to_memory(batch)
-# batches = read_file(mem)
-# data = batches[0].to_pandas()
-# rdf = pd.DataFrame(data)
-
-# [x.to_pandas() for x in batches]
