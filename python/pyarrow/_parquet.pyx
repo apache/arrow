@@ -382,14 +382,27 @@ cdef class ParquetReader:
         result.init(metadata)
         return result
 
-    def read_all(self):
+    def read(self, column_indices=None, nthreads=1):
         cdef:
             Table table = Table()
             shared_ptr[CTable] ctable
+            vector[int] c_column_indices
 
-        with nogil:
-            check_status(self.reader.get()
-                         .ReadFlatTable(&ctable))
+        self.reader.get().set_num_threads(nthreads)
+
+        if column_indices is not None:
+            # Read only desired column indices
+            for index in column_indices:
+                c_column_indices.push_back(index)
+
+            with nogil:
+                check_status(self.reader.get()
+                             .ReadFlatTable(c_column_indices, &ctable))
+        else:
+            # Read all columns
+            with nogil:
+                check_status(self.reader.get()
+                             .ReadFlatTable(&ctable))
 
         table.init(ctable)
         return table

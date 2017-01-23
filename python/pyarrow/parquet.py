@@ -45,7 +45,7 @@ class ParquetFile(object):
     def schema(self):
         return self.metadata.schema
 
-    def read(self, nrows=None, columns=None):
+    def read(self, nrows=None, columns=None, nthreads=1):
         """
         Read a Table from Parquet format
 
@@ -53,6 +53,9 @@ class ParquetFile(object):
         ----------
         columns: list
             If not None, only these columns will be read from the file.
+        nthreads : int, default 1
+            Number of columns to read in parallel. Requires that the underlying
+            file source is threadsafe
 
         Returns
         -------
@@ -63,16 +66,16 @@ class ParquetFile(object):
             raise NotImplementedError("nrows argument")
 
         if columns is None:
-            return self.reader.read_all()
+            column_indices = None
         else:
-            column_idxs = [self.reader.column_name_idx(column)
-                           for column in columns]
-            arrays = [self.reader.read_column(column_idx)
-                      for column_idx in column_idxs]
-            return Table.from_arrays(arrays, names=columns)
+            column_indices = [self.reader.column_name_idx(column)
+                              for column in columns]
+
+        return self.reader.read(column_indices=column_indices,
+                                nthreads=nthreads)
 
 
-def read_table(source, columns=None, metadata=None):
+def read_table(source, columns=None, nthreads=1, metadata=None):
     """
     Read a Table from Parquet format
 
@@ -91,11 +94,12 @@ def read_table(source, columns=None, metadata=None):
     pyarrow.Table
         Content of the file as a table (of columns)
     """
-    return ParquetFile(source, metadata=metadata).read(columns=columns)
+    pf = ParquetFile(source, metadata=metadata)
+    return pf.read(columns=columns, nthreads=nthreads)
 
 
-def read_multiple_files(paths, columns=None, filesystem=None, metadata=None,
-                        schema=None):
+def read_multiple_files(paths, columns=None, filesystem=None, nthreads=1,
+                        metadata=None, schema=None):
     """
     Read multiple Parquet files as a single pyarrow.Table
 
@@ -147,7 +151,7 @@ def read_multiple_files(paths, columns=None, filesystem=None, metadata=None,
     tables = []
     for path, path_metadata in zip(paths, all_file_metadata):
         reader = open_file(path, meta=path_metadata)
-        table = reader.read(columns=columns)
+        table = reader.read(columns=columns, nthreads=nthreads)
         tables.append(table)
 
     all_data = concat_tables(tables)

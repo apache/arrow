@@ -213,7 +213,11 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         FileReader(MemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadFlatColumn(int i, shared_ptr[CArray]* out);
         CStatus ReadFlatTable(shared_ptr[CTable]* out);
+        CStatus ReadFlatTable(const vector[int]& column_indices,
+                              shared_ptr[CTable]* out);
         const ParquetFileReader* parquet_reader();
+
+        void set_num_threads(int num_threads)
 
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
