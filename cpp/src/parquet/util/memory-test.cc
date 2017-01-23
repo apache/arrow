@@ -360,16 +360,10 @@ TEST(TestArrowInputFile, Basics) {
   auto source = std::make_shared<ArrowInputFile>(file);
 
   ASSERT_EQ(0, source->Tell());
-  ASSERT_NO_THROW(source->Seek(5));
-  ASSERT_EQ(5, source->Tell());
-  ASSERT_NO_THROW(source->Seek(0));
-
-  // Seek out of bounds
-  ASSERT_THROW(source->Seek(100), ParquetException);
 
   uint8_t buffer[50];
 
-  ASSERT_NO_THROW(source->Read(4, buffer));
+  ASSERT_NO_THROW(source->ReadAt(0, 4, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, "this", 4));
   ASSERT_EQ(4, source->Tell());
 

@@ -260,13 +260,13 @@ class PARQUET_EXPORT FileInterface {
   virtual int64_t Tell() = 0;
 };
 
+/// It is the responsibility of implementations to mind threadsafety of shared
+/// resources
 class PARQUET_EXPORT RandomAccessSource : virtual public FileInterface {
  public:
   virtual ~RandomAccessSource() {}
 
   virtual int64_t Size() const = 0;
-
-  virtual void Seek(int64_t position) = 0;
 
   // Returns bytes read
   virtual int64_t Read(int64_t nbytes, uint8_t* out) = 0;
@@ -274,6 +274,9 @@ class PARQUET_EXPORT RandomAccessSource : virtual public FileInterface {
   virtual std::shared_ptr<Buffer> Read(int64_t nbytes) = 0;
 
   virtual std::shared_ptr<Buffer> ReadAt(int64_t position, int64_t nbytes) = 0;
+
+  /// Returns bytes read
+  virtual int64_t ReadAt(int64_t position, int64_t nbytes, uint8_t* out) = 0;
 };
 
 class PARQUET_EXPORT OutputStream : virtual public FileInterface {
@@ -295,6 +298,7 @@ class PARQUET_EXPORT ArrowFileMethods : virtual public FileInterface {
   virtual ::arrow::io::FileInterface* file_interface() = 0;
 };
 
+/// This interface depends on the threadsafety of the underlying Arrow file interface
 class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAccessSource {
  public:
   explicit ArrowInputFile(
@@ -302,14 +306,15 @@ class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAcce
 
   int64_t Size() const override;
 
-  void Seek(int64_t position) override;
-
   // Returns bytes read
   int64_t Read(int64_t nbytes, uint8_t* out) override;
 
   std::shared_ptr<Buffer> Read(int64_t nbytes) override;
 
   std::shared_ptr<Buffer> ReadAt(int64_t position, int64_t nbytes) override;
+
+  /// Returns bytes read
+  int64_t ReadAt(int64_t position, int64_t nbytes, uint8_t* out) override;
 
   std::shared_ptr<::arrow::io::ReadableFileInterface> file() const { return file_; }
 

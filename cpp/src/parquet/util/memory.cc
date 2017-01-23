@@ -378,10 +378,6 @@ int64_t ArrowInputFile::Size() const {
   return size;
 }
 
-void ArrowInputFile::Seek(int64_t position) {
-  PARQUET_THROW_NOT_OK(file_->Seek(position));
-}
-
 // Returns bytes read
 int64_t ArrowInputFile::Read(int64_t nbytes, uint8_t* out) {
   int64_t bytes_read = 0;
@@ -399,6 +395,12 @@ std::shared_ptr<Buffer> ArrowInputFile::ReadAt(int64_t position, int64_t nbytes)
   std::shared_ptr<Buffer> out;
   PARQUET_THROW_NOT_OK(file_->ReadAt(position, nbytes, &out));
   return out;
+}
+
+int64_t ArrowInputFile::ReadAt(int64_t position, int64_t nbytes, uint8_t* out) {
+  int64_t bytes_read = 0;
+  PARQUET_THROW_NOT_OK(file_->ReadAt(position, nbytes, &bytes_read, out));
+  return bytes_read;
 }
 
 ArrowOutputStream::ArrowOutputStream(
@@ -509,9 +511,9 @@ const uint8_t* BufferedInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes
   }
   // Read more data when buffer has insufficient left or when resized
   if (*num_bytes > (buffer_size_ - buffer_offset_)) {
-    source_->Seek(stream_offset_);
     buffer_size_ = std::min(buffer_size_, stream_end_ - stream_offset_);
-    int64_t bytes_read = source_->Read(buffer_size_, buffer_->mutable_data());
+    int64_t bytes_read =
+        source_->ReadAt(stream_offset_, buffer_size_, buffer_->mutable_data());
     if (bytes_read < *num_bytes) {
       throw ParquetException("Failed reading column data from source");
     }

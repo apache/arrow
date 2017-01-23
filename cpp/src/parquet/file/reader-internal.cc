@@ -254,8 +254,9 @@ void SerializedFile::ParseMetaData() {
   }
 
   uint8_t footer_buffer[FOOTER_SIZE];
-  source_->Seek(file_size - FOOTER_SIZE);
-  int64_t bytes_read = source_->Read(FOOTER_SIZE, footer_buffer);
+  int64_t bytes_read =
+      source_->ReadAt(file_size - FOOTER_SIZE, FOOTER_SIZE, footer_buffer);
+
   if (bytes_read != FOOTER_SIZE || memcmp(footer_buffer + 4, PARQUET_MAGIC, 4) != 0) {
     throw ParquetException("Invalid parquet file. Corrupt footer.");
   }
@@ -267,11 +268,11 @@ void SerializedFile::ParseMetaData() {
         "Invalid parquet file. File is less than "
         "file metadata size.");
   }
-  source_->Seek(metadata_start);
 
   std::shared_ptr<PoolBuffer> metadata_buffer =
       AllocateBuffer(properties_.allocator(), metadata_len);
-  bytes_read = source_->Read(metadata_len, metadata_buffer->mutable_data());
+  bytes_read =
+      source_->ReadAt(metadata_start, metadata_len, metadata_buffer->mutable_data());
   if (bytes_read != metadata_len) {
     throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
   }
