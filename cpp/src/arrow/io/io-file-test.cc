@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -25,6 +26,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -325,6 +327,40 @@ TEST_F(TestReadableFile, CustomMemoryPool) {
   ASSERT_EQ(2, pool.num_allocations());
 }
 
+TEST_F(TestReadableFile, ThreadSafety) {
+  std::string data = "foobar";
+  {
+    std::ofstream stream;
+    stream.open(path_.c_str());
+    stream << data;
+  }
+
+  MyMemoryPool pool;
+  ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
+
+  std::atomic<int> correct_count(0);
+  const int niter = 10000;
+
+  auto ReadData = [&correct_count, &data, niter, this] () {
+    std::shared_ptr<Buffer> buffer;
+
+    for (int i = 0; i < niter; ++i) {
+      ASSERT_OK(file_->ReadAt(0, 3, &buffer));
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
+        correct_count += 1;
+      }
+    }
+  };
+
+  std::thread thread1(ReadData);
+  std::thread thread2(ReadData);
+
+  thread1.join();
+  thread2.join();
+
+  ASSERT_EQ(niter * 2, correct_count);
+}
+
 // ----------------------------------------------------------------------
 // Memory map tests
 
@@ -453,6 +489,39 @@ TEST_F(TestMemoryMappedFile, InvalidFile) {
 TEST_F(TestMemoryMappedFile, CastableToFileInterface) {
   std::shared_ptr<MemoryMappedFile> memory_mapped_file;
   std::shared_ptr<FileInterface> file = memory_mapped_file;
+}
+
+TEST_F(TestMemoryMappedFile, ThreadSafety) {
+  std::string data = "foobar";
+  std::string path = "ipc-multithreading-test";
+  CreateFile(path, static_cast<int>(data.size()));
+
+  std::shared_ptr<MemoryMappedFile> file;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &file));
+  ASSERT_OK(file->Write(reinterpret_cast<const uint8_t*>(data.c_str()),
+          static_cast<int64_t>(data.size())));
+
+  std::atomic<int> correct_count(0);
+  const int niter = 10000;
+
+  auto ReadData = [&correct_count, &data, niter, &file] () {
+    std::shared_ptr<Buffer> buffer;
+
+    for (int i = 0; i < niter; ++i) {
+      ASSERT_OK(file->ReadAt(0, 3, &buffer));
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
+        correct_count += 1;
+      }
+    }
+  };
+
+  std::thread thread1(ReadData);
+  std::thread thread2(ReadData);
+
+  thread1.join();
+  thread2.join();
+
+  ASSERT_EQ(niter * 2, correct_count);
 }
 
 }  // namespace io

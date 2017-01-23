@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "arrow/util/macros.h"
@@ -99,14 +100,21 @@ class ARROW_EXPORT ReadableFileInterface : public InputStream, public Seekable {
 
   virtual bool supports_zero_copy() const = 0;
 
-  // Read at position, provide default implementations using Read(...), but can
-  // be overridden
+  /// Read at position, provide default implementations using Read(...), but can
+  /// be overridden
+  ///
+  /// Default implementation is thread-safe
   virtual Status ReadAt(
       int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out);
 
+  /// Default implementation is thread-safe
   virtual Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
 
+  std::mutex& lock() { return lock_; }
+
  protected:
+  std::mutex lock_;
+
   ReadableFileInterface();
 };
 
