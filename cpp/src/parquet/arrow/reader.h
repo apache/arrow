@@ -19,6 +19,7 @@
 #define PARQUET_ARROW_READER_H
 
 #include <memory>
+#include <vector>
 
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
@@ -94,12 +95,23 @@ class PARQUET_EXPORT FileReader {
   //
   // Returns error status if the column of interest is not flat.
   ::arrow::Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
+
   // Read column as a whole into an Array.
   ::arrow::Status ReadFlatColumn(int i, std::shared_ptr<::arrow::Array>* out);
+
   // Read a table of flat columns into a Table.
   ::arrow::Status ReadFlatTable(std::shared_ptr<::arrow::Table>* out);
 
+  // Read a table of flat columns into a Table. Read only the indicated column
+  // indices (relative to the schema)
+  ::arrow::Status ReadFlatTable(
+      const std::vector<int>& column_indices, std::shared_ptr<::arrow::Table>* out);
+
   const ParquetFileReader* parquet_reader() const;
+
+  /// Set the number of threads to use during reads of multiple columns. By
+  /// default only 1 thread is used
+  void set_num_threads(int num_threads);
 
   virtual ~FileReader();
 

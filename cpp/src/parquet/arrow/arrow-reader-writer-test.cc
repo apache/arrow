@@ -17,6 +17,8 @@
 
 #include "gtest/gtest.h"
 
+#include <sstream>
+
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
@@ -44,7 +46,6 @@ using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 
 namespace parquet {
-
 namespace arrow {
 
 const int SMALL_SIZE = 100;
@@ -183,6 +184,23 @@ using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
 
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
+
+void DoTableRoundtrip(
+    const std::shared_ptr<Table>& table, int num_threads, std::shared_ptr<Table>* out) {
+  auto sink = std::make_shared<InMemoryOutputStream>();
+
+  ASSERT_OK_NO_THROW(WriteFlatTable(
+      table.get(), ::arrow::default_memory_pool(), sink, (table->num_rows() + 1) / 2));
+
+  std::shared_ptr<Buffer> buffer = sink->GetBuffer();
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(
+      OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
+          ::parquet::default_reader_properties(), nullptr, &reader));
+
+  reader->set_num_threads(num_threads);
+  ASSERT_OK_NO_THROW(reader->ReadFlatTable(out));
+}
 
 template <typename TestType>
 class TestParquetIO : public ::testing::Test {
@@ -642,6 +660,33 @@ TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
   this->CheckSingleColumnRequiredTableRead(4);
 }
 
-}  // namespace arrow
+TEST(TestArrowReadWrite, MultithreadedRead) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+  const int num_threads = 4;
 
+  std::shared_ptr<::arrow::Column> column;
+  std::vector<std::shared_ptr<::arrow::Column>> columns(num_columns);
+  std::vector<std::shared_ptr<::arrow::Field>> fields(num_columns);
+
+  std::shared_ptr<Array> values;
+  for (int i = 0; i < num_columns; ++i) {
+    ASSERT_OK(NullableArray<::arrow::DoubleType>(num_rows, num_rows / 10, &values));
+    std::stringstream ss;
+    ss << "col" << i;
+    column = MakeColumn(ss.str(), values, true);
+
+    columns[i] = column;
+    fields[i] = column->field();
+  }
+  auto schema = std::make_shared<::arrow::Schema>(fields);
+  auto table = std::make_shared<Table>("schema", schema, columns);
+
+  std::shared_ptr<Table> result;
+  DoTableRoundtrip(table, num_threads, &result);
+
+  ASSERT_TRUE(table->Equals(result));
+}
+
+}  // namespace arrow
 }  // namespace parquet

@@ -18,9 +18,12 @@
 #include "parquet/arrow/reader.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <mutex>
 #include <queue>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "parquet/arrow/schema.h"
@@ -65,11 +68,17 @@ class FileReader::Impl {
   Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
   Status ReadFlatColumn(int i, std::shared_ptr<Array>* out);
   Status ReadFlatTable(std::shared_ptr<Table>* out);
+  Status ReadFlatTable(
+      const std::vector<int>& column_indices, std::shared_ptr<Table>* out);
   const ParquetFileReader* parquet_reader() const { return reader_.get(); }
+
+  void set_num_threads(int num_threads) { num_threads_ = num_threads; }
 
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
+
+  int num_threads_;
 };
 
 class FlatColumnReader::Impl {
@@ -125,7 +134,7 @@ class FlatColumnReader::Impl {
 };
 
 FileReader::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-    : pool_(pool), reader_(std::move(reader)) {}
+    : pool_(pool), reader_(std::move(reader)), num_threads_(1) {}
 
 bool FileReader::Impl::CheckForFlatColumn(const ColumnDescriptor* descr) {
   if ((descr->max_repetition_level() > 0) || (descr->max_definition_level() > 1)) {
@@ -156,19 +165,73 @@ Status FileReader::Impl::ReadFlatColumn(int i, std::shared_ptr<Array>* out) {
 }
 
 Status FileReader::Impl::ReadFlatTable(std::shared_ptr<Table>* table) {
+  std::vector<int> column_indices(reader_->metadata()->num_columns());
+
+  for (size_t i = 0; i < column_indices.size(); ++i) {
+    column_indices[i] = i;
+  }
+  return ReadFlatTable(column_indices, table);
+}
+
+template <class FUNCTION>
+Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
+  std::vector<std::thread> thread_pool;
+  thread_pool.reserve(nthreads);
+  std::atomic<int> task_counter(0);
+
+  std::mutex error_mtx;
+  bool error_occurred = false;
+  Status error;
+
+  for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
+    thread_pool.emplace_back(
+        [&num_tasks, &task_counter, &error, &error_occurred, &error_mtx, &func]() {
+          int task_id;
+          while (!error_occurred) {
+            task_id = task_counter.fetch_add(1);
+            if (task_id >= num_tasks) { break; }
+            Status s = func(task_id);
+            if (!s.ok()) {
+              std::lock_guard<std::mutex> lock(error_mtx);
+              error_occurred = true;
+              error = s;
+              break;
+            }
+          }
+        });
+  }
+  for (auto&& thread : thread_pool) {
+    thread.join();
+  }
+  if (error_occurred) { return error; }
+  return Status::OK();
+}
+
+Status FileReader::Impl::ReadFlatTable(
+    const std::vector<int>& indices, std::shared_ptr<Table>* table) {
   auto descr = reader_->metadata()->schema();
 
   const std::string& name = descr->name();
   std::shared_ptr<::arrow::Schema> schema;
-  RETURN_NOT_OK(FromParquetSchema(descr, &schema));
+  RETURN_NOT_OK(FromParquetSchema(descr, indices, &schema));
 
-  int num_columns = reader_->metadata()->num_columns();
-
+  int num_columns = static_cast<int>(indices.size());
+  int nthreads = std::min<int>(num_threads_, num_columns);
   std::vector<std::shared_ptr<Column>> columns(num_columns);
-  for (int i = 0; i < num_columns; i++) {
+
+  auto ReadColumn = [&indices, &schema, &columns, this](int i) {
     std::shared_ptr<Array> array;
-    RETURN_NOT_OK(ReadFlatColumn(i, &array));
-    columns[i] = std::make_shared<Column>(schema->field(i), array);
+    RETURN_NOT_OK(ReadFlatColumn(indices[i], &array));
+    columns[i] = std::make_shared<Column>(schema->field(indices[i]), array);
+    return Status::OK();
+  };
+
+  if (nthreads == 1) {
+    for (int i = 0; i < num_columns; i++) {
+      RETURN_NOT_OK(ReadColumn(i));
+    }
+  } else {
+    RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumn));
   }
 
   *table = std::make_shared<Table>(name, schema, columns);
@@ -216,6 +279,19 @@ Status FileReader::ReadFlatTable(std::shared_ptr<Table>* out) {
   } catch (const ::parquet::ParquetException& e) {
     return ::arrow::Status::IOError(e.what());
   }
+}
+
+Status FileReader::ReadFlatTable(
+    const std::vector<int>& column_indices, std::shared_ptr<Table>* out) {
+  try {
+    return impl_->ReadFlatTable(column_indices, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
+}
+
+void FileReader::set_num_threads(int num_threads) {
+  impl_->set_num_threads(num_threads);
 }
 
 const ParquetFileReader* FileReader::parquet_reader() const {

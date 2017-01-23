@@ -250,13 +250,28 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
 
 Status FromParquetSchema(
     const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out) {
-  // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
-  // from the root Parquet node
   const GroupNode* schema_node = parquet_schema->group_node();
 
   std::vector<std::shared_ptr<Field>> fields(schema_node->field_count());
   for (int i = 0; i < schema_node->field_count(); i++) {
     RETURN_NOT_OK(NodeToField(schema_node->field(i), &fields[i]));
+  }
+
+  *out = std::make_shared<::arrow::Schema>(fields);
+  return Status::OK();
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out) {
+  // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
+  // from the root Parquet node
+  const GroupNode* schema_node = parquet_schema->group_node();
+
+  int num_fields = static_cast<int>(column_indices.size());
+
+  std::vector<std::shared_ptr<Field>> fields(num_fields);
+  for (int i = 0; i < num_fields; i++) {
+    RETURN_NOT_OK(NodeToField(schema_node->field(column_indices[i]), &fields[i]));
   }
 
   *out = std::make_shared<::arrow::Schema>(fields);
