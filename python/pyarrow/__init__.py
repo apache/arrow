@@ -46,6 +46,8 @@ from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,
                         Buffer, InMemoryOutputStream, BufferReader)
 
+from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter
+
 from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
                             BooleanValue,
                             Int8Value, Int16Value, Int32Value, Int64Value,

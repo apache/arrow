@@ -409,7 +409,6 @@ set(CYTHON_EXTENSIONS
   config
   error
   io
-  ipc
   scalar
   schema
   table

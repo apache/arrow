@@ -20,18 +20,37 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (MemoryPool, CArray, CSchema,
                                         CRecordBatch)
-from pyarrow.includes.libarrow_io cimport (OutputStream, ReadableFileInterface)
+from pyarrow.includes.libarrow_io cimport (InputStream, OutputStream,
+                                           ReadableFileInterface)
+
+
+cdef extern from "arrow/ipc/stream.h" namespace "arrow::ipc" nogil:
+
+    cdef cppclass CStreamWriter " arrow::ipc::StreamWriter":
+        @staticmethod
+        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
+                     shared_ptr[CStreamWriter]* out)
+
+        CStatus Close()
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
+
+    cdef cppclass CStreamReader " arrow::ipc::StreamReader":
+
+        @staticmethod
+        CStatus Open(const shared_ptr[InputStream]& stream,
+                     shared_ptr[CStreamReader]* out)
+
+        shared_ptr[CSchema] schema()
+
+        CStatus GetNextRecordBatch(shared_ptr[CRecordBatch]* batch)
+
 
 cdef extern from "arrow/ipc/file.h" namespace "arrow::ipc" nogil:
 
-    cdef cppclass CFileWriter " arrow::ipc::FileWriter":
+    cdef cppclass CFileWriter " arrow::ipc::FileWriter"(CStreamWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
                      shared_ptr[CFileWriter]* out)
-
-        CStatus WriteRecordBatch(const CRecordBatch& batch)
-
-        CStatus Close()
 
     cdef cppclass CFileReader " arrow::ipc::FileReader":
 

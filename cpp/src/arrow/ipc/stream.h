@@ -54,6 +54,9 @@ class ARROW_EXPORT StreamWriter {
       std::shared_ptr<StreamWriter>* out);
 
   virtual Status WriteRecordBatch(const RecordBatch& batch);
+
+  /// Perform any logic necessary to finish the stream. User is responsible for
+  /// closing the actual OutputStream
   virtual Status Close();
 
  protected:

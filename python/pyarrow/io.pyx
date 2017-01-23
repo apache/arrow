@@ -15,20 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Cython wrappers for IO interfaces defined in arrow/io
+# Cython wrappers for IO interfaces defined in arrow::io and messaging in
+# arrow::ipc
 
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 from libc.stdlib cimport malloc, free
 
 from pyarrow.includes.libarrow cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.includes.libarrow_io cimport *
+from pyarrow.includes.libarrow_ipc cimport *
+cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import frombytes, tobytes, encode_file_path
 from pyarrow.error cimport check_status
+from pyarrow.schema cimport Schema
+from pyarrow.table cimport RecordBatch, batch_from_cbatch
 
 cimport cpython as cp
 
@@ -37,6 +43,11 @@ import six
 import sys
 import threading
 import time
+
+
+# 64K
+DEFAULT_BUFFER_SIZE = 2 ** 16
+
 
 # To let us get a PyObject* and avoid Cython auto-ref-counting
 cdef extern from "Python.h":
@@ -166,6 +177,129 @@ cdef class NativeFile:
             check_status(self.rd_file.get().ReadB(c_nbytes, &output))
 
         return wrap_buffer(output)
+
+    def download(self, stream_or_path, buffer_size=None):
+        """
+        Read file completely to local path (rather than reading completely into
+        memory). First seeks to the beginning of the file.
+        """
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+        self._assert_readable()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        write_queue = Queue(50)
+
+        if not hasattr(stream_or_path, 'read'):
+            stream = open(stream_or_path, 'wb')
+            cleanup = lambda: stream.close()
+        else:
+            stream = stream_or_path
+            cleanup = lambda: None
+
+        done = False
+        exc_info = None
+        def bg_write():
+            try:
+                while not done or write_queue.qsize() > 0:
+                    try:
+                        buf = write_queue.get(timeout=0.01)
+                    except QueueEmpty:
+                        continue
+                    stream.write(buf)
+            except Exception as e:
+                exc_info = sys.exc_info()
+            finally:
+                cleanup()
+
+        self.seek(0)
+
+        writer_thread = threading.Thread(target=bg_write)
+
+        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
+        # the passed buffer, so it's hard for us to avoid doubling the memory
+        buf = <uint8_t*> malloc(buffer_size)
+        if buf == NULL:
+            raise MemoryError("Failed to allocate {0} bytes"
+                              .format(buffer_size))
+
+        writer_thread.start()
+
+        cdef int64_t total_bytes = 0
+        cdef int32_t c_buffer_size = buffer_size
+
+        try:
+            while True:
+                with nogil:
+                    check_status(self.rd_file.get()
+                                 .Read(c_buffer_size, &bytes_read, buf))
+
+                total_bytes += bytes_read
+
+                # EOF
+                if bytes_read == 0:
+                    break
+
+                pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
+                                                     bytes_read)
+
+                write_queue.put_nowait(pybuf)
+        finally:
+            free(buf)
+            done = True
+
+        writer_thread.join()
+        if exc_info is not None:
+            raise exc_info[0], exc_info[1], exc_info[2]
+
+    def upload(self, stream, buffer_size=None):
+        """
+        Pipe file-like object to file
+        """
+        write_queue = Queue(50)
+        self._assert_writeable()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        done = False
+        exc_info = None
+        def bg_write():
+            try:
+                while not done or write_queue.qsize() > 0:
+                    try:
+                        buf = write_queue.get(timeout=0.01)
+                    except QueueEmpty:
+                        continue
+
+                    self.write(buf)
+
+            except Exception as e:
+                exc_info = sys.exc_info()
+
+        writer_thread = threading.Thread(target=bg_write)
+        writer_thread.start()
+
+        try:
+            while True:
+                buf = stream.read(buffer_size)
+                if not buf:
+                    break
+
+                if writer_thread.is_alive():
+                    while write_queue.full():
+                        time.sleep(0.01)
+                else:
+                    break
+
+                write_queue.put_nowait(buf)
+        finally:
+            done = True
+
+        writer_thread.join()
+        if exc_info is not None:
+            raise exc_info[0], exc_info[1], exc_info[2]
 
 
 # ----------------------------------------------------------------------
@@ -679,58 +813,17 @@ cdef class _HdfsClient:
 
         return out
 
-    def upload(self, path, stream, buffer_size=2**16):
+    def download(self, path, stream, buffer_size=None):
+        with self.open(path, 'rb') as f:
+            f.download(stream, buffer_size=buffer_size)
+
+    def upload(self, path, stream, buffer_size=None):
         """
         Upload file-like object to HDFS path
         """
-        write_queue = Queue(50)
-
         with self.open(path, 'wb') as f:
-            done = False
-            exc_info = None
-            def bg_write():
-                try:
-                    while not done or write_queue.qsize() > 0:
-                        try:
-                            buf = write_queue.get(timeout=0.01)
-                        except QueueEmpty:
-                            continue
+            f.upload(stream, buffer_size=buffer_size)
 
-                        f.write(buf)
-
-                except Exception as e:
-                    exc_info = sys.exc_info()
-
-            writer_thread = threading.Thread(target=bg_write)
-            writer_thread.start()
-
-            try:
-                while True:
-                    buf = stream.read(buffer_size)
-                    if not buf:
-                        break
-
-                    if writer_thread.is_alive():
-                        while write_queue.full():
-                            time.sleep(0.01)
-                    else:
-                        break
-
-                    write_queue.put_nowait(buf)
-            finally:
-                done = True
-
-            writer_thread.join()
-            if exc_info is not None:
-                raise exc_info[0], exc_info[1], exc_info[2]
-
-    def download(self, path, stream, buffer_size=None):
-        with self.open(path, 'rb', buffer_size=buffer_size) as f:
-            f.download(stream)
-
-
-# ----------------------------------------------------------------------
-# Specialization for HDFS
 
 # ARROW-404: Helper class to ensure that files are closed before the
 # client. During deallocation of the extension class, the attributes are
@@ -766,75 +859,139 @@ cdef class HdfsFile(NativeFile):
     def __dealloc__(self):
         self.parent = None
 
-    def download(self, stream_or_path):
-        """
-        Read file completely to local path (rather than reading completely into
-        memory). First seeks to the beginning of the file.
-        """
+# ----------------------------------------------------------------------
+# File and stream readers and writers
+
+cdef class _StreamWriter:
+    cdef:
+        shared_ptr[CStreamWriter] writer
+        shared_ptr[OutputStream] sink
+        bint closed
+
+    def __cinit__(self):
+        self.closed = True
+
+    def __dealloc__(self):
+        if not self.closed:
+            self.close()
+
+    def _open(self, sink, Schema schema):
+        get_writer(sink, &self.sink)
+
+        with nogil:
+            check_status(CStreamWriter.Open(self.sink.get(), schema.sp_schema,
+                                            &self.writer))
+
+        self.closed = False
+
+    def write_batch(self, RecordBatch batch):
+        with nogil:
+            check_status(self.writer.get()
+                         .WriteRecordBatch(deref(batch.batch)))
+
+    def close(self):
+        with nogil:
+            check_status(self.writer.get().Close())
+        self.closed = True
+
+
+cdef class _StreamReader:
+    cdef:
+        shared_ptr[CStreamReader] reader
+
+    cdef readonly:
+        Schema schema
+
+    def __cinit__(self):
+        pass
+
+    def _open(self, source):
         cdef:
-            int64_t bytes_read = 0
-            uint8_t* buf
-        self._assert_readable()
+            shared_ptr[ReadableFileInterface] reader
+            shared_ptr[InputStream] in_stream
 
-        write_queue = Queue(50)
+        get_reader(source, &reader)
+        in_stream = <shared_ptr[InputStream]> reader
 
-        if not hasattr(stream_or_path, 'read'):
-            stream = open(stream_or_path, 'wb')
-            cleanup = lambda: stream.close()
-        else:
-            stream = stream_or_path
-            cleanup = lambda: None
+        with nogil:
+            check_status(CStreamReader.Open(in_stream, &self.reader))
 
-        done = False
-        exc_info = None
-        def bg_write():
-            try:
-                while not done or write_queue.qsize() > 0:
-                    try:
-                        buf = write_queue.get(timeout=0.01)
-                    except QueueEmpty:
-                        continue
-                    stream.write(buf)
-            except Exception as e:
-                exc_info = sys.exc_info()
-            finally:
-                cleanup()
+        schema = Schema()
+        schema.init_schema(self.reader.get().schema())
 
-        self.seek(0)
+    def get_next_batch(self):
+        """
+        Read next RecordBatch from the stream. Raises StopIteration at end of
+        stream
+        """
+        cdef shared_ptr[CRecordBatch] batch
 
-        writer_thread = threading.Thread(target=bg_write)
+        with nogil:
+            check_status(self.reader.get().GetNextRecordBatch(&batch))
 
-        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
-        # the passed buffer, so it's hard for us to avoid doubling the memory
-        buf = <uint8_t*> malloc(self.buffer_size)
-        if buf == NULL:
-            raise MemoryError("Failed to allocate {0} bytes"
-                              .format(self.buffer_size))
+        if batch.get() == NULL:
+            raise StopIteration
 
-        writer_thread.start()
+        return batch_from_cbatch(batch)
 
-        cdef int64_t total_bytes = 0
 
-        try:
-            while True:
-                with nogil:
-                    check_status(self.rd_file.get()
-                                 .Read(self.buffer_size, &bytes_read, buf))
+cdef class _FileWriter(_StreamWriter):
 
-                total_bytes += bytes_read
+    def _open(self, sink, Schema schema):
+        cdef shared_ptr[CFileWriter] writer
+        get_writer(sink, &self.sink)
 
-                # EOF
-                if bytes_read == 0:
-                    break
+        with nogil:
+            check_status(CFileWriter.Open(self.sink.get(), schema.sp_schema,
+                                          &writer))
 
-                pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
-                                                     bytes_read)
+        # Cast to base class, because has same interface
+        self.writer = <shared_ptr[CStreamWriter]> writer
+        self.closed = False
 
-                write_queue.put_nowait(pybuf)
-        finally:
-            free(buf)
-            done = True
 
-        writer_thread.join()
-        if exc_info is not None:
-            raise exc_info[0], exc_info[1], exc_info[2]
+cdef class _FileReader:
+    cdef:
+        shared_ptr[CFileReader] reader
+
+    def __cinit__(self):
+        pass
+
+    def _open(self, source, footer_offset=None):
+        cdef shared_ptr[ReadableFileInterface] reader
+        get_reader(source, &reader)
+
+        cdef int64_t offset = 0
+        if footer_offset is not None:
+            offset = footer_offset
+
+        with nogil:
+            if offset != 0:
+                check_status(CFileReader.Open2(reader, offset, &self.reader))
+            else:
+                check_status(CFileReader.Open(reader, &self.reader))
+
+    property num_dictionaries:
+
+        def __get__(self):
+            return self.reader.get().num_dictionaries()
+
+    property num_record_batches:
+
+        def __get__(self):
+            return self.reader.get().num_record_batches()
+
+    def get_batch(self, int i):
+        cdef shared_ptr[CRecordBatch] batch
+
+        if i < 0 or i >= self.num_record_batches:
+            raise ValueError('Batch number {0} out of range'.format(i))
+
+        with nogil:
+            check_status(self.reader.get().GetRecordBatch(i, &batch))
+
+        return batch_from_cbatch(batch)
+
+    # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
+    # time has passed
+    get_record_batch = get_batch

@@ -359,7 +359,7 @@ bool BinaryArray::EqualsExact(const BinaryArray& other) const {
 
   if (!data_buffer_ && !(other.data_buffer_)) { return true; }
 
-  return data_buffer_->Equals(*other.data_buffer_, data_buffer_->size());
+  return data_buffer_->Equals(*other.data_buffer_, raw_offsets()[length_]);
 }
 
 bool BinaryArray::Equals(const std::shared_ptr<Array>& arr) const {
