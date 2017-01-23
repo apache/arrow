@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "parquet/util/bit-util.h"
 #include "parquet/util/logging.h"
 
 #include "parquet/arrow/schema.h"
@@ -50,6 +51,11 @@ class FileWriter::Impl {
   template <typename ParquetType, typename ArrowType>
   Status TypedWriteBatch(
       ColumnWriter* writer, const PrimitiveArray* data, int64_t offset, int64_t length);
+
+  template <typename ParquetType, typename ArrowType>
+  Status WriteNullableBatch(TypedColumnWriter<ParquetType>* writer, int64_t length,
+      const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
+      int64_t valid_bits_offset, const typename ArrowType::c_type* data_ptr);
 
   // TODO(uwe): Same code as in reader.cc the only difference is the name of the temporary
   // buffer
@@ -136,19 +142,18 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
       PARQUET_CATCH_NOT_OK(
           writer->WriteBatch(length, def_levels_ptr, nullptr, data_writer_ptr));
     } else {
-      RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(ParquetCType)));
-      auto buffer_ptr = reinterpret_cast<ParquetCType*>(data_buffer_.mutable_data());
-      int buffer_idx = 0;
+      const uint8_t* valid_bits = data->null_bitmap_data();
+      INIT_BITSET(valid_bits, offset);
       for (int i = 0; i < length; i++) {
-        if (data->IsNull(offset + i)) {
-          def_levels_ptr[i] = 0;
-        } else {
+        if (bitset & (1 << bit_offset)) {
           def_levels_ptr[i] = 1;
-          buffer_ptr[buffer_idx++] = static_cast<ParquetCType>(data_ptr[i]);
+        } else {
+          def_levels_ptr[i] = 0;
         }
+        READ_NEXT_BITSET(valid_bits);
       }
-      PARQUET_CATCH_NOT_OK(
-          writer->WriteBatch(length, def_levels_ptr, nullptr, buffer_ptr));
+      RETURN_NOT_OK((WriteNullableBatch<ParquetType, ArrowType>(
+          writer, length, def_levels_ptr, nullptr, valid_bits, offset, data_ptr)));
     }
   } else {
     return Status::NotImplemented("no support for max definition level > 1 yet");
@@ -156,6 +161,44 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
 }
+
+template <typename ParquetType, typename ArrowType>
+Status FileWriter::Impl::WriteNullableBatch(TypedColumnWriter<ParquetType>* writer,
+    int64_t length, const int16_t* def_levels, const int16_t* rep_levels,
+    const uint8_t* valid_bits, int64_t valid_bits_offset,
+    const typename ArrowType::c_type* data_ptr) {
+  using ParquetCType = typename ParquetType::c_type;
+
+  RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(ParquetCType)));
+  auto buffer_ptr = reinterpret_cast<ParquetCType*>(data_buffer_.mutable_data());
+  INIT_BITSET(valid_bits, valid_bits_offset);
+  for (int i = 0; i < length; i++) {
+    if (bitset & (1 << bit_offset)) {
+      buffer_ptr[i] = static_cast<ParquetCType>(data_ptr[i]);
+    }
+    READ_NEXT_BITSET(valid_bits);
+  }
+  PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(
+      length, def_levels, rep_levels, valid_bits, valid_bits_offset, buffer_ptr));
+
+  return Status::OK();
+}
+
+#define NULLABLE_BATCH_FAST_PATH(ParquetType, ArrowType, CType)                        \
+  template <>                                                                          \
+  Status FileWriter::Impl::WriteNullableBatch<ParquetType, ArrowType>(                 \
+      TypedColumnWriter<ParquetType> * writer, int64_t length,                         \
+      const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits, \
+      int64_t valid_bits_offset, const CType* data_ptr) {                              \
+    PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(                                     \
+        length, def_levels, rep_levels, valid_bits, valid_bits_offset, data_ptr));     \
+    return Status::OK();                                                               \
+  }
+
+NULLABLE_BATCH_FAST_PATH(Int32Type, ::arrow::Int32Type, int32_t)
+NULLABLE_BATCH_FAST_PATH(Int64Type, ::arrow::Int64Type, int64_t)
+NULLABLE_BATCH_FAST_PATH(FloatType, ::arrow::FloatType, float)
+NULLABLE_BATCH_FAST_PATH(DoubleType, ::arrow::DoubleType, double)
 
 // This specialization seems quite similar but it significantly differs in two points:
 // * offset is added at the most latest time to the pointer as we have sub-byte access

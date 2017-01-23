@@ -29,14 +29,12 @@
 #include <cstdint>
 
 #include "parquet/util/compiler-util.h"
-#include "parquet/util/cpu-info.h"
-#include "parquet/util/sse-util.h"
 
 namespace parquet {
 
 #define INIT_BITSET(valid_bits_vector, valid_bits_index) \
-  int byte_offset = valid_bits_index / 8; \
-  int bit_offset = valid_bits_index % 8; \
+  int byte_offset = valid_bits_index / 8;                \
+  int bit_offset = valid_bits_index % 8;                 \
   uint8_t bitset = valid_bits_vector[byte_offset];
 
 #define READ_NEXT_BITSET(valid_bits_vector)  \
@@ -111,12 +109,12 @@ class BitUtil {
   /// Returns 'value' rounded up to the nearest multiple of 'factor' when factor is
   /// a power of two
   static inline int RoundUpToPowerOf2(int value, int factor) {
-    DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
+    // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
     return (value + (factor - 1)) & ~(factor - 1);
   }
 
   static inline int RoundDownToPowerOf2(int value, int factor) {
-    DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
+    // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
     return value & ~(factor - 1);
   }
 
@@ -182,7 +180,7 @@ class BitUtil {
   /// TODO: this could be faster if we use __builtin_clz.  Fix this if this ever shows up
   /// in a hot path.
   static inline int Log2(uint64_t x) {
-    DCHECK_GT(x, 0);
+    // DCHECK_GT(x, 0);
     if (x == 1) return 0;
     // Compute result = ceil(log2(x))
     //                = floor(log2(x - 1)) + 1, for x > 1

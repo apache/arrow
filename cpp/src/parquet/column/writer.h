@@ -159,6 +159,12 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   void WriteBatch(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const T* values);
 
+  // Write a batch of repetition levels, definition levels, and values to the
+  // column.
+  void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
+      const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
+      const T* values);
+
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
@@ -173,10 +179,16 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const T* values);
 
+  int64_t WriteMiniBatchSpaced(int64_t num_values, const int16_t* def_levels,
+      const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
+      const T* values);
+
   typedef Encoder<DType> EncoderType;
 
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, const T* values);
+  void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
+      int64_t valid_bits_offset, const T* values);
   std::unique_ptr<EncoderType> current_encoder_;
 
   typedef TypedRowGroupStatistics<DType> TypedStats;

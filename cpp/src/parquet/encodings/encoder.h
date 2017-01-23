@@ -23,6 +23,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
+#include "parquet/util/bit-util.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {
@@ -43,6 +44,19 @@ class Encoder {
   virtual int64_t EstimatedDataEncodedSize() = 0;
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual void Put(const T* src, int num_values) = 0;
+  virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+      int64_t valid_bits_offset) {
+    PoolBuffer buffer(allocator_);
+    buffer.Resize(num_values * sizeof(T));
+    int32_t num_valid_values = 0;
+    INIT_BITSET(valid_bits, valid_bits_offset);
+    T* data = reinterpret_cast<T*>(buffer.mutable_data());
+    for (int32_t i = 0; i < num_values; i++) {
+      if (bitset & (1 << bit_offset)) { data[num_valid_values++] = src[i]; }
+      READ_NEXT_BITSET(valid_bits);
+    }
+    Put(data, num_valid_values);
+  }
 
   const Encoding::type encoding() const { return encoding_; }
 

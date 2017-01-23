@@ -66,10 +66,22 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     TypedStats statistics2(this->schema_.Column(0), encoded_min, encoded_max,
         this->values_.size(), 0, 0, true);
 
+    TypedStats statistics3(this->schema_.Column(0));
+    std::vector<uint8_t> valid_bits(
+        BitUtil::RoundUpNumBytes(this->values_.size()) + 1, 255);
+    statistics3.UpdateSpaced(
+        this->values_ptr_, valid_bits.data(), 0, this->values_.size(), 0);
+    std::string encoded_min_spaced = statistics3.EncodeMin();
+    std::string encoded_max_spaced = statistics3.EncodeMax();
+
     ASSERT_EQ(encoded_min, statistics2.EncodeMin());
     ASSERT_EQ(encoded_max, statistics2.EncodeMax());
     ASSERT_EQ(statistics1.min(), statistics2.min());
     ASSERT_EQ(statistics1.max(), statistics2.max());
+    ASSERT_EQ(encoded_min_spaced, statistics2.EncodeMin());
+    ASSERT_EQ(encoded_max_spaced, statistics2.EncodeMax());
+    ASSERT_EQ(statistics3.min(), statistics2.min());
+    ASSERT_EQ(statistics3.max(), statistics2.max());
   }
 
   void TestReset() {

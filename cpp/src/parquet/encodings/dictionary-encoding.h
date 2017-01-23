@@ -27,6 +27,7 @@
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/encodings/plain-encoding.h"
+#include "parquet/util/bit-util.h"
 #include "parquet/util/cpu-info.h"
 #include "parquet/util/hash-util.h"
 #include "parquet/util/memory.h"
@@ -235,6 +236,15 @@ class DictEncoder : public Encoder<DType> {
   void Put(const T* values, int num_values) override {
     for (int i = 0; i < num_values; i++) {
       Put(values[i]);
+    }
+  }
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+      int64_t valid_bits_offset) override {
+    INIT_BITSET(valid_bits, valid_bits_offset);
+    for (int32_t i = 0; i < num_values; i++) {
+      if (bitset & (1 << bit_offset)) { Put(src[i]); }
+      READ_NEXT_BITSET(valid_bits);
     }
   }
 

@@ -360,6 +360,59 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
 }
 
 template <typename DType>
+inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values,
+    const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
+    int64_t valid_bits_offset, const T* values) {
+  int64_t values_to_write = 0;
+  // If the field is required and non-repeated, there are no definition levels
+  if (descr_->max_definition_level() > 0) {
+    for (int64_t i = 0; i < num_values; ++i) {
+      if (def_levels[i] == descr_->max_definition_level()) { ++values_to_write; }
+    }
+
+    WriteDefinitionLevels(num_values, def_levels);
+  } else {
+    // Required field, write all values
+    values_to_write = num_values;
+  }
+
+  // Not present for non-repeated fields
+  if (descr_->max_repetition_level() > 0) {
+    // A row could include more than one value
+    // Count the occasions where we start a new row
+    for (int64_t i = 0; i < num_values; ++i) {
+      if (rep_levels[i] == 0) { num_rows_++; }
+    }
+
+    WriteRepetitionLevels(num_values, rep_levels);
+  } else {
+    // Each value is exactly one row
+    num_rows_ += num_values;
+  }
+
+  if (num_rows_ > expected_rows_) {
+    throw ParquetException("More rows were written in the column chunk than expected");
+  }
+
+  WriteValuesSpaced(num_values, valid_bits, valid_bits_offset, values);
+
+  if (page_statistics_ != nullptr) {
+    page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, values_to_write,
+        num_values - values_to_write);
+  }
+
+  num_buffered_values_ += num_values;
+  num_buffered_encoded_values_ += values_to_write;
+
+  if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
+    AddDataPage();
+  }
+  if (has_dictionary_ && !fallback_) { CheckDictionarySizeLimit(); }
+
+  return values_to_write;
+}
+
+template <typename DType>
 void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def_levels,
     const int16_t* rep_levels, const T* values) {
   // We check for DataPage limits only after we have inserted the values. If a user
@@ -384,8 +437,37 @@ void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def
 }
 
 template <typename DType>
+void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
+    const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
+    int64_t valid_bits_offset, const T* values) {
+  // We check for DataPage limits only after we have inserted the values. If a user
+  // writes a large number of values, the DataPage size can be much above the limit.
+  // The purpose of this chunking is to bound this. Even if a user writes large number
+  // of values, the chunking will ensure the AddDataPage() is called at a reasonable
+  // pagesize limit
+  int64_t write_batch_size = properties_->write_batch_size();
+  int num_batches = num_values / write_batch_size;
+  int64_t num_remaining = num_values % write_batch_size;
+  for (int round = 0; round < num_batches; round++) {
+    int64_t offset = round * write_batch_size;
+    WriteMiniBatchSpaced(write_batch_size, &def_levels[offset], &rep_levels[offset],
+        valid_bits, valid_bits_offset + offset, &values[offset]);
+  }
+  // Write the remaining values
+  int64_t offset = num_batches * write_batch_size;
+  WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
+      valid_bits, valid_bits_offset + offset, &values[offset]);
+}
+
+template <typename DType>
 void TypedColumnWriter<DType>::WriteValues(int64_t num_values, const T* values) {
   current_encoder_->Put(values, num_values);
+}
+
+template <typename DType>
+void TypedColumnWriter<DType>::WriteValuesSpaced(int64_t num_values,
+    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values) {
+  current_encoder_->PutSpaced(values, num_values, valid_bits, valid_bits_offset);
 }
 
 template class TypedColumnWriter<BooleanType>;

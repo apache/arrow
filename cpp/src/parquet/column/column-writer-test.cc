@@ -108,7 +108,17 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       bool enable_dictionary, bool enable_statistics, int64_t num_rows = SMALL_SIZE) {
     this->GenerateData(num_rows);
 
-    // Test case 1: required and non-repeated, so no definition or repetition levels
+    this->WriteRequiredWithSettings(
+        encoding, compression, enable_dictionary, enable_statistics, num_rows);
+    this->ReadAndCompare(compression, num_rows);
+
+    this->WriteRequiredWithSettingsSpaced(
+        encoding, compression, enable_dictionary, enable_statistics, num_rows);
+    this->ReadAndCompare(compression, num_rows);
+  }
+
+  void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
+      bool enable_dictionary, bool enable_statistics, int64_t num_rows) {
     ColumnProperties column_properties(
         encoding, compression, enable_dictionary, enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
@@ -117,7 +127,25 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
+  }
 
+  void WriteRequiredWithSettingsSpaced(Encoding::type encoding,
+      Compression::type compression, bool enable_dictionary, bool enable_statistics,
+      int64_t num_rows) {
+    std::vector<uint8_t> valid_bits(
+        BitUtil::RoundUpNumBytes(this->values_.size()) + 1, 255);
+    ColumnProperties column_properties(
+        encoding, compression, enable_dictionary, enable_statistics);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties);
+    writer->WriteBatchSpaced(
+        this->values_.size(), nullptr, nullptr, valid_bits.data(), 0, this->values_ptr_);
+    // The behaviour should be independent from the number of Close() calls
+    writer->Close();
+    writer->Close();
+  }
+
+  void ReadAndCompare(Compression::type compression, int64_t num_rows) {
     this->SetupValuesOut(num_rows);
     this->ReadColumnFully(compression);
     Compare<T> compare(this->descr_);

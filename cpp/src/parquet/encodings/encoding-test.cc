@@ -246,14 +246,19 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
+    std::vector<uint8_t> valid_bits(BitUtil::RoundUpNumBytes(num_values_) + 1, 255);
     DictEncoder<Type> encoder(descr_.get(), &pool_);
 
     ASSERT_NO_THROW(encoder.Put(draws_, num_values_));
     dict_buffer_ = AllocateBuffer(default_allocator(), encoder.dict_encoded_size());
-
     encoder.WriteDict(dict_buffer_->mutable_data());
-
     std::shared_ptr<Buffer> indices = encoder.FlushValues();
+
+    DictEncoder<Type> spaced_encoder(descr_.get(), &pool_);
+    // PutSpaced should lead to the same results
+    ASSERT_NO_THROW(spaced_encoder.PutSpaced(draws_, num_values_, valid_bits.data(), 0));
+    std::shared_ptr<Buffer> indices_from_spaced = spaced_encoder.FlushValues();
+    ASSERT_TRUE(indices_from_spaced->Equals(*indices));
 
     PlainDecoder<Type> dict_decoder(descr_.get());
     dict_decoder.SetData(
@@ -273,7 +278,6 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
     // Also test spaced decoding
     decoder.SetData(num_values_, indices->data(), indices->size());
-    std::vector<uint8_t> valid_bits(BitUtil::RoundUpNumBytes(num_values_) + 1, 255);
     values_decoded =
         decoder.DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
     ASSERT_EQ(num_values_, values_decoded);

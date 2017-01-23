@@ -149,6 +149,8 @@ class TypedRowGroupStatistics : public RowGroupStatistics {
   void Merge(const TypedRowGroupStatistics<DType>& other);
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null);
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
+      int64_t num_not_null, int64_t num_null);
 
   const T& min() const;
   const T& max() const;

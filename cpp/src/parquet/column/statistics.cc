@@ -106,6 +106,50 @@ void TypedRowGroupStatistics<DType>::Update(
 }
 
 template <typename DType>
+void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
+    const uint8_t* valid_bits, int64_t valid_bits_offset, int64_t num_not_null,
+    int64_t num_null) {
+  DCHECK(num_not_null >= 0);
+  DCHECK(num_null >= 0);
+
+  IncrementNullCount(num_null);
+  IncrementNumValues(num_not_null);
+  // TODO: support distinct count?
+  if (num_not_null == 0) return;
+
+  Compare<T> compare(descr_);
+  INIT_BITSET(valid_bits, valid_bits_offset);
+  // Find first valid entry and use that for min/max
+  // As (num_not_null != 0) there must be one
+  int64_t length = num_null + num_not_null;
+  int64_t i = 0;
+  for (; i < length; i++) {
+    if (bitset & (1 << bit_offset)) { break; }
+    READ_NEXT_BITSET(valid_bits);
+  }
+  T min = values[i];
+  T max = values[i];
+  for (; i < length; i++) {
+    if (bitset & (1 << bit_offset)) {
+      if (compare(values[i], min)) {
+        min = values[i];
+      } else if (compare(max, values[i])) {
+        max = values[i];
+      }
+    }
+    READ_NEXT_BITSET(valid_bits);
+  }
+  if (!has_min_max_) {
+    has_min_max_ = true;
+    Copy(min, &min_, min_buffer_.get());
+    Copy(max, &max_, max_buffer_.get());
+  } else {
+    Copy(std::min(min_, min, compare), &min_, min_buffer_.get());
+    Copy(std::max(max_, max, compare), &max_, max_buffer_.get());
+  }
+}
+
+template <typename DType>
 const typename DType::c_type& TypedRowGroupStatistics<DType>::min() const {
   return min_;
 }
