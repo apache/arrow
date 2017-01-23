@@ -16,6 +16,7 @@
 # under the License.
 
 from io import BytesIO
+import gc
 import os
 import pytest
 
@@ -163,9 +164,8 @@ def test_inmemory_write_after_closed():
 # ----------------------------------------------------------------------
 # OS files and memory maps
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def sample_disk_data(request):
-
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
@@ -204,6 +204,22 @@ def _check_native_file_reader(KLASS, sample_data):
 
 def test_memory_map_reader(sample_disk_data):
     _check_native_file_reader(io.MemoryMappedFile, sample_disk_data)
+
+
+def test_memory_map_retain_buffer_reference(sample_disk_data):
+    path, data = sample_disk_data
+
+    cases = []
+    with io.MemoryMappedFile(path, 'rb') as f:
+        cases.append((f.read_buffer(100), data[:100]))
+        cases.append((f.read_buffer(100), data[100:200]))
+        cases.append((f.read_buffer(100), data[200:300]))
+
+    # Call gc.collect() for good measure
+    gc.collect()
+
+    for buf, expected in cases:
+        assert buf.to_pybytes() == expected
 
 
 def test_os_file_reader(sample_disk_data):

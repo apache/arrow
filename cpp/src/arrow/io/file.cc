@@ -372,6 +372,8 @@ class OSFile {
 
   int64_t size() const { return size_; }
 
+  FileMode::type mode() const { return mode_; }
+
  protected:
   std::string path_;
 
@@ -513,14 +515,14 @@ int FileOutputStream::file_descriptor() const {
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile
 
-class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
+class MemoryMappedFile::MemoryMap : public MutableBuffer {
  public:
-  MemoryMappedFileImpl() : OSFile(), data_(nullptr) {}
+  MemoryMap() : MutableBuffer(nullptr, 0) {}
 
-  ~MemoryMappedFileImpl() {
-    if (is_open_) {
-      munmap(data_, size_);
-      OSFile::Close();
+  ~MemoryMap() {
+    if (file_->is_open()) {
+      munmap(mutable_data_, size_);
+      file_->Close();
     }
   }
 
@@ -528,27 +530,35 @@ class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
     int prot_flags;
     int map_mode;
 
+    file_.reset(new OSFile());
+
     if (mode != FileMode::READ) {
       // Memory mapping has permission failures if PROT_READ not set
       prot_flags = PROT_READ | PROT_WRITE;
       map_mode = MAP_SHARED;
       constexpr bool append = true;
       constexpr bool write_only = false;
-      RETURN_NOT_OK(OSFile::OpenWriteable(path, append, write_only));
-      mode_ = mode;
+      RETURN_NOT_OK(file_->OpenWriteable(path, append, write_only));
+
+      is_mutable_ = true;
     } else {
       prot_flags = PROT_READ;
       map_mode = MAP_PRIVATE;  // Changes are not to be committed back to the file
-      RETURN_NOT_OK(OSFile::OpenReadable(path));
+      RETURN_NOT_OK(file_->OpenReadable(path));
+
+      is_mutable_ = false;
     }
 
-    void* result = mmap(nullptr, size_, prot_flags, map_mode, fd(), 0);
+    void* result = mmap(nullptr, file_->size(), prot_flags, map_mode, file_->fd(), 0);
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
       return Status::IOError(ss.str());
     }
-    data_ = reinterpret_cast<uint8_t*>(result);
+
+    data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
+    size_ = file_->size();
+
     position_ = 0;
 
     return Status::OK();
@@ -566,50 +576,45 @@ class MemoryMappedFile::MemoryMappedFileImpl : public OSFile {
 
   void advance(int64_t nbytes) { position_ = position_ + nbytes; }
 
-  uint8_t* data() { return data_; }
+  uint8_t* head() { return mutable_data_ + position_; }
 
-  uint8_t* head() { return data_ + position_; }
+  bool writable() { return file_->mode() != FileMode::READ; }
 
-  bool writable() { return mode_ != FileMode::READ; }
+  bool opened() { return file_->is_open(); }
 
-  bool opened() { return is_open_; }
+  int fd() const { return file_->fd(); }
 
  private:
+  std::unique_ptr<OSFile> file_;
   int64_t position_;
-
-  // The memory map
-  uint8_t* data_;
 };
 
-MemoryMappedFile::MemoryMappedFile(FileMode::type mode) {
-  ReadableFileInterface::set_mode(mode);
-}
-
+MemoryMappedFile::MemoryMappedFile() {}
 MemoryMappedFile::~MemoryMappedFile() {}
 
 Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
     std::shared_ptr<MemoryMappedFile>* out) {
-  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile(mode));
+  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
 
-  result->impl_.reset(new MemoryMappedFileImpl());
-  RETURN_NOT_OK(result->impl_->Open(path, mode));
+  result->memory_map_.reset(new MemoryMap());
+  RETURN_NOT_OK(result->memory_map_->Open(path, mode));
 
   *out = result;
   return Status::OK();
 }
 
 Status MemoryMappedFile::GetSize(int64_t* size) {
-  *size = impl_->size();
+  *size = memory_map_->size();
   return Status::OK();
 }
 
 Status MemoryMappedFile::Tell(int64_t* position) {
-  *position = impl_->position();
+  *position = memory_map_->position();
   return Status::OK();
 }
 
 Status MemoryMappedFile::Seek(int64_t position) {
-  return impl_->Seek(position);
+  return memory_map_->Seek(position);
 }
 
 Status MemoryMappedFile::Close() {
@@ -618,19 +623,24 @@ Status MemoryMappedFile::Close() {
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-  nbytes = std::max<int64_t>(0, std::min(nbytes, impl_->size() - impl_->position()));
-  if (nbytes > 0) { std::memcpy(out, impl_->head(), nbytes); }
+  nbytes = std::max<int64_t>(
+      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
+  if (nbytes > 0) { std::memcpy(out, memory_map_->head(), nbytes); }
   *bytes_read = nbytes;
-  impl_->advance(nbytes);
+  memory_map_->advance(nbytes);
   return Status::OK();
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  nbytes = std::max<int64_t>(0, std::min(nbytes, impl_->size() - impl_->position()));
+  nbytes = std::max<int64_t>(
+      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
 
-  const uint8_t* data = nbytes > 0 ? impl_->head() : nullptr;
-  *out = std::make_shared<Buffer>(data, nbytes);
-  impl_->advance(nbytes);
+  if (nbytes > 0) {
+    *out = SliceBuffer(memory_map_, memory_map_->position(), nbytes);
+  } else {
+    *out = std::make_shared<Buffer>(nullptr, 0);
+  }
+  memory_map_->advance(nbytes);
   return Status::OK();
 }
 
@@ -639,19 +649,19 @@ bool MemoryMappedFile::supports_zero_copy() const {
 }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
-  if (!impl_->opened() || !impl_->writable()) {
+  if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
 
-  RETURN_NOT_OK(impl_->Seek(position));
+  RETURN_NOT_OK(memory_map_->Seek(position));
   return WriteInternal(data, nbytes);
 }
 
 Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
-  if (!impl_->opened() || !impl_->writable()) {
+  if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  if (nbytes + impl_->position() > impl_->size()) {
+  if (nbytes + memory_map_->position() > memory_map_->size()) {
     return Status::Invalid("Cannot write past end of memory map");
   }
 
@@ -659,13 +669,13 @@ Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
 }
 
 Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
-  memcpy(impl_->head(), data, nbytes);
-  impl_->advance(nbytes);
+  memcpy(memory_map_->head(), data, nbytes);
+  memory_map_->advance(nbytes);
   return Status::OK();
 }
 
 int MemoryMappedFile::file_descriptor() const {
-  return impl_->fd();
+  return memory_map_->fd();
 }
 
 }  // namespace io
