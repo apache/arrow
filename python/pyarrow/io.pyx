@@ -463,42 +463,17 @@ def strip_hdfs_abspath(path):
         return path
 
 
-cdef class HdfsClient:
+cdef class _HdfsClient:
     cdef:
         shared_ptr[CHdfsClient] client
 
     cdef readonly:
         bint is_open
 
-    def __cinit__(self, host="default", port=0, user=None, kerb_ticket=None,
-                  driver='libhdfs'):
-        """
-        Connect to an HDFS cluster. All parameters are optional and should
-        only be set if the defaults need to be overridden.
+    def __cinit__(self):
+        pass
 
-        Authentication should be automatic if the HDFS cluster uses Kerberos.
-        However, if a username is specified, then the ticket cache will likely
-        be required.
-
-        Parameters
-        ----------
-        host : NameNode. Set to "default" for fs.defaultFS from core-site.xml.
-        port : NameNode's port. Set to 0 for default or logical (HA) nodes.
-        user : Username when connecting to HDFS; None implies login user.
-        kerb_ticket : Path to Kerberos ticket cache.
-        driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-          Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
-          library from Pivotal Labs)
-
-        Notes
-        -----
-        The first time you call this method, it will take longer than usual due
-        to JNI spin-up time.
-
-        Returns
-        -------
-        client : HDFSClient
-        """
+    def _connect(self, host, port, user, kerb_ticket, driver):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
@@ -556,20 +531,25 @@ cdef class HdfsClient:
             result = self.client.get().Exists(c_path)
         return result
 
-    def ls(self, path, bint full_info=True):
-        """
-        Retrieve directory contents and metadata, if requested.
+    def isdir(self, path):
+        cdef HdfsPathInfo info
+        self._path_info(path, &info)
+        return info.kind == ObjectType_DIRECTORY
 
-        Parameters
-        ----------
-        path : HDFS path
-        full_info : boolean, default True
-            If False, only return list of paths
+    def isfile(self, path):
+        cdef HdfsPathInfo info
+        self._path_info(path, &info)
+        return info.kind == ObjectType_FILE
 
-        Returns
-        -------
-        result : list of dicts (full_info=True) or strings (full_info=False)
-        """
+    cdef _path_info(self, path, HdfsPathInfo* info):
+        cdef c_string c_path = tobytes(path)
+
+        with nogil:
+            check_status(self.client.get()
+                         .GetPathInfo(c_path, info))
+
+
+    def ls(self, path, bint full_info):
         cdef:
             c_string c_path = tobytes(path)
             vector[HdfsPathInfo] listing

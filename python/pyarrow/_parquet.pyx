@@ -341,6 +341,7 @@ cdef logical_type_name_from_enum(ParquetLogicalType type_):
 
 cdef class ParquetReader:
     cdef:
+        object source
         MemoryPool* allocator
         unique_ptr[FileReader] reader
         column_idx_map
@@ -359,6 +360,8 @@ cdef class ParquetReader:
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
+
+        self.source = source
 
         get_reader(source, &rd_handle)
         with nogil:

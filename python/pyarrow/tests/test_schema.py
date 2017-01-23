@@ -85,4 +85,3 @@ baz: list<item: int8>"""
         del fields[-1]
         sch3 = A.schema(fields)
         assert not sch1.equals(sch3)
-

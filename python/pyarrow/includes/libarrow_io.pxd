@@ -148,6 +148,8 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus ListDirectory(const c_string& path,
                               vector[HdfsPathInfo]* listing)
 
+        CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
+
         CStatus Rename(const c_string& src, const c_string& dst)
 
         CStatus OpenReadable(const c_string& path,

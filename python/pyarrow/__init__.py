@@ -42,7 +42,8 @@ from pyarrow.array import (Array,
 
 from pyarrow.error import ArrowException
 
-from pyarrow.io import (HdfsClient, HdfsFile, NativeFile, PythonFileInterface,
+from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
+from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,
                         Buffer, InMemoryOutputStream, BufferReader)
 
 from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
@@ -61,3 +62,6 @@ from pyarrow.schema import (null, bool_,
                             DataType, Field, Schema, schema)
 
 from pyarrow.table import Column, RecordBatch, Table, concat_tables
+
+
+localfs = LocalFilesystem()

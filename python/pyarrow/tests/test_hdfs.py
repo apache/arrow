@@ -21,9 +21,16 @@ import os
 import random
 import unittest
 
+import numpy as np
+import pandas.util.testing as pdt
 import pytest
 
+from pyarrow.compat import guid
+from pyarrow.filesystem import HdfsClient
 import pyarrow.io as io
+import pyarrow as pa
+
+import pyarrow.tests.test_parquet as test_parquet
 
 # ----------------------------------------------------------------------
 # HDFS tests
@@ -38,7 +45,7 @@ def hdfs_test_client(driver='libhdfs'):
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return io.HdfsClient(host, port, user, driver=driver)
+    return HdfsClient(host, port, user, driver=driver)
 
 
 class HdfsTestCases(object):
@@ -137,6 +144,43 @@ class HdfsTestCases(object):
             result = f.read()
 
         assert result == data
+
+    @test_parquet.parquet
+    def test_hdfs_read_multiple_parquet_files(self):
+        import pyarrow.parquet as pq
+
+        nfiles = 10
+        size = 5
+
+        tmpdir = pjoin(self.tmp_path, 'multi-parquet-' + guid())
+
+        self.hdfs.mkdir(tmpdir)
+
+        test_data = []
+        paths = []
+        for i in range(nfiles):
+            df = test_parquet._test_dataframe(size, seed=i)
+
+            df['index'] = np.arange(i * size, (i + 1) * size)
+
+            # Hack so that we don't have a dtype cast in v1 files
+            df['uint32'] = df['uint32'].astype(np.int64)
+
+            path = pjoin(tmpdir, '{0}.parquet'.format(i))
+
+            table = pa.Table.from_pandas(df)
+            with self.hdfs.open(path, 'wb') as f:
+                pq.write_table(table, f)
+
+            test_data.append(table)
+            paths.append(path)
+
+        result = self.hdfs.read_parquet(tmpdir)
+        expected = pa.concat_tables(test_data)
+
+        pdt.assert_frame_equal(result.to_pandas()
+                               .sort_values(by='index').reset_index(drop=True),
+                               expected.to_pandas())
 
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
