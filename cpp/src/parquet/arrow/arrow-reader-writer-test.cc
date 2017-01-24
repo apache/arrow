@@ -32,6 +32,7 @@
 
 using arrow::Array;
 using arrow::Buffer;
+using arrow::Column;
 using arrow::ChunkedArray;
 using arrow::default_memory_pool;
 using arrow::io::BufferReader;
@@ -50,6 +51,8 @@ namespace arrow {
 
 const int SMALL_SIZE = 100;
 const int LARGE_SIZE = 10000;
+
+constexpr uint32_t kDefaultSeed = 0;
 
 template <typename TestType>
 struct test_traits {};
@@ -185,23 +188,6 @@ using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
-void DoTableRoundtrip(
-    const std::shared_ptr<Table>& table, int num_threads, std::shared_ptr<Table>* out) {
-  auto sink = std::make_shared<InMemoryOutputStream>();
-
-  ASSERT_OK_NO_THROW(WriteFlatTable(
-      table.get(), ::arrow::default_memory_pool(), sink, (table->num_rows() + 1) / 2));
-
-  std::shared_ptr<Buffer> buffer = sink->GetBuffer();
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(
-      OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-          ::parquet::default_reader_properties(), nullptr, &reader));
-
-  reader->set_num_threads(num_threads);
-  ASSERT_OK_NO_THROW(reader->ReadFlatTable(out));
-}
-
 template <typename TestType>
 class TestParquetIO : public ::testing::Test {
  public:
@@ -324,7 +310,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
 TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
-  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
+
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
   this->WriteFlatColumn(schema, values);
@@ -335,7 +322,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 TYPED_TEST(TestParquetIO, SingleColumnTableOptionalReadWrite) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
-  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
+
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
@@ -407,7 +395,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
 TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
   int64_t chunk_size = SMALL_SIZE / 4;
   std::shared_ptr<Array> values;
-  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, &values));
+
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
   std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
   FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
@@ -424,7 +413,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
-  ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, &values));
+
+  ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteFlatTable(table.get(), ::arrow::default_memory_pool(),
@@ -490,7 +480,8 @@ using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
-  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, &values));
+
+  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
   // Parquet 2.0 roundtrip should yield an uint32_t column again
@@ -507,7 +498,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
 TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> arr;
-  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, &arr));
+  ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, kDefaultSeed, &arr));
 
   std::shared_ptr<::arrow::UInt32Array> values =
       std::dynamic_pointer_cast<::arrow::UInt32Array>(arr);
@@ -660,18 +651,15 @@ TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
   this->CheckSingleColumnRequiredTableRead(4);
 }
 
-TEST(TestArrowReadWrite, MultithreadedRead) {
-  const int num_columns = 20;
-  const int num_rows = 1000;
-  const int num_threads = 4;
-
+void MakeDoubleTable(int num_columns, int num_rows, std::shared_ptr<Table>* out) {
   std::shared_ptr<::arrow::Column> column;
   std::vector<std::shared_ptr<::arrow::Column>> columns(num_columns);
   std::vector<std::shared_ptr<::arrow::Field>> fields(num_columns);
 
   std::shared_ptr<Array> values;
   for (int i = 0; i < num_columns; ++i) {
-    ASSERT_OK(NullableArray<::arrow::DoubleType>(num_rows, num_rows / 10, &values));
+    ASSERT_OK(NullableArray<::arrow::DoubleType>(
+        num_rows, num_rows / 10, static_cast<uint32_t>(i), &values));
     std::stringstream ss;
     ss << "col" << i;
     column = MakeColumn(ss.str(), values, true);
@@ -680,12 +668,68 @@ TEST(TestArrowReadWrite, MultithreadedRead) {
     fields[i] = column->field();
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  auto table = std::make_shared<Table>("schema", schema, columns);
+  *out = std::make_shared<Table>("schema", schema, columns);
+}
+
+void DoTableRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
+    const std::vector<int>& column_subset, std::shared_ptr<Table>* out) {
+  auto sink = std::make_shared<InMemoryOutputStream>();
+
+  ASSERT_OK_NO_THROW(WriteFlatTable(
+      table.get(), ::arrow::default_memory_pool(), sink, (table->num_rows() + 1) / 2));
+
+  std::shared_ptr<Buffer> buffer = sink->GetBuffer();
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(
+      OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
+          ::parquet::default_reader_properties(), nullptr, &reader));
+
+  reader->set_num_threads(num_threads);
+
+  if (column_subset.size() > 0) {
+    ASSERT_OK_NO_THROW(reader->ReadFlatTable(column_subset, out));
+  } else {
+    // Read everything
+    ASSERT_OK_NO_THROW(reader->ReadFlatTable(out));
+  }
+}
+
+TEST(TestArrowReadWrite, MultithreadedRead) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+  const int num_threads = 4;
+
+  std::shared_ptr<Table> table;
+  MakeDoubleTable(num_columns, num_rows, &table);
 
   std::shared_ptr<Table> result;
-  DoTableRoundtrip(table, num_threads, &result);
+  DoTableRoundtrip(table, num_threads, {}, &result);
 
   ASSERT_TRUE(table->Equals(result));
+}
+
+TEST(TestArrowReadWrite, ReadColumnSubset) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+  const int num_threads = 4;
+
+  std::shared_ptr<Table> table;
+  MakeDoubleTable(num_columns, num_rows, &table);
+
+  std::shared_ptr<Table> result;
+  std::vector<int> column_subset = {0, 4, 8, 10};
+  DoTableRoundtrip(table, num_threads, column_subset, &result);
+
+  std::vector<std::shared_ptr<::arrow::Column>> ex_columns;
+  std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
+  for (int i : column_subset) {
+    ex_columns.push_back(table->column(i));
+    ex_fields.push_back(table->column(i)->field());
+  }
+
+  auto ex_schema = std::make_shared<::arrow::Schema>(ex_fields);
+  auto expected = std::make_shared<Table>("schema", ex_schema, ex_columns);
+  ASSERT_TRUE(result->Equals(expected));
 }
 
 }  // namespace arrow

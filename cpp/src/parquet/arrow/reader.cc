@@ -222,7 +222,7 @@ Status FileReader::Impl::ReadFlatTable(
   auto ReadColumn = [&indices, &schema, &columns, this](int i) {
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(ReadFlatColumn(indices[i], &array));
-    columns[i] = std::make_shared<Column>(schema->field(indices[i]), array);
+    columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
 
