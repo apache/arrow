@@ -174,6 +174,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
       int64_t index_page_offset, int64_t data_page_offset, int64_t compressed_size,
       int64_t uncompressed_size, bool has_dictionary, bool dictionary_fallback);
 
+  // For writing metadata at end of column chunk
+  void WriteTo(OutputStream* sink);
+
  private:
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
       const ColumnDescriptor* column, uint8_t* contents);

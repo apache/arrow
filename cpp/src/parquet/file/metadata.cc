@@ -501,6 +501,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
+  void WriteTo(OutputStream* sink) {
+    SerializeThriftMsg(column_chunk_, sizeof(format::ColumnChunk), sink);
+  }
+
   const ColumnDescriptor* descr() const { return column_; }
 
  private:
@@ -534,6 +538,10 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
     bool dictionary_fallback) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
       compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
+}
+
+void ColumnChunkMetaDataBuilder::WriteTo(OutputStream* sink) {
+  impl_->WriteTo(sink);
 }
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {

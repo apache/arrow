@@ -81,9 +81,6 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int num_columns() const override;
   int64_t num_rows() const override;
 
-  // TODO: PARQUET-579
-  // void WriteRowGroupStatitics() override;
-
   ColumnWriter* NextColumn() override;
   void Close() override;
 

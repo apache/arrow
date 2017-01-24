@@ -62,6 +62,9 @@ void SerializedPageWriter::Close(bool has_dictionary, bool fallback) {
   // TODO: Remove default fallback = 'false' when implemented
   metadata_->Finish(num_values_, dictionary_page_offset_, 0, data_page_offset_,
       total_compressed_size_, total_uncompressed_size_, has_dictionary, fallback);
+
+  // Write metadata at end of column chunk
+  metadata_->WriteTo(sink_);
 }
 
 std::shared_ptr<Buffer> SerializedPageWriter::Compress(
@@ -104,8 +107,9 @@ int64_t SerializedPageWriter::WriteDataPage(const CompressedDataPage& page) {
 
   int64_t start_pos = sink_->Tell();
   if (data_page_offset_ == 0) { data_page_offset_ = start_pos; }
-  SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
-  int64_t header_size = sink_->Tell() - start_pos;
+
+  int64_t header_size =
+      SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
   sink_->Write(compressed_data->data(), compressed_data->size());
 
   total_uncompressed_size_ += uncompressed_size + header_size;
@@ -133,8 +137,8 @@ int64_t SerializedPageWriter::WriteDictionaryPage(const DictionaryPage& page) {
 
   int64_t start_pos = sink_->Tell();
   if (dictionary_page_offset_ == 0) { dictionary_page_offset_ = start_pos; }
-  SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
-  int64_t header_size = sink_->Tell() - start_pos;
+  int64_t header_size =
+      SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
   sink_->Write(compressed_data->data(), compressed_data->size());
 
   total_uncompressed_size_ += uncompressed_size + header_size;
