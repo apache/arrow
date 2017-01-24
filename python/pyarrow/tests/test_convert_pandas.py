@@ -63,7 +63,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 timestamps_to_ms=False, expected_schema=None,
-                                schema=None):
+                                check_dtype=True, schema=None):
         table = A.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms,
                                     schema=schema)
         result = table.to_pandas(nthreads=nthreads)
@@ -71,7 +71,7 @@ class TestPandasConversion(unittest.TestCase):
             assert table.schema.equals(expected_schema)
         if expected is None:
             expected = df
-        tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
 
     def _check_array_roundtrip(self, values, expected=None,
                                timestamps_to_ms=False, field=None):
@@ -283,6 +283,31 @@ class TestPandasConversion(unittest.TestCase):
         schema = A.Schema.from_fields([field])
         self._check_pandas_roundtrip(df, timestamps_to_ms=False,
                                      expected_schema=schema)
+
+    def test_timestamps_with_timezone(self):
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123',
+                '2006-01-13T12:34:56.432',
+                '2010-08-13T05:46:57.437'],
+                dtype='datetime64[ms]')
+            })
+        df_est = df['datetime64'].dt.tz_localize('US/Eastern').to_frame()
+        df_utc = df_est['datetime64'].dt.tz_convert('UTC').to_frame()
+        self._check_pandas_roundtrip(df_est, expected=df_utc, timestamps_to_ms=True, check_dtype=False)
+
+        # drop-in a null and ns instead of ms
+        df = pd.DataFrame({
+            'datetime64': np.array([
+                '2007-07-13T01:23:34.123456789',
+                None,
+                '2006-01-13T12:34:56.432539784',
+                '2010-08-13T05:46:57.437699912'],
+                dtype='datetime64[ns]')
+            })
+        df_est = df['datetime64'].dt.tz_localize('US/Eastern').to_frame()
+        df_utc = df_est['datetime64'].dt.tz_convert('UTC').to_frame()
+        self._check_pandas_roundtrip(df_est, expected=df_utc, timestamps_to_ms=False, check_dtype=False)
 
     def test_date(self):
         df = pd.DataFrame({

@@ -71,9 +71,13 @@ cdef class Array:
 
         timestamps_to_ms : bool, optional
             Convert datetime columns to ms resolution. This is needed for
-            compability with other functionality like Parquet I/O which
+            compatibility with other functionality like Parquet I/O which
             only supports milliseconds.
 
+        Notes
+        -----
+        Localized timestamps will currently be returned as UTC (pandas's native representation).
+        Timezone-naive data will be implicitly interpreted as UTC.
 
         Examples
         --------
