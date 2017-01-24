@@ -21,7 +21,8 @@
 #include <iostream>
 #include "arrow/buffer.h"
 
-namespace arrow { namespace io {
+namespace arrow {
+namespace io {
 
 // Output stream that just writes to stdout.
 class StdoutStream : public OutputStream {
@@ -84,7 +85,9 @@ class StdinStream : public InputStream {
  private:
   long pos_;
 };
-}}
 
-#endif
+} // namespace io
+} // namespace arrow
+
+#endif // ARROW_UTIL_IO_UTIL_H
 

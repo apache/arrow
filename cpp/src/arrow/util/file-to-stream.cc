@@ -23,38 +23,37 @@
 
 #include "arrow/util/io-util.h"
 
-using namespace arrow;
-using namespace arrow::io;
-using namespace arrow::ipc;
-using namespace std;
+namespace arrow {
 
 // Reads a file on the file system and prints to stdout the stream version of it.
 Status ConvertToStream(const char* path) {
-  shared_ptr<ReadableFile> in_file;
-  shared_ptr<ipc::FileReader> reader;
+  std::shared_ptr<io::ReadableFile> in_file;
+  std::shared_ptr<ipc::FileReader> reader;
 
-  RETURN_NOT_OK(ReadableFile::Open(path, &in_file));
-  RETURN_NOT_OK(FileReader::Open(in_file, &reader));
+  RETURN_NOT_OK(io::ReadableFile::Open(path, &in_file));
+  RETURN_NOT_OK(ipc::FileReader::Open(in_file, &reader));
 
-  StdoutStream sink;
-  shared_ptr<StreamWriter> writer;
-  RETURN_NOT_OK(StreamWriter::Open(&sink, reader->schema(), &writer));
+  io::StdoutStream sink;
+  std::shared_ptr<ipc::StreamWriter> writer;
+  RETURN_NOT_OK(ipc::StreamWriter::Open(&sink, reader->schema(), &writer));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
-    shared_ptr<RecordBatch> chunk;
+    std::shared_ptr<RecordBatch> chunk;
     RETURN_NOT_OK(reader->GetRecordBatch(i, &chunk));
     RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
   }
   return writer->Close();
 }
 
+} // namespace arrow
+
 int main(int argc, char** argv) {
   if (argc != 2) {
-    cerr << "Usage: file-to-stream <input arrow file>" << endl;
+    std::cerr << "Usage: file-to-stream <input arrow file>" << std::endl;
     return 1;
   }
-  Status status = ConvertToStream(argv[1]);
+  arrow::Status status = arrow::ConvertToStream(argv[1]);
   if (!status.ok()) {
-    cerr << "Could not convert to stream: " << status.ToString() << endl;
+    std::cerr << "Could not convert to stream: " << status.ToString() << std::endl;
     return 1;
   }
   return 0;

@@ -23,24 +23,21 @@
 
 #include "arrow/util/io-util.h"
 
-using namespace arrow;
-using namespace arrow::io;
-using namespace arrow::ipc;
-using namespace std;
+namespace arrow {
 
 // Converts a stream from stdin to a file written to standard out.
 // A typical usage would be:
 // $ <program that produces streaming output> | stream-to-file > file.arrow
 Status ConvertToFile() {
-  shared_ptr<InputStream> input(new StdinStream);
-  shared_ptr<StreamReader> reader;
-  RETURN_NOT_OK(StreamReader::Open(input, &reader));
+  std::shared_ptr<io::InputStream> input(new io::StdinStream);
+  std::shared_ptr<ipc::StreamReader> reader;
+  RETURN_NOT_OK(ipc::StreamReader::Open(input, &reader));
 
-  StdoutStream sink;
-  shared_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(&sink, reader->schema(), &writer));
+  io::StdoutStream sink;
+  std::shared_ptr<ipc::FileWriter> writer;
+  RETURN_NOT_OK(ipc::FileWriter::Open(&sink, reader->schema(), &writer));
 
-  shared_ptr<RecordBatch> batch;
+  std::shared_ptr<RecordBatch> batch;
   while (true) {
     RETURN_NOT_OK(reader->GetNextRecordBatch(&batch));
     if (batch == nullptr) break;
@@ -49,10 +46,12 @@ Status ConvertToFile() {
   return writer->Close();
 }
 
+} // namespace arrow
+
 int main(int argc, char** argv) {
-  Status status = ConvertToFile();
+  arrow::Status status = arrow::ConvertToFile();
   if (!status.ok()) {
-    cerr << "Could not convert to file: " << status.ToString() << endl;
+    std::cerr << "Could not convert to file: " << status.ToString() << std::endl;
     return 1;
   }
   return 0;
