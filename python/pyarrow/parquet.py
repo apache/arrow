@@ -18,7 +18,7 @@
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, Schema, ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
-from pyarrow.table import Table, concat_tables
+from pyarrow.table import concat_tables
 
 
 class ParquetFile(object):
@@ -86,6 +86,9 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
         pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
         If not None, only these columns will be read from the file.
+    nthreads : int, default 1
+        Number of columns to read in parallel. Requires that the underlying
+        file source is threadsafe
     metadata : FileMetaData
         If separately computed
 
@@ -112,6 +115,9 @@ def read_multiple_files(paths, columns=None, filesystem=None, nthreads=1,
     filesystem : Filesystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
         filesystem
+    nthreads : int, default 1
+        Number of columns to read in parallel. Requires that the underlying
+        file source is threadsafe
     metadata : pyarrow.parquet.FileMetaData
         Use metadata obtained elsewhere to validate file schemas
     schema : pyarrow.parquet.Schema
