@@ -321,6 +321,24 @@ def test_compare_schemas():
 
 
 @parquet
+def test_multithreaded_read():
+    df = alltypes_sample(size=10000)
+
+    table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(table, buf, compression='SNAPPY', version='2.0')
+
+    buf.seek(0)
+    table1 = pq.read_table(buf, nthreads=4)
+
+    buf.seek(0)
+    table2 = pq.read_table(buf, nthreads=1)
+
+    assert table1.equals(table2)
+
+
+@parquet
 def test_pass_separate_metadata():
     # ARROW-471
     df = alltypes_sample(size=10000)
