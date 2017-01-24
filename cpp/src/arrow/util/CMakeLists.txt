@@ -68,4 +68,30 @@ if (ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
+if (ARROW_BUILD_UTILITIES)
+  if (APPLE)
+    set(UTIL_LINK_LIBS
+      arrow_ipc_static
+      arrow_io_static
+      arrow_static
+      boost_filesystem_static
+      boost_system_static
+      dl)
+  else()
+    set(UTIL_LINK_LIBS
+      arrow_ipc_static
+      arrow_io_static
+      arrow_static
+      pthread
+      boost_filesystem_static
+      boost_system_static
+      dl)
+  endif()
+
+  add_executable(file-to-stream file-to-stream.cc)
+  target_link_libraries(file-to-stream ${UTIL_LINK_LIBS})
+  add_executable(stream-to-file stream-to-file.cc)
+  target_link_libraries(stream-to-file ${UTIL_LINK_LIBS})
+endif()
+
 ADD_ARROW_TEST(bit-util-test)
