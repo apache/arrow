@@ -43,12 +43,15 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.Text;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -560,5 +563,77 @@ public class TestComplexWriter {
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
+  }
+
+  @Test
+  public void timeStampWriters() throws Exception {
+    // write
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
+    timeStampSecWriter.setPosition(0);
+    timeStampSecWriter.writeTimeStampSec(0L);
+
+    TimeStampWriter timeStampWriter = rootWriter.timeStamp("millis");
+    timeStampWriter.setPosition(1);
+    timeStampWriter.writeTimeStamp(1L);
+
+    TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
+    timeStampMicroWriter.setPosition(2);
+    timeStampMicroWriter.writeTimeStampMicro(2000L);
+
+    TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
+    timeStampNanoWriter.setPosition(3);
+    timeStampNanoWriter.writeTimeStampNano(3000000L);
+
+    // schema
+    Field secField = parent.getField().getChildren().get(0).getChildren().get(0);
+    Assert.assertEquals("sec", secField.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, secField.getType().getTypeID());
+
+    Field millisField = parent.getField().getChildren().get(0).getChildren().get(1);
+    Assert.assertEquals("millis", millisField.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, millisField.getType().getTypeID());
+
+    Field microField = parent.getField().getChildren().get(0).getChildren().get(2);
+    Assert.assertEquals("micro", microField.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, microField.getType().getTypeID());
+
+    Field nanoField = parent.getField().getChildren().get(0).getChildren().get(3);
+    Assert.assertEquals("nano", nanoField.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, nanoField.getType().getTypeID());
+
+    // read
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+
+    FieldReader secReader = rootReader.reader("sec");
+    secReader.setPosition(0);
+    DateTime secDateTime = secReader.readDateTime();
+    Assert.assertEquals(new DateTime(0L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), secDateTime);
+    long secLong = secReader.readLong();
+    Assert.assertEquals(0L, secLong);
+
+    FieldReader millisReader = rootReader.reader("millis");
+    millisReader.setPosition(1);
+    DateTime millisDateTime = millisReader.readDateTime();
+    Assert.assertEquals(new DateTime(1L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), millisDateTime);
+    long millisLong = millisReader.readLong();
+    Assert.assertEquals(1L, millisLong);
+
+    FieldReader microReader = rootReader.reader("micro");
+    microReader.setPosition(2);
+    DateTime microDateTime = microReader.readDateTime();
+    Assert.assertEquals(new DateTime(2L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), microDateTime);
+    long microLong = microReader.readLong();
+    Assert.assertEquals(2000L, microLong);
+
+    FieldReader nanoReader = rootReader.reader("nano");
+    nanoReader.setPosition(3);
+    DateTime nanoDateTime = nanoReader.readDateTime();
+    Assert.assertEquals(new DateTime(3L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), nanoDateTime);
+    long nanoLong = nanoReader.readLong();
+    Assert.assertEquals(3000000L, nanoLong);
   }
 }

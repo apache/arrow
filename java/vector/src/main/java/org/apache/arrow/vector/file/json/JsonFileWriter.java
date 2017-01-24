@@ -139,7 +139,10 @@ public class JsonFileWriter implements AutoCloseable {
 
   private void writeValueToGenerator(ValueVector valueVector, int i) throws IOException {
     switch (valueVector.getMinorType()) {
+      case TIMESTAMPSEC:
       case TIMESTAMP:
+      case TIMESTAMPMICRO:
+      case TIMESTAMPNANO:
         generator.writeNumber(((TimeStampVector)valueVector).getAccessor().get(i));
         break;
       case BIT:
