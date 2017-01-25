@@ -90,6 +90,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_ALTIVEC
     "Build Arrow with Altivec"
     ON)
+
+  option(ARROW_BUILD_UTILITIES
+    "Build Arrow commandline utilities"
+    ON)
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
