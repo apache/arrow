@@ -96,8 +96,6 @@ class SchemaVisitor : public Node::ConstVisitor {
   void Visit(const Node* node) override {
     format::SchemaElement element;
     node->ToParquet(&element);
-    // Override field_id here as we can get user-generated Nodes without a valid id
-    element.__set_field_id(elements_->size());
     elements_->push_back(element);
 
     if (node->is_group()) {

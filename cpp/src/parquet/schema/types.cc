@@ -86,16 +86,16 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       physical_type_(type),
       type_length_(length) {
   std::stringstream ss;
-  decimal_metadata_.isset = false;
+
+  // PARQUET-842: In an earlier revision, decimal_metadata_.isset was being
+  // set to true, but Impala will raise an incompatible metadata in such cases
+  memset(&decimal_metadata_, 0, sizeof(decimal_metadata_));
+
   // Check if the physical and logical types match
   // Mapping referred from Apache parquet-mr as on 2016-02-22
   switch (logical_type) {
     case LogicalType::NONE:
       // Logical type not set
-      // Clients should be able to read these values
-      decimal_metadata_.isset = true;
-      decimal_metadata_.precision = precision;
-      decimal_metadata_.scale = scale;
       break;
     case LogicalType::UTF8:
     case LogicalType::JSON:
@@ -289,7 +289,6 @@ void GroupNode::ToParquet(void* opaque_element) const {
   if (logical_type_ != LogicalType::NONE) {
     element->__set_converted_type(ToThrift(logical_type_));
   }
-  // FIXME: SchemaFlattener does this for us: element->__set_field_id(id_);
 }
 
 void PrimitiveNode::ToParquet(void* opaque_element) const {
@@ -302,8 +301,9 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
     element->__set_converted_type(ToThrift(logical_type_));
   }
   element->__set_type(ToThrift(physical_type_));
-  // FIXME: SchemaFlattener does this for us: element->__set_field_id(id_);
-  element->__set_type_length(type_length_);
+  if (physical_type_ == Type::FIXED_LEN_BYTE_ARRAY) {
+    element->__set_type_length(type_length_);
+  }
   if (decimal_metadata_.isset) {
     element->__set_precision(decimal_metadata_.precision);
     element->__set_scale(decimal_metadata_.scale);
