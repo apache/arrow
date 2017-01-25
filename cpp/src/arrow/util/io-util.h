@@ -44,7 +44,7 @@ class StdoutStream : public OutputStream {
     return Status::OK();
   }
  private:
-  long pos_;
+  int64_t pos_;
 };
 
 // Input stream that just reads from stdin.
@@ -83,7 +83,7 @@ class StdinStream : public InputStream {
   }
 
  private:
-  long pos_;
+  int64_t pos_;
 };
 
 } // namespace io
