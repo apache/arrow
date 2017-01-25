@@ -678,8 +678,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     switch (properties_->version()) {
       case ParquetVersion::PARQUET_1_0:
         file_version = 1;
+        break;
       case ParquetVersion::PARQUET_2_0:
         file_version = 2;
+        break;
       default:
         break;
     }

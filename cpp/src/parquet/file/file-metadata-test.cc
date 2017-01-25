@@ -157,6 +157,31 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(26, rg2_column2->data_page_offset());
 }
 
+TEST(Metadata, TestV1Version) {
+  // PARQUET-839
+  parquet::schema::NodeVector fields;
+  parquet::schema::NodePtr root;
+  parquet::SchemaDescriptor schema;
+
+  WriterProperties::Builder prop_builder;
+
+  std::shared_ptr<WriterProperties> props =
+      prop_builder.version(ParquetVersion::PARQUET_1_0)->build();
+
+  fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
+  fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
+  root = parquet::schema::GroupNode::Make("schema", Repetition::REPEATED, fields);
+  schema.Init(root);
+
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
+
+  // Read the metadata
+  auto f_accessor = f_builder->Finish();
+
+  // file metadata
+  ASSERT_EQ(ParquetVersion::PARQUET_1_0, f_accessor->version());
+}
+
 TEST(FileVersion, Basics) {
   FileMetaData::Version version("parquet-mr version 1.2.8");
 
