@@ -68,24 +68,20 @@ if (ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-if (ARROW_BUILD_UTILITIES)
-  if (APPLE)
+if (ARROW_IPC AND ARROW_BUILD_UTILITIES)
+  set(UTIL_LINK_LIBS
+    arrow_ipc_static
+    arrow_io_static
+    arrow_static
+    boost_filesystem_static
+    boost_system_static
+    dl)
+
+  if (NOT APPLE)
     set(UTIL_LINK_LIBS
-      arrow_ipc_static
-      arrow_io_static
-      arrow_static
+      ${UTIL_LINK_LIBS}
       boost_filesystem_static
-      boost_system_static
-      dl)
-  else()
-    set(UTIL_LINK_LIBS
-      arrow_ipc_static
-      arrow_io_static
-      arrow_static
-      pthread
-      boost_filesystem_static
-      boost_system_static
-      dl)
+      boost_system_static)
   endif()
 
   add_executable(file-to-stream file-to-stream.cc)

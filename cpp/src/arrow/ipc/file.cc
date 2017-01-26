@@ -158,6 +158,9 @@ Status FileFooter::GetSchema(std::shared_ptr<Schema>* out) const {
 // ----------------------------------------------------------------------
 // File writer implementation
 
+FileWriter::FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
+    : StreamWriter(sink, schema) {}
+
 Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     std::shared_ptr<FileWriter>* out) {
   *out = std::shared_ptr<FileWriter>(new FileWriter(sink, schema));  // ctor is private
