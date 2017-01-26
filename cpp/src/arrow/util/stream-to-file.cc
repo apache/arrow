@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iostream>
+#include "arrow/ipc/stream.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/file.h"
-#include "arrow/ipc/stream.h"
 #include "arrow/status.h"
+#include <iostream>
 
 #include "arrow/util/io-util.h"
 
@@ -46,7 +46,7 @@ Status ConvertToFile() {
   return writer->Close();
 }
 
-} // namespace arrow
+}  // namespace arrow
 
 int main(int argc, char** argv) {
   arrow::Status status = arrow::ConvertToFile();

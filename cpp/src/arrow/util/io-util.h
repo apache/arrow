@@ -18,8 +18,8 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
-#include <iostream>
 #include "arrow/buffer.h"
+#include <iostream>
 
 namespace arrow {
 namespace io {
@@ -27,13 +27,11 @@ namespace io {
 // Output stream that just writes to stdout.
 class StdoutStream : public OutputStream {
  public:
-  StdoutStream() : pos_(0) {
-    set_mode(FileMode::WRITE);
-  }
+  StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
   virtual ~StdoutStream() {}
 
   Status Close() { return Status::OK(); }
-  Status Tell(int64_t* position)  {
+  Status Tell(int64_t* position) {
     *position = pos_;
     return Status::OK();
   }
@@ -43,6 +41,7 @@ class StdoutStream : public OutputStream {
     std::cout.write(reinterpret_cast<const char*>(data), nbytes);
     return Status::OK();
   }
+
  private:
   int64_t pos_;
 };
@@ -50,13 +49,11 @@ class StdoutStream : public OutputStream {
 // Input stream that just reads from stdin.
 class StdinStream : public InputStream {
  public:
-  StdinStream() : pos_(0) {
-    set_mode(FileMode::READ);
-  }
+  StdinStream() : pos_(0) { set_mode(FileMode::READ); }
   virtual ~StdinStream() {}
 
   Status Close() { return Status::OK(); }
-  Status Tell(int64_t* position)  {
+  Status Tell(int64_t* position) {
     *position = pos_;
     return Status::OK();
   }
@@ -86,8 +83,7 @@ class StdinStream : public InputStream {
   int64_t pos_;
 };
 
-} // namespace io
-} // namespace arrow
+}  // namespace io
+}  // namespace arrow
 
-#endif // ARROW_UTIL_IO_UTIL_H
-
+#endif  // ARROW_UTIL_IO_UTIL_H
