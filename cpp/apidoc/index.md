@@ -38,8 +38,8 @@ this bitmap.
 
 As Arrow objects are immutable, there are classes provided that should help you
 build these objects. To build an array of `int64_t` elements, we can use the
-`Int64Builder`. In the following example, we build an array of the range 1 to 8
-where the element that should hold the number 4 is nulled.
+`arrow::Int64Builder`. In the following example, we build an array of the range
+1 to 8 where the element that should hold the number 4 is nulled.
 
     Int64Builder builder(arrow::default_memory_pool(), arrow::int64());
     builder.Append(1);

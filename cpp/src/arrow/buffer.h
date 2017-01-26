@@ -35,33 +35,35 @@ class Status;
 // ----------------------------------------------------------------------
 // Buffer classes
 
-// Immutable API for a chunk of bytes which may or may not be owned by the
-// class instance.  Buffers have two related notions of length: size and
-// capacity.  Size is the number of bytes that might have valid data.
-// Capacity is the number of bytes that where allocated for the buffer in
-// total.
-// The following invariant is always true: Size < Capacity
+/// Immutable API for a chunk of bytes which may or may not be owned by the
+/// class instance.
+///
+/// Buffers have two related notions of length: size and capacity. Size is
+/// the number of bytes that might have valid data. Capacity is the number
+/// of bytes that where allocated for the buffer in total.
+///
+/// The following invariant is always true: Size < Capacity
 class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
  public:
   Buffer(const uint8_t* data, int64_t size)
       : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
   virtual ~Buffer();
 
-  // An offset into data that is owned by another buffer, but we want to be
-  // able to retain a valid pointer to it even after other shared_ptr's to the
-  // parent buffer have been destroyed
-  //
-  // This method makes no assertions about alignment or padding of the buffer but
-  // in general we expected buffers to be aligned and padded to 64 bytes.  In the future
-  // we might add utility methods to help determine if a buffer satisfies this contract.
+  /// An offset into data that is owned by another buffer, but we want to be
+  /// able to retain a valid pointer to it even after other shared_ptr's to the
+  /// parent buffer have been destroyed
+  ///
+  /// This method makes no assertions about alignment or padding of the buffer but
+  /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
+  /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
 
   std::shared_ptr<Buffer> get_shared_ptr() { return shared_from_this(); }
 
   bool is_mutable() const { return is_mutable_; }
 
-  // Return true if both buffers are the same size and contain the same bytes
-  // up to the number of compared bytes
+  /// Return true if both buffers are the same size and contain the same bytes
+  /// up to the number of compared bytes
   bool Equals(const Buffer& other, int64_t nbytes) const {
     return this == &other ||
            (size_ >= nbytes && other.size_ >= nbytes &&
@@ -74,11 +76,11 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
                (data_ == other.data_ || !memcmp(data_, other.data_, size_)));
   }
 
-  // Copy section of buffer into a new Buffer
+  /// Copy a section of the buffer into a new Buffer.
   Status Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
       std::shared_ptr<Buffer>* out) const;
 
-  // Default memory pool
+  /// Copy a section of the buffer using the default memory pool into a new Buffer.
   Status Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const;
 
   int64_t capacity() const { return capacity_; }
@@ -101,12 +103,12 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
   DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
-// Construct a view on passed buffer at the indicated offset and length. This
-// function cannot fail and does not error checking (except in debug builds)
+/// Construct a view on passed buffer at the indicated offset and length. This
+/// function cannot fail and does not error checking (except in debug builds)
 ARROW_EXPORT std::shared_ptr<Buffer> SliceBuffer(
     const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length);
 
-// A Buffer whose contents can be mutated. May or may not own its data.
+/// A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
@@ -116,7 +118,7 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
 
   uint8_t* mutable_data() { return mutable_data_; }
 
-  // Get a read-only view of this buffer
+  /// Get a read-only view of this buffer
   std::shared_ptr<Buffer> GetImmutableView();
 
  protected:
@@ -135,16 +137,16 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   /// decrease.
   virtual Status Resize(int64_t new_size, bool shrink_to_fit = true) = 0;
 
-  // Ensure that buffer has enough memory allocated to fit the indicated
-  // capacity (and meets the 64 byte padding requirement in Layout.md).
-  // It does not change buffer's reported size.
+  /// Ensure that buffer has enough memory allocated to fit the indicated
+  /// capacity (and meets the 64 byte padding requirement in Layout.md).
+  /// It does not change buffer's reported size.
   virtual Status Reserve(int64_t new_capacity) = 0;
 
  protected:
   ResizableBuffer(uint8_t* data, int64_t size) : MutableBuffer(data, size) {}
 };
 
-// A Buffer whose lifetime is tied to a particular MemoryPool
+/// A Buffer whose lifetime is tied to a particular MemoryPool
 class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
   explicit PoolBuffer(MemoryPool* pool = nullptr);
@@ -162,7 +164,7 @@ class ARROW_EXPORT BufferBuilder {
   explicit BufferBuilder(MemoryPool* pool)
       : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
 
-  // Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
+  /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
   Status Resize(int32_t elements) {
     if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
     RETURN_NOT_OK(buffer_->Resize(elements));
