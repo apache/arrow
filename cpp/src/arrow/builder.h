@@ -37,10 +37,11 @@ class Array;
 
 static constexpr int32_t kMinBuilderCapacity = 1 << 5;
 
-// Base class for all data array builders.
-// This class provides a facilities for incrementally building the null bitmap
-// (see Append methods) and as a side effect the current number of slots and
-// the null count.
+/// Base class for all data array builders.
+//
+/// This class provides a facilities for incrementally building the null bitmap
+/// (see Append methods) and as a side effect the current number of slots and
+/// the null count.
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
@@ -54,8 +55,8 @@ class ARROW_EXPORT ArrayBuilder {
 
   virtual ~ArrayBuilder() = default;
 
-  // For nested types. Since the objects are owned by this class instance, we
-  // skip shared pointers and just return a raw pointer
+  /// For nested types. Since the objects are owned by this class instance, we
+  /// skip shared pointers and just return a raw pointer
   ArrayBuilder* child(int i) { return children_[i].get(); }
 
   int num_children() const { return children_.size(); }
@@ -64,37 +65,37 @@ class ARROW_EXPORT ArrayBuilder {
   int32_t null_count() const { return null_count_; }
   int32_t capacity() const { return capacity_; }
 
-  // Append to null bitmap
+  /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
-  // Vector append. Treat each zero byte as a null.   If valid_bytes is null
-  // assume all of length bits are valid.
+  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
+  /// assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int32_t length);
-  // Set the next length bits to not null (i.e. valid).
+  /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int32_t length);
 
-  // Allocates initial capacity requirements for the builder.  In most
-  // cases subclasses should override and call there parent classes
-  // method as well.
+  /// Allocates initial capacity requirements for the builder.  In most
+  /// cases subclasses should override and call there parent classes
+  /// method as well.
   virtual Status Init(int32_t capacity);
 
-  // Resizes the null_bitmap array.  In most
-  // cases subclasses should override and call there parent classes
-  // method as well.
+  /// Resizes the null_bitmap array.  In most
+  /// cases subclasses should override and call there parent classes
+  /// method as well.
   virtual Status Resize(int32_t new_bits);
 
-  // Ensures there is enough space for adding the number of elements by checking
-  // capacity and calling Resize if necessary.
+  /// Ensures there is enough space for adding the number of elements by checking
+  /// capacity and calling Resize if necessary.
   Status Reserve(int32_t elements);
 
-  // For cases where raw data was memcpy'd into the internal buffers, allows us
-  // to advance the length of the builder. It is your responsibility to use
-  // this function responsibly.
+  /// For cases where raw data was memcpy'd into the internal buffers, allows us
+  /// to advance the length of the builder. It is your responsibility to use
+  /// this function responsibly.
   Status Advance(int32_t elements);
 
   std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
-  // Creates new array object to hold the contents of the builder and transfers
-  // ownership of the data.  This resets all variables on the builder.
+  /// Creates new Array object to hold the contents of the builder and transfers
+  /// ownership of the data.  This resets all variables on the builder.
   virtual Status Finish(std::shared_ptr<Array>* out) = 0;
 
   std::shared_ptr<DataType> type() const { return type_; }
@@ -144,7 +145,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   using ArrayBuilder::Advance;
 
-  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
@@ -159,18 +160,18 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
+  /// Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
   Status Append(
       const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int32_t capacity) override;
 
-  // Increase the capacity of the builder to accommodate at least the indicated
-  // number of elements
+  /// Increase the capacity of the builder to accommodate at least the indicated
+  /// number of elements
   Status Resize(int32_t capacity) override;
 
  protected:
@@ -178,6 +179,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   value_type* raw_data_;
 };
 
+/// Base class for all Builders that emit an Array of a scalar numerical type.
 template <typename T>
 class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
  public:
@@ -189,14 +191,18 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
 
-  // Scalar append.
+  /// Append a single scalar and increase the size if necessary.
   Status Append(value_type val) {
     RETURN_NOT_OK(ArrayBuilder::Reserve(1));
     UnsafeAppend(val);
     return Status::OK();
   }
 
-  // Does not capacity-check; make sure to call Reserve beforehand
+  /// Append a single scalar under the assumption that the underlying Buffer is
+  /// large enough.
+  ///
+  /// This method does not capacity-check; make sure to call Reserve
+  /// beforehand.
   void UnsafeAppend(value_type val) {
     BitUtil::SetBit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
@@ -235,7 +241,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   using ArrayBuilder::Advance;
 
-  // Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
@@ -250,7 +256,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  // Scalar append
+  /// Scalar append
   Status Append(bool val) {
     Reserve(1);
     BitUtil::SetBit(null_bitmap_data_, length_);
@@ -263,18 +269,18 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
+  /// Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
   Status Append(
       const uint8_t* values, int32_t length, const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int32_t capacity) override;
 
-  // Increase the capacity of the builder to accommodate at least the indicated
-  // number of elements
+  /// Increase the capacity of the builder to accommodate at least the indicated
+  /// number of elements
   Status Resize(int32_t capacity) override;
 
  protected:
@@ -285,26 +291,26 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 // ----------------------------------------------------------------------
 // List builder
 
-// Builder class for variable-length list array value types
-//
-// To use this class, you must append values to the child array builder and use
-// the Append function to delimit each distinct list value (once the values
-// have been appended to the child array) or use the bulk API to append
-// a sequence of offests and null values.
-//
-// A note on types.  Per arrow/type.h all types in the c++ implementation are
-// logical so even though this class always builds list array, this can
-// represent multiple different logical types.  If no logical type is provided
-// at construction time, the class defaults to List<T> where t is taken from the
-// value_builder/values that the object is constructed with.
+/// Builder class for variable-length list array value types
+///
+/// To use this class, you must append values to the child array builder and use
+/// the Append function to delimit each distinct list value (once the values
+/// have been appended to the child array) or use the bulk API to append
+/// a sequence of offests and null values.
+///
+/// A note on types.  Per arrow/type.h all types in the c++ implementation are
+/// logical so even though this class always builds list array, this can
+/// represent multiple different logical types.  If no logical type is provided
+/// at construction time, the class defaults to List<T> where t is taken from the
+/// value_builder/values that the object is constructed with.
 class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
-  // Use this constructor to incrementally build the value array along with offsets and
-  // null bitmap.
+  /// Use this constructor to incrementally build the value array along with offsets and
+  /// null bitmap.
   ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
       const TypePtr& type = nullptr);
 
-  // Use this constructor to build the list with a pre-existing values array
+  /// Use this constructor to build the list with a pre-existing values array
   ListBuilder(
       MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
 
@@ -314,10 +320,10 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status Resize(int32_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
 
-  // Vector append
-  //
-  // If passed, valid_bytes is of equal length to values, and any zero byte
-  // will be considered as a null for that slot
+  /// Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
   Status Append(
       const int32_t* offsets, int32_t length, const uint8_t* valid_bytes = nullptr) {
     RETURN_NOT_OK(Reserve(length));
@@ -326,10 +332,10 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  // Start a new variable-length list slot
-  //
-  // This function should be called before beginning to append elements to the
-  // value builder
+  /// Start a new variable-length list slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// value builder
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
@@ -396,9 +402,9 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
 // ---------------------------------------------------------------------------------
 // StructArray builder
-// Append, Resize and Reserve methods are acting on StructBuilder.
-// Please make sure all these methods of all child-builders' are consistently
-// called to maintain data-structure consistency.
+/// Append, Resize and Reserve methods are acting on StructBuilder.
+/// Please make sure all these methods of all child-builders' are consistently
+/// called to maintain data-structure consistency.
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
@@ -409,18 +415,18 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
-  // Null bitmap is of equal length to every child field, and any zero byte
-  // will be considered as a null for that field, but users must using app-
-  // end methods or advance methods of the child builders' independently to
-  // insert data.
+  /// Null bitmap is of equal length to every child field, and any zero byte
+  /// will be considered as a null for that field, but users must using app-
+  /// end methods or advance methods of the child builders' independently to
+  /// insert data.
   Status Append(int32_t length, const uint8_t* valid_bytes) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
-  // Append an element to the Struct. All child-builders' Append method must
-  // be called independently to maintain data-structure consistency.
+  /// Append an element to the Struct. All child-builders' Append method must
+  /// be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
