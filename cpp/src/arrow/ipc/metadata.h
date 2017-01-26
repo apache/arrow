@@ -85,12 +85,12 @@ class ARROW_EXPORT SchemaMetadata {
 };
 
 // Field metadata
-struct FieldMetadata {
+struct ARROW_EXPORT FieldMetadata {
   int32_t length;
   int32_t null_count;
 };
 
-struct BufferMetadata {
+struct ARROW_EXPORT BufferMetadata {
   int32_t page;
   int64_t offset;
   int64_t length;
@@ -149,7 +149,7 @@ class ARROW_EXPORT Message {
   std::unique_ptr<MessageImpl> impl_;
 };
 
-struct FileBlock {
+struct ARROW_EXPORT FileBlock {
   FileBlock() {}
   FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
       : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
