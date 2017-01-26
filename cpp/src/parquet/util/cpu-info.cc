@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 
@@ -53,6 +54,7 @@ int64_t CpuInfo::cache_sizes_[L3_CACHE + 1];
 int64_t CpuInfo::cycles_per_ms_;
 int CpuInfo::num_cores_ = 1;
 string CpuInfo::model_name_ = "unknown";  // NOLINT
+static std::mutex cpuinfo_mutex;
 
 static struct {
   string name;
@@ -76,6 +78,10 @@ int64_t ParseCPUFlags(const string& values) {
 }
 
 void CpuInfo::Init() {
+  std::lock_guard<std::mutex> cpuinfo_lock(cpuinfo_mutex);
+
+  if (initialized()) { return; }
+
   string line;
   string name;
   string value;
