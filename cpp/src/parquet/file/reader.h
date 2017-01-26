@@ -29,7 +29,7 @@
 #include "parquet/column/properties.h"
 #include "parquet/column/statistics.h"
 #include "parquet/file/metadata.h"
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 

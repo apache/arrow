@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/comparison.h"
 

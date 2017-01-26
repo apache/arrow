@@ -15,31 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Conversion routines for converting to and from flat Parquet metadata. Among
-// other things, this limits the exposure of the internals of the Thrift
-// metadata structs to the rest of the library.
+// This module contains the logical parquet-cpp types (independent of Thrift
+// structures), schema nodes, and related type tools
 
-// NB: This file is not part of the schema public API and only used internally
-// for converting to and from Parquet Thrift metadata
+#ifndef PARQUET_SCHEMA_INTERNAL_H
+#define PARQUET_SCHEMA_INTERNAL_H
 
-#ifndef PARQUET_SCHEMA_CONVERTER_H
-#define PARQUET_SCHEMA_CONVERTER_H
-
+#include <cstdint>
 #include <memory>
 #include <vector>
 
+#include "parquet/schema.h"
+#include "parquet/thrift/parquet_types.h"
+#include "parquet/types.h"
+#include "parquet/util/macros.h"
+#include "parquet/util/visibility.h"
+
 namespace parquet {
-
-namespace format {
-class SchemaElement;
-}
-
-class SchemaDescriptor;
-
 namespace schema {
-
-class GroupNode;
-class Node;
 
 // ----------------------------------------------------------------------
 // Conversion from Parquet Thrift metadata
@@ -85,7 +78,6 @@ class SchemaFlattener {
 };
 
 }  // namespace schema
-
 }  // namespace parquet
 
-#endif  // PARQUET_SCHEMA_CONVERTER_H
+#endif  // PARQUET_SCHEMA_INTERNAL_H

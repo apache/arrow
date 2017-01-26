@@ -23,7 +23,7 @@
 
 #include "parquet/encodings/decoder.h"
 #include "parquet/encodings/encoder.h"
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/util/bit-stream-utils.inline.h"
 #include "parquet/util/memory.h"
 

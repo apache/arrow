@@ -26,7 +26,7 @@
 #include "parquet/column/statistics.h"
 #include "parquet/encodings/encoder.h"
 #include "parquet/file/metadata.h"
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

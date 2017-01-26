@@ -22,8 +22,7 @@
 #include <memory>
 
 #include "parquet/column/properties.h"
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/types.h"
+#include "parquet/schema.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 

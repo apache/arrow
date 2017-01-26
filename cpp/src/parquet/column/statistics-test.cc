@@ -31,7 +31,7 @@
 #include "parquet/column/writer.h"
 #include "parquet/file/reader.h"
 #include "parquet/file/writer.h"
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 

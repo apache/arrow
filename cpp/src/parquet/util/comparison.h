@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 
 namespace parquet {

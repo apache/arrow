@@ -29,7 +29,7 @@
 #include "parquet/column/page.h"
 #include "parquet/encodings/decoder.h"
 #include "parquet/exception.h"
-#include "parquet/schema/descriptor.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

@@ -28,8 +28,7 @@
 #include "parquet/column/scanner.h"
 #include "parquet/column/test-specialization.h"
 #include "parquet/column/test-util.h"
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/types.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/test-common.h"
 

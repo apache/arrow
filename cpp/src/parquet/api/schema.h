@@ -19,8 +19,6 @@
 #define PARQUET_API_SCHEMA_H
 
 // Schemas
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/printer.h"
-#include "parquet/schema/types.h"
+#include "parquet/schema.h"
 
 #endif  // PARQUET_API_SCHEMA_H

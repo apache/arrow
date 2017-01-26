@@ -17,8 +17,7 @@
 
 #include "parquet/column/statistics.h"
 #include "parquet/file/metadata.h"
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/types.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include <gtest/gtest.h>
 

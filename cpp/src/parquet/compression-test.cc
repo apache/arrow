@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/compression/codec.h"
+#include "parquet/compression.h"
 #include "parquet/util/test-common.h"
 
 using std::string;

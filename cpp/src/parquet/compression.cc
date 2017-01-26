@@ -15,14 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstring>
-#include <sstream>
+#include <cstdint>
+#include <memory>
 #include <string>
 
-#include "parquet/compression/codec.h"
+#include <brotli/decode.h>
+#include <brotli/encode.h>
+#include <snappy.h>
+
+#include "parquet/compression.h"
 #include "parquet/exception.h"
+#include "parquet/types.h"
 
 namespace parquet {
+
+std::unique_ptr<Codec> Codec::Create(Compression::type codec_type) {
+  std::unique_ptr<Codec> result;
+  switch (codec_type) {
+    case Compression::UNCOMPRESSED:
+      break;
+    case Compression::SNAPPY:
+      result.reset(new SnappyCodec());
+      break;
+    case Compression::GZIP:
+      result.reset(new GZipCodec());
+      break;
+    case Compression::LZO:
+      ParquetException::NYI("LZO codec not implemented");
+      break;
+    case Compression::BROTLI:
+      result.reset(new BrotliCodec());
+      break;
+    default:
+      ParquetException::NYI("Unrecognized codec");
+      break;
+  }
+  return result;
+}
+
+// ----------------------------------------------------------------------
+// gzip implementation
 
 // These are magic numbers from zlib.h.  Not clear why they are not defined
 // there.
@@ -170,6 +202,58 @@ int64_t GZipCodec::Compress(
 
   // Actual output length
   return output_length - stream_.avail_out;
+}
+
+// ----------------------------------------------------------------------
+// Snappy implementation
+
+void SnappyCodec::Decompress(
+    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
+  if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
+          static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer))) {
+    throw parquet::ParquetException("Corrupt snappy compressed data.");
+  }
+}
+
+int64_t SnappyCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
+  return snappy::MaxCompressedLength(input_len);
+}
+
+int64_t SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
+    int64_t output_buffer_len, uint8_t* output_buffer) {
+  size_t output_len;
+  snappy::RawCompress(reinterpret_cast<const char*>(input),
+      static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer),
+      &output_len);
+  return output_len;
+}
+
+// ----------------------------------------------------------------------
+// Brotli implementation
+
+void BrotliCodec::Decompress(
+    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
+  size_t output_size = output_len;
+  if (BrotliDecoderDecompress(input_len, input, &output_size, output_buffer) !=
+      BROTLI_DECODER_RESULT_SUCCESS) {
+    throw parquet::ParquetException("Corrupt brotli compressed data.");
+  }
+}
+
+int64_t BrotliCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
+  return BrotliEncoderMaxCompressedSize(input_len);
+}
+
+int64_t BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
+    int64_t output_buffer_len, uint8_t* output_buffer) {
+  size_t output_len = output_buffer_len;
+  // TODO: Make quality configurable. We use 8 as a default as it is the best
+  //       trade-off for Parquet workload
+  if (BrotliEncoderCompress(8, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, input_len,
+          input, &output_len, output_buffer) == BROTLI_FALSE) {
+    throw parquet::ParquetException("Brotli compression failure.");
+  }
+  return output_len;
 }
 
 }  // namespace parquet

@@ -24,7 +24,7 @@
 
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
-#include "parquet/compression/codec.h"
+#include "parquet/compression.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/reader.h"
 #include "parquet/thrift/parquet_types.h"

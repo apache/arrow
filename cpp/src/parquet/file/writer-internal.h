@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "parquet/column/page.h"
-#include "parquet/compression/codec.h"
+#include "parquet/compression.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/writer.h"
 #include "parquet/thrift/parquet_types.h"

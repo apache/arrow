@@ -18,7 +18,8 @@
 #include "parquet/file/writer-internal.h"
 
 #include "parquet/column/writer.h"
-#include "parquet/schema/converter.h"
+#include "parquet/schema-internal.h"
+#include "parquet/schema.h"
 #include "parquet/thrift/util.h"
 #include "parquet/util/memory.h"
 

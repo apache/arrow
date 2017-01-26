@@ -24,8 +24,7 @@
 
 #include "parquet/encodings/dictionary-encoding.h"
 #include "parquet/encodings/plain-encoding.h"
-#include "parquet/schema/descriptor.h"
-#include "parquet/schema/types.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/bit-util.h"
 #include "parquet/util/memory.h"
