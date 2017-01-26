@@ -78,7 +78,7 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
   Status Close() override;
 
  private:
-  using StreamWriter::StreamWriter;
+  FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   Status Start() override;
 

@@ -42,7 +42,7 @@ struct ObjectType {
   enum type { FILE, DIRECTORY };
 };
 
-class FileSystemClient {
+class ARROW_EXPORT FileSystemClient {
  public:
   virtual ~FileSystemClient() {}
 };
@@ -64,7 +64,7 @@ class ARROW_EXPORT FileInterface {
   DISALLOW_COPY_AND_ASSIGN(FileInterface);
 };
 
-class Seekable {
+class ARROW_EXPORT Seekable {
  public:
   virtual Status Seek(int64_t position) = 0;
 };
@@ -76,7 +76,7 @@ class ARROW_EXPORT Writeable {
   Status Write(const std::string& data);
 };
 
-class Readable {
+class ARROW_EXPORT Readable {
  public:
   virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
 
@@ -84,12 +84,12 @@ class Readable {
   virtual Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 };
 
-class OutputStream : virtual public FileInterface, public Writeable {
+class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writeable {
  protected:
   OutputStream() {}
 };
 
-class InputStream : virtual public FileInterface, public Readable {
+class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
  protected:
   InputStream() {}
 };
@@ -118,7 +118,7 @@ class ARROW_EXPORT ReadableFileInterface : public InputStream, public Seekable {
   ReadableFileInterface();
 };
 
-class WriteableFileInterface : public OutputStream, public Seekable {
+class ARROW_EXPORT WriteableFileInterface : public OutputStream, public Seekable {
  public:
   virtual Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) = 0;
 
@@ -126,8 +126,8 @@ class WriteableFileInterface : public OutputStream, public Seekable {
   WriteableFileInterface() { set_mode(FileMode::READ); }
 };
 
-class ReadWriteFileInterface : public ReadableFileInterface,
-                               public WriteableFileInterface {
+class ARROW_EXPORT ReadWriteFileInterface : public ReadableFileInterface,
+                                            public WriteableFileInterface {
  protected:
   ReadWriteFileInterface() { ReadableFileInterface::set_mode(FileMode::READWRITE); }
 };

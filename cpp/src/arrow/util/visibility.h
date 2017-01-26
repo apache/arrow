@@ -19,6 +19,11 @@
 #define ARROW_UTIL_VISIBILITY_H
 
 #if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 #define ARROW_EXPORT __declspec(dllexport)
 #define ARROW_NO_EXPORT
 #else  // Not Windows

@@ -341,14 +341,12 @@ TEST_F(TestReadableFile, ThreadSafety) {
   std::atomic<int> correct_count(0);
   const int niter = 10000;
 
-  auto ReadData = [&correct_count, &data, niter, this] () {
+  auto ReadData = [&correct_count, &data, niter, this]() {
     std::shared_ptr<Buffer> buffer;
 
     for (int i = 0; i < niter; ++i) {
       ASSERT_OK(file_->ReadAt(0, 3, &buffer));
-      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
-        correct_count += 1;
-      }
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) { correct_count += 1; }
     }
   };
 
@@ -498,20 +496,18 @@ TEST_F(TestMemoryMappedFile, ThreadSafety) {
 
   std::shared_ptr<MemoryMappedFile> file;
   ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &file));
-  ASSERT_OK(file->Write(reinterpret_cast<const uint8_t*>(data.c_str()),
-          static_cast<int64_t>(data.size())));
+  ASSERT_OK(file->Write(
+      reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<int64_t>(data.size())));
 
   std::atomic<int> correct_count(0);
   const int niter = 10000;
 
-  auto ReadData = [&correct_count, &data, niter, &file] () {
+  auto ReadData = [&correct_count, &data, niter, &file]() {
     std::shared_ptr<Buffer> buffer;
 
     for (int i = 0; i < niter; ++i) {
       ASSERT_OK(file->ReadAt(0, 3, &buffer));
-      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
-        correct_count += 1;
-      }
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) { correct_count += 1; }
     }
   };
 
