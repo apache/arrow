@@ -431,12 +431,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
   // There are 3 encodings (RLE, PLAIN_DICTIONARY, PLAIN) in a fallback case
   // Dictionary encoding is not allowed for boolean type
   // There are 2 encodings (RLE, PLAIN) in a non dictionary encoding case
-  ASSERT_EQ(Encoding::RLE, encodings[0]);
   if (this->type_num() != Type::BOOLEAN) {
-    ASSERT_EQ(Encoding::PLAIN_DICTIONARY, encodings[1]);
-    ASSERT_EQ(Encoding::PLAIN, encodings[2]);
-  } else {
+    ASSERT_EQ(Encoding::PLAIN_DICTIONARY, encodings[0]);
     ASSERT_EQ(Encoding::PLAIN, encodings[1]);
+    ASSERT_EQ(Encoding::RLE, encodings[2]);
+  } else {
+    ASSERT_EQ(Encoding::PLAIN, encodings[0]);
+    ASSERT_EQ(Encoding::RLE, encodings[1]);
   }
 }
 

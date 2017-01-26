@@ -57,10 +57,10 @@ void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
   if (encoding == Encoding::RLE) {
     // leave space to write the rle length value
     encoder.Init(
-        encoding, max_level, num_levels, bytes.data() + sizeof(uint32_t), bytes.size());
+        encoding, max_level, num_levels, bytes.data() + sizeof(int32_t), bytes.size());
 
     levels_count = encoder.Encode(num_levels, input_levels);
-    (reinterpret_cast<uint32_t*>(bytes.data()))[0] = encoder.len();
+    (reinterpret_cast<int32_t*>(bytes.data()))[0] = encoder.len();
   } else {
     encoder.Init(encoding, max_level, num_levels, bytes.data(), bytes.size());
     levels_count = encoder.Encode(num_levels, input_levels);

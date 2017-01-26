@@ -406,7 +406,7 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
     RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), properties, &nodes[i]));
   }
 
-  NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
+  NodePtr schema = GroupNode::Make("schema", Repetition::REQUIRED, nodes);
   *out = std::make_shared<::parquet::SchemaDescriptor>();
   PARQUET_CATCH_NOT_OK((*out)->Init(schema));
 

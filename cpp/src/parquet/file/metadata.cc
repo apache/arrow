@@ -485,16 +485,17 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_uncompressed_size(uncompressed_size);
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
     std::vector<format::Encoding::type> thrift_encodings;
-    thrift_encodings.push_back(ToThrift(Encoding::RLE));
     if (has_dictionary) {
-      thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
-      // add the encoding only if it is unique
-      if (properties_->version() == ParquetVersion::PARQUET_2_0) {
-        thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
+      thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
+      if (properties_->version() == ParquetVersion::PARQUET_1_0) {
+        thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
+      } else {
+        thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
       }
     } else {  // Dictionary not enabled
       thrift_encodings.push_back(ToThrift(properties_->encoding(column_->path())));
     }
+    thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Only PLAIN encoding is supported for fallback in V1
     // TODO(majetideepak): Use user specified encoding for V2
     if (dictionary_fallback) { thrift_encodings.push_back(ToThrift(Encoding::PLAIN)); }

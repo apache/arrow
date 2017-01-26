@@ -77,17 +77,16 @@ std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(
   // TODO: This only works with due to some RLE specifics
   int64_t rle_size =
       LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, num_buffered_values_) +
-      sizeof(uint32_t);
+      sizeof(int32_t);
   std::shared_ptr<PoolBuffer> buffer_rle =
       AllocateBuffer(properties_->allocator(), rle_size);
   level_encoder_.Init(Encoding::RLE, max_level, num_buffered_values_,
-      buffer_rle->mutable_data() + sizeof(uint32_t),
-      buffer_rle->size() - sizeof(uint32_t));
+      buffer_rle->mutable_data() + sizeof(int32_t), buffer_rle->size() - sizeof(int32_t));
   int encoded = level_encoder_.Encode(
       num_buffered_values_, reinterpret_cast<const int16_t*>(buffer->data()));
   DCHECK_EQ(encoded, num_buffered_values_);
-  reinterpret_cast<uint32_t*>(buffer_rle->mutable_data())[0] = level_encoder_.len();
-  int64_t encoded_size = level_encoder_.len() + sizeof(uint32_t);
+  reinterpret_cast<int32_t*>(buffer_rle->mutable_data())[0] = level_encoder_.len();
+  int64_t encoded_size = level_encoder_.len() + sizeof(int32_t);
   DCHECK(rle_size >= encoded_size);
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(encoded_size));
   return std::static_pointer_cast<Buffer>(buffer_rle);

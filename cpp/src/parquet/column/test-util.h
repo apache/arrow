@@ -182,8 +182,8 @@ class DataPageBuilder {
 
     encoder.Encode(levels.size(), levels.data());
 
-    uint32_t rle_bytes = encoder.len();
-    sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(uint32_t));
+    int32_t rle_bytes = encoder.len();
+    sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(int32_t));
     sink_->Write(encode_buffer.data(), rle_bytes);
   }
 };
