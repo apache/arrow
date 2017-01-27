@@ -526,6 +526,8 @@ cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
 
     if isinstance(source, six.string_types):
         source = MemoryMappedFile(source, mode='r')
+    elif isinstance(source, Buffer):
+        source = BufferReader(source)
     elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
         # Optimistically hope this is file-like
         source = PythonFileInterface(source, mode='r')

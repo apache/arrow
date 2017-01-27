@@ -36,7 +36,7 @@ class MessagingTest(object):
         return io.BytesIO()
 
     def _get_source(self):
-        return self.sink.getvalue()
+        return pa.BufferReader(self.sink.getvalue())
 
     def write_batches(self):
         nrows = 5
@@ -74,7 +74,7 @@ class TestFile(MessagingTest, unittest.TestCase):
         batches = self.write_batches()
         file_contents = self._get_source()
 
-        reader = pa.FileReader(pa.BufferReader(file_contents))
+        reader = pa.FileReader(file_contents)
 
         assert reader.num_record_batches == len(batches)
 
@@ -92,7 +92,7 @@ class TestStream(MessagingTest, unittest.TestCase):
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(pa.BufferReader(file_contents))
+        reader = pa.StreamReader(file_contents)
 
         total = 0
         for i, next_batch in enumerate(reader):
