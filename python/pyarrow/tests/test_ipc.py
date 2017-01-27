@@ -83,6 +83,16 @@ class TestFile(MessagingTest, unittest.TestCase):
             batch = reader.get_batch(i)
             assert batches[i].equals(batch)
 
+    def test_read_all(self):
+        batches = self.write_batches()
+        file_contents = self._get_source()
+
+        reader = pa.FileReader(file_contents)
+
+        result = reader.read_all()
+        expected = pa.Table.from_batches(batches)
+        assert result.equals(expected)
+
 
 class TestStream(MessagingTest, unittest.TestCase):
 
@@ -103,6 +113,15 @@ class TestStream(MessagingTest, unittest.TestCase):
 
         with pytest.raises(StopIteration):
             reader.get_next_batch()
+
+    def test_read_all(self):
+        batches = self.write_batches()
+        file_contents = self._get_source()
+        reader = pa.StreamReader(file_contents)
+
+        result = reader.read_all()
+        expected = pa.Table.from_batches(batches)
+        assert result.equals(expected)
 
 
 class TestInMemoryFile(TestFile):

@@ -34,7 +34,8 @@ cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow.compat import frombytes, tobytes, encode_file_path
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport Schema
-from pyarrow.table cimport RecordBatch, batch_from_cbatch
+from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
+                            table_from_ctable)
 
 cimport cpython as cp
 
@@ -936,6 +937,27 @@ cdef class _StreamReader:
 
         return batch_from_cbatch(batch)
 
+    def read_all(self):
+        """
+        Read all record batches as a pyarrow.Table
+        """
+        cdef:
+            vector[shared_ptr[CRecordBatch]] batches
+            shared_ptr[CRecordBatch] batch
+            shared_ptr[CTable] table
+            c_string name = b''
+
+        with nogil:
+            while True:
+                check_status(self.reader.get().GetNextRecordBatch(&batch))
+                if batch.get() == NULL:
+                    break
+                batches.push_back(batch)
+
+            check_status(CTable.FromRecordBatches(name, batches, &table))
+
+        return table_from_ctable(table)
+
 
 cdef class _FileWriter(_StreamWriter):
 
@@ -997,3 +1019,23 @@ cdef class _FileReader:
     # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
     # time has passed
     get_record_batch = get_batch
+
+    def read_all(self):
+        """
+        Read all record batches as a pyarrow.Table
+        """
+        cdef:
+            vector[shared_ptr[CRecordBatch]] batches
+            shared_ptr[CTable] table
+            c_string name = b''
+            int i, nbatches
+
+        nbatches = self.num_record_batches
+
+        batches.resize(nbatches)
+        with nogil:
+            for i in range(nbatches):
+                check_status(self.reader.get().GetRecordBatch(i, &batches[i]))
+            check_status(CTable.FromRecordBatches(name, batches, &table))
+
+        return table_from_ctable(table)
