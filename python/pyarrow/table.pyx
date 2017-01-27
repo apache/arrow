@@ -690,9 +690,7 @@ cdef class Table:
         with nogil:
             check_status(CTable.FromRecordBatches(c_name, c_batches, &c_table))
 
-        table = Table()
-        table.init(c_table)
-        return table
+        return table_from_ctable(c_table)
 
     def to_pandas(self, nthreads=None):
         """
