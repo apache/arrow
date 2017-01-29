@@ -35,7 +35,7 @@
 #include <thrift/transport/TBufferTransports.h>
 
 #include "parquet/exception.h"
-#include "parquet/thrift/parquet_types.h"
+#include "parquet/parquet_types.h"
 #include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
 

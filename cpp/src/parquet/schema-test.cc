@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "parquet/exception.h"
+#include "parquet/parquet_types.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
-#include "parquet/thrift/parquet_types.h"
 #include "parquet/types.h"
 
 using std::string;

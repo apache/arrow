@@ -23,7 +23,7 @@
 #include "parquet/file/metadata.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
-#include "parquet/thrift/util.h"
+#include "parquet/thrift.h"
 #include "parquet/util/memory.h"
 
 #include <boost/algorithm/string.hpp>

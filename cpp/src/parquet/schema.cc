@@ -22,8 +22,8 @@
 #include <memory>
 
 #include "parquet/exception.h"
-#include "parquet/thrift/parquet_types.h"
-#include "parquet/thrift/util.h"
+#include "parquet/parquet_types.h"
+#include "parquet/thrift.h"
 
 using parquet::format::SchemaElement;
 

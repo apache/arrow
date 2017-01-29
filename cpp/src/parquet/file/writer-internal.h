@@ -25,7 +25,7 @@
 #include "parquet/compression.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/writer.h"
-#include "parquet/thrift/parquet_types.h"
+#include "parquet/parquet_types.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {

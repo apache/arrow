@@ -25,8 +25,8 @@
 #include <memory>
 #include <vector>
 
+#include "parquet/parquet_types.h"
 #include "parquet/schema.h"
-#include "parquet/thrift/parquet_types.h"
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 #include "parquet/util/visibility.h"

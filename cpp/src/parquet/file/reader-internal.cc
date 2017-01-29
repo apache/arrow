@@ -28,7 +28,7 @@
 #include "parquet/compression.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
-#include "parquet/thrift/util.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 
