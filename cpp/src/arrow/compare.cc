@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
@@ -217,7 +218,6 @@ class RangeEqualsVisitor : public ArrayVisitor {
     if (union_mode != right.mode()) { return false; }
 
     const auto& left_type = static_cast<const UnionType&>(*left.type());
-    const auto& right_type = static_cast<const UnionType&>(*right.type());
 
     // Define a mapping from the type id to child number
     uint8_t max_code = 0;
