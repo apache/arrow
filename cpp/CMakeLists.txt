@@ -771,6 +771,7 @@ set(ARROW_SRCS
   src/arrow/buffer.cc
   src/arrow/builder.cc
   src/arrow/column.cc
+  src/arrow/compare.cc
   src/arrow/memory_pool.cc
   src/arrow/pretty_print.cc
   src/arrow/schema.cc

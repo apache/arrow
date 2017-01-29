@@ -102,15 +102,16 @@ class ARROW_EXPORT Array {
   /// Note that for `null_count == 0`, this can be a `nullptr`.
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
-  bool BaseEquals(const std::shared_ptr<Array>& arr) const;
-  bool EqualsExact(const Array& arr) const;
-  virtual bool Equals(const std::shared_ptr<Array>& arr) const = 0;
-  virtual bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
+  bool Equals(const Array& arr) const;
+  bool Equals(const std::shared_ptr<Array>& arr) const;
+
+  bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
+  bool ApproxEquals(const Array& arr) const;
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
-  virtual bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const = 0;
+  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+      const std::shared_ptr<Array>& arr) const;
 
   /// Determines if the array is internally consistent.
   ///
@@ -142,10 +143,6 @@ class ARROW_EXPORT NullArray : public Array {
 
   explicit NullArray(int32_t length) : NullArray(std::make_shared<NullType>(), length) {}
 
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
-      const std::shared_ptr<Array>& arr) const override;
-
   Status Accept(ArrayVisitor* visitor) const override;
 };
 
@@ -158,9 +155,6 @@ class ARROW_EXPORT PrimitiveArray : public Array {
   virtual ~PrimitiveArray() {}
 
   std::shared_ptr<Buffer> data() const { return data_; }
-
-  bool EqualsExact(const PrimitiveArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
 
  protected:
   PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
@@ -184,28 +178,6 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr)
       : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
-  bool EqualsExact(const NumericArray<TypeClass>& other) const {
-    return PrimitiveArray::EqualsExact(static_cast<const PrimitiveArray&>(other));
-  }
-
-  bool ApproxEquals(const std::shared_ptr<Array>& arr) const override {
-    return PrimitiveArray::Equals(arr);
-  }
-
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override {
-    if (this == arr.get()) { return true; }
-    if (!arr) { return false; }
-    if (this->type_enum() != arr->type_enum()) { return false; }
-    const auto other = static_cast<NumericArray<TypeClass>*>(arr.get());
-    for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-      const bool is_null = IsNull(i);
-      if (is_null != arr->IsNull(o_i) || (!is_null && Value(i) != other->Value(o_i))) {
-        return false;
-      }
-    }
-    return true;
-  }
   const value_type* raw_data() const {
     return reinterpret_cast<const value_type*>(raw_data_);
   }
@@ -214,78 +186,6 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   value_type Value(int i) const { return raw_data()[i]; }
 };
-
-template <>
-inline bool NumericArray<FloatType>::ApproxEquals(
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-
-  const auto& other = *static_cast<NumericArray<FloatType>*>(arr.get());
-
-  if (this == &other) { return true; }
-  if (null_count_ != other.null_count_) { return false; }
-
-  auto this_data = reinterpret_cast<const float*>(raw_data_);
-  auto other_data = reinterpret_cast<const float*>(other.raw_data_);
-
-  static constexpr float EPSILON = 1E-5;
-
-  if (length_ == 0 && other.length_ == 0) { return true; }
-
-  if (null_count_ > 0) {
-    bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
-    if (!equal_bitmap) { return false; }
-
-    for (int i = 0; i < length_; ++i) {
-      if (IsNull(i)) continue;
-      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
-    }
-  } else {
-    for (int i = 0; i < length_; ++i) {
-      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
-    }
-  }
-  return true;
-}
-
-template <>
-inline bool NumericArray<DoubleType>::ApproxEquals(
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-
-  const auto& other = *static_cast<NumericArray<DoubleType>*>(arr.get());
-
-  if (this == &other) { return true; }
-  if (null_count_ != other.null_count_) { return false; }
-
-  auto this_data = reinterpret_cast<const double*>(raw_data_);
-  auto other_data = reinterpret_cast<const double*>(other.raw_data_);
-
-  if (length_ == 0 && other.length_ == 0) { return true; }
-
-  static constexpr double EPSILON = 1E-5;
-
-  if (null_count_ > 0) {
-    bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::CeilByte(length_) / 8);
-    if (!equal_bitmap) { return false; }
-
-    for (int i = 0; i < length_; ++i) {
-      if (IsNull(i)) continue;
-      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
-    }
-  } else {
-    for (int i = 0; i < length_; ++i) {
-      if (fabs(this_data[i] - other_data[i]) > EPSILON) { return false; }
-    }
-  }
-  return true;
-}
 
 class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
@@ -296,11 +196,6 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   BooleanArray(const std::shared_ptr<DataType>& type, int32_t length,
       const std::shared_ptr<Buffer>& data, int32_t null_count = 0,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr);
-
-  bool EqualsExact(const BooleanArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
@@ -344,12 +239,6 @@ class ARROW_EXPORT ListArray : public Array {
   // Neither of these functions will perform boundschecking
   int32_t value_offset(int i) const { return offsets_[i]; }
   int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
-
-  bool EqualsExact(const ListArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
@@ -395,11 +284,6 @@ class ARROW_EXPORT BinaryArray : public Array {
   // Neither of these functions will perform boundschecking
   int32_t value_offset(int i) const { return offsets_[i]; }
   int32_t value_length(int i) const { return offsets_[i + 1] - offsets_[i]; }
-
-  bool EqualsExact(const BinaryArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
 
   Status Validate() const override;
 
@@ -459,11 +343,6 @@ class ARROW_EXPORT StructArray : public Array {
 
   const std::vector<std::shared_ptr<Array>>& fields() const { return field_arrays_; }
 
-  bool EqualsExact(const StructArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
-
   Status Accept(ArrayVisitor* visitor) const override;
 
  protected:
@@ -499,11 +378,6 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> child(int32_t pos) const;
 
   const std::vector<std::shared_ptr<Array>>& children() const { return children_; }
-
-  bool EqualsExact(const UnionArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 
@@ -554,11 +428,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> dictionary() const;
 
   const DictionaryType* dict_type() { return dict_type_; }
-
-  bool EqualsExact(const DictionaryArray& other) const;
-  bool Equals(const std::shared_ptr<Array>& arr) const override;
-  bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
 

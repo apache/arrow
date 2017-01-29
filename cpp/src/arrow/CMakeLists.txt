@@ -20,6 +20,7 @@ install(FILES
   api.h
   array.h
   column.h
+  compare.h
   buffer.h
   builder.h
   memory_pool.h
