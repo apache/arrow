@@ -484,7 +484,7 @@ Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
   return Status::OK();
 }
 
-Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
+Status ArrayRangeEquals(const Array& left, const Array& right,
     int32_t left_start_idx, int32_t left_end_idx, int32_t right_start_idx,
     bool* are_equal) {
   if (&left == &right) {
