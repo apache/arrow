@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -51,43 +52,42 @@ Array::Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null
   if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
 }
 
-bool Array::BaseEquals(const std::shared_ptr<Array>& other) const {
-  if (this == other.get()) { return true; }
-  if (!other) { return false; }
-  return EqualsExact(*other.get());
+bool Array::Equals(const Array& arr) const {
+  bool are_equal = false;
+  Status error = ArrayEquals(*this, arr, &are_equal);
+  if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
+  return are_equal;
 }
 
-bool Array::EqualsExact(const Array& other) const {
-  if (this == &other) { return true; }
-  if (length_ != other.length_ || null_count_ != other.null_count_ ||
-      type_enum() != other.type_enum()) {
-    return false;
-  }
-  if (null_count_ > 0) {
-    return null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
-  }
-  return true;
+bool Array::Equals(const std::shared_ptr<Array>& arr) const {
+  if (!arr) { return false; }
+  return Equals(*arr);
+}
+
+bool Array::ApproxEquals(const Array& arr) const {
+  bool are_equal = false;
+  Status error = ArrayApproxEquals(*this, arr, &are_equal);
+  if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
+  return are_equal;
 }
 
 bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
-  return Equals(arr);
+  if (!arr) { return false; }
+  return ApproxEquals(*arr);
+}
+
+bool Array::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
+    const std::shared_ptr<Array>& arr) const {
+  if (!arr) { return false; }
+  bool are_equal = false;
+  Status error =
+      ArrayRangeEquals(*this, *arr, start_idx, end_idx, other_start_idx, &are_equal);
+  if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
+  return are_equal;
 }
 
 Status Array::Validate() const {
   return Status::OK();
-}
-
-bool NullArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (Type::NA != arr->type_enum()) { return false; }
-  return arr->length() == length_;
-}
-
-bool NullArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_index,
-    const std::shared_ptr<Array>& arr) const {
-  if (!arr) { return false; }
-  if (Type::NA != arr->type_enum()) { return false; }
-  return true;
 }
 
 Status NullArray::Accept(ArrayVisitor* visitor) const {
@@ -105,36 +105,6 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t le
   raw_data_ = data == nullptr ? nullptr : data_->data();
 }
 
-bool PrimitiveArray::EqualsExact(const PrimitiveArray& other) const {
-  if (!Array::EqualsExact(other)) { return false; }
-
-  if (null_count_ > 0) {
-    const uint8_t* this_data = raw_data_;
-    const uint8_t* other_data = other.raw_data_;
-
-    auto size_meta = dynamic_cast<const FixedWidthType*>(type_.get());
-    int value_byte_size = size_meta->bit_width() / 8;
-    DCHECK_GT(value_byte_size, 0);
-
-    for (int i = 0; i < length_; ++i) {
-      if (!IsNull(i) && memcmp(this_data, other_data, value_byte_size)) { return false; }
-      this_data += value_byte_size;
-      other_data += value_byte_size;
-    }
-    return true;
-  } else {
-    if (length_ == 0 && other.length_ == 0) { return true; }
-    return data_->Equals(*other.data_, length_);
-  }
-}
-
-bool PrimitiveArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(static_cast<const PrimitiveArray&>(*arr.get()));
-}
-
 template <typename T>
 Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
@@ -150,6 +120,7 @@ template class NumericArray<Int32Type>;
 template class NumericArray<Int64Type>;
 template class NumericArray<TimestampType>;
 template class NumericArray<DateType>;
+template class NumericArray<TimeType>;
 template class NumericArray<HalfFloatType>;
 template class NumericArray<FloatType>;
 template class NumericArray<DoubleType>;
@@ -167,106 +138,12 @@ BooleanArray::BooleanArray(const std::shared_ptr<DataType>& type, int32_t length
     const std::shared_ptr<Buffer>& null_bitmap)
     : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
 
-bool BooleanArray::EqualsExact(const BooleanArray& other) const {
-  if (this == &other) return true;
-  if (null_count_ != other.null_count_) { return false; }
-
-  if (null_count_ > 0) {
-    bool equal_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
-    if (!equal_bitmap) { return false; }
-
-    const uint8_t* this_data = raw_data_;
-    const uint8_t* other_data = other.raw_data_;
-
-    for (int i = 0; i < length_; ++i) {
-      if (!IsNull(i) && BitUtil::GetBit(this_data, i) != BitUtil::GetBit(other_data, i)) {
-        return false;
-      }
-    }
-    return true;
-  } else {
-    return data_->Equals(*other.data_, BitUtil::BytesForBits(length_));
-  }
-}
-
-bool BooleanArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) return true;
-  if (Type::BOOL != arr->type_enum()) { return false; }
-  return EqualsExact(static_cast<const BooleanArray&>(*arr.get()));
-}
-
-bool BooleanArray::RangeEquals(int32_t start_idx, int32_t end_idx,
-    int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  const auto other = static_cast<BooleanArray*>(arr.get());
-  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-    const bool is_null = IsNull(i);
-    if (is_null != arr->IsNull(o_i) || (!is_null && Value(i) != other->Value(o_i))) {
-      return false;
-    }
-  }
-  return true;
-}
-
 Status BooleanArray::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
 }
 
 // ----------------------------------------------------------------------
 // ListArray
-
-bool ListArray::EqualsExact(const ListArray& other) const {
-  if (this == &other) { return true; }
-  if (null_count_ != other.null_count_) { return false; }
-
-  bool equal_offsets =
-      offsets_buffer_->Equals(*other.offsets_buffer_, (length_ + 1) * sizeof(int32_t));
-  if (!equal_offsets) { return false; }
-  bool equal_null_bitmap = true;
-  if (null_count_ > 0) {
-    equal_null_bitmap =
-        null_bitmap_->Equals(*other.null_bitmap_, BitUtil::BytesForBits(length_));
-  }
-
-  if (!equal_null_bitmap) { return false; }
-
-  return values()->Equals(other.values());
-}
-
-bool ListArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(static_cast<const ListArray&>(*arr.get()));
-}
-
-bool ListArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  const auto other = static_cast<ListArray*>(arr.get());
-  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-    const bool is_null = IsNull(i);
-    if (is_null != arr->IsNull(o_i)) { return false; }
-    if (is_null) continue;
-    const int32_t begin_offset = offset(i);
-    const int32_t end_offset = offset(i + 1);
-    const int32_t other_begin_offset = other->offset(o_i);
-    const int32_t other_end_offset = other->offset(o_i + 1);
-    // Underlying can't be equal if the size isn't equal
-    if (end_offset - begin_offset != other_end_offset - other_begin_offset) {
-      return false;
-    }
-    if (!values_->RangeEquals(
-            begin_offset, end_offset, other_begin_offset, other->values())) {
-      return false;
-    }
-  }
-  return true;
-}
 
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
@@ -350,51 +227,6 @@ Status BinaryArray::Validate() const {
   return Status::OK();
 }
 
-bool BinaryArray::EqualsExact(const BinaryArray& other) const {
-  if (!Array::EqualsExact(other)) { return false; }
-
-  bool equal_offsets =
-      offsets_buffer_->Equals(*other.offsets_buffer_, (length_ + 1) * sizeof(int32_t));
-  if (!equal_offsets) { return false; }
-
-  if (!data_buffer_ && !(other.data_buffer_)) { return true; }
-
-  return data_buffer_->Equals(*other.data_buffer_, raw_offsets()[length_]);
-}
-
-bool BinaryArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  return EqualsExact(static_cast<const BinaryArray&>(*arr.get()));
-}
-
-bool BinaryArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  const auto other = static_cast<const BinaryArray*>(arr.get());
-  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-    const bool is_null = IsNull(i);
-    if (is_null != arr->IsNull(o_i)) { return false; }
-    if (is_null) continue;
-    const int32_t begin_offset = offset(i);
-    const int32_t end_offset = offset(i + 1);
-    const int32_t other_begin_offset = other->offset(o_i);
-    const int32_t other_end_offset = other->offset(o_i + 1);
-    // Underlying can't be equal if the size isn't equal
-    if (end_offset - begin_offset != other_end_offset - other_begin_offset) {
-      return false;
-    }
-
-    if (std::memcmp(data_ + begin_offset, other->data_ + other_begin_offset,
-            end_offset - begin_offset)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 Status BinaryArray::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
 }
@@ -419,36 +251,6 @@ Status StringArray::Accept(ArrayVisitor* visitor) const {
 std::shared_ptr<Array> StructArray::field(int32_t pos) const {
   DCHECK_GT(field_arrays_.size(), 0);
   return field_arrays_[pos];
-}
-
-bool StructArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (this->type_enum() != arr->type_enum()) { return false; }
-  if (null_count_ != arr->null_count()) { return false; }
-  return RangeEquals(0, length_, 0, arr);
-}
-
-bool StructArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (Type::STRUCT != arr->type_enum()) { return false; }
-  const auto& other = static_cast<const StructArray&>(*arr.get());
-
-  bool equal_fields = true;
-  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-    if (IsNull(i) != arr->IsNull(o_i)) { return false; }
-    if (IsNull(i)) continue;
-    for (size_t j = 0; j < field_arrays_.size(); ++j) {
-      // TODO: really we should be comparing stretches of non-null data rather
-      // than looking at one value at a time.
-      equal_fields = field(j)->RangeEquals(i, i + 1, o_i, other.field(j));
-      if (!equal_fields) { return false; }
-    }
-  }
-
-  return true;
 }
 
 Status StructArray::Validate() const {
@@ -511,67 +313,6 @@ std::shared_ptr<Array> UnionArray::child(int32_t pos) const {
   return children_[pos];
 }
 
-bool UnionArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (!this->type_->Equals(arr->type())) { return false; }
-  if (null_count_ != arr->null_count()) { return false; }
-  return RangeEquals(0, length_, 0, arr);
-}
-
-bool UnionArray::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-    const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (!arr) { return false; }
-  if (Type::UNION != arr->type_enum()) { return false; }
-  const auto& other = static_cast<const UnionArray&>(*arr.get());
-
-  const UnionMode union_mode = mode();
-  if (union_mode != other.mode()) { return false; }
-
-  // Define a mapping from the type id to child number
-  const auto& type_codes = static_cast<const UnionType&>(*arr->type().get()).type_ids;
-  uint8_t max_code = 0;
-  for (uint8_t code : type_codes) {
-    if (code > max_code) { max_code = code; }
-  }
-
-  // Store mapping in a vector for constant time lookups
-  std::vector<uint8_t> type_id_to_child_num(max_code + 1);
-  for (uint8_t i = 0; i < static_cast<uint8_t>(type_codes.size()); ++i) {
-    type_id_to_child_num[type_codes[i]] = i;
-  }
-
-  const uint8_t* this_ids = raw_type_ids();
-  const uint8_t* other_ids = other.raw_type_ids();
-
-  uint8_t id, child_num;
-  for (int32_t i = start_idx, o_i = other_start_idx; i < end_idx; ++i, ++o_i) {
-    if (IsNull(i) != other.IsNull(o_i)) { return false; }
-    if (IsNull(i)) continue;
-    if (this_ids[i] != other_ids[o_i]) { return false; }
-
-    id = this_ids[i];
-    child_num = type_id_to_child_num[id];
-
-    // TODO(wesm): really we should be comparing stretches of non-null data
-    // rather than looking at one value at a time.
-    if (union_mode == UnionMode::SPARSE) {
-      if (!child(child_num)->RangeEquals(i, i + 1, o_i, other.child(child_num))) {
-        return false;
-      }
-    } else {
-      const int32_t offset = offsets_[i];
-      const int32_t o_offset = other.offsets_[i];
-      if (!child(child_num)->RangeEquals(
-              offset, offset + 1, o_offset, other.child(child_num))) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 Status UnionArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
 
@@ -622,25 +363,6 @@ Status DictionaryArray::Validate() const {
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
-}
-
-bool DictionaryArray::EqualsExact(const DictionaryArray& other) const {
-  if (!dictionary()->Equals(other.dictionary())) { return false; }
-  return indices_->Equals(other.indices());
-}
-
-bool DictionaryArray::Equals(const std::shared_ptr<Array>& arr) const {
-  if (this == arr.get()) { return true; }
-  if (Type::DICTIONARY != arr->type_enum()) { return false; }
-  return EqualsExact(static_cast<const DictionaryArray&>(*arr.get()));
-}
-
-bool DictionaryArray::RangeEquals(int32_t start_idx, int32_t end_idx,
-    int32_t other_start_idx, const std::shared_ptr<Array>& arr) const {
-  if (Type::DICTIONARY != arr->type_enum()) { return false; }
-  const auto& dict_other = static_cast<const DictionaryArray&>(*arr.get());
-  if (!dictionary()->Equals(dict_other.dictionary())) { return false; }
-  return indices_->RangeEquals(start_idx, end_idx, other_start_idx, dict_other.indices());
 }
 
 Status DictionaryArray::Accept(ArrayVisitor* visitor) const {

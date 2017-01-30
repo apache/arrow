@@ -153,14 +153,6 @@ static inline bool PyObject_is_string(const PyObject* obj) {
 #endif
 }
 
-static inline bool PyObject_is_bool(const PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
-  return PyString_Check(obj) || PyBytes_Check(obj);
-#else
-  return PyString_Check(obj) || PyUnicode_Check(obj);
-#endif
-}
-
 template <int TYPE>
 static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap) {
   typedef npy_traits<TYPE> traits;

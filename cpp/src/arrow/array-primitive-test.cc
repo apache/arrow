@@ -135,7 +135,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(nullptr, builder->data());
 
     ASSERT_EQ(ex_null_count, result->null_count());
-    ASSERT_TRUE(result->EqualsExact(*expected.get()));
+    ASSERT_TRUE(result->Equals(*expected));
   }
 
  protected:
@@ -238,7 +238,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
     bool actual = BitUtil::GetBit(result->raw_data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
-  ASSERT_TRUE(result->EqualsExact(*expected.get()));
+  ASSERT_TRUE(result->Equals(*expected));
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
