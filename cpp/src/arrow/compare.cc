@@ -85,7 +85,8 @@ class RangeEqualsVisitor : public ArrayVisitor {
         return false;
       }
 
-      if (std::memcmp(left.data()->data() + begin_offset,
+      if (end_offset - begin_offset > 0 &&
+          std::memcmp(left.data()->data() + begin_offset,
               right.data()->data() + right_begin_offset, end_offset - begin_offset)) {
         return false;
       }
