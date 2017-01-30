@@ -51,7 +51,7 @@ TEST(TypesTest, TestStringType) {
 // ----------------------------------------------------------------------
 // String container
 
-class TestStringContainer : public ::testing::Test {
+class TestStringArray : public ::testing::Test {
  public:
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
@@ -90,20 +90,20 @@ class TestStringContainer : public ::testing::Test {
   std::shared_ptr<StringArray> strings_;
 };
 
-TEST_F(TestStringContainer, TestArrayBasics) {
+TEST_F(TestStringArray, TestArrayBasics) {
   ASSERT_EQ(length_, strings_->length());
   ASSERT_EQ(1, strings_->null_count());
   ASSERT_OK(strings_->Validate());
 }
 
-TEST_F(TestStringContainer, TestType) {
+TEST_F(TestStringArray, TestType) {
   TypePtr type = strings_->type();
 
   ASSERT_EQ(Type::STRING, type->type);
   ASSERT_EQ(Type::STRING, strings_->type_enum());
 }
 
-TEST_F(TestStringContainer, TestListFunctions) {
+TEST_F(TestStringArray, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
@@ -112,12 +112,12 @@ TEST_F(TestStringContainer, TestListFunctions) {
   }
 }
 
-TEST_F(TestStringContainer, TestDestructor) {
+TEST_F(TestStringArray, TestDestructor) {
   auto arr = std::make_shared<StringArray>(
       length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
 }
 
-TEST_F(TestStringContainer, TestGetString) {
+TEST_F(TestStringArray, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
@@ -127,7 +127,7 @@ TEST_F(TestStringContainer, TestGetString) {
   }
 }
 
-TEST_F(TestStringContainer, TestEmptyStringComparison) {
+TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
   offsets_buf_ = test::GetBufferFromVector(offsets_);
   length_ = offsets_.size() - 1;
@@ -212,7 +212,7 @@ TEST_F(TestStringBuilder, TestZeroLength) {
 // Binary container type
 // TODO(emkornfield) there should be some way to refactor these to avoid code duplicating
 // with String
-class TestBinaryContainer : public ::testing::Test {
+class TestBinaryArray : public ::testing::Test {
  public:
   void SetUp() {
     chars_ = {'a', 'b', 'b', 'c', 'c', 'c'};
@@ -252,20 +252,20 @@ class TestBinaryContainer : public ::testing::Test {
   std::shared_ptr<BinaryArray> strings_;
 };
 
-TEST_F(TestBinaryContainer, TestArrayBasics) {
+TEST_F(TestBinaryArray, TestArrayBasics) {
   ASSERT_EQ(length_, strings_->length());
   ASSERT_EQ(1, strings_->null_count());
   ASSERT_OK(strings_->Validate());
 }
 
-TEST_F(TestBinaryContainer, TestType) {
+TEST_F(TestBinaryArray, TestType) {
   TypePtr type = strings_->type();
 
   ASSERT_EQ(Type::BINARY, type->type);
   ASSERT_EQ(Type::BINARY, strings_->type_enum());
 }
 
-TEST_F(TestBinaryContainer, TestListFunctions) {
+TEST_F(TestBinaryArray, TestListFunctions) {
   int pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
@@ -274,12 +274,12 @@ TEST_F(TestBinaryContainer, TestListFunctions) {
   }
 }
 
-TEST_F(TestBinaryContainer, TestDestructor) {
+TEST_F(TestBinaryArray, TestDestructor) {
   auto arr = std::make_shared<BinaryArray>(
       length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
 }
 
-TEST_F(TestBinaryContainer, TestGetValue) {
+TEST_F(TestBinaryArray, TestGetValue) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
@@ -289,6 +289,28 @@ TEST_F(TestBinaryContainer, TestGetValue) {
       ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
     }
   }
+}
+
+TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
+  BinaryBuilder builder(default_memory_pool(), arrow::binary());
+
+  std::string empty_string("");
+
+  builder.Append(empty_string);
+  builder.Append(empty_string);
+  builder.Append(empty_string);
+  builder.Append(empty_string);
+  builder.Append(empty_string);
+
+  std::shared_ptr<Array> left_arr;
+  ASSERT_OK(builder.Finish(&left_arr));
+
+  const BinaryArray& left = static_cast<const BinaryArray&>(*left_arr);
+  std::shared_ptr<Array> right = std::make_shared<BinaryArray>(
+      left.length(), left.offsets(), nullptr, left.null_count(), left.null_bitmap());
+
+  ASSERT_TRUE(left.Equals(right));
+  ASSERT_TRUE(left.RangeEquals(0, left.length(), 0, right));
 }
 
 class TestBinaryBuilder : public TestBuilder {
