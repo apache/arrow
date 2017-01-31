@@ -238,12 +238,17 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
   Status Close() {
     if (is_open_) {
-      int ret = driver_->Flush(fs_, file_);
-      CHECK_FAILURE(ret, "Flush");
-      ret = driver_->CloseFile(fs_, file_);
+      RETURN_NOT_OK(Flush());
+      int ret = driver_->CloseFile(fs_, file_);
       CHECK_FAILURE(ret, "CloseFile");
       is_open_ = false;
     }
+    return Status::OK();
+  }
+
+  Status Flush() {
+    int ret = driver_->Flush(fs_, file_);
+    CHECK_FAILURE(ret, "Flush");
     return Status::OK();
   }
 
@@ -275,6 +280,10 @@ Status HdfsOutputStream::Write(
 Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes) {
   int64_t bytes_written_dummy = 0;
   return Write(buffer, nbytes, &bytes_written_dummy);
+}
+
+Status HdfsOutputStream::Flush() {
+  return impl_->Flush();
 }
 
 Status HdfsOutputStream::Tell(int64_t* position) {

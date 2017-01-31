@@ -208,6 +208,8 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written);
 
+  Status Flush() override;
+
   Status Tell(int64_t* position) override;
 
  private:
