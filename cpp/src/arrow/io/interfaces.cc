@@ -52,5 +52,9 @@ Status Writeable::Write(const std::string& data) {
       reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<int64_t>(data.size()));
 }
 
+Status Writeable::Flush() {
+  return Status::OK();
+}
+
 }  // namespace io
 }  // namespace arrow

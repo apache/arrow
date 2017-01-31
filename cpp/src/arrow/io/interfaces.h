@@ -73,6 +73,9 @@ class ARROW_EXPORT Writeable {
  public:
   virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
 
+  // Default implementation is a no-op
+  virtual Status Flush();
+
   Status Write(const std::string& data);
 };
 
