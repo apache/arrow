@@ -567,6 +567,16 @@ public class TestComplexWriter {
 
   @Test
   public void timeStampWriters() throws Exception {
+    // test values
+    final long expectedNanos = 981173106123456789L;
+    final long expectedMicros = 981173106123456L;
+    final long expectedMillis = 981173106123L;
+    final long expectedSecs = 981173106L;
+    final DateTime expectedSecDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 0).withZoneRetainFields(DateTimeZone.getDefault());
+    final DateTime expectedMilliDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 123).withZoneRetainFields(DateTimeZone.getDefault());
+    final DateTime expectedMicroDateTime = expectedMilliDateTime;
+    final DateTime expectedNanoDateTime = expectedMilliDateTime;
+
     // write
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -574,28 +584,28 @@ public class TestComplexWriter {
 
     TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
     timeStampSecWriter.setPosition(0);
-    timeStampSecWriter.writeTimeStampSec(0L);
+    timeStampSecWriter.writeTimeStampSec(expectedSecs);
 
-    TimeStampWriter timeStampWriter = rootWriter.timeStamp("millis");
+    TimeStampWriter timeStampWriter = rootWriter.timeStamp("milli");
     timeStampWriter.setPosition(1);
-    timeStampWriter.writeTimeStamp(1L);
+    timeStampWriter.writeTimeStamp(expectedMillis);
 
     TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
     timeStampMicroWriter.setPosition(2);
-    timeStampMicroWriter.writeTimeStampMicro(2000L);
+    timeStampMicroWriter.writeTimeStampMicro(expectedMicros);
 
     TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
     timeStampNanoWriter.setPosition(3);
-    timeStampNanoWriter.writeTimeStampNano(3000000L);
+    timeStampNanoWriter.writeTimeStampNano(expectedNanos);
 
     // schema
     Field secField = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("sec", secField.getName());
     Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, secField.getType().getTypeID());
 
-    Field millisField = parent.getField().getChildren().get(0).getChildren().get(1);
-    Assert.assertEquals("millis", millisField.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, millisField.getType().getTypeID());
+    Field milliField = parent.getField().getChildren().get(0).getChildren().get(1);
+    Assert.assertEquals("milli", milliField.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, milliField.getType().getTypeID());
 
     Field microField = parent.getField().getChildren().get(0).getChildren().get(2);
     Assert.assertEquals("micro", microField.getName());
@@ -611,29 +621,29 @@ public class TestComplexWriter {
     FieldReader secReader = rootReader.reader("sec");
     secReader.setPosition(0);
     DateTime secDateTime = secReader.readDateTime();
-    Assert.assertEquals(new DateTime(0L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), secDateTime);
+    Assert.assertEquals(expectedSecDateTime, secDateTime);
     long secLong = secReader.readLong();
-    Assert.assertEquals(0L, secLong);
+    Assert.assertEquals(expectedSecs, secLong);
 
-    FieldReader millisReader = rootReader.reader("millis");
-    millisReader.setPosition(1);
-    DateTime millisDateTime = millisReader.readDateTime();
-    Assert.assertEquals(new DateTime(1L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), millisDateTime);
-    long millisLong = millisReader.readLong();
-    Assert.assertEquals(1L, millisLong);
+    FieldReader milliReader = rootReader.reader("milli");
+    milliReader.setPosition(1);
+    DateTime milliDateTime = milliReader.readDateTime();
+    Assert.assertEquals(expectedMilliDateTime, milliDateTime);
+    long milliLong = milliReader.readLong();
+    Assert.assertEquals(expectedMillis, milliLong);
 
     FieldReader microReader = rootReader.reader("micro");
     microReader.setPosition(2);
     DateTime microDateTime = microReader.readDateTime();
-    Assert.assertEquals(new DateTime(2L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), microDateTime);
+    Assert.assertEquals(expectedMicroDateTime, microDateTime);
     long microLong = microReader.readLong();
-    Assert.assertEquals(2000L, microLong);
+    Assert.assertEquals(expectedMicros, microLong);
 
     FieldReader nanoReader = rootReader.reader("nano");
     nanoReader.setPosition(3);
     DateTime nanoDateTime = nanoReader.readDateTime();
-    Assert.assertEquals(new DateTime(3L, DateTimeZone.UTC).withZoneRetainFields(DateTimeZone.getDefault()), nanoDateTime);
+    Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
     long nanoLong = nanoReader.readLong();
-    Assert.assertEquals(3000000L, nanoLong);
+    Assert.assertEquals(expectedNanos, nanoLong);
   }
 }
