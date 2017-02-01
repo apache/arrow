@@ -33,7 +33,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
-import org.apache.arrow.vector.holders.NullableTimeStampHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.joda.time.DateTimeZone;
 import org.junit.After;
 import org.junit.Assert;
@@ -100,7 +100,7 @@ public class BaseFileTest {
       listWriter.endList();
       mapWriter.setPosition(i);
       mapWriter.start();
-      mapWriter.timeStamp("timestamp").writeTimeStamp(i);
+      mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
       mapWriter.end();
     }
     writer.setValueCount(count);
@@ -130,7 +130,7 @@ public class BaseFileTest {
       }
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
       Assert.assertEquals(i % 3, ((List<?>)root.getVector("list").getAccessor().getObject(i)).size());
-      NullableTimeStampHolder h = new NullableTimeStampHolder();
+      NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
       FieldReader mapReader = root.getVector("map").getReader();
       mapReader.setPosition(i);
       mapReader.reader("timestamp").read(h);
@@ -167,7 +167,7 @@ public class BaseFileTest {
         Assert.assertEquals(i % 3, unionReader.size());
         break;
       case 3:
-        NullableTimeStampHolder h = new NullableTimeStampHolder();
+        NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
         unionReader.reader("timestamp").read(h);
         Assert.assertEquals(i, h.value);
         break;
@@ -209,7 +209,7 @@ public class BaseFileTest {
       case 3:
         mapWriter.setPosition(i);
         mapWriter.start();
-        mapWriter.timeStamp("timestamp").writeTimeStamp(i);
+        mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
         mapWriter.end();
         break;
       }

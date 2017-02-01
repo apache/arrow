@@ -499,7 +499,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return date;
     }
 
-    <#elseif minor.class == "TimeStamp">
+    <#elseif minor.class == "TimeStampMilli">
     @Override
     public ${friendlyType} getObject(int index) {
         org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);

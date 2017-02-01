@@ -586,9 +586,9 @@ public class TestComplexWriter {
     timeStampSecWriter.setPosition(0);
     timeStampSecWriter.writeTimeStampSec(expectedSecs);
 
-    TimeStampWriter timeStampWriter = rootWriter.timeStamp("milli");
+    TimeStampMilliWriter timeStampWriter = rootWriter.timeStampMilli("milli");
     timeStampWriter.setPosition(1);
-    timeStampWriter.writeTimeStamp(expectedMillis);
+    timeStampWriter.writeTimeStampMilli(expectedMillis);
 
     TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
     timeStampMicroWriter.setPosition(2);

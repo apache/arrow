@@ -38,7 +38,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeStampSecVector;
-import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TinyIntVector;
@@ -205,8 +205,8 @@ public class JsonFileReader implements AutoCloseable {
     case TIMESTAMPSEC:
       ((TimeStampSecVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
       break;
-    case TIMESTAMP:
-      ((TimeStampVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+    case TIMESTAMPMILLI:
+      ((TimeStampMilliVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
       break;
     case TIMESTAMPMICRO:
       ((TimeStampMicroVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));

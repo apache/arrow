@@ -98,7 +98,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   }
 
   <#if minor.class == "TimeStampSec" ||
-       minor.class == "TimeStamp" ||
+       minor.class == "TimeStampMilli" ||
        minor.class == "TimeStampMicro" ||
        minor.class == "TimeStampNano">
   @Override

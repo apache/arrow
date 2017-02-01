@@ -80,7 +80,7 @@ public class TestConvert {
     childrenBuilder.add(new Field("child4", true, new List(), ImmutableList.<Field>of(
         new Field("child4.1", true, Utf8.INSTANCE, null)
         )));
-    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMP.ordinal(), MinorType.FLOAT8.ordinal() } ), ImmutableList.<Field>of(
+    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal() } ), ImmutableList.<Field>of(
         new Field("child5.1", true, new Timestamp(TimeUnit.MILLISECOND), null),
         new Field("child5.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
         )));
