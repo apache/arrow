@@ -29,7 +29,7 @@ import pandas.util.testing as tm
 from pyarrow.compat import u
 import pyarrow as A
 
-import pandas_examples
+from .pandas_examples import dataframe_with_arrays
 
 
 def _alltypes_example(size=100):
@@ -327,7 +327,7 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(result, expected)
 
     def test_column_of_lists(self):
-        df, schema = pandas_examples.dataframe_with_arrays()
+        df, schema = dataframe_with_arrays()
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)

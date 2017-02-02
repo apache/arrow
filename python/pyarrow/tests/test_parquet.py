@@ -23,7 +23,7 @@ import pytest
 from pyarrow.compat import guid
 import pyarrow as pa
 import pyarrow.io as paio
-import pandas_examples
+from .pandas_examples import dataframe_with_arrays
 
 import numpy as np
 import pandas as pd
@@ -322,7 +322,7 @@ def test_compare_schemas():
 
 @parquet
 def test_column_of_lists(tmpdir):
-    df, schema = pandas_examples.dataframe_with_arrays()
+    df, schema = dataframe_with_arrays()
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True, schema=schema)
