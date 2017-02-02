@@ -28,7 +28,10 @@ pushd $TRAVIS_BUILD_DIR/integration
 
 VERSION=0.1.1-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
+
 export ARROW_CPP_TESTER=$CPP_BUILD_DIR/debug/json-integration-test
+export ARROW_CPP_STREAM_TO_FILE=$CPP_BUILD_DIR/debug/stream-to-file
+export ARROW_CPP_FILE_TO_STREAM=$CPP_BUILD_DIR/debug/file-to-stream
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 export MINICONDA=$HOME/miniconda

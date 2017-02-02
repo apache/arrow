@@ -556,12 +556,25 @@ class IntegrationRunner(object):
                                                            consumer.name))
 
             for json_path in self.json_files:
-                print('Testing with {0}'.format(json_path))
+                print('Testing file {0}'.format(json_path))
 
-                arrow_path = os.path.join(self.temp_dir, guid())
+                # Make the random access file
+                print('-- Creating binary inputs')
+                producer_file_path = os.path.join(self.temp_dir, guid())
+                producer.json_to_file(json_path, producer_file_path)
 
-                producer.json_to_arrow(json_path, arrow_path)
-                consumer.validate(json_path, arrow_path)
+                # Validate the file
+                print('-- Validating file')
+                consumer.validate(json_path, producer_file_path)
+
+                print('-- Validating stream')
+                producer_stream_path = os.path.join(self.temp_dir, guid())
+                consumer_file_path = os.path.join(self.temp_dir, guid())
+                producer.file_to_stream(producer_file_path,
+                                        producer_stream_path)
+                consumer.stream_to_file(producer_stream_path,
+                                        consumer_file_path)
+                consumer.validate(json_path, consumer_file_path)
 
 
 class Tester(object):
@@ -569,7 +582,13 @@ class Tester(object):
     def __init__(self, debug=False):
         self.debug = debug
 
-    def json_to_arrow(self, json_path, arrow_path):
+    def json_to_file(self, json_path, arrow_path):
+        raise NotImplementedError
+
+    def stream_to_file(self, stream_path, file_path):
+        raise NotImplementedError
+
+    def file_to_stream(self, file_path, stream_path):
         raise NotImplementedError
 
     def validate(self, json_path, arrow_path):
@@ -601,21 +620,40 @@ class JavaTester(Tester):
         if self.debug:
             print(' '.join(cmd))
 
-        return run_cmd(cmd)
+        run_cmd(cmd)
 
     def validate(self, json_path, arrow_path):
         return self._run(arrow_path, json_path, 'VALIDATE')
 
-    def json_to_arrow(self, json_path, arrow_path):
+    def json_to_file(self, json_path, arrow_path):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
+
+    def stream_to_file(self, stream_path, file_path):
+        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
+               'org.apache.arrow.tools.StreamToFile',
+               stream_path, file_path]
+        run_cmd(cmd)
+
+    def file_to_stream(self, file_path, stream_path):
+        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
+               'org.apache.arrow.tools.FileToStream',
+               file_path, stream_path]
+        run_cmd(cmd)
 
 
 class CPPTester(Tester):
 
+    BUILD_PATH = os.path.join(ARROW_HOME, 'cpp/test-build/debug')
     CPP_INTEGRATION_EXE = os.environ.get(
-        'ARROW_CPP_TESTER',
-        os.path.join(ARROW_HOME,
-                     'cpp/test-build/debug/json-integration-test'))
+        'ARROW_CPP_TESTER', os.path.join(BUILD_PATH, 'json-integration-test'))
+
+    STREAM_TO_FILE = os.environ.get(
+        'ARROW_CPP_STREAM_TO_FILE',
+        os.path.join(BUILD_PATH, 'stream-to-file'))
+
+    FILE_TO_STREAM = os.environ.get(
+        'ARROW_CPP_FILE_TO_STREAM',
+        os.path.join(BUILD_PATH, 'file-to-stream'))
 
     name = 'C++'
 
@@ -633,13 +671,27 @@ class CPPTester(Tester):
         if self.debug:
             print(' '.join(cmd))
 
-        return run_cmd(cmd)
+        run_cmd(cmd)
 
     def validate(self, json_path, arrow_path):
         return self._run(arrow_path, json_path, 'VALIDATE')
 
-    def json_to_arrow(self, json_path, arrow_path):
+    def json_to_file(self, json_path, arrow_path):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
+
+    def stream_to_file(self, stream_path, file_path):
+        cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
+    def file_to_stream(self, file_path, stream_path):
+        cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
 
 
 def get_static_json_files():
