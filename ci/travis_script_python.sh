@@ -52,7 +52,8 @@ build_parquet_cpp() {
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
       -DPARQUET_ARROW=on \
       -DPARQUET_BUILD_BENCHMARKS=off \
-      -DPARQUET_ZLIB_VENDORED=on \
+      -DPARQUET_BUILD_EXECUTABLES=off \
+      -DPARQUET_ZLIB_VENDORED=off \
       -DPARQUET_BUILD_TESTS=off \
       ..
 
