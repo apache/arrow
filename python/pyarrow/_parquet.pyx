@@ -397,12 +397,12 @@ cdef class ParquetReader:
 
             with nogil:
                 check_status(self.reader.get()
-                             .ReadFlatTable(c_column_indices, &ctable))
+                             .ReadTable(c_column_indices, &ctable))
         else:
             # Read all columns
             with nogil:
                 check_status(self.reader.get()
-                             .ReadFlatTable(&ctable))
+                             .ReadTable(&ctable))
 
         table.init(ctable)
         return table
@@ -442,7 +442,7 @@ cdef class ParquetReader:
 
         with nogil:
             check_status(self.reader.get()
-                         .ReadFlatColumn(column_index, &carray))
+                         .ReadColumn(column_index, &carray))
 
         array.init(carray)
         return array
@@ -540,6 +540,6 @@ cdef class ParquetWriter:
 
         cdef int c_row_group_size = row_group_size
         with nogil:
-            check_status(WriteFlatTable(ctable, default_memory_pool(),
+            check_status(WriteTable(ctable, default_memory_pool(),
                                         self.sink, c_row_group_size,
                                         self.properties))

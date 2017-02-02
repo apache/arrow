@@ -23,6 +23,7 @@ import pytest
 from pyarrow.compat import guid
 import pyarrow as pa
 import pyarrow.io as paio
+from .pandas_examples import dataframe_with_arrays
 
 import numpy as np
 import pandas as pd
@@ -319,6 +320,16 @@ def test_compare_schemas():
     assert fileh.schema[0].equals(fileh.schema[0])
     assert not fileh.schema[0].equals(fileh.schema[1])
 
+@parquet
+def test_column_of_lists(tmpdir):
+    df, schema = dataframe_with_arrays()
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True, schema=schema)
+    pq.write_table(arrow_table, filename.strpath, version="2.0")
+    table_read = pq.read_table(filename.strpath)
+    df_read = table_read.to_pandas()
+    pdt.assert_frame_equal(df, df_read)
 
 @parquet
 def test_multithreaded_read():
