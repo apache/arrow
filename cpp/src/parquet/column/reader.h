@@ -130,25 +130,42 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
       int64_t* values_read);
 
   /// Read a batch of repetition levels, definition levels, and values from the
-  /// column and leave spaces for null entries in the values buffer.
+  /// column and leave spaces for null entries on the lowest level in the values
+  /// buffer.
   ///
   /// In comparision to ReadBatch the length of repetition and definition levels
-  /// is the same as of the number of values read.
+  /// is the same as of the number of values read for max_definition_level == 1.
+  /// In the case of max_definition_level > 1, the repetition and definition
+  /// levels are larger than the values but the values include the null entries
+  /// with definition_level == (max_definition_level - 1).
   ///
   /// To fully exhaust a row group, you must read batches until the number of
   /// values read reaches the number of stored values according to the metadata.
   ///
-  /// @param valid_bits Memory allocated for a bitmap that indicates if
+  /// @param batch_size the number of levels to read
+  /// @param[out] def_levels The Parquet definition levels, output has
+  ///   the length levels_read.
+  /// @param[out] rep_levels The Parquet repetition levels, output has
+  ///   the length levels_read.
+  /// @param[out] values The values in the lowest nested level including
+  ///   spacing for nulls on the lowest levels; output has the length
+  ///   values_read.
+  /// @param[out] valid_bits Memory allocated for a bitmap that indicates if
   ///   the row is null or on the maximum definition level. For performance
   ///   reasons the underlying buffer should be able to store 1 bit more than
   ///   required. If this requires an additional byte, this byte is only read
   ///   but never written to.
   /// @param valid_bits_offset The offset in bits of the valid_bits where the
-  ///  first relevant bit resides.
-  ///
-  /// @return actual number of levels read
+  ///   first relevant bit resides.
+  /// @param[out] levels_read The number of repetition/definition levels that were read.
+  /// @param[out] values_read The number of values read, this includes all
+  ///   non-null entries as well as all null-entries on the lowest level
+  ///   (i.e. definition_level == max_definition_level - 1)
+  /// @param[out] null_count The number of nulls on the lowest levels.
+  ///   (i.e. (values_read - null_count) is total number of non-null entries)
   int64_t ReadBatchSpaced(int batch_size, int16_t* def_levels, int16_t* rep_levels,
-      T* values, int* null_count, uint8_t* valid_bits, int64_t valid_bits_offset);
+      T* values, uint8_t* valid_bits, int64_t valid_bits_offset, int64_t* levels_read,
+      int64_t* values_read, int64_t* null_count);
 
   // Skip reading levels
   // Returns the number of levels skipped
@@ -244,8 +261,8 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
 }
 
 inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-    int16_t max_definition_level, int* null_count, uint8_t* valid_bits,
-    int64_t valid_bits_offset) {
+    int16_t max_definition_level, int64_t* values_read, int64_t* null_count,
+    uint8_t* valid_bits, int64_t valid_bits_offset) {
   int byte_offset = valid_bits_offset / 8;
   int bit_offset = valid_bits_offset % 8;
   uint8_t bitset = valid_bits[byte_offset];
@@ -253,9 +270,11 @@ inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_
   for (int i = 0; i < num_def_levels; ++i) {
     if (def_levels[i] == max_definition_level) {
       bitset |= (1 << bit_offset);
-    } else {
+    } else if (def_levels[i] == (max_definition_level - 1)) {
       bitset &= ~(1 << bit_offset);
       *null_count += 1;
+    } else {
+      continue;
     }
 
     bit_offset++;
@@ -268,14 +287,18 @@ inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_
     }
   }
   if (bit_offset != 0) { valid_bits[byte_offset] = bitset; }
+  *values_read = (bit_offset + byte_offset * 8 - valid_bits_offset);
 }
 
 template <typename DType>
 inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
-    int16_t* def_levels, int16_t* rep_levels, T* values, int* null_count_out,
-    uint8_t* valid_bits, int64_t valid_bits_offset) {
+    int16_t* def_levels, int16_t* rep_levels, T* values, uint8_t* valid_bits,
+    int64_t valid_bits_offset, int64_t* levels_read, int64_t* values_read,
+    int64_t* null_count_out) {
   // HasNext invokes ReadNewPage
   if (!HasNext()) {
+    *levels_read = 0;
+    *values_read = 0;
     *null_count_out = 0;
     return 0;
   }
@@ -297,15 +320,28 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
       }
     }
 
-    // TODO: Move this into the DefinitionLevels reader
-    int null_count = 0;
-    int16_t max_definition_level = descr_->max_definition_level();
-    DefinitionLevelsToBitmap(def_levels, num_def_levels, max_definition_level,
-        &null_count, valid_bits, valid_bits_offset);
+    int64_t null_count = 0;
+    if (descr_->schema_node()->is_required()) {
+      // Node is required so there are no null entries on the lowest nesting level.
+      int values_to_read = 0;
+      for (int64_t i = 0; i < num_def_levels; ++i) {
+        if (def_levels[i] == descr_->max_definition_level()) { ++values_to_read; }
+      }
+      total_values = ReadValues(values_to_read, values);
+      for (int64_t i = 0; i < total_values; i++) {
+        ::arrow::BitUtil::SetBit(valid_bits, valid_bits_offset + i);
+      }
+      *values_read = total_values;
+    } else {
+      int16_t max_definition_level = descr_->max_definition_level();
+      DefinitionLevelsToBitmap(def_levels, num_def_levels, max_definition_level,
+          values_read, &null_count, valid_bits, valid_bits_offset);
+      total_values = ReadValuesSpaced(
+          *values_read, values, null_count, valid_bits, valid_bits_offset);
+    }
+    *levels_read = num_def_levels;
     *null_count_out = null_count;
 
-    total_values = ReadValuesSpaced(
-        num_def_levels, values, null_count, valid_bits, valid_bits_offset);
   } else {
     // Required field, read all values
     total_values = ReadValues(batch_size, values);
@@ -313,9 +349,10 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
       ::arrow::BitUtil::SetBit(valid_bits, valid_bits_offset + i);
     }
     *null_count_out = 0;
+    *levels_read = total_values;
   }
 
-  num_decoded_values_ += total_values;
+  num_decoded_values_ += *levels_read;
   return total_values;
 }
 

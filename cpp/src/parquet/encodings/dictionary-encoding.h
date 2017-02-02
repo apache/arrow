@@ -243,7 +243,7 @@ class DictEncoder : public Encoder<DType> {
       int64_t valid_bits_offset) override {
     INIT_BITSET(valid_bits, valid_bits_offset);
     for (int32_t i = 0; i < num_values; i++) {
-      if (bitset & (1 << bit_offset)) { Put(src[i]); }
+      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) { Put(src[i]); }
       READ_NEXT_BITSET(valid_bits);
     }
   }

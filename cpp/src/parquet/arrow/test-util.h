@@ -177,6 +177,45 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
   return builder.Finish(out);
 }
 
+/// Wrap an Array into a ListArray by splitting it up into size lists.
+///
+/// This helper function only supports (size/2) nulls.
+Status MakeListArary(const std::shared_ptr<Array>& values, int64_t size,
+    int64_t null_count, bool nullable_values, std::shared_ptr<::arrow::ListArray>* out) {
+  // We always include an empty list
+  int64_t non_null_entries = size - null_count - 1;
+  int64_t length_per_entry = values->length() / non_null_entries;
+
+  auto offsets = std::make_shared<::arrow::PoolBuffer>(::arrow::default_memory_pool());
+  RETURN_NOT_OK(offsets->Resize((size + 1) * sizeof(int32_t)));
+  int32_t* offsets_ptr = reinterpret_cast<int32_t*>(offsets->mutable_data());
+
+  auto null_bitmap =
+      std::make_shared<::arrow::PoolBuffer>(::arrow::default_memory_pool());
+  int64_t bitmap_size = ::arrow::BitUtil::CeilByte(size) / 8;
+  RETURN_NOT_OK(null_bitmap->Resize(bitmap_size));
+  uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
+  memset(null_bitmap_ptr, 0, bitmap_size);
+
+  int32_t current_offset = 0;
+  for (int64_t i = 0; i < size; i++) {
+    offsets_ptr[i] = current_offset;
+    if (!(((i % 2) == 0) && ((i / 2) < null_count))) {
+      // Non-null list (list with index 1 is always empty).
+      ::arrow::BitUtil::SetBit(null_bitmap_ptr, i);
+      if (i != 1) { current_offset += length_per_entry; }
+    }
+  }
+  offsets_ptr[size] = values->length();
+
+  auto value_field =
+      std::make_shared<::arrow::Field>("item", values->type(), nullable_values);
+  *out = std::make_shared<::arrow::ListArray>(
+      ::arrow::list(value_field), size, offsets, values, null_count, null_bitmap);
+
+  return Status::OK();
+}
+
 std::shared_ptr<::arrow::Column> MakeColumn(
     const std::string& name, const std::shared_ptr<Array>& array, bool nullable) {
   auto field = std::make_shared<::arrow::Field>(name, array->type(), nullable);

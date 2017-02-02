@@ -41,6 +41,10 @@ ColumnWriter* RowGroupWriter::NextColumn() {
   return contents_->NextColumn();
 }
 
+int RowGroupWriter::current_column() {
+  return contents_->current_column();
+}
+
 // ----------------------------------------------------------------------
 // ParquetFileWriter public API
 

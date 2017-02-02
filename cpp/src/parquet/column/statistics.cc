@@ -124,13 +124,13 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   int64_t length = num_null + num_not_null;
   int64_t i = 0;
   for (; i < length; i++) {
-    if (bitset & (1 << bit_offset)) { break; }
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) { break; }
     READ_NEXT_BITSET(valid_bits);
   }
   T min = values[i];
   T max = values[i];
   for (; i < length; i++) {
-    if (bitset & (1 << bit_offset)) {
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
       if (compare(values[i], min)) {
         min = values[i];
       } else if (compare(max, values[i])) {

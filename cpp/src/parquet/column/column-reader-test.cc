@@ -46,14 +46,21 @@ template <typename T>
 static inline bool vector_equal_with_def_levels(const vector<T>& left,
     const vector<int16_t> def_levels, int16_t max_def_levels, const vector<T>& right) {
   size_t i_left = 0;
-  for (size_t i = 0; i < right.size(); ++i) {
-    if (def_levels[i] != max_def_levels) { continue; }
-    if (left[i_left] != right[i]) {
-      std::cerr << "index " << i << " left was " << left[i_left] << " right was "
-                << right[i] << std::endl;
-      return false;
+  size_t i_right = 0;
+  for (size_t i = 0; i < def_levels.size(); i++) {
+    if (def_levels[i] == max_def_levels) {
+      // Compare
+      if (left[i_left] != right[i_right]) {
+        std::cerr << "index " << i << " left was " << left[i_left] << " right was "
+                  << right[i] << std::endl;
+        return false;
+      }
+      i_left++;
+      i_right++;
+    } else if (def_levels[i] == (max_def_levels - 1)) {
+      // Null entry on the lowest nested level
+      i_right++;
     }
-    i_left++;
   }
 
   return true;
@@ -107,7 +114,10 @@ class TestPrimitiveReader : public ::testing::Test {
     vector<uint8_t> valid_bits(num_levels_, 255);
     int total_values_read = 0;
     int batch_actual = 0;
-    int null_count = -1;
+    int levels_actual = 0;
+    int64_t null_count = -1;
+    int64_t levels_read = 0;
+    int64_t values_read;
 
     Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
     int32_t batch_size = 8;
@@ -116,14 +126,17 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      batch = reader->ReadBatchSpaced(batch_size, dresult.data() + batch_actual,
-          rresult.data() + batch_actual, vresult.data() + batch_actual, &null_count,
-          valid_bits.data() + batch_actual, 0);
+      batch = reader->ReadBatchSpaced(batch_size, dresult.data() + levels_actual,
+          rresult.data() + levels_actual, vresult.data() + batch_actual,
+          valid_bits.data() + batch_actual, 0, &levels_read, &values_read, &null_count);
       total_values_read += batch - null_count;
       batch_actual += batch;
+      levels_actual += levels_read;
       batch_size = std::max(batch_size * 2, 4096);
-    } while (batch > 0);
+    } while ((batch > 0) || (levels_read > 0));
 
+    ASSERT_EQ(num_levels_, levels_actual);
+    ASSERT_EQ(num_values_, total_values_read);
     if (max_def_level_ > 0) {
       ASSERT_TRUE(vector_equal(def_levels_, dresult));
       ASSERT_TRUE(
@@ -132,11 +145,9 @@ class TestPrimitiveReader : public ::testing::Test {
       ASSERT_TRUE(vector_equal(values_, vresult));
     }
     if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
-    ASSERT_EQ(num_levels_, batch_actual);
-    ASSERT_EQ(num_values_, total_values_read);
     // catch improper writes at EOS
-    batch_actual = reader->ReadBatchSpaced(
-        5, nullptr, nullptr, nullptr, &null_count, valid_bits.data(), 0);
+    batch_actual = reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr,
+        valid_bits.data(), 0, &levels_read, &values_read, &null_count);
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, null_count);
   }

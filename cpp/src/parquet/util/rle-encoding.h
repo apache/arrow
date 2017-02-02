@@ -352,7 +352,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const Vector<T>& dictionary, T* va
   INIT_BITSET(valid_bits, valid_bits_offset);
 
   while (values_read < batch_size) {
-    bool is_valid = (bitset & (1 << bit_offset));
+    bool is_valid = (bitset_valid_bits & (1 << bit_offset_valid_bits));
     READ_NEXT_BITSET(valid_bits);
 
     if (is_valid) {
@@ -366,7 +366,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const Vector<T>& dictionary, T* va
         repeat_count_--;
 
         while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
-          if (bitset & (1 << bit_offset)) {
+          if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
             repeat_count_--;
           } else {
             remaining_nulls--;
@@ -394,7 +394,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const Vector<T>& dictionary, T* va
 
         // Read the first bitset to the end
         while (literals_read < literal_batch) {
-          if (bitset & (1 << bit_offset)) {
+          if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
             values[values_read + literals_read + skipped] =
                 dictionary[indices[literals_read]];
             literals_read++;

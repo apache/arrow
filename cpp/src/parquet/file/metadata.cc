@@ -581,6 +581,8 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     return column_builder_ptr;
   }
 
+  int current_column() { return current_column_; }
+
   void Finish(int64_t total_bytes_written) {
     if (!(current_column_ == schema_->num_columns())) {
       std::stringstream ss;
@@ -633,6 +635,10 @@ RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() {}
 
 ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
+}
+
+int RowGroupMetaDataBuilder::current_column() const {
+  return impl_->current_column();
 }
 
 int RowGroupMetaDataBuilder::num_columns() {

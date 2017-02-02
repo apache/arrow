@@ -42,6 +42,7 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int64_t num_rows() const = 0;
 
     virtual ColumnWriter* NextColumn() = 0;
+    virtual int current_column() const = 0;
     virtual void Close() = 0;
   };
 
@@ -56,6 +57,8 @@ class PARQUET_EXPORT RowGroupWriter {
    * modified anymore.
    */
   ColumnWriter* NextColumn();
+  /// Index of currently written column
+  int current_column();
   void Close();
 
   int num_columns() const;

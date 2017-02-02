@@ -361,18 +361,24 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
 template <typename DType>
 inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values,
     const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
-    int64_t valid_bits_offset, const T* values) {
+    int64_t valid_bits_offset, const T* values, int64_t* num_spaced_written) {
   int64_t values_to_write = 0;
+  int64_t spaced_values_to_write = 0;
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
+    // Minimal definition level for which spaced values are written
+    int16_t min_spaced_def_level = descr_->max_definition_level();
+    if (descr_->schema_node()->is_optional()) { min_spaced_def_level--; }
     for (int64_t i = 0; i < num_values; ++i) {
       if (def_levels[i] == descr_->max_definition_level()) { ++values_to_write; }
+      if (def_levels[i] >= min_spaced_def_level) { ++spaced_values_to_write; }
     }
 
     WriteDefinitionLevels(num_values, def_levels);
   } else {
     // Required field, write all values
     values_to_write = num_values;
+    spaced_values_to_write = num_values;
   }
 
   // Not present for non-repeated fields
@@ -393,7 +399,12 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values
     throw ParquetException("More rows were written in the column chunk than expected");
   }
 
-  WriteValuesSpaced(num_values, valid_bits, valid_bits_offset, values);
+  if (descr_->schema_node()->is_optional()) {
+    WriteValuesSpaced(spaced_values_to_write, valid_bits, valid_bits_offset, values);
+  } else {
+    WriteValues(values_to_write, values);
+  }
+  *num_spaced_written = spaced_values_to_write;
 
   if (page_statistics_ != nullptr) {
     page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, values_to_write,
@@ -447,15 +458,20 @@ void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
   int64_t write_batch_size = properties_->write_batch_size();
   int num_batches = num_values / write_batch_size;
   int64_t num_remaining = num_values % write_batch_size;
+  int64_t num_spaced_written = 0;
+  int64_t values_offset = 0;
   for (int round = 0; round < num_batches; round++) {
     int64_t offset = round * write_batch_size;
     WriteMiniBatchSpaced(write_batch_size, &def_levels[offset], &rep_levels[offset],
-        valid_bits, valid_bits_offset + offset, &values[offset]);
+        valid_bits, valid_bits_offset + values_offset, values + values_offset,
+        &num_spaced_written);
+    values_offset += num_spaced_written;
   }
   // Write the remaining values
   int64_t offset = num_batches * write_batch_size;
   WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
-      valid_bits, valid_bits_offset + offset, &values[offset]);
+      valid_bits, valid_bits_offset + values_offset, values + values_offset,
+      &num_spaced_written);
 }
 
 template <typename DType>

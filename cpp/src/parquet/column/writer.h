@@ -181,7 +181,7 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
 
   int64_t WriteMiniBatchSpaced(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
-      const T* values);
+      const T* values, int64_t* num_spaced_written);
 
   typedef Encoder<DType> EncoderType;
 

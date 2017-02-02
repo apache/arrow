@@ -39,7 +39,7 @@ namespace parquet {
 
 namespace arrow {
 
-class FlatColumnReader;
+class ColumnReader;
 
 // Arrow read adapter class for deserializing Parquet files as Arrow row
 // batches.
@@ -94,17 +94,17 @@ class PARQUET_EXPORT FileReader {
   // fully-materialized arrow::Array instances
   //
   // Returns error status if the column of interest is not flat.
-  ::arrow::Status GetFlatColumn(int i, std::unique_ptr<FlatColumnReader>* out);
+  ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
 
   // Read column as a whole into an Array.
-  ::arrow::Status ReadFlatColumn(int i, std::shared_ptr<::arrow::Array>* out);
+  ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
 
   // Read a table of flat columns into a Table.
-  ::arrow::Status ReadFlatTable(std::shared_ptr<::arrow::Table>* out);
+  ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
 
   // Read a table of flat columns into a Table. Read only the indicated column
   // indices (relative to the schema)
-  ::arrow::Status ReadFlatTable(
+  ::arrow::Status ReadTable(
       const std::vector<int>& column_indices, std::shared_ptr<::arrow::Table>* out);
 
   const ParquetFileReader* parquet_reader() const;
@@ -126,9 +126,9 @@ class PARQUET_EXPORT FileReader {
 //
 // We also do not expose any internal Parquet details, such as row groups. This
 // might change in the future.
-class PARQUET_EXPORT FlatColumnReader {
+class PARQUET_EXPORT ColumnReader {
  public:
-  virtual ~FlatColumnReader();
+  virtual ~ColumnReader();
 
   // Scan the next array of the indicated size. The actual size of the
   // returned array may be less than the passed size depending how much data is
@@ -144,7 +144,7 @@ class PARQUET_EXPORT FlatColumnReader {
  private:
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
-  explicit FlatColumnReader(std::unique_ptr<Impl> impl);
+  explicit ColumnReader(std::unique_ptr<Impl> impl);
 
   friend class FileReader;
 };

@@ -52,7 +52,9 @@ class Encoder {
     INIT_BITSET(valid_bits, valid_bits_offset);
     T* data = reinterpret_cast<T*>(buffer.mutable_data());
     for (int32_t i = 0; i < num_values; i++) {
-      if (bitset & (1 << bit_offset)) { data[num_valid_values++] = src[i]; }
+      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+        data[num_valid_values++] = src[i];
+      }
       READ_NEXT_BITSET(valid_bits);
     }
     Put(data, num_valid_values);

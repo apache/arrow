@@ -32,17 +32,17 @@
 
 namespace parquet {
 
-#define INIT_BITSET(valid_bits_vector, valid_bits_index) \
-  int byte_offset = valid_bits_index / 8;                \
-  int bit_offset = valid_bits_index % 8;                 \
-  uint8_t bitset = valid_bits_vector[byte_offset];
+#define INIT_BITSET(valid_bits_vector, valid_bits_index)      \
+  int byte_offset_##valid_bits_vector = valid_bits_index / 8; \
+  int bit_offset_##valid_bits_vector = valid_bits_index % 8;  \
+  uint8_t bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector];
 
-#define READ_NEXT_BITSET(valid_bits_vector)  \
-  bit_offset++;                              \
-  if (bit_offset == 8) {                     \
-    bit_offset = 0;                          \
-    byte_offset++;                           \
-    bitset = valid_bits_vector[byte_offset]; \
+#define READ_NEXT_BITSET(valid_bits_vector)                                          \
+  bit_offset_##valid_bits_vector++;                                                  \
+  if (bit_offset_##valid_bits_vector == 8) {                                         \
+    bit_offset_##valid_bits_vector = 0;                                              \
+    byte_offset_##valid_bits_vector++;                                               \
+    bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector]; \
   }
 
 // TODO(wesm): The source from Impala was depending on boost::make_unsigned

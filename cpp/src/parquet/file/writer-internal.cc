@@ -174,6 +174,10 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
   return current_column_writer_.get();
 }
 
+int RowGroupSerializer::current_column() const {
+  return metadata_->current_column();
+}
+
 void RowGroupSerializer::Close() {
   if (!closed_) {
     closed_ = true;

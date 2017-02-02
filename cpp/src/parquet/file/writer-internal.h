@@ -82,6 +82,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int64_t num_rows() const override;
 
   ColumnWriter* NextColumn() override;
+  int current_column() const override;
   void Close() override;
 
  private:
