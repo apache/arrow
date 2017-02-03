@@ -126,6 +126,11 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   </#if>
 
   @Override
+  public BitVector getValidityVector() {
+    return bits;
+  }
+
+  @Override
   public List<BufferBacked> getFieldInnerVectors() {
     return innerVectors;
   }
@@ -420,7 +425,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.fillEmpties(thisIndex);
     </#if>
     values.copyFromSafe(fromIndex, thisIndex, from);
-    bits.getMutator().setSafe(thisIndex, 1);
+    bits.getMutator().setSafeToOne(thisIndex);
   }
 
   public void copyFromSafe(int fromIndex, int thisIndex, ${className} from){
@@ -519,7 +524,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     @Override
     public void setIndexDefined(int index){
-      bits.getMutator().set(index, 1);
+      bits.getMutator().setToOne(index);
     }
 
     /**
@@ -537,7 +542,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         valuesMutator.set(i, emptyByteArray);
       }
       </#if>
-      bitsMutator.set(index, 1);
+      bitsMutator.setToOne(index);
       valuesMutator.set(index, value);
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
@@ -568,7 +573,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#else>
       fillEmpties(index);
 
-      bits.getMutator().setSafe(index, 1);
+      bits.getMutator().setSafeToOne(index);
       values.getMutator().setSafe(index, value, start, length);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
@@ -581,7 +586,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#else>
       fillEmpties(index);
 
-      bits.getMutator().setSafe(index, 1);
+      bits.getMutator().setSafeToOne(index);
       values.getMutator().setSafe(index, value, start, length);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
@@ -620,7 +625,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         valuesMutator.set(i, emptyByteArray);
       }
       </#if>
-      bits.getMutator().set(index, 1);
+      bits.getMutator().setToOne(index);
       valuesMutator.set(index, holder);
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
@@ -670,7 +675,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
-      bits.getMutator().setSafe(index, 1);
+      bits.getMutator().setSafeToOne(index);
       values.getMutator().setSafe(index, value);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
@@ -681,7 +686,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         <#if type.major == "VarLen">
         fillEmpties(index);
         </#if>
-        bits.getMutator().setSafe(index, 1);
+        bits.getMutator().setSafeToOne(index);
         values.getMutator().setSafe(index, value);
         setCount++;
       }

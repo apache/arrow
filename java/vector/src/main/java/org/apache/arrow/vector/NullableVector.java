@@ -19,5 +19,7 @@ package org.apache.arrow.vector;
 
 public interface NullableVector extends ValueVector {
 
+  BitVector getValidityVector();
+
   ValueVector getValuesVector();
 }
