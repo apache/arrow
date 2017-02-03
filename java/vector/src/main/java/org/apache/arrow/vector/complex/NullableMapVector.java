@@ -41,6 +41,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -79,6 +80,12 @@ public class NullableMapVector extends MapVector implements FieldVector {
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
     this.accessor = new Accessor();
     this.mutator = new Mutator();
+  }
+
+  @Override
+  public Field getField() {
+    Field f = super.getField();
+    return new Field(f.getName(), true, f.getType(), f.getChildren());
   }
 
   @Override
