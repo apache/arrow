@@ -28,58 +28,21 @@ using arrow::Status;
 
 namespace pyarrow {
 
-class PyArrowMemoryPool : public arrow::MemoryPool {
- public:
-  PyArrowMemoryPool() : bytes_allocated_(0) {}
-  virtual ~PyArrowMemoryPool() {}
+static std::mutex memory_pool_mutex;
+static arrow::MemoryPool* default_pyarrow_pool = nullptr;
 
-  Status Allocate(int64_t size, uint8_t** out) override {
-    std::lock_guard<std::mutex> guard(pool_lock_);
-    *out = static_cast<uint8_t*>(std::malloc(size));
-    if (*out == nullptr) {
-      std::stringstream ss;
-      ss << "malloc of size " << size << " failed";
-      return Status::OutOfMemory(ss.str());
-    }
-
-    bytes_allocated_ += size;
-
-    return Status::OK();
-  }
-
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
-    *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
-
-    if (*ptr == NULL) {
-      std::stringstream ss;
-      ss << "realloc of size " << new_size << " failed";
-      return Status::OutOfMemory(ss.str());
-    }
-
-    bytes_allocated_ += new_size - old_size;
-
-    return Status::OK();
-  }
-
-  int64_t bytes_allocated() const override {
-    std::lock_guard<std::mutex> guard(pool_lock_);
-    return bytes_allocated_;
-  }
-
-  void Free(uint8_t* buffer, int64_t size) override {
-    std::lock_guard<std::mutex> guard(pool_lock_);
-    std::free(buffer);
-    bytes_allocated_ -= size;
-  }
-
- private:
-  mutable std::mutex pool_lock_;
-  int64_t bytes_allocated_;
-};
+void set_default_memory_pool(arrow::MemoryPool* pool) {
+  std::lock_guard<std::mutex> guard(memory_pool_mutex);
+  default_pyarrow_pool = pool;
+}
 
 arrow::MemoryPool* get_memory_pool() {
-  static PyArrowMemoryPool memory_pool;
-  return &memory_pool;
+  std::lock_guard<std::mutex> guard(memory_pool_mutex);
+  if (default_pyarrow_pool) {
+    return default_pyarrow_pool;
+  } else {
+    return arrow::default_memory_pool();
+  }
 }
 
 // ----------------------------------------------------------------------

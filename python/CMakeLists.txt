@@ -412,6 +412,7 @@ set(CYTHON_EXTENSIONS
   config
   error
   io
+  memory
   scalar
   schema
   table

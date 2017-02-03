@@ -90,7 +90,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     shared_ptr[CDataType] timestamp(TimeUnit unit)
 
-    cdef cppclass MemoryPool" arrow::MemoryPool":
+    cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
     cdef cppclass CBuffer" arrow::Buffer":
@@ -104,9 +104,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass PoolBuffer(ResizableBuffer):
         PoolBuffer()
-        PoolBuffer(MemoryPool*)
+        PoolBuffer(CMemoryPool*)
 
-    cdef MemoryPool* default_memory_pool()
+    cdef CMemoryPool* default_memory_pool()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)

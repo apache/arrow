@@ -30,7 +30,6 @@ from pyarrow.config import cpu_count, set_cpu_count
 
 from pyarrow.array import (Array,
                            from_pandas_series, from_pylist,
-                           total_allocated_bytes,
                            NumericArray, IntegerArray, FloatingPointArray,
                            BooleanArray,
                            Int8Array, UInt8Array,
@@ -47,6 +46,8 @@ from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,
                         Buffer, InMemoryOutputStream, BufferReader)
 
 from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter
+
+from pyarrow.memory import MemoryPool, total_allocated_bytes
 
 from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
                             BooleanValue,

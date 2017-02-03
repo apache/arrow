@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
-                                        CTable, MemoryPool)
+                                        CTable, CMemoryPool)
 from pyarrow.includes.libarrow_io cimport ReadableFileInterface, OutputStream
 
 
@@ -204,13 +204,13 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
-                     MemoryPool* allocator,
+                     CMemoryPool* allocator,
                      const ReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata,
                      unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:
-        FileReader(MemoryPool* pool, unique_ptr[ParquetFileReader] reader)
+        FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadColumn(int i, shared_ptr[CArray]* out);
         CStatus ReadTable(shared_ptr[CTable]* out);
         CStatus ReadTable(const vector[int]& column_indices,
@@ -229,7 +229,7 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef CStatus WriteTable(
-        const CTable* table, MemoryPool* pool,
+        const CTable* table, CMemoryPool* pool,
         const shared_ptr[OutputStream]& sink,
         int64_t chunk_size,
         const shared_ptr[WriterProperties]& properties)

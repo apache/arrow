@@ -29,6 +29,7 @@
 
 using arrow::ArrayBuilder;
 using arrow::DataType;
+using arrow::MemoryPool;
 using arrow::Status;
 using arrow::Type;
 
@@ -495,7 +496,8 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   return Status::OK();
 }
 
-Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
+Status ConvertPySequence(
+    PyObject* obj, MemoryPool* pool, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
   PyDateTime_IMPORT;
@@ -516,7 +518,7 @@ Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out) {
 
   // Give the sequence converter an array builder
   std::shared_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(arrow::MakeBuilder(get_memory_pool(), type, &builder));
+  RETURN_NOT_OK(arrow::MakeBuilder(pool, type, &builder));
   converter->Init(builder);
 
   RETURN_NOT_OK(converter->AppendData(obj));
