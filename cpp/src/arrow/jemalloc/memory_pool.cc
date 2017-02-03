@@ -65,7 +65,7 @@ Status MemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr)
 
 void MemoryPool::Free(uint8_t* buffer, int64_t size) {
   allocated_size_ -= size;
-  free(buffer);
+  dallocx(buffer, MALLOCX_ALIGN(kAlignment));
 }
 
 int64_t MemoryPool::bytes_allocated() const {
