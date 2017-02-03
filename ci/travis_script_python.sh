@@ -26,12 +26,52 @@ export ARROW_HOME=$ARROW_CPP_INSTALL
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
 pushd $PYTHON_DIR
+export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
+
+build_parquet_cpp() {
+  conda create -y -q -p $PARQUET_HOME thrift-cpp snappy zlib brotli boost
+  source activate $PARQUET_HOME
+
+  export BOOST_ROOT=$PARQUET_HOME
+  export SNAPPY_HOME=$PARQUET_HOME
+  export THRIFT_HOME=$PARQUET_HOME
+  export ZLIB_HOME=$PARQUET_HOME
+  export BROTLI_HOME=$PARQUET_HOME
+
+  PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
+  mkdir -p $PARQUET_DIR
+
+  git clone https://github.com/apache/parquet-cpp.git $PARQUET_DIR
+
+  pushd $PARQUET_DIR
+  mkdir build-dir
+  cd build-dir
+
+  cmake \
+      -DCMAKE_BUILD_TYPE=debug \
+      -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+      -DPARQUET_ARROW=on \
+      -DPARQUET_BUILD_BENCHMARKS=off \
+      -DPARQUET_BUILD_EXECUTABLES=off \
+      -DPARQUET_ZLIB_VENDORED=off \
+      -DPARQUET_BUILD_TESTS=off \
+      ..
+
+  make -j${CPU_COUNT}
+  make install
+
+  popd
+}
+
+build_parquet_cpp
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PARQUET_HOME/lib
 
 python_version_tests() {
   PYTHON_VERSION=$1
-  CONDA_ENV_NAME="pyarrow-test-${PYTHON_VERSION}"
-  conda create -y -q -n $CONDA_ENV_NAME python=$PYTHON_VERSION
-  source activate $CONDA_ENV_NAME
+  CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+  source activate $CONDA_ENV_DIR
 
   python --version
   which python
@@ -45,7 +85,9 @@ python_version_tests() {
   # Other stuff pip install
   pip install -r requirements.txt
 
-  python setup.py build_ext --inplace
+  python setup.py build_ext --inplace --with-parquet
+
+  python -c "import pyarrow.parquet"
 
   python -m pytest -vv -r sxX pyarrow
 
