@@ -32,10 +32,7 @@
 
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
-
-// Depended on by SerializedPageReader test utilities for now
-#include "parquet/encodings/dictionary-encoding.h"
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encoding-internal.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 

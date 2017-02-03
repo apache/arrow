@@ -17,7 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include "parquet/encodings/dictionary-encoding.h"
+#include "parquet/encoding-internal.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/util/memory.h"
 

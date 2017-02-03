@@ -19,8 +19,8 @@
 
 #include "parquet/column/properties.h"
 #include "parquet/column/statistics.h"
-#include "parquet/encodings/dictionary-encoding.h"
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encoding-internal.h"
+#include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {

@@ -25,9 +25,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <arrow/util/bit-util.h>
+
 #include "parquet/column/levels.h"
 #include "parquet/column/page.h"
-#include "parquet/encodings/decoder.h"
+#include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"

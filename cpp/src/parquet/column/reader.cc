@@ -23,9 +23,7 @@
 
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
-
-#include "parquet/encodings/dictionary-encoding.h"
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encoding-internal.h"
 
 namespace parquet {
 

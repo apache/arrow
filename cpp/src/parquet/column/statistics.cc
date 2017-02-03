@@ -19,7 +19,7 @@
 #include <cstring>
 
 #include "parquet/column/statistics.h"
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encoding-internal.h"
 #include "parquet/exception.h"
 #include "parquet/util/comparison.h"
 #include "parquet/util/memory.h"

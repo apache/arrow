@@ -22,8 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/encodings/dictionary-encoding.h"
-#include "parquet/encodings/plain-encoding.h"
+#include "parquet/encoding-internal.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/bit-util.h"
@@ -236,8 +235,7 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
 // Dictionary encoding tests
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType>
-    DictEncodedTypes;
+    ByteArrayType, FLBAType> DictEncodedTypes;
 
 template <typename Type>
 class TestDictionaryEncoding : public TestEncodingBase<Type> {
