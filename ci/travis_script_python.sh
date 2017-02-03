@@ -85,9 +85,10 @@ python_version_tests() {
   # Other stuff pip install
   pip install -r requirements.txt
 
-  python setup.py build_ext --inplace --with-parquet
+  python setup.py build_ext --inplace --with-parquet --with-jemalloc
 
   python -c "import pyarrow.parquet"
+  python -c "import pyarrow.jemalloc"
 
   python -m pytest -vv -r sxX pyarrow
 

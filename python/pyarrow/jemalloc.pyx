@@ -19,31 +19,10 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from pyarrow.includes.libarrow cimport CMemoryPool
-from pyarrow.includes.pyarrow cimport set_default_memory_pool, get_memory_pool
-
-cdef class MemoryPool:
-    cdef init(self, CMemoryPool* pool):
-        self.pool = pool
-
-    def bytes_allocated(self):
-        return self.pool.bytes_allocated()
-
-cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
-    if memory_pool is None:
-        return get_memory_pool()
-    else:
-        return memory_pool.pool
+from pyarrow.includes.libarrow_jemalloc cimport CJemallocMemoryPool
+from pyarrow.memory cimport MemoryPool
 
 def default_pool():
-    cdef: 
-        MemoryPool pool = MemoryPool()
-    pool.init(get_memory_pool())
+    cdef MemoryPool pool = MemoryPool()
+    pool.init(CJemallocMemoryPool.default_pool())
     return pool
-
-def set_default_pool(MemoryPool pool):
-    set_default_memory_pool(pool.pool)
-
-def total_allocated_bytes():
-    cdef CMemoryPool* pool = get_memory_pool()
-    return pool.bytes_allocated()
