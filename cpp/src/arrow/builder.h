@@ -19,6 +19,7 @@
 #define ARROW_BUILDER_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -179,12 +180,42 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   value_type* raw_data_;
 };
 
+template <typename T>
+struct BuilderTypeTraits {
+  constexpr static bool has_simple_type = false;
+};
+
+#define SIMPLE_BUILDER_TRAITS(ArrowType, Constructor)                                    \
+  template <>                                                                            \
+  struct BuilderTypeTraits<ArrowType> {                                                  \
+    constexpr static bool has_simple_type = true;                                        \
+    static inline std::shared_ptr<DataType> type_constructor() { return Constructor(); } \
+  };
+
+SIMPLE_BUILDER_TRAITS(UInt8Type, uint8)
+SIMPLE_BUILDER_TRAITS(Int8Type, int8)
+SIMPLE_BUILDER_TRAITS(UInt16Type, uint16)
+SIMPLE_BUILDER_TRAITS(Int16Type, int16)
+SIMPLE_BUILDER_TRAITS(UInt32Type, uint32)
+SIMPLE_BUILDER_TRAITS(Int32Type, int32)
+SIMPLE_BUILDER_TRAITS(UInt64Type, uint64)
+SIMPLE_BUILDER_TRAITS(Int64Type, int64)
+SIMPLE_BUILDER_TRAITS(DateType, date)
+SIMPLE_BUILDER_TRAITS(HalfFloatType, float16)
+SIMPLE_BUILDER_TRAITS(FloatType, float32)
+SIMPLE_BUILDER_TRAITS(DoubleType, float64)
+
 /// Base class for all Builders that emit an Array of a scalar numerical type.
 template <typename T>
 class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
  public:
   using typename PrimitiveBuilder<T>::value_type;
   using PrimitiveBuilder<T>::PrimitiveBuilder;
+
+  template <typename T1 = T>
+  explicit NumericBuilder(typename std::enable_if<BuilderTypeTraits<T1>::has_simple_type,
+      MemoryPool*>::type pool)
+      : PrimitiveBuilder<T1>(pool, BuilderTypeTraits<T1>::type_constructor()) {}
 
   using PrimitiveBuilder<T>::Append;
   using PrimitiveBuilder<T>::Init;
