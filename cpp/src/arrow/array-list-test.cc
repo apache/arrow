@@ -138,8 +138,8 @@ TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_TRUE(result_->IsNull(1));
 
   ASSERT_EQ(0, result_->raw_offsets()[0]);
-  ASSERT_EQ(0, result_->offset(1));
-  ASSERT_EQ(0, result_->offset(2));
+  ASSERT_EQ(0, result_->value_offset(1));
+  ASSERT_EQ(0, result_->value_offset(2));
 
   Int32Array* values = static_cast<Int32Array*>(result_->values().get());
   ASSERT_EQ(0, values->length());
@@ -154,7 +154,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   ASSERT_EQ(3, result->length());
   vector<int32_t> ex_offsets = {0, 3, 3, 7};
   for (size_t i = 0; i < ex_offsets.size(); ++i) {
-    ASSERT_EQ(ex_offsets[i], result->offset(i));
+    ASSERT_EQ(ex_offsets[i], result->value_offset(i));
   }
 
   for (int i = 0; i < result->length(); ++i) {

@@ -17,6 +17,7 @@
 
 #include "arrow/array.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -44,11 +45,12 @@ Status GetEmptyBitmap(
 // Base array class
 
 Array::Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap) {
-  type_ = type;
-  length_ = length;
-  null_count_ = null_count;
-  null_bitmap_ = null_bitmap;
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : type_(type),
+      length_(length),
+      offset_(offset),
+      null_count_(null_count),
+      null_bitmap_(null_bitmap) {
   if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
 }
 
@@ -85,7 +87,7 @@ bool Array::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_
   if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
   return are_equal;
 }
-
+n
 Status Array::Validate() const {
   return Status::OK();
 }
@@ -99,14 +101,24 @@ Status NullArray::Accept(ArrayVisitor* visitor) const {
 
 PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
-    : Array(type, length, null_count, null_bitmap) {
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : Array(type, length, null_count, null_bitmap, offset) {
   data_ = data;
   raw_data_ = data == nullptr ? nullptr : data_->data();
 }
 
 template <typename T>
 Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+template <typename T>
+std::shared_ptr<Array> NumericArray<T>::Slice(int32_t offset, int32_t length) const {
+  DCHECK_LE(offset, length_);
+
+  length = std::min(length_ - offset, length);
+
+  return std::make_shared<NumericArray<T>>
   return visitor->Visit(*this);
 }
 
@@ -129,14 +141,9 @@ template class NumericArray<DoubleType>;
 // BooleanArray
 
 BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
-    : PrimitiveArray(
-          std::make_shared<BooleanType>(), length, data, null_count, null_bitmap) {}
-
-BooleanArray::BooleanArray(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
-    : PrimitiveArray(type, length, data, null_count, null_bitmap) {}
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : PrimitiveArray(std::make_shared<BooleanType>(), length, data, null_count,
+          null_bitmap, offset) {}
 
 Status BooleanArray::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
@@ -154,7 +161,7 @@ Status ListArray::Validate() const {
        << " isn't large enough for length: " << length_;
     return Status::Invalid(ss.str());
   }
-  const int32_t last_offset = offset(length_);
+  const int32_t last_offset = this->value_offset(length_);
   if (last_offset > 0) {
     if (!values_) {
       return Status::Invalid("last offset was non-zero and values was null");
@@ -174,10 +181,10 @@ Status ListArray::Validate() const {
     }
   }
 
-  int32_t prev_offset = offset(0);
+  int32_t prev_offset = this->value_offset(0);
   if (prev_offset != 0) { return Status::Invalid("The first offset wasn't zero"); }
   for (int32_t i = 1; i <= length_; ++i) {
-    int32_t current_offset = offset(i);
+    int32_t current_offset = this->value_offset(i);
     if (IsNull(i - 1) && current_offset != prev_offset) {
       std::stringstream ss;
       ss << "Offset invariant failure at: " << i << " inconsistent offsets for null slot"
@@ -208,13 +215,13 @@ static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
 
 BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
-    : BinaryArray(kBinary, length, offsets, data, null_count, null_bitmap) {}
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : BinaryArray(kBinary, length, offsets, data, null_count, null_bitmap, offset) {}
 
 BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
-    : Array(type, length, null_count, null_bitmap),
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : Array(type, length, null_count, null_bitmap, offset),
       offsets_buffer_(offsets),
       offsets_(reinterpret_cast<const int32_t*>(offsets_buffer_->data())),
       data_buffer_(data),
@@ -233,8 +240,8 @@ Status BinaryArray::Accept(ArrayVisitor* visitor) const {
 
 StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
     const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap)
-    : BinaryArray(kString, length, offsets, data, null_count, null_bitmap) {}
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : BinaryArray(kString, length, offsets, data, null_count, null_bitmap, offset) {}
 
 Status StringArray::Validate() const {
   // TODO(emkornfield) Validate proper UTF8 code points?
@@ -247,6 +254,14 @@ Status StringArray::Accept(ArrayVisitor* visitor) const {
 
 // ----------------------------------------------------------------------
 // Struct
+
+StructArray::StructArray(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::vector<std::shared_ptr<Array>>& field_arrays, int32_t null_count,
+    std::shared_ptr<Buffer> null_bitmap, int32_t offset)
+    : Array(type, length, null_count, null_bitmap, offset) {
+  type_ = type;
+  field_arrays_ = field_arrays;
+}
 
 std::shared_ptr<Array> StructArray::field(int32_t pos) const {
   DCHECK_GT(field_arrays_.size(), 0);
@@ -299,8 +314,8 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap)
-    : Array(type, length, null_count, null_bitmap),
+    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+    : Array(type, length, null_count, null_bitmap, offset),
       children_(children),
       type_ids_buffer_(type_ids),
       offsets_buffer_(offsets) {
@@ -347,7 +362,7 @@ Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int32_
 
 DictionaryArray::DictionaryArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
-    : Array(type, indices->length(), indices->null_count(), indices->null_bitmap()),
+    : Array(type, indices->length(), indices->null_count(), indices->null_bitmap(), 0),
       dict_type_(static_cast<const DictionaryType*>(type.get())),
       indices_(indices) {
   DCHECK_EQ(type->type, Type::DICTIONARY);

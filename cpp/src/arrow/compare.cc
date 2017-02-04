@@ -76,10 +76,10 @@ class RangeEqualsVisitor : public ArrayVisitor {
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i)) { return false; }
       if (is_null) continue;
-      const int32_t begin_offset = left.offset(i);
-      const int32_t end_offset = left.offset(i + 1);
-      const int32_t right_begin_offset = right.offset(o_i);
-      const int32_t right_end_offset = right.offset(o_i + 1);
+      const int32_t begin_offset = left.value_offset(i);
+      const int32_t end_offset = left.value_offset(i + 1);
+      const int32_t right_begin_offset = right.value_offset(o_i);
+      const int32_t right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -169,10 +169,10 @@ class RangeEqualsVisitor : public ArrayVisitor {
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i)) { return false; }
       if (is_null) continue;
-      const int32_t begin_offset = left.offset(i);
-      const int32_t end_offset = left.offset(i + 1);
-      const int32_t right_begin_offset = right.offset(o_i);
-      const int32_t right_end_offset = right.offset(o_i + 1);
+      const int32_t begin_offset = left.value_offset(i);
+      const int32_t end_offset = left.value_offset(i + 1);
+      const int32_t right_begin_offset = right.value_offset(o_i);
+      const int32_t right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
