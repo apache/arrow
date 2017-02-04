@@ -102,8 +102,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE), null);
   <#elseif minor.class == "Float8">
     field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE), null);
-  <#elseif minor.class == "TimeStamp">
+  <#elseif minor.class == "TimeStampSec">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND), null);
+  <#elseif minor.class == "TimeStampMilli">
     field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND), null);
+  <#elseif minor.class == "TimeStampMicro">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND), null);
+  <#elseif minor.class == "TimeStampNano">
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND), null);
   <#elseif minor.class == "IntervalDay">
     field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.DAY_TIME), null);
   <#elseif minor.class == "IntervalYear">

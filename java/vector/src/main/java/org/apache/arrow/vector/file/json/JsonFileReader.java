@@ -37,7 +37,10 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -199,9 +202,18 @@ public class JsonFileReader implements AutoCloseable {
     case VARCHAR:
       ((VarCharVector)valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
       break;
-    case TIMESTAMP:
-      ((TimeStampVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+    case TIMESTAMPSEC:
+      ((TimeStampSecVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
       break;
+    case TIMESTAMPMILLI:
+      ((TimeStampMilliVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPMICRO:
+      ((TimeStampMicroVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPNANO:
+      ((TimeStampNanoVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+    break;
     default:
       throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
     }

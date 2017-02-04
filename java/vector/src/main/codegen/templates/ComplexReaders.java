@@ -96,6 +96,16 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   public ${friendlyType} read${safeType}(){
     return vector.getAccessor().getObject(idx());
   }
+
+  <#if minor.class == "TimeStampSec" ||
+       minor.class == "TimeStampMilli" ||
+       minor.class == "TimeStampMicro" ||
+       minor.class == "TimeStampNano">
+  @Override
+  public ${minor.boxedType} read${minor.boxedType}(){
+    return vector.getAccessor().get(idx());
+  }
+  </#if>
   
   public void copyValue(FieldWriter w){
     

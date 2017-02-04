@@ -33,7 +33,10 @@ import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableIntervalDayVector;
 import org.apache.arrow.vector.NullableIntervalYearVector;
 import org.apache.arrow.vector.NullableSmallIntVector;
-import org.apache.arrow.vector.NullableTimeStampVector;
+import org.apache.arrow.vector.NullableTimeStampSecVector;
+import org.apache.arrow.vector.NullableTimeStampMilliVector;
+import org.apache.arrow.vector.NullableTimeStampMicroVector;
+import org.apache.arrow.vector.NullableTimeStampNanoVector;
 import org.apache.arrow.vector.NullableTimeVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
 import org.apache.arrow.vector.NullableUInt1Vector;
@@ -58,7 +61,10 @@ import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
 import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampSecWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampMilliWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampMicroWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeWriterImpl;
 import org.apache.arrow.vector.complex.impl.TinyIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
@@ -102,7 +108,10 @@ public class Types {
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
   private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
   private static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
-  private static final Field TIMESTAMP_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND), null);
+  private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND), null);
+  private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND), null);
+  private static final Field TIMESTAMPMICRO_FIELD = new Field("", true, new Timestamp(TimeUnit.MICROSECOND), null);
+  private static final Field TIMESTAMPNANO_FIELD = new Field("", true, new Timestamp(TimeUnit.NANOSECOND), null);
   private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
   private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
   private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.SINGLE), null);
@@ -241,21 +250,72 @@ public class Types {
         return new TimeWriterImpl((NullableTimeVector) vector);
       }
     },
-    // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-    TIMESTAMP(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND)) {
+    // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
+    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND)) {
       @Override
       public Field getField() {
-        return TIMESTAMP_FIELD;
+        return TIMESTAMPSEC_FIELD;
       }
 
       @Override
       public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
-        return new NullableTimeStampVector(name, allocator);
+        return new NullableTimeStampSecVector(name, allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampWriterImpl((NullableTimeStampVector) vector);
+        return new TimeStampSecWriterImpl((NullableTimeStampSecVector) vector);
+      }
+    },
+    // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
+    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND)) {
+      @Override
+      public Field getField() {
+        return TIMESTAMPMILLI_FIELD;
+      }
+
+      @Override
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+        return new NullableTimeStampMilliVector(name, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeStampMilliWriterImpl((NullableTimeStampMilliVector) vector);
+      }
+    },
+    // time in microsecond from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
+    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND)) {
+      @Override
+      public Field getField() {
+        return TIMESTAMPMICRO_FIELD;
+      }
+
+      @Override
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+        return new NullableTimeStampMicroVector(name, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeStampMicroWriterImpl((NullableTimeStampMicroVector) vector);
+      }
+    },
+    // time in nanosecond from the Unix epoch, 00:00:00.000000000 on 1 January 1970, UTC.
+    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND)) {
+      @Override
+      public Field getField() {
+        return TIMESTAMPNANO_FIELD;
+      }
+
+      @Override
+      public FieldVector getNewVector(String name, BufferAllocator allocator, CallBack callBack, int... precisionScale) {
+        return new NullableTimeStampNanoVector(name, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeStampNanoWriterImpl((NullableTimeStampNanoVector) vector);
       }
     },
     INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
@@ -579,10 +639,18 @@ public class Types {
       }
 
       @Override public MinorType visit(Timestamp type) {
-        if (type.getUnit() != TimeUnit.MILLISECOND) {
-          throw new UnsupportedOperationException("Only milliseconds supported: " + type);
+        switch (type.getUnit()) {
+          case SECOND:
+            return MinorType.TIMESTAMPSEC;
+          case MILLISECOND:
+            return MinorType.TIMESTAMPMILLI;
+          case MICROSECOND:
+            return MinorType.TIMESTAMPMICRO;
+          case NANOSECOND:
+            return MinorType.TIMESTAMPNANO;
+          default:
+            throw new IllegalArgumentException("unknown unit: " + type);
         }
-        return MinorType.TIMESTAMP;
       }
 
       @Override

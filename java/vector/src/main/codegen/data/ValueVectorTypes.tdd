@@ -71,7 +71,10 @@
         { class: "UInt8" },
         { class: "Float8", javaType: "double" , boxedType: "Double", fields: [{name: "value", type: "double"}], },
         { class: "Date", javaType: "long", friendlyType: "DateTime" },
-        { class: "TimeStamp", javaType: "long", friendlyType: "DateTime" }
+        { class: "TimeStampSec", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
+        { class: "TimeStampMilli", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
+        { class: "TimeStampMicro", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
+        { class: "TimeStampNano", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
       ]
     },
     {

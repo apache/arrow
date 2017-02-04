@@ -24,7 +24,10 @@ import java.util.List;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -139,8 +142,17 @@ public class JsonFileWriter implements AutoCloseable {
 
   private void writeValueToGenerator(ValueVector valueVector, int i) throws IOException {
     switch (valueVector.getMinorType()) {
-      case TIMESTAMP:
-        generator.writeNumber(((TimeStampVector)valueVector).getAccessor().get(i));
+      case TIMESTAMPSEC:
+        generator.writeNumber(((TimeStampSecVector)valueVector).getAccessor().get(i));
+        break;
+      case TIMESTAMPMILLI:
+        generator.writeNumber(((TimeStampMilliVector)valueVector).getAccessor().get(i));
+        break;
+      case TIMESTAMPMICRO:
+        generator.writeNumber(((TimeStampMicroVector)valueVector).getAccessor().get(i));
+        break;
+      case TIMESTAMPNANO:
+        generator.writeNumber(((TimeStampNanoVector)valueVector).getAccessor().get(i));
         break;
       case BIT:
         generator.writeNumber(((BitVector)valueVector).getAccessor().get(i));

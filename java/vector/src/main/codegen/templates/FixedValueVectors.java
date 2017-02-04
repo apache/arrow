@@ -490,12 +490,41 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
         return date;
     }
 
-    <#elseif minor.class == "TimeStamp">
+    <#elseif minor.class == "TimeStampSec">
+    @Override
+    public ${friendlyType} getObject(int index) {
+      long secs = java.util.concurrent.TimeUnit.SECONDS.toMillis(get(index));
+      org.joda.time.DateTime date = new org.joda.time.DateTime(secs, org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
+    }
+
+    <#elseif minor.class == "TimeStampMilli">
     @Override
     public ${friendlyType} getObject(int index) {
         org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
         date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
         return date;
+    }
+
+    <#elseif minor.class == "TimeStampMicro">
+    @Override
+    public ${friendlyType} getObject(int index) {
+      // value is truncated when converting microseconds to milliseconds in order to use DateTime type
+      long micros = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(get(index));
+      org.joda.time.DateTime date = new org.joda.time.DateTime(micros, org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
+    }
+
+    <#elseif minor.class == "TimeStampNano">
+    @Override
+    public ${friendlyType} getObject(int index) {
+      // value is truncated when converting nanoseconds to milliseconds in order to use DateTime type
+      long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(get(index));
+      org.joda.time.DateTime date = new org.joda.time.DateTime(millis, org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
     }
 
     <#elseif minor.class == "IntervalYear">
