@@ -144,10 +144,8 @@ static Status ValidateArrowVsJson(
 
   if (!json_schema->Equals(arrow_schema)) {
     std::stringstream ss;
-    ss << "JSON schema: \n"
-       << json_schema->ToString() << "\n"
-       << "Arrow schema: \n"
-       << arrow_schema->ToString();
+    ss << "JSON schema: \n" << json_schema->ToString() << "\n"
+       << "Arrow schema: \n" << arrow_schema->ToString();
 
     if (FLAGS_verbose) { std::cout << ss.str() << std::endl; }
     return Status::Invalid("Schemas did not match");

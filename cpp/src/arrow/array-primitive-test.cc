@@ -121,7 +121,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     }
 
     auto expected =
-        std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_null_bitmap);
+        std::make_shared<ArrayType>(size, ex_data, ex_null_bitmap, ex_null_count);
 
     std::shared_ptr<Array> out;
     ASSERT_OK(builder->Finish(&out));
@@ -217,7 +217,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   }
 
   auto expected =
-      std::make_shared<BooleanArray>(size, ex_data, ex_null_count, ex_null_bitmap);
+      std::make_shared<BooleanArray>(size, ex_data, ex_null_bitmap, ex_null_count);
 
   std::shared_ptr<Array> out;
   ASSERT_OK(builder->Finish(&out));
@@ -235,15 +235,14 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   for (int i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
-    bool actual = BitUtil::GetBit(result->raw_data(), i);
+    bool actual = BitUtil::GetBit(result->data()->data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
   ASSERT_TRUE(result->Equals(*expected));
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-    PInt32, PInt64, PFloat, PDouble>
-    Primitives;
+    PInt32, PInt64, PFloat, PDouble> Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 

@@ -901,7 +901,7 @@ class JsonArrayReader {
     DCHECK_EQ(children.size(), 1);
 
     *array = std::make_shared<ListArray>(
-        type, length, offsets_buffer, children[0], null_count, validity_buffer);
+        type, length, offsets_buffer, children[0], validity_buffer, null_count);
 
     return Status::OK();
   }
@@ -918,7 +918,7 @@ class JsonArrayReader {
     RETURN_NOT_OK(GetChildren(json_array, type, &fields));
 
     *array =
-        std::make_shared<StructArray>(type, length, fields, null_count, validity_buffer);
+        std::make_shared<StructArray>(type, length, fields, validity_buffer, null_count);
 
     return Status::OK();
   }
@@ -953,7 +953,7 @@ class JsonArrayReader {
     RETURN_NOT_OK(GetChildren(json_array, type, &children));
 
     *array = std::make_shared<UnionArray>(type, length, children, type_id_buffer,
-        offsets_buffer, null_count, validity_buffer);
+        offsets_buffer, validity_buffer, null_count);
 
     return Status::OK();
   }

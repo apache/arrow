@@ -44,14 +44,22 @@ Status GetEmptyBitmap(
 // ----------------------------------------------------------------------
 // Base array class
 
-Array::Array(const std::shared_ptr<DataType>& type, int32_t length, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
+Array::Array(const std::shared_ptr<DataType>& type, int32_t length,
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t null_count, int32_t offset)
     : type_(type),
       length_(length),
       offset_(offset),
       null_count_(null_count),
-      null_bitmap_(null_bitmap) {
+      null_bitmap_(null_bitmap),
+      null_bitmap_data_(nullptr) {
   if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
+}
+
+int32_t Array::null_count() const {
+  if (null_count_ < 0 && null_bitmap_) {
+    null_count_ = CountSetBits(null_bitmap_data_, offset_, length_);
+  }
+  return null_count_;
 }
 
 bool Array::Equals(const Array& arr) const {
@@ -87,7 +95,7 @@ bool Array::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_
   if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
   return are_equal;
 }
-n
+
 Status Array::Validate() const {
   return Status::OK();
 }
@@ -100,9 +108,9 @@ Status NullArray::Accept(ArrayVisitor* visitor) const {
 // Primitive array base
 
 PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : Array(type, length, null_count, null_bitmap, offset) {
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int32_t null_count, int32_t offset)
+    : Array(type, length, null_bitmap, null_count, offset) {
   data_ = data;
   raw_data_ = data == nullptr ? nullptr : data_->data();
 }
@@ -112,15 +120,14 @@ Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
 }
 
-template <typename T>
-std::shared_ptr<Array> NumericArray<T>::Slice(int32_t offset, int32_t length) const {
-  DCHECK_LE(offset, length_);
+// template <typename T>
+// std::shared_ptr<Array> NumericArray<T>::Slice(int32_t offset, int32_t length) const {
+//   DCHECK_LE(offset, length_);
 
-  length = std::min(length_ - offset, length);
+//   length = std::min(length_ - offset, length);
 
-  return std::make_shared<NumericArray<T>>
-  return visitor->Visit(*this);
-}
+//   return std::make_shared<NumericArray<T>> return visitor->Visit(*this);
+// }
 
 template class NumericArray<UInt8Type>;
 template class NumericArray<UInt16Type>;
@@ -141,9 +148,9 @@ template class NumericArray<DoubleType>;
 // BooleanArray
 
 BooleanArray::BooleanArray(int32_t length, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : PrimitiveArray(std::make_shared<BooleanType>(), length, data, null_count,
-          null_bitmap, offset) {}
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t null_count, int32_t offset)
+    : PrimitiveArray(std::make_shared<BooleanType>(), length, data, null_bitmap,
+          null_count, offset) {}
 
 Status BooleanArray::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
@@ -214,14 +221,14 @@ static std::shared_ptr<DataType> kBinary = std::make_shared<BinaryType>();
 static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
 
 BinaryArray::BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : BinaryArray(kBinary, length, offsets, data, null_count, null_bitmap, offset) {}
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int32_t null_count, int32_t offset)
+    : BinaryArray(kBinary, length, offsets, data, null_bitmap, null_count, offset) {}
 
 BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : Array(type, length, null_count, null_bitmap, offset),
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t null_count, int32_t offset)
+    : Array(type, length, null_bitmap, null_count, offset),
       offsets_buffer_(offsets),
       offsets_(reinterpret_cast<const int32_t*>(offsets_buffer_->data())),
       data_buffer_(data),
@@ -239,9 +246,9 @@ Status BinaryArray::Accept(ArrayVisitor* visitor) const {
 }
 
 StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : BinaryArray(kString, length, offsets, data, null_count, null_bitmap, offset) {}
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int32_t null_count, int32_t offset)
+    : BinaryArray(kString, length, offsets, data, null_bitmap, null_count, offset) {}
 
 Status StringArray::Validate() const {
   // TODO(emkornfield) Validate proper UTF8 code points?
@@ -256,9 +263,9 @@ Status StringArray::Accept(ArrayVisitor* visitor) const {
 // Struct
 
 StructArray::StructArray(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::vector<std::shared_ptr<Array>>& field_arrays, int32_t null_count,
-    std::shared_ptr<Buffer> null_bitmap, int32_t offset)
-    : Array(type, length, null_count, null_bitmap, offset) {
+    const std::vector<std::shared_ptr<Array>>& field_arrays,
+    std::shared_ptr<Buffer> null_bitmap, int32_t null_count, int32_t offset)
+    : Array(type, length, null_bitmap, null_count, offset) {
   type_ = type;
   field_arrays_ = field_arrays;
 }
@@ -314,8 +321,8 @@ Status StructArray::Accept(ArrayVisitor* visitor) const {
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& offsets,
-    int32_t null_count, const std::shared_ptr<Buffer>& null_bitmap, int32_t offset)
-    : Array(type, length, null_count, null_bitmap, offset),
+    const std::shared_ptr<Buffer>& null_bitmap, int32_t null_count, int32_t offset)
+    : Array(type, length, null_bitmap, null_count, offset),
       children_(children),
       type_ids_buffer_(type_ids),
       offsets_buffer_(offsets) {
@@ -347,14 +354,14 @@ Status UnionArray::Accept(ArrayVisitor* visitor) const {
 // DictionaryArray
 
 Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::shared_ptr<Buffer>& indices, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<DictionaryArray>* out) {
+    const std::shared_ptr<Buffer>& indices, const std::shared_ptr<Buffer>& null_bitmap,
+    int32_t null_count, int32_t offset, std::shared_ptr<DictionaryArray>* out) {
   DCHECK_EQ(type->type, Type::DICTIONARY);
   const auto& dict_type = static_cast<const DictionaryType*>(type.get());
 
   std::shared_ptr<Array> boxed_indices;
-  RETURN_NOT_OK(MakePrimitiveArray(
-      dict_type->index_type(), length, indices, null_count, null_bitmap, &boxed_indices));
+  RETURN_NOT_OK(MakePrimitiveArray(dict_type->index_type(), length, indices, null_bitmap,
+      null_count, offset, &boxed_indices));
 
   *out = std::make_shared<DictionaryArray>(type, boxed_indices);
   return Status::OK();
@@ -362,7 +369,8 @@ Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int32_
 
 DictionaryArray::DictionaryArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
-    : Array(type, indices->length(), indices->null_count(), indices->null_bitmap(), 0),
+    : Array(type, indices->length(), indices->null_bitmap(), indices->null_count(),
+          indices->offset()),
       dict_type_(static_cast<const DictionaryType*>(type.get())),
       indices_(indices) {
   DCHECK_EQ(type->type, Type::DICTIONARY);
@@ -386,14 +394,14 @@ Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
 
 // ----------------------------------------------------------------------
 
-#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                          \
-  case Type::ENUM:                                                          \
-    out->reset(new ArrayType(type, length, data, null_count, null_bitmap)); \
+#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                                  \
+  case Type::ENUM:                                                                  \
+    out->reset(new ArrayType(type, length, data, null_bitmap, null_count, offset)); \
     break;
 
 Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
-    const std::shared_ptr<Buffer>& data, int32_t null_count,
-    const std::shared_ptr<Buffer>& null_bitmap, std::shared_ptr<Array>* out) {
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int32_t null_count, int32_t offset, std::shared_ptr<Array>* out) {
   switch (type->type) {
     MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
     MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);

@@ -185,7 +185,7 @@ Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
   *out = std::make_shared<typename TypeTraits<T>::ArrayType>(
-      type_, length_, data_, null_count_, null_bitmap_);
+      type_, length_, data_, null_bitmap_, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -244,7 +244,7 @@ Status BooleanBuilder::Finish(std::shared_ptr<Array>* out) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
-  *out = std::make_shared<BooleanArray>(type_, length_, data_, null_count_, null_bitmap_);
+  *out = std::make_shared<BooleanArray>(type_, length_, data_, null_bitmap_, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -313,7 +313,7 @@ Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> offsets = offset_builder_.Finish();
 
   *out = std::make_shared<ListArray>(
-      type_, length_, offsets, items, null_count_, null_bitmap_);
+      type_, length_, offsets, items, null_bitmap_, null_count_);
 
   Reset();
 
@@ -352,7 +352,7 @@ Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
   *out = std::make_shared<BinaryArray>(list->length(), list->offsets(), values->data(),
-      list->null_count(), list->null_bitmap());
+      list->null_bitmap(), list->null_count());
   return Status::OK();
 }
 
@@ -364,7 +364,7 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
   *out = std::make_shared<StringArray>(list->length(), list->offsets(), values->data(),
-      list->null_count(), list->null_bitmap());
+      list->null_bitmap(), list->null_count());
   return Status::OK();
 }
 
@@ -377,7 +377,7 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(field_builders_[i]->Finish(&fields[i]));
   }
 
-  *out = std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
+  *out = std::make_shared<StructArray>(type_, length_, fields, null_bitmap_, null_count_);
 
   null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;

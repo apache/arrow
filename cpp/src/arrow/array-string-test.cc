@@ -70,7 +70,7 @@ class TestStringArray : public ::testing::Test {
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(
-        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
   }
 
  protected:
@@ -114,7 +114,7 @@ TEST_F(TestStringArray, TestListFunctions) {
 
 TEST_F(TestStringArray, TestDestructor) {
   auto arr = std::make_shared<StringArray>(
-      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
 }
 
 TEST_F(TestStringArray, TestGetString) {
@@ -133,9 +133,9 @@ TEST_F(TestStringArray, TestEmptyStringComparison) {
   length_ = offsets_.size() - 1;
 
   auto strings_a = std::make_shared<StringArray>(
-      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+      length_, offsets_buf_, nullptr, null_bitmap_, null_count_);
   auto strings_b = std::make_shared<StringArray>(
-      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+      length_, offsets_buf_, nullptr, null_bitmap_, null_count_);
   ASSERT_TRUE(strings_a->Equals(strings_b));
 }
 
@@ -195,7 +195,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
     } else {
       ASSERT_FALSE(result_->IsNull(i));
       result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->offset(i));
+      ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
       ASSERT_EQ(strings[i % N], result_->GetString(i));
 
@@ -232,7 +232,7 @@ class TestBinaryArray : public ::testing::Test {
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(
-        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
   }
 
  protected:
@@ -276,7 +276,7 @@ TEST_F(TestBinaryArray, TestListFunctions) {
 
 TEST_F(TestBinaryArray, TestDestructor) {
   auto arr = std::make_shared<BinaryArray>(
-      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
 }
 
 TEST_F(TestBinaryArray, TestGetValue) {
@@ -307,7 +307,7 @@ TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
 
   const BinaryArray& left = static_cast<const BinaryArray&>(*left_arr);
   std::shared_ptr<Array> right = std::make_shared<BinaryArray>(
-      left.length(), left.offsets(), nullptr, left.null_count(), left.null_bitmap());
+      left.length(), left.offsets(), nullptr, left.null_bitmap(), left.null_count());
 
   ASSERT_TRUE(left.Equals(right));
   ASSERT_TRUE(left.RangeEquals(0, left.length(), 0, right));

@@ -372,7 +372,7 @@ class ArrayLoader : public TypeVisitor {
     BufferMetadata metadata = context_->metadata->buffer(buffer_index);
 
     if (metadata.length == 0) {
-      *out = std::make_shared<Buffer>(nullptr, 0);
+      *out = nullptr;
       return Status::OK();
     } else {
       return file_->ReadAt(metadata.offset, metadata.length, out);
@@ -412,8 +412,8 @@ class ArrayLoader : public TypeVisitor {
       context_->buffer_index++;
       data.reset(new Buffer(nullptr, 0));
     }
-    return MakePrimitiveArray(field_.type, field_meta.length, data, field_meta.null_count,
-        null_bitmap, &result_);
+    return MakePrimitiveArray(field_.type, field_meta.length, data, null_bitmap,
+        field_meta.null_count, 0, &result_);
   }
 
   template <typename CONTAINER>
@@ -428,7 +428,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
 
     result_ = std::make_shared<CONTAINER>(
-        field_meta.length, offsets, values, field_meta.null_count, null_bitmap);
+        field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -496,7 +496,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChild(*type.child(0).get(), &values_array));
 
     result_ = std::make_shared<ListArray>(field_.type, field_meta.length, offsets,
-        values_array, field_meta.null_count, null_bitmap);
+        values_array, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -521,7 +521,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));
 
     result_ = std::make_shared<StructArray>(
-        field_.type, field_meta.length, fields, field_meta.null_count, null_bitmap);
+        field_.type, field_meta.length, fields, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -542,7 +542,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));
 
     result_ = std::make_shared<UnionArray>(field_.type, field_meta.length, fields,
-        type_ids, offsets, field_meta.null_count, null_bitmap);
+        type_ids, offsets, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 

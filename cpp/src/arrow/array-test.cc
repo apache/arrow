@@ -43,7 +43,7 @@ TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<PoolBuffer>(pool_);
   auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
 
-  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, 10, null_bitmap));
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
   ASSERT_EQ(10, arr->null_count());
 
   std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
@@ -67,7 +67,7 @@ std::shared_ptr<Array> MakeArrayFromValidBytes(
   }
 
   std::shared_ptr<Array> arr(
-      new Int32Array(v.size(), value_builder.Finish(), null_count, null_buf));
+      new Int32Array(v.size(), value_builder.Finish(), null_buf, null_count));
   return arr;
 }
 
@@ -102,7 +102,7 @@ TEST_F(TestArray, TestIsNull) {
 
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap);
   std::unique_ptr<Array> arr;
-  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_count, null_buf));
+  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());

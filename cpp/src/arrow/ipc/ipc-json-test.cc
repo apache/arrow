@@ -161,7 +161,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   ASSERT_OK(test::GetBitmapFromBoolVector(list_is_valid, &list_bitmap));
   std::shared_ptr<Buffer> offsets_buffer = test::GetBufferFromVector(offsets);
 
-  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, 1, list_bitmap);
+  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
 
   TestArrayRoundTrip(list_array);
 
@@ -175,7 +175,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   std::vector<std::shared_ptr<Array>> fields = {values_array, values_array, values_array};
   StructArray struct_array(
-      struct_type, static_cast<int>(struct_is_valid.size()), fields, 2, struct_bitmap);
+      struct_type, static_cast<int>(struct_is_valid.size()), fields, struct_bitmap, 2);
   TestArrayRoundTrip(struct_array);
 }
 

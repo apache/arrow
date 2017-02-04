@@ -82,6 +82,11 @@ static inline bool IsMultipleOf8(int64_t n) {
   return (n & 7) == 0;
 }
 
+/// Returns 'value' rounded up to the nearest multiple of 'factor'
+inline int64_t RoundUp(int64_t value, int64_t factor) {
+  return (value + (factor - 1)) / factor * factor;
+}
+
 inline int64_t RoundUpToMultipleOf64(int64_t num) {
   // TODO(wesm): is this definitely needed?
   // DCHECK_GE(num, 0);
@@ -98,6 +103,17 @@ void BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits);
 ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil
+
+/// Compute the number of 1's in the given data array
+///
+/// \param[in] data a packed LSB-ordered bitmap as a byte array
+/// \param[in] bit_offset a bitwise offset into the bitmap
+/// \param[in] length the number of bits to inspect in the bitmap relative to the offset
+///
+/// \return The number of set (1) bits in the range
+int64_t ARROW_EXPORT CountSetBits(
+    const uint8_t* data, int64_t bit_offset, int64_t length);
+
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H

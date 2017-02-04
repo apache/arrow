@@ -25,6 +25,6 @@
   TypeName& operator=(const TypeName&) = delete
 #endif
 
-#define UNUSED(x) (void)x
+#define UNUSED(x) (void) x
 
 #endif  // ARROW_UTIL_MACROS_H

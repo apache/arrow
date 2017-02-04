@@ -104,8 +104,8 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int length = 1000;
 
   // Make the schema
-  auto f0 = std::make_shared<Field>("f0", int32());
-  auto f1 = std::make_shared<Field>("f1", int32());
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   // Example data
@@ -141,8 +141,8 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int32_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
-  auto f0 = std::make_shared<Field>("f0", string_type);
-  auto f1 = std::make_shared<Field>("f1", binary_type);
+  auto f0 = field("f0", string_type);
+  auto f1 = field("f1", binary_type);
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   std::shared_ptr<Array> a0, a1;
@@ -164,9 +164,9 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
-  auto f0 = std::make_shared<Field>("f0", kListInt32);
-  auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", int32());
+  auto f0 = field("f0", kListInt32);
+  auto f1 = field("f1", kListListInt32);
+  auto f2 = field("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -187,9 +187,9 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
-  auto f0 = std::make_shared<Field>("f0", kListInt32);
-  auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", int32());
+  auto f0 = field("f0", kListInt32);
+  auto f1 = field("f1", kListListInt32);
+  auto f2 = field("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -208,9 +208,9 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
-  auto f0 = std::make_shared<Field>("f0", kListInt32);
-  auto f1 = std::make_shared<Field>("f1", kListListInt32);
-  auto f2 = std::make_shared<Field>("f2", int32());
+  auto f0 = field("f0", kListInt32);
+  auto f1 = field("f1", kListListInt32);
+  auto f2 = field("f2", int32());
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   // Example data
@@ -242,7 +242,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
     RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool, &array));
   }
 
-  auto f0 = std::make_shared<Field>("f0", type);
+  auto f0 = field("f0", type);
   std::shared_ptr<Schema> schema(new Schema({f0}));
   std::vector<std::shared_ptr<Array>> arrays = {array};
   out->reset(new RecordBatch(schema, batch_length, arrays));
@@ -260,8 +260,8 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::shared_ptr<DataType> type(new StructType(
       {list_schema->field(0), list_schema->field(1), list_schema->field(2)}));
-  auto f0 = std::make_shared<Field>("non_null_struct", type);
-  auto f1 = std::make_shared<Field>("null_struct", type);
+  auto f0 = field("non_null_struct", type);
+  auto f1 = field("null_struct", type);
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   // construct individual nullable/non-nullable struct arrays
@@ -271,7 +271,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Buffer> null_bitmask;
   RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
   std::shared_ptr<Array> with_nulls(
-      new StructArray(type, list_batch->num_rows(), columns, 1, null_bitmask));
+      new StructArray(type, list_batch->num_rows(), columns, null_bitmask, 1));
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {no_nulls, with_nulls};
@@ -282,7 +282,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_types(
-      {std::make_shared<Field>("u0", int32()), std::make_shared<Field>("u1", uint8())});
+      {field("u0", int32()), field("u1", uint8())});
 
   std::vector<uint8_t> type_codes = {5, 10};
   auto sparse_type =
@@ -291,9 +291,9 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   auto dense_type =
       std::make_shared<UnionType>(union_types, type_codes, UnionMode::DENSE);
 
-  auto f0 = std::make_shared<Field>("sparse_nonnull", sparse_type, false);
-  auto f1 = std::make_shared<Field>("sparse", sparse_type);
-  auto f2 = std::make_shared<Field>("dense", dense_type);
+  auto f0 = field("sparse_nonnull", sparse_type, false);
+  auto f1 = field("sparse", sparse_type);
+  auto f2 = field("dense", dense_type);
 
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
@@ -337,10 +337,10 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   auto sparse_no_nulls =
       std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
   auto sparse = std::make_shared<UnionArray>(
-      sparse_type, length, sparse_children, type_ids_buffer, nullptr, 1, null_bitmask);
+      sparse_type, length, sparse_children, type_ids_buffer, nullptr, null_bitmask, 1);
 
   auto dense = std::make_shared<UnionArray>(dense_type, length, dense_children,
-      type_ids_buffer, offsets_buffer, 1, null_bitmask);
+      type_ids_buffer, offsets_buffer, null_bitmask, 1);
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
