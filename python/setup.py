@@ -257,9 +257,6 @@ class build_ext(_build_ext):
         return [self._get_cmake_ext_path(name)
                 for name in self.get_names()]
 
-DESC = """\
-Python library for Apache Arrow"""
-
 # In the case of a git-archive, we don't have any version information
 # from the SCM to infer a version. The only source is the java/pom.xml.
 #
@@ -270,6 +267,12 @@ if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
     tree = ET.parse('../java/pom.xml')
     version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
     os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace("-SNAPSHOT", "a0")
+
+long_description = """Apache Arrow is a columnar in-memory analytics layer
+designed to accelerate big data. It houses a set of canonical in-memory
+representations of flat and hierarchical data along with multiple
+language-bindings for structure manipulation. It also provides IPC
+and common algorithm implementations."""
 
 setup(
     name="pyarrow",
@@ -286,9 +289,18 @@ setup(
     use_scm_version = {"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm'],
     install_requires=['cython >= 0.23', 'numpy >= 1.9', 'six >= 1.0.0'],
-    description=DESC,
+    description="Python library for Apache Arrow",
+    long_description=long_description,
+    classifiers=[
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'
+        ],
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
     maintainer_email="dev@arrow.apache.org",
-    test_suite="pyarrow.tests"
+    test_suite="pyarrow.tests",
+    url="https://arrow.apache.org/"
 )
