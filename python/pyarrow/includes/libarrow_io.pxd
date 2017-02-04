@@ -82,7 +82,7 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
         CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
 
         @staticmethod
-        CStatus Open(const c_string& path, MemoryPool* memory_pool,
+        CStatus Open(const c_string& path, CMemoryPool* memory_pool,
                      shared_ptr[ReadableFile]* file)
 
         int file_descriptor()

@@ -29,6 +29,7 @@ import pyarrow.config
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.error cimport check_status
+from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 
 cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
@@ -44,11 +45,6 @@ cdef _pandas():
     return pd
 
 
-def total_allocated_bytes():
-    cdef MemoryPool* pool = pyarrow.get_memory_pool()
-    return pool.bytes_allocated()
-
-
 cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):
@@ -58,7 +54,7 @@ cdef class Array:
         self.type.init(self.sp_array.get().type())
 
     @staticmethod
-    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None):
+    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None, MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array.
 
@@ -73,6 +69,9 @@ cdef class Array:
             Convert datetime columns to ms resolution. This is needed for
             compatibility with other functionality like Parquet I/O which
             only supports milliseconds.
+
+        memory_pool: MemoryPool, optional
+            Specific memory pool to use to allocate the resulting Arrow array.
 
         Notes
         -----
@@ -107,6 +106,7 @@ cdef class Array:
         cdef:
             shared_ptr[CArray] out
             shared_ptr[CField] c_field
+            CMemoryPool* pool
 
         pd = _pandas()
 
@@ -121,20 +121,20 @@ cdef class Array:
         if isinstance(series_values, pd.Categorical):
             return DictionaryArray.from_arrays(series_values.codes,
                                                series_values.categories.values,
-                                               mask=mask)
+                                               mask=mask, memory_pool=memory_pool)
         else:
             if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
                 series_values = series_values.astype('datetime64[ms]')
 
+            pool = maybe_unbox_memory_pool(memory_pool)
             with nogil:
                 check_status(pyarrow.PandasToArrow(
-                    pyarrow.get_memory_pool(), series_values, mask,
-                    c_field, &out))
+                    pool, series_values, mask, c_field, &out))
 
             return box_arrow_array(out)
 
     @staticmethod
-    def from_list(object list_obj, DataType type=None):
+    def from_list(object list_obj, DataType type=None, MemoryPool memory_pool=None):
         """
         Convert Python list to Arrow array
 
@@ -147,10 +147,12 @@ cdef class Array:
         pyarrow.array.Array
         """
         cdef:
-            shared_ptr[CArray] sp_array
+           shared_ptr[CArray] sp_array
+           CMemoryPool* pool
 
+        pool = maybe_unbox_memory_pool(memory_pool)
         if type is None:
-            check_status(pyarrow.ConvertPySequence(list_obj, &sp_array))
+            check_status(pyarrow.ConvertPySequence(list_obj, pool, &sp_array))
         else:
             raise NotImplementedError()
 
@@ -330,7 +332,7 @@ cdef class BinaryArray(Array):
 cdef class DictionaryArray(Array):
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None):
+    def from_arrays(indices, dictionary, mask=None, MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -352,8 +354,8 @@ cdef class DictionaryArray(Array):
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
 
-        arrow_indices = Array.from_pandas(indices, mask=mask)
-        arrow_dictionary = Array.from_pandas(dictionary)
+        arrow_indices = Array.from_pandas(indices, mask=mask, memory_pool=memory_pool)
+        arrow_dictionary = Array.from_pandas(dictionary, memory_pool=memory_pool)
 
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')

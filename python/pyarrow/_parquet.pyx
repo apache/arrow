@@ -32,6 +32,7 @@ from pyarrow.compat import tobytes, frombytes
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.io import NativeFile
+from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 from pyarrow.table cimport Table
 
 from pyarrow.io cimport NativeFile, get_reader, get_writer
@@ -342,13 +343,13 @@ cdef logical_type_name_from_enum(ParquetLogicalType type_):
 cdef class ParquetReader:
     cdef:
         object source
-        MemoryPool* allocator
+        CMemoryPool* allocator
         unique_ptr[FileReader] reader
         column_idx_map
         FileMetaData _metadata
 
-    def __cinit__(self):
-        self.allocator = default_memory_pool()
+    def __cinit__(self, MemoryPool memory_pool=None):
+        self.allocator = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
     def open(self, object source, FileMetaData metadata=None):
@@ -471,6 +472,7 @@ cdef class ParquetWriter:
     cdef:
         shared_ptr[WriterProperties] properties
         shared_ptr[OutputStream] sink
+        CMemoryPool* allocator
 
     cdef readonly:
         object use_dictionary
@@ -479,7 +481,7 @@ cdef class ParquetWriter:
         int row_group_size
 
     def __cinit__(self, where, use_dictionary=None, compression=None,
-                  version=None):
+                  version=None, MemoryPool memory_pool=None):
         cdef shared_ptr[FileOutputStream] filestream
 
         if isinstance(where, six.string_types):
@@ -487,6 +489,7 @@ cdef class ParquetWriter:
             self.sink = <shared_ptr[OutputStream]> filestream
         else:
             get_writer(where, &self.sink)
+        self.allocator = maybe_unbox_memory_pool(memory_pool)
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -540,6 +543,6 @@ cdef class ParquetWriter:
 
         cdef int c_row_group_size = row_group_size
         with nogil:
-            check_status(WriteTable(ctable, default_memory_pool(),
+            check_status(WriteTable(ctable, self.allocator,
                                         self.sink, c_row_group_size,
                                         self.properties))

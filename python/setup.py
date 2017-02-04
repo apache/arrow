@@ -80,7 +80,8 @@ class build_ext(_build_ext):
     description = "Build the C-extensions for arrow"
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
-                     ('with-parquet', None, 'build the Parquet extension')] +
+                     ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-jemalloc', None, 'build the jemalloc extension')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -88,12 +89,15 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
         self.with_parquet = False
+        self.with_jemalloc = False
 
     CYTHON_MODULE_NAMES = [
         'array',
         'config',
         'error',
         'io',
+        'jemalloc',
+        'memory',
         '_parquet',
         'scalar',
         'schema',
@@ -134,6 +138,9 @@ class build_ext(_build_ext):
 
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
+
+        if self.with_jemalloc:
+            cmake_options.append('-DPYARROW_BUILD_JEMALLOC=on')
 
         if sys.platform != 'win32':
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
@@ -215,6 +222,8 @@ class build_ext(_build_ext):
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
+            return True
+        if name == 'jemalloc' and not self.with_jemalloc:
             return True
         return False
 

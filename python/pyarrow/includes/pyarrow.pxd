@@ -20,7 +20,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CField,
                                         CTable, CDataType, CStatus, Type,
-                                        MemoryPool, TimeUnit)
+                                        CMemoryPool, TimeUnit)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
 
@@ -28,9 +28,9 @@ cimport pyarrow.includes.libarrow_io as arrow_io
 cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
-    CStatus ConvertPySequence(object obj, shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool, shared_ptr[CArray]* out)
 
-    CStatus PandasToArrow(MemoryPool* pool, object ao, object mo,
+    CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
                           shared_ptr[CField] field,
                           shared_ptr[CArray]* out)
 
@@ -43,7 +43,8 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
                                  int nthreads, PyObject** out)
 
-    MemoryPool* get_memory_pool()
+    void set_default_memory_pool(CMemoryPool* pool)
+    CMemoryPool* get_memory_pool()
 
 
 cdef extern from "pyarrow/common.h" namespace "pyarrow" nogil:

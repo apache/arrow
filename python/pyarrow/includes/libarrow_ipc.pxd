@@ -18,8 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (MemoryPool, CArray, CSchema,
-                                        CRecordBatch)
+from pyarrow.includes.libarrow cimport (CArray, CSchema, CRecordBatch)
 from pyarrow.includes.libarrow_io cimport (InputStream, OutputStream,
                                            ReadableFileInterface)
 

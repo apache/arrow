@@ -33,6 +33,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import frombytes, tobytes, encode_file_path
 from pyarrow.error cimport check_status
+from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 from pyarrow.schema cimport Schema
 from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
                             table_from_ctable)
@@ -372,7 +373,7 @@ cdef class OSFile(NativeFile):
     cdef:
         object path
 
-    def __cinit__(self, path, mode='r'):
+    def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
         self.path = path
 
         cdef:
@@ -383,7 +384,7 @@ cdef class OSFile(NativeFile):
         self.is_readable = self.is_writeable = 0
 
         if mode in ('r', 'rb'):
-            self._open_readable(c_path)
+            self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
             self._open_writeable(c_path)
         else:
@@ -391,12 +392,11 @@ cdef class OSFile(NativeFile):
 
         self.is_open = True
 
-    cdef _open_readable(self, c_string path):
+    cdef _open_readable(self, c_string path, CMemoryPool* pool):
         cdef shared_ptr[ReadableFile] handle
 
         with nogil:
-            check_status(ReadableFile.Open(path, pyarrow.get_memory_pool(),
-                                           &handle))
+            check_status(ReadableFile.Open(path, pool, &handle))
 
         self.is_readable = 1
         self.rd_file = <shared_ptr[ReadableFileInterface]> handle
@@ -450,9 +450,9 @@ cdef class Buffer:
             self.buffer.get().size())
 
 
-cdef shared_ptr[PoolBuffer] allocate_buffer():
+cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
-    result.reset(new PoolBuffer(pyarrow.get_memory_pool()))
+    result.reset(new PoolBuffer(pool))
     return result
 
 
@@ -461,8 +461,8 @@ cdef class InMemoryOutputStream(NativeFile):
     cdef:
         shared_ptr[PoolBuffer] buffer
 
-    def __cinit__(self):
-        self.buffer = allocate_buffer()
+    def __cinit__(self, MemoryPool memory_pool=None):
+        self.buffer = allocate_buffer(maybe_unbox_memory_pool(memory_pool))
         self.wr_file.reset(new BufferOutputStream(
             <shared_ptr[ResizableBuffer]> self.buffer))
         self.is_readable = 0

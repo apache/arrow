@@ -98,6 +98,7 @@ struct PyObjectStringify {
   }
 
 // Return the common PyArrow memory pool
+PYARROW_EXPORT void set_default_memory_pool(arrow::MemoryPool* pool);
 PYARROW_EXPORT arrow::MemoryPool* get_memory_pool();
 
 class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {

@@ -38,7 +38,8 @@ class Status;
 namespace pyarrow {
 
 PYARROW_EXPORT
-arrow::Status ConvertPySequence(PyObject* obj, std::shared_ptr<arrow::Array>* out);
+arrow::Status ConvertPySequence(
+    PyObject* obj, arrow::MemoryPool* pool, std::shared_ptr<arrow::Array>* out);
 
 }  // namespace pyarrow
 
