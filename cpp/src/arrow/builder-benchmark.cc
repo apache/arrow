@@ -30,7 +30,7 @@ static void BM_BuildPrimitiveArrayNoNulls(
   // 2 MiB block
   std::vector<int64_t> data(256 * 1024, 100);
   while (state.KeepRunning()) {
-    Int64Builder builder(default_memory_pool(), arrow::int64());
+    Int64Builder builder(default_memory_pool());
     for (int i = 0; i < kFinalSize; i++) {
       // Build up an array of 512 MiB in size
       builder.Append(data.data(), data.size(), nullptr);

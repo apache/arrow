@@ -294,8 +294,8 @@ class TestBuilder : public ::testing::Test {
   void SetUp() {
     pool_ = default_memory_pool();
     type_ = TypePtr(new UInt8Type());
-    builder_.reset(new UInt8Builder(pool_, type_));
-    builder_nn_.reset(new UInt8Builder(pool_, type_));
+    builder_.reset(new UInt8Builder(pool_));
+    builder_nn_.reset(new UInt8Builder(pool_));
   }
 
  protected:

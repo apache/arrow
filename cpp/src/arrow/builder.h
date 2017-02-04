@@ -19,6 +19,7 @@
 #define ARROW_BUILDER_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,6 +28,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -185,6 +187,11 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
  public:
   using typename PrimitiveBuilder<T>::value_type;
   using PrimitiveBuilder<T>::PrimitiveBuilder;
+
+  template <typename T1 = T>
+  explicit NumericBuilder(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
+      : PrimitiveBuilder<T1>(pool, TypeTraits<T1>::type_singleton()) {}
 
   using PrimitiveBuilder<T>::Append;
   using PrimitiveBuilder<T>::Init;

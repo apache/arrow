@@ -18,6 +18,8 @@
 #ifndef ARROW_TYPE_FWD_H
 #define ARROW_TYPE_FWD_H
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Status;
@@ -103,6 +105,26 @@ using TimestampBuilder = NumericBuilder<TimestampType>;
 
 struct IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
+
+// ----------------------------------------------------------------------
+// (parameter-free) Factory functions
+
+std::shared_ptr<DataType> ARROW_EXPORT null();
+std::shared_ptr<DataType> ARROW_EXPORT boolean();
+std::shared_ptr<DataType> ARROW_EXPORT int8();
+std::shared_ptr<DataType> ARROW_EXPORT int16();
+std::shared_ptr<DataType> ARROW_EXPORT int32();
+std::shared_ptr<DataType> ARROW_EXPORT int64();
+std::shared_ptr<DataType> ARROW_EXPORT uint8();
+std::shared_ptr<DataType> ARROW_EXPORT uint16();
+std::shared_ptr<DataType> ARROW_EXPORT uint32();
+std::shared_ptr<DataType> ARROW_EXPORT uint64();
+std::shared_ptr<DataType> ARROW_EXPORT float16();
+std::shared_ptr<DataType> ARROW_EXPORT float32();
+std::shared_ptr<DataType> ARROW_EXPORT float64();
+std::shared_ptr<DataType> ARROW_EXPORT utf8();
+std::shared_ptr<DataType> ARROW_EXPORT binary();
+std::shared_ptr<DataType> ARROW_EXPORT date();
 
 }  // namespace arrow
 
