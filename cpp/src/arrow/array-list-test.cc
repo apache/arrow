@@ -137,7 +137,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
-  ASSERT_EQ(0, result_->raw_offsets()[0]);
+  ASSERT_EQ(0, result_->raw_value_offsets()[0]);
   ASSERT_EQ(0, result_->value_offset(1));
   ASSERT_EQ(0, result_->value_offset(2));
 

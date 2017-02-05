@@ -172,9 +172,9 @@ class ArrayPrinter : public ArrayVisitor {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
-    Write("-- offsets: ");
-    Int32Array offsets(array.length() + 1, array.offsets());
-    RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
+    Write("-- value_offsets: ");
+    Int32Array value_offsets(array.length() + 1, array.value_offsets());
+    RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
 
     Newline();
     Write("-- values: ");
@@ -209,9 +209,9 @@ class ArrayPrinter : public ArrayVisitor {
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
-      Write("-- offsets: ");
-      Int32Array offsets(array.length(), array.offsets());
-      RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
+      Write("-- value_offsets: ");
+      Int32Array value_offsets(array.length(), array.value_offsets());
+      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
     }
 
     return PrintChildren(array.children());

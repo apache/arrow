@@ -255,8 +255,8 @@ class RangeEqualsVisitor : public ArrayVisitor {
           return false;
         }
       } else {
-        const int32_t offset = left.raw_offsets()[i];
-        const int32_t o_offset = right.raw_offsets()[i];
+        const int32_t offset = left.raw_value_offsets()[i];
+        const int32_t o_offset = right.raw_value_offsets()[i];
         if (!left.child(child_num)->RangeEquals(
                 offset, offset + 1, o_offset, right.child(child_num))) {
           return false;
@@ -378,11 +378,11 @@ class EqualsVisitor : public RangeEqualsVisitor {
 
   bool CompareBinary(const BinaryArray& left) {
     const auto& right = static_cast<const BinaryArray&>(right_);
-    bool equal_offsets =
-        left.offsets()->Equals(*right.offsets(), (left.length() + 1) * sizeof(int32_t));
+    bool equal_offsets = left.value_offsets()->Equals(
+        *right.value_offsets(), (left.length() + 1) * sizeof(int32_t));
     if (!equal_offsets) { return false; }
     if (!left.data() && !(right.data())) { return true; }
-    return left.data()->Equals(*right.data(), left.raw_offsets()[left.length()]);
+    return left.data()->Equals(*right.data(), left.raw_value_offsets()[left.length()]);
   }
 
   Status Visit(const StringArray& left) override {
@@ -397,8 +397,8 @@ class EqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const ListArray& left) override {
     const auto& right = static_cast<const ListArray&>(right_);
-    if (!left.offsets()->Equals(
-            *right.offsets(), (left.length() + 1) * sizeof(int32_t))) {
+    if (!left.value_offsets()->Equals(
+            *right.value_offsets(), (left.length() + 1) * sizeof(int32_t))) {
       result_ = false;
     } else {
       result_ = left.values()->Equals(right.values());

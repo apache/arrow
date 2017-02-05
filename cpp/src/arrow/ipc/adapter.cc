@@ -214,7 +214,7 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status VisitBinary(const BinaryArray& array) {
-    buffers_.push_back(array.offsets());
+    buffers_.push_back(array.value_offsets());
     buffers_.push_back(array.data());
     return Status::OK();
   }
@@ -262,7 +262,7 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const ListArray& array) override {
-    buffers_.push_back(array.offsets());
+    buffers_.push_back(array.value_offsets());
     --max_recursion_depth_;
     RETURN_NOT_OK(VisitArray(*array.values().get()));
     ++max_recursion_depth_;
@@ -281,7 +281,7 @@ class RecordBatchWriter : public ArrayVisitor {
   Status Visit(const UnionArray& array) override {
     buffers_.push_back(array.type_ids());
 
-    if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.offsets()); }
+    if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.value_offsets()); }
 
     --max_recursion_depth_;
     for (const auto& field : array.children()) {

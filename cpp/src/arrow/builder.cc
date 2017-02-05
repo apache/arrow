@@ -351,8 +351,8 @@ Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   const auto list = std::dynamic_pointer_cast<ListArray>(result);
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
-  *out = std::make_shared<BinaryArray>(list->length(), list->offsets(), values->data(),
-      list->null_bitmap(), list->null_count());
+  *out = std::make_shared<BinaryArray>(list->length(), list->value_offsets(),
+      values->data(), list->null_bitmap(), list->null_count());
   return Status::OK();
 }
 
@@ -363,8 +363,8 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   const auto list = std::dynamic_pointer_cast<ListArray>(result);
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
-  *out = std::make_shared<StringArray>(list->length(), list->offsets(), values->data(),
-      list->null_bitmap(), list->null_count());
+  *out = std::make_shared<StringArray>(list->length(), list->value_offsets(),
+      values->data(), list->null_bitmap(), list->null_count());
   return Status::OK();
 }
 

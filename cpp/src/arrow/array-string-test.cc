@@ -306,8 +306,8 @@ TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
   ASSERT_OK(builder.Finish(&left_arr));
 
   const BinaryArray& left = static_cast<const BinaryArray&>(*left_arr);
-  std::shared_ptr<Array> right = std::make_shared<BinaryArray>(
-      left.length(), left.offsets(), nullptr, left.null_bitmap(), left.null_count());
+  std::shared_ptr<Array> right = std::make_shared<BinaryArray>(left.length(),
+      left.value_offsets(), nullptr, left.null_bitmap(), left.null_count());
 
   ASSERT_TRUE(left.Equals(right));
   ASSERT_TRUE(left.RangeEquals(0, left.length(), 0, right));

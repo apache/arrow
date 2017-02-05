@@ -109,11 +109,13 @@ class ARROW_EXPORT Array {
   /// Buffer for the null bitmap.
   ///
   /// Note that for `null_count == 0`, this can be a `nullptr`.
+  /// This buffer does not account for any slice offset
   std::shared_ptr<Buffer> null_bitmap() const { return null_bitmap_; }
 
   /// Raw pointer to the null bitmap.
   ///
   /// Note that for `null_count == 0`, this can be a `nullptr`.
+  /// This buffer does not account for any slice offset
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   bool Equals(const Array& arr) const;
@@ -144,6 +146,9 @@ class ARROW_EXPORT Array {
   ///
   /// \return a new object wrapped in std::shared_ptr<Array>
   virtual std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const = 0;
+
+  /// Slice from offset until end of the array
+  std::shared_ptr<Array> Slice(int32_t offset) const;
 
  protected:
   std::shared_ptr<DataType> type_;
@@ -183,6 +188,8 @@ class ARROW_EXPORT PrimitiveArray : public Array {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
 
+  /// The memory containing this array's data
+  /// This buffer does not account for any slice offset
   std::shared_ptr<Buffer> data() const { return data_; }
 
  protected:
@@ -247,13 +254,14 @@ class ARROW_EXPORT ListArray : public Array {
   using TypeClass = ListType;
 
   ListArray(const std::shared_ptr<DataType>& type, int32_t length,
-      const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Array>& values,
+      const std::shared_ptr<Buffer>& value_offsets, const std::shared_ptr<Array>& values,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0)
       : Array(type, length, null_bitmap, null_count, offset) {
-    offsets_ = offsets;
-    raw_offsets_ =
-        offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(offsets_->data());
+    value_offsets_ = value_offsets;
+    raw_value_offsets_ = value_offsets == nullptr
+                             ? nullptr
+                             : reinterpret_cast<const int32_t*>(value_offsets_->data());
     values_ = values;
   }
 
@@ -262,17 +270,20 @@ class ARROW_EXPORT ListArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> values() const { return values_; }
-  std::shared_ptr<Buffer> offsets() const { return offsets_; }
+
+  /// Note that this buffer does not account for any slice offset
+  std::shared_ptr<Buffer> value_offsets() const { return value_offsets_; }
 
   std::shared_ptr<DataType> value_type() const { return values_->type(); }
 
-  const int32_t* raw_offsets() const { return raw_offsets_; }
+  /// Return pointer to raw value offsets accounting for any slice offset
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) const { return raw_offsets_[i + offset_]; }
+  int32_t value_offset(int i) const { return raw_value_offsets_[i + offset_]; }
   int32_t value_length(int i) const {
     i += offset_;
-    return raw_offsets_[i + 1] - raw_offsets_[i];
+    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
   Status Accept(ArrayVisitor* visitor) const override;
@@ -280,8 +291,8 @@ class ARROW_EXPORT ListArray : public Array {
   std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 
  protected:
-  std::shared_ptr<Buffer> offsets_;
-  const int32_t* raw_offsets_;
+  std::shared_ptr<Buffer> value_offsets_;
+  const int32_t* raw_value_offsets_;
   std::shared_ptr<Array> values_;
 };
 
@@ -292,7 +303,7 @@ class ARROW_EXPORT BinaryArray : public Array {
  public:
   using TypeClass = BinaryType;
 
-  BinaryArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+  BinaryArray(int32_t length, const std::shared_ptr<Buffer>& value_offsets,
       const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
@@ -304,21 +315,24 @@ class ARROW_EXPORT BinaryArray : public Array {
     // Account for base offset
     i += offset_;
 
-    const int32_t pos = raw_offsets_[i];
-    *out_length = raw_offsets_[i + 1] - pos;
+    const int32_t pos = raw_value_offsets_[i];
+    *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
   }
 
+  /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> data() const { return data_; }
-  std::shared_ptr<Buffer> offsets() const { return offsets_; }
 
-  const int32_t* raw_offsets() const { return raw_offsets_; }
+  /// Note that this buffer does not account for any slice offset
+  std::shared_ptr<Buffer> value_offsets() const { return value_offsets_; }
+
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) const { return raw_offsets_[i + offset_]; }
+  int32_t value_offset(int i) const { return raw_value_offsets_[i + offset_]; }
   int32_t value_length(int i) const {
     i += offset_;
-    return raw_offsets_[i + 1] - raw_offsets_[i];
+    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
   Status Validate() const override;
@@ -331,12 +345,12 @@ class ARROW_EXPORT BinaryArray : public Array {
   // Constructor that allows sub-classes/builders to propagate there logical type up the
   // class hierarchy.
   BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
-      const std::shared_ptr<Buffer>& offsets, const std::shared_ptr<Buffer>& data,
+      const std::shared_ptr<Buffer>& value_offsets, const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
 
-  std::shared_ptr<Buffer> offsets_;
-  const int32_t* raw_offsets_;
+  std::shared_ptr<Buffer> value_offsets_;
+  const int32_t* raw_value_offsets_;
 
   std::shared_ptr<Buffer> data_;
   const uint8_t* raw_data_;
@@ -346,7 +360,7 @@ class ARROW_EXPORT StringArray : public BinaryArray {
  public:
   using TypeClass = StringType;
 
-  StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
+  StringArray(int32_t length, const std::shared_ptr<Buffer>& value_offsets,
       const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
@@ -405,17 +419,20 @@ class ARROW_EXPORT UnionArray : public Array {
   UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
       const std::vector<std::shared_ptr<Array>>& children,
       const std::shared_ptr<Buffer>& type_ids,
-      const std::shared_ptr<Buffer>& offsets = nullptr,
+      const std::shared_ptr<Buffer>& value_offsets = nullptr,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
 
   Status Validate() const override;
 
+  /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> type_ids() const { return type_ids_; }
-  const uint8_t* raw_type_ids() const { return raw_type_ids_; }
 
-  std::shared_ptr<Buffer> offsets() const { return offsets_; }
-  const int32_t* raw_offsets() const { return raw_offsets_; }
+  /// Note that this buffer does not account for any slice offset
+  std::shared_ptr<Buffer> value_offsets() const { return value_offsets_; }
+
+  const uint8_t* raw_type_ids() const { return raw_type_ids_; }
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
   UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
 
@@ -433,8 +450,8 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Buffer> type_ids_;
   const uint8_t* raw_type_ids_;
 
-  std::shared_ptr<Buffer> offsets_;
-  const int32_t* raw_offsets_;
+  std::shared_ptr<Buffer> value_offsets_;
+  const int32_t* raw_value_offsets_;
 };
 
 // ----------------------------------------------------------------------

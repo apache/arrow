@@ -346,6 +346,35 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
       array->RangeEquals(first_valid_idx + 1, size, first_valid_idx + 1, unequal_array));
 }
 
+TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
+  DECL_T();
+
+  const int size = 1000;
+  this->RandomData(size);
+  vector<T>& draws = this->draws_;
+  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  auto builder = this->builder_.get();
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(5);
+  slice2 = array->Slice(5);
+  ASSERT_EQ(size - 5, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, slice->length(), 0, slice));
+
+  slice = array->Slice(5, 10);
+  slice2 = array->Slice(5, 10);
+  ASSERT_EQ(10, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, 10, 0, slice));
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 

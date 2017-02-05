@@ -464,7 +464,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   Status WriteVarBytes(const T& array) {
     WriteValidityField(array);
-    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
     SetNoChildren();
     return Status::OK();
@@ -532,7 +532,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
-    WriteIntegerField("OFFSET", array.raw_offsets(), array.length() + 1);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     auto type = static_cast<const ListType*>(array.type().get());
     return WriteChildren(type->children(), {array.values()});
   }
@@ -549,7 +549,7 @@ class JsonArrayWriter : public ArrayVisitor {
 
     WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
     if (type->mode == UnionMode::DENSE) {
-      WriteIntegerField("OFFSET", array.raw_offsets(), array.length());
+      WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
     return WriteChildren(type->children(), array.children());
   }
