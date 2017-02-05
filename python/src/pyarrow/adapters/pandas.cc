@@ -1817,6 +1817,7 @@ class ArrowDeserializer {
       CONVERT_CASE(DATE);
       CONVERT_CASE(TIMESTAMP);
       CONVERT_CASE(DICTIONARY);
+      CONVERT_CASE(LIST);
       default: {
         std::stringstream ss;
         ss << "Arrow type reading not implemented for " << col_->type()->ToString();
@@ -1912,6 +1913,36 @@ class ArrowDeserializer {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertBinaryLike<arrow::BinaryArray>(data_, out_values);
+  }
+
+#define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
+  case Type::ArrowEnum:                                    \
+    return ConvertListsLike<::arrow::ArrowType>(col_, out_values);
+
+  template <int T2>
+  inline typename std::enable_if<T2 == Type::LIST, Status>::type ConvertValues() {
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    auto list_type = std::static_pointer_cast<ListType>(col_->type());
+    switch (list_type->value_type()->type) {
+      CONVERTVALUES_LISTSLIKE_CASE(UInt8Type, UINT8)
+      CONVERTVALUES_LISTSLIKE_CASE(Int8Type, INT8)
+      CONVERTVALUES_LISTSLIKE_CASE(UInt16Type, UINT16)
+      CONVERTVALUES_LISTSLIKE_CASE(Int16Type, INT16)
+      CONVERTVALUES_LISTSLIKE_CASE(UInt32Type, UINT32)
+      CONVERTVALUES_LISTSLIKE_CASE(Int32Type, INT32)
+      CONVERTVALUES_LISTSLIKE_CASE(UInt64Type, UINT64)
+      CONVERTVALUES_LISTSLIKE_CASE(Int64Type, INT64)
+      CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
+      CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
+      CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
+      CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
+      default: {
+        std::stringstream ss;
+        ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
+        return Status::NotImplemented(ss.str());
+      }
+    }
   }
 
   template <int TYPE>

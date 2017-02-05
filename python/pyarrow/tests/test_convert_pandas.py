@@ -22,6 +22,7 @@ import datetime
 import unittest
 
 import numpy as np
+import numpy.testing as npt
 
 import pandas as pd
 import pandas.util.testing as tm
@@ -80,7 +81,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
                                   field=field)
         result = arr.to_pandas()
-        tm.assert_series_equal(pd.Series(result), pd.Series(values))
+        tm.assert_series_equal(pd.Series(result), pd.Series(values), check_names=False)
 
     def test_float_no_nulls(self):
         data = {}
@@ -331,6 +332,10 @@ class TestPandasConversion(unittest.TestCase):
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)
+
+        for column in df.columns:
+            field = schema.field_by_name(column)
+            self._check_array_roundtrip(df[column], field=field)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
