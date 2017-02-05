@@ -15,5 +15,5 @@ FROM arrow-base-x86_64
 WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
 WORKDIR /parquet-cpp
-RUN ARROW_HOME=/usr /opt/python/cp35-cp35m/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DPARQUET_BUILD_TESTS=OFF -DPARQUET_ARROW=ON .
+RUN ARROW_HOME=/usr cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DPARQUET_BUILD_TESTS=OFF -DPARQUET_ARROW=ON .
 RUN make -j5 install

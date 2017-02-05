@@ -20,7 +20,7 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7 3.4 3.5}"
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7 3.4 3.5 3.6}"
 
 # Package index with only manylinux1 builds
 MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
@@ -29,9 +29,10 @@ source /multibuild/manylinux_utils.sh
 
 cd /arrow/python
 
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib"
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
-export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_PARQUET=ON'
+export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_TESTS=ON'
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
 export ARROW_HOME="/usr"
@@ -69,9 +70,14 @@ for PYTHON in ${PYTHON_VERSIONS}; do
 
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.24"
-    $PIPI_IO "cmake"
 
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+
+    # Test for optional modules
+    $PIPI_IO -r requirements.txt
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.jemalloc"
 
     repair_wheelhouse dist /io/dist
 done
