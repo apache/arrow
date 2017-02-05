@@ -81,7 +81,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
                                   field=field)
         result = arr.to_pandas()
-        tm.assert_series_equal(pd.Series(result), pd.Series(values))
+        tm.assert_series_equal(pd.Series(result), pd.Series(values), check_names=False)
 
     def test_float_no_nulls(self):
         data = {}
@@ -335,13 +335,7 @@ class TestPandasConversion(unittest.TestCase):
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            array = A.Array.from_pandas(df[column], field=field)
-            result = array.to_pandas()
-            expected = df[column].values
-            # Do element-wise comparison that arrays are equal
-            #  npt.assert_equal(result, expected) does not work on arrays-of-lists
-            for res, exp in zip(result, expected):
-                npt.assert_equal(res, exp)
+            self._check_array_roundtrip(df[column], field=field)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
