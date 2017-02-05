@@ -27,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -135,7 +136,13 @@ class ARROW_EXPORT Array {
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
-  // virtual std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const = 0;
+  ///
+  /// \param[in] offset the position of the first element in the constructed slice
+  /// \param[in] length the length of the slice. If there are not enough elements in the array,
+  ///     the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Array>
+  virtual std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const = 0;
 
  protected:
   std::shared_ptr<DataType> type_;
@@ -160,12 +167,11 @@ class ARROW_EXPORT NullArray : public Array {
  public:
   using TypeClass = NullType;
 
-  NullArray(const std::shared_ptr<DataType>& type, int32_t length)
-      : Array(type, length, nullptr, length) {}
-
-  explicit NullArray(int32_t length) : NullArray(std::make_shared<NullType>(), length) {}
+  explicit NullArray(int32_t length);
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 };
 
 Status ARROW_EXPORT GetEmptyBitmap(
@@ -178,8 +184,6 @@ class ARROW_EXPORT PrimitiveArray : public Array {
       const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
-
-  virtual ~PrimitiveArray() {}
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
@@ -196,17 +200,21 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   using PrimitiveArray::PrimitiveArray;
 
-  NumericArray(int32_t length, const std::shared_ptr<Buffer>& data,
-      const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
-      int32_t offset = 0)
-      : PrimitiveArray(std::make_shared<TypeClass>(), length, data, null_bitmap,
-            null_count, offset) {}
+  // Only enable this constructor without a type argument for types without additional metadata
+  template <typename T1 = TYPE>
+  NumericArray(typename std::enable_if<TypeTraits<T1>::is_parameter_free, int32_t>::type length,
+      const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap = nullptr,
+      int32_t null_count = 0, int32_t offset = 0)
+    : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
+        null_count, offset) {}
 
   const value_type* raw_data() const {
     return reinterpret_cast<const value_type*>(raw_data_) + offset_;
   }
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 
   value_type Value(int i) const { return raw_data()[i]; }
 };
@@ -222,6 +230,8 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
       int32_t offset = 0);
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 
   bool Value(int i) const {
     return BitUtil::GetBit(reinterpret_cast<const uint8_t*>(raw_data_), i + offset_);
@@ -240,37 +250,37 @@ class ARROW_EXPORT ListArray : public Array {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0)
       : Array(type, length, null_bitmap, null_count, offset) {
-    offsets_buffer_ = offsets;
-    offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
-                                                  offsets_buffer_->data());
+    offsets_ = offsets;
+    raw_offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
+                                                  offsets_->data());
     values_ = values;
   }
 
   Status Validate() const override;
 
-  virtual ~ListArray() = default;
-
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> values() const { return values_; }
-  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
+  std::shared_ptr<Buffer> offsets() const { return offsets_; }
 
   std::shared_ptr<DataType> value_type() const { return values_->type(); }
 
-  const int32_t* raw_offsets() const { return offsets_; }
+  const int32_t* raw_offsets() const { return raw_offsets_; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) const { return offsets_[i + offset_]; }
+  int32_t value_offset(int i) const { return raw_offsets_[i + offset_]; }
   int32_t value_length(int i) const {
     i += offset_;
-    return offsets_[i + 1] - offsets_[i];
+    return raw_offsets_[i + 1] - raw_offsets_[i];
   }
 
   Status Accept(ArrayVisitor* visitor) const override;
 
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
+
  protected:
-  std::shared_ptr<Buffer> offsets_buffer_;
-  const int32_t* offsets_;
+  std::shared_ptr<Buffer> offsets_;
+  const int32_t* raw_offsets_;
   std::shared_ptr<Array> values_;
 };
 
@@ -293,26 +303,28 @@ class ARROW_EXPORT BinaryArray : public Array {
     // Account for base offset
     i += offset_;
 
-    const int32_t pos = offsets_[i];
-    *out_length = offsets_[i + 1] - pos;
-    return data_ + pos;
+    const int32_t pos = raw_offsets_[i];
+    *out_length = raw_offsets_[i + 1] - pos;
+    return raw_data_ + pos;
   }
 
-  std::shared_ptr<Buffer> data() const { return data_buffer_; }
-  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
+  std::shared_ptr<Buffer> data() const { return data_; }
+  std::shared_ptr<Buffer> offsets() const { return offsets_; }
 
-  const int32_t* raw_offsets() const { return offsets_; }
+  const int32_t* raw_offsets() const { return raw_offsets_; }
 
   // Neither of these functions will perform boundschecking
-  int32_t value_offset(int i) const { return offsets_[i + offset_]; }
+  int32_t value_offset(int i) const { return raw_offsets_[i + offset_]; }
   int32_t value_length(int i) const {
     i += offset_;
-    return offsets_[i + 1] - offsets_[i];
+    return raw_offsets_[i + 1] - raw_offsets_[i];
   }
 
   Status Validate() const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 
  protected:
   // Constructor that allows sub-classes/builders to propagate there logical type up the
@@ -322,11 +334,11 @@ class ARROW_EXPORT BinaryArray : public Array {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
 
-  std::shared_ptr<Buffer> offsets_buffer_;
-  const int32_t* offsets_;
+  std::shared_ptr<Buffer> offsets_;
+  const int32_t* raw_offsets_;
 
-  std::shared_ptr<Buffer> data_buffer_;
-  const uint8_t* data_;
+  std::shared_ptr<Buffer> data_;
+  const uint8_t* raw_data_;
 };
 
 class ARROW_EXPORT StringArray : public BinaryArray {
@@ -349,6 +361,8 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   Status Validate() const override;
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 };
 
 // ----------------------------------------------------------------------
@@ -359,25 +373,25 @@ class ARROW_EXPORT StructArray : public Array {
   using TypeClass = StructType;
 
   StructArray(const std::shared_ptr<DataType>& type, int32_t length,
-      const std::vector<std::shared_ptr<Array>>& field_arrays,
+      const std::vector<std::shared_ptr<Array>>& children,
       std::shared_ptr<Buffer> null_bitmap = nullptr, int32_t null_count = 0,
       int32_t offset = 0);
 
   Status Validate() const override;
 
-  virtual ~StructArray() {}
-
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> field(int32_t pos) const;
 
-  const std::vector<std::shared_ptr<Array>>& fields() const { return field_arrays_; }
+  const std::vector<std::shared_ptr<Array>>& fields() const { return children_; }
 
   Status Accept(ArrayVisitor* visitor) const override;
 
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
+
  protected:
   // The child arrays corresponding to each field of the struct data type.
-  std::vector<std::shared_ptr<Array>> field_arrays_;
+  std::vector<std::shared_ptr<Array>> children_;
 };
 
 // ----------------------------------------------------------------------
@@ -396,13 +410,11 @@ class ARROW_EXPORT UnionArray : public Array {
 
   Status Validate() const override;
 
-  virtual ~UnionArray() {}
+  std::shared_ptr<Buffer> type_ids() const { return type_ids_; }
+  const uint8_t* raw_type_ids() const { return raw_type_ids_; }
 
-  std::shared_ptr<Buffer> type_ids() const { return type_ids_buffer_; }
-  const uint8_t* raw_type_ids() const { return type_ids_; }
-
-  std::shared_ptr<Buffer> offsets() const { return offsets_buffer_; }
-  const int32_t* raw_offsets() const { return offsets_; }
+  std::shared_ptr<Buffer> offsets() const { return offsets_; }
+  const int32_t* raw_offsets() const { return raw_offsets_; }
 
   UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
 
@@ -412,14 +424,16 @@ class ARROW_EXPORT UnionArray : public Array {
 
   Status Accept(ArrayVisitor* visitor) const override;
 
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
+
  protected:
   std::vector<std::shared_ptr<Array>> children_;
 
-  std::shared_ptr<Buffer> type_ids_buffer_;
-  const uint8_t* type_ids_;
+  std::shared_ptr<Buffer> type_ids_;
+  const uint8_t* raw_type_ids_;
 
-  std::shared_ptr<Buffer> offsets_buffer_;
-  const int32_t* offsets_;
+  std::shared_ptr<Buffer> offsets_;
+  const int32_t* raw_offsets_;
 };
 
 // ----------------------------------------------------------------------
@@ -461,6 +475,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type() { return dict_type_; }
 
   Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 
  protected:
   const DictionaryType* dict_type_;

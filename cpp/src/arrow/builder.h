@@ -143,8 +143,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
       : ArrayBuilder(pool, type), data_(nullptr) {}
 
-  virtual ~PrimitiveBuilder() {}
-
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
@@ -244,8 +242,6 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type = boolean())
       : ArrayBuilder(pool, type), data_(nullptr) {}
 
-  virtual ~BooleanBuilder() {}
-
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
@@ -321,8 +317,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ListBuilder(
       MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
 
-  virtual ~ListBuilder() {}
-
   Status Init(int32_t elements) override;
   Status Resize(int32_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
@@ -369,7 +363,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 class ARROW_EXPORT BinaryBuilder : public ListBuilder {
  public:
   explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type);
-  virtual ~BinaryBuilder() {}
 
   Status Append(const uint8_t* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());

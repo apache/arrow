@@ -962,7 +962,7 @@ class JsonArrayReader {
   typename std::enable_if<std::is_base_of<NullType, T>::value, Status>::type ReadArray(
       const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    *array = std::make_shared<NullArray>(type, length);
+    *array = std::make_shared<NullArray>(length);
     return Status::OK();
   }
 
