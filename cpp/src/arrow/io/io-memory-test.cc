@@ -73,8 +73,8 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice1;
   std::shared_ptr<Buffer> slice2;
   {
-    auto buffer = std::make_shared<PoolBuffer>();
-    ASSERT_OK(buffer->Resize(static_cast<int64_t>(data.size())));
+    std::shared_ptr<MutableBuffer> buffer;
+    ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
     ASSERT_OK(reader.Read(4, &slice1));

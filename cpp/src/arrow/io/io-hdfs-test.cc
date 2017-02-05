@@ -336,8 +336,9 @@ TYPED_TEST(TestHdfsClient, LargeFile) {
   std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(path, &file));
 
-  auto buffer = std::make_shared<PoolBuffer>();
-  ASSERT_OK(buffer->Resize(size));
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(nullptr, size, &buffer));
+
   int64_t bytes_read = 0;
 
   ASSERT_OK(file->Read(size, &bytes_read, buffer->mutable_data()));
@@ -348,8 +349,9 @@ TYPED_TEST(TestHdfsClient, LargeFile) {
   std::shared_ptr<HdfsReadableFile> file2;
   ASSERT_OK(this->client_->OpenReadable(path, 1 << 18, &file2));
 
-  auto buffer2 = std::make_shared<PoolBuffer>();
-  ASSERT_OK(buffer2->Resize(size));
+  std::shared_ptr<MutableBuffer> buffer2;
+  ASSERT_OK(AllocateBuffer(nullptr, size, &buffer2));
+
   ASSERT_OK(file2->Read(size, &bytes_read, buffer2->mutable_data()));
   ASSERT_EQ(0, std::memcmp(buffer2->data(), data.data(), size));
   ASSERT_EQ(size, bytes_read);

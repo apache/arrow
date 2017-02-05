@@ -31,17 +31,11 @@
 
 namespace arrow {
 
+// When slicing, we do not know the null count of the sliced range without
+// doing some computation. To avoid doing this eagerly, we set the null count
+// to -1 (any negative number will do). When Array::null_count is called the
+// first time, the null count will be computed. See ARROW-33
 constexpr int32_t kUnknownNullCount = -1;
-
-Status GetEmptyBitmap(
-    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result) {
-  auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(BitUtil::BytesForBits(length)));
-  memset(buffer->mutable_data(), 0, buffer->size());
-
-  *result = buffer;
-  return Status::OK();
-}
 
 // ----------------------------------------------------------------------
 // Base array class
@@ -102,8 +96,7 @@ Status Array::Validate() const {
   return Status::OK();
 }
 
-NullArray::NullArray(int32_t length)
-    : Array(null(), length, nullptr, length) {}
+NullArray::NullArray(int32_t length) : Array(null(), length, nullptr, length) {}
 
 std::shared_ptr<Array> NullArray::Slice(int32_t offset, int32_t length) const {
   DCHECK_LE(offset, length_);
@@ -138,8 +131,8 @@ std::shared_ptr<Array> NumericArray<T>::Slice(int32_t offset, int32_t length) co
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<NumericArray<T>>(type_, length, data_, null_bitmap_,
-      kUnknownNullCount, new_offset);
+  return std::make_shared<NumericArray<T>>(
+      type_, length, data_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 template class NumericArray<UInt8Type>;
@@ -175,8 +168,8 @@ std::shared_ptr<Array> BooleanArray::Slice(int32_t offset, int32_t length) const
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<BooleanArray>(length, data_, null_bitmap_, kUnknownNullCount,
-      new_offset);
+  return std::make_shared<BooleanArray>(
+      length, data_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 // ----------------------------------------------------------------------
@@ -243,8 +236,8 @@ std::shared_ptr<Array> ListArray::Slice(int32_t offset, int32_t length) const {
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<ListArray>(type_, length, offsets_, values_, null_bitmap_,
-      kUnknownNullCount, new_offset);
+  return std::make_shared<ListArray>(
+      type_, length, offsets_, values_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 // ----------------------------------------------------------------------
@@ -284,8 +277,8 @@ std::shared_ptr<Array> BinaryArray::Slice(int32_t offset, int32_t length) const 
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<BinaryArray>(length, offsets_, data_, null_bitmap_,
-      kUnknownNullCount, new_offset);
+  return std::make_shared<BinaryArray>(
+      length, offsets_, data_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 StringArray::StringArray(int32_t length, const std::shared_ptr<Buffer>& offsets,
@@ -308,8 +301,8 @@ std::shared_ptr<Array> StringArray::Slice(int32_t offset, int32_t length) const 
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<StringArray>(length, offsets_, data_, null_bitmap_,
-      kUnknownNullCount, new_offset);
+  return std::make_shared<StringArray>(
+      length, offsets_, data_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 // ----------------------------------------------------------------------
@@ -374,8 +367,8 @@ std::shared_ptr<Array> StructArray::Slice(int32_t offset, int32_t length) const 
 
   // Combine this offset with any existing offset
   int64_t new_offset = offset_ + offset;
-  return std::make_shared<StructArray>(type_, length, children_, null_bitmap_,
-      kUnknownNullCount, new_offset);
+  return std::make_shared<StructArray>(
+      type_, length, children_, null_bitmap_, kUnknownNullCount, new_offset);
 }
 
 // ----------------------------------------------------------------------

@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 
@@ -43,8 +44,9 @@ Status BitUtil::BytesToBits(
     const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
   int bit_length = BitUtil::BytesForBits(bytes.size());
 
-  auto buffer = std::make_shared<PoolBuffer>();
-  RETURN_NOT_OK(buffer->Resize(bit_length));
+  std::shared_ptr<MutableBuffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), bit_length, &buffer));
+
   memset(buffer->mutable_data(), 0, bit_length);
   BytesToBits(bytes, buffer->mutable_data());
 
@@ -87,6 +89,25 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   }
 
   return count;
+}
+
+Status GetEmptyBitmap(
+    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result) {
+  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
+  memset((*result)->mutable_data(), 0, (*result)->size());
+  return Status::OK();
+}
+
+Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int32_t offset, int32_t length,
+    std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<MutableBuffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), &buffer));
+  uint8_t* dest = buffer->mutable_data();
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(dest, i, BitUtil::GetBit(data, i + offset));
+  }
+  *out = buffer;
+  return Status::OK();
 }
 
 }  // namespace arrow

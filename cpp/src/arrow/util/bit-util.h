@@ -28,6 +28,8 @@
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
+class MutableBuffer;
 class Status;
 
 namespace BitUtil {
@@ -60,6 +62,12 @@ static inline void ClearBit(uint8_t* bits, int i) {
 
 static inline void SetBit(uint8_t* bits, int i) {
   bits[i / 8] |= kBitmask[i % 8];
+}
+
+static inline void SetBitTo(uint8_t* bits, int i, bool bit_is_set) {
+  // See https://graphics.stanford.edu/~seander/bithacks.html
+  // "Conditionally set or clear bits without branching"
+  bits[i / 8] ^= (-bit_is_set ^ bits[i / 8]) & kBitmask[i % 8];
 }
 
 static inline int64_t NextPower2(int64_t n) {
@@ -103,6 +111,24 @@ void BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits);
 ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil
+
+// ----------------------------------------------------------------------
+// Bitmap utilities
+
+Status ARROW_EXPORT GetEmptyBitmap(
+    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
+
+/// Copy a bit range of an existing bitmap
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to copy
+/// \param[out] out the resulting copy
+///
+/// \return Status message
+Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int32_t offset,
+    int32_t length, std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///

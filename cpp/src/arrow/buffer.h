@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_BUFFER_H
-#define ARROW_UTIL_BUFFER_H
+#ifndef ARROW_BUFFER_H
+#define ARROW_BUFFER_H
 
 #include <algorithm>
 #include <cstdint>
@@ -232,6 +232,19 @@ class ARROW_EXPORT BufferBuilder {
   int64_t size_;
 };
 
+/// Allocate a new mutable buffer from a memory pool
+///
+/// \param[in] pool a memory pool
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer with padding
+///
+/// \return Status message
+Status ARROW_EXPORT AllocateBuffer(
+    MemoryPool* pool, int64_t size, std::shared_ptr<MutableBuffer>* out);
+
+Status ARROW_EXPORT AllocateResizableBuffer(
+    MemoryPool* pool, int64_t size, std::shared_ptr<ResizableBuffer>* out);
+
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_BUFFER_H
+#endif  // ARROW_BUFFER_H

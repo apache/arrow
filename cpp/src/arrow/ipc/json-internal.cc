@@ -869,8 +869,9 @@ class JsonArrayReader {
   template <typename T>
   Status GetIntArray(
       const RjArray& json_array, const int32_t length, std::shared_ptr<Buffer>* out) {
-    auto buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(buffer->Resize(length * sizeof(T)));
+    std::shared_ptr<MutableBuffer> buffer;
+    RETURN_NOT_OK(AllocateBuffer(pool_, length * sizeof(T), &buffer));
+
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
     for (int i = 0; i < length; ++i) {
       const rj::Value& val = json_array[i];

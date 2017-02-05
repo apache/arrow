@@ -138,7 +138,8 @@ class ARROW_EXPORT Array {
   /// length
   ///
   /// \param[in] offset the position of the first element in the constructed slice
-  /// \param[in] length the length of the slice. If there are not enough elements in the array,
+  /// \param[in] length the length of the slice. If there are not enough elements in the
+  /// array,
   ///     the length will be adjusted accordingly
   ///
   /// \return a new object wrapped in std::shared_ptr<Array>
@@ -174,9 +175,6 @@ class ARROW_EXPORT NullArray : public Array {
   std::shared_ptr<Array> Slice(int32_t offset, int32_t length) const override;
 };
 
-Status ARROW_EXPORT GetEmptyBitmap(
-    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
-
 /// Base class for fixed-size logical types
 class ARROW_EXPORT PrimitiveArray : public Array {
  public:
@@ -200,13 +198,16 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
 
   using PrimitiveArray::PrimitiveArray;
 
-  // Only enable this constructor without a type argument for types without additional metadata
+  // Only enable this constructor without a type argument for types without additional
+  // metadata
   template <typename T1 = TYPE>
-  NumericArray(typename std::enable_if<TypeTraits<T1>::is_parameter_free, int32_t>::type length,
-      const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap = nullptr,
-      int32_t null_count = 0, int32_t offset = 0)
-    : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
-        null_count, offset) {}
+  NumericArray(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, int32_t>::type length,
+      const std::shared_ptr<Buffer>& data,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr, int32_t null_count = 0,
+      int32_t offset = 0)
+      : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
+            null_count, offset) {}
 
   const value_type* raw_data() const {
     return reinterpret_cast<const value_type*>(raw_data_) + offset_;
@@ -251,8 +252,8 @@ class ARROW_EXPORT ListArray : public Array {
       int32_t offset = 0)
       : Array(type, length, null_bitmap, null_count, offset) {
     offsets_ = offsets;
-    raw_offsets_ = offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(
-                                                  offsets_->data());
+    raw_offsets_ =
+        offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(offsets_->data());
     values_ = values;
   }
 
