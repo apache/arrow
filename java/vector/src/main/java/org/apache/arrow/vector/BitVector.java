@@ -423,8 +423,8 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
      *          value to set (either 1 or 0)
      */
     public final void set(int index, int value) {
-      int byteIndex = index >> 3;
-      int bitIndex = index & 7;
+      int byteIndex = byteIndex(index);
+      int bitIndex = bitIndex(index);
       byte currentByte = data.getByte(byteIndex);
       byte bitMask = (byte) (1L << bitIndex);
       if (value != 0) {
@@ -432,8 +432,85 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       } else {
         currentByte -= (bitMask & currentByte);
       }
-
       data.setByte(byteIndex, currentByte);
+    }
+
+    /**
+     * Set the bit at the given index to 1.
+     *
+     * @param index position of the bit to set
+     */
+    public final void setToOne(int index) {
+      int byteIndex = byteIndex(index);
+      int bitIndex = bitIndex(index);
+      byte currentByte = data.getByte(byteIndex);
+      byte bitMask = (byte) (1L << bitIndex);
+      currentByte |= bitMask;
+      data.setByte(byteIndex, currentByte);
+    }
+
+    /**
+     * set count bits to 1 in data starting at firstBitIndex
+     * @param data the buffer to set
+     * @param firstBitIndex the index of the first bit to set
+     * @param count the number of bits to set
+     */
+    public void setRangeToOne(int firstBitIndex, int count) {
+      int starByteIndex = byteIndex(firstBitIndex);
+      final int lastBitIndex = firstBitIndex + count;
+      final int endByteIndex = byteIndex(lastBitIndex);
+      final int startByteBitIndex = bitIndex(firstBitIndex);
+      final int endBytebitIndex = bitIndex(lastBitIndex);
+      if (count < 8 && starByteIndex == endByteIndex) {
+        // handles the case where we don't have a first and a last byte
+        byte bitMask = 0;
+        for (int i = startByteBitIndex; i < endBytebitIndex; ++i) {
+          bitMask |= (byte) (1L << i);
+        }
+        byte currentByte = data.getByte(starByteIndex);
+        currentByte |= bitMask;
+        data.setByte(starByteIndex, currentByte);
+      } else {
+        // fill in first byte (if it's not full)
+        if (startByteBitIndex != 0) {
+          byte currentByte = data.getByte(starByteIndex);
+          final byte bitMask = (byte) (0xFFL << startByteBitIndex);
+          currentByte |= bitMask;
+          data.setByte(starByteIndex, currentByte);
+          ++ starByteIndex;
+        }
+
+        // fill in one full byte at a time
+        for (int i = starByteIndex; i < endByteIndex; i++) {
+          data.setByte(i, 0xFF);
+        }
+
+        // fill in the last byte (if it's not full)
+        if (endBytebitIndex != 0) {
+          final int byteIndex = byteIndex(lastBitIndex - endBytebitIndex);
+          byte currentByte = data.getByte(byteIndex);
+          final byte bitMask = (byte) (0xFFL >>> ((8 - endBytebitIndex) & 7));
+          currentByte |= bitMask;
+          data.setByte(byteIndex, currentByte);
+        }
+
+      }
+    }
+
+    /**
+     * @param absoluteBitIndex the index of the bit in the buffer
+     * @return the index of the byte containing that bit
+     */
+    private int byteIndex(int absoluteBitIndex) {
+      return absoluteBitIndex >> 3;
+    }
+
+    /**
+     * @param absoluteBitIndex the index of the bit in the buffer
+     * @return the index of the bit inside the byte
+     */
+    private int bitIndex(int absoluteBitIndex) {
+      return absoluteBitIndex & 7;
     }
 
     public final void set(int index, BitHolder holder) {
@@ -449,6 +526,13 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
         reAlloc();
       }
       set(index, value);
+    }
+
+    public void setSafeToOne(int index) {
+      while(index >= getValueCapacity()) {
+        reAlloc();
+      }
+      setToOne(index);
     }
 
     public void setSafe(int index, BitHolder holder) {

@@ -30,6 +30,7 @@ import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -361,6 +362,41 @@ public class TestValueVector {
       }
 
       assertEquals(0, accessor.getNullCount());
+    }
+  }
+
+  @Test
+  public void testBitVectorRangeSetAllOnes() {
+    validateRange(1000, 0, 1000);
+    validateRange(1000, 0, 1);
+    validateRange(1000, 1, 2);
+    validateRange(1000, 5, 6);
+    validateRange(1000, 5, 10);
+    validateRange(1000, 5, 150);
+    validateRange(1000, 5, 27);
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+        validateRange(1000, 10 + i, 27 + j);
+        validateRange(1000, i, j);
+      }
+    }
+  }
+
+  private void validateRange(int length, int start, int count) {
+    String desc = "[" + start + ", "  + (start + count) + ") ";
+    try (BitVector bitVector = new BitVector("bits", allocator)) {
+      bitVector.reset();
+      bitVector.allocateNew(length);
+      bitVector.getMutator().setRangeToOne(start, count);
+      for (int i = 0; i < start; i++) {
+        Assert.assertEquals(desc + i, 0, bitVector.getAccessor().get(i));
+      }
+      for (int i = start; i < start + count; i++) {
+        Assert.assertEquals(desc + i, 1, bitVector.getAccessor().get(i));
+      }
+      for (int i = start + count; i < length; i++) {
+        Assert.assertEquals(desc + i, 0, bitVector.getAccessor().get(i));
+      }
     }
   }
 
