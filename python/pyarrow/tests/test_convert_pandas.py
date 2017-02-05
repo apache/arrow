@@ -22,6 +22,7 @@ import datetime
 import unittest
 
 import numpy as np
+import numpy.testing as npt
 
 import pandas as pd
 import pandas.util.testing as tm
@@ -331,6 +332,16 @@ class TestPandasConversion(unittest.TestCase):
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)
+
+        for column in df.columns:
+            field = schema.field_by_name(column)
+            array = A.Array.from_pandas(df[column], field=field)
+            result = array.to_pandas()
+            expected = df[column].values
+            # Do element-wise comparison that arrays are equal
+            #  npt.assert_equal(result, expected) does not work on arrays-of-lists
+            for res, exp in zip(result, expected):
+                npt.assert_equal(res, exp)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
