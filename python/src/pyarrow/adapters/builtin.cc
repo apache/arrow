@@ -505,7 +505,7 @@ Status ConvertPySequence(
 
   // Handle NA / NullType case
   if (type->type == Type::NA) {
-    out->reset(new arrow::NullArray(type, size));
+    out->reset(new arrow::NullArray(size));
     return Status::OK();
   }
 

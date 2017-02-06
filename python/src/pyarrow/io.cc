@@ -56,9 +56,20 @@ static Status CheckPyError() {
   return Status::OK();
 }
 
+// This is annoying: because C++11 does not allow implicit conversion of string
+// literals to non-const char*, we need to go through some gymnastics to use
+// PyObject_CallMethod without a lot of pain (its arguments are non-const
+// char*)
+template <typename... ArgTypes>
+static inline PyObject* cpp_PyObject_CallMethod(
+    PyObject* obj, const char* method_name, const char* argspec, ArgTypes... args) {
+  return PyObject_CallMethod(
+      obj, const_cast<char*>(method_name), const_cast<char*>(argspec), args...);
+}
+
 Status PythonFile::Close() {
   // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = PyObject_CallMethod(file_, "close", "()");
+  PyObject* result = cpp_PyObject_CallMethod(file_, "close", "()");
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
   return Status::OK();
@@ -66,14 +77,14 @@ Status PythonFile::Close() {
 
 Status PythonFile::Seek(int64_t position, int whence) {
   // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
+  PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
   return Status::OK();
 }
 
 Status PythonFile::Read(int64_t nbytes, PyObject** out) {
-  PyObject* result = PyObject_CallMethod(file_, "read", "(i)", nbytes);
+  PyObject* result = cpp_PyObject_CallMethod(file_, "read", "(i)", nbytes);
   ARROW_RETURN_NOT_OK(CheckPyError());
   *out = result;
   return Status::OK();
@@ -84,7 +95,7 @@ Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
       PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
   ARROW_RETURN_NOT_OK(CheckPyError());
 
-  PyObject* result = PyObject_CallMethod(file_, "write", "(O)", py_data);
+  PyObject* result = cpp_PyObject_CallMethod(file_, "write", "(O)", py_data);
   Py_XDECREF(py_data);
   Py_XDECREF(result);
   ARROW_RETURN_NOT_OK(CheckPyError());
@@ -92,7 +103,7 @@ Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
 }
 
 Status PythonFile::Tell(int64_t* position) {
-  PyObject* result = PyObject_CallMethod(file_, "tell", "()");
+  PyObject* result = cpp_PyObject_CallMethod(file_, "tell", "()");
   ARROW_RETURN_NOT_OK(CheckPyError());
 
   *position = PyLong_AsLongLong(result);

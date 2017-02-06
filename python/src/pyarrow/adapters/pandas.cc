@@ -1338,8 +1338,7 @@ class ArrowSerializer {
     PyAcquireGIL lock;
 
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    arrow::TypePtr string_type(new arrow::DateType());
-    arrow::DateBuilder date_builder(pool_, string_type);
+    arrow::DateBuilder date_builder(pool_);
     RETURN_NOT_OK(date_builder.Resize(length_));
 
     Status s;
@@ -1363,8 +1362,7 @@ class ArrowSerializer {
     // and unicode mixed in the object array
 
     PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    arrow::TypePtr string_type(new arrow::StringType());
-    arrow::StringBuilder string_builder(pool_, string_type);
+    arrow::StringBuilder string_builder(pool_);
     RETURN_NOT_OK(string_builder.Resize(length_));
 
     Status s;
@@ -1374,8 +1372,8 @@ class ArrowSerializer {
 
     if (have_bytes) {
       const auto& arr = static_cast<const arrow::StringArray&>(*out->get());
-      *out = std::make_shared<arrow::BinaryArray>(
-          arr.length(), arr.offsets(), arr.data(), arr.null_count(), arr.null_bitmap());
+      *out = std::make_shared<arrow::BinaryArray>(arr.length(), arr.value_offsets(),
+          arr.data(), arr.null_bitmap(), arr.null_count());
     }
     return Status::OK();
   }
@@ -1403,7 +1401,7 @@ class ArrowSerializer {
       }
     }
 
-    *out = std::make_shared<arrow::BooleanArray>(length_, data, null_count, null_bitmap_);
+    *out = std::make_shared<arrow::BooleanArray>(length_, data, null_bitmap_, null_count);
 
     return Status::OK();
   }
@@ -1515,10 +1513,14 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
     null_count = ValuesToBitmap<TYPE>(PyArray_DATA(arr_), length_, null_bitmap_data_);
   }
 
+  // For readability
+  constexpr int32_t kOffset = 0;
+
   RETURN_NOT_OK(ConvertData());
   std::shared_ptr<DataType> type;
   RETURN_NOT_OK(MakeDataType(&type));
-  RETURN_NOT_OK(MakePrimitiveArray(type, length_, data_, null_count, null_bitmap_, out));
+  RETURN_NOT_OK(
+      MakePrimitiveArray(type, length_, data_, null_bitmap_, null_count, kOffset, out));
   return Status::OK();
 }
 
@@ -1657,7 +1659,7 @@ ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
 
-  auto value_builder = std::make_shared<arrow::StringBuilder>(pool_, field->type);
+  auto value_builder = std::make_shared<arrow::StringBuilder>(pool_);
   ListBuilder list_builder(pool_, value_builder);
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   for (int64_t i = 0; i < length_; ++i) {

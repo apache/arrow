@@ -141,7 +141,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
-      : ArrayBuilder(pool, type), data_(nullptr) {}
+      : ArrayBuilder(pool, type), data_(nullptr), raw_data_(nullptr) {}
 
   using ArrayBuilder::Advance;
 
@@ -240,7 +240,7 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
   explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type = boolean())
-      : ArrayBuilder(pool, type), data_(nullptr) {}
+      : ArrayBuilder(pool, type), data_(nullptr), raw_data_(nullptr) {}
 
   using ArrayBuilder::Advance;
 

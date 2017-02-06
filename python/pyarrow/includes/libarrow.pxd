@@ -179,8 +179,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         double Value(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
-        const int32_t* offsets()
-        int32_t offset(int i)
+        const int32_t* raw_value_offsets()
+        int32_t value_offset(int i)
         int32_t value_length(int i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
