@@ -178,7 +178,11 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- values: ");
-    RETURN_NOT_OK(PrettyPrint(*array.values().get(), indent_ + 2, sink_));
+    auto values = array.values();
+    if (array.offset() != 0) {
+      values = values->Slice(array.value_offset(0), array.value_offset(array.length()));
+    }
+    RETURN_NOT_OK(PrettyPrint(*values, indent_ + 2, sink_));
 
     return Status::OK();
   }
@@ -189,7 +193,7 @@ class ArrayPrinter : public ArrayVisitor {
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
       Write(ss.str());
-      RETURN_NOT_OK(PrettyPrint(*fields[i].get(), indent_ + 2, sink_));
+      RETURN_NOT_OK(PrettyPrint(*fields[i], indent_ + 2, sink_));
     }
     return Status::OK();
   }
@@ -222,11 +226,11 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- dictionary: ");
-    RETURN_NOT_OK(PrettyPrint(*array.dictionary().get(), indent_ + 2, sink_));
+    RETURN_NOT_OK(PrettyPrint(*array.dictionary(), indent_ + 2, sink_));
 
     Newline();
     Write("-- indices: ");
-    return PrettyPrint(*array.indices().get(), indent_ + 2, sink_);
+    return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
   void Write(const char* data) { (*sink_) << data; }
@@ -260,7 +264,7 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     const std::string& name = batch.column_name(i);
     (*sink) << name << ": ";
-    RETURN_NOT_OK(PrettyPrint(*batch.column(i).get(), indent + 2, sink));
+    RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
     (*sink) << "\n";
   }
   return Status::OK();

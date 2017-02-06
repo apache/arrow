@@ -30,6 +30,7 @@
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -49,9 +50,10 @@ namespace ipc {
 
 class RecordBatchWriter : public ArrayVisitor {
  public:
-  RecordBatchWriter(
-      const RecordBatch& batch, int64_t buffer_start_offset, int max_recursion_depth)
-      : batch_(batch),
+  RecordBatchWriter(MemoryPool* pool, const RecordBatch& batch,
+      int64_t buffer_start_offset, int max_recursion_depth)
+      : pool_(pool),
+        batch_(batch),
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset) {}
 
@@ -62,7 +64,15 @@ class RecordBatchWriter : public ArrayVisitor {
     // push back all common elements
     field_nodes_.push_back(flatbuf::FieldNode(arr.length(), arr.null_count()));
     if (arr.null_count() > 0) {
-      buffers_.push_back(arr.null_bitmap());
+      std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
+
+      if (arr.offset() != 0) {
+        // With a sliced array / non-zero offset, we must copy the bitmap
+        RETURN_NOT_OK(
+            CopyBitmap(pool_, bitmap->data(), arr.offset(), arr.length(), &bitmap));
+      }
+
+      buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
       buffers_.push_back(std::make_shared<Buffer>(nullptr, 0));
@@ -208,50 +218,136 @@ class RecordBatchWriter : public ArrayVisitor {
  private:
   Status Visit(const NullArray& array) override { return Status::NotImplemented("null"); }
 
-  Status VisitPrimitive(const PrimitiveArray& array) {
-    buffers_.push_back(array.data());
+  template <typename ArrayType>
+  Status VisitFixedWidth(const ArrayType& array) {
+    std::shared_ptr<Buffer> data_buffer = array.data();
+
+    if (array.offset() != 0) {
+      // Non-zero offset, slice the buffer
+      const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
+      const int type_width = fw_type.bit_width() / 8;
+      const int64_t byte_offset = array.offset() * type_width;
+
+      // Send padding if it's available
+      const int64_t buffer_length =
+          std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
+              data_buffer->size() - byte_offset);
+      data_buffer = SliceBuffer(data_buffer, byte_offset, buffer_length);
+    }
+    buffers_.push_back(data_buffer);
+    return Status::OK();
+  }
+
+  template <typename ArrayType>
+  Status GetZeroBasedValueOffsets(
+      const ArrayType& array, std::shared_ptr<Buffer>* value_offsets) {
+    // Share slicing logic between ListArray and BinaryArray
+
+    auto offsets = array.value_offsets();
+
+    if (array.offset() != 0) {
+      // If we have a non-zero offset, then the value offsets do not start at
+      // zero. We must a) create a new offsets array with shifted offsets and
+      // b) slice the values array accordingly
+
+      std::shared_ptr<MutableBuffer> shifted_offsets;
+      RETURN_NOT_OK(AllocateBuffer(
+          pool_, sizeof(int32_t) * (array.length() + 1), &shifted_offsets));
+
+      int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
+      const int32_t start_offset = array.value_offset(0);
+
+      for (int i = 0; i < array.length(); ++i) {
+        dest_offsets[i] = array.value_offset(i) - start_offset;
+      }
+      // Final offset
+      dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
+      offsets = shifted_offsets;
+    }
+
+    *value_offsets = offsets;
     return Status::OK();
   }
 
   Status VisitBinary(const BinaryArray& array) {
-    buffers_.push_back(array.value_offsets());
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
+    auto data = array.data();
+
+    if (array.offset() != 0) {
+      // Slice the data buffer to include only the range we need now
+      data = SliceBuffer(data, array.value_offset(0), array.value_offset(array.length()));
+    }
+
+    buffers_.push_back(value_offsets);
+    buffers_.push_back(data);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanArray& array) override {
     buffers_.push_back(array.data());
     return Status::OK();
   }
 
-  Status Visit(const BooleanArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int8Array& array) override {
+    return VisitFixedWidth<Int8Array>(array);
+  }
 
-  Status Visit(const Int8Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int16Array& array) override {
+    return VisitFixedWidth<Int16Array>(array);
+  }
 
-  Status Visit(const Int16Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int32Array& array) override {
+    return VisitFixedWidth<Int32Array>(array);
+  }
 
-  Status Visit(const Int32Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int64Array& array) override {
+    return VisitFixedWidth<Int64Array>(array);
+  }
 
-  Status Visit(const Int64Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt8Array& array) override {
+    return VisitFixedWidth<UInt8Array>(array);
+  }
 
-  Status Visit(const UInt8Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt16Array& array) override {
+    return VisitFixedWidth<UInt16Array>(array);
+  }
 
-  Status Visit(const UInt16Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt32Array& array) override {
+    return VisitFixedWidth<UInt32Array>(array);
+  }
 
-  Status Visit(const UInt32Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt64Array& array) override {
+    return VisitFixedWidth<UInt64Array>(array);
+  }
 
-  Status Visit(const UInt64Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const HalfFloatArray& array) override {
+    return VisitFixedWidth<HalfFloatArray>(array);
+  }
 
-  Status Visit(const HalfFloatArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const FloatArray& array) override {
+    return VisitFixedWidth<FloatArray>(array);
+  }
 
-  Status Visit(const FloatArray& array) override { return VisitPrimitive(array); }
-
-  Status Visit(const DoubleArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const DoubleArray& array) override {
+    return VisitFixedWidth<DoubleArray>(array);
+  }
 
   Status Visit(const StringArray& array) override { return VisitBinary(array); }
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
 
-  Status Visit(const DateArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const DateArray& array) override {
+    return VisitFixedWidth<DateArray>(array);
+  }
 
-  Status Visit(const TimeArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const TimeArray& array) override {
+    return VisitFixedWidth<TimeArray>(array);
+  }
 
-  Status Visit(const TimestampArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const TimestampArray& array) override {
+    return VisitFixedWidth<TimestampArray>(array);
+  }
 
   Status Visit(const IntervalArray& array) override {
     return Status::NotImplemented("interval");
@@ -262,17 +358,32 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const ListArray& array) override {
-    buffers_.push_back(array.value_offsets());
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    buffers_.push_back(value_offsets);
+
     --max_recursion_depth_;
-    RETURN_NOT_OK(VisitArray(*array.values().get()));
+    std::shared_ptr<Array> values = array.values();
+
+    if (array.offset() != 0) {
+      // For non-zero offset, we slice the values array accordingly
+      const int32_t offset = array.value_offset(0);
+      const int32_t length = array.value_offset(array.length()) - offset;
+      values = values->Slice(offset, length);
+    }
+    RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
   }
 
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
-    for (const auto& field : array.fields()) {
-      RETURN_NOT_OK(VisitArray(*field.get()));
+    for (std::shared_ptr<Array> field : array.fields()) {
+      if (array.offset() != 0) {
+        // If offset is non-zero, slice the child array
+        field = field->Slice(array.offset(), array.length());
+      }
+      RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
     return Status::OK();
@@ -284,8 +395,12 @@ class RecordBatchWriter : public ArrayVisitor {
     if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.value_offsets()); }
 
     --max_recursion_depth_;
-    for (const auto& field : array.children()) {
-      RETURN_NOT_OK(VisitArray(*field.get()));
+    for (std::shared_ptr<Array> field : array.children()) {
+      if (array.offset() != 0) {
+        // If offset is non-zero, slice the child array
+        field = field->Slice(array.offset(), array.length());
+      }
+      RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
     return Status::OK();
@@ -298,6 +413,8 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
+  // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
+  MemoryPool* pool_;
   const RecordBatch& batch_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
@@ -310,14 +427,14 @@ class RecordBatchWriter : public ArrayVisitor {
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    int max_recursion_depth) {
+    MemoryPool* pool, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RecordBatchWriter serializer(batch, buffer_start_offset, max_recursion_depth);
+  RecordBatchWriter serializer(pool, batch, buffer_start_offset, max_recursion_depth);
   return serializer.Write(dst, metadata_length, body_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter serializer(batch, 0, kMaxIpcRecursionDepth);
+  RecordBatchWriter serializer(default_memory_pool(), batch, 0, kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }

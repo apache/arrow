@@ -32,6 +32,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/bit-util.h"
@@ -56,7 +57,7 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     const int64_t buffer_offset = 0;
 
     RETURN_NOT_OK(WriteRecordBatch(
-        batch, buffer_offset, mmap_.get(), &metadata_length, &body_length));
+        batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
 
     std::shared_ptr<RecordBatchMetadata> metadata;
     RETURN_NOT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
@@ -92,6 +93,33 @@ TEST_P(TestWriteRecordBatch, RoundTrip) {
   }
 }
 
+TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
+  std::shared_ptr<RecordBatch> batch_result;
+
+  auto sliced_batch = batch->Slice(2, 10);
+
+  ASSERT_OK(RoundTripHelper(*sliced_batch, 1 << 16, &batch_result));
+
+  EXPECT_EQ(sliced_batch->num_rows(), batch_result->num_rows());
+
+  for (int i = 0; i < sliced_batch->num_columns(); ++i) {
+    const auto& left = *sliced_batch->column(i);
+    const auto& right = *batch_result->column(i);
+    if (!left.Equals(right)) {
+      std::stringstream pp_result;
+      std::stringstream pp_expected;
+
+      ASSERT_OK(PrettyPrint(left, 0, &pp_expected));
+      ASSERT_OK(PrettyPrint(right, 0, &pp_result));
+
+      FAIL() << "Index: " << i << " Expected: " << pp_expected.str()
+             << "\nGot: " << pp_result.str();
+    }
+  }
+}
+
 INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
     ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,
                             &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,
@@ -102,7 +130,8 @@ void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   int32_t mock_metadata_length = -1;
   int64_t mock_body_length = -1;
   int64_t size = -1;
-  ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length));
+  ASSERT_OK(WriteRecordBatch(
+      *batch, 0, &mock, &mock_metadata_length, &mock_body_length, default_memory_pool()));
   ASSERT_OK(GetRecordBatchSize(*batch, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -156,10 +185,11 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
 
     if (override_level) {
-      return WriteRecordBatch(
-          *batch, 0, mmap_.get(), metadata_length, body_length, recursion_level + 1);
+      return WriteRecordBatch(*batch, 0, mmap_.get(), metadata_length, body_length, pool_,
+          recursion_level + 1);
     } else {
-      return WriteRecordBatch(*batch, 0, mmap_.get(), metadata_length, body_length);
+      return WriteRecordBatch(
+          *batch, 0, mmap_.get(), metadata_length, body_length, pool_);
     }
   }
 

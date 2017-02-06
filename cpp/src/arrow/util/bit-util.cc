@@ -92,7 +92,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 }
 
 Status GetEmptyBitmap(
-    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result) {
+    MemoryPool* pool, int64_t length, std::shared_ptr<MutableBuffer>* result) {
   RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
   memset((*result)->mutable_data(), 0, (*result)->size());
   return Status::OK();
@@ -101,13 +101,21 @@ Status GetEmptyBitmap(
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int32_t offset, int32_t length,
     std::shared_ptr<Buffer>* out) {
   std::shared_ptr<MutableBuffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), &buffer));
+  RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
   for (int64_t i = 0; i < length; ++i) {
     BitUtil::SetBitTo(dest, i, BitUtil::GetBit(data, i + offset));
   }
   *out = buffer;
   return Status::OK();
+}
+
+bool BitmapEquals(const uint8_t* left, const uint8_t* right, int64_t bit_length) {
+  // TODO(wesm): Make this faster using word-wise comparisons
+  for (int64_t i = 0; i < bit_length; ++i) {
+    if (BitUtil::GetBit(left, i) != BitUtil::GetBit(right, i)) { return false; }
+  }
+  return true;
 }
 
 }  // namespace arrow

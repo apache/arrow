@@ -315,20 +315,28 @@ class EqualsVisitor : public RangeEqualsVisitor {
       }
       result_ = true;
     } else {
-      result_ = left.data()->Equals(*right.data(), BitUtil::BytesForBits(left.length()));
+      result_ = BitmapEquals(left.data()->data(), right.data()->data(), left.length());
     }
     return Status::OK();
   }
 
   bool IsEqualPrimitive(const PrimitiveArray& left) {
     const auto& right = static_cast<const PrimitiveArray&>(right_);
-    if (left.null_count() > 0) {
-      const uint8_t* left_data = left.data()->data();
-      const uint8_t* right_data = right.data()->data();
-      const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-      const int value_byte_size = size_meta.bit_width() / 8;
-      DCHECK_GT(value_byte_size, 0);
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int value_byte_size = size_meta.bit_width() / 8;
+    DCHECK_GT(value_byte_size, 0);
 
+    const uint8_t* left_data = nullptr;
+    if (left.length() > 0) {
+      left_data = left.data()->data() + left.offset() * value_byte_size;
+    }
+
+    const uint8_t* right_data = nullptr;
+    if (right.length() > 0) {
+      right_data = right.data()->data() + right.offset() * value_byte_size;
+    }
+
+    if (left.null_count() > 0) {
       for (int i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) && memcmp(left_data, right_data, value_byte_size)) {
           return false;
@@ -339,7 +347,7 @@ class EqualsVisitor : public RangeEqualsVisitor {
       return true;
     } else {
       if (left.length() == 0) { return true; }
-      return left.data()->Equals(*right.data(), left.length());
+      return memcmp(left_data, right_data, value_byte_size * left.length()) == 0;
     }
   }
 
@@ -465,8 +473,8 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
     return false;
   }
   if (left.null_count() > 0) {
-    return left.null_bitmap()->Equals(
-        *right.null_bitmap(), BitUtil::BytesForBits(left.length()));
+    return BitmapEquals(
+        left.null_bitmap()->data(), right.null_bitmap()->data(), left.length());
   }
   return true;
 }

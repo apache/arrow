@@ -30,6 +30,7 @@
 namespace arrow {
 
 class Array;
+class MemoryPool;
 class RecordBatch;
 class Schema;
 class Status;
@@ -71,14 +72,15 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // @param(out) body_length: the size of the contiguous buffer block plus
 // padding bytes
-ARROW_EXPORT Status WriteRecordBatch(const RecordBatch& batch,
+Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, int max_recursion_depth = kMaxIpcRecursionDepth);
+    int64_t* body_length, MemoryPool* pool,
+    int max_recursion_depth = kMaxIpcRecursionDepth);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-ARROW_EXPORT Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
+Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the input supports zero copy reads

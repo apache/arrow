@@ -116,7 +116,7 @@ ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buf
 // Bitmap utilities
 
 Status ARROW_EXPORT GetEmptyBitmap(
-    MemoryPool* pool, int32_t length, std::shared_ptr<MutableBuffer>* result);
+    MemoryPool* pool, int64_t length, std::shared_ptr<MutableBuffer>* result);
 
 /// Copy a bit range of an existing bitmap
 ///
@@ -139,6 +139,9 @@ Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int32_t 
 /// \return The number of set (1) bits in the range
 int64_t ARROW_EXPORT CountSetBits(
     const uint8_t* data, int64_t bit_offset, int64_t length);
+
+bool ARROW_EXPORT BitmapEquals(
+    const uint8_t* left, const uint8_t* right, int64_t bit_length);
 
 }  // namespace arrow
 
