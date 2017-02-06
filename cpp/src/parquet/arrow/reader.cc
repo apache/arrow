@@ -616,7 +616,7 @@ Status ColumnReader::Impl::WrapIntoListArray(const int16_t* def_levels,
       auto list_type = std::make_shared<::arrow::ListType>(
           std::make_shared<Field>("item", output->type(), nullable[j + 1]));
       output = std::make_shared<::arrow::ListArray>(
-          list_type, list_lengths[j], offsets[j], output, null_counts[j], valid_bits[j]);
+          list_type, list_lengths[j], offsets[j], output, valid_bits[j], null_counts[j]);
     }
     *array = output;
   }
@@ -667,7 +667,7 @@ Status ColumnReader::Impl::TypedReadBatch(int batch_size, std::shared_ptr<Array>
           ::arrow::BitUtil::CeilByte(valid_bits_idx_) / 8, false));
     }
     *out = std::make_shared<ArrayType<ArrowType>>(
-        field_->type, valid_bits_idx_, data_buffer_, null_count_, valid_bits_buffer_);
+        field_->type, valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
     // Relase the ownership as the Buffer is now part of a new Array
     valid_bits_buffer_.reset();
   } else {
@@ -741,7 +741,7 @@ Status ColumnReader::Impl::TypedReadBatch<::arrow::BooleanType, BooleanType>(
       valid_bits_buffer_ = valid_bits_buffer;
     }
     *out = std::make_shared<BooleanArray>(
-        field_->type, valid_bits_idx_, data_buffer_, null_count_, valid_bits_buffer_);
+        field_->type, valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
     // Relase the ownership
     data_buffer_.reset();
     valid_bits_buffer_.reset();
@@ -770,7 +770,7 @@ Status ColumnReader::Impl::ReadByteArrayBatch(
   int16_t* rep_levels = reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data());
 
   int values_to_read = batch_size;
-  BuilderType builder(pool_, field_->type);
+  BuilderType builder(pool_);
   while ((values_to_read > 0) && column_reader_) {
     RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(ByteArray), false));
     auto reader = dynamic_cast<TypedColumnReader<ByteArrayType>*>(column_reader_.get());

@@ -132,9 +132,9 @@ void CpuInfo::Init() {
 #else
 #ifndef _SC_LEVEL1_DCACHE_SIZE
   // Provide reasonable default values if no info
-  cache_sizes_[0] = 32 * 1024;   // Level 1: 32k
-  cache_sizes_[1] = 256 * 1024;  // Level 2: 256k
-  cache_sizes_[2] = 3072 * 1024; // Level 3: 3M
+  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
+  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
+  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
 #else
   // Call sysconf to query for the cache sizes
   cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);

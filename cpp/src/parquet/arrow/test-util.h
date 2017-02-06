@@ -47,8 +47,7 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NonNullA
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
   ::arrow::test::random_real<typename ArrowType::c_type>(size, 0, 0, 1, &values);
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool());
   builder.Append(values.data(), values.size());
   return builder.Finish(out);
 }
@@ -58,6 +57,8 @@ typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NonNullArr
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
   ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+
+  // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(
       ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
   builder.Append(values.data(), values.size());
@@ -69,7 +70,7 @@ typename std::enable_if<
     is_arrow_string<ArrowType>::value || is_arrow_binary<ArrowType>::value, Status>::type
 NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
-  BuilderType builder(::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  BuilderType builder(::arrow::default_memory_pool());
   for (size_t i = 0; i < size; i++) {
     builder.Append("test-string");
   }
@@ -81,8 +82,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NonNullAr
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values;
   ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
-  ::arrow::BooleanBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::BooleanType>());
+  ::arrow::BooleanBuilder builder(::arrow::default_memory_pool());
   builder.Append(values.data(), values.size());
   return builder.Finish(out);
 }
@@ -100,8 +100,7 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type Nullable
     valid_bytes[i * 2] = 0;
   }
 
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool());
   builder.Append(values.data(), values.size(), valid_bytes.data());
   return builder.Finish(out);
 }
@@ -121,6 +120,7 @@ typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NullableAr
     valid_bytes[i * 2] = 0;
   }
 
+  // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(
       ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
   builder.Append(values.data(), values.size(), valid_bytes.data());
@@ -140,7 +140,7 @@ NullableArray(
   }
 
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
-  BuilderType builder(::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  BuilderType builder(::arrow::default_memory_pool());
 
   const int kBufferSize = 10;
   uint8_t buffer[kBufferSize];
@@ -171,8 +171,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
     valid_bytes[i * 2] = 0;
   }
 
-  ::arrow::BooleanBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::BooleanType>());
+  ::arrow::BooleanBuilder builder(::arrow::default_memory_pool());
   builder.Append(values.data(), values.size(), valid_bytes.data());
   return builder.Finish(out);
 }
@@ -211,7 +210,7 @@ Status MakeListArary(const std::shared_ptr<Array>& values, int64_t size,
   auto value_field =
       std::make_shared<::arrow::Field>("item", values->type(), nullable_values);
   *out = std::make_shared<::arrow::ListArray>(
-      ::arrow::list(value_field), size, offsets, values, null_count, null_bitmap);
+      ::arrow::list(value_field), size, offsets, values, null_bitmap, null_count);
 
   return Status::OK();
 }

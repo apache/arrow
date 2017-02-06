@@ -88,10 +88,10 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   Status Visit(const ListArray& array) override {
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
-    offsets_.push_back(array.raw_offsets());
+    offsets_.push_back(array.raw_value_offsets());
 
-    min_offset_idx_ = array.raw_offsets()[min_offset_idx_];
-    max_offset_idx_ = array.raw_offsets()[max_offset_idx_];
+    min_offset_idx_ = array.raw_value_offsets()[min_offset_idx_];
+    max_offset_idx_ = array.raw_value_offsets()[max_offset_idx_];
 
     return array.values()->Accept(this);
   }
