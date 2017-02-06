@@ -127,13 +127,14 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(result, ex_frame)
 
     def test_integer_no_nulls(self):
-        data = {}
+        data = OrderedDict()
         fields = []
 
         numpy_dtypes = [('i1', A.int8()), ('i2', A.int16()),
                         ('i4', A.int32()), ('i8', A.int64()),
                         ('u1', A.uint8()), ('u2', A.uint16()),
-                        ('u4', A.uint32()), ('u8', A.uint64())]
+                        ('u4', A.uint32()), ('u8', A.uint64()),
+                        ('longlong', A.int64()), ('ulonglong', A.uint64())]
         num_values = 100
 
         for dtype, arrow_dtype in numpy_dtypes:
@@ -147,6 +148,7 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame(data)
         schema = A.Schema.from_fields(fields)
         self._check_pandas_roundtrip(df, expected_schema=schema)
+
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype

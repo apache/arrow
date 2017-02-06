@@ -91,10 +91,13 @@ NPY_INT_DECL(INT8, Int8, int8_t);
 NPY_INT_DECL(INT16, Int16, int16_t);
 NPY_INT_DECL(INT32, Int32, int32_t);
 NPY_INT_DECL(INT64, Int64, int64_t);
+NPY_INT_DECL(LONGLONG, Int64, int64_t);
+
 NPY_INT_DECL(UINT8, UInt8, uint8_t);
 NPY_INT_DECL(UINT16, UInt16, uint16_t);
 NPY_INT_DECL(UINT32, UInt32, uint32_t);
 NPY_INT_DECL(UINT64, UInt64, uint64_t);
+NPY_INT_DECL(ULONGLONG, UInt64, uint64_t);
 
 template <>
 struct npy_traits<NPY_FLOAT32> {
@@ -1712,10 +1715,12 @@ Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     TO_ARROW_CASE(INT16);
     TO_ARROW_CASE(INT32);
     TO_ARROW_CASE(INT64);
+    TO_ARROW_CASE(LONGLONG);
     TO_ARROW_CASE(UINT8);
     TO_ARROW_CASE(UINT16);
     TO_ARROW_CASE(UINT32);
     TO_ARROW_CASE(UINT64);
+    TO_ARROW_CASE(ULONGLONG);
     TO_ARROW_CASE(FLOAT32);
     TO_ARROW_CASE(FLOAT64);
     TO_ARROW_CASE(DATETIME);
@@ -1726,7 +1731,7 @@ Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     } break;
     default:
       std::stringstream ss;
-      ss << "unsupported type " << PyArray_DESCR(arr)->type_num << std::endl;
+      ss << "Unsupported numpy type " << PyArray_DESCR(arr)->type_num << std::endl;
       return Status::NotImplemented(ss.str());
   }
   return Status::OK();
