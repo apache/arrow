@@ -431,7 +431,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return value_offsets_; }
 
-  const uint8_t* raw_type_ids() const { return raw_type_ids_; }
+  const uint8_t* raw_type_ids() const { return raw_type_ids_ + offset_; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
   UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }

@@ -365,14 +365,18 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
   ASSERT_EQ(size - 5, slice->length());
 
   ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(5, slice->length(), 0, slice));
+  ASSERT_TRUE(array->RangeEquals(5, array->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Slice(2)->Slice(3);
+  ASSERT_TRUE(slice->Equals(slice2));
 
   slice = array->Slice(5, 10);
   slice2 = array->Slice(5, 10);
   ASSERT_EQ(10, slice->length());
 
   ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(5, 10, 0, slice));
+  ASSERT_TRUE(array->RangeEquals(5, 15, 0, slice));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {

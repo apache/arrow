@@ -27,6 +27,7 @@
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 
 namespace arrow {
 
@@ -348,8 +349,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
       if (is_null[i]) {
         builder_->AppendNull();
       } else {
-        builder_->Append(
-            reinterpret_cast<const uint8_t*>(strings[i].data()), strings[i].size());
+        builder_->Append(strings[i]);
       }
     }
   }
@@ -375,6 +375,65 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
   Done();
+}
+
+// ----------------------------------------------------------------------
+// Slice tests
+
+template <typename TYPE>
+void CheckSliceEquality() {
+  using Traits = TypeTraits<TYPE>;
+  using BuilderType = typename Traits::BuilderType;
+
+  auto type = Traits::type_singleton();
+  BuilderType builder(default_memory_pool(), type);
+
+  std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
+  std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
+
+  int N = strings.size();
+  int reps = 10;
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      if (is_null[i]) {
+        builder.AppendNull();
+      } else {
+        builder.Append(strings[i]);
+      }
+    }
+  }
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(5);
+  slice2 = array->Slice(5);
+  ASSERT_EQ(N * reps - 5, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, slice->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Slice(2)->Slice(3);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(5, 20);
+  slice2 = array->Slice(5, 20);
+  ASSERT_EQ(20, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, 25, 0, slice));
+}
+
+TEST_F(TestBinaryArray, TestSliceEquality) {
+  CheckSliceEquality<BinaryType>();
+}
+
+TEST_F(TestStringArray, TestSliceEquality) {
+  CheckSliceEquality<BinaryType>();
 }
 
 }  // namespace arrow
