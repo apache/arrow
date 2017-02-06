@@ -64,6 +64,10 @@ class ARROW_EXPORT RecordBatch {
   // @returns: the number of rows (the corresponding length of each column)
   int32_t num_rows() const { return num_rows_; }
 
+  /// Slice each of the arrays in the record batch and construct a new RecordBatch object
+  std::shared_ptr<RecordBatch> Slice(int32_t offset);
+  std::shared_ptr<RecordBatch> Slice(int32_t offset, int32_t length);
+
  private:
   std::shared_ptr<Schema> schema_;
   int32_t num_rows_;

@@ -34,7 +34,7 @@ namespace arrow {
 TEST(TestDictionary, Basics) {
   std::vector<int32_t> values = {100, 1000, 10000, 100000};
   std::shared_ptr<Array> dict;
-  ArrayFromVector<Int32Type, int32_t>(int32(), values, &dict);
+  ArrayFromVector<Int32Type, int32_t>(values, &dict);
 
   std::shared_ptr<DictionaryType> type1 =
       std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
@@ -54,45 +54,67 @@ TEST(TestDictionary, Equals) {
 
   std::shared_ptr<Array> dict;
   std::vector<std::string> dict_values = {"foo", "bar", "baz"};
-  ArrayFromVector<StringType, std::string>(utf8(), dict_values, &dict);
+  ArrayFromVector<StringType, std::string>(dict_values, &dict);
   std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
 
   std::shared_ptr<Array> dict2;
   std::vector<std::string> dict2_values = {"foo", "bar", "baz", "qux"};
-  ArrayFromVector<StringType, std::string>(utf8(), dict2_values, &dict2);
+  ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
   std::shared_ptr<DataType> dict2_type = dictionary(int16(), dict2);
 
   std::shared_ptr<Array> indices;
   std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
-  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices_values, &indices);
+  ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
 
   std::shared_ptr<Array> indices2;
   std::vector<int16_t> indices2_values = {1, 2, 0, 0, 2, 0};
-  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices2_values, &indices2);
+  ArrayFromVector<Int16Type, int16_t>(is_valid, indices2_values, &indices2);
 
   std::shared_ptr<Array> indices3;
   std::vector<int16_t> indices3_values = {1, 1, 0, 0, 2, 0};
-  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, indices3_values, &indices3);
+  ArrayFromVector<Int16Type, int16_t>(is_valid, indices3_values, &indices3);
 
-  auto arr = std::make_shared<DictionaryArray>(dict_type, indices);
-  auto arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
-  auto arr3 = std::make_shared<DictionaryArray>(dict2_type, indices);
-  auto arr4 = std::make_shared<DictionaryArray>(dict_type, indices3);
+  auto array = std::make_shared<DictionaryArray>(dict_type, indices);
+  auto array2 = std::make_shared<DictionaryArray>(dict_type, indices2);
+  auto array3 = std::make_shared<DictionaryArray>(dict2_type, indices);
+  auto array4 = std::make_shared<DictionaryArray>(dict_type, indices3);
 
-  ASSERT_TRUE(arr->Equals(arr));
+  ASSERT_TRUE(array->Equals(array));
 
   // Equal, because the unequal index is masked by null
-  ASSERT_TRUE(arr->Equals(arr2));
+  ASSERT_TRUE(array->Equals(array2));
 
   // Unequal dictionaries
-  ASSERT_FALSE(arr->Equals(arr3));
+  ASSERT_FALSE(array->Equals(array3));
 
   // Unequal indices
-  ASSERT_FALSE(arr->Equals(arr4));
+  ASSERT_FALSE(array->Equals(array4));
 
   // RangeEquals
-  ASSERT_TRUE(arr->RangeEquals(3, 6, 3, arr4));
-  ASSERT_FALSE(arr->RangeEquals(1, 3, 1, arr4));
+  ASSERT_TRUE(array->RangeEquals(3, 6, 3, array4));
+  ASSERT_FALSE(array->RangeEquals(1, 3, 1, array4));
+
+  // ARROW-33 Test slices
+  const int size = array->length();
+
+  std::shared_ptr<Array> slice, slice2;
+  slice = array->Array::Slice(2);
+  slice2 = array->Array::Slice(2);
+  ASSERT_EQ(size - 2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(2, array->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Array::Slice(1)->Array::Slice(1);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(1, 3);
+  slice2 = array->Slice(1, 3);
+  ASSERT_EQ(3, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 4, 0, slice));
 }
 
 TEST(TestDictionary, Validate) {
@@ -100,20 +122,20 @@ TEST(TestDictionary, Validate) {
 
   std::shared_ptr<Array> dict;
   std::vector<std::string> dict_values = {"foo", "bar", "baz"};
-  ArrayFromVector<StringType, std::string>(utf8(), dict_values, &dict);
+  ArrayFromVector<StringType, std::string>(dict_values, &dict);
   std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
 
   std::shared_ptr<Array> indices;
   std::vector<uint8_t> indices_values = {1, 2, 0, 0, 2, 0};
-  ArrayFromVector<UInt8Type, uint8_t>(uint8(), is_valid, indices_values, &indices);
+  ArrayFromVector<UInt8Type, uint8_t>(is_valid, indices_values, &indices);
 
   std::shared_ptr<Array> indices2;
   std::vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
-  ArrayFromVector<FloatType, float>(float32(), is_valid, indices2_values, &indices2);
+  ArrayFromVector<FloatType, float>(is_valid, indices2_values, &indices2);
 
   std::shared_ptr<Array> indices3;
   std::vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
-  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, indices3_values, &indices3);
+  ArrayFromVector<Int64Type, int64_t>(is_valid, indices3_values, &indices3);
 
   std::shared_ptr<Array> arr = std::make_shared<DictionaryArray>(dict_type, indices);
   std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);

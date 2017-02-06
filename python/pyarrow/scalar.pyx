@@ -202,7 +202,7 @@ cdef class ListValue(ArrayValue):
         self.value_type = box_data_type(self.ap.value_type())
 
     cdef getitem(self, int i):
-        cdef int j = self.ap.offset(self.index) + i
+        cdef int j = self.ap.value_offset(self.index) + i
         return box_arrow_scalar(self.value_type, self.ap.values(), j)
 
     def as_py(self):

@@ -125,8 +125,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
-    auto buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(buffer->Resize(nbytes));
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
@@ -152,8 +152,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-    auto buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(buffer->Resize(nbytes));
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));

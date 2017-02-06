@@ -121,7 +121,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     }
 
     auto expected =
-        std::make_shared<ArrayType>(size, ex_data, ex_null_count, ex_null_bitmap);
+        std::make_shared<ArrayType>(size, ex_data, ex_null_bitmap, ex_null_count);
 
     std::shared_ptr<Array> out;
     ASSERT_OK(builder->Finish(&out));
@@ -217,7 +217,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   }
 
   auto expected =
-      std::make_shared<BooleanArray>(size, ex_data, ex_null_count, ex_null_bitmap);
+      std::make_shared<BooleanArray>(size, ex_data, ex_null_bitmap, ex_null_count);
 
   std::shared_ptr<Array> out;
   ASSERT_OK(builder->Finish(&out));
@@ -235,15 +235,14 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   for (int i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
-    bool actual = BitUtil::GetBit(result->raw_data(), i);
+    bool actual = BitUtil::GetBit(result->data()->data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
   ASSERT_TRUE(result->Equals(*expected));
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-    PInt32, PInt64, PFloat, PDouble>
-    Primitives;
+    PInt32, PInt64, PFloat, PDouble> Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
@@ -345,6 +344,39 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   EXPECT_TRUE(array->RangeEquals(0, first_valid_idx, 0, unequal_array));
   EXPECT_TRUE(
       array->RangeEquals(first_valid_idx + 1, size, first_valid_idx + 1, unequal_array));
+}
+
+TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
+  DECL_T();
+
+  const int size = 1000;
+  this->RandomData(size);
+  vector<T>& draws = this->draws_;
+  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  auto builder = this->builder_.get();
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(5);
+  slice2 = array->Slice(5);
+  ASSERT_EQ(size - 5, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, array->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Slice(2)->Slice(3);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(5, 10);
+  slice2 = array->Slice(5, 10);
+  ASSERT_EQ(10, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, 15, 0, slice));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
@@ -471,6 +503,42 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
 
   ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
+}
+
+template <typename TYPE>
+void CheckSliceApproxEquals() {
+  using T = typename TYPE::c_type;
+
+  const int kSize = 50;
+  std::vector<T> draws1;
+  std::vector<T> draws2;
+
+  const uint32_t kSeed = 0;
+  test::random_real<T>(kSize, kSeed, 0, 100, &draws1);
+  test::random_real<T>(kSize, kSeed + 1, 0, 100, &draws2);
+
+  // Make the draws equal in the sliced segment, but unequal elsewhere (to
+  // catch not using the slice offset)
+  for (int i = 10; i < 30; ++i) {
+    draws2[i] = draws1[i];
+  }
+
+  std::vector<bool> is_valid;
+  test::random_is_valid(kSize, 0.1, &is_valid);
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<TYPE, T>(is_valid, draws1, &array1);
+  ArrayFromVector<TYPE, T>(is_valid, draws2, &array2);
+
+  std::shared_ptr<Array> slice1 = array1->Slice(10, 20);
+  std::shared_ptr<Array> slice2 = array2->Slice(10, 20);
+
+  ASSERT_TRUE(slice1->ApproxEquals(slice2));
+}
+
+TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
+  CheckSliceApproxEquals<FloatType>();
+  CheckSliceApproxEquals<DoubleType>();
 }
 
 }  // namespace arrow

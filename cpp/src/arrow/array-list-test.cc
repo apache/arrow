@@ -90,9 +90,9 @@ TEST_F(TestListBuilder, Equality) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder().get());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
-  vector<int32_t> equal_offsets = {0, 1, 2, 5};
-  vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2};
-  vector<int32_t> unequal_offsets = {0, 1, 4};
+  vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
+  vector<int32_t> unequal_offsets = {0, 1, 4, 7};
   vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
@@ -122,7 +122,27 @@ TEST_F(TestListBuilder, Equality) {
   EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_array));
   EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
   EXPECT_TRUE(array->RangeEquals(2, 3, 2, unequal_array));
-  EXPECT_TRUE(array->RangeEquals(3, 4, 1, unequal_array));
+
+  // Check with slices, ARROW-33
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(2);
+  slice2 = array->Slice(2);
+  ASSERT_EQ(array->length() - 2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(2, slice->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Slice(1)->Slice(1);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(1, 4);
+  slice2 = array->Slice(1, 4);
+  ASSERT_EQ(4, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 5, 0, slice));
 }
 
 TEST_F(TestListBuilder, TestResize) {}
@@ -137,9 +157,9 @@ TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
-  ASSERT_EQ(0, result_->raw_offsets()[0]);
-  ASSERT_EQ(0, result_->offset(1));
-  ASSERT_EQ(0, result_->offset(2));
+  ASSERT_EQ(0, result_->raw_value_offsets()[0]);
+  ASSERT_EQ(0, result_->value_offset(1));
+  ASSERT_EQ(0, result_->value_offset(2));
 
   Int32Array* values = static_cast<Int32Array*>(result_->values().get());
   ASSERT_EQ(0, values->length());
@@ -154,7 +174,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   ASSERT_EQ(3, result->length());
   vector<int32_t> ex_offsets = {0, 3, 3, 7};
   for (size_t i = 0; i < ex_offsets.size(); ++i) {
-    ASSERT_EQ(ex_offsets[i], result->offset(i));
+    ASSERT_EQ(ex_offsets[i], result->value_offset(i));
   }
 
   for (int i = 0; i < result->length(); ++i) {

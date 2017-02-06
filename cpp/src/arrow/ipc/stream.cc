@@ -28,6 +28,7 @@
 #include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -41,7 +42,11 @@ namespace ipc {
 StreamWriter::~StreamWriter() {}
 
 StreamWriter::StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
-    : sink_(sink), schema_(schema), position_(-1), started_(false) {}
+    : sink_(sink),
+      schema_(schema),
+      pool_(default_memory_pool()),
+      position_(-1),
+      started_(false) {}
 
 Status StreamWriter::UpdatePosition() {
   return sink_->Tell(&position_);
@@ -76,13 +81,17 @@ Status StreamWriter::WriteRecordBatch(const RecordBatch& batch, FileBlock* block
 
   // Frame of reference in file format is 0, see ARROW-384
   const int64_t buffer_start_offset = 0;
-  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
-      batch, buffer_start_offset, sink_, &block->metadata_length, &block->body_length));
+  RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(batch, buffer_start_offset, sink_,
+      &block->metadata_length, &block->body_length, pool_));
   RETURN_NOT_OK(UpdatePosition());
 
   DCHECK(position_ % 8 == 0) << "WriteRecordBatch did not perform aligned writes";
 
   return Status::OK();
+}
+
+void StreamWriter::set_memory_pool(MemoryPool* pool) {
+  pool_ = pool;
 }
 
 // ----------------------------------------------------------------------

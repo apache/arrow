@@ -27,6 +27,7 @@
 #include "arrow/builder.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 
 namespace arrow {
 
@@ -70,7 +71,7 @@ class TestStringArray : public ::testing::Test {
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(
-        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
   }
 
  protected:
@@ -114,7 +115,7 @@ TEST_F(TestStringArray, TestListFunctions) {
 
 TEST_F(TestStringArray, TestDestructor) {
   auto arr = std::make_shared<StringArray>(
-      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
 }
 
 TEST_F(TestStringArray, TestGetString) {
@@ -133,9 +134,9 @@ TEST_F(TestStringArray, TestEmptyStringComparison) {
   length_ = offsets_.size() - 1;
 
   auto strings_a = std::make_shared<StringArray>(
-      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+      length_, offsets_buf_, nullptr, null_bitmap_, null_count_);
   auto strings_b = std::make_shared<StringArray>(
-      length_, offsets_buf_, nullptr, null_count_, null_bitmap_);
+      length_, offsets_buf_, nullptr, null_bitmap_, null_count_);
   ASSERT_TRUE(strings_a->Equals(strings_b));
 }
 
@@ -146,8 +147,7 @@ class TestStringBuilder : public TestBuilder {
  public:
   void SetUp() {
     TestBuilder::SetUp();
-    type_ = TypePtr(new StringType());
-    builder_.reset(new StringBuilder(pool_, type_));
+    builder_.reset(new StringBuilder(pool_));
   }
 
   void Done() {
@@ -159,8 +159,6 @@ class TestStringBuilder : public TestBuilder {
   }
 
  protected:
-  TypePtr type_;
-
   std::unique_ptr<StringBuilder> builder_;
   std::shared_ptr<StringArray> result_;
 };
@@ -195,7 +193,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
     } else {
       ASSERT_FALSE(result_->IsNull(i));
       result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->offset(i));
+      ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
       ASSERT_EQ(strings[i % N], result_->GetString(i));
 
@@ -232,7 +230,7 @@ class TestBinaryArray : public ::testing::Test {
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(
-        length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+        length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
   }
 
  protected:
@@ -276,7 +274,7 @@ TEST_F(TestBinaryArray, TestListFunctions) {
 
 TEST_F(TestBinaryArray, TestDestructor) {
   auto arr = std::make_shared<BinaryArray>(
-      length_, offsets_buf_, value_buf_, null_count_, null_bitmap_);
+      length_, offsets_buf_, value_buf_, null_bitmap_, null_count_);
 }
 
 TEST_F(TestBinaryArray, TestGetValue) {
@@ -306,8 +304,8 @@ TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
   ASSERT_OK(builder.Finish(&left_arr));
 
   const BinaryArray& left = static_cast<const BinaryArray&>(*left_arr);
-  std::shared_ptr<Array> right = std::make_shared<BinaryArray>(
-      left.length(), left.offsets(), nullptr, left.null_count(), left.null_bitmap());
+  std::shared_ptr<Array> right = std::make_shared<BinaryArray>(left.length(),
+      left.value_offsets(), nullptr, left.null_bitmap(), left.null_count());
 
   ASSERT_TRUE(left.Equals(right));
   ASSERT_TRUE(left.RangeEquals(0, left.length(), 0, right));
@@ -317,8 +315,7 @@ class TestBinaryBuilder : public TestBuilder {
  public:
   void SetUp() {
     TestBuilder::SetUp();
-    type_ = TypePtr(new BinaryType());
-    builder_.reset(new BinaryBuilder(pool_, type_));
+    builder_.reset(new BinaryBuilder(pool_));
   }
 
   void Done() {
@@ -330,8 +327,6 @@ class TestBinaryBuilder : public TestBuilder {
   }
 
  protected:
-  TypePtr type_;
-
   std::unique_ptr<BinaryBuilder> builder_;
   std::shared_ptr<BinaryArray> result_;
 };
@@ -348,8 +343,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
       if (is_null[i]) {
         builder_->AppendNull();
       } else {
-        builder_->Append(
-            reinterpret_cast<const uint8_t*>(strings[i].data()), strings[i].size());
+        builder_->Append(strings[i]);
       }
     }
   }
@@ -375,6 +369,64 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
   Done();
+}
+
+// ----------------------------------------------------------------------
+// Slice tests
+
+template <typename TYPE>
+void CheckSliceEquality() {
+  using Traits = TypeTraits<TYPE>;
+  using BuilderType = typename Traits::BuilderType;
+
+  BuilderType builder(default_memory_pool());
+
+  std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
+  std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
+
+  int N = strings.size();
+  int reps = 10;
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      if (is_null[i]) {
+        builder.AppendNull();
+      } else {
+        builder.Append(strings[i]);
+      }
+    }
+  }
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(5);
+  slice2 = array->Slice(5);
+  ASSERT_EQ(N * reps - 5, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, slice->length(), 0, slice));
+
+  // Chained slices
+  slice2 = array->Slice(2)->Slice(3);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(5, 20);
+  slice2 = array->Slice(5, 20);
+  ASSERT_EQ(20, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(5, 25, 0, slice));
+}
+
+TEST_F(TestBinaryArray, TestSliceEquality) {
+  CheckSliceEquality<BinaryType>();
+}
+
+TEST_F(TestStringArray, TestSliceEquality) {
+  CheckSliceEquality<BinaryType>();
 }
 
 }  // namespace arrow

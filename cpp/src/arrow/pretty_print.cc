@@ -164,39 +164,56 @@ class ArrayPrinter : public ArrayVisitor {
   Status WriteValidityBitmap(const Array& array) {
     Newline();
     Write("-- is_valid: ");
-    BooleanArray is_valid(array.length(), array.null_bitmap());
-    return PrettyPrint(is_valid, indent_ + 2, sink_);
+
+    if (array.null_count() > 0) {
+      BooleanArray is_valid(
+          array.length(), array.null_bitmap(), nullptr, 0, array.offset());
+      return PrettyPrint(is_valid, indent_ + 2, sink_);
+    } else {
+      Write("all not null");
+      return Status::OK();
+    }
   }
 
   Status Visit(const ListArray& array) override {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
-    Write("-- offsets: ");
-    Int32Array offsets(array.length() + 1, array.offsets());
-    RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
+    Write("-- value_offsets: ");
+    Int32Array value_offsets(
+        array.length() + 1, array.value_offsets(), nullptr, 0, array.offset());
+    RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
 
     Newline();
     Write("-- values: ");
-    RETURN_NOT_OK(PrettyPrint(*array.values().get(), indent_ + 2, sink_));
+    auto values = array.values();
+    if (array.offset() != 0) {
+      values = values->Slice(array.value_offset(0), array.value_offset(array.length()));
+    }
+    RETURN_NOT_OK(PrettyPrint(*values, indent_ + 2, sink_));
 
     return Status::OK();
   }
 
-  Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields) {
+  Status PrintChildren(
+      const std::vector<std::shared_ptr<Array>>& fields, int32_t offset, int32_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
       Write(ss.str());
-      RETURN_NOT_OK(PrettyPrint(*fields[i].get(), indent_ + 2, sink_));
+
+      std::shared_ptr<Array> field = fields[i];
+      if (offset != 0) { field = field->Slice(offset, length); }
+
+      RETURN_NOT_OK(PrettyPrint(*field, indent_ + 2, sink_));
     }
     return Status::OK();
   }
 
   Status Visit(const StructArray& array) override {
     RETURN_NOT_OK(WriteValidityBitmap(array));
-    return PrintChildren(array.fields());
+    return PrintChildren(array.fields(), array.offset(), array.length());
   }
 
   Status Visit(const UnionArray& array) override {
@@ -204,17 +221,19 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- type_ids: ");
-    UInt8Array type_ids(array.length(), array.type_ids());
+    UInt8Array type_ids(array.length(), array.type_ids(), nullptr, 0, array.offset());
     RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + 2, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
-      Write("-- offsets: ");
-      Int32Array offsets(array.length(), array.offsets());
-      RETURN_NOT_OK(PrettyPrint(offsets, indent_ + 2, sink_));
+      Write("-- value_offsets: ");
+      Int32Array value_offsets(
+          array.length(), array.value_offsets(), nullptr, 0, array.offset());
+      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
     }
 
-    return PrintChildren(array.children());
+    // Print the children without any offset, because the type ids are absolute
+    return PrintChildren(array.children(), 0, array.length() + array.offset());
   }
 
   Status Visit(const DictionaryArray& array) override {
@@ -222,11 +241,11 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- dictionary: ");
-    RETURN_NOT_OK(PrettyPrint(*array.dictionary().get(), indent_ + 2, sink_));
+    RETURN_NOT_OK(PrettyPrint(*array.dictionary(), indent_ + 2, sink_));
 
     Newline();
     Write("-- indices: ");
-    return PrettyPrint(*array.indices().get(), indent_ + 2, sink_);
+    return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
   void Write(const char* data) { (*sink_) << data; }
@@ -260,7 +279,7 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     const std::string& name = batch.column_name(i);
     (*sink) << name << ": ";
-    RETURN_NOT_OK(PrettyPrint(*batch.column(i).get(), indent + 2, sink));
+    RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
     (*sink) << "\n";
   }
   return Status::OK();

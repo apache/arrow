@@ -61,14 +61,6 @@
     EXPECT_TRUE(s.ok());        \
   } while (0)
 
-// Alias MSVC popcount to GCC name
-#ifdef _MSC_VER
-#include <intrin.h>
-#define __builtin_popcount __popcnt
-#include <nmmintrin.h>
-#define __builtin_popcountll _mm_popcnt_u64
-#endif
-
 namespace arrow {
 
 namespace test {
@@ -175,29 +167,6 @@ void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
   }
 }
 
-static inline int bitmap_popcount(const uint8_t* data, int length) {
-  // book keeping
-  constexpr int pop_len = sizeof(uint64_t);
-  const uint64_t* i64_data = reinterpret_cast<const uint64_t*>(data);
-  const int fast_counts = length / pop_len;
-  const uint64_t* end = i64_data + fast_counts;
-
-  int count = 0;
-  // popcount as much as possible with the widest possible count
-  for (auto iter = i64_data; iter < end; ++iter) {
-    count += __builtin_popcountll(*iter);
-  }
-
-  // Account for left over bytes (in theory we could fall back to smaller
-  // versions of popcount but the code complexity is likely not worth it)
-  const int loop_tail_index = fast_counts * pop_len;
-  for (int i = loop_tail_index; i < length; ++i) {
-    if (BitUtil::GetBit(data, i)) { ++count; }
-  }
-
-  return count;
-}
-
 static inline int null_count(const std::vector<uint8_t>& valid_bytes) {
   int result = 0;
   for (size_t i = 0; i < valid_bytes.size(); ++i) {
@@ -254,7 +223,7 @@ class TestBase : public ::testing::Test {
 
     auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
-    return std::make_shared<ArrayType>(length, data, null_count, null_bitmap);
+    return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
   }
 
  protected:
@@ -263,11 +232,10 @@ class TestBase : public ::testing::Test {
 };
 
 template <typename TYPE, typename C_TYPE>
-void ArrayFromVector(const std::shared_ptr<DataType>& type,
-    const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
     std::shared_ptr<Array>* out) {
   MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool, std::make_shared<TYPE>());
+  typename TypeTraits<TYPE>::BuilderType builder(pool);
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder.Append(values[i]));
@@ -279,10 +247,9 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
 }
 
 template <typename TYPE, typename C_TYPE>
-void ArrayFromVector(const std::shared_ptr<DataType>& type,
-    const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
   MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool, std::make_shared<TYPE>());
+  typename TypeTraits<TYPE>::BuilderType builder(pool);
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_OK(builder.Append(values[i]));
   }

@@ -116,4 +116,20 @@ Status PoolBuffer::Resize(int64_t new_size, bool shrink_to_fit) {
   return Status::OK();
 }
 
+Status AllocateBuffer(
+    MemoryPool* pool, int64_t size, std::shared_ptr<MutableBuffer>* out) {
+  auto buffer = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(buffer->Resize(size));
+  *out = buffer;
+  return Status::OK();
+}
+
+Status AllocateResizableBuffer(
+    MemoryPool* pool, int64_t size, std::shared_ptr<ResizableBuffer>* out) {
+  auto buffer = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(buffer->Resize(size));
+  *out = buffer;
+  return Status::OK();
+}
+
 }  // namespace arrow

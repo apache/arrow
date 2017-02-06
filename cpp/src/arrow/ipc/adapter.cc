@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/adapter.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -30,6 +31,7 @@
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -49,9 +51,10 @@ namespace ipc {
 
 class RecordBatchWriter : public ArrayVisitor {
  public:
-  RecordBatchWriter(
-      const RecordBatch& batch, int64_t buffer_start_offset, int max_recursion_depth)
-      : batch_(batch),
+  RecordBatchWriter(MemoryPool* pool, const RecordBatch& batch,
+      int64_t buffer_start_offset, int max_recursion_depth)
+      : pool_(pool),
+        batch_(batch),
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset) {}
 
@@ -62,7 +65,15 @@ class RecordBatchWriter : public ArrayVisitor {
     // push back all common elements
     field_nodes_.push_back(flatbuf::FieldNode(arr.length(), arr.null_count()));
     if (arr.null_count() > 0) {
-      buffers_.push_back(arr.null_bitmap());
+      std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
+
+      if (arr.offset() != 0) {
+        // With a sliced array / non-zero offset, we must copy the bitmap
+        RETURN_NOT_OK(
+            CopyBitmap(pool_, bitmap->data(), arr.offset(), arr.length(), &bitmap));
+      }
+
+      buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
       buffers_.push_back(std::make_shared<Buffer>(nullptr, 0));
@@ -208,50 +219,136 @@ class RecordBatchWriter : public ArrayVisitor {
  private:
   Status Visit(const NullArray& array) override { return Status::NotImplemented("null"); }
 
-  Status VisitPrimitive(const PrimitiveArray& array) {
-    buffers_.push_back(array.data());
+  template <typename ArrayType>
+  Status VisitFixedWidth(const ArrayType& array) {
+    std::shared_ptr<Buffer> data_buffer = array.data();
+
+    if (array.offset() != 0) {
+      // Non-zero offset, slice the buffer
+      const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
+      const int type_width = fw_type.bit_width() / 8;
+      const int64_t byte_offset = array.offset() * type_width;
+
+      // Send padding if it's available
+      const int64_t buffer_length =
+          std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
+              data_buffer->size() - byte_offset);
+      data_buffer = SliceBuffer(data_buffer, byte_offset, buffer_length);
+    }
+    buffers_.push_back(data_buffer);
+    return Status::OK();
+  }
+
+  template <typename ArrayType>
+  Status GetZeroBasedValueOffsets(
+      const ArrayType& array, std::shared_ptr<Buffer>* value_offsets) {
+    // Share slicing logic between ListArray and BinaryArray
+
+    auto offsets = array.value_offsets();
+
+    if (array.offset() != 0) {
+      // If we have a non-zero offset, then the value offsets do not start at
+      // zero. We must a) create a new offsets array with shifted offsets and
+      // b) slice the values array accordingly
+
+      std::shared_ptr<MutableBuffer> shifted_offsets;
+      RETURN_NOT_OK(AllocateBuffer(
+          pool_, sizeof(int32_t) * (array.length() + 1), &shifted_offsets));
+
+      int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
+      const int32_t start_offset = array.value_offset(0);
+
+      for (int i = 0; i < array.length(); ++i) {
+        dest_offsets[i] = array.value_offset(i) - start_offset;
+      }
+      // Final offset
+      dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
+      offsets = shifted_offsets;
+    }
+
+    *value_offsets = offsets;
     return Status::OK();
   }
 
   Status VisitBinary(const BinaryArray& array) {
-    buffers_.push_back(array.offsets());
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
+    auto data = array.data();
+
+    if (array.offset() != 0) {
+      // Slice the data buffer to include only the range we need now
+      data = SliceBuffer(data, array.value_offset(0), array.value_offset(array.length()));
+    }
+
+    buffers_.push_back(value_offsets);
+    buffers_.push_back(data);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanArray& array) override {
     buffers_.push_back(array.data());
     return Status::OK();
   }
 
-  Status Visit(const BooleanArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int8Array& array) override {
+    return VisitFixedWidth<Int8Array>(array);
+  }
 
-  Status Visit(const Int8Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int16Array& array) override {
+    return VisitFixedWidth<Int16Array>(array);
+  }
 
-  Status Visit(const Int16Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int32Array& array) override {
+    return VisitFixedWidth<Int32Array>(array);
+  }
 
-  Status Visit(const Int32Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const Int64Array& array) override {
+    return VisitFixedWidth<Int64Array>(array);
+  }
 
-  Status Visit(const Int64Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt8Array& array) override {
+    return VisitFixedWidth<UInt8Array>(array);
+  }
 
-  Status Visit(const UInt8Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt16Array& array) override {
+    return VisitFixedWidth<UInt16Array>(array);
+  }
 
-  Status Visit(const UInt16Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt32Array& array) override {
+    return VisitFixedWidth<UInt32Array>(array);
+  }
 
-  Status Visit(const UInt32Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const UInt64Array& array) override {
+    return VisitFixedWidth<UInt64Array>(array);
+  }
 
-  Status Visit(const UInt64Array& array) override { return VisitPrimitive(array); }
+  Status Visit(const HalfFloatArray& array) override {
+    return VisitFixedWidth<HalfFloatArray>(array);
+  }
 
-  Status Visit(const HalfFloatArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const FloatArray& array) override {
+    return VisitFixedWidth<FloatArray>(array);
+  }
 
-  Status Visit(const FloatArray& array) override { return VisitPrimitive(array); }
-
-  Status Visit(const DoubleArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const DoubleArray& array) override {
+    return VisitFixedWidth<DoubleArray>(array);
+  }
 
   Status Visit(const StringArray& array) override { return VisitBinary(array); }
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
 
-  Status Visit(const DateArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const DateArray& array) override {
+    return VisitFixedWidth<DateArray>(array);
+  }
 
-  Status Visit(const TimeArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const TimeArray& array) override {
+    return VisitFixedWidth<TimeArray>(array);
+  }
 
-  Status Visit(const TimestampArray& array) override { return VisitPrimitive(array); }
+  Status Visit(const TimestampArray& array) override {
+    return VisitFixedWidth<TimestampArray>(array);
+  }
 
   Status Visit(const IntervalArray& array) override {
     return Status::NotImplemented("interval");
@@ -262,30 +359,109 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const ListArray& array) override {
-    buffers_.push_back(array.offsets());
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    buffers_.push_back(value_offsets);
+
     --max_recursion_depth_;
-    RETURN_NOT_OK(VisitArray(*array.values().get()));
+    std::shared_ptr<Array> values = array.values();
+
+    if (array.offset() != 0) {
+      // For non-zero offset, we slice the values array accordingly
+      const int32_t offset = array.value_offset(0);
+      const int32_t length = array.value_offset(array.length()) - offset;
+      values = values->Slice(offset, length);
+    }
+    RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
   }
 
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
-    for (const auto& field : array.fields()) {
-      RETURN_NOT_OK(VisitArray(*field.get()));
+    for (std::shared_ptr<Array> field : array.fields()) {
+      if (array.offset() != 0) {
+        // If offset is non-zero, slice the child array
+        field = field->Slice(array.offset(), array.length());
+      }
+      RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
     return Status::OK();
   }
 
   Status Visit(const UnionArray& array) override {
-    buffers_.push_back(array.type_ids());
+    auto type_ids = array.type_ids();
+    if (array.offset() != 0) {
+      type_ids = SliceBuffer(type_ids, array.offset() * sizeof(UnionArray::type_id_t),
+          array.length() * sizeof(UnionArray::type_id_t));
+    }
 
-    if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.offsets()); }
+    buffers_.push_back(type_ids);
 
     --max_recursion_depth_;
-    for (const auto& field : array.children()) {
-      RETURN_NOT_OK(VisitArray(*field.get()));
+    if (array.mode() == UnionMode::DENSE) {
+      const auto& type = static_cast<const UnionType&>(*array.type());
+      auto value_offsets = array.value_offsets();
+
+      // The Union type codes are not necessary 0-indexed
+      uint8_t max_code = 0;
+      for (uint8_t code : type.type_codes) {
+        if (code > max_code) { max_code = code; }
+      }
+
+      // Allocate an array of child offsets. Set all to -1 to indicate that we
+      // haven't observed a first occurrence of a particular child yet
+      std::vector<int32_t> child_offsets(max_code + 1);
+      std::vector<int32_t> child_lengths(max_code + 1, 0);
+
+      if (array.offset() != 0) {
+        // This is an unpleasant case. Because the offsets are different for
+        // each child array, when we have a sliced array, we need to "rebase"
+        // the value_offsets for each array
+
+        const int32_t* unshifted_offsets = array.raw_value_offsets();
+        const uint8_t* type_ids = array.raw_type_ids();
+
+        // Allocate the shifted offsets
+        std::shared_ptr<MutableBuffer> shifted_offsets_buffer;
+        RETURN_NOT_OK(AllocateBuffer(
+            pool_, array.length() * sizeof(int32_t), &shifted_offsets_buffer));
+        int32_t* shifted_offsets =
+            reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
+
+        for (int32_t i = 0; i < array.length(); ++i) {
+          const uint8_t code = type_ids[i];
+          int32_t shift = child_offsets[code];
+          if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
+          shifted_offsets[i] = unshifted_offsets[i] - shift;
+
+          // Update the child length to account for observed value
+          ++child_lengths[code];
+        }
+
+        value_offsets = shifted_offsets_buffer;
+      }
+      buffers_.push_back(value_offsets);
+
+      // Visit children and slice accordingly
+      for (int i = 0; i < type.num_children(); ++i) {
+        std::shared_ptr<Array> child = array.child(i);
+        if (array.offset() != 0) {
+          const uint8_t code = type.type_codes[i];
+          child = child->Slice(child_offsets[code], child_lengths[code]);
+        }
+        RETURN_NOT_OK(VisitArray(*child));
+      }
+    } else {
+      for (std::shared_ptr<Array> child : array.children()) {
+        // Sparse union, slicing is simpler
+        if (array.offset() != 0) {
+          // If offset is non-zero, slice the child array
+          child = child->Slice(array.offset(), array.length());
+        }
+        RETURN_NOT_OK(VisitArray(*child));
+      }
     }
     ++max_recursion_depth_;
     return Status::OK();
@@ -298,6 +474,8 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
+  // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
+  MemoryPool* pool_;
   const RecordBatch& batch_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
@@ -310,14 +488,14 @@ class RecordBatchWriter : public ArrayVisitor {
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    int max_recursion_depth) {
+    MemoryPool* pool, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
-  RecordBatchWriter serializer(batch, buffer_start_offset, max_recursion_depth);
+  RecordBatchWriter serializer(pool, batch, buffer_start_offset, max_recursion_depth);
   return serializer.Write(dst, metadata_length, body_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter serializer(batch, 0, kMaxIpcRecursionDepth);
+  RecordBatchWriter serializer(default_memory_pool(), batch, 0, kMaxIpcRecursionDepth);
   RETURN_NOT_OK(serializer.GetTotalSize(size));
   return Status::OK();
 }
@@ -372,7 +550,7 @@ class ArrayLoader : public TypeVisitor {
     BufferMetadata metadata = context_->metadata->buffer(buffer_index);
 
     if (metadata.length == 0) {
-      *out = std::make_shared<Buffer>(nullptr, 0);
+      *out = nullptr;
       return Status::OK();
     } else {
       return file_->ReadAt(metadata.offset, metadata.length, out);
@@ -412,8 +590,8 @@ class ArrayLoader : public TypeVisitor {
       context_->buffer_index++;
       data.reset(new Buffer(nullptr, 0));
     }
-    return MakePrimitiveArray(field_.type, field_meta.length, data, field_meta.null_count,
-        null_bitmap, &result_);
+    return MakePrimitiveArray(field_.type, field_meta.length, data, null_bitmap,
+        field_meta.null_count, 0, &result_);
   }
 
   template <typename CONTAINER>
@@ -428,7 +606,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
 
     result_ = std::make_shared<CONTAINER>(
-        field_meta.length, offsets, values, field_meta.null_count, null_bitmap);
+        field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -496,7 +674,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChild(*type.child(0).get(), &values_array));
 
     result_ = std::make_shared<ListArray>(field_.type, field_meta.length, offsets,
-        values_array, field_meta.null_count, null_bitmap);
+        values_array, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -521,7 +699,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));
 
     result_ = std::make_shared<StructArray>(
-        field_.type, field_meta.length, fields, field_meta.null_count, null_bitmap);
+        field_.type, field_meta.length, fields, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 
@@ -542,7 +720,7 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));
 
     result_ = std::make_shared<UnionArray>(field_.type, field_meta.length, fields,
-        type_ids, offsets, field_meta.null_count, null_bitmap);
+        type_ids, offsets, null_bitmap, field_meta.null_count);
     return Status::OK();
   }
 

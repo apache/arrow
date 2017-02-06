@@ -126,6 +126,15 @@ struct TypeTraits<TimestampType> {
 };
 
 template <>
+struct TypeTraits<TimeType> {
+  using ArrayType = TimeArray;
+  // using BuilderType = TimestampBuilder;
+
+  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
 struct TypeTraits<HalfFloatType> {
   using ArrayType = HalfFloatArray;
   using BuilderType = HalfFloatBuilder;

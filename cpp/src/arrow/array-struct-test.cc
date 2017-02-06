@@ -75,7 +75,7 @@ void ValidateBasicStructArray(const StructArray* result,
   ASSERT_EQ(4, list_char_arr->length());
   ASSERT_EQ(10, list_char_arr->values()->length());
   for (size_t i = 0; i < list_offsets.size(); ++i) {
-    ASSERT_EQ(list_offsets[i], list_char_arr->raw_offsets()[i]);
+    ASSERT_EQ(list_offsets[i], list_char_arr->raw_value_offsets()[i]);
   }
   for (size_t i = 0; i < list_values.size(); ++i) {
     ASSERT_EQ(list_values[i], char_arr->Value(i));
@@ -381,6 +381,23 @@ TEST_F(TestStructBuilder, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(0, 1, 0, unequal_values_array));
   EXPECT_TRUE(array->RangeEquals(1, 3, 1, unequal_values_array));
   EXPECT_FALSE(array->RangeEquals(3, 4, 3, unequal_values_array));
+
+  // ARROW-33 Slice / equality
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(2);
+  slice2 = array->Slice(2);
+  ASSERT_EQ(array->length() - 2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(2, slice->length(), 0, slice));
+
+  slice = array->Slice(1, 2);
+  slice2 = array->Slice(1, 2);
+  ASSERT_EQ(2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 }
 
 TEST_F(TestStructBuilder, TestZeroLength) {

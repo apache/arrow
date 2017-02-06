@@ -185,7 +185,7 @@ Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
   *out = std::make_shared<typename TypeTraits<T>::ArrayType>(
-      type_, length_, data_, null_count_, null_bitmap_);
+      type_, length_, data_, null_bitmap_, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -202,9 +202,18 @@ template class PrimitiveBuilder<Int32Type>;
 template class PrimitiveBuilder<Int64Type>;
 template class PrimitiveBuilder<DateType>;
 template class PrimitiveBuilder<TimestampType>;
+template class PrimitiveBuilder<TimeType>;
 template class PrimitiveBuilder<HalfFloatType>;
 template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
+
+BooleanBuilder::BooleanBuilder(MemoryPool* pool)
+    : ArrayBuilder(pool, boolean()), data_(nullptr), raw_data_(nullptr) {}
+
+BooleanBuilder::BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
+    : BooleanBuilder(pool) {
+  DCHECK_EQ(Type::BOOL, type->type);
+}
 
 Status BooleanBuilder::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -244,7 +253,7 @@ Status BooleanBuilder::Finish(std::shared_ptr<Array>* out) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
-  *out = std::make_shared<BooleanArray>(type_, length_, data_, null_count_, null_bitmap_);
+  *out = std::make_shared<BooleanArray>(type_, length_, data_, null_bitmap_, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -313,7 +322,7 @@ Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> offsets = offset_builder_.Finish();
 
   *out = std::make_shared<ListArray>(
-      type_, length_, offsets, items, null_count_, null_bitmap_);
+      type_, length_, offsets, items, null_bitmap_, null_count_);
 
   Reset();
 
@@ -333,14 +342,13 @@ std::shared_ptr<ArrayBuilder> ListBuilder::value_builder() const {
 // ----------------------------------------------------------------------
 // String and binary
 
-// This used to be a static member variable of BinaryBuilder, but it can cause
-// valgrind to report a (spurious?) memory leak when needed in other shared
-// libraries. The problem came up while adding explicit visibility to libarrow
-// and libparquet_arrow
-static TypePtr kBinaryValueType = TypePtr(new UInt8Type());
+BinaryBuilder::BinaryBuilder(MemoryPool* pool)
+    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, uint8()), binary()) {
+  byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
+}
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool, const TypePtr& type)
-    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, kBinaryValueType), type) {
+    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, uint8()), type) {
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
 
@@ -351,10 +359,12 @@ Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   const auto list = std::dynamic_pointer_cast<ListArray>(result);
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
-  *out = std::make_shared<BinaryArray>(list->length(), list->offsets(), values->data(),
-      list->null_count(), list->null_bitmap());
+  *out = std::make_shared<BinaryArray>(list->length(), list->value_offsets(),
+      values->data(), list->null_bitmap(), list->null_count());
   return Status::OK();
 }
+
+StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(pool, utf8()) {}
 
 Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> result;
@@ -363,8 +373,8 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   const auto list = std::dynamic_pointer_cast<ListArray>(result);
   auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
 
-  *out = std::make_shared<StringArray>(list->length(), list->offsets(), values->data(),
-      list->null_count(), list->null_bitmap());
+  *out = std::make_shared<StringArray>(list->length(), list->value_offsets(),
+      values->data(), list->null_bitmap(), list->null_count());
   return Status::OK();
 }
 
@@ -377,7 +387,7 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(field_builders_[i]->Finish(&fields[i]));
   }
 
-  *out = std::make_shared<StructArray>(type_, length_, fields, null_count_, null_bitmap_);
+  *out = std::make_shared<StructArray>(type_, length_, fields, null_bitmap_, null_count_);
 
   null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -393,9 +403,9 @@ std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
 // ----------------------------------------------------------------------
 // Helper functions
 
-#define BUILDER_CASE(ENUM, BuilderType)      \
-  case Type::ENUM:                           \
-    out->reset(new BuilderType(pool, type)); \
+#define BUILDER_CASE(ENUM, BuilderType) \
+  case Type::ENUM:                      \
+    out->reset(new BuilderType(pool));  \
     return Status::OK();
 
 // Initially looked at doing this with vtables, but shared pointers makes it
@@ -414,19 +424,17 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(UINT64, UInt64Builder);
     BUILDER_CASE(INT64, Int64Builder);
     BUILDER_CASE(DATE, DateBuilder);
-    BUILDER_CASE(TIMESTAMP, TimestampBuilder);
-
-    BUILDER_CASE(BOOL, BooleanBuilder);
-
-    BUILDER_CASE(FLOAT, FloatBuilder);
-    BUILDER_CASE(DOUBLE, DoubleBuilder);
-
-    case Type::STRING:
-      out->reset(new StringBuilder(pool));
+    case Type::TIMESTAMP:
+      out->reset(new TimestampBuilder(pool, type));
       return Status::OK();
-    case Type::BINARY:
-      out->reset(new BinaryBuilder(pool, type));
+    case Type::TIME:
+      out->reset(new TimeBuilder(pool, type));
       return Status::OK();
+      BUILDER_CASE(BOOL, BooleanBuilder);
+      BUILDER_CASE(FLOAT, FloatBuilder);
+      BUILDER_CASE(DOUBLE, DoubleBuilder);
+      BUILDER_CASE(STRING, StringBuilder);
+      BUILDER_CASE(BINARY, BinaryBuilder);
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =

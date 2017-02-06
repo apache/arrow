@@ -17,11 +17,17 @@
 
 #include "arrow/util/bit-util.h"
 
+#include <cstdint>
+#include <vector>
+
 #include "gtest/gtest.h"
+
+#include "arrow/buffer.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 
-TEST(UtilTests, TestIsMultipleOf64) {
+TEST(BitUtilTests, TestIsMultipleOf64) {
   using BitUtil::IsMultipleOf64;
   EXPECT_TRUE(IsMultipleOf64(64));
   EXPECT_TRUE(IsMultipleOf64(0));
@@ -31,7 +37,7 @@ TEST(UtilTests, TestIsMultipleOf64) {
   EXPECT_FALSE(IsMultipleOf64(32));
 }
 
-TEST(UtilTests, TestNextPower2) {
+TEST(BitUtilTests, TestNextPower2) {
   using BitUtil::NextPower2;
 
   ASSERT_EQ(8, NextPower2(6));
@@ -49,6 +55,58 @@ TEST(UtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 32, NextPower2((1LL << 32) - 1));
   ASSERT_EQ(1LL << 31, NextPower2((1LL << 31) - 1));
   ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
+}
+
+static inline int64_t SlowCountBits(
+    const uint8_t* data, int64_t bit_offset, int64_t length) {
+  int64_t count = 0;
+  for (int64_t i = bit_offset; i < bit_offset + length; ++i) {
+    if (BitUtil::GetBit(data, i)) { ++count; }
+  }
+  return count;
+}
+
+TEST(BitUtilTests, TestCountSetBits) {
+  const int kBufferSize = 1000;
+  uint8_t buffer[kBufferSize] = {0};
+
+  test::random_bytes(kBufferSize, 0, buffer);
+
+  const int num_bits = kBufferSize * 8;
+
+  std::vector<int64_t> offsets = {
+      0, 12, 16, 32, 37, 63, 64, 128, num_bits - 30, num_bits - 64};
+  for (int64_t offset : offsets) {
+    int64_t result = CountSetBits(buffer, offset, num_bits - offset);
+    int64_t expected = SlowCountBits(buffer, offset, num_bits - offset);
+
+    ASSERT_EQ(expected, result);
+  }
+}
+
+TEST(BitUtilTests, TestCopyBitmap) {
+  const int kBufferSize = 1000;
+
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), kBufferSize, &buffer));
+  memset(buffer->mutable_data(), 0, kBufferSize);
+  test::random_bytes(kBufferSize, 0, buffer->mutable_data());
+
+  const int num_bits = kBufferSize * 8;
+
+  const uint8_t* src = buffer->data();
+
+  std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
+  for (int64_t offset : offsets) {
+    const int64_t copy_length = num_bits - offset;
+
+    std::shared_ptr<Buffer> copy;
+    ASSERT_OK(CopyBitmap(default_memory_pool(), src, offset, copy_length, &copy));
+
+    for (int64_t i = 0; i < copy_length; ++i) {
+      ASSERT_EQ(BitUtil::GetBit(src, i + offset), BitUtil::GetBit(copy->data(), i));
+    }
+  }
 }
 
 }  // namespace arrow

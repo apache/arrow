@@ -80,7 +80,7 @@ template <typename T, typename ValueType>
 void CheckPrimitive(const std::shared_ptr<DataType>& type,
     const std::vector<bool>& is_valid, const std::vector<ValueType>& values) {
   MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<T>::BuilderType builder(pool, type);
+  typename TypeTraits<T>::BuilderType builder(pool);
 
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
@@ -146,12 +146,11 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   std::shared_ptr<Array> values_array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), values_is_valid, values, &values_array);
+  ArrayFromVector<Int32Type, int32_t>(values_is_valid, values, &values_array);
 
   std::vector<int16_t> i16_values = {0, 1, 2, 3, 4, 5, 6};
   std::shared_ptr<Array> i16_values_array;
-  ArrayFromVector<Int16Type, int16_t>(
-      int16(), values_is_valid, i16_values, &i16_values_array);
+  ArrayFromVector<Int16Type, int16_t>(values_is_valid, i16_values, &i16_values_array);
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
@@ -161,7 +160,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   ASSERT_OK(test::GetBitmapFromBoolVector(list_is_valid, &list_bitmap));
   std::shared_ptr<Buffer> offsets_buffer = test::GetBufferFromVector(offsets);
 
-  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, 1, list_bitmap);
+  ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
 
   TestArrayRoundTrip(list_array);
 
@@ -175,7 +174,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   std::vector<std::shared_ptr<Array>> fields = {values_array, values_array, values_array};
   StructArray struct_array(
-      struct_type, static_cast<int>(struct_is_valid.size()), fields, 2, struct_bitmap);
+      struct_type, static_cast<int>(struct_is_valid.size()), fields, struct_bitmap, 2);
   TestArrayRoundTrip(struct_array);
 }
 
@@ -202,15 +201,15 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   test::randint<int32_t>(num_rows, 0, 100, &v2_values);
 
   std::shared_ptr<Array> v1;
-  ArrayFromVector<Int8Type, int8_t>(schema->field(0)->type, is_valid, v1_values, &v1);
+  ArrayFromVector<Int8Type, int8_t>(is_valid, v1_values, &v1);
 
   std::shared_ptr<Array> v2;
-  ArrayFromVector<Int32Type, int32_t>(schema->field(1)->type, is_valid, v2_values, &v2);
+  ArrayFromVector<Int32Type, int32_t>(is_valid, v2_values, &v2);
 
   static const int kBufferSize = 10;
   static uint8_t buffer[kBufferSize];
   static uint32_t seed = 0;
-  StringBuilder string_builder(default_memory_pool(), utf8());
+  StringBuilder string_builder(default_memory_pool());
   for (int i = 0; i < num_rows; ++i) {
     if (!is_valid[i]) {
       string_builder.AppendNull();
@@ -338,13 +337,13 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   std::vector<bool> foo_valid = {true, false, true, true, true};
   std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
   std::shared_ptr<Array> foo;
-  ArrayFromVector<Int32Type, int32_t>(int32(), foo_valid, foo_values, &foo);
+  ArrayFromVector<Int32Type, int32_t>(foo_valid, foo_values, &foo);
   ASSERT_TRUE(batch->column(0)->Equals(foo));
 
   std::vector<bool> bar_valid = {true, false, false, true, true};
   std::vector<double> bar_values = {1, 2, 3, 4, 5};
   std::shared_ptr<Array> bar;
-  ArrayFromVector<DoubleType, double>(float64(), bar_valid, bar_values, &bar);
+  ArrayFromVector<DoubleType, double>(bar_valid, bar_values, &bar);
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 

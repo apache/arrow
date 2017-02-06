@@ -95,7 +95,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Cython warnings in clang
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality -Wno-constant-logical-operand")
 endif()
 
 set(PYARROW_LINK "a")

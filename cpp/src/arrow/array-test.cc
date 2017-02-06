@@ -43,7 +43,7 @@ TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<PoolBuffer>(pool_);
   auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
 
-  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, 10, null_bitmap));
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
   ASSERT_EQ(10, arr->null_count());
 
   std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
@@ -67,7 +67,7 @@ std::shared_ptr<Array> MakeArrayFromValidBytes(
   }
 
   std::shared_ptr<Array> arr(
-      new Int32Array(v.size(), value_builder.Finish(), null_count, null_buf));
+      new Int32Array(v.size(), value_builder.Finish(), null_buf, null_count));
   return arr;
 }
 
@@ -87,6 +87,32 @@ TEST_F(TestArray, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
 }
 
+TEST_F(TestArray, SliceRecomputeNullCount) {
+  std::vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0};
+
+  auto array = MakeArrayFromValidBytes(valid_bytes, pool_);
+
+  ASSERT_EQ(4, array->null_count());
+
+  auto slice = array->Slice(1, 4);
+  ASSERT_EQ(2, slice->null_count());
+
+  slice = array->Slice(4);
+  ASSERT_EQ(1, slice->null_count());
+
+  slice = array->Slice(0);
+  ASSERT_EQ(4, slice->null_count());
+
+  // No bitmap, compute 0
+  std::shared_ptr<MutableBuffer> data;
+  const int kBufferSize = 64;
+  ASSERT_OK(AllocateBuffer(pool_, kBufferSize, &data));
+  memset(data->mutable_data(), 0, kBufferSize);
+
+  auto arr = std::make_shared<Int32Array>(16, data, nullptr, -1);
+  ASSERT_EQ(0, arr->null_count());
+}
+
 TEST_F(TestArray, TestIsNull) {
   // clang-format off
   std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
@@ -102,7 +128,7 @@ TEST_F(TestArray, TestIsNull) {
 
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(null_bitmap);
   std::unique_ptr<Array> arr;
-  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_count, null_buf));
+  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());

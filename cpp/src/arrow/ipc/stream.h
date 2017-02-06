@@ -30,6 +30,7 @@ namespace arrow {
 class Array;
 class Buffer;
 struct Field;
+class MemoryPool;
 class RecordBatch;
 class Schema;
 class Status;
@@ -59,6 +60,10 @@ class ARROW_EXPORT StreamWriter {
   /// closing the actual OutputStream
   virtual Status Close();
 
+  // In some cases, writing may require memory allocation. We use the default
+  // memory pool, but provide the option to override
+  void set_memory_pool(MemoryPool* pool);
+
  protected:
   StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
@@ -81,6 +86,9 @@ class ARROW_EXPORT StreamWriter {
 
   io::OutputStream* sink_;
   std::shared_ptr<Schema> schema_;
+
+  MemoryPool* pool_;
+
   int64_t position_;
   bool started_;
 };

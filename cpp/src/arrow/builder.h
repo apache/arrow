@@ -141,9 +141,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
-      : ArrayBuilder(pool, type), data_(nullptr) {}
-
-  virtual ~PrimitiveBuilder() {}
+      : ArrayBuilder(pool, type), data_(nullptr), raw_data_(nullptr) {}
 
   using ArrayBuilder::Advance;
 
@@ -233,6 +231,7 @@ using Int16Builder = NumericBuilder<Int16Type>;
 using Int32Builder = NumericBuilder<Int32Type>;
 using Int64Builder = NumericBuilder<Int64Type>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
+using TimeBuilder = NumericBuilder<TimeType>;
 using DateBuilder = NumericBuilder<DateType>;
 
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
@@ -241,10 +240,8 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
-  explicit BooleanBuilder(MemoryPool* pool, const TypePtr& type = boolean())
-      : ArrayBuilder(pool, type), data_(nullptr) {}
-
-  virtual ~BooleanBuilder() {}
+  explicit BooleanBuilder(MemoryPool* pool);
+  explicit BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   using ArrayBuilder::Advance;
 
@@ -321,8 +318,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ListBuilder(
       MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
 
-  virtual ~ListBuilder() {}
-
   Status Init(int32_t elements) override;
   Status Resize(int32_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
@@ -368,8 +363,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 // BinaryBuilder : public ListBuilder
 class ARROW_EXPORT BinaryBuilder : public ListBuilder {
  public:
+  explicit BinaryBuilder(MemoryPool* pool);
   explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type);
-  virtual ~BinaryBuilder() {}
 
   Status Append(const uint8_t* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());
@@ -391,11 +386,7 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
 // String builder
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
-  explicit StringBuilder(MemoryPool* pool = default_memory_pool())
-      : BinaryBuilder(pool, utf8()) {}
-
-  explicit StringBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : BinaryBuilder(pool, type) {}
+  explicit StringBuilder(MemoryPool* pool);
 
   using BinaryBuilder::Append;
 
