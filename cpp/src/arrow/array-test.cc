@@ -87,6 +87,23 @@ TEST_F(TestArray, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
 }
 
+TEST_F(TestArray, SliceRecomputeNullCount) {
+  std::vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0};
+
+  auto array = MakeArrayFromValidBytes(valid_bytes, pool_);
+
+  ASSERT_EQ(4, array->null_count());
+
+  auto slice = array->Slice(1, 4);
+  ASSERT_EQ(2, slice->null_count());
+
+  slice = array->Slice(4);
+  ASSERT_EQ(1, slice->null_count());
+
+  slice = array->Slice(0);
+  ASSERT_EQ(4, slice->null_count());
+}
+
 TEST_F(TestArray, TestIsNull) {
   // clang-format off
   std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
