@@ -232,7 +232,8 @@ class ArrayPrinter : public ArrayVisitor {
       RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
     }
 
-    return PrintChildren(array.children(), array.offset(), array.length());
+    // Print the children without any offset, because the type ids are absolute
+    return PrintChildren(array.children(), 0, array.length() + array.offset());
   }
 
   Status Visit(const DictionaryArray& array) override {

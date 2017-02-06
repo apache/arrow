@@ -396,47 +396,71 @@ class RecordBatchWriter : public ArrayVisitor {
           array.length() * sizeof(UnionArray::type_id_t));
     }
 
-    const auto& type = static_cast<const UnionType&>(*array.type());
-
     buffers_.push_back(type_ids);
 
+    --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
+      const auto& type = static_cast<const UnionType&>(*array.type());
       auto value_offsets = array.value_offsets();
+
+      // The Union type codes are not necessary 0-indexed
+      uint8_t max_code = 0;
+      for (uint8_t code : type.type_codes) {
+        if (code > max_code) { max_code = code; }
+      }
+
+      // Allocate an array of child offsets. Set all to -1 to indicate that we
+      // haven't observed a first occurrence of a particular child yet
+      std::vector<int32_t> child_offsets(max_code + 1);
+      std::vector<int32_t> child_lengths(max_code + 1, 0);
+
       if (array.offset() != 0) {
         // This is an unpleasant case. Because the offsets are different for
         // each child array, when we have a sliced array, we need to "rebase"
         // the value_offsets for each array
 
-        // std::shared_ptr<MutableBuffer> shifted_buffer;
-        // RETURN_NOT_OK(AllocateBuffer(pool_, array.length() * sizeof(int32_t),
-        // &shifted_buffer));
-        // int32_t* shifted_offsets =
-        // reinterpret_cast<int32_t*>(shifted_buffer->mutable_data());
+        const int32_t* unshifted_offsets = array.raw_value_offsets();
+        const uint8_t* type_ids = array.raw_type_ids();
 
-        // Allocate an array of base offsets
+        // Allocate the shifted offsets
+        std::shared_ptr<MutableBuffer> shifted_offsets_buffer;
+        RETURN_NOT_OK(AllocateBuffer(
+            pool_, array.length() * sizeof(int32_t), &shifted_offsets_buffer));
+        int32_t* shifted_offsets =
+            reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-        // std::vector<int32_t> base_offsets(type.type_codes.size(), 0);
-        // const uint8_t* type_ids = array.raw_type_ids();
+        for (int32_t i = 0; i < array.length(); ++i) {
+          const uint8_t code = type_ids[i];
+          int32_t shift = child_offsets[code];
+          if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
+          shifted_offsets[i] = unshifted_offsets[i] - shift;
 
-        // TODO(wesm): XXX
+          // Update the child length to account for observed value
+          ++child_lengths[code];
+        }
 
-        // Examine the data up until array.offset() to determine how much to
-        // shift the data
-        // for (int32_t i = 0
-
-        value_offsets = SliceBuffer(value_offsets, array.offset() * sizeof(int32_t),
-            array.length() * sizeof(int32_t));
+        value_offsets = shifted_offsets_buffer;
       }
       buffers_.push_back(value_offsets);
-    }
 
-    --max_recursion_depth_;
-    for (std::shared_ptr<Array> field : array.children()) {
-      if (array.offset() != 0) {
-        // If offset is non-zero, slice the child array
-        field = field->Slice(array.offset(), array.length());
+      // Visit children and slice accordingly
+      for (int i = 0; i < type.num_children(); ++i) {
+        std::shared_ptr<Array> child = array.child(i);
+        if (array.offset() != 0) {
+          const uint8_t code = type.type_codes[i];
+          child = child->Slice(child_offsets[code], child_lengths[code]);
+        }
+        RETURN_NOT_OK(VisitArray(*child));
       }
-      RETURN_NOT_OK(VisitArray(*field));
+    } else {
+      for (std::shared_ptr<Array> child : array.children()) {
+        // Sparse union, slicing is simpler
+        if (array.offset() != 0) {
+          // If offset is non-zero, slice the child array
+          child = child->Slice(array.offset(), array.length());
+        }
+        RETURN_NOT_OK(VisitArray(*child));
+      }
     }
     ++max_recursion_depth_;
     return Status::OK();
