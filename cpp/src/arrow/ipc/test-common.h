@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
@@ -120,10 +121,10 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    const TypePtr& type, int32_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int32_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
-  Builder builder(pool, type);
+  Builder builder(pool);
   const auto values_len = values.size();
   for (int32_t i = 0; i < length; ++i) {
     int values_index = i % values_len;
@@ -149,15 +150,15 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> a0, a1;
   MemoryPool* pool = default_memory_pool();
 
+  // Quirk with RETURN_NOT_OK macro and templated functions
   {
-    auto status =
-        MakeRandomBinaryArray<StringBuilder, char>(string_type, length, pool, &a0);
-    RETURN_NOT_OK(status);
+    auto s = MakeRandomBinaryArray<StringBuilder, char>(length, pool, &a0);
+    RETURN_NOT_OK(s);
   }
+
   {
-    auto status =
-        MakeRandomBinaryArray<BinaryBuilder, uint8_t>(binary_type, length, pool, &a1);
-    RETURN_NOT_OK(status);
+    auto s = MakeRandomBinaryArray<BinaryBuilder, uint8_t>(length, pool, &a1);
+    RETURN_NOT_OK(s);
   }
   out->reset(new RecordBatch(schema, length, {a0, a1}));
   return Status::OK();
@@ -308,21 +309,17 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(test::CopyBufferFromVector(type_ids, &type_ids_buffer));
 
   std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
-  ArrayFromVector<Int32Type, int32_t>(
-      sparse_type->child(0)->type, u0_values, &sparse_children[0]);
+  ArrayFromVector<Int32Type, int32_t>(u0_values, &sparse_children[0]);
 
   std::vector<uint8_t> u1_values = {10, 11, 12, 13, 14, 15, 16};
-  ArrayFromVector<UInt8Type, uint8_t>(
-      sparse_type->child(1)->type, u1_values, &sparse_children[1]);
+  ArrayFromVector<UInt8Type, uint8_t>(u1_values, &sparse_children[1]);
 
   // dense children
   u0_values = {0, 2, 3, 7};
-  ArrayFromVector<Int32Type, int32_t>(
-      dense_type->child(0)->type, u0_values, &dense_children[0]);
+  ArrayFromVector<Int32Type, int32_t>(u0_values, &dense_children[0]);
 
   u1_values = {11, 14, 15};
-  ArrayFromVector<UInt8Type, uint8_t>(
-      dense_type->child(1)->type, u1_values, &dense_children[1]);
+  ArrayFromVector<UInt8Type, uint8_t>(u1_values, &dense_children[1]);
 
   std::shared_ptr<Buffer> offsets_buffer;
   std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};

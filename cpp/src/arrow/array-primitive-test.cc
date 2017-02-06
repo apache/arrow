@@ -505,4 +505,40 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
 }
 
+template <typename TYPE>
+void CheckSliceApproxEquals() {
+  using T = typename TYPE::c_type;
+
+  const int kSize = 50;
+  std::vector<T> draws1;
+  std::vector<T> draws2;
+
+  const uint32_t kSeed = 0;
+  test::random_real<T>(kSize, kSeed, 0, 100, &draws1);
+  test::random_real<T>(kSize, kSeed + 1, 0, 100, &draws2);
+
+  // Make the draws equal in the sliced segment, but unequal elsewhere (to
+  // catch not using the slice offset)
+  for (int i = 10; i < 30; ++i) {
+    draws2[i] = draws1[i];
+  }
+
+  std::vector<bool> is_valid;
+  test::random_is_valid(kSize, 0.1, &is_valid);
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<TYPE, T>(is_valid, draws1, &array1);
+  ArrayFromVector<TYPE, T>(is_valid, draws2, &array2);
+
+  std::shared_ptr<Array> slice1 = array1->Slice(10, 20);
+  std::shared_ptr<Array> slice2 = array2->Slice(10, 20);
+
+  ASSERT_TRUE(slice1->ApproxEquals(slice2));
+}
+
+TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
+  CheckSliceApproxEquals<FloatType>();
+  CheckSliceApproxEquals<DoubleType>();
+}
+
 }  // namespace arrow

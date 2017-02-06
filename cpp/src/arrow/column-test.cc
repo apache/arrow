@@ -51,7 +51,7 @@ TEST_F(TestChunkedArray, BasicEquals) {
   std::vector<bool> null_bitmap(100, true);
   std::vector<int32_t> data(100, 1);
   std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap, data, &array);
   arrays_one_.push_back(array);
   arrays_another_.push_back(array);
 
@@ -67,9 +67,9 @@ TEST_F(TestChunkedArray, EqualsDifferingTypes) {
   std::vector<int32_t> data32(100, 1);
   std::vector<int64_t> data64(100, 1);
   std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data32, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap, data32, &array);
   arrays_one_.push_back(array);
-  ArrayFromVector<Int64Type, int64_t>(int64(), null_bitmap, data64, &array);
+  ArrayFromVector<Int64Type, int64_t>(null_bitmap, data64, &array);
   arrays_another_.push_back(array);
 
   Construct();
@@ -83,9 +83,9 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
   std::vector<int32_t> data100(100, 1);
   std::vector<int32_t> data101(101, 1);
   std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap100, data100, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap100, data100, &array);
   arrays_one_.push_back(array);
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap101, data101, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap101, data101, &array);
   arrays_another_.push_back(array);
 
   Construct();
@@ -94,7 +94,7 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
 
   std::vector<bool> null_bitmap1(1, true);
   std::vector<int32_t> data1(1, 1);
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap1, data1, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap1, data1, &array);
   arrays_one_.push_back(array);
 
   Construct();
@@ -156,7 +156,7 @@ TEST_F(TestColumn, Equals) {
   std::vector<bool> null_bitmap(100, true);
   std::vector<int32_t> data(100, 1);
   std::shared_ptr<Array> array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), null_bitmap, data, &array);
+  ArrayFromVector<Int32Type, int32_t>(null_bitmap, data, &array);
   arrays_one_.push_back(array);
   arrays_another_.push_back(array);
 

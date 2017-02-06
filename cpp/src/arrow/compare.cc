@@ -480,8 +480,8 @@ inline bool FloatingApproxEquals(
     const NumericArray<TYPE>& left, const NumericArray<TYPE>& right) {
   using T = typename TYPE::c_type;
 
-  auto left_data = reinterpret_cast<const T*>(left.data()->data());
-  auto right_data = reinterpret_cast<const T*>(right.data()->data());
+  const T* left_data = left.raw_data();
+  const T* right_data = right.raw_data();
 
   static constexpr T EPSILON = 1E-5;
 

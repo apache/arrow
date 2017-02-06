@@ -147,8 +147,7 @@ class TestStringBuilder : public TestBuilder {
  public:
   void SetUp() {
     TestBuilder::SetUp();
-    type_ = TypePtr(new StringType());
-    builder_.reset(new StringBuilder(pool_, type_));
+    builder_.reset(new StringBuilder(pool_));
   }
 
   void Done() {
@@ -160,8 +159,6 @@ class TestStringBuilder : public TestBuilder {
   }
 
  protected:
-  TypePtr type_;
-
   std::unique_ptr<StringBuilder> builder_;
   std::shared_ptr<StringArray> result_;
 };
@@ -318,8 +315,7 @@ class TestBinaryBuilder : public TestBuilder {
  public:
   void SetUp() {
     TestBuilder::SetUp();
-    type_ = TypePtr(new BinaryType());
-    builder_.reset(new BinaryBuilder(pool_, type_));
+    builder_.reset(new BinaryBuilder(pool_));
   }
 
   void Done() {
@@ -331,8 +327,6 @@ class TestBinaryBuilder : public TestBuilder {
   }
 
  protected:
-  TypePtr type_;
-
   std::unique_ptr<BinaryBuilder> builder_;
   std::shared_ptr<BinaryArray> result_;
 };
@@ -385,8 +379,7 @@ void CheckSliceEquality() {
   using Traits = TypeTraits<TYPE>;
   using BuilderType = typename Traits::BuilderType;
 
-  auto type = Traits::type_singleton();
-  BuilderType builder(default_memory_pool(), type);
+  BuilderType builder(default_memory_pool());
 
   std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
   std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
