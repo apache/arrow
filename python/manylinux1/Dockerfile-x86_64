@@ -16,7 +16,7 @@ FROM quay.io/pypa/manylinux1_x86_64:latest
 RUN yum install -y flex openssl-devel
 
 WORKDIR /
-RUN wget http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz -O /boost_1_60_0.tar.gz
+RUN wget --no-check-certificate http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz -O /boost_1_60_0.tar.gz
 RUN tar xf boost_1_60_0.tar.gz
 WORKDIR /boost_1_60_0
 RUN ./bootstrap.sh

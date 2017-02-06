@@ -40,6 +40,7 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
           $CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
+          -DARROW_USE_ASAN=1 \
           -DCMAKE_CXX_FLAGS="-Werror" \
           $CPP_DIR
 fi

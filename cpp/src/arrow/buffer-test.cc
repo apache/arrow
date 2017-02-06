@@ -67,11 +67,14 @@ TEST_F(TestBuffer, Resize) {
 }
 
 TEST_F(TestBuffer, ResizeOOM) {
+  // This test doesn't play nice with AddressSanitizer
+#ifndef ADDRESS_SANITIZER
   // realloc fails, even though there may be no explicit limit
   PoolBuffer buf;
   ASSERT_OK(buf.Resize(100));
   int64_t to_alloc = std::numeric_limits<int64_t>::max();
   ASSERT_RAISES(OutOfMemory, buf.Resize(to_alloc));
+#endif
 }
 
 TEST_F(TestBuffer, EqualsWithSameContent) {
