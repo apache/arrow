@@ -60,6 +60,19 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   return true;
 }
 
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int32_t offset) {
+  return Slice(offset, this->num_rows() - offset);
+}
+
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int32_t offset, int32_t length) {
+  std::vector<std::shared_ptr<Array>> arrays;
+  arrays.reserve(num_columns());
+  for (const auto& field : columns_) {
+    arrays.emplace_back(field->Slice(offset, length));
+  }
+  return std::make_shared<RecordBatch>(schema_, num_rows_, arrays);
+}
+
 // ----------------------------------------------------------------------
 // Table methods
 

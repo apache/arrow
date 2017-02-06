@@ -242,4 +242,30 @@ TEST_F(TestRecordBatch, Equals) {
   ASSERT_FALSE(b1.Equals(b4));
 }
 
+TEST_F(TestRecordBatch, Slice) {
+  const int length = 10;
+
+  auto f0 = std::make_shared<Field>("f0", int32());
+  auto f1 = std::make_shared<Field>("f1", uint8());
+
+  vector<shared_ptr<Field>> fields = {f0, f1};
+  auto schema = std::make_shared<Schema>(fields);
+
+  auto a0 = MakePrimitive<Int32Array>(length);
+  auto a1 = MakePrimitive<UInt8Array>(length);
+
+  RecordBatch batch(schema, length, {a0, a1});
+
+  auto batch_slice = batch.Slice(2);
+  auto batch_slice2 = batch.Slice(1, 5);
+
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    ASSERT_EQ(2, batch_slice->column(i)->offset());
+    ASSERT_EQ(length - 2, batch_slice->column(i)->length());
+
+    ASSERT_EQ(1, batch_slice2->column(i)->offset());
+    ASSERT_EQ(5, batch_slice2->column(i)->length());
+  }
+}
+
 }  // namespace arrow
