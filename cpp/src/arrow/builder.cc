@@ -202,9 +202,18 @@ template class PrimitiveBuilder<Int32Type>;
 template class PrimitiveBuilder<Int64Type>;
 template class PrimitiveBuilder<DateType>;
 template class PrimitiveBuilder<TimestampType>;
+template class PrimitiveBuilder<TimeType>;
 template class PrimitiveBuilder<HalfFloatType>;
 template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
+
+BooleanBuilder::BooleanBuilder(MemoryPool* pool)
+    : ArrayBuilder(pool, boolean()), data_(nullptr), raw_data_(nullptr) {}
+
+BooleanBuilder::BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
+    : BooleanBuilder(pool) {
+  DCHECK_EQ(Type::BOOL, type->type);
+}
 
 Status BooleanBuilder::Init(int32_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -355,6 +364,8 @@ Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
+StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(pool, utf8()) {}
+
 Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> result;
   RETURN_NOT_OK(ListBuilder::Finish(&result));
@@ -392,9 +403,9 @@ std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
 // ----------------------------------------------------------------------
 // Helper functions
 
-#define BUILDER_CASE(ENUM, BuilderType)      \
-  case Type::ENUM:                           \
-    out->reset(new BuilderType(pool, type)); \
+#define BUILDER_CASE(ENUM, BuilderType) \
+  case Type::ENUM:                      \
+    out->reset(new BuilderType(pool));  \
     return Status::OK();
 
 // Initially looked at doing this with vtables, but shared pointers makes it
@@ -413,19 +424,17 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(UINT64, UInt64Builder);
     BUILDER_CASE(INT64, Int64Builder);
     BUILDER_CASE(DATE, DateBuilder);
-    BUILDER_CASE(TIMESTAMP, TimestampBuilder);
-
-    BUILDER_CASE(BOOL, BooleanBuilder);
-
-    BUILDER_CASE(FLOAT, FloatBuilder);
-    BUILDER_CASE(DOUBLE, DoubleBuilder);
-
-    case Type::STRING:
-      out->reset(new StringBuilder(pool));
+    case Type::TIMESTAMP:
+      out->reset(new TimestampBuilder(pool, type));
       return Status::OK();
-    case Type::BINARY:
-      out->reset(new BinaryBuilder(pool, type));
+    case Type::TIME:
+      out->reset(new TimeBuilder(pool, type));
       return Status::OK();
+      BUILDER_CASE(BOOL, BooleanBuilder);
+      BUILDER_CASE(FLOAT, FloatBuilder);
+      BUILDER_CASE(DOUBLE, DoubleBuilder);
+      BUILDER_CASE(STRING, StringBuilder);
+      BUILDER_CASE(BINARY, BinaryBuilder);
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
