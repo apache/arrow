@@ -102,6 +102,15 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
 
   slice = array->Slice(0);
   ASSERT_EQ(4, slice->null_count());
+
+  // No bitmap, compute 0
+  std::shared_ptr<MutableBuffer> data;
+  const int kBufferSize = 64;
+  ASSERT_OK(AllocateBuffer(pool_, kBufferSize, &data));
+  memset(data->mutable_data(), 0, kBufferSize);
+
+  auto arr = std::make_shared<Int32Array>(16, data, nullptr, -1);
+  ASSERT_EQ(0, arr->null_count());
 }
 
 TEST_F(TestArray, TestIsNull) {

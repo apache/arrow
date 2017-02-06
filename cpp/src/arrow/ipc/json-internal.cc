@@ -199,8 +199,8 @@ class JsonSchemaWriter : public TypeVisitor {
     // Write type ids
     writer_->Key("typeIds");
     writer_->StartArray();
-    for (size_t i = 0; i < type.type_ids.size(); ++i) {
-      writer_->Uint(type.type_ids[i]);
+    for (size_t i = 0; i < type.type_codes.size(); ++i) {
+      writer_->Uint(type.type_codes[i]);
     }
     writer_->EndArray();
   }
@@ -718,17 +718,17 @@ class JsonSchemaReader {
       return Status::Invalid(ss.str());
     }
 
-    const auto& json_type_ids = json_type.FindMember("typeIds");
-    RETURN_NOT_ARRAY("typeIds", json_type_ids, json_type);
+    const auto& json_type_codes = json_type.FindMember("typeIds");
+    RETURN_NOT_ARRAY("typeIds", json_type_codes, json_type);
 
-    std::vector<uint8_t> type_ids;
-    const auto& id_array = json_type_ids->value.GetArray();
+    std::vector<uint8_t> type_codes;
+    const auto& id_array = json_type_codes->value.GetArray();
     for (const rj::Value& val : id_array) {
       DCHECK(val.IsUint());
-      type_ids.push_back(val.GetUint());
+      type_codes.push_back(val.GetUint());
     }
 
-    *type = union_(children, type_ids, mode);
+    *type = union_(children, type_codes, mode);
 
     return Status::OK();
   }

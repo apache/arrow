@@ -413,8 +413,8 @@ struct ARROW_EXPORT UnionType : public DataType {
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE)
-      : DataType(Type::UNION), mode(mode), type_ids(type_ids) {
+      const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE)
+      : DataType(Type::UNION), mode(mode), type_codes(type_codes) {
     children_ = fields;
   }
 
@@ -429,7 +429,7 @@ struct ARROW_EXPORT UnionType : public DataType {
   // The type id used in the data to indicate each data type in the union. For
   // example, the first type in the union might be denoted by the id 5 (instead
   // of 0).
-  std::vector<uint8_t> type_ids;
+  std::vector<uint8_t> type_codes;
 };
 
 // ----------------------------------------------------------------------
@@ -551,7 +551,7 @@ std::shared_ptr<DataType> ARROW_EXPORT struct_(
 
 std::shared_ptr<DataType> ARROW_EXPORT union_(
     const std::vector<std::shared_ptr<Field>>& child_fields,
-    const std::vector<uint8_t>& type_ids, UnionMode mode = UnionMode::SPARSE);
+    const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);

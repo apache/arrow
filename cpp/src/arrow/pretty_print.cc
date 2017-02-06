@@ -164,8 +164,15 @@ class ArrayPrinter : public ArrayVisitor {
   Status WriteValidityBitmap(const Array& array) {
     Newline();
     Write("-- is_valid: ");
-    BooleanArray is_valid(array.length(), array.null_bitmap());
-    return PrettyPrint(is_valid, indent_ + 2, sink_);
+
+    if (array.null_count() > 0) {
+      BooleanArray is_valid(
+          array.length(), array.null_bitmap(), nullptr, 0, array.offset());
+      return PrettyPrint(is_valid, indent_ + 2, sink_);
+    } else {
+      Write("all not null");
+      return Status::OK();
+    }
   }
 
   Status Visit(const ListArray& array) override {
@@ -173,7 +180,8 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- value_offsets: ");
-    Int32Array value_offsets(array.length() + 1, array.value_offsets());
+    Int32Array value_offsets(
+        array.length() + 1, array.value_offsets(), nullptr, 0, array.offset());
     RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
 
     Newline();
@@ -187,20 +195,25 @@ class ArrayPrinter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields) {
+  Status PrintChildren(
+      const std::vector<std::shared_ptr<Array>>& fields, int32_t offset, int32_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
       Write(ss.str());
-      RETURN_NOT_OK(PrettyPrint(*fields[i], indent_ + 2, sink_));
+
+      std::shared_ptr<Array> field = fields[i];
+      if (offset != 0) { field = field->Slice(offset, length); }
+
+      RETURN_NOT_OK(PrettyPrint(*field, indent_ + 2, sink_));
     }
     return Status::OK();
   }
 
   Status Visit(const StructArray& array) override {
     RETURN_NOT_OK(WriteValidityBitmap(array));
-    return PrintChildren(array.fields());
+    return PrintChildren(array.fields(), array.offset(), array.length());
   }
 
   Status Visit(const UnionArray& array) override {
@@ -208,17 +221,18 @@ class ArrayPrinter : public ArrayVisitor {
 
     Newline();
     Write("-- type_ids: ");
-    UInt8Array type_ids(array.length(), array.type_ids());
+    UInt8Array type_ids(array.length(), array.type_ids(), nullptr, 0, array.offset());
     RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + 2, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
       Write("-- value_offsets: ");
-      Int32Array value_offsets(array.length(), array.value_offsets());
+      Int32Array value_offsets(
+          array.length(), array.value_offsets(), nullptr, 0, array.offset());
       RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
     }
 
-    return PrintChildren(array.children());
+    return PrintChildren(array.children(), array.offset(), array.length());
   }
 
   Status Visit(const DictionaryArray& array) override {

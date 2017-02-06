@@ -115,7 +115,7 @@ std::string UnionType::ToString() const {
 
   for (size_t i = 0; i < children_.size(); ++i) {
     if (i) { s << ", "; }
-    s << children_[i]->ToString() << "=" << static_cast<int>(type_ids[i]);
+    s << children_[i]->ToString() << "=" << static_cast<int>(type_codes[i]);
   }
   s << ">";
   return s.str();
@@ -224,8 +224,8 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-    const std::vector<uint8_t>& type_ids, UnionMode mode) {
-  return std::make_shared<UnionType>(child_fields, type_ids, mode);
+    const std::vector<uint8_t>& type_codes, UnionMode mode) {
+  return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,

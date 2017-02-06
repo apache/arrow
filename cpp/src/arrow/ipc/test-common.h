@@ -194,7 +194,6 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
   // Example data
   MemoryPool* pool = default_memory_pool();
-  const int length = 200;
   const bool include_nulls = true;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &leaf_values));
@@ -202,7 +201,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(
       MakeRandomListArray(list_array, 0, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
-  out->reset(new RecordBatch(schema, length, {list_array, list_list_array, flat_array}));
+  out->reset(new RecordBatch(schema, 0, {list_array, list_list_array, flat_array}));
   return Status::OK();
 }
 

@@ -415,6 +415,7 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
+  using type_id_t = uint8_t;
 
   UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
       const std::vector<std::shared_ptr<Array>>& children,
@@ -431,7 +432,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return value_offsets_; }
 
-  const uint8_t* raw_type_ids() const { return raw_type_ids_ + offset_; }
+  const type_id_t* raw_type_ids() const { return raw_type_ids_ + offset_; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
   UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
@@ -448,7 +449,7 @@ class ARROW_EXPORT UnionArray : public Array {
   std::vector<std::shared_ptr<Array>> children_;
 
   std::shared_ptr<Buffer> type_ids_;
-  const uint8_t* raw_type_ids_;
+  const type_id_t* raw_type_ids_;
 
   std::shared_ptr<Buffer> value_offsets_;
   const int32_t* raw_value_offsets_;

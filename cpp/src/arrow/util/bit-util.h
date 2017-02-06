@@ -140,8 +140,8 @@ Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int32_t 
 int64_t ARROW_EXPORT CountSetBits(
     const uint8_t* data, int64_t bit_offset, int64_t length);
 
-bool ARROW_EXPORT BitmapEquals(
-    const uint8_t* left, const uint8_t* right, int64_t bit_length);
+bool ARROW_EXPORT BitmapEquals(const uint8_t* left, int64_t left_offset,
+    const uint8_t* right, int64_t right_offset, int64_t bit_length);
 
 }  // namespace arrow
 

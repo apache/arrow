@@ -98,6 +98,9 @@ TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
   std::shared_ptr<RecordBatch> batch_result;
 
+  // Skip the zero-length case
+  if (batch->num_rows() < 2) { return; }
+
   auto sliced_batch = batch->Slice(2, 10);
 
   ASSERT_OK(RoundTripHelper(*sliced_batch, 1 << 16, &batch_result));
@@ -120,10 +123,11 @@ TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(RoundTripTests, TestWriteRecordBatch,
-    ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,
-                            &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,
-                            &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion));
+INSTANTIATE_TEST_CASE_P(
+    RoundTripTests, TestWriteRecordBatch,
+    ::testing::Values(&MakeIntRecordBatch, &MakeStringTypesRecordBatch,
+        &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeListRecordBatch,
+        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;

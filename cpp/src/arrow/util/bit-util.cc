@@ -110,10 +110,14 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int32_t offset, int32_t
   return Status::OK();
 }
 
-bool BitmapEquals(const uint8_t* left, const uint8_t* right, int64_t bit_length) {
+bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+    int64_t right_offset, int64_t bit_length) {
   // TODO(wesm): Make this faster using word-wise comparisons
   for (int64_t i = 0; i < bit_length; ++i) {
-    if (BitUtil::GetBit(left, i) != BitUtil::GetBit(right, i)) { return false; }
+    if (BitUtil::GetBit(left, left_offset + i) !=
+        BitUtil::GetBit(right, right_offset + i)) {
+      return false;
+    }
   }
   return true;
 }

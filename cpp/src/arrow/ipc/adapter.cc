@@ -390,9 +390,45 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    buffers_.push_back(array.type_ids());
+    auto type_ids = array.type_ids();
+    if (array.offset() != 0) {
+      type_ids = SliceBuffer(type_ids, array.offset() * sizeof(UnionArray::type_id_t),
+          array.length() * sizeof(UnionArray::type_id_t));
+    }
 
-    if (array.mode() == UnionMode::DENSE) { buffers_.push_back(array.value_offsets()); }
+    const auto& type = static_cast<const UnionType&>(*array.type());
+
+    buffers_.push_back(type_ids);
+
+    if (array.mode() == UnionMode::DENSE) {
+      auto value_offsets = array.value_offsets();
+      if (array.offset() != 0) {
+        // This is an unpleasant case. Because the offsets are different for
+        // each child array, when we have a sliced array, we need to "rebase"
+        // the value_offsets for each array
+
+        // std::shared_ptr<MutableBuffer> shifted_buffer;
+        // RETURN_NOT_OK(AllocateBuffer(pool_, array.length() * sizeof(int32_t),
+        // &shifted_buffer));
+        // int32_t* shifted_offsets =
+        // reinterpret_cast<int32_t*>(shifted_buffer->mutable_data());
+
+        // Allocate an array of base offsets
+
+        // std::vector<int32_t> base_offsets(type.type_codes.size(), 0);
+        // const uint8_t* type_ids = array.raw_type_ids();
+
+        // TODO(wesm): XXX
+
+        // Examine the data up until array.offset() to determine how much to
+        // shift the data
+        // for (int32_t i = 0
+
+        value_offsets = SliceBuffer(value_offsets, array.offset() * sizeof(int32_t),
+            array.length() * sizeof(int32_t));
+      }
+      buffers_.push_back(value_offsets);
+    }
 
     --max_recursion_depth_;
     for (std::shared_ptr<Array> field : array.children()) {

@@ -200,7 +200,11 @@ class RangeEqualsVisitor : public ArrayVisitor {
       for (size_t j = 0; j < left.fields().size(); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
-        equal_fields = left.field(j)->RangeEquals(i, i + 1, o_i, right.field(j));
+        const int left_abs_index = i + left.offset();
+        const int right_abs_index = o_i + right.offset();
+
+        equal_fields = left.field(j)->RangeEquals(
+            left_abs_index, left_abs_index + 1, right_abs_index, right.field(j));
         if (!equal_fields) { return false; }
       }
     }
@@ -223,7 +227,7 @@ class RangeEqualsVisitor : public ArrayVisitor {
     // Define a mapping from the type id to child number
     uint8_t max_code = 0;
 
-    const std::vector<uint8_t> type_codes = left_type.type_ids;
+    const std::vector<uint8_t> type_codes = left_type.type_codes;
     for (size_t i = 0; i < type_codes.size(); ++i) {
       const uint8_t code = type_codes[i];
       if (code > max_code) { max_code = code; }
@@ -248,10 +252,14 @@ class RangeEqualsVisitor : public ArrayVisitor {
       id = left_ids[i];
       child_num = type_id_to_child_num[id];
 
+      const int left_abs_index = i + left.offset();
+      const int right_abs_index = o_i + right.offset();
+
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
       if (union_mode == UnionMode::SPARSE) {
-        if (!left.child(child_num)->RangeEquals(i, i + 1, o_i, right.child(child_num))) {
+        if (!left.child(child_num)->RangeEquals(left_abs_index, left_abs_index + 1,
+                right_abs_index, right.child(child_num))) {
           return false;
         }
       } else {
@@ -315,7 +323,8 @@ class EqualsVisitor : public RangeEqualsVisitor {
       }
       result_ = true;
     } else {
-      result_ = BitmapEquals(left.data()->data(), right.data()->data(), left.length());
+      result_ = BitmapEquals(left.data()->data(), left.offset(), right.data()->data(),
+          right.offset(), left.length());
     }
     return Status::OK();
   }
@@ -384,13 +393,46 @@ class EqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const IntervalArray& left) override { return ComparePrimitive(left); }
 
+  template <typename ArrayType>
+  bool ValueOffsetsEqual(const ArrayType& left) {
+    const auto& right = static_cast<const ArrayType&>(right_);
+
+    if (left.offset() == 0 && right.offset() == 0) {
+      return left.value_offsets()->Equals(
+          *right.value_offsets(), (left.length() + 1) * sizeof(int32_t));
+    } else {
+      // One of the arrays is sliced; logic is more complicated because the
+      // value offsets are not both 0-based
+      auto left_offsets =
+          reinterpret_cast<const int32_t*>(left.value_offsets()->data()) + left.offset();
+      auto right_offsets =
+          reinterpret_cast<const int32_t*>(right.value_offsets()->data()) +
+          right.offset();
+
+      for (int32_t i = 0; i < left.length() + 1; ++i) {
+        if (left_offsets[i] - left_offsets[0] != right_offsets[i] - right_offsets[0]) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+
   bool CompareBinary(const BinaryArray& left) {
     const auto& right = static_cast<const BinaryArray&>(right_);
-    bool equal_offsets = left.value_offsets()->Equals(
-        *right.value_offsets(), (left.length() + 1) * sizeof(int32_t));
+
+    bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
     if (!equal_offsets) { return false; }
-    if (!left.data() && !(right.data())) { return true; }
-    return left.data()->Equals(*right.data(), left.raw_value_offsets()[left.length()]);
+
+    if (left.offset() == 0 && right.offset() == 0) {
+      if (!left.data() && !(right.data())) { return true; }
+      return left.data()->Equals(*right.data(), left.raw_value_offsets()[left.length()]);
+    } else {
+      // Compare the corresponding data range
+      const int64_t total_bytes = left.value_offset(left.length()) - left.value_offset(0);
+      return std::memcmp(left.data()->data() + left.value_offset(0),
+                 right.data()->data() + right.value_offset(0), total_bytes) == 0;
+    }
   }
 
   Status Visit(const StringArray& left) override {
@@ -405,12 +447,20 @@ class EqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const ListArray& left) override {
     const auto& right = static_cast<const ListArray&>(right_);
-    if (!left.value_offsets()->Equals(
-            *right.value_offsets(), (left.length() + 1) * sizeof(int32_t))) {
+    bool equal_offsets = ValueOffsetsEqual<ListArray>(left);
+    if (!equal_offsets) {
       result_ = false;
-    } else {
-      result_ = left.values()->Equals(right.values());
+      return Status::OK();
     }
+
+    if (left.offset() == 0 && right.offset() == 0) {
+      result_ = left.values()->Equals(right.values());
+    } else {
+      // One of the arrays is sliced
+      result_ = left.values()->RangeEquals(left.value_offset(0),
+          left.value_offset(left.length()), right.value_offset(0), right.values());
+    }
+
     return Status::OK();
   }
 
@@ -473,8 +523,8 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
     return false;
   }
   if (left.null_count() > 0) {
-    return BitmapEquals(
-        left.null_bitmap()->data(), right.null_bitmap()->data(), left.length());
+    return BitmapEquals(left.null_bitmap()->data(), left.offset(),
+        right.null_bitmap()->data(), right.offset(), left.length());
   }
   return true;
 }
