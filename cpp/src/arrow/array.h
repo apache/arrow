@@ -127,7 +127,10 @@ class ARROW_EXPORT Array {
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
   bool RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-      const std::shared_ptr<Array>& arr) const;
+      const std::shared_ptr<Array>& other) const;
+
+  bool RangeEquals(const Array& other, int32_t start_idx, int32_t end_idx,
+      int32_t other_start_idx) const;
 
   /// Determines if the array is internally consistent.
   ///
@@ -315,8 +318,8 @@ class ARROW_EXPORT BinaryArray : public Array {
     // Account for base offset
     i += offset_;
 
-    const int32_t pos = raw_value_offsets_[i];
-    *out_length = raw_value_offsets_[i + 1] - pos;
+    const int32_t pos = raw_value_offsets_[i + offset_];
+    *out_length = raw_value_offsets_[i + offset_ + 1] - pos;
     return raw_data_ + pos;
   }
 

@@ -1717,12 +1717,8 @@ Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
 #if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
   // Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
   // U/LONGLONG to U/INT64 so things work properly.
-  if (type_num == NPY_LONGLONG) {
-    type_num = NPY_INT64;
-  }
-  if (type_num == NPY_ULONGLONG) {
-    type_num = NPY_UINT64;
-  }
+  if (type_num == NPY_LONGLONG) { type_num = NPY_INT64; }
+  if (type_num == NPY_ULONGLONG) { type_num = NPY_UINT64; }
 #endif
 
   switch (type_num) {
@@ -1732,14 +1728,14 @@ Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
     TO_ARROW_CASE(INT32);
     TO_ARROW_CASE(INT64);
 #if (NPY_INT64 != NPY_LONGLONG)
-	TO_ARROW_CASE(LONGLONG);
+    TO_ARROW_CASE(LONGLONG);
 #endif
     TO_ARROW_CASE(UINT8);
     TO_ARROW_CASE(UINT16);
     TO_ARROW_CASE(UINT32);
     TO_ARROW_CASE(UINT64);
 #if (NPY_UINT64 != NPY_ULONGLONG)
-	TO_ARROW_CASE(ULONGLONG);
+    TO_ARROW_CASE(ULONGLONG);
 #endif
     TO_ARROW_CASE(FLOAT32);
     TO_ARROW_CASE(FLOAT64);

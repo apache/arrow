@@ -140,6 +140,47 @@ TEST_F(TestStringArray, TestEmptyStringComparison) {
   ASSERT_TRUE(strings_a->Equals(strings_b));
 }
 
+TEST_F(TestStringArray, CompareNullByteSlots) {
+  StringBuilder builder(default_memory_pool());
+  StringBuilder builder2(default_memory_pool());
+  StringBuilder builder3(default_memory_pool());
+
+  builder.Append("foo");
+  builder2.Append("foo");
+  builder3.Append("foo");
+
+  builder.Append("bar");
+  builder2.AppendNull();
+
+  // same length, but different
+  builder3.Append("xyz");
+
+  builder.Append("baz");
+  builder2.Append("baz");
+  builder3.Append("baz");
+
+  std::shared_ptr<Array> array, array2, array3;
+  ASSERT_OK(builder.Finish(&array));
+  ASSERT_OK(builder2.Finish(&array2));
+  ASSERT_OK(builder3.Finish(&array3));
+
+  const auto& a1 = static_cast<const StringArray&>(*array);
+  const auto& a2 = static_cast<const StringArray&>(*array2);
+  const auto& a3 = static_cast<const StringArray&>(*array3);
+
+  // The validity bitmaps are the same, the data is different, but the unequal
+  // portion is masked out
+  StringArray equal_array(3, a1.value_offsets(), a1.data(), a2.null_bitmap(), 1);
+  StringArray equal_array2(3, a3.value_offsets(), a3.data(), a2.null_bitmap(), 1);
+
+  ASSERT_TRUE(equal_array.Equals(equal_array2));
+  ASSERT_TRUE(a2.RangeEquals(equal_array2, 0, 3, 0));
+
+  ASSERT_TRUE(equal_array.Array::Slice(1)->Equals(equal_array2.Array::Slice(1)));
+  ASSERT_TRUE(
+      equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
+}
+
 // ----------------------------------------------------------------------
 // String builder tests
 

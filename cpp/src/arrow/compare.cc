@@ -335,15 +335,8 @@ class EqualsVisitor : public RangeEqualsVisitor {
     const int value_byte_size = size_meta.bit_width() / 8;
     DCHECK_GT(value_byte_size, 0);
 
-    const uint8_t* left_data = nullptr;
-    if (left.length() > 0) {
-      left_data = left.data()->data() + left.offset() * value_byte_size;
-    }
-
-    const uint8_t* right_data = nullptr;
-    if (right.length() > 0) {
-      right_data = right.data()->data() + right.offset() * value_byte_size;
-    }
+    const uint8_t* left_data = left.data()->data() + left.offset() * value_byte_size;
+    const uint8_t* right_data = right.data()->data() + right.offset() * value_byte_size;
 
     if (left.null_count() > 0) {
       for (int i = 0; i < left.length(); ++i) {
@@ -355,7 +348,6 @@ class EqualsVisitor : public RangeEqualsVisitor {
       }
       return true;
     } else {
-      if (left.length() == 0) { return true; }
       return memcmp(left_data, right_data, value_byte_size * left.length()) == 0;
     }
   }
@@ -424,14 +416,35 @@ class EqualsVisitor : public RangeEqualsVisitor {
     bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
     if (!equal_offsets) { return false; }
 
-    if (left.offset() == 0 && right.offset() == 0) {
-      if (!left.data() && !(right.data())) { return true; }
-      return left.data()->Equals(*right.data(), left.raw_value_offsets()[left.length()]);
+    if (!left.data() && !(right.data())) { return true; }
+    if (left.value_offset(left.length()) == 0) { return true; }
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right.data()->data();
+
+    if (left.null_count() == 0) {
+      // Fast path for null count 0, single memcmp
+      if (left.offset() == 0 && right.offset() == 0) {
+        return std::memcmp(
+                   left_data, right_data, left.raw_value_offsets()[left.length()]) == 0;
+      } else {
+        const int64_t total_bytes =
+            left.value_offset(left.length()) - left.value_offset(0);
+        return std::memcmp(left_data + left.value_offset(0),
+                   right_data + right.value_offset(0), total_bytes) == 0;
+      }
     } else {
-      // Compare the corresponding data range
-      const int64_t total_bytes = left.value_offset(left.length()) - left.value_offset(0);
-      return std::memcmp(left.data()->data() + left.value_offset(0),
-                 right.data()->data() + right.value_offset(0), total_bytes) == 0;
+      // ARROW-537: Only compare data in non-null slots
+      const int32_t* left_offsets = left.raw_value_offsets();
+      const int32_t* right_offsets = right.raw_value_offsets();
+      for (int32_t i = 0; i < left.length(); ++i) {
+        if (left.IsNull(i)) { continue; }
+        if (std::memcmp(left_data + left_offsets[i], right_data + right_offsets[i],
+                left.value_length(i))) {
+          return false;
+        }
+      }
+      return true;
     }
   }
 
@@ -485,8 +498,6 @@ inline bool FloatingApproxEquals(
 
   static constexpr T EPSILON = 1E-5;
 
-  if (left.length() == 0 && right.length() == 0) { return true; }
-
   if (left.null_count() > 0) {
     for (int32_t i = 0; i < left.length(); ++i) {
       if (left.IsNull(i)) continue;
@@ -535,6 +546,8 @@ Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
     *are_equal = true;
   } else if (!BaseDataEquals(left, right)) {
     *are_equal = false;
+  } else if (left.length() == 0) {
+    *are_equal = true;
   } else {
     EqualsVisitor visitor(right);
     RETURN_NOT_OK(left.Accept(&visitor));
@@ -549,6 +562,8 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int32_t left_star
     *are_equal = true;
   } else if (left.type_enum() != right.type_enum()) {
     *are_equal = false;
+  } else if (left.length() == 0) {
+    *are_equal = true;
   } else {
     RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx, right_start_idx);
     RETURN_NOT_OK(left.Accept(&visitor));
@@ -563,6 +578,8 @@ Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal)
     *are_equal = true;
   } else if (!BaseDataEquals(left, right)) {
     *are_equal = false;
+  } else if (left.length() == 0) {
+    *are_equal = true;
   } else {
     ApproxEqualsVisitor visitor(right);
     RETURN_NOT_OK(left.Accept(&visitor));
