@@ -63,7 +63,7 @@ public class TestDictionaryVector {
       m.setSafe(4, zero, 0, zero.length);
       m.setValueCount(5);
 
-      DictionaryVector encoded = DictionaryVector.encode(vector, 1L);
+      DictionaryVector encoded = DictionaryVector.encode(vector);
 
       try {
         // verify values in the dictionary
@@ -127,7 +127,7 @@ public class TestDictionaryVector {
       m2.setSafe(2, two, 0, two.length);
       m2.setValueCount(3);
 
-      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(2L, dictionary, false))) {
+      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary, false))) {
         // verify indices
         ValueVector indices = encoded.getIndexVector();
         assertEquals(NullableIntVector.class, indices.getClass());

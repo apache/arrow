@@ -22,18 +22,12 @@ import org.apache.arrow.vector.ValueVector;
 
 public class Dictionary {
 
-    private long id;
     private ValueVector dictionary;
     private boolean ordered;
 
-    public Dictionary(long id, ValueVector dictionary, boolean ordered) {
-        this.id = id;
+    public Dictionary(ValueVector dictionary, boolean ordered) {
         this.dictionary = dictionary;
         this.ordered = ordered;
-    }
-
-    public long getId() {
-        return id;
     }
 
     public ValueVector getDictionary() {

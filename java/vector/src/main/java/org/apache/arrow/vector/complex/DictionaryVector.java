@@ -47,10 +47,9 @@ public class DictionaryVector implements ValueVector {
    * Dictionary encodes a vector. The dictionary will be built using the values from the vector.
    *
    * @param vector vector to encode
-   * @param dictionaryId the id to use for the newly created dictionary
    * @return dictionary encoded vector
    */
-  public static DictionaryVector encode(ValueVector vector, long dictionaryId) {
+  public static DictionaryVector encode(ValueVector vector) {
     validateType(vector.getMinorType());
     Map<Object, Integer> lookUps = new HashMap<>();
     Map<Integer, Integer> transfers = new HashMap<>();
@@ -85,7 +84,7 @@ public class DictionaryVector implements ValueVector {
       dictionaryTransfer.copyValueSafe(entry.getKey(), entry.getValue());
     }
     dictionaryVector.getMutator().setValueCount(transfers.size());
-    Dictionary dictionary = new Dictionary(dictionaryId, dictionaryVector, false);
+    Dictionary dictionary = new Dictionary(dictionaryVector, false);
 
     return new DictionaryVector(indices, dictionary);
   }
@@ -172,10 +171,7 @@ public class DictionaryVector implements ValueVector {
   public MinorType getMinorType() { return indices.getMinorType(); }
 
   @Override
-  public Field getField() {
-    Field base = indices.getField();
-    return new Field(base.getName(), base.isNullable(), base.getType(), dictionary.getId(), base.getChildren());
-  }
+  public Field getField() { return indices.getField(); }
 
   // note: dictionary vector is not closed, as it may be shared
   @Override
