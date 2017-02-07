@@ -24,6 +24,9 @@ import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import org.apache.arrow.flatbuf.DictionaryEncoding;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.schema.VectorLayout;
 
@@ -37,6 +40,7 @@ public class Field {
   private final String name;
   private final boolean nullable;
   private final ArrowType type;
+  private final Long dictionary;
   private final List<Field> children;
   private final TypeLayout typeLayout;
 
@@ -45,11 +49,13 @@ public class Field {
       @JsonProperty("name") String name,
       @JsonProperty("nullable") boolean nullable,
       @JsonProperty("type") ArrowType type,
+      @JsonProperty("dictionary") Long dictionary,
       @JsonProperty("children") List<Field> children,
       @JsonProperty("typeLayout") TypeLayout typeLayout) {
     this.name = name;
     this.nullable = nullable;
     this.type = checkNotNull(type);
+    this.dictionary = dictionary;
     if (children == null) {
       this.children = ImmutableList.of();
     } else {
@@ -59,13 +65,22 @@ public class Field {
   }
 
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
-    this(name, nullable, type, children, TypeLayout.getTypeLayout(checkNotNull(type)));
+    this(name, nullable, type, null, children, TypeLayout.getTypeLayout(checkNotNull(type)));
+  }
+
+  public Field(String name, boolean nullable, ArrowType type, Long dictionary, List<Field> children) {
+    this(name, nullable, type, dictionary, children, TypeLayout.getTypeLayout(checkNotNull(type)));
   }
 
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     String name = field.name();
     boolean nullable = field.nullable();
     ArrowType type = getTypeForField(field);
+    DictionaryEncoding dictionaryEncoding = field.dictionary();
+    Long dictionary = null;
+    if (dictionaryEncoding != null) {
+      dictionary = dictionaryEncoding.id();
+    }
     ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
     for (int i = 0; i < field.layoutLength(); ++i) {
       layout.add(new org.apache.arrow.vector.schema.VectorLayout(field.layout(i)));
@@ -75,8 +90,7 @@ public class Field {
       childrenBuilder.add(convertField(field.children(i)));
     }
     List<Field> children = childrenBuilder.build();
-    Field result = new Field(name, nullable, type, children, new TypeLayout(layout.build()));
-    return result;
+    return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()));
   }
 
   public void validate() {
@@ -89,6 +103,11 @@ public class Field {
   public int getField(FlatBufferBuilder builder) {
     int nameOffset = name == null ? -1 : builder.createString(name);
     int typeOffset = type.getType(builder);
+    int dictionaryOffset = -1;
+    if (dictionary != null) {
+      builder.addLong(dictionary);
+      dictionaryOffset = builder.offset();
+    }
     int[] childrenData = new int[children.size()];
     for (int i = 0; i < children.size(); i++) {
       childrenData[i] = children.get(i).getField(builder);
@@ -107,6 +126,9 @@ public class Field {
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
     org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeID().getFlatbufID());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
+    if (dictionary != null) {
+      org.apache.arrow.flatbuf.Field.addDictionary(builder, dictionaryOffset);
+    }
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
     org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
     return org.apache.arrow.flatbuf.Field.endField(builder);
@@ -123,6 +145,9 @@ public class Field {
   public ArrowType getType() {
     return type;
   }
+
+  @JsonInclude(Include.NON_NULL)
+  public Long getDictionary() { return dictionary; }
 
   public List<Field> getChildren() {
     return children;
@@ -141,6 +166,7 @@ public class Field {
     return Objects.equals(this.name, that.name) &&
             Objects.equals(this.nullable, that.nullable) &&
             Objects.equals(this.type, that.type) &&
+           Objects.equals(this.dictionary, that.dictionary) &&
             (Objects.equals(this.children, that.children) ||
                     (this.children == null && that.children.size() == 0) ||
                     (this.children.size() == 0 && that.children == null));
@@ -153,6 +179,9 @@ public class Field {
       sb.append(name).append(": ");
     }
     sb.append(type);
+    if (dictionary != null) {
+      sb.append("[dictionary: ").append(dictionary).append("]");
+    }
     if (!children.isEmpty()) {
       sb.append("<").append(Joiner.on(", ").join(children)).append(">");
     }

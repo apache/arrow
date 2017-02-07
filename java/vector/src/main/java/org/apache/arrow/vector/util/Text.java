@@ -299,6 +299,11 @@ public class Text {
   /** Returns true iff <code>o</code> is a Text with the same contents. */
   @Override
   public boolean equals(Object o) {
+    if (o == this) {
+      return true;
+    } else if (o == null) {
+      return false;
+    }
     if (!(o instanceof Text)) {
       return false;
     }
@@ -308,15 +313,33 @@ public class Text {
       return false;
     }
 
-    byte[] thisBytes = Arrays.copyOf(this.getBytes(), getLength());
-    byte[] thatBytes = Arrays.copyOf(that.getBytes(), getLength());
-    return Arrays.equals(thisBytes, thatBytes);
+    // copied from Arrays.equals so we don'thave to copy the byte arrays
+    for (int i = 0; i < length; i++) {
+      if (bytes[i] != that.bytes[i]) {
+        return false;
+      }
+    }
 
+    return true;
   }
 
+  /**
+   * Copied from Arrays.hashCode so we don't have to copy the byte array
+   *
+   * @return
+   */
   @Override
   public int hashCode() {
-    return super.hashCode();
+    if (bytes == null) {
+      return 0;
+    }
+
+    int result = 1;
+    for (int i = 0; i < length; i++) {
+      result = 31 * result + bytes[i];
+    }
+
+    return result;
   }
 
   // / STATIC UTILITIES FROM HERE DOWN
