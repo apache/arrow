@@ -120,10 +120,11 @@ Install `pyarrow`
 
     cd arrow/python
 
-    # --with-parquet enable the Apache Parquet support in PyArrow
+    # --with-parquet enables the Apache Parquet support in PyArrow
+    # --with-jemalloc enables the jemalloc allocator support in PyArrow
     # --build-type=release disables debugging information and turns on
     #       compiler optimizations for native code
-    python setup.py build_ext --with-parquet --build-type=release install
+    python setup.py build_ext --with-parquet --with--jemalloc --build-type=release install
     python setup.py install
 
 .. warning::

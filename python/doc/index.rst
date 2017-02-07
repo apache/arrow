@@ -37,10 +37,12 @@ structures.
    Installing pyarrow <install.rst>
    Pandas <pandas.rst>
    Module Reference <modules.rst>
+   Getting Involved <getting_involved.rst>
 
 .. toctree::
    :maxdepth: 2
    :caption: Additional Features
 
    Parquet format <parquet.rst>
+   jemalloc MemoryPool <jemalloc.rst>
 

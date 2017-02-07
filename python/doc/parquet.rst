@@ -29,16 +29,30 @@ Reading Parquet
 
 To read a Parquet file into Arrow memory, you can use the following code
 snippet. It will read the whole Parquet file into memory as an
-:class:`pyarrow.table.Table`.
+:class:`~pyarrow.table.Table`.
 
 .. code-block:: python
 
-    import pyarrow
-    import pyarrow.parquet
+    import pyarrow.parquet as pq
 
-    A = pyarrow
+    table = pq.read_table('<filename>')
 
-    table = A.parquet.read_table('<filename>')
+As DataFrames stored as Parquet are often stored in multiple files, a
+convenience method :meth:`~pyarrow.parquet.read_multiple_files` is provided.
+
+If you already have the Parquet available in memory or get it via non-file
+source, you can utilize :class:`pyarrow.io.BufferReader` to read it from
+memory. As input to the :class:`~pyarrow.io.BufferReader` you can either supply
+a Python ``bytes`` object or a :class:`pyarrow.io.Buffer`.
+
+.. code:: python
+
+    import pyarrow.io as paio
+    import pyarrow.parquet as pq
+
+    buf = ... # either bytes or paio.Buffer
+    reader = paio.BufferReader(buf)
+    table = pq.read_table(reader)
 
 Writing Parquet
 ---------------
@@ -49,13 +63,11 @@ method.
 
 .. code-block:: python
 
-    import pyarrow
-    import pyarrow.parquet
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
-    A = pyarrow
-
-    table = A.Table(..)
-    A.parquet.write_table(table, '<filename>')
+    table = pa.Table(..)
+    pq.write_table(table, '<filename>')
 
 By default this will write the Table as a single RowGroup using ``DICTIONARY``
 encoding. To increase the potential of parallelism a query engine can process
@@ -64,3 +76,16 @@ a Parquet file, set the ``chunk_size`` to a fraction of the total number of rows
 If you also want to compress the columns, you can select a compression
 method using the ``compression`` argument. Typically, ``GZIP`` is the choice if
 you want to minimize size and ``SNAPPY`` for performance.
+
+Instead of writing to a file, you can also write to Python ``bytes`` by
+utilizing an :class:`pyarrow.io.InMemoryOutputStream()`:
+
+.. code:: python
+
+    import pyarrow.io as paio
+    import pyarrow.parquet as pq
+
+    table = ...
+    output = paio.InMemoryOutputStream()
+    pq.write_table(table, output)
+    pybytes = output.get_result().to_pybytes()
