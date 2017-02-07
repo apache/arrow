@@ -57,7 +57,7 @@ Status Buffer::Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out)
 
 std::shared_ptr<Buffer> SliceBuffer(
     const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
-  DCHECK_LT(offset, buffer->size());
+  DCHECK_LE(offset, buffer->size());
   DCHECK_LE(length, buffer->size() - offset);
   return std::make_shared<Buffer>(buffer, offset, length);
 }
