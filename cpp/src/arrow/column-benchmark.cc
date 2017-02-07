@@ -30,7 +30,7 @@ std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
   auto null_bitmap = std::make_shared<PoolBuffer>(pool);
   data->Resize(length * sizeof(typename ArrayType::value_type));
   null_bitmap->Resize(BitUtil::BytesForBits(length));
-  return std::make_shared<ArrayType>(length, data, 10, null_bitmap);
+  return std::make_shared<ArrayType>(length, data, null_bitmap, 10);
 }
 }  // anonymous namespace
 
