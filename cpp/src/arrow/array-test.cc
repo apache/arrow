@@ -88,20 +88,20 @@ TEST_F(TestArray, TestEquality) {
 }
 
 TEST_F(TestArray, SliceRecomputeNullCount) {
-  std::vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0};
+  std::vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0, 0};
 
   auto array = MakeArrayFromValidBytes(valid_bytes, pool_);
 
-  ASSERT_EQ(4, array->null_count());
+  ASSERT_EQ(5, array->null_count());
 
   auto slice = array->Slice(1, 4);
   ASSERT_EQ(2, slice->null_count());
 
   slice = array->Slice(4);
-  ASSERT_EQ(1, slice->null_count());
+  ASSERT_EQ(4, slice->null_count());
 
   slice = array->Slice(0);
-  ASSERT_EQ(4, slice->null_count());
+  ASSERT_EQ(5, slice->null_count());
 
   // No bitmap, compute 0
   std::shared_ptr<MutableBuffer> data;
