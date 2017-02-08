@@ -30,6 +30,12 @@ elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang version.*")
   set(COMPILER_FAMILY "clang")
   string(REGEX REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1"
     COMPILER_VERSION "${COMPILER_VERSION_FULL}")
+
+# LLVM 3.6 on Mac OS X 10.9 and later
+elseif("${COMPILER_VERSION_FULL}" MATCHES ".*based on LLVM 3\\.6\\..*")
+  set(COMPILER_FAMILY "clang")
+  set(COMPILER_VERSION "3.6.0svn")
+
 # clang on Mac OS X 10.9 and later
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*based on LLVM.*")
   set(COMPILER_FAMILY "clang")
