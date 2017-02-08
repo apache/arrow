@@ -48,13 +48,14 @@ Array::Array(const std::shared_ptr<DataType>& type, int32_t length,
       null_count_(null_count),
       null_bitmap_(null_bitmap),
       null_bitmap_data_(nullptr) {
+  if (null_count_ == 0) { null_bitmap_ = nullptr; }
   if (null_bitmap_) { null_bitmap_data_ = null_bitmap_->data(); }
 }
 
 int32_t Array::null_count() const {
   if (null_count_ < 0) {
     if (null_bitmap_) {
-      null_count_ = CountSetBits(null_bitmap_data_, offset_, length_);
+      null_count_ = length_ - CountSetBits(null_bitmap_data_, offset_, length_);
     } else {
       null_count_ = 0;
     }
