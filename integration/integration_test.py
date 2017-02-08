@@ -271,7 +271,10 @@ class BinaryType(PrimitiveType):
 
         for i in range(size):
             if is_valid[i]:
-                values.append(rands(K))
+                draw = (np.random.randint(0, 255, size=K)
+                        .astype(np.uint8)
+                        .tostring())
+                values.append(draw)
             else:
                 values.append("")
 
@@ -287,6 +290,19 @@ class StringType(BinaryType):
     def _get_type(self):
         return OrderedDict([('name', 'utf8')])
 
+    def generate_column(self, size):
+        K = 7
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        for i in range(size):
+            if is_valid[i]:
+                values.append(rands(K))
+            else:
+                values.append("")
+
+        return self.column_class(self.name, size, is_valid, values)
+
 
 class JSONSchema(object):
 
@@ -301,6 +317,9 @@ class JSONSchema(object):
 
 class BinaryColumn(PrimitiveColumn):
 
+    def _encode_value(self, x):
+        return ''.join('{:02x}'.format(c).upper() for c in x)
+
     def _get_buffers(self):
         offset = 0
         offsets = [0]
@@ -313,7 +332,7 @@ class BinaryColumn(PrimitiveColumn):
                 v = ""
 
             offsets.append(offset)
-            data.append(v)
+            data.append(self._encode_value(v))
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
@@ -323,7 +342,9 @@ class BinaryColumn(PrimitiveColumn):
 
 
 class StringColumn(BinaryColumn):
-    pass
+
+    def _encode_value(self, x):
+        return x
 
 
 class ListType(DataType):
