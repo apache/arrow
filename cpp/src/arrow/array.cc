@@ -87,11 +87,16 @@ bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
 }
 
 bool Array::RangeEquals(int32_t start_idx, int32_t end_idx, int32_t other_start_idx,
-    const std::shared_ptr<Array>& arr) const {
-  if (!arr) { return false; }
+    const std::shared_ptr<Array>& other) const {
+  if (!other) { return false; }
+  return RangeEquals(*other, start_idx, end_idx, other_start_idx);
+}
+
+bool Array::RangeEquals(const Array& other, int32_t start_idx, int32_t end_idx,
+    int32_t other_start_idx) const {
   bool are_equal = false;
   Status error =
-      ArrayRangeEquals(*this, *arr, start_idx, end_idx, other_start_idx, &are_equal);
+      ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx, &are_equal);
   if (!error.ok()) { DCHECK(false) << "Arrays not comparable: " << error.ToString(); }
   return are_equal;
 }
