@@ -60,34 +60,28 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
 }
 }  // namespace
 
+MemoryPool::MemoryPool()
+    : max_memory_(-1) {}
+
 MemoryPool::~MemoryPool() {}
 
-class InternalMemoryPool : public MemoryPool {
- public:
-  InternalMemoryPool() : bytes_allocated_(0) {}
-  virtual ~InternalMemoryPool();
+int64_t MemoryPool::max_memory() const { return max_memory_.load(); }
 
-  Status Allocate(int64_t size, uint8_t** out) override;
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+DefaultMemoryPool::DefaultMemoryPool()
+    : bytes_allocated_(0) {
+  max_memory_ = 0;
+}
 
-  void Free(uint8_t* buffer, int64_t size) override;
-
-  int64_t bytes_allocated() const override;
-
- private:
-  mutable std::mutex pool_lock_;
-  int64_t bytes_allocated_;
-};
-
-Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
+Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
   std::lock_guard<std::mutex> guard(pool_lock_);
   RETURN_NOT_OK(AllocateAligned(size, out));
   bytes_allocated_ += size;
 
+  if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_; }
   return Status::OK();
 }
 
-Status InternalMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
   std::lock_guard<std::mutex> guard(pool_lock_);
 
   // Note: We cannot use realloc() here as it doesn't guarantee alignment.
@@ -105,16 +99,17 @@ Status InternalMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_
   *ptr = out;
 
   bytes_allocated_ += new_size - old_size;
+  if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_; }
 
   return Status::OK();
 }
 
-int64_t InternalMemoryPool::bytes_allocated() const {
+int64_t DefaultMemoryPool::bytes_allocated() const {
   std::lock_guard<std::mutex> guard(pool_lock_);
   return bytes_allocated_;
 }
 
-void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
+void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
   std::lock_guard<std::mutex> guard(pool_lock_);
   DCHECK_GE(bytes_allocated_, size);
 #ifdef _MSC_VER
@@ -125,10 +120,10 @@ void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
   bytes_allocated_ -= size;
 }
 
-InternalMemoryPool::~InternalMemoryPool() {}
+DefaultMemoryPool::~DefaultMemoryPool() {}
 
 MemoryPool* default_memory_pool() {
-  static InternalMemoryPool default_memory_pool_;
+  static DefaultMemoryPool default_memory_pool_;
   return &default_memory_pool_;
 }
 

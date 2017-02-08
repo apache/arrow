@@ -59,6 +59,23 @@ TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
   pool->Free(data, 100);
 }
 
+TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
+  DefaultMemoryPool pool;
+
+  ASSERT_EQ(0, pool.max_memory());
+
+  uint8_t* data;
+  ASSERT_OK(pool.Allocate(100, &data));
+
+  uint8_t* data2;
+  ASSERT_OK(pool.Allocate(100, &data2));
+
+  pool.Free(data, 100);
+  pool.Free(data2, 100);
+
+  ASSERT_EQ(200, pool.max_memory());
+}
+
 #endif  // ARROW_VALGRIND
 
 }  // namespace arrow
