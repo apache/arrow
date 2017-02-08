@@ -32,7 +32,9 @@ TEST_F(TestDefaultMemoryPool, MemoryTracking) {
 }
 
 TEST_F(TestDefaultMemoryPool, OOM) {
+#ifndef ADDRESS_SANITIZER
   this->TestOOM();
+#endif
 }
 
 TEST_F(TestDefaultMemoryPool, Reallocate) {
@@ -41,7 +43,7 @@ TEST_F(TestDefaultMemoryPool, Reallocate) {
 
 // Death tests and valgrind are known to not play well 100% of the time. See
 // googletest documentation
-#ifndef ARROW_VALGRIND
+#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 
 TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
   MemoryPool* pool = default_memory_pool();

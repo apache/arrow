@@ -94,8 +94,9 @@ if ("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")
     # Require clang 3.4 or newer; clang 3.3 has issues with TSAN and pthread
     # symbol interception.
     if("${COMPILER_VERSION}" VERSION_LESS "3.4")
-      message(SEND_ERROR "Must use clang 3.4 or newer to run a sanitizer build."
-        " Try using clang from $NATIVE_TOOLCHAIN/")
+        message(SEND_ERROR "Must use clang 3.4 or newer to run a sanitizer build."
+        " Detected unsupported version ${COMPILER_VERSION}."
+        " Try using clang from $NATIVE_TOOLCHAIN/.")
     endif()
     add_definitions("-fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitize-blacklist.txt")
   else()
