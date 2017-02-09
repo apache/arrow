@@ -171,7 +171,7 @@ public class JsonFileReader implements AutoCloseable {
     try {
       return Hex.decodeHex(hexString.toCharArray());
     } catch (DecoderException e) {
-      throw new IOException("Unable to decode hex string: " + hexString);
+      throw new IOException("Unable to decode hex string: " + hexString, e);
     }
   }
 
