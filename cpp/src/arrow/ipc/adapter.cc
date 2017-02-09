@@ -602,8 +602,13 @@ class ArrayLoader : public TypeVisitor {
 
     std::shared_ptr<Buffer> offsets;
     std::shared_ptr<Buffer> values;
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
+    if (field_meta.length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
+    } else {
+      context_->buffer_index += 2;
+      offsets = values = nullptr;
+    }
 
     result_ = std::make_shared<CONTAINER>(
         field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
@@ -661,7 +666,12 @@ class ArrayLoader : public TypeVisitor {
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
 
     std::shared_ptr<Buffer> offsets;
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+    if (field_meta.length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &offsets));
+    } else {
+      offsets = nullptr;
+    }
+    ++context_->buffer_index;
 
     const int num_children = type.num_children();
     if (num_children != 1) {
@@ -708,13 +718,16 @@ class ArrayLoader : public TypeVisitor {
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
 
-    std::shared_ptr<Buffer> type_ids;
+    std::shared_ptr<Buffer> type_ids = nullptr;
     std::shared_ptr<Buffer> offsets = nullptr;
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &type_ids));
 
-    if (type.mode == UnionMode::DENSE) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+    if (field_meta.length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
+      if (type.mode == UnionMode::DENSE) {
+        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &offsets));
+      }
     }
+    context_->buffer_index += type.mode == UnionMode::DENSE? 2 : 1;
 
     std::vector<std::shared_ptr<Array>> fields;
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));
