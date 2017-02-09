@@ -241,14 +241,18 @@ class BooleanType(PrimitiveType):
         return PrimitiveColumn(self.name, size, is_valid, values)
 
 
-class StringType(PrimitiveType):
+class BinaryType(PrimitiveType):
 
     @property
     def numpy_type(self):
         return object
 
+    @property
+    def column_class(self):
+        return BinaryColumn
+
     def _get_type(self):
-        return OrderedDict([('name', 'utf8')])
+        return OrderedDict([('name', 'binary')])
 
     def _get_type_layout(self):
         return OrderedDict([
@@ -267,11 +271,37 @@ class StringType(PrimitiveType):
 
         for i in range(size):
             if is_valid[i]:
+                draw = (np.random.randint(0, 255, size=K)
+                        .astype(np.uint8)
+                        .tostring())
+                values.append(draw)
+            else:
+                values.append("")
+
+        return self.column_class(self.name, size, is_valid, values)
+
+
+class StringType(BinaryType):
+
+    @property
+    def column_class(self):
+        return StringColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'utf8')])
+
+    def generate_column(self, size):
+        K = 7
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        for i in range(size):
+            if is_valid[i]:
                 values.append(rands(K))
             else:
                 values.append("")
 
-        return StringColumn(self.name, size, is_valid, values)
+        return self.column_class(self.name, size, is_valid, values)
 
 
 class JSONSchema(object):
@@ -285,7 +315,10 @@ class JSONSchema(object):
         ])
 
 
-class StringColumn(PrimitiveColumn):
+class BinaryColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return ''.join('{:02x}'.format(c).upper() for c in x)
 
     def _get_buffers(self):
         offset = 0
@@ -299,13 +332,19 @@ class StringColumn(PrimitiveColumn):
                 v = ""
 
             offsets.append(offset)
-            data.append(v)
+            data.append(self._encode_value(v))
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
             ('OFFSET', offsets),
             ('DATA', data)
         ]
+
+
+class StringColumn(BinaryColumn):
+
+    def _encode_value(self, x):
+        return x
 
 
 class ListType(DataType):
@@ -443,7 +482,9 @@ class JSONFile(object):
 
 
 def get_field(name, type_, nullable=True):
-    if type_ == 'utf8':
+    if type_ == 'binary':
+        return BinaryType(name, nullable=nullable)
+    elif type_ == 'utf8':
         return StringType(name, nullable=nullable)
 
     dtype = np.dtype(type_)
@@ -463,7 +504,7 @@ def get_field(name, type_, nullable=True):
 def generate_primitive_case():
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
-             'float32', 'float64', 'utf8']
+             'float32', 'float64', 'binary', 'utf8']
 
     fields = []
 

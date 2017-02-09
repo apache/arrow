@@ -17,7 +17,10 @@
 
 #include "arrow/ipc/json-internal.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -39,6 +42,8 @@
 
 namespace arrow {
 namespace ipc {
+
+static const char* kAsciiTable = "0123456789ABCDEF";
 
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
@@ -395,14 +400,26 @@ class JsonArrayWriter : public ArrayVisitor {
     }
   }
 
-  // String (Utf8), Binary
+  // Binary, encode to hexadecimal. UTF8 string write as is
   template <typename T>
   typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
     for (int i = 0; i < arr.length(); ++i) {
       int32_t length;
       const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
-      writer_->String(buf, length);
+
+      if (std::is_base_of<StringArray, T>::value) {
+        writer_->String(buf, length);
+      } else {
+        std::string hex_string;
+        hex_string.reserve(length * 2);
+        for (int32_t j = 0; j < length; ++j) {
+          // Convert to 2 base16 digits
+          hex_string.push_back(kAsciiTable[buf[j] >> 4]);
+          hex_string.push_back(kAsciiTable[buf[j] & 15]);
+        }
+        writer_->String(hex_string);
+      }
     }
   }
 
@@ -773,6 +790,20 @@ class JsonSchemaReader {
   const rj::Value& json_schema_;
 };
 
+static inline Status ParseHexValue(const char* data, uint8_t* out) {
+  char c1 = data[0];
+  char c2 = data[1];
+
+  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c1);
+  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
+
+  // Error checking
+  if (*pos1 != c1 || *pos2 != c2) { return Status::Invalid("Encountered non-hex digit"); }
+
+  *out = (pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable);
+  return Status::OK();
+}
+
 class JsonArrayReader {
  public:
   explicit JsonArrayReader(MemoryPool* pool) : pool_(pool) {}
@@ -852,6 +883,8 @@ class JsonArrayReader {
     const auto& json_data_arr = json_data->value.GetArray();
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
+
+    auto byte_buffer = std::make_shared<PoolBuffer>(pool_);
     for (int i = 0; i < length; ++i) {
       if (!is_valid[i]) {
         builder.AppendNull();
@@ -860,7 +893,23 @@ class JsonArrayReader {
 
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
-      builder.Append(val.GetString());
+      if (std::is_base_of<StringType, T>::value) {
+        builder.Append(val.GetString());
+      } else {
+        std::string hex_string = val.GetString();
+
+        DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
+        int64_t length = static_cast<int>(hex_string.size()) / 2;
+
+        if (byte_buffer->size() < length) { RETURN_NOT_OK(byte_buffer->Resize(length)); }
+
+        const char* hex_data = hex_string.c_str();
+        uint8_t* byte_buffer_data = byte_buffer->mutable_data();
+        for (int64_t j = 0; j < length; ++j) {
+          RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
+        }
+        RETURN_NOT_OK(builder.Append(byte_buffer_data, length));
+      }
     }
 
     return builder.Finish(array);

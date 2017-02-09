@@ -48,6 +48,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Mutator;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.NullableMapVector;
@@ -60,6 +61,8 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Objects;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 
 public class JsonFileReader implements AutoCloseable {
   private final File inputFile;
@@ -164,6 +167,14 @@ public class JsonFileReader implements AutoCloseable {
     readToken(END_OBJECT);
   }
 
+  private byte[] decodeHexSafe(String hexString) throws IOException {
+    try {
+      return Hex.decodeHex(hexString.toCharArray());
+    } catch (DecoderException e) {
+      throw new IOException("Unable to decode hex string: " + hexString, e);
+    }
+  }
+
   private void setValueFromParser(ValueVector valueVector, int i) throws IOException {
     switch (valueVector.getMinorType()) {
     case BIT:
@@ -198,6 +209,9 @@ public class JsonFileReader implements AutoCloseable {
       break;
     case FLOAT8:
       ((Float8Vector)valueVector).getMutator().set(i, parser.readValueAs(Double.class));
+      break;
+    case VARBINARY:
+      ((VarBinaryVector)valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
       break;
     case VARCHAR:
       ((VarCharVector)valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));

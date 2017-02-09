@@ -17,6 +17,7 @@
  */
 package org.apache.arrow.vector.util;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.vector.FieldVector;
@@ -89,7 +90,10 @@ public class Validator {
                 default:
                     throw new UnsupportedOperationException("unsupported precision: " + fpType);
             }
+        } else if (type instanceof ArrowType.Binary) {
+            return Arrays.equals((byte[]) o1, (byte[]) o2);
         }
+
         return Objects.equal(o1, o2);
     }
 

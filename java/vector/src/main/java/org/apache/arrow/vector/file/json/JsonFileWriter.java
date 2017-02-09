@@ -30,6 +30,7 @@ import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -40,6 +41,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import org.apache.commons.codec.binary.Hex;
 
 public class JsonFileWriter implements AutoCloseable {
 
@@ -156,6 +158,10 @@ public class JsonFileWriter implements AutoCloseable {
         break;
       case BIT:
         generator.writeNumber(((BitVector)valueVector).getAccessor().get(i));
+        break;
+      case VARBINARY:
+        String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
+        generator.writeObject(hexString);
         break;
       default:
         // TODO: each type
