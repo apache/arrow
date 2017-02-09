@@ -73,7 +73,7 @@ class Filesystem(object):
             Single file path or directory
         columns : List[str], optional
             Subset of columns to read
-        schema : pyarrow.parquet.FileMetaData
+        metadata : pyarrow.parquet.FileMetaData
             Known metadata to validate files against
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
