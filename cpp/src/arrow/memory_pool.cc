@@ -60,36 +60,30 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
 }
 }  // namespace
 
+MemoryPool::MemoryPool() {}
+
 MemoryPool::~MemoryPool() {}
 
-class InternalMemoryPool : public MemoryPool {
- public:
-  InternalMemoryPool() : bytes_allocated_(0) {}
-  virtual ~InternalMemoryPool();
+int64_t MemoryPool::max_memory() const {
+  return -1;
+}
 
-  Status Allocate(int64_t size, uint8_t** out) override;
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+DefaultMemoryPool::DefaultMemoryPool() : bytes_allocated_(0) {
+  max_memory_ = 0;
+}
 
-  void Free(uint8_t* buffer, int64_t size) override;
-
-  int64_t bytes_allocated() const override;
-
- private:
-  mutable std::mutex pool_lock_;
-  int64_t bytes_allocated_;
-};
-
-Status InternalMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
+Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
   RETURN_NOT_OK(AllocateAligned(size, out));
   bytes_allocated_ += size;
 
+  {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+  }
   return Status::OK();
 }
 
-Status InternalMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
-
+Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
   // Note: We cannot use realloc() here as it doesn't guarantee alignment.
 
   // Allocate new chunk
@@ -105,17 +99,19 @@ Status InternalMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_
   *ptr = out;
 
   bytes_allocated_ += new_size - old_size;
+  {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+  }
 
   return Status::OK();
 }
 
-int64_t InternalMemoryPool::bytes_allocated() const {
-  std::lock_guard<std::mutex> guard(pool_lock_);
-  return bytes_allocated_;
+int64_t DefaultMemoryPool::bytes_allocated() const {
+  return bytes_allocated_.load();
 }
 
-void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
+void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
   DCHECK_GE(bytes_allocated_, size);
 #ifdef _MSC_VER
   _aligned_free(buffer);
@@ -125,10 +121,14 @@ void InternalMemoryPool::Free(uint8_t* buffer, int64_t size) {
   bytes_allocated_ -= size;
 }
 
-InternalMemoryPool::~InternalMemoryPool() {}
+int64_t DefaultMemoryPool::max_memory() const {
+  return max_memory_.load();
+}
+
+DefaultMemoryPool::~DefaultMemoryPool() {}
 
 MemoryPool* default_memory_pool() {
-  static InternalMemoryPool default_memory_pool_;
+  static DefaultMemoryPool default_memory_pool_;
   return &default_memory_pool_;
 }
 

@@ -242,7 +242,8 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-    PInt32, PInt64, PFloat, PDouble> Primitives;
+    PInt32, PInt64, PFloat, PDouble>
+    Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
