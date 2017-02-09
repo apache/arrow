@@ -229,7 +229,7 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef CStatus WriteTable(
-        const CTable* table, CMemoryPool* pool,
+        const CTable& table, CMemoryPool* pool,
         const shared_ptr[OutputStream]& sink,
         int64_t chunk_size,
         const shared_ptr[WriterProperties]& properties)
