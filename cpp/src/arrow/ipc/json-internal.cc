@@ -884,7 +884,7 @@ class JsonArrayReader {
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
 
-    std::vector<uint8_t> byte_buffer;
+    auto byte_buffer = std::make_shared<PoolBuffer>(pool_);
     for (int i = 0; i < length; ++i) {
       if (!is_valid[i]) {
         builder.AppendNull();
@@ -899,15 +899,16 @@ class JsonArrayReader {
         std::string hex_string = val.GetString();
 
         DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
-        size_t length = hex_string.size() / 2;
+        int64_t length = static_cast<int>(hex_string.size()) / 2;
 
-        if (byte_buffer.size() < length) { byte_buffer.resize(length); }
+        if (byte_buffer->size() < length) { RETURN_NOT_OK(byte_buffer->Resize(length)); }
 
         const char* hex_data = hex_string.c_str();
-        for (size_t j = 0; j < length; ++j) {
-          RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer[j]));
+        uint8_t* byte_buffer_data = byte_buffer->mutable_data();
+        for (int64_t j = 0; j < length; ++j) {
+          RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
         }
-        RETURN_NOT_OK(builder.Append(byte_buffer.data(), static_cast<int32_t>(length)));
+        RETURN_NOT_OK(builder.Append(byte_buffer_data, length));
       }
     }
 
