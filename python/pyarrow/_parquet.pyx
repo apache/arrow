@@ -543,6 +543,6 @@ cdef class ParquetWriter:
 
         cdef int c_row_group_size = row_group_size
         with nogil:
-            check_status(WriteTable(ctable, self.allocator,
-                                        self.sink, c_row_group_size,
-                                        self.properties))
+            check_status(WriteTable(deref(ctable), self.allocator,
+                                    self.sink, c_row_group_size,
+                                    self.properties))
