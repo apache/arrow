@@ -270,9 +270,12 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int32_t length,
     const std::shared_ptr<Buffer>& null_bitmap, int32_t null_count, int32_t offset)
     : Array(type, length, null_bitmap, null_count, offset),
       value_offsets_(value_offsets),
-      raw_value_offsets_(reinterpret_cast<const int32_t*>(value_offsets_->data())),
+      raw_value_offsets_(nullptr),
       data_(data),
       raw_data_(nullptr) {
+  if (value_offsets_ != nullptr) {
+    raw_value_offsets_ = reinterpret_cast<const int32_t*>(value_offsets_->data());
+  }
   if (data_ != nullptr) { raw_data_ = data_->data(); }
 }
 
@@ -384,8 +387,10 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int32_t length,
     : Array(type, length, null_bitmap, null_count, offset),
       children_(children),
       type_ids_(type_ids),
-      value_offsets_(value_offsets) {
-  raw_type_ids_ = reinterpret_cast<const uint8_t*>(type_ids->data());
+      raw_type_ids_(nullptr),
+      value_offsets_(value_offsets),
+      raw_value_offsets_(nullptr) {
+  if (type_ids) { raw_type_ids_ = reinterpret_cast<const uint8_t*>(type_ids->data()); }
   if (value_offsets) {
     raw_value_offsets_ = reinterpret_cast<const int32_t*>(value_offsets->data());
   }
