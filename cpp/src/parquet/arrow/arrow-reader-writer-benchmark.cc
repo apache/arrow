@@ -109,7 +109,7 @@ static void BM_WriteColumn(::benchmark::State& state) {
 
   while (state.KeepRunning()) {
     auto output = std::make_shared<InMemoryOutputStream>();
-    WriteTable(table.get(), ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
+    WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }
@@ -128,7 +128,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<nullable, ParquetType>(values);
   auto output = std::make_shared<InMemoryOutputStream>();
-  WriteTable(table.get(), ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
+  WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {

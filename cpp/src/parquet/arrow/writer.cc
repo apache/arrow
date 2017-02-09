@@ -59,6 +59,7 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
 
 #define PRIMITIVE_VISIT(ArrowTypePrefix)                                \
   Status Visit(const ::arrow::ArrowTypePrefix##Array& array) override { \
+    array_offsets_.push_back(array.offset());                           \
     valid_bitmaps_.push_back(array.null_bitmap_data());                 \
     null_counts_.push_back(array.null_count());                         \
     values_type_ = array.type_enum();                                   \
@@ -86,12 +87,13 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   PRIMITIVE_VISIT(Interval)
 
   Status Visit(const ListArray& array) override {
+    array_offsets_.push_back(array.offset());
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
     offsets_.push_back(array.raw_value_offsets());
 
-    min_offset_idx_ = array.raw_value_offsets()[min_offset_idx_];
-    max_offset_idx_ = array.raw_value_offsets()[max_offset_idx_];
+    min_offset_idx_ = array.value_offset(min_offset_idx_);
+    max_offset_idx_ = array.value_offset(max_offset_idx_);
 
     return array.values()->Accept(this);
   }
@@ -108,15 +110,14 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   NOT_IMPLEMENTED_VIST(Decimal)
   NOT_IMPLEMENTED_VIST(Dictionary)
 
-  Status GenerateLevels(const Array* array, int64_t offset, int64_t length,
-      const std::shared_ptr<Field>& field, int64_t* values_offset,
-      ::arrow::Type::type* values_type, int64_t* num_values, int64_t* num_levels,
-      std::shared_ptr<Buffer>* def_levels, std::shared_ptr<Buffer>* rep_levels,
-      const Array** values_array) {
+  Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
+      int64_t* values_offset, ::arrow::Type::type* values_type, int64_t* num_values,
+      int64_t* num_levels, std::shared_ptr<Buffer>* def_levels,
+      std::shared_ptr<Buffer>* rep_levels, const Array** values_array) {
     // Work downwards to extract bitmaps and offsets
-    min_offset_idx_ = offset;
-    max_offset_idx_ = offset + length;
-    RETURN_NOT_OK(array->Accept(this));
+    min_offset_idx_ = 0;
+    max_offset_idx_ = array.length();
+    RETURN_NOT_OK(array.Accept(this));
     *num_values = max_offset_idx_ - min_offset_idx_;
     *values_offset = min_offset_idx_;
     *values_type = values_type_;
@@ -140,15 +141,15 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
       // We have a PrimitiveArray
       *rep_levels = nullptr;
       if (nullable_[0]) {
-        RETURN_NOT_OK(def_levels_buffer_->Resize(length * sizeof(int16_t)));
+        RETURN_NOT_OK(def_levels_buffer_->Resize(array.length() * sizeof(int16_t)));
         auto def_levels_ptr =
             reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
-        if (array->null_count() == 0) {
-          std::fill(def_levels_ptr, def_levels_ptr + length, 1);
+        if (array.null_count() == 0) {
+          std::fill(def_levels_ptr, def_levels_ptr + array.length(), 1);
         } else {
-          const uint8_t* valid_bits = array->null_bitmap_data();
-          INIT_BITSET(valid_bits, offset);
-          for (int i = 0; i < length; i++) {
+          const uint8_t* valid_bits = array.null_bitmap_data();
+          INIT_BITSET(valid_bits, array.offset());
+          for (int i = 0; i < array.length(); i++) {
             if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
               def_levels_ptr[i] = 1;
             } else {
@@ -161,10 +162,10 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
       } else {
         *def_levels = nullptr;
       }
-      *num_levels = length;
+      *num_levels = array.length();
     } else {
       RETURN_NOT_OK(rep_levels_.Append(0));
-      HandleListEntries(0, 0, offset, length);
+      HandleListEntries(0, 0, 0, array.length());
 
       std::shared_ptr<Array> def_levels_array;
       RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
@@ -182,7 +183,7 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   Status HandleList(int16_t def_level, int16_t rep_level, int64_t index) {
     if (nullable_[rep_level]) {
       if (null_counts_[rep_level] == 0 ||
-          BitUtil::GetBit(valid_bitmaps_[rep_level], index)) {
+          BitUtil::GetBit(valid_bitmaps_[rep_level], index + array_offsets_[rep_level])) {
         return HandleNonNullList(def_level + 1, rep_level, index);
       } else {
         return def_levels_.Append(def_level);
@@ -205,7 +206,8 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
         if (i > 0) { RETURN_NOT_OK(rep_levels_.Append(rep_level + 1)); }
         if (nullable_[recursion_level] &&
             ((null_counts_[recursion_level] == 0) ||
-                BitUtil::GetBit(valid_bitmaps_[recursion_level], inner_offset + i))) {
+                BitUtil::GetBit(valid_bitmaps_[recursion_level],
+                    inner_offset + i + array_offsets_[recursion_level]))) {
           RETURN_NOT_OK(def_levels_.Append(def_level + 2));
         } else {
           // This can be produced in two case:
@@ -236,6 +238,7 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   std::vector<int64_t> null_counts_;
   std::vector<const uint8_t*> valid_bitmaps_;
   std::vector<const int32_t*> offsets_;
+  std::vector<int32_t> array_offsets_;
   std::vector<bool> nullable_;
 
   int32_t min_offset_idx_;
@@ -250,9 +253,8 @@ class FileWriter::Impl {
 
   Status NewRowGroup(int64_t chunk_size);
   template <typename ParquetType, typename ArrowType>
-  Status TypedWriteBatch(ColumnWriter* writer, const Array* data, int64_t offset,
-      int64_t num_values, int64_t num_levels, const int16_t* def_levels,
-      const int16_t* rep_levels);
+  Status TypedWriteBatch(ColumnWriter* writer, const std::shared_ptr<Array>& data,
+      int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNullableBatch(TypedColumnWriter<ParquetType>* writer, int64_t num_values,
@@ -288,7 +290,7 @@ class FileWriter::Impl {
     return Status::OK();
   }
 
-  Status WriteColumnChunk(const Array* data, int64_t offset, int64_t length);
+  Status WriteColumnChunk(const Array& data);
   Status Close();
 
   virtual ~Impl() {}
@@ -317,28 +319,28 @@ Status FileWriter::Impl::NewRowGroup(int64_t chunk_size) {
 }
 
 template <typename ParquetType, typename ArrowType>
-Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer, const Array* array,
-    int64_t offset, int64_t num_values, int64_t num_levels, const int16_t* def_levels,
+Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
+    const std::shared_ptr<Array>& array, int64_t num_levels, const int16_t* def_levels,
     const int16_t* rep_levels) {
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
 
-  DCHECK((offset + num_values) <= array->length());
-  auto data = static_cast<const PrimitiveArray*>(array);
-  auto data_ptr = reinterpret_cast<const ArrowCType*>(data->data()->data()) + offset;
+  auto data = static_cast<const PrimitiveArray*>(array.get());
+  auto data_ptr = reinterpret_cast<const ArrowCType*>(data->data()->data());
   auto writer = reinterpret_cast<TypedColumnWriter<ParquetType>*>(column_writer);
 
   if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
     // no nulls, just dump the data
     const ParquetCType* data_writer_ptr = nullptr;
     RETURN_NOT_OK((ConvertPhysicalType<ArrowCType, ParquetCType>(
-        data_ptr, num_values, &data_writer_ptr)));
+        data_ptr + data->offset(), array->length(), &data_writer_ptr)));
     PARQUET_CATCH_NOT_OK(
         writer->WriteBatch(num_levels, def_levels, rep_levels, data_writer_ptr));
   } else {
     const uint8_t* valid_bits = data->null_bitmap_data();
-    RETURN_NOT_OK((WriteNullableBatch<ParquetType, ArrowType>(writer, num_values,
-        num_levels, def_levels, rep_levels, valid_bits, offset, data_ptr)));
+    RETURN_NOT_OK((WriteNullableBatch<ParquetType, ArrowType>(writer, data->length(),
+        num_levels, def_levels, rep_levels, valid_bits, data->offset(),
+        data_ptr + data->offset())));
   }
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
@@ -389,18 +391,18 @@ NULLABLE_BATCH_FAST_PATH(DoubleType, ::arrow::DoubleType, double)
 //   ArrowType::c_type to ParquetType::c_type
 template <>
 Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
-    ColumnWriter* column_writer, const Array* array, int64_t offset, int64_t num_values,
-    int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels) {
-  DCHECK((offset + num_values) <= array->length());
-  RETURN_NOT_OK(data_buffer_.Resize(num_values));
-  auto data = static_cast<const BooleanArray*>(array);
+    ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
+    const int16_t* def_levels, const int16_t* rep_levels) {
+  RETURN_NOT_OK(data_buffer_.Resize(array->length()));
+  auto data = static_cast<const BooleanArray*>(array.get());
   auto data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
   auto buffer_ptr = reinterpret_cast<bool*>(data_buffer_.mutable_data());
   auto writer = reinterpret_cast<TypedColumnWriter<BooleanType>*>(column_writer);
 
   int buffer_idx = 0;
-  for (int i = 0; i < num_values; i++) {
-    if (!data->IsNull(offset + i)) {
+  int32_t offset = array->offset();
+  for (int i = 0; i < data->length(); i++) {
+    if (!data->IsNull(i)) {
       buffer_ptr[buffer_idx++] = BitUtil::GetBit(data_ptr, offset + i);
     }
   }
@@ -412,11 +414,10 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
 
 template <>
 Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
-    ColumnWriter* column_writer, const Array* array, int64_t offset, int64_t num_values,
-    int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels) {
-  DCHECK((offset + num_values) <= array->length());
-  RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(ByteArray)));
-  auto data = static_cast<const BinaryArray*>(array);
+    ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
+    const int16_t* def_levels, const int16_t* rep_levels) {
+  RETURN_NOT_OK(data_buffer_.Resize(array->length() * sizeof(ByteArray)));
+  auto data = static_cast<const BinaryArray*>(array.get());
   auto buffer_ptr = reinterpret_cast<ByteArray*>(data_buffer_.mutable_data());
   // In the case of an array consisting of only empty strings or all null,
   // data->data() points already to a nullptr, thus data->data()->data() will
@@ -427,21 +428,22 @@ Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
     DCHECK(data_ptr != nullptr);
   }
   auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
+  const int32_t* value_offset = data->raw_value_offsets();
 
   if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
     // no nulls, just dump the data
-    for (int64_t i = 0; i < num_values; i++) {
+    for (int64_t i = 0; i < data->length(); i++) {
       buffer_ptr[i] =
-          ByteArray(data->value_length(i + offset), data_ptr + data->value_offset(i));
+          ByteArray(value_offset[i + 1] - value_offset[i], data_ptr + value_offset[i]);
     }
     PARQUET_CATCH_NOT_OK(
         writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   } else {
     int buffer_idx = 0;
-    for (int64_t i = 0; i < num_values; i++) {
-      if (!data->IsNull(offset + i)) {
-        buffer_ptr[buffer_idx++] = ByteArray(
-            data->value_length(i + offset), data_ptr + data->value_offset(i + offset));
+    for (int64_t i = 0; i < data->length(); i++) {
+      if (!data->IsNull(i)) {
+        buffer_ptr[buffer_idx++] =
+            ByteArray(value_offset[i + 1] - value_offset[i], data_ptr + value_offset[i]);
       }
     }
     PARQUET_CATCH_NOT_OK(
@@ -464,11 +466,9 @@ Status FileWriter::NewRowGroup(int64_t chunk_size) {
   return impl_->NewRowGroup(chunk_size);
 }
 
-Status FileWriter::Impl::WriteColumnChunk(
-    const Array* data, int64_t offset, int64_t length) {
+Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
   ColumnWriter* column_writer;
   PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
-  DCHECK((offset + length) <= data->length());
 
   int current_column_idx = row_group_writer_->current_column();
   std::shared_ptr<::arrow::Schema> arrow_schema;
@@ -481,10 +481,10 @@ Status FileWriter::Impl::WriteColumnChunk(
   ::arrow::Type::type values_type;
   int64_t num_levels;
   int64_t num_values;
-  const Array* values_array;
-  RETURN_NOT_OK(level_builder.GenerateLevels(data, offset, length, arrow_schema->field(0),
-      &values_offset, &values_type, &num_values, &num_levels, &def_levels_buffer,
-      &rep_levels_buffer, &values_array));
+  const Array* _values_array;
+  RETURN_NOT_OK(level_builder.GenerateLevels(data, arrow_schema->field(0), &values_offset,
+      &values_type, &num_values, &num_levels, &def_levels_buffer, &rep_levels_buffer,
+      &_values_array));
   const int16_t* def_levels = nullptr;
   if (def_levels_buffer) {
     def_levels = reinterpret_cast<const int16_t*>(def_levels_buffer->data());
@@ -493,11 +493,12 @@ Status FileWriter::Impl::WriteColumnChunk(
   if (rep_levels_buffer) {
     rep_levels = reinterpret_cast<const int16_t*>(rep_levels_buffer->data());
   }
+  std::shared_ptr<Array> values_array = _values_array->Slice(values_offset, num_values);
 
-#define WRITE_BATCH_CASE(ArrowEnum, ArrowType, ParquetType)                              \
-  case ::arrow::Type::ArrowEnum:                                                         \
-    return TypedWriteBatch<ParquetType, ::arrow::ArrowType>(column_writer, values_array, \
-        values_offset, num_values, num_levels, def_levels, rep_levels);                  \
+#define WRITE_BATCH_CASE(ArrowEnum, ArrowType, ParquetType)               \
+  case ::arrow::Type::ArrowEnum:                                          \
+    return TypedWriteBatch<ParquetType, ::arrow::ArrowType>(              \
+        column_writer, values_array, num_levels, def_levels, rep_levels); \
     break;
 
   switch (values_type) {
@@ -505,11 +506,11 @@ Status FileWriter::Impl::WriteColumnChunk(
       if (writer_->properties()->version() == ParquetVersion::PARQUET_1_0) {
         // Parquet 1.0 reader cannot read the UINT_32 logical type. Thus we need
         // to use the larger Int64Type to store them lossless.
-        return TypedWriteBatch<Int64Type, ::arrow::UInt32Type>(column_writer,
-            values_array, values_offset, num_values, num_levels, def_levels, rep_levels);
+        return TypedWriteBatch<Int64Type, ::arrow::UInt32Type>(
+            column_writer, values_array, num_levels, def_levels, rep_levels);
       } else {
-        return TypedWriteBatch<Int32Type, ::arrow::UInt32Type>(column_writer,
-            values_array, values_offset, num_values, num_levels, def_levels, rep_levels);
+        return TypedWriteBatch<Int32Type, ::arrow::UInt32Type>(
+            column_writer, values_array, num_levels, def_levels, rep_levels);
       }
     }
       WRITE_BATCH_CASE(BOOL, BooleanType, BooleanType)
@@ -536,11 +537,8 @@ Status FileWriter::Impl::WriteColumnChunk(
   return Status::OK();
 }
 
-Status FileWriter::WriteColumnChunk(
-    const ::arrow::Array* array, int64_t offset, int64_t length) {
-  int64_t real_length = length;
-  if (length == -1) { real_length = array->length(); }
-  return impl_->WriteColumnChunk(array, offset, real_length);
+Status FileWriter::WriteColumnChunk(const ::arrow::Array& array) {
+  return impl_->WriteColumnChunk(array);
 }
 
 Status FileWriter::Close() {
@@ -553,39 +551,39 @@ MemoryPool* FileWriter::memory_pool() const {
 
 FileWriter::~FileWriter() {}
 
-Status WriteTable(const Table* table, MemoryPool* pool,
+Status WriteTable(const Table& table, MemoryPool* pool,
     const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties) {
   std::shared_ptr<SchemaDescriptor> parquet_schema;
-  RETURN_NOT_OK(
-      ToParquetSchema(table->schema().get(), *properties.get(), &parquet_schema));
+  RETURN_NOT_OK(ToParquetSchema(table.schema().get(), *properties, &parquet_schema));
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
   std::unique_ptr<ParquetFileWriter> parquet_writer =
       ParquetFileWriter::Open(sink, schema_node, properties);
   FileWriter writer(pool, std::move(parquet_writer));
 
   // TODO(ARROW-232) Support writing chunked arrays.
-  for (int i = 0; i < table->num_columns(); i++) {
-    if (table->column(i)->data()->num_chunks() != 1) {
+  for (int i = 0; i < table.num_columns(); i++) {
+    if (table.column(i)->data()->num_chunks() != 1) {
       return Status::NotImplemented("No support for writing chunked arrays yet.");
     }
   }
 
-  for (int chunk = 0; chunk * chunk_size < table->num_rows(); chunk++) {
+  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
     int64_t offset = chunk * chunk_size;
-    int64_t size = std::min(chunk_size, table->num_rows() - offset);
+    int64_t size = std::min(chunk_size, table.num_rows() - offset);
     RETURN_NOT_OK_ELSE(writer.NewRowGroup(size), PARQUET_IGNORE_NOT_OK(writer.Close()));
-    for (int i = 0; i < table->num_columns(); i++) {
-      std::shared_ptr<Array> array = table->column(i)->data()->chunk(0);
-      RETURN_NOT_OK_ELSE(writer.WriteColumnChunk(array.get(), offset, size),
-          PARQUET_IGNORE_NOT_OK(writer.Close()));
+    for (int i = 0; i < table.num_columns(); i++) {
+      std::shared_ptr<Array> array = table.column(i)->data()->chunk(0);
+      array = array->Slice(offset, size);
+      RETURN_NOT_OK_ELSE(
+          writer.WriteColumnChunk(*array), PARQUET_IGNORE_NOT_OK(writer.Close()));
     }
   }
 
   return writer.Close();
 }
 
-Status WriteTable(const Table* table, MemoryPool* pool,
+Status WriteTable(const Table& table, MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);

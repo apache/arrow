@@ -50,8 +50,7 @@ class PARQUET_EXPORT FileWriter {
   FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer);
 
   ::arrow::Status NewRowGroup(int64_t chunk_size);
-  ::arrow::Status WriteColumnChunk(
-      const ::arrow::Array* data, int64_t offset = 0, int64_t length = -1);
+  ::arrow::Status WriteColumnChunk(const ::arrow::Array& data);
   ::arrow::Status Close();
 
   virtual ~FileWriter();
@@ -68,12 +67,12 @@ class PARQUET_EXPORT FileWriter {
  *
  * The table shall only consist of columns of primitive type or of primitive lists.
  */
-::arrow::Status PARQUET_EXPORT WriteTable(const ::arrow::Table* table,
+::arrow::Status PARQUET_EXPORT WriteTable(const ::arrow::Table& table,
     ::arrow::MemoryPool* pool, const std::shared_ptr<OutputStream>& sink,
     int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties());
 
-::arrow::Status PARQUET_EXPORT WriteTable(const ::arrow::Table* table,
+::arrow::Status PARQUET_EXPORT WriteTable(const ::arrow::Table& table,
     ::arrow::MemoryPool* pool, const std::shared_ptr<::arrow::io::OutputStream>& sink,
     int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties());

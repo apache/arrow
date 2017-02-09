@@ -26,12 +26,12 @@
 
 #include <arrow/util/bit-util.h>
 
-#include "parquet/exception.h"
 #include "parquet/encoding.h"
+#include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/bit-util.h"
 #include "parquet/util/bit-stream-utils.inline.h"
+#include "parquet/util/bit-util.h"
 #include "parquet/util/cpu-info.h"
 #include "parquet/util/hash-util.h"
 #include "parquet/util/memory.h"
