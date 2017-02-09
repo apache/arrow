@@ -67,4 +67,4 @@ from pyarrow.schema import (null, bool_,
 from pyarrow.table import Column, RecordBatch, Table, concat_tables
 
 
-localfs = LocalFilesystem()
+localfs = LocalFilesystem.get_instance()

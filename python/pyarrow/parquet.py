@@ -15,10 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import six
+
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, Schema, ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
 from pyarrow.table import concat_tables
+
+
+EXCLUDED_PARQUET_PATHS = {'_metadata', '_common_metadata', '_SUCCESS'}
 
 
 class ParquetFile(object):
@@ -82,8 +87,9 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
     Parameters
     ----------
     source: str or pyarrow.io.NativeFile
-        Readable source. For passing Python file objects or byte buffers, see
-        pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
+        Location of Parquet dataset. If a string passed, can be a single file
+        name or directory name. For passing Python file objects or byte
+        buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
         If not None, only these columns will be read from the file.
     nthreads : int, default 1
@@ -97,6 +103,14 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
     pyarrow.Table
         Content of the file as a table (of columns)
     """
+    from pyarrow.filesystem import LocalFilesystem
+
+    if isinstance(source, six.string_types):
+        fs = LocalFilesystem.get_instance()
+        if fs.isdir(source):
+            return fs.read_parquet(source, columns=columns,
+                                   metadata=metadata)
+
     pf = ParquetFile(source, metadata=metadata)
     return pf.read(columns=columns, nthreads=nthreads)
 

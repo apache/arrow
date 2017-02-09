@@ -393,6 +393,10 @@ def test_read_multiple_files(tmpdir):
         test_data.append(table)
         paths.append(path)
 
+    # Write a _SUCCESS.crc file
+    with open(pjoin(dirpath, '_SUCCESS.crc'), 'wb') as f:
+        f.write(b'0')
+
     result = pq.read_multiple_files(paths)
     expected = pa.concat_tables(test_data)
 

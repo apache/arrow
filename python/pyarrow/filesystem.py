@@ -62,7 +62,7 @@ class Filesystem(object):
         """
         raise NotImplementedError
 
-    def read_parquet(self, path, columns=None, schema=None):
+    def read_parquet(self, path, columns=None, metadata=None, schema=None):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -73,8 +73,11 @@ class Filesystem(object):
             Single file path or directory
         columns : List[str], optional
             Subset of columns to read
+        metadata : pyarrow.parquet.FileMetaData
+            Known metadata to validate files against
         schema : pyarrow.parquet.Schema
-            Known schema to validate files against
+            Known schema to validate files against. Alternative to metadata
+            argument
 
         Returns
         -------
@@ -85,17 +88,25 @@ class Filesystem(object):
         if self.isdir(path):
             paths_to_read = []
             for path in self.ls(path):
-                if path == '_metadata' or path == '_common_metadata':
-                    raise ValueError('No support yet for common metadata file')
-                paths_to_read.append(path)
+                if path.endswith('parq') or path.endswith('parquet'):
+                    paths_to_read.append(path)
         else:
             paths_to_read = [path]
 
         return read_multiple_files(paths_to_read, columns=columns,
-                                   filesystem=self, schema=schema)
+                                   filesystem=self, schema=schema,
+                                   metadata=metadata)
 
 
 class LocalFilesystem(Filesystem):
+
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = LocalFilesystem()
+        return cls._instance
 
     @implements(Filesystem.ls)
     def ls(self, path):
