@@ -106,7 +106,8 @@ Status Table::FromRecordBatches(const std::string& name,
     if (!batches[i]->schema()->Equals(schema)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
-         << schema->ToString() << "\nvs\n" << batches[i]->schema()->ToString();
+         << schema->ToString() << "\nvs\n"
+         << batches[i]->schema()->ToString();
       return Status::Invalid(ss.str());
     }
   }
@@ -138,7 +139,8 @@ Status ConcatenateTables(const std::string& output_name,
     if (!tables[i]->schema()->Equals(schema)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
-         << schema->ToString() << "\nvs\n" << tables[i]->schema()->ToString();
+         << schema->ToString() << "\nvs\n"
+         << tables[i]->schema()->ToString();
       return Status::Invalid(ss.str());
     }
   }

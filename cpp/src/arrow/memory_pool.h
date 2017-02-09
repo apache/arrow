@@ -63,11 +63,10 @@ class ARROW_EXPORT MemoryPool {
   ///
   /// \return Maximum bytes allocated. If not known (or not implemented),
   /// returns -1
-  int64_t max_memory() const;
+  virtual int64_t max_memory() const;
 
  protected:
   MemoryPool();
-  std::atomic<int64_t> max_memory_;
 };
 
 class ARROW_EXPORT DefaultMemoryPool : public MemoryPool {
@@ -82,9 +81,12 @@ class ARROW_EXPORT DefaultMemoryPool : public MemoryPool {
 
   int64_t bytes_allocated() const override;
 
+  int64_t max_memory() const override;
+
  private:
-  mutable std::mutex pool_lock_;
-  int64_t bytes_allocated_;
+  mutable std::mutex lock_;
+  std::atomic<int64_t> bytes_allocated_;
+  std::atomic<int64_t> max_memory_;
 };
 
 ARROW_EXPORT MemoryPool* default_memory_pool();

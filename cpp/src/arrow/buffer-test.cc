@@ -67,7 +67,7 @@ TEST_F(TestBuffer, Resize) {
 }
 
 TEST_F(TestBuffer, ResizeOOM) {
-  // This test doesn't play nice with AddressSanitizer
+// This test doesn't play nice with AddressSanitizer
 #ifndef ADDRESS_SANITIZER
   // realloc fails, even though there may be no explicit limit
   PoolBuffer buf;

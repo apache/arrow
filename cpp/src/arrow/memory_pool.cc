@@ -60,30 +60,30 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
 }
 }  // namespace
 
-MemoryPool::MemoryPool()
-    : max_memory_(-1) {}
+MemoryPool::MemoryPool() {}
 
 MemoryPool::~MemoryPool() {}
 
-int64_t MemoryPool::max_memory() const { return max_memory_.load(); }
+int64_t MemoryPool::max_memory() const {
+  return -1;
+}
 
-DefaultMemoryPool::DefaultMemoryPool()
-    : bytes_allocated_(0) {
+DefaultMemoryPool::DefaultMemoryPool() : bytes_allocated_(0) {
   max_memory_ = 0;
 }
 
 Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
   RETURN_NOT_OK(AllocateAligned(size, out));
   bytes_allocated_ += size;
 
-  if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_; }
+  {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+  }
   return Status::OK();
 }
 
 Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
-
   // Note: We cannot use realloc() here as it doesn't guarantee alignment.
 
   // Allocate new chunk
@@ -99,18 +99,19 @@ Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t
   *ptr = out;
 
   bytes_allocated_ += new_size - old_size;
-  if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_; }
+  {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+  }
 
   return Status::OK();
 }
 
 int64_t DefaultMemoryPool::bytes_allocated() const {
-  std::lock_guard<std::mutex> guard(pool_lock_);
-  return bytes_allocated_;
+  return bytes_allocated_.load();
 }
 
 void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  std::lock_guard<std::mutex> guard(pool_lock_);
   DCHECK_GE(bytes_allocated_, size);
 #ifdef _MSC_VER
   _aligned_free(buffer);
@@ -118,6 +119,10 @@ void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
   std::free(buffer);
 #endif
   bytes_allocated_ -= size;
+}
+
+int64_t DefaultMemoryPool::max_memory() const {
+  return max_memory_.load();
 }
 
 DefaultMemoryPool::~DefaultMemoryPool() {}

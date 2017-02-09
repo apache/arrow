@@ -118,9 +118,9 @@ class CerrLog {
 class FatalLog : public CerrLog {
  public:
   explicit FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL) {}          // NOLINT
+      : CerrLog(ARROW_FATAL){}           // NOLINT
 
-  [[noreturn]] ~FatalLog() {
+            [[noreturn]] ~FatalLog() {
     if (has_logged_) { std::cerr << std::endl; }
     std::exit(1);
   }
