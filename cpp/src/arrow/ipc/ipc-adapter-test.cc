@@ -151,7 +151,11 @@ TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
   std::shared_ptr<Array> bin_array = std::make_shared<BinaryArray>(0, value_offsets,
       std::make_shared<Buffer>(nullptr, 0), std::make_shared<Buffer>(nullptr, 0));
 
+  // null value_offsets
+  std::shared_ptr<Array> bin_array2 = std::make_shared<BinaryArray>(0, nullptr, nullptr);
+
   CheckRoundtrip(bin_array, 1 << 20);
+  CheckRoundtrip(bin_array2, 1 << 20);
 }
 
 INSTANTIATE_TEST_CASE_P(
