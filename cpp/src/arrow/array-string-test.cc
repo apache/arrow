@@ -470,4 +470,8 @@ TEST_F(TestStringArray, TestSliceEquality) {
   CheckSliceEquality<BinaryType>();
 }
 
+TEST_F(TestBinaryArray, LengthZeroCtor) {
+  BinaryArray array(0, nullptr, nullptr);
+}
+
 }  // namespace arrow

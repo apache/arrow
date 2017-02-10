@@ -71,6 +71,42 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     return ReadRecordBatch(metadata, batch.schema(), &buffer_reader, batch_result);
   }
 
+  void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
+    std::shared_ptr<RecordBatch> batch_result;
+
+    ASSERT_OK(RoundTripHelper(batch, 1 << 16, &batch_result));
+    EXPECT_EQ(batch.num_rows(), batch_result->num_rows());
+
+    ASSERT_TRUE(batch.schema()->Equals(batch_result->schema()));
+    ASSERT_EQ(batch.num_columns(), batch_result->num_columns())
+        << batch.schema()->ToString()
+        << " result: " << batch_result->schema()->ToString();
+
+    for (int i = 0; i < batch.num_columns(); ++i) {
+      const auto& left = *batch.column(i);
+      const auto& right = *batch_result->column(i);
+      if (!left.Equals(right)) {
+        std::stringstream pp_result;
+        std::stringstream pp_expected;
+
+        ASSERT_OK(PrettyPrint(left, 0, &pp_expected));
+        ASSERT_OK(PrettyPrint(right, 0, &pp_result));
+
+        FAIL() << "Index: " << i << " Expected: " << pp_expected.str()
+               << "\nGot: " << pp_result.str();
+      }
+    }
+  }
+
+  void CheckRoundtrip(const std::shared_ptr<Array>& array, int64_t buffer_size) {
+    auto f0 = arrow::field("f0", array->type());
+    std::vector<std::shared_ptr<Field>> fields = {f0};
+    auto schema = std::make_shared<Schema>(fields);
+
+    RecordBatch batch(schema, 0, {array});
+    CheckRoundtrip(batch, buffer_size);
+  }
+
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
   MemoryPool* pool_;
@@ -79,48 +115,47 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
 TEST_P(TestWriteRecordBatch, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
-  std::shared_ptr<RecordBatch> batch_result;
-  ASSERT_OK(RoundTripHelper(*batch, 1 << 16, &batch_result));
 
-  // do checks
-  ASSERT_TRUE(batch->schema()->Equals(batch_result->schema()));
-  ASSERT_EQ(batch->num_columns(), batch_result->num_columns())
-      << batch->schema()->ToString() << " result: " << batch_result->schema()->ToString();
-  EXPECT_EQ(batch->num_rows(), batch_result->num_rows());
-  for (int i = 0; i < batch->num_columns(); ++i) {
-    EXPECT_TRUE(batch->column(i)->Equals(batch_result->column(i)))
-        << "Idx: " << i << " Name: " << batch->column_name(i);
-  }
+  CheckRoundtrip(*batch, 1 << 20);
 }
 
 TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
-  std::shared_ptr<RecordBatch> batch_result;
 
   // Skip the zero-length case
   if (batch->num_rows() < 2) { return; }
 
   auto sliced_batch = batch->Slice(2, 10);
+  CheckRoundtrip(*sliced_batch, 1 << 20);
+}
 
-  ASSERT_OK(RoundTripHelper(*sliced_batch, 1 << 16, &batch_result));
+TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
-  EXPECT_EQ(sliced_batch->num_rows(), batch_result->num_rows());
-
-  for (int i = 0; i < sliced_batch->num_columns(); ++i) {
-    const auto& left = *sliced_batch->column(i);
-    const auto& right = *batch_result->column(i);
-    if (!left.Equals(right)) {
-      std::stringstream pp_result;
-      std::stringstream pp_expected;
-
-      ASSERT_OK(PrettyPrint(left, 0, &pp_expected));
-      ASSERT_OK(PrettyPrint(right, 0, &pp_result));
-
-      FAIL() << "Index: " << i << " Expected: " << pp_expected.str()
-             << "\nGot: " << pp_result.str();
-    }
+  std::shared_ptr<RecordBatch> zero_length_batch;
+  if (batch->num_rows() > 2) {
+    zero_length_batch = batch->Slice(2, 0);
+  } else {
+    zero_length_batch = batch->Slice(0, 0);
   }
+
+  CheckRoundtrip(*zero_length_batch, 1 << 20);
+
+  // ARROW-544: check binary array
+  std::shared_ptr<MutableBuffer> value_offsets;
+  ASSERT_OK(AllocateBuffer(pool_, sizeof(int32_t), &value_offsets));
+  *reinterpret_cast<int32_t*>(value_offsets->mutable_data()) = 0;
+
+  std::shared_ptr<Array> bin_array = std::make_shared<BinaryArray>(0, value_offsets,
+      std::make_shared<Buffer>(nullptr, 0), std::make_shared<Buffer>(nullptr, 0));
+
+  // null value_offsets
+  std::shared_ptr<Array> bin_array2 = std::make_shared<BinaryArray>(0, nullptr, nullptr);
+
+  CheckRoundtrip(bin_array, 1 << 20);
+  CheckRoundtrip(bin_array2, 1 << 20);
 }
 
 INSTANTIATE_TEST_CASE_P(
