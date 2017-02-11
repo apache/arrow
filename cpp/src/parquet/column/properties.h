@@ -39,20 +39,20 @@ static bool DEFAULT_USE_BUFFERED_STREAM = false;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
-  explicit ReaderProperties(MemoryAllocator* allocator = default_allocator())
-      : allocator_(allocator) {
+  explicit ReaderProperties(::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
   }
 
-  MemoryAllocator* allocator() const { return allocator_; }
+  ::arrow::MemoryPool* memory_pool() const { return pool_; }
 
   std::unique_ptr<InputStream> GetStream(
       RandomAccessSource* source, int64_t start, int64_t num_bytes) {
     std::unique_ptr<InputStream> stream;
     if (buffered_stream_enabled_) {
       stream.reset(
-          new BufferedInputStream(allocator_, buffer_size_, source, start, num_bytes));
+          new BufferedInputStream(pool_, buffer_size_, source, start, num_bytes));
     } else {
       stream.reset(new InMemoryInputStream(source, start, num_bytes));
     }
@@ -70,7 +70,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size() const { return buffer_size_; }
 
  private:
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* pool_;
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
 };
@@ -110,7 +110,7 @@ class PARQUET_EXPORT WriterProperties {
   class Builder {
    public:
     Builder()
-        : allocator_(default_allocator()),
+        : pool_(::arrow::default_memory_pool()),
           dictionary_pagesize_limit_(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT),
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           pagesize_(DEFAULT_PAGE_SIZE),
@@ -118,8 +118,8 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
 
-    Builder* allocator(MemoryAllocator* allocator) {
-      allocator_ = allocator;
+    Builder* memory_pool(::arrow::MemoryPool* pool) {
+      pool_ = pool;
       return this;
     }
 
@@ -281,13 +281,13 @@ class PARQUET_EXPORT WriterProperties {
       for (const auto& item : statistics_enabled_)
         get(item.first).statistics_enabled = item.second;
 
-      return std::shared_ptr<WriterProperties>(new WriterProperties(allocator_,
+      return std::shared_ptr<WriterProperties>(new WriterProperties(pool_,
           dictionary_pagesize_limit_, write_batch_size_, pagesize_, version_, created_by_,
           default_column_properties_, column_properties));
     }
 
    private:
-    MemoryAllocator* allocator_;
+    ::arrow::MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
     int64_t write_batch_size_;
     int64_t pagesize_;
@@ -302,7 +302,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> statistics_enabled_;
   };
 
-  inline MemoryAllocator* allocator() const { return allocator_; }
+  inline ::arrow::MemoryPool* memory_pool() const { return pool_; }
 
   inline int64_t dictionary_pagesize_limit() const { return dictionary_pagesize_limit_; }
 
@@ -354,11 +354,11 @@ class PARQUET_EXPORT WriterProperties {
   }
 
  private:
-  explicit WriterProperties(MemoryAllocator* allocator, int64_t dictionary_pagesize_limit,
+  explicit WriterProperties(::arrow::MemoryPool* pool, int64_t dictionary_pagesize_limit,
       int64_t write_batch_size, int64_t pagesize, ParquetVersion::type version,
       const std::string& created_by, const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties)
-      : allocator_(allocator),
+      : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
         pagesize_(pagesize),
@@ -367,7 +367,7 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
 
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
   int64_t write_batch_size_;
   int64_t pagesize_;

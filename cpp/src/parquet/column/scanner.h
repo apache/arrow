@@ -40,11 +40,11 @@ class PARQUET_EXPORT Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      MemoryAllocator* allocator = default_allocator())
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : batch_size_(batch_size),
         level_offset_(0),
         levels_buffered_(0),
-        value_buffer_(std::make_shared<PoolBuffer>(allocator)),
+        value_buffer_(std::make_shared<PoolBuffer>(pool)),
         value_offset_(0),
         values_buffered_(0),
         reader_(reader) {
@@ -56,7 +56,7 @@ class PARQUET_EXPORT Scanner {
 
   static std::shared_ptr<Scanner> Make(std::shared_ptr<ColumnReader> col_reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      MemoryAllocator* allocator = default_allocator());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   virtual void PrintNext(std::ostream& out, int width) = 0;
 
@@ -91,8 +91,8 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      MemoryAllocator* allocator = default_allocator())
-      : Scanner(reader, batch_size, allocator) {
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : Scanner(reader, batch_size, pool) {
     typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
     PARQUET_THROW_NOT_OK(value_buffer_->Resize(batch_size_ * value_byte_size));

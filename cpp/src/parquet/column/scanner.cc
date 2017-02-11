@@ -23,28 +23,29 @@
 #include "parquet/column/reader.h"
 #include "parquet/util/memory.h"
 
+using arrow::MemoryPool;
+
 namespace parquet {
 
-std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
-    int64_t batch_size, MemoryAllocator* allocator) {
+std::shared_ptr<Scanner> Scanner::Make(
+    std::shared_ptr<ColumnReader> col_reader, int64_t batch_size, MemoryPool* pool) {
   switch (col_reader->type()) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolScanner>(col_reader, batch_size, allocator);
+      return std::make_shared<BoolScanner>(col_reader, batch_size, pool);
     case Type::INT32:
-      return std::make_shared<Int32Scanner>(col_reader, batch_size, allocator);
+      return std::make_shared<Int32Scanner>(col_reader, batch_size, pool);
     case Type::INT64:
-      return std::make_shared<Int64Scanner>(col_reader, batch_size, allocator);
+      return std::make_shared<Int64Scanner>(col_reader, batch_size, pool);
     case Type::INT96:
-      return std::make_shared<Int96Scanner>(col_reader, batch_size, allocator);
+      return std::make_shared<Int96Scanner>(col_reader, batch_size, pool);
     case Type::FLOAT:
-      return std::make_shared<FloatScanner>(col_reader, batch_size, allocator);
+      return std::make_shared<FloatScanner>(col_reader, batch_size, pool);
     case Type::DOUBLE:
-      return std::make_shared<DoubleScanner>(col_reader, batch_size, allocator);
+      return std::make_shared<DoubleScanner>(col_reader, batch_size, pool);
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayScanner>(col_reader, batch_size, allocator);
+      return std::make_shared<ByteArrayScanner>(col_reader, batch_size, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayScanner>(
-          col_reader, batch_size, allocator);
+      return std::make_shared<FixedLenByteArrayScanner>(col_reader, batch_size, pool);
     default:
       ParquetException::NYI("type reader not implemented");
   }

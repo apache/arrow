@@ -35,6 +35,9 @@
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 
+using arrow::default_memory_pool;
+using arrow::MemoryPool;
+
 namespace parquet {
 
 using schema::NodePtr;
@@ -199,10 +202,10 @@ template <>
 std::vector<FLBA> TestRowGroupStatistics<FLBAType>::GetDeepCopy(
     const std::vector<FLBA>& values) {
   std::vector<FLBA> copy;
-  MemoryAllocator* allocator = default_allocator();
+  MemoryPool* pool = ::arrow::default_memory_pool();
   for (const FLBA& flba : values) {
     uint8_t* ptr;
-    PARQUET_THROW_NOT_OK(allocator->Allocate(FLBA_LENGTH, &ptr));
+    PARQUET_THROW_NOT_OK(pool->Allocate(FLBA_LENGTH, &ptr));
     memcpy(ptr, flba.ptr, FLBA_LENGTH);
     copy.emplace_back(ptr);
   }
@@ -213,10 +216,10 @@ template <>
 std::vector<ByteArray> TestRowGroupStatistics<ByteArrayType>::GetDeepCopy(
     const std::vector<ByteArray>& values) {
   std::vector<ByteArray> copy;
-  MemoryAllocator* allocator = default_allocator();
+  MemoryPool* pool = default_memory_pool();
   for (const ByteArray& ba : values) {
     uint8_t* ptr;
-    PARQUET_THROW_NOT_OK(allocator->Allocate(ba.len, &ptr));
+    PARQUET_THROW_NOT_OK(pool->Allocate(ba.len, &ptr));
     memcpy(ptr, ba.ptr, ba.len);
     copy.emplace_back(ba.len, ptr);
   }
@@ -229,21 +232,21 @@ void TestRowGroupStatistics<TestType>::DeepFree(
 
 template <>
 void TestRowGroupStatistics<FLBAType>::DeepFree(std::vector<FLBA>& values) {
-  MemoryAllocator* allocator = default_allocator();
+  MemoryPool* pool = default_memory_pool();
   for (FLBA& flba : values) {
     auto ptr = const_cast<uint8_t*>(flba.ptr);
     memset(ptr, 0, FLBA_LENGTH);
-    allocator->Free(ptr, FLBA_LENGTH);
+    pool->Free(ptr, FLBA_LENGTH);
   }
 }
 
 template <>
 void TestRowGroupStatistics<ByteArrayType>::DeepFree(std::vector<ByteArray>& values) {
-  MemoryAllocator* allocator = default_allocator();
+  MemoryPool* pool = default_memory_pool();
   for (ByteArray& ba : values) {
     auto ptr = const_cast<uint8_t*>(ba.ptr);
     memset(ptr, 0, ba.len);
-    allocator->Free(ptr, ba.len);
+    pool->Free(ptr, ba.len);
   }
 }
 

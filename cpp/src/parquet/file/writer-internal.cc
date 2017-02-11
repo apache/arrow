@@ -23,6 +23,8 @@
 #include "parquet/thrift.h"
 #include "parquet/util/memory.h"
 
+using arrow::MemoryPool;
+
 using parquet::schema::GroupNode;
 using parquet::schema::SchemaFlattener;
 
@@ -35,10 +37,10 @@ static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 // SerializedPageWriter
 
 SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type codec,
-    ColumnChunkMetaDataBuilder* metadata, MemoryAllocator* allocator)
+    ColumnChunkMetaDataBuilder* metadata, MemoryPool* pool)
     : sink_(sink),
       metadata_(metadata),
-      allocator_(allocator),
+      pool_(pool),
       num_values_(0),
       dictionary_page_offset_(0),
       data_page_offset_(0),
@@ -78,7 +80,7 @@ std::shared_ptr<Buffer> SerializedPageWriter::Compress(
       compressor_->MaxCompressedLen(buffer->size(), buffer->data());
 
   std::shared_ptr<PoolBuffer> compression_buffer =
-      AllocateBuffer(allocator_, max_compressed_size);
+      AllocateBuffer(pool_, max_compressed_size);
 
   int64_t compressed_size = compressor_->Compress(buffer->size(), buffer->data(),
       max_compressed_size, compression_buffer->mutable_data());
@@ -168,7 +170,7 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
   const ColumnDescriptor* column_descr = col_meta->descr();
   std::unique_ptr<PageWriter> pager(
       new SerializedPageWriter(sink_, properties_->compression(column_descr->path()),
-          col_meta, properties_->allocator()));
+          col_meta, properties_->memory_pool()));
   current_column_writer_ =
       ColumnWriter::Make(col_meta, std::move(pager), num_rows_, properties_);
   return current_column_writer_.get();

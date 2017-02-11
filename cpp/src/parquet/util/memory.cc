@@ -29,47 +29,13 @@
 #include "parquet/util/bit-util.h"
 #include "parquet/util/logging.h"
 
+using arrow::MemoryPool;
+
 namespace parquet {
 
-::arrow::Status TrackingAllocator::Allocate(int64_t size, uint8_t** out) {
-  if (size == 0) {
-    *out = nullptr;
-    return ::arrow::Status::OK();
-  }
-  ARROW_RETURN_NOT_OK(allocator_->Allocate(size, out));
-  const int64_t total_memory = allocator_->bytes_allocated();
-  if (total_memory > max_memory_) { max_memory_ = total_memory; }
-  return ::arrow::Status::OK();
-}
-
-::arrow::Status TrackingAllocator::Reallocate(
-    int64_t old_size, int64_t new_size, uint8_t** out) {
-  ARROW_RETURN_NOT_OK(allocator_->Reallocate(old_size, new_size, out));
-  const int64_t total_memory = allocator_->bytes_allocated();
-  if (total_memory > max_memory_) { max_memory_ = total_memory; }
-  return ::arrow::Status::OK();
-}
-
-void TrackingAllocator::Free(uint8_t* p, int64_t size) {
-  allocator_->Free(p, size);
-}
-
-int64_t TrackingAllocator::max_memory() const {
-  return max_memory_.load();
-}
-
-int64_t TrackingAllocator::bytes_allocated() const {
-  return allocator_->bytes_allocated();
-}
-
-MemoryAllocator* default_allocator() {
-  static TrackingAllocator allocator;
-  return &allocator;
-}
-
 template <class T>
-Vector<T>::Vector(int64_t size, MemoryAllocator* allocator)
-    : buffer_(AllocateUniqueBuffer(allocator, size * sizeof(T))),
+Vector<T>::Vector(int64_t size, MemoryPool* pool)
+    : buffer_(AllocateUniqueBuffer(pool, size * sizeof(T))),
       size_(size),
       capacity_(size) {
   if (size > 0) {
@@ -122,13 +88,13 @@ template class Vector<FixedLenByteArray>;
 const int ChunkedAllocator::INITIAL_CHUNK_SIZE;
 const int ChunkedAllocator::MAX_CHUNK_SIZE;
 
-ChunkedAllocator::ChunkedAllocator(MemoryAllocator* allocator)
+ChunkedAllocator::ChunkedAllocator(MemoryPool* pool)
     : current_chunk_idx_(-1),
       next_chunk_size_(INITIAL_CHUNK_SIZE),
       total_allocated_bytes_(0),
       peak_allocated_bytes_(0),
       total_reserved_bytes_(0),
-      allocator_(allocator) {}
+      pool_(pool) {}
 
 ChunkedAllocator::ChunkInfo::ChunkInfo(int64_t size, uint8_t* buf)
     : data(buf), size(size), allocated_bytes(0) {}
@@ -137,7 +103,7 @@ ChunkedAllocator::~ChunkedAllocator() {
   int64_t total_bytes_released = 0;
   for (size_t i = 0; i < chunks_.size(); ++i) {
     total_bytes_released += chunks_[i].size;
-    allocator_->Free(chunks_[i].data, chunks_[i].size);
+    pool_->Free(chunks_[i].data, chunks_[i].size);
   }
 
   DCHECK(chunks_.empty()) << "Must call FreeAll() or AcquireData() for this pool";
@@ -190,7 +156,7 @@ void ChunkedAllocator::FreeAll() {
   int64_t total_bytes_released = 0;
   for (size_t i = 0; i < chunks_.size(); ++i) {
     total_bytes_released += chunks_[i].size;
-    allocator_->Free(chunks_[i].data, chunks_[i].size);
+    pool_->Free(chunks_[i].data, chunks_[i].size);
   }
   chunks_.clear();
   next_chunk_size_ = INITIAL_CHUNK_SIZE;
@@ -229,7 +195,7 @@ bool ChunkedAllocator::FindChunk(int64_t min_size) {
 
     // Allocate a new chunk. Return early if malloc fails.
     uint8_t* buf = nullptr;
-    PARQUET_THROW_NOT_OK(allocator_->Allocate(chunk_size, &buf));
+    PARQUET_THROW_NOT_OK(pool_->Allocate(chunk_size, &buf));
     if (UNLIKELY(buf == NULL)) {
       DCHECK_EQ(current_chunk_idx_, static_cast<int>(chunks_.size()));
       current_chunk_idx_ = static_cast<int>(chunks_.size()) - 1;
@@ -452,11 +418,10 @@ void InMemoryInputStream::Advance(int64_t num_bytes) {
 // ----------------------------------------------------------------------
 // In-memory output stream
 
-InMemoryOutputStream::InMemoryOutputStream(
-    MemoryAllocator* allocator, int64_t initial_capacity)
+InMemoryOutputStream::InMemoryOutputStream(MemoryPool* pool, int64_t initial_capacity)
     : size_(0), capacity_(initial_capacity) {
   if (initial_capacity == 0) { initial_capacity = kInMemoryDefaultCapacity; }
-  buffer_ = AllocateBuffer(allocator, initial_capacity);
+  buffer_ = AllocateBuffer(pool, initial_capacity);
 }
 
 InMemoryOutputStream::~InMemoryOutputStream() {}
@@ -492,7 +457,7 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
 // ----------------------------------------------------------------------
 // BufferedInputStream
 
-BufferedInputStream::BufferedInputStream(MemoryAllocator* pool, int64_t buffer_size,
+BufferedInputStream::BufferedInputStream(MemoryPool* pool, int64_t buffer_size,
     RandomAccessSource* source, int64_t start, int64_t num_bytes)
     : source_(source), stream_offset_(start), stream_end_(start + num_bytes) {
   buffer_ = AllocateBuffer(pool, buffer_size);
@@ -534,15 +499,14 @@ void BufferedInputStream::Advance(int64_t num_bytes) {
   buffer_offset_ += num_bytes;
 }
 
-std::shared_ptr<PoolBuffer> AllocateBuffer(MemoryAllocator* allocator, int64_t size) {
-  auto result = std::make_shared<PoolBuffer>(allocator);
+std::shared_ptr<PoolBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
+  auto result = std::make_shared<PoolBuffer>(pool);
   if (size > 0) { PARQUET_THROW_NOT_OK(result->Resize(size)); }
   return result;
 }
 
-std::unique_ptr<PoolBuffer> AllocateUniqueBuffer(
-    MemoryAllocator* allocator, int64_t size) {
-  std::unique_ptr<PoolBuffer> result(new PoolBuffer(allocator));
+std::unique_ptr<PoolBuffer> AllocateUniqueBuffer(MemoryPool* pool, int64_t size) {
+  std::unique_ptr<PoolBuffer> result(new PoolBuffer(pool));
   if (size > 0) { PARQUET_THROW_NOT_OK(result->Resize(size)); }
   return result;
 }

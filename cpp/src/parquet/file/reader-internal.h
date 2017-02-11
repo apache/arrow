@@ -45,7 +45,8 @@ static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t num_rows,
-      Compression::type codec, MemoryAllocator* allocator = default_allocator());
+      Compression::type codec,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   virtual ~SerializedPageReader() {}
 

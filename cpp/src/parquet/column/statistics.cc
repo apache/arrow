@@ -24,14 +24,17 @@
 #include "parquet/util/comparison.h"
 #include "parquet/util/memory.h"
 
+using arrow::default_memory_pool;
+using arrow::MemoryPool;
+
 namespace parquet {
 
 template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
-    const ColumnDescriptor* schema, MemoryAllocator* allocator)
-    : allocator_(allocator),
-      min_buffer_(AllocateBuffer(allocator_, 0)),
-      max_buffer_(AllocateBuffer(allocator_, 0)) {
+    const ColumnDescriptor* schema, MemoryPool* pool)
+    : pool_(pool),
+      min_buffer_(AllocateBuffer(pool_, 0)),
+      max_buffer_(AllocateBuffer(pool_, 0)) {
   SetDescr(schema);
   Reset();
 }
@@ -40,9 +43,9 @@ template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_type& min,
     const typename DType::c_type& max, int64_t num_values, int64_t null_count,
     int64_t distinct_count)
-    : allocator_(default_allocator()),
-      min_buffer_(AllocateBuffer(allocator_, 0)),
-      max_buffer_(AllocateBuffer(allocator_, 0)) {
+    : pool_(default_memory_pool()),
+      min_buffer_(AllocateBuffer(pool_, 0)),
+      max_buffer_(AllocateBuffer(pool_, 0)) {
   IncrementNumValues(num_values);
   IncrementNullCount(null_count);
   IncrementDistinctCount(distinct_count);
@@ -55,11 +58,10 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_
 template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* schema,
     const std::string& encoded_min, const std::string& encoded_max, int64_t num_values,
-    int64_t null_count, int64_t distinct_count, bool has_min_max,
-    MemoryAllocator* allocator)
-    : allocator_(allocator),
-      min_buffer_(AllocateBuffer(allocator_, 0)),
-      max_buffer_(AllocateBuffer(allocator_, 0)) {
+    int64_t null_count, int64_t distinct_count, bool has_min_max, MemoryPool* pool)
+    : pool_(pool),
+      min_buffer_(AllocateBuffer(pool_, 0)),
+      max_buffer_(AllocateBuffer(pool_, 0)) {
   IncrementNumValues(num_values);
   IncrementNullCount(null_count);
   IncrementDistinctCount(distinct_count);
@@ -204,7 +206,7 @@ EncodedStatistics TypedRowGroupStatistics<DType>::Encode() {
 
 template <typename DType>
 void TypedRowGroupStatistics<DType>::PlainEncode(const T& src, std::string* dst) {
-  PlainEncoder<DType> encoder(descr(), allocator_);
+  PlainEncoder<DType> encoder(descr(), pool_);
   encoder.Put(&src, 1);
   auto buffer = encoder.FlushValues();
   auto ptr = reinterpret_cast<const char*>(buffer->data());

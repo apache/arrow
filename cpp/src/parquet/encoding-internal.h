@@ -172,10 +172,10 @@ class PlainEncoder : public Encoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit PlainEncoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
-      : Encoder<DType>(descr, Encoding::PLAIN, allocator) {
-    values_sink_.reset(new InMemoryOutputStream(allocator));
+  explicit PlainEncoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : Encoder<DType>(descr, Encoding::PLAIN, pool) {
+    values_sink_.reset(new InMemoryOutputStream(pool));
   }
 
   int64_t EstimatedDataEncodedSize() override { return values_sink_->Tell(); }
@@ -190,12 +190,12 @@ class PlainEncoder : public Encoder<DType> {
 template <>
 class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  public:
-  explicit PlainEncoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
-      : Encoder<BooleanType>(descr, Encoding::PLAIN, allocator),
+  explicit PlainEncoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : Encoder<BooleanType>(descr, Encoding::PLAIN, pool),
         bits_available_(kInMemoryDefaultCapacity * 8),
-        bits_buffer_(AllocateBuffer(allocator, kInMemoryDefaultCapacity)),
-        values_sink_(new InMemoryOutputStream(allocator)) {
+        bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
+        values_sink_(new InMemoryOutputStream(pool)) {
     bit_writer_.reset(new BitWriter(bits_buffer_->mutable_data(), bits_buffer_->size()));
   }
 
@@ -212,7 +212,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
     }
 
     std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-    values_sink_.reset(new InMemoryOutputStream(this->allocator_));
+    values_sink_.reset(new InMemoryOutputStream(this->pool_));
     return buffer;
   }
 
@@ -267,7 +267,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
 template <typename DType>
 inline std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
   std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(new InMemoryOutputStream(this->allocator_));
+  values_sink_.reset(new InMemoryOutputStream(this->pool_));
   return buffer;
 }
 
@@ -309,11 +309,11 @@ class DictionaryDecoder : public Decoder<Type> {
   // Initializes the dictionary with values from 'dictionary'. The data in
   // dictionary is not guaranteed to persist in memory after this call so the
   // dictionary decoder needs to copy the data out if necessary.
-  explicit DictionaryDecoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+  explicit DictionaryDecoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Decoder<Type>(descr, Encoding::RLE_DICTIONARY),
-        dictionary_(0, allocator),
-        byte_array_data_(AllocateBuffer(allocator, 0)) {}
+        dictionary_(0, pool),
+        byte_array_data_(AllocateBuffer(pool, 0)) {}
 
   // Perform type-specific initiatialization
   void SetDict(Decoder<Type>* dictionary);
@@ -435,7 +435,7 @@ class DictEncoder : public Encoder<DType> {
   typedef typename DType::c_type T;
 
   explicit DictEncoder(const ColumnDescriptor* desc, ChunkedAllocator* pool = nullptr,
-      MemoryAllocator* allocator = default_allocator())
+      ::arrow::MemoryPool* allocator = ::arrow::default_memory_pool())
       : Encoder<DType>(desc, Encoding::PLAIN_DICTIONARY, allocator),
         allocator_(allocator),
         pool_(pool),
@@ -524,7 +524,7 @@ class DictEncoder : public Encoder<DType> {
   int num_entries() const { return uniques_.size(); }
 
  private:
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* allocator_;
 
   // For ByteArray / FixedLenByteArray data. Not owned
   ChunkedAllocator* pool_;
@@ -742,10 +742,10 @@ class DeltaBitPackDecoder : public Decoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit DeltaBitPackDecoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+  explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED),
-        delta_bit_widths_(new PoolBuffer(allocator)) {
+        delta_bit_widths_(new PoolBuffer(pool)) {
     if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
@@ -835,10 +835,10 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
 class DeltaLengthByteArrayDecoder : public Decoder<ByteArrayType> {
  public:
-  explicit DeltaLengthByteArrayDecoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+  explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Decoder<ByteArrayType>(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
-        len_decoder_(nullptr, allocator) {}
+        len_decoder_(nullptr, pool) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
@@ -876,11 +876,11 @@ class DeltaLengthByteArrayDecoder : public Decoder<ByteArrayType> {
 
 class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
  public:
-  explicit DeltaByteArrayDecoder(
-      const ColumnDescriptor* descr, MemoryAllocator* allocator = default_allocator())
+  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Decoder<ByteArrayType>(descr, Encoding::DELTA_BYTE_ARRAY),
-        prefix_len_decoder_(nullptr, allocator),
-        suffix_decoder_(nullptr, allocator) {}
+        prefix_len_decoder_(nullptr, pool),
+        suffix_decoder_(nullptr, pool) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;

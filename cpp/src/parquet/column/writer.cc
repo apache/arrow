@@ -44,8 +44,8 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       has_dictionary_(has_dictionary),
       encoding_(encoding),
       properties_(properties),
-      allocator_(properties->allocator()),
-      pool_(properties->allocator()),
+      allocator_(properties->memory_pool()),
+      pool_(properties->memory_pool()),
       num_buffered_values_(0),
       num_buffered_encoded_values_(0),
       num_rows_(0),
@@ -56,8 +56,8 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
 }
 
 void ColumnWriter::InitSinks() {
-  definition_levels_sink_.reset(new InMemoryOutputStream(properties_->allocator()));
-  repetition_levels_sink_.reset(new InMemoryOutputStream(properties_->allocator()));
+  definition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
+  repetition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
 }
 
 void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
@@ -78,8 +78,7 @@ std::shared_ptr<Buffer> ColumnWriter::RleEncodeLevels(
   int64_t rle_size =
       LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, num_buffered_values_) +
       sizeof(int32_t);
-  std::shared_ptr<PoolBuffer> buffer_rle =
-      AllocateBuffer(properties_->allocator(), rle_size);
+  std::shared_ptr<PoolBuffer> buffer_rle = AllocateBuffer(allocator_, rle_size);
   level_encoder_.Init(Encoding::RLE, max_level, num_buffered_values_,
       buffer_rle->mutable_data() + sizeof(int32_t), buffer_rle->size() - sizeof(int32_t));
   int encoded = level_encoder_.Encode(
@@ -188,12 +187,12 @@ TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
           encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:
-      current_encoder_.reset(new PlainEncoder<Type>(descr_, properties->allocator()));
+      current_encoder_.reset(new PlainEncoder<Type>(descr_, properties->memory_pool()));
       break;
     case Encoding::PLAIN_DICTIONARY:
     case Encoding::RLE_DICTIONARY:
       current_encoder_.reset(
-          new DictEncoder<Type>(descr_, &pool_, properties->allocator()));
+          new DictEncoder<Type>(descr_, &pool_, properties->memory_pool()));
       break;
     default:
       ParquetException::NYI("Selected encoding is not supported");
@@ -216,7 +215,7 @@ void TypedColumnWriter<Type>::CheckDictionarySizeLimit() {
     FlushBufferedDataPages();
     fallback_ = true;
     // Only PLAIN encoding is supported for fallback in V1
-    current_encoder_.reset(new PlainEncoder<Type>(descr_, properties_->allocator()));
+    current_encoder_.reset(new PlainEncoder<Type>(descr_, properties_->memory_pool()));
     encoding_ = Encoding::PLAIN;
   }
 }
@@ -225,7 +224,7 @@ template <typename Type>
 void TypedColumnWriter<Type>::WriteDictionaryPage() {
   auto dict_encoder = static_cast<DictEncoder<Type>*>(current_encoder_.get());
   std::shared_ptr<PoolBuffer> buffer =
-      AllocateBuffer(properties_->allocator(), dict_encoder->dict_encoded_size());
+      AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
   dict_encoder->WriteDict(buffer->mutable_data());
   // TODO Get rid of this deep call
   dict_encoder->mem_pool()->FreeAll();

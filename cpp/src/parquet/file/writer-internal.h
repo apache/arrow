@@ -37,7 +37,7 @@ class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(OutputStream* sink, Compression::type codec,
       ColumnChunkMetaDataBuilder* metadata,
-      MemoryAllocator* allocator = default_allocator());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   virtual ~SerializedPageWriter() {}
 
@@ -55,7 +55,7 @@ class SerializedPageWriter : public PageWriter {
  private:
   OutputStream* sink_;
   ColumnChunkMetaDataBuilder* metadata_;
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* pool_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;

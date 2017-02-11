@@ -49,7 +49,7 @@ class Encoder {
   virtual void Put(const T* src, int num_values) = 0;
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
       int64_t valid_bits_offset) {
-    PoolBuffer buffer(allocator_);
+    PoolBuffer buffer(pool_);
     buffer.Resize(num_values * sizeof(T));
     int32_t num_valid_values = 0;
     INIT_BITSET(valid_bits, valid_bits_offset);
@@ -67,13 +67,13 @@ class Encoder {
 
  protected:
   explicit Encoder(const ColumnDescriptor* descr, const Encoding::type& encoding,
-      MemoryAllocator* allocator)
-      : descr_(descr), encoding_(encoding), allocator_(allocator) {}
+      ::arrow::MemoryPool* pool)
+      : descr_(descr), encoding_(encoding), pool_(pool) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
   const ColumnDescriptor* descr_;
   const Encoding::type encoding_;
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* pool_;
 };
 
 // The Decoder template is parameterized on parquet::DataType subclasses

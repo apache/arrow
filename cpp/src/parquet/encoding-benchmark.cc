@@ -21,6 +21,9 @@
 #include "parquet/file/reader-internal.h"
 #include "parquet/util/memory.h"
 
+using arrow::default_memory_pool;
+using arrow::MemoryPool;
+
 namespace parquet {
 
 using format::ColumnChunk;
@@ -102,7 +105,7 @@ static void DecodeDict(
   int num_values = values.size();
 
   ChunkedAllocator pool;
-  MemoryAllocator* allocator = default_allocator();
+  MemoryPool* allocator = default_memory_pool();
   std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
 
   DictEncoder<Type> encoder(descr.get(), &pool, allocator);

@@ -29,6 +29,9 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
+using arrow::default_memory_pool;
+using arrow::MemoryPool;
+
 using std::string;
 using std::vector;
 
@@ -146,7 +149,7 @@ class TestEncodingBase : public ::testing::Test {
   void SetUp() {
     descr_ = ExampleDescr<Type>();
     type_length_ = descr_->type_length();
-    allocator_ = default_allocator();
+    allocator_ = default_memory_pool();
   }
 
   void TearDown() { pool_.FreeAll(); }
@@ -176,7 +179,7 @@ class TestEncodingBase : public ::testing::Test {
 
  protected:
   ChunkedAllocator pool_;
-  MemoryAllocator* allocator_;
+  MemoryPool* allocator_;
 
   int num_values_;
   int type_length_;
@@ -235,7 +238,8 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
 // Dictionary encoding tests
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType> DictEncodedTypes;
+    ByteArrayType, FLBAType>
+    DictEncodedTypes;
 
 template <typename Type>
 class TestDictionaryEncoding : public TestEncodingBase<Type> {
@@ -248,7 +252,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     DictEncoder<Type> encoder(descr_.get(), &pool_);
 
     ASSERT_NO_THROW(encoder.Put(draws_, num_values_));
-    dict_buffer_ = AllocateBuffer(default_allocator(), encoder.dict_encoded_size());
+    dict_buffer_ = AllocateBuffer(default_memory_pool(), encoder.dict_encoded_size());
     encoder.WriteDict(dict_buffer_->mutable_data());
     std::shared_ptr<Buffer> indices = encoder.FlushValues();
 

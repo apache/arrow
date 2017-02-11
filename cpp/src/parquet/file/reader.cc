@@ -54,7 +54,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
   return ColumnReader::Make(descr, std::move(page_reader),
-      const_cast<ReaderProperties*>(contents_->properties())->allocator());
+      const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
 // Returns the rowgroup metadata
@@ -93,7 +93,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(const std::string
   if (memory_map) {
     std::shared_ptr<::arrow::io::ReadableFile> handle;
     PARQUET_THROW_NOT_OK(
-        ::arrow::io::ReadableFile::Open(path, props.allocator(), &handle));
+        ::arrow::io::ReadableFile::Open(path, props.memory_pool(), &handle));
     source = handle;
   } else {
     std::shared_ptr<::arrow::io::MemoryMappedFile> handle;

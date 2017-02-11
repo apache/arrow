@@ -41,12 +41,12 @@ namespace parquet {
 class PARQUET_EXPORT ColumnReader {
  public:
   ColumnReader(const ColumnDescriptor*, std::unique_ptr<PageReader>,
-      MemoryAllocator* allocator = default_allocator());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
   virtual ~ColumnReader();
 
   static std::shared_ptr<ColumnReader> Make(const ColumnDescriptor* descr,
       std::unique_ptr<PageReader> pager,
-      MemoryAllocator* allocator = default_allocator());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Returns true if there are still values in this column.
   bool HasNext() {
@@ -97,7 +97,7 @@ class PARQUET_EXPORT ColumnReader {
   // into memory
   int num_decoded_values_;
 
-  MemoryAllocator* allocator_;
+  ::arrow::MemoryPool* pool_;
 };
 
 // API to read values from a single column. This is the main client facing API.
@@ -107,8 +107,8 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   typedef typename DType::c_type T;
 
   TypedColumnReader(const ColumnDescriptor* schema, std::unique_ptr<PageReader> pager,
-      MemoryAllocator* allocator = default_allocator())
-      : ColumnReader(schema, std::move(pager), allocator), current_decoder_(NULL) {}
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : ColumnReader(schema, std::move(pager), pool), current_decoder_(NULL) {}
   virtual ~TypedColumnReader() {}
 
   // Read a batch of repetition levels, definition levels, and values from the
@@ -374,12 +374,12 @@ inline int64_t TypedColumnReader<DType>::Skip(int64_t num_rows_to_skip) {
       int64_t values_read = 0;
 
       std::shared_ptr<PoolBuffer> vals = AllocateBuffer(
-          this->allocator_, batch_size * type_traits<DType::type_num>::value_byte_size);
+          this->pool_, batch_size * type_traits<DType::type_num>::value_byte_size);
       std::shared_ptr<PoolBuffer> def_levels =
-          AllocateBuffer(this->allocator_, batch_size * sizeof(int16_t));
+          AllocateBuffer(this->pool_, batch_size * sizeof(int16_t));
 
       std::shared_ptr<PoolBuffer> rep_levels =
-          AllocateBuffer(this->allocator_, batch_size * sizeof(int16_t));
+          AllocateBuffer(this->pool_, batch_size * sizeof(int16_t));
 
       do {
         batch_size = std::min(batch_size, rows_to_skip);
