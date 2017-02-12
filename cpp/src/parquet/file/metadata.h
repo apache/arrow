@@ -32,11 +32,56 @@
 
 namespace parquet {
 
+// Reference:
+// parquet-mr/parquet-hadoop/src/main/java/org/apache/parquet/
+//                            format/converter/ParquetMetadataConverter.java
+// Sort order for page and column statistics. Types are associated with sort
+// orders (e.g., UTF8 columns should use UNSIGNED) and column stats are
+// aggregated using a sort order. As of parquet-format version 2.3.1, the
+// order used to aggregate stats is always SIGNED and is not stored in the
+// Parquet file. These stats are discarded for types that need unsigned.
+// See PARQUET-686.
+enum SortOrder { SIGNED, UNSIGNED, UNKNOWN };
+
+class ApplicationVersion {
+ public:
+  /// Known Versions with Issues
+  static const ApplicationVersion PARQUET_251_FIXED_VERSION;
+  static const ApplicationVersion PARQUET_816_FIXED_VERSION;
+
+  /// Application that wrote the file. e.g. "IMPALA"
+  std::string application;
+
+  /// Version of the application that wrote the file, expressed in three parts
+  /// (<major>.<minor>.<patch>). Unspecified parts default to 0, and extra parts are
+  /// ignored. e.g.:
+  /// "1.2.3"    => {1, 2, 3}
+  /// "1.2"      => {1, 2, 0}
+  /// "1.2-cdh5" => {1, 2, 0}
+  struct {
+    int major;
+    int minor;
+    int patch;
+  } version;
+
+  ApplicationVersion() {}
+  explicit ApplicationVersion(const std::string& created_by);
+
+  /// Returns true if version is strictly less than other_version
+  bool VersionLt(const ApplicationVersion& other_version) const;
+
+  /// Returns true if version is strictly less than other_version
+  bool VersionEq(const ApplicationVersion& other_version) const;
+
+  // Checks if the Version has the correct statistics for a given column
+  bool HasCorrectStatistics(Type::type primitive) const;
+};
+
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::unique_ptr<ColumnChunkMetaData> Make(
-      const uint8_t* metadata, const ColumnDescriptor* descr);
+  static std::unique_ptr<ColumnChunkMetaData> Make(const uint8_t* metadata,
+      const ColumnDescriptor* descr, const ApplicationVersion* writer_version = NULL);
 
   ~ColumnChunkMetaData();
 
@@ -60,7 +105,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_uncompressed_size() const;
 
  private:
-  explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr);
+  explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr,
+      const ApplicationVersion* writer_version = NULL);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -69,8 +115,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 class PARQUET_EXPORT RowGroupMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::unique_ptr<RowGroupMetaData> Make(
-      const uint8_t* metadata, const SchemaDescriptor* schema);
+  static std::unique_ptr<RowGroupMetaData> Make(const uint8_t* metadata,
+      const SchemaDescriptor* schema, const ApplicationVersion* writer_version = NULL);
 
   ~RowGroupMetaData();
 
@@ -83,7 +129,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
  private:
-  explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema);
+  explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema,
+      const ApplicationVersion* writer_version = NULL);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
@@ -93,32 +140,6 @@ class FileMetaDataBuilder;
 
 class PARQUET_EXPORT FileMetaData {
  public:
-  struct Version {
-    /// Application that wrote the file. e.g. "IMPALA"
-    std::string application;
-
-    /// Version of the application that wrote the file, expressed in three parts
-    /// (<major>.<minor>.<patch>). Unspecified parts default to 0, and extra parts are
-    /// ignored. e.g.:
-    /// "1.2.3"    => {1, 2, 3}
-    /// "1.2"      => {1, 2, 0}
-    /// "1.2-cdh5" => {1, 2, 0}
-    struct {
-      int major;
-      int minor;
-      int patch;
-    } version;
-
-    Version() {}
-    explicit Version(const std::string& created_by);
-
-    /// Returns true if version is strictly less than <major>.<minor>.<patch>
-    bool VersionLt(int major, int minor = 0, int patch = 0) const;
-
-    /// Returns true if version is equal to <major>.<minor>.<patch>
-    bool VersionEq(int major, int minor, int patch) const;
-  };
-
   // API convenience to get a MetaData accessor
   static std::shared_ptr<FileMetaData> Make(
       const uint8_t* serialized_metadata, uint32_t* metadata_len);
@@ -135,7 +156,7 @@ class PARQUET_EXPORT FileMetaData {
   int num_schema_elements() const;
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) const;
 
-  const Version& writer_version() const;
+  const ApplicationVersion& writer_version() const;
 
   void WriteTo(OutputStream* dst);
 

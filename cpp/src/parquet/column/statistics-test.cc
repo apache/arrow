@@ -32,6 +32,7 @@
 #include "parquet/file/reader.h"
 #include "parquet/file/writer.h"
 #include "parquet/schema.h"
+#include "parquet/thrift.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 
@@ -167,6 +168,7 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     auto file_reader = ParquetFileReader::Open(source);
     auto rg_reader = file_reader->RowGroup(0);
     auto column_chunk = rg_reader->metadata()->ColumnChunk(0);
+    if (!column_chunk->is_stats_set()) return;
     std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
     // check values after serialization + deserialization
     ASSERT_EQ(null_count, stats->null_count());
@@ -306,6 +308,50 @@ TYPED_TEST_CASE(TestNumericRowGroupStatistics, NumericTypes);
 TYPED_TEST(TestNumericRowGroupStatistics, Merge) {
   this->SetUpSchema(Repetition::OPTIONAL);
   this->TestMerge();
+}
+
+TEST(CorruptStatistics, Basics) {
+  ApplicationVersion version("parquet-mr version 1.8.0");
+  SchemaDescriptor schema;
+  schema::NodePtr node;
+  std::vector<schema::NodePtr> fields;
+  // Test Physical Types
+  fields.push_back(schema::PrimitiveNode::Make(
+      "col1", Repetition::OPTIONAL, Type::INT32, LogicalType::NONE));
+  fields.push_back(schema::PrimitiveNode::Make(
+      "col2", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::NONE));
+  // Test Logical Types
+  fields.push_back(schema::PrimitiveNode::Make(
+      "col3", Repetition::OPTIONAL, Type::INT32, LogicalType::DATE));
+  fields.push_back(schema::PrimitiveNode::Make(
+      "col4", Repetition::OPTIONAL, Type::INT32, LogicalType::UINT_32));
+  fields.push_back(schema::PrimitiveNode::Make("col5", Repetition::OPTIONAL,
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 12));
+  fields.push_back(schema::PrimitiveNode::Make(
+      "col6", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::UTF8));
+  node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+  schema.Init(node);
+
+  format::ColumnChunk col_chunk;
+  col_chunk.meta_data.__isset.statistics = true;
+  auto column_chunk1 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(0), &version);
+  ASSERT_TRUE(column_chunk1->is_stats_set());
+  auto column_chunk2 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(1), &version);
+  ASSERT_FALSE(column_chunk2->is_stats_set());
+  auto column_chunk3 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(2), &version);
+  ASSERT_TRUE(column_chunk3->is_stats_set());
+  auto column_chunk4 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(3), &version);
+  ASSERT_FALSE(column_chunk4->is_stats_set());
+  auto column_chunk5 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(4), &version);
+  ASSERT_FALSE(column_chunk5->is_stats_set());
+  auto column_chunk6 = ColumnChunkMetaData::Make(
+      reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(5), &version);
+  ASSERT_FALSE(column_chunk6->is_stats_set());
 }
 
 }  // namespace test
