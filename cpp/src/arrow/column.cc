@@ -90,7 +90,11 @@ Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
 
 Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data)
     : field_(field) {
-  data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
+  if (data) {
+    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
+  } else {
+    data_ = std::make_shared<ChunkedArray>(ArrayVector({}));
+  }
 }
 
 Column::Column(
