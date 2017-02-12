@@ -201,9 +201,9 @@ cdef class Array:
 
             step = key.step or 1
             if step != 1:
-                raise NotImplementedError
+                raise NotImplementedError('only slices with step 1 supported')
             else:
-                return self.slice(start, stop)
+                return self.slice(start, stop - start)
 
         while key < 0:
             key += len(self)
@@ -213,8 +213,32 @@ cdef class Array:
     cdef getitem(self, int i):
         return scalar.box_arrow_scalar(self.type, self.sp_array, i)
 
-    def slice(self, start, end):
-        pass
+    def slice(self, offset=0, length=None):
+        """
+        Compute zero-copy slice of this array
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of array to slice
+        length : int, default None
+            Length of slice (default is until end of Array starting from
+            offset)
+
+        Returns
+        """
+        cdef:
+            shared_ptr[CArray] result
+
+        if offset < 0:
+            raise ValueError('Offset must be non-negative')
+
+        if length is None:
+            result = self.ap.Slice(offset)
+        else:
+            result = self.ap.Slice(offset, length)
+
+        return box_arrow_array(result)
 
     def to_pandas(self):
         """

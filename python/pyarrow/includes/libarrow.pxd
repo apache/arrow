@@ -71,6 +71,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const shared_ptr[CArray]& arr)
         c_bool IsNull(int i)
 
+        shared_ptr[CArray] Slice(int32_t offset)
+        shared_ptr[CArray] Slice(int32_t offset, int32_t length)
+
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
 
@@ -227,6 +230,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_columns()
         int32_t num_rows()
+
+        shared_ptr[CRecordBatch] Slice(int32_t offset)
+        shared_ptr[CRecordBatch] Slice(int32_t offset, int32_t length)
 
     cdef cppclass CTable" arrow::Table":
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,
