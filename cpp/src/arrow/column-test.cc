@@ -135,6 +135,10 @@ TEST_F(TestColumn, BasicAPI) {
   ASSERT_EQ(300, column_->length());
   ASSERT_EQ(30, column_->null_count());
   ASSERT_EQ(3, column_->data()->num_chunks());
+
+  // nullptr array should not break
+  column_.reset(new Column(field, std::shared_ptr<Array>(nullptr)));
+  ASSERT_NE(column_.get(), nullptr);
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
