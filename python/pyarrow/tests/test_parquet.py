@@ -320,16 +320,19 @@ def test_compare_schemas():
     assert fileh.schema[0].equals(fileh.schema[0])
     assert not fileh.schema[0].equals(fileh.schema[1])
 
+
 @parquet
 def test_column_of_lists(tmpdir):
     df, schema = dataframe_with_arrays()
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True, schema=schema)
+    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True,
+                                       schema=schema)
     pq.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
     pdt.assert_frame_equal(df, df_read)
+
 
 @parquet
 def test_multithreaded_read():
@@ -417,6 +420,9 @@ def test_read_multiple_files(tmpdir):
         dirpath, columns=[c.name for c in to_read])
     expected = pa.Table.from_arrays(to_read)
     assert result.equals(expected)
+
+    # Read with multiple threads
+    pa.localfs.read_parquet(dirpath, nthreads=2)
 
     # Test failure modes with non-uniform metadata
     bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]
