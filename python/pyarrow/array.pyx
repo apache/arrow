@@ -226,6 +226,8 @@ cdef class Array:
             offset)
 
         Returns
+        -------
+        sliced : RecordBatch
         """
         cdef:
             shared_ptr[CArray] result

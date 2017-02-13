@@ -397,10 +397,12 @@ cdef class RecordBatch:
         offset : int, default 0
             Offset from start of array to slice
         length : int, default None
-            Length of slice (default is until end of Array starting from
+            Length of slice (default is until end of batch starting from
             offset)
 
         Returns
+        -------
+        sliced : RecordBatch
         """
         cdef shared_ptr[CRecordBatch] result
 
