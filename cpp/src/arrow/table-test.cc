@@ -259,6 +259,8 @@ TEST_F(TestRecordBatch, Slice) {
   auto batch_slice = batch.Slice(2);
   auto batch_slice2 = batch.Slice(1, 5);
 
+  ASSERT_EQ(batch_slice->num_rows(), batch.num_rows() - 2);
+
   for (int i = 0; i < batch.num_columns(); ++i) {
     ASSERT_EQ(2, batch_slice->column(i)->offset());
     ASSERT_EQ(length - 2, batch_slice->column(i)->length());

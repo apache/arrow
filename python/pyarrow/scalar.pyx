@@ -203,7 +203,7 @@ cdef class ListValue(ArrayValue):
 
     cdef getitem(self, int i):
         cdef int j = self.ap.value_offset(self.index) + i
-        return box_arrow_scalar(self.value_type, self.ap.values(), j)
+        return box_scalar(self.value_type, self.ap.values(), j)
 
     def as_py(self):
         cdef:
@@ -235,9 +235,8 @@ cdef dict _scalar_classes = {
     Type_STRING: StringValue,
 }
 
-cdef object box_arrow_scalar(DataType type,
-                             const shared_ptr[CArray]& sp_array,
-                             int index):
+cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
+                       int index):
     cdef ArrayValue val
     if type.type.type == Type_NA:
         return NA

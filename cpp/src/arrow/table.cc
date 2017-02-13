@@ -17,6 +17,7 @@
 
 #include "arrow/table.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -70,7 +71,9 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int32_t offset, int32_t length) 
   for (const auto& field : columns_) {
     arrays.emplace_back(field->Slice(offset, length));
   }
-  return std::make_shared<RecordBatch>(schema_, num_rows_, arrays);
+
+  int32_t num_rows = std::min(num_rows_ - offset, length);
+  return std::make_shared<RecordBatch>(schema_, num_rows, arrays);
 }
 
 // ----------------------------------------------------------------------

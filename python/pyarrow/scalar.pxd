@@ -61,6 +61,6 @@ cdef class ListValue(ArrayValue):
 cdef class StringValue(ArrayValue):
     pass
 
-cdef object box_arrow_scalar(DataType type,
-                             const shared_ptr[CArray]& sp_array,
-                             int index)
+cdef object box_scalar(DataType type,
+                       const shared_ptr[CArray]& sp_array,
+                       int index)

@@ -27,7 +27,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
 
-from pyarrow.array cimport Array, box_arrow_array, wrap_array_output
+from pyarrow.array cimport Array, box_array, wrap_array_output
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.schema cimport box_data_type, box_schema, Field
@@ -109,8 +109,7 @@ cdef class ChunkedArray:
         pyarrow.array.Array
         """
         self._check_nullptr()
-        return box_arrow_array(self.chunked_array.chunk(i))
-
+        return box_array(self.chunked_array.chunk(i))
 
     def iterchunks(self):
         for i in range(self.num_chunks):
@@ -387,9 +386,35 @@ cdef class RecordBatch:
         return self._schema
 
     def __getitem__(self, i):
-        cdef Array arr = Array()
-        arr.init(self.batch.column(i))
-        return arr
+        return box_array(self.batch.column(i))
+
+    def slice(self, offset=0, length=None):
+        """
+        Compute zero-copy slice of this RecordBatch
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of array to slice
+        length : int, default None
+            Length of slice (default is until end of batch starting from
+            offset)
+
+        Returns
+        -------
+        sliced : RecordBatch
+        """
+        cdef shared_ptr[CRecordBatch] result
+
+        if offset < 0:
+            raise IndexError('Offset must be non-negative')
+
+        if length is None:
+            result = self.batch.Slice(offset)
+        else:
+            result = self.batch.Slice(offset, length)
+
+        return batch_from_cbatch(result)
 
     def equals(self, RecordBatch other):
         cdef:
