@@ -42,6 +42,6 @@ static void BM_BuildPrimitiveArrayNoNulls(
       state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
 }
 
-BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(5)->Unit(benchmark::kMillisecond);
 
 }  // namespace arrow
