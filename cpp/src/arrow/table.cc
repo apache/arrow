@@ -17,6 +17,7 @@
 
 #include "arrow/table.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
