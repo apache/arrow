@@ -684,9 +684,13 @@ class JavaTester(Tester):
 
 class CPPTester(Tester):
 
-    BUILD_PATH = os.path.join(ARROW_HOME, 'cpp/test-build/debug')
-    CPP_INTEGRATION_EXE = os.environ.get(
-        'ARROW_CPP_TESTER', os.path.join(BUILD_PATH, 'json-integration-test'))
+    arrow_cpp_tester = 'ARROW_CPP_TESTER'
+    if arrow_cpp_tester in os.environ:
+        CPP_INTEGRATION_EXE =  os.environ.get(arrow_cpp_tester)
+        BUILD_PATH = os.path.dirname(CPP_INTEGRATION_EXE)
+    else:
+        BUILD_PATH = os.path.join(ARROW_HOME, 'cpp/test-build/debug')
+        CPP_INTEGRATION_EXE = os.path.join(BUILD_PATH, 'json-integration-test')
 
     STREAM_TO_FILE = os.environ.get(
         'ARROW_CPP_STREAM_TO_FILE',
