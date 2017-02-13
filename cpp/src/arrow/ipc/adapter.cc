@@ -727,7 +727,7 @@ class ArrayLoader : public TypeVisitor {
         RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &offsets));
       }
     }
-    context_->buffer_index += type.mode == UnionMode::DENSE? 2 : 1;
+    context_->buffer_index += type.mode == UnionMode::DENSE ? 2 : 1;
 
     std::vector<std::shared_ptr<Array>> fields;
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));

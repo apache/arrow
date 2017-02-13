@@ -68,6 +68,38 @@ def test_recordbatch_basics():
     ])
 
 
+def test_recordbatch_slice():
+    data = [
+        pa.from_pylist(range(5)),
+        pa.from_pylist([-10, -5, 0, 5, 10])
+    ]
+    names = ['c0', 'c1']
+
+    batch = pa.RecordBatch.from_arrays(data, names)
+
+    sliced = batch.slice(2)
+
+    assert sliced.num_rows == 3
+
+    expected = pa.RecordBatch.from_arrays(
+        [x.slice(2) for x in data], names)
+    assert sliced.equals(expected)
+
+    sliced2 = batch.slice(2, 2)
+    expected2 = pa.RecordBatch.from_arrays(
+        [x.slice(2, 2) for x in data], names)
+    assert sliced2.equals(expected2)
+
+    # 0 offset
+    assert batch.slice(0).equals(batch)
+
+    # Slice past end of array
+    assert len(batch.slice(len(batch))) == 0
+
+    with pytest.raises(IndexError):
+        batch.slice(-1)
+
+
 def test_recordbatch_from_to_pandas():
     data = pd.DataFrame({
         'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),

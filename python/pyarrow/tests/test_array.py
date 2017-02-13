@@ -17,6 +17,8 @@
 
 import sys
 
+import pytest
+
 import pyarrow
 import pyarrow.formatting as fmt
 
@@ -100,3 +102,37 @@ def test_to_pandas_zero_copy():
         base_refcount = sys.getrefcount(np_arr.base)
         assert base_refcount == 2
         np_arr.sum()
+
+
+def test_array_slice():
+    arr = pyarrow.from_pylist(range(10))
+
+    sliced = arr.slice(2)
+    expected = pyarrow.from_pylist(range(2, 10))
+    assert sliced.equals(expected)
+
+    sliced2 = arr.slice(2, 4)
+    expected2 = pyarrow.from_pylist(range(2, 6))
+    assert sliced2.equals(expected2)
+
+    # 0 offset
+    assert arr.slice(0).equals(arr)
+
+    # Slice past end of array
+    assert len(arr.slice(len(arr))) == 0
+
+    with pytest.raises(IndexError):
+        arr.slice(-1)
+
+    # Test slice notation
+    assert arr[2:].equals(arr.slice(2))
+
+    assert arr[2:5].equals(arr.slice(2, 3))
+
+    assert arr[-5:].equals(arr.slice(len(arr) - 5))
+
+    with pytest.raises(IndexError):
+        arr[::-1]
+
+    with pytest.raises(IndexError):
+        arr[::2]

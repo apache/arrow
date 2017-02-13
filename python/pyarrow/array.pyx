@@ -131,7 +131,7 @@ cdef class Array:
                 check_status(pyarrow.PandasToArrow(
                     pool, series_values, mask, c_field, &out))
 
-            return box_arrow_array(out)
+            return box_array(out)
 
     @staticmethod
     def from_list(object list_obj, DataType type=None, MemoryPool memory_pool=None):
@@ -156,7 +156,7 @@ cdef class Array:
         else:
             raise NotImplementedError()
 
-        return box_arrow_array(sp_array)
+        return box_array(sp_array)
 
     property null_count:
 
@@ -201,7 +201,7 @@ cdef class Array:
 
             step = key.step or 1
             if step != 1:
-                raise NotImplementedError('only slices with step 1 supported')
+                raise IndexError('only slices with step 1 supported')
             else:
                 return self.slice(start, stop - start)
 
@@ -211,7 +211,7 @@ cdef class Array:
         return self.getitem(key)
 
     cdef getitem(self, int i):
-        return scalar.box_arrow_scalar(self.type, self.sp_array, i)
+        return scalar.box_scalar(self.type, self.sp_array, i)
 
     def slice(self, offset=0, length=None):
         """
@@ -231,14 +231,14 @@ cdef class Array:
             shared_ptr[CArray] result
 
         if offset < 0:
-            raise ValueError('Offset must be non-negative')
+            raise IndexError('Offset must be non-negative')
 
         if length is None:
             result = self.ap.Slice(offset)
         else:
             result = self.ap.Slice(offset, length)
 
-        return box_arrow_array(result)
+        return box_array(result)
 
     def to_pandas(self):
         """
@@ -414,7 +414,7 @@ cdef dict _array_classes = {
     Type_DICTIONARY: DictionaryArray
 }
 
-cdef object box_arrow_array(const shared_ptr[CArray]& sp_array):
+cdef object box_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
