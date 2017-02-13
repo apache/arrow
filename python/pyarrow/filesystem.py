@@ -62,7 +62,8 @@ class Filesystem(object):
         """
         raise NotImplementedError
 
-    def read_parquet(self, path, columns=None, metadata=None, schema=None):
+    def read_parquet(self, path, columns=None, metadata=None, schema=None,
+                     nthreads=1):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files
@@ -78,6 +79,9 @@ class Filesystem(object):
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
             argument
+        nthreads : int, default 1
+            Number of columns to read in parallel. If > 1, requires that the
+            underlying file source is threadsafe
 
         Returns
         -------
@@ -95,7 +99,8 @@ class Filesystem(object):
 
         return read_multiple_files(paths_to_read, columns=columns,
                                    filesystem=self, schema=schema,
-                                   metadata=metadata)
+                                   metadata=metadata,
+                                   nthreads=nthreads)
 
 
 class LocalFilesystem(Filesystem):

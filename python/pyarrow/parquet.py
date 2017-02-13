@@ -59,8 +59,8 @@ class ParquetFile(object):
         columns: list
             If not None, only these columns will be read from the file.
         nthreads : int, default 1
-            Number of columns to read in parallel. Requires that the underlying
-            file source is threadsafe
+            Number of columns to read in parallel. If > 1, requires that the
+            underlying file source is threadsafe
 
         Returns
         -------
