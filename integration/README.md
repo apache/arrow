@@ -34,7 +34,7 @@ mvn package
 ```
 
 Now, the integration tests rely on two environment variables which point to the
-Java `arrow-tool` JAR and the C++ `json-integration-test` executable:
+Java `arrow-tool` JAR and the build path for the C++ executables:
 
 ```bash
 JAVA_DIR=$ARROW_HOME/java
@@ -42,7 +42,7 @@ CPP_BUILD_DIR=$ARROW_HOME/cpp/test-build
 
 VERSION=0.1.1-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-export ARROW_CPP_TESTER=$CPP_BUILD_DIR/debug/json-integration-test
+export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
 ```
 
 Here `$ARROW_HOME` is the location of your Arrow git clone. The
