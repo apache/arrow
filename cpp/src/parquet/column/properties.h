@@ -85,7 +85,7 @@ static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
-static std::string DEFAULT_CREATED_BY = "parquet-cpp version 0.1.0";
+static std::string DEFAULT_CREATED_BY = "parquet-cpp version 1.0.0";
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 
 class PARQUET_EXPORT ColumnProperties {
