@@ -442,11 +442,17 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <!-- Mockito needs to be on the class path after JUnit (or Hamcrest) as
-           long as Mockito _contains_ older Hamcrest classes.  See arrow-2130. -->
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>1.9.5</version>
+      <scope>test</scope>
+      <!-- Mockito  contains old Hamcrest classes, causes issues with JUNIT -->
+      <exclusions>
+        <exclusion>
+         <groupId>org.hamcrest</groupId>
+          <artifactId>hamcrest-core</artifactId>
+	</exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
