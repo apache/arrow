@@ -298,6 +298,7 @@ setup(
     use_scm_version = {"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm'],
     install_requires=['cython >= 0.23', 'numpy >= 1.9', 'six >= 1.0.0'],
+    test_requires=['pytest'],
     description="Python library for Apache Arrow",
     long_description=long_description,
     classifiers=[
