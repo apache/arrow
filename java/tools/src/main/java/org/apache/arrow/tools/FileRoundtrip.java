@@ -105,9 +105,8 @@ public class FileRoundtrip {
           List<ArrowBlock> recordBatches = footer.getRecordBatches();
           for (ArrowBlock rbBlock : recordBatches) {
             try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                VectorSchemaRoot root = new VectorSchemaRoot(schema, allocator);) {
-
-              VectorLoader vectorLoader = new VectorLoader(root);
+                 VectorLoader vectorLoader = new VectorLoader(schema, allocator);) {
+              VectorSchemaRoot root = vectorLoader.getVectorSchemaRoot();
               vectorLoader.load(inRecordBatch);
 
               VectorUnloader vectorUnloader = new VectorUnloader(root);

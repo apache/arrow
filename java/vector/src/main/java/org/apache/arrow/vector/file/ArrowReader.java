@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.MessageSerializer;
 import org.slf4j.Logger;
@@ -85,14 +86,24 @@ public class ArrowReader implements AutoCloseable {
     return footer;
   }
 
-  // TODO: read dictionaries
+  public ArrowDictionaryBatch readDictionaryBatch(ArrowBlock block) throws IOException {
+    LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
+       block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+    in.position(block.getOffset());
+    ArrowDictionaryBatch batch = MessageSerializer.deserializeDictionaryBatch(
+            new ReadChannel(in, block.getOffset()), block, allocator);
+    if (batch == null) {
+      throw new IOException("Invalid file. No batch at offset: " + block.getOffset());
+    }
+    return batch;
+  }
 
   public ArrowRecordBatch readRecordBatch(ArrowBlock block) throws IOException {
     LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
         block.getOffset(), block.getMetadataLength(),
         block.getBodyLength()));
     in.position(block.getOffset());
-    ArrowRecordBatch batch =  MessageSerializer.deserializeRecordBatch(
+    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(
         new ReadChannel(in, block.getOffset()), block, allocator);
     if (batch == null) {
       throw new IOException("Invalid file. No batch at offset: " + block.getOffset());

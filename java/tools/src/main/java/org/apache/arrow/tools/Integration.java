@@ -82,8 +82,8 @@ public class Integration {
             List<ArrowBlock> recordBatches = footer.getRecordBatches();
             for (ArrowBlock rbBlock : recordBatches) {
               try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                  VectorSchemaRoot root = new VectorSchemaRoot(schema, allocator);) {
-                VectorLoader vectorLoader = new VectorLoader(root);
+                   VectorLoader vectorLoader = new VectorLoader(schema, allocator);) {
+                VectorSchemaRoot root = vectorLoader.getVectorSchemaRoot();
                 vectorLoader.load(inRecordBatch);
                 writer.write(root);
               }
@@ -146,8 +146,8 @@ public class Integration {
           while ((jsonRoot = jsonReader.read()) != null && iterator.hasNext()) {
             ArrowBlock rbBlock = iterator.next();
             try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                VectorSchemaRoot arrowRoot = new VectorSchemaRoot(arrowSchema, allocator);) {
-              VectorLoader vectorLoader = new VectorLoader(arrowRoot);
+                 VectorLoader vectorLoader = new VectorLoader(arrowSchema, allocator);) {
+              VectorSchemaRoot arrowRoot = vectorLoader.getVectorSchemaRoot();
               vectorLoader.load(inRecordBatch);
               Validator.compareVectorSchemaRoot(arrowRoot, jsonRoot);
             }

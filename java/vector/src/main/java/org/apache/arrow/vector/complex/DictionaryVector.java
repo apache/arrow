@@ -21,9 +21,12 @@ package org.apache.arrow.vector.complex;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Dictionary;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -31,14 +34,15 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
-public class DictionaryVector implements ValueVector {
+public class DictionaryVector implements FieldVector {
 
-  private ValueVector indices;
-  private Dictionary dictionary;
+  private final FieldVector indices;
+  private final Dictionary dictionary;
 
-  public DictionaryVector(ValueVector indices, Dictionary dictionary) {
+  public DictionaryVector(FieldVector indices, Dictionary dictionary) {
     this.indices = indices;
     this.dictionary = dictionary;
   }
@@ -49,12 +53,12 @@ public class DictionaryVector implements ValueVector {
    * @param vector vector to encode
    * @return dictionary encoded vector
    */
-  public static DictionaryVector encode(ValueVector vector) {
+  public static DictionaryVector encode(FieldVector vector) {
     validateType(vector.getMinorType());
     Map<Object, Integer> lookUps = new HashMap<>();
     Map<Integer, Integer> transfers = new HashMap<>();
 
-    ValueVector.Accessor accessor = vector.getAccessor();
+    FieldVector.Accessor accessor = vector.getAccessor();
     int count = accessor.getValueCount();
 
     NullableIntVector indices = new NullableIntVector(vector.getField().getName(), vector.getAllocator());
@@ -78,13 +82,13 @@ public class DictionaryVector implements ValueVector {
 
     // copy the dictionary values into the dictionary vector
     TransferPair dictionaryTransfer = vector.getTransferPair(vector.getAllocator());
-    ValueVector dictionaryVector = dictionaryTransfer.getTo();
+    FieldVector dictionaryVector = (FieldVector) dictionaryTransfer.getTo();
     dictionaryVector.allocateNewSafe();
     for (Map.Entry<Integer, Integer> entry: transfers.entrySet()) {
       dictionaryTransfer.copyValueSafe(entry.getKey(), entry.getValue());
     }
     dictionaryVector.getMutator().setValueCount(transfers.size());
-    Dictionary dictionary = new Dictionary(dictionaryVector, false);
+    Dictionary dictionary = new Dictionary(dictionaryVector);
 
     return new DictionaryVector(indices, dictionary);
   }
@@ -99,7 +103,7 @@ public class DictionaryVector implements ValueVector {
   public static DictionaryVector encode(ValueVector vector, Dictionary dictionary) {
     validateType(vector.getMinorType());
     // load dictionary values into a hashmap for lookup
-    ValueVector.Accessor dictionaryAccessor = dictionary.getDictionary().getAccessor();
+    ValueVector.Accessor dictionaryAccessor = dictionary.getVector().getAccessor();
     Map<Object, Integer> lookUps = new HashMap<>(dictionaryAccessor.getValueCount());
     for (int i = 0; i < dictionaryAccessor.getValueCount(); i++) {
       // for primitive array types we need a wrapper that implements equals and hashcode appropriately
@@ -137,7 +141,7 @@ public class DictionaryVector implements ValueVector {
   public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
     ValueVector.Accessor accessor = indices.getAccessor();
     int count = accessor.getValueCount();
-    ValueVector dictionaryVector = dictionary.getDictionary();
+    ValueVector dictionaryVector = dictionary.getVector();
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
     transfer.getTo().allocateNewSafe();
@@ -163,12 +167,7 @@ public class DictionaryVector implements ValueVector {
 
   public ValueVector getIndexVector() { return indices; }
 
-  public ValueVector getDictionaryVector() { return dictionary.getDictionary(); }
-
   public Dictionary getDictionary() { return dictionary; }
-
-  @Override
-  public MinorType getMinorType() { return indices.getMinorType(); }
 
   @Override
   public Field getField() { return indices.getField(); }
@@ -176,6 +175,9 @@ public class DictionaryVector implements ValueVector {
   // note: dictionary vector is not closed, as it may be shared
   @Override
   public void close() { indices.close(); }
+
+  @Override
+  public MinorType getMinorType() { return indices.getMinorType(); }
 
   @Override
   public void allocateNew() throws OutOfMemoryException { indices.allocateNew(); }
@@ -226,4 +228,21 @@ public class DictionaryVector implements ValueVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) { return indices.getBuffers(clear); }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) { indices.initializeChildrenFromFields(children); }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() { return indices.getChildrenFromFields(); }
+
+  @Override
+  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    indices.loadFieldBuffers(fieldNode, ownBuffers);
+  }
+
+  @Override
+  public List<ArrowBuf> getFieldBuffers() { return indices.getFieldBuffers(); }
+
+  @Override
+  public List<BufferBacked> getFieldInnerVectors() { return indices.getFieldInnerVectors(); }
 }

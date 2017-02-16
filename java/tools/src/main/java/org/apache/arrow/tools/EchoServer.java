@@ -25,8 +25,10 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
@@ -57,7 +59,8 @@ public class EchoServer {
 
     public void run() throws IOException {
       BufferAllocator  allocator = new RootAllocator(Long.MAX_VALUE);
-      List<ArrowRecordBatch> batches = new ArrayList<ArrowRecordBatch>();
+      List<ArrowRecordBatch> batches = new ArrayList<>();
+      List<ArrowDictionaryBatch> dictionaries = new ArrayList<>();
       try (
         InputStream in = socket.getInputStream();
         OutputStream out = socket.getOutputStream();
@@ -66,16 +69,28 @@ public class EchoServer {
         // Read the entire input stream.
         reader.init();
         while (true) {
-          ArrowRecordBatch batch = reader.nextRecordBatch();
-          if (batch == null) break;
-          batches.add(batch);
+          Byte type = reader.nextBatchType();
+          if (type == null) {
+            break;
+          } else if (type == MessageHeader.RecordBatch) {
+            batches.add(reader.nextRecordBatch());
+          } else if (type == MessageHeader.DictionaryBatch) {
+            dictionaries.add(reader.nextDictionaryBatch());
+          } else {
+            throw new IOException("Unexpected message header type " + type);
+          }
         }
-        LOGGER.info(String.format("Received %d batches", batches.size()));
+        LOGGER.info(String.format("Received %d batches and %d dictionaries", batches.size(), dictionaries.size()));
 
         // Write it back
         try (ArrowStreamWriter writer = new ArrowStreamWriter(out, reader.getSchema())) {
+          for (ArrowDictionaryBatch batch: dictionaries) {
+            writer.writeDictionaryBatch(batch);
+            batch.close();
+          }
           for (ArrowRecordBatch batch: batches) {
             writer.writeRecordBatch(batch);
+            batch.close();
           }
           writer.end();
           Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());

@@ -67,7 +67,7 @@ public class TestDictionaryVector {
 
       try {
         // verify values in the dictionary
-        ValueVector dictionary = encoded.getDictionaryVector();
+        ValueVector dictionary = encoded.getDictionary().getVector();
         assertEquals(vector.getClass(), dictionary.getClass());
 
         NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary).getAccessor();
@@ -97,7 +97,7 @@ public class TestDictionaryVector {
           }
         }
       } finally {
-        encoded.getDictionaryVector().close();
+        encoded.getDictionary().getVector().close();
         encoded.getIndexVector().close();
       }
     }
@@ -127,7 +127,7 @@ public class TestDictionaryVector {
       m2.setSafe(2, two, 0, two.length);
       m2.setValueCount(3);
 
-      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary, false))) {
+      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary))) {
         // verify indices
         ValueVector indices = encoded.getIndexVector();
         assertEquals(NullableIntVector.class, indices.getClass());

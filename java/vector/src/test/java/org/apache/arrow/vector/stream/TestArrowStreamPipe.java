@@ -26,11 +26,13 @@ import java.nio.channels.Pipe;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Assert;
 import org.junit.Test;
 
 import io.netty.buffer.ArrowBuf;
@@ -93,16 +95,22 @@ public class TestArrowStreamPipe {
 
         // Read all the batches. Each batch contains an incrementing id and then some
         // constant data. Verify both.
-        while (true) {
-          ArrowRecordBatch batch = reader.nextRecordBatch();
-          if (batch == null) break;
-          byte[] validity = new byte[] { (byte)batchesRead, 0};
-          MessageSerializerTest.verifyBatch(batch, validity, values);
-          batchesRead++;
+        Byte type = reader.nextBatchType();
+        while (type != null) {
+          if (type == MessageHeader.RecordBatch) {
+            try (ArrowRecordBatch batch = reader.nextRecordBatch();) {
+              byte[] validity = new byte[] {(byte) batchesRead, 0};
+              MessageSerializerTest.verifyBatch(batch, validity, values);
+              batchesRead++;
+            }
+          } else {
+            Assert.fail("Unexpected message type " + type);
+          }
+          type = reader.nextBatchType();
         }
       } catch (IOException e) {
         e.printStackTrace();
-        assertTrue(false);
+        Assert.fail(e.toString());
       }
     }
 

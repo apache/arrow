@@ -17,17 +17,19 @@
  */
 package org.apache.arrow.vector.stream;
 
+import com.google.common.base.Preconditions;
+import org.apache.arrow.flatbuf.Message;
+import org.apache.arrow.flatbuf.MessageHeader;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.file.ReadChannel;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
+import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.file.ReadChannel;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Schema;
-
-import com.google.common.base.Preconditions;
 
 /**
  * This classes reads from an input stream and produces ArrowRecordBatches.
@@ -36,6 +38,7 @@ public class ArrowStreamReader implements AutoCloseable {
   private ReadChannel in;
   private final BufferAllocator allocator;
   private Schema schema;
+  private Message nextMessage;
 
   /**
    * Constructs a streaming read, reading bytes from 'in'. Non-blocking.
@@ -69,13 +72,42 @@ public class ArrowStreamReader implements AutoCloseable {
   public long bytesRead() { return in.bytesRead(); }
 
   /**
+   * Reads and returns the type of the next batch. Returns null if this is the end of the stream.
+   *
+   * @return org.apache.arrow.flatbuf.MessageHeader type
+   * @throws IOException
+   */
+  public Byte nextBatchType() throws IOException {
+    nextMessage = MessageSerializer.deserializeMessage(in);
+    if (nextMessage == null) {
+      return null;
+    } else {
+      return nextMessage.headerType();
+    }
+  }
+
+  /**
+   * Reads and returns the next ArrowRecordBatch. Returns null if this is the end
+   * of stream.
+   */
+  public ArrowDictionaryBatch nextDictionaryBatch() throws IOException {
+    Preconditions.checkState(this.in != null, "Cannot call after close()");
+    Preconditions.checkState(this.schema != null, "Must call init() first.");
+    Preconditions.checkState(this.nextMessage.headerType() == MessageHeader.DictionaryBatch,
+                             "Must call nextBatchType() and receive MessageHeader.DictionaryBatch.");
+    return MessageSerializer.deserializeDictionaryBatch(in, nextMessage, allocator);
+  }
+
+  /**
    * Reads and returns the next ArrowRecordBatch. Returns null if this is the end
    * of stream.
    */
   public ArrowRecordBatch nextRecordBatch() throws IOException {
     Preconditions.checkState(this.in != null, "Cannot call after close()");
     Preconditions.checkState(this.schema != null, "Must call init() first.");
-    return MessageSerializer.deserializeRecordBatch(in, allocator);
+    Preconditions.checkState(this.nextMessage.headerType() == MessageHeader.RecordBatch,
+                             "Must call nextBatchType() and receive MessageHeader.RecordBatch.");
+    return MessageSerializer.deserializeRecordBatch(in, nextMessage, allocator);
   }
 
   @Override

@@ -29,6 +29,7 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.ReadChannel;
@@ -88,8 +89,9 @@ public class MessageSerializerTest {
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-    ArrowRecordBatch deserialized = MessageSerializer.deserializeRecordBatch(
-        new ReadChannel(Channels.newChannel(in)), alloc);
+    ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+    Message message = MessageSerializer.deserializeMessage(channel);
+    ArrowRecordBatch deserialized = MessageSerializer.deserializeRecordBatch(channel, message, alloc);
     verifyBatch(deserialized, validity, values);
   }
 

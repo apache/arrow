@@ -23,6 +23,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.file.WriteChannel;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -46,6 +47,13 @@ public class ArrowStreamWriter implements AutoCloseable {
   }
 
   public long bytesWritten() { return out.getCurrentPosition(); }
+
+
+  public void writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
+    // Send the header if we have not yet.
+    checkAndSendHeader();
+    MessageSerializer.serialize(out, batch);
+  }
 
   public void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     // Send the header if we have not yet.

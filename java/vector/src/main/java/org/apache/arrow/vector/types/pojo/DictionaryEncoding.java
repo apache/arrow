@@ -16,50 +16,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-package org.apache.arrow.vector.types;
+package org.apache.arrow.vector.types.pojo;
 
-import org.apache.arrow.vector.FieldVector;
+public class DictionaryEncoding {
 
-import java.util.Objects;
-
-public class Dictionary {
-
-  private Long id;
-  private FieldVector dictionary;
+  private long id;
   private boolean ordered;
+  private Integer indexType; // TODO use ArrowType?
 
-  public Dictionary(FieldVector dictionary) {
-    this(dictionary, null, false);
+  public DictionaryEncoding(long id) {
+  this(id, false, null);
   }
 
-  public Dictionary(FieldVector dictionary, Long id, boolean ordered) {
+  public DictionaryEncoding(long id, boolean ordered) {
+  this(id, ordered, null);
+  }
+
+  public DictionaryEncoding(long id, boolean ordered, Integer indexType) {
     this.id = id;
-    this.dictionary = dictionary;
     this.ordered = ordered;
+    this.indexType = indexType;
   }
 
-  public Long getId() { return id; }
-
-  public FieldVector getVector() {
-  return dictionary;
+  public long getId() {
+  return id;
   }
 
   public boolean isOrdered() {
   return ordered;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    Dictionary that = (Dictionary) o;
-    return id == that.id &&
-      ordered == that.ordered &&
-      Objects.equals(dictionary, that.dictionary);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(id, dictionary, ordered);
-  }
+  public Integer getIndexType() {
+return indexType;
+}
 }

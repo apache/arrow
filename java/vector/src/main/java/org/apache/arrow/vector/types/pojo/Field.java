@@ -105,8 +105,11 @@ public class Field {
     int typeOffset = type.getType(builder);
     int dictionaryOffset = -1;
     if (dictionary != null) {
-      builder.addLong(dictionary);
-      dictionaryOffset = builder.offset();
+      DictionaryEncoding.startDictionaryEncoding(builder);
+      DictionaryEncoding.addId(builder, dictionary);
+      DictionaryEncoding.addIsOrdered(builder, false); // TODO ordered
+      // TODO index type
+      dictionaryOffset = DictionaryEncoding.endDictionaryEncoding(builder);
     }
     int[] childrenData = new int[children.size()];
     for (int i = 0; i < children.size(); i++) {
@@ -126,11 +129,11 @@ public class Field {
     org.apache.arrow.flatbuf.Field.addNullable(builder, nullable);
     org.apache.arrow.flatbuf.Field.addTypeType(builder, type.getTypeID().getFlatbufID());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
+    org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
+    org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
     if (dictionary != null) {
       org.apache.arrow.flatbuf.Field.addDictionary(builder, dictionaryOffset);
     }
-    org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
-    org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
     return org.apache.arrow.flatbuf.Field.endField(builder);
   }
 

@@ -47,6 +47,17 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
   }
 
+  public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors) {
+    this.schema = new Schema(fields);
+    this.rowCount = 0;
+    this.fieldVectors = fieldVectors;
+    for (int i = 0; i < schema.getFields().size(); ++i) {
+      Field field = schema.getFields().get(i);
+      FieldVector vector = fieldVectors.get(i);
+      fieldVectorsMap.put(field.getName(), vector);
+    }
+  }
+
   public VectorSchemaRoot(Schema schema, BufferAllocator allocator) {
     super();
     this.schema = schema;

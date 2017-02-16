@@ -25,9 +25,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.ArrowWriter;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 
@@ -41,9 +43,20 @@ public class StreamToFile {
       reader.init();
       try (ArrowWriter writer = new ArrowWriter(Channels.newChannel(out), reader.getSchema());) {
         while (true) {
-          ArrowRecordBatch batch = reader.nextRecordBatch();
-          if (batch == null) break;
-          writer.writeRecordBatch(batch);
+          Byte type = reader.nextBatchType();
+          if (type == null) {
+            break;
+          } else if (type == MessageHeader.DictionaryBatch) {
+            try (ArrowDictionaryBatch batch = reader.nextDictionaryBatch()) {
+              writer.writeDictionaryBatch(batch);
+            }
+          } else if (type == MessageHeader.RecordBatch) {
+            try (ArrowRecordBatch batch = reader.nextRecordBatch()) {
+              writer.writeRecordBatch(batch);
+            }
+          } else {
+            throw new IOException("Unexpected message header " + type);
+          }
         }
       }
     }

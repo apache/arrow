@@ -17,17 +17,17 @@
  */
 package org.apache.arrow.vector.file;
 
-import java.io.IOException;
-import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArrowWriter implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
@@ -37,6 +37,7 @@ public class ArrowWriter implements AutoCloseable {
   private final Schema schema;
 
   private final List<ArrowBlock> recordBatches = new ArrayList<>();
+  private final List<ArrowBlock> dictionaryBatches = new ArrayList<>();
   private boolean started = false;
 
   public ArrowWriter(WritableByteChannel out, Schema schema) {
@@ -44,12 +45,14 @@ public class ArrowWriter implements AutoCloseable {
     this.schema = schema;
   }
 
-  private void start() throws IOException {
-    writeMagic();
-    MessageSerializer.serialize(out, schema);
+  public void writeDictionaryBatch(ArrowDictionaryBatch dictionaryBatch) throws IOException {
+    checkStarted();
+    ArrowBlock batchDesc = MessageSerializer.serialize(out, dictionaryBatch);
+    LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
+         batchDesc.getOffset(), batchDesc.getMetadataLength(), batchDesc.getBodyLength()));
+    // add metadata to footer
+    dictionaryBatches.add(batchDesc);
   }
-
-  // TODO: write dictionaries
 
   public void writeRecordBatch(ArrowRecordBatch recordBatch) throws IOException {
     checkStarted();
@@ -64,7 +67,7 @@ public class ArrowWriter implements AutoCloseable {
   private void checkStarted() throws IOException {
     if (!started) {
       started = true;
-      start();
+      writeMagic();
     }
   }
 
@@ -91,7 +94,6 @@ public class ArrowWriter implements AutoCloseable {
   }
 
   private void writeFooter() throws IOException {
-    // TODO: dictionaries
-    out.write(new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), recordBatches), false);
+    out.write(new ArrowFooter(schema, dictionaryBatches, recordBatches), false);
   }
 }

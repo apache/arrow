@@ -25,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.BaseFileTest;
@@ -50,8 +51,8 @@ public class TestArrowStream extends BaseFileTest {
       reader.init();
       assertEquals(schema, reader.getSchema());
       // Empty should return null. Can be called repeatedly.
-      assertTrue(reader.nextRecordBatch() == null);
-      assertTrue(reader.nextRecordBatch() == null);
+      assertTrue(reader.nextBatchType() == null);
+      assertTrue(reader.nextBatchType() == null);
     }
   }
 
@@ -85,11 +86,13 @@ public class TestArrowStream extends BaseFileTest {
         assertTrue(
             readSchema.getFields().get(0).getTypeLayout().getVectorTypes().toString(),
             readSchema.getFields().get(0).getTypeLayout().getVectors().size() > 0);
-        ArrowRecordBatch recordBatch = reader.nextRecordBatch();
-        MessageSerializerTest.verifyBatch(recordBatch, validity, values);
-        assertTrue(recordBatch != null);
+        Byte type = reader.nextBatchType();
+        assertEquals(new Byte(MessageHeader.RecordBatch), type);
+        try (ArrowRecordBatch recordBatch = reader.nextRecordBatch();) {
+          MessageSerializerTest.verifyBatch(recordBatch, validity, values);
+        }
       }
-      assertTrue(reader.nextRecordBatch() == null);
+      assertTrue(reader.nextBatchType() == null);
       assertEquals(bytesWritten, reader.bytesRead());
     }
   }

@@ -73,8 +73,8 @@ public class ArrowFileTestFixtures {
       Schema schema = footer.getSchema();
 
       // initialize vectors
-      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, readerAllocator)) {
-        VectorLoader vectorLoader = new VectorLoader(root);
+      try (VectorLoader vectorLoader = new VectorLoader(schema, readerAllocator)) {
+        VectorSchemaRoot root = vectorLoader.getVectorSchemaRoot();
 
         List<ArrowBlock> recordBatches = footer.getRecordBatches();
         for (ArrowBlock rbBlock : recordBatches) {

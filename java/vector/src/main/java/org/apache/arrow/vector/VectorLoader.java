@@ -17,35 +17,90 @@
  */
 package org.apache.arrow.vector;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
+import com.google.common.collect.Iterators;
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.DictionaryVector;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.VectorLayout;
+import org.apache.arrow.vector.types.Dictionary;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.common.collect.Iterators;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
-import io.netty.buffer.ArrowBuf;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Loads buffers into vectors
  */
-public class VectorLoader {
+public class VectorLoader implements AutoCloseable {
+
   private final VectorSchemaRoot root;
+  private final Map<Long, FieldVector> dictionaryVectors = new HashMap<>();
 
   /**
-   * will create children in root based on schema
-   * @param schema the expected schema
-   * @param root the root to add vectors to based on schema
+   * Creates a vector loader
+   *
+   * @param schema schema
+   * @param allocator buffer allocator
    */
-  public VectorLoader(VectorSchemaRoot root) {
-    super();
-    this.root = root;
+  public VectorLoader(Schema schema, BufferAllocator allocator) {
+    List<Field> fields = new ArrayList<>();
+    List<FieldVector> vectors = new ArrayList<>();
+    // in the message format, fields have dictionary ids and the dictionary type
+    // in the memory format, they have no dictionary id and the index type
+    for (Field field: schema.getFields()) {
+      Long dictionaryId = field.getDictionary();
+      if (dictionaryId == null) {
+        MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+        FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
+        vector.initializeChildrenFromFields(field.getChildren());
+        fields.add(field);
+        vectors.add(vector);
+      } else {
+        // create dictionary vector
+        // TODO check if already created
+        MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+        FieldVector dictionaryVector = minorType.getNewVector(field.getName(), allocator, null);
+        dictionaryVector.initializeChildrenFromFields(field.getChildren());
+        dictionaryVectors.put(dictionaryId, dictionaryVector);
+
+        // create index vector
+        ArrowType dictionaryType = new ArrowType.Int(32, true); // TODO check actual index type
+        Field updated = new Field(field.getName(), field.isNullable(), dictionaryType, null);
+        minorType = Types.getMinorTypeForArrowType(dictionaryType);
+        FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
+        // vector.initializeChildrenFromFields(null);
+        DictionaryVector dictionary = new DictionaryVector(vector, new Dictionary(dictionaryVector, dictionaryId, false)); // TODO ordered
+        fields.add(updated);
+        vectors.add(dictionary);
+      }
+    }
+    this.root = new VectorSchemaRoot(fields, vectors);
+  }
+
+  public VectorSchemaRoot getVectorSchemaRoot() { return root; }
+
+  public void load(ArrowDictionaryBatch dictionaryBatch) {
+    long id = dictionaryBatch.getDictionaryId();
+    FieldVector vector = dictionaryVectors.get(id);
+    if (vector == null) {
+      throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
+    }
+    ArrowRecordBatch recordBatch = dictionaryBatch.getDictionary();
+    Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
+    Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+    loadBuffers(vector, vector.getField(), buffers, nodes);
   }
 
   /**
@@ -68,8 +123,10 @@ public class VectorLoader {
     }
   }
 
-
-  private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
+  private static void loadBuffers(FieldVector vector,
+                                  Field field,
+                                  Iterator<ArrowBuf> buffers,
+                                  Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(),
         "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();
@@ -96,4 +153,6 @@ public class VectorLoader {
     }
   }
 
+  @Override
+  public void close() { root.close(); }
 }

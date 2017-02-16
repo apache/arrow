@@ -17,17 +17,15 @@
  */
 package org.apache.arrow.vector.file;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
-
+import com.google.flatbuffers.FlatBufferBuilder;
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.schema.FBSerializable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 
 /**
  * Wrapper around a WritableByteChannel that maintains the position as well adding
