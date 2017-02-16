@@ -51,7 +51,9 @@ int RowGroupWriter::current_column() {
 ParquetFileWriter::ParquetFileWriter() {}
 
 ParquetFileWriter::~ParquetFileWriter() {
-  Close();
+  try {
+    Close();
+  } catch (...) {}
 }
 
 std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(

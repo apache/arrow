@@ -246,7 +246,9 @@ RowGroupWriter* FileSerializer::AppendRowGroup(int64_t num_rows) {
 }
 
 FileSerializer::~FileSerializer() {
-  Close();
+  try {
+    Close();
+  } catch (...) {}
 }
 
 void FileSerializer::WriteMetaData() {

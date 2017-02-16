@@ -229,7 +229,9 @@ void SerializedFile::Close() {
 }
 
 SerializedFile::~SerializedFile() {
-  Close();
+  try {
+    Close();
+  } catch (...) {}
 }
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {

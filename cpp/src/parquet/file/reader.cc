@@ -67,7 +67,9 @@ const RowGroupMetaData* RowGroupReader::metadata() const {
 
 ParquetFileReader::ParquetFileReader() {}
 ParquetFileReader::~ParquetFileReader() {
-  Close();
+  try {
+    Close();
+  } catch (...) {}
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
