@@ -21,6 +21,7 @@ execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -v
                 ERROR_VARIABLE COMPILER_VERSION_FULL)
 message(INFO " ${COMPILER_VERSION_FULL}")
 message(INFO " ${CMAKE_CXX_COMPILER_ID}")
+string(TOLOWER "${COMPILER_VERSION_FULL}" COMPILER_VERSION_FULL_LOWER)
 
 if(MSVC)
   set(COMPILER_FAMILY "msvc")
@@ -53,10 +54,10 @@ elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-8")
   set(COMPILER_VERSION "3.8.0svn")
 
 # gcc
-elseif("${COMPILER_VERSION_FULL}" MATCHES ".*gcc version.*")
+elseif("${COMPILER_VERSION_FULL_LOWER}" MATCHES ".*gcc[ -]version.*")
   set(COMPILER_FAMILY "gcc")
-  string(REGEX REPLACE ".*gcc version ([0-9\\.]+).*" "\\1"
-    COMPILER_VERSION "${COMPILER_VERSION_FULL}")
+  string(REGEX REPLACE ".*gcc[ -]version ([0-9\\.]+).*" "\\1"
+      COMPILER_VERSION "${COMPILER_VERSION_FULL_LOWER}")
 else()
   message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
 endif()
