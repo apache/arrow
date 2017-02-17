@@ -335,7 +335,7 @@ public class AllocationManager {
      * @return The ledger associated with the BufferAllocator.
      */
     public BufferLedger getLedgerForAllocator(BufferAllocator allocator) {
-      return associate((BaseAllocator) allocator);
+      return associate(allocator.unwrap(BaseAllocator.class));
     }
 
     /**

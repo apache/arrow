@@ -80,6 +80,14 @@ public interface BufferAllocator extends AutoCloseable {
   public void close();
 
   /**
+   * Unwrap the class so that exposes the provided interface, if possible. Otherwise, throw Exception.
+   * @param c
+   *          The class or interface that you want this class to implement/extend.
+   * @return The instance of that class related to 'this'
+   */
+  public <T> T unwrap(Class<T> c);
+
+  /**
    * Returns the amount of memory currently allocated from this allocator.
    *
    * @return the amount of memory currently allocated

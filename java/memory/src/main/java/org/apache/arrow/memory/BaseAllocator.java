@@ -800,6 +800,16 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T> T unwrap(Class<T> c) {
+    if (BaseAllocator.class.isAssignableFrom(c)) {
+      return (T) this;
+    }
+
+    throw new UnsupportedOperationException("Unable to unwrap type to class: " + c.getName());
+  }
+
   public static boolean isDebug() {
     return DEBUG;
   }
