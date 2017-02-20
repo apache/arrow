@@ -15,47 +15,65 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.vector.stream;
+package org.apache.arrow.vector.file;
 
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowMessage;
+import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+import org.apache.arrow.vector.stream.ArrowStreamWriter;
+import org.apache.arrow.vector.stream.MessageSerializerTest;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.channels.Pipe;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
+import java.util.List;
 
-import org.apache.arrow.flatbuf.MessageHeader;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TestArrowStreamPipe {
   Schema schema = MessageSerializerTest.testSchema();
   // second half is "undefined"
   byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
   private final class WriterThread extends Thread {
+
     private final int numBatches;
     private final ArrowStreamWriter writer;
 
     public WriterThread(int numBatches, WritableByteChannel sinkChannel)
         throws IOException {
       this.numBatches = numBatches;
-      writer = new ArrowStreamWriter(sinkChannel, schema);
+      BufferAllocator allocator = alloc.newChildAllocator("writer thread", 0, Integer.MAX_VALUE);
+      List<FieldVector> vectors = new ArrayList<>();
+      for (Field field : schema.getFields()) {
+        MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
+        FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
+        vector.initializeChildrenFromFields(field.getChildren());
+        vectors.add(vector);
+      }
+      writer = new ArrowStreamWriter(schema.getFields(), vectors, sinkChannel);
     }
 
     @Override
     public void run() {
-      BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
       try {
+        writer.start();
         ArrowBuf valuesb =  MessageSerializerTest.buf(alloc, values);
         for (int i = 0; i < numBatches; i++) {
           // Send a changing byte id first.
@@ -67,7 +85,7 @@ public class TestArrowStreamPipe {
         writer.close();
       } catch (IOException e) {
         e.printStackTrace();
-        assertTrue(false);
+        Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
       }
     }
 
@@ -78,16 +96,38 @@ public class TestArrowStreamPipe {
     private int batchesRead = 0;
     private final ArrowStreamReader reader;
     private final BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
+    private boolean done = false;
 
     public ReaderThread(ReadableByteChannel sourceChannel)
         throws IOException {
-      reader = new ArrowStreamReader(sourceChannel, alloc);
+      reader = new ArrowStreamReader(sourceChannel, alloc) {
+        @Override
+        protected ArrowMessage readMessage(ReadChannel in, BufferAllocator allocator) throws IOException {
+          ArrowMessage message = super.readMessage(in, allocator);
+          if (message == null) {
+            done = true;
+          } else {
+            byte[] validity = new byte[] {(byte) batchesRead, 0};
+            MessageSerializerTest.verifyBatch((ArrowRecordBatch) message, validity, values);
+            batchesRead++;
+          }
+          return message;
+        }
+        @Override
+        public int loadNextBatch() throws IOException {
+          // the batches being sent aren't valid so the decoding fails... catch and suppress
+          try {
+            return super.loadNextBatch();
+          } catch (Exception e) {
+            return 0;
+          }
+        }
+      };
     }
 
     @Override
     public void run() {
       try {
-        reader.init();
         assertEquals(schema, reader.getSchema());
         assertTrue(
             reader.getSchema().getFields().get(0).getTypeLayout().getVectorTypes().toString(),
@@ -95,22 +135,12 @@ public class TestArrowStreamPipe {
 
         // Read all the batches. Each batch contains an incrementing id and then some
         // constant data. Verify both.
-        Byte type = reader.nextBatchType();
-        while (type != null) {
-          if (type == MessageHeader.RecordBatch) {
-            try (ArrowRecordBatch batch = reader.nextRecordBatch();) {
-              byte[] validity = new byte[] {(byte) batchesRead, 0};
-              MessageSerializerTest.verifyBatch(batch, validity, values);
-              batchesRead++;
-            }
-          } else {
-            Assert.fail("Unexpected message type " + type);
-          }
-          type = reader.nextBatchType();
+        while (!done) {
+          reader.loadNextBatch();
         }
       } catch (IOException e) {
         e.printStackTrace();
-        Assert.fail(e.toString());
+        Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
       }
     }
 

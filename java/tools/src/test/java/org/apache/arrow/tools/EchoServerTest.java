@@ -17,23 +17,11 @@
  */
 package org.apache.arrow.tools;
 
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import org.apache.arrow.flatbuf.MessageHeader;
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullableTinyIntVector;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -41,7 +29,14 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
-import io.netty.buffer.ArrowBuf;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.util.Collections;
+
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class EchoServerTest {
   public static ArrowBuf buf(BufferAllocator alloc, byte[] bytes) {
@@ -57,49 +52,40 @@ public class EchoServerTest {
   }
 
   private void testEchoServer(int serverPort,
-                              Schema schema,
-                              List<ArrowRecordBatch> batches,
-                              List<ArrowDictionaryBatch> dictionaries)
+                              Field field,
+                              NullableTinyIntVector vector,
+                              int batches)
       throws UnknownHostException, IOException {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     try (Socket socket = new Socket("localhost", serverPort);
-        ArrowStreamWriter writer = new ArrowStreamWriter(socket.getOutputStream(), schema);
+        ArrowStreamWriter writer = new ArrowStreamWriter(asList(field), asList((FieldVector) vector), socket.getOutputStream());
         ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
-      for (ArrowDictionaryBatch batch: dictionaries) {
-        writer.writeDictionaryBatch(batch);
-      }
-      for (ArrowRecordBatch batch: batches) {
-        writer.writeRecordBatch(batch);
+      writer.start();
+      for (int i = 0; i < batches; i++) {
+        vector.allocateNew(16);
+        for (int j = 0; j < 8; j++) {
+          vector.getMutator().set(j, j + i);
+          vector.getMutator().set(j + 8, 0, (byte) (j + i));
+        }
+        vector.getMutator().setValueCount(16);
+        writer.writeBatch(16);
       }
       writer.end();
 
-      reader.init();
-      assertEquals(schema, reader.getSchema());
-      for (ArrowDictionaryBatch expected: dictionaries) {
-        Byte type = reader.nextBatchType();
-        assertEquals(new Byte(MessageHeader.DictionaryBatch), type);
-        try (ArrowDictionaryBatch result = reader.nextDictionaryBatch();) {
-          assertTrue(result != null);
-          assertEquals(expected.getDictionaryId(), result.getDictionaryId());
-          assertEquals(expected.getDictionary().getBuffers().size(), result.getDictionary().getBuffers().size());
-          for (int j = 0; j < expected.getDictionary().getBuffers().size(); j++) {
-            assertTrue(expected.getDictionary().getBuffers().get(j).compareTo(result.getDictionary().getBuffers().get(j)) == 0);
-          }
+      assertEquals(new Schema(asList(field)), reader.getSchema());
+
+      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectors().get(0);
+      for (int i = 0; i < batches; i++) {
+        int loaded = reader.loadNextBatch();
+        assertEquals(16, loaded);
+        assertEquals(16, readVector.getAccessor().getValueCount());
+        for (int j = 0; j < 8; j++) {
+          assertEquals(j + i, readVector.getAccessor().get(j));
+          assertTrue(readVector.getAccessor().isNull(j + 8));
         }
       }
-      for (ArrowRecordBatch expected: batches) {
-        Byte type = reader.nextBatchType();
-        assertEquals(new Byte(MessageHeader.RecordBatch), type);
-        try (ArrowRecordBatch result = reader.nextRecordBatch();) {
-          assertTrue(result != null);
-          assertEquals(expected.getBuffers().size(), result.getBuffers().size());
-          for (int j = 0; j < expected.getBuffers().size(); j++) {
-            assertTrue(expected.getBuffers().get(j).compareTo(result.getBuffers().get(j)) == 0);
-          }
-        }
-      }
-      Byte type = reader.nextBatchType();
-      assertTrue(type == null);
+      int loaded = reader.loadNextBatch();
+      assertEquals(0, loaded);
       assertEquals(reader.bytesRead(), writer.bytesWritten());
     }
   }
@@ -121,29 +107,19 @@ public class EchoServerTest {
     serverThread.start();
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
-    byte[] validity = new byte[] { (byte)255, 0};
-    byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    ArrowBuf validityb = buf(alloc, validity);
-    ArrowBuf valuesb =  buf(alloc, values);
-    ArrowRecordBatch batch = new ArrowRecordBatch(
-        16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
-    Schema schema = new Schema(asList(new Field(
-        "testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
+    Field field = new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList());
+    NullableTinyIntVector vector = new NullableTinyIntVector("testField", alloc);
+    Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.
-    testEchoServer(serverPort, schema, new ArrayList<ArrowRecordBatch>(), new ArrayList<ArrowDictionaryBatch>());
+    testEchoServer(serverPort, field, vector, 0);
 
     // Try with one batch.
-    List<ArrowRecordBatch> batches = new ArrayList<>();
-    batches.add(batch);
-    testEchoServer(serverPort, schema, batches, new ArrayList<ArrowDictionaryBatch>());
+    testEchoServer(serverPort, field, vector, 1);
 
     // Try with a few
-    for (int i = 0; i < 10; i++) {
-      batches.add(batch);
-    }
-    testEchoServer(serverPort, schema, batches, new ArrayList<ArrowDictionaryBatch>());
+    testEchoServer(serverPort, field, vector, 10);
 
     server.close();
     serverThread.join();

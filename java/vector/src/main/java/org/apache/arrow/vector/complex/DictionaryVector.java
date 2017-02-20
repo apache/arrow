@@ -48,52 +48,6 @@ public class DictionaryVector implements FieldVector {
   }
 
   /**
-   * Dictionary encodes a vector. The dictionary will be built using the values from the vector.
-   *
-   * @param vector vector to encode
-   * @return dictionary encoded vector
-   */
-  public static DictionaryVector encode(FieldVector vector) {
-    validateType(vector.getMinorType());
-    Map<Object, Integer> lookUps = new HashMap<>();
-    Map<Integer, Integer> transfers = new HashMap<>();
-
-    FieldVector.Accessor accessor = vector.getAccessor();
-    int count = accessor.getValueCount();
-
-    NullableIntVector indices = new NullableIntVector(vector.getField().getName(), vector.getAllocator());
-    indices.allocateNew(count);
-    NullableIntVector.Mutator mutator = indices.getMutator();
-
-    int nextIndex = 0;
-    for (int i = 0; i < count; i++) {
-      Object value = accessor.getObject(i);
-      if (value != null) { // if it's null leave it null
-        Integer index = lookUps.get(value);
-        if (index == null) {
-          index = nextIndex++;
-          lookUps.put(value, index);
-          transfers.put(i, index);
-        }
-        mutator.set(i, index);
-      }
-    }
-    mutator.setValueCount(count);
-
-    // copy the dictionary values into the dictionary vector
-    TransferPair dictionaryTransfer = vector.getTransferPair(vector.getAllocator());
-    FieldVector dictionaryVector = (FieldVector) dictionaryTransfer.getTo();
-    dictionaryVector.allocateNewSafe();
-    for (Map.Entry<Integer, Integer> entry: transfers.entrySet()) {
-      dictionaryTransfer.copyValueSafe(entry.getKey(), entry.getValue());
-    }
-    dictionaryVector.getMutator().setValueCount(transfers.size());
-    Dictionary dictionary = new Dictionary(dictionaryVector);
-
-    return new DictionaryVector(indices, dictionary);
-  }
-
-  /**
    * Dictionary encodes a vector with a provided dictionary. The dictionary must contain all values in the vector.
    *
    * @param vector vector to encode
@@ -170,7 +124,10 @@ public class DictionaryVector implements FieldVector {
   public Dictionary getDictionary() { return dictionary; }
 
   @Override
-  public Field getField() { return indices.getField(); }
+  public Field getField() {
+    Field field = indices.getField();
+    return new Field(field.getName(), field.isNullable(), field.getType(), dictionary.getEncoding(), field.getChildren());
+  }
 
   // note: dictionary vector is not closed, as it may be shared
   @Override

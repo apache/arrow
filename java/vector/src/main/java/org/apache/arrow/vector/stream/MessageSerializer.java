@@ -33,6 +33,7 @@ import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -152,7 +153,7 @@ public class MessageSerializer {
   /**
    * Deserializes a RecordBatch
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
+  private static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
       throws IOException {
     if (message == null) return null;
 
@@ -261,15 +262,9 @@ public class MessageSerializer {
   /**
    * Deserializes a DictionaryBatch
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
-                                                                Message message,
-                                                                BufferAllocator alloc) throws IOException {
-    if (message == null) {
-      return null;
-    } else if (message.bodyLength() > Integer.MAX_VALUE) {
-      throw new IOException("Cannot currently deserialize record batches over 2GB");
-    }
-
+  private static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
+                                                                 Message message,
+                                                                 BufferAllocator alloc) throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
 
     int bodyLength = (int) message.bodyLength();
@@ -316,6 +311,21 @@ public class MessageSerializer {
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
   }
 
+  public static ArrowMessage deserializeMessageBatch(ReadChannel in, BufferAllocator alloc) throws IOException {
+    Message message = deserializeMessage(in);
+    if (message == null) {
+      return null;
+    } else if (message.bodyLength() > Integer.MAX_VALUE) {
+      throw new IOException("Cannot currently deserialize record batches over 2GB");
+    }
+
+    switch (message.headerType()) {
+      case MessageHeader.RecordBatch: return deserializeRecordBatch(in, message, alloc);
+      case MessageHeader.DictionaryBatch: return deserializeDictionaryBatch(in, message, alloc);
+      default: throw new IOException("Unexpected message header type " + message.headerType());
+    }
+  }
+
   /**
    * Serializes a message header.
    */
@@ -330,7 +340,7 @@ public class MessageSerializer {
     return builder.dataBuffer();
   }
 
-  public static Message deserializeMessage(ReadChannel in) throws IOException {
+  private static Message deserializeMessage(ReadChannel in) throws IOException {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) != 4) return null;

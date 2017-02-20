@@ -32,7 +32,8 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import io.netty.buffer.ArrowBuf;
 
-public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
+public class ArrowRecordBatch implements ArrowMessage {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowRecordBatch.class);
 
   /** number of records */
@@ -113,9 +114,13 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
     return RecordBatch.endRecordBatch(builder);
   }
 
+  @Override
+  public <T> T accepts(ArrowMessageVisitor<T> visitor) { return visitor.visit(this); }
+
   /**
    * releases the buffers
    */
+  @Override
   public void close() {
     if (!closed) {
       closed = true;
@@ -134,6 +139,7 @@ public class ArrowRecordBatch implements FBSerializable, AutoCloseable {
   /**
    * Computes the size of the serialized body for this recordBatch.
    */
+  @Override
   public int computeBodyLength() {
     int size = 0;
 

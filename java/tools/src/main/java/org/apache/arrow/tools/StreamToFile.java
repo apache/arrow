@@ -17,6 +17,11 @@
  */
 package org.apache.arrow.tools;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.file.ArrowFileWriter;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -25,14 +30,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 
-import org.apache.arrow.flatbuf.MessageHeader;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.file.ArrowWriter;
-import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.stream.ArrowStreamReader;
-
 /**
  * Converts an Arrow stream to an Arrow file.
  */
@@ -40,24 +37,16 @@ public class StreamToFile {
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
-      reader.init();
-      try (ArrowWriter writer = new ArrowWriter(Channels.newChannel(out), reader.getSchema());) {
+      try (ArrowFileWriter writer = new ArrowFileWriter(reader.getSchema().getFields(), reader.getVectors(), Channels.newChannel(out))) {
+        writer.start();
         while (true) {
-          Byte type = reader.nextBatchType();
-          if (type == null) {
+          int loaded = reader.loadNextBatch();
+          if (loaded == 0) {
             break;
-          } else if (type == MessageHeader.DictionaryBatch) {
-            try (ArrowDictionaryBatch batch = reader.nextDictionaryBatch()) {
-              writer.writeDictionaryBatch(batch);
-            }
-          } else if (type == MessageHeader.RecordBatch) {
-            try (ArrowRecordBatch batch = reader.nextRecordBatch()) {
-              writer.writeRecordBatch(batch);
-            }
-          } else {
-            throw new IOException("Unexpected message header " + type);
           }
+          writer.writeBatch(loaded);
         }
+        writer.end();
       }
     }
   }

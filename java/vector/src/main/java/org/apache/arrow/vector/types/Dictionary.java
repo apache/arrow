@@ -19,47 +19,46 @@
 package org.apache.arrow.vector.types;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
 import java.util.Objects;
 
 public class Dictionary {
 
-  private Long id;
-  private FieldVector dictionary;
-  private boolean ordered;
+    private final long id;
+    private final FieldVector dictionary;
+    private final boolean ordered;
 
-  public Dictionary(FieldVector dictionary) {
-    this(dictionary, null, false);
-  }
+    public Dictionary(FieldVector dictionary, long id, boolean ordered) {
+        this.id = id;
+        this.dictionary = dictionary;
+        this.ordered = ordered;
+    }
 
-  public Dictionary(FieldVector dictionary, Long id, boolean ordered) {
-    this.id = id;
-    this.dictionary = dictionary;
-    this.ordered = ordered;
-  }
+    public long getId() { return id; }
 
-  public Long getId() { return id; }
+    public FieldVector getVector() {
+    return dictionary;
+    }
 
-  public FieldVector getVector() {
-  return dictionary;
-  }
+    public boolean isOrdered() {
+    return ordered;
+    }
 
-  public boolean isOrdered() {
-  return ordered;
-  }
+    public DictionaryEncoding getEncoding() { return new DictionaryEncoding(id, ordered); }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    Dictionary that = (Dictionary) o;
-    return id == that.id &&
-      ordered == that.ordered &&
-      Objects.equals(dictionary, that.dictionary);
-  }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Dictionary that = (Dictionary) o;
+        return this.id == that.id &&
+            ordered == that.ordered &&
+            Objects.equals(dictionary, that.dictionary);
+    }
 
-  @Override
-  public int hashCode() {
+    @Override
+    public int hashCode() {
     return Objects.hash(id, dictionary, ordered);
   }
 }

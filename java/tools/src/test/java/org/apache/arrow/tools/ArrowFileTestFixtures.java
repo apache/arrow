@@ -18,18 +18,9 @@
  */
 package org.apache.arrow.tools;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
@@ -37,12 +28,18 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.file.ArrowBlock;
+import org.apache.arrow.vector.file.ArrowFileReader;
+import org.apache.arrow.vector.file.ArrowFileWriter;
 import org.apache.arrow.vector.file.ArrowFooter;
-import org.apache.arrow.vector.file.ArrowReader;
-import org.apache.arrow.vector.file.ArrowWriter;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.List;
 
 public class ArrowFileTestFixtures {
   static final int COUNT = 10;
@@ -63,26 +60,16 @@ public class ArrowFileTestFixtures {
 
   static void validateOutput(File testOutFile, BufferAllocator allocator) throws Exception {
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        FileInputStream fileInputStream = new FileInputStream(testOutFile);
-        ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), readerAllocator);
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-        ) {
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+         FileInputStream fileInputStream = new FileInputStream(testOutFile);
+         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
       ArrowFooter footer = arrowReader.readFooter();
       Schema schema = footer.getSchema();
-
-      // initialize vectors
-      try (VectorLoader vectorLoader = new VectorLoader(schema, readerAllocator)) {
-        VectorSchemaRoot root = vectorLoader.getVectorSchemaRoot();
-
-        List<ArrowBlock> recordBatches = footer.getRecordBatches();
-        for (ArrowBlock rbBlock : recordBatches) {
-          try (ArrowRecordBatch recordBatch = arrowReader.readRecordBatch(rbBlock)) {
-            vectorLoader.load(recordBatch);
-          }
-          validateContent(COUNT, root);
-        }
+      VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), arrowReader.getVectors());
+      for (ArrowBlock rbBlock : footer.getRecordBatches()) {
+        int loaded = arrowReader.loadRecordBatch(rbBlock);
+        root.setRowCount(loaded);
+        validateContent(COUNT, root);
       }
     }
   }
@@ -98,14 +85,10 @@ public class ArrowFileTestFixtures {
   static void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
     Schema schema = new Schema(parent.getField().getChildren());
     int valueCount = parent.getAccessor().getValueCount();
-    List<FieldVector> fields = parent.getChildrenFromFields();
-    VectorUnloader vectorUnloader = new VectorUnloader(schema, valueCount, fields);
-    try (
-        FileOutputStream fileOutputStream = new FileOutputStream(file);
-        ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
-        ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-            ) {
-      arrowWriter.writeRecordBatch(recordBatch);
+    List<FieldVector> vectors = parent.getChildrenFromFields();
+    try (FileOutputStream fileOutputStream = new FileOutputStream(file);
+         ArrowFileWriter arrowWriter = new ArrowFileWriter(schema.getFields(), vectors, fileOutputStream.getChannel())) {
+      arrowWriter.writeBatch(valueCount);
     }
   }
 

@@ -17,19 +17,18 @@
  */
 package org.apache.arrow.tools;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.file.ArrowBlock;
+import org.apache.arrow.vector.file.ArrowFileReader;
+import org.apache.arrow.vector.file.ArrowFooter;
+import org.apache.arrow.vector.stream.ArrowStreamWriter;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.file.ArrowBlock;
-import org.apache.arrow.vector.file.ArrowFooter;
-import org.apache.arrow.vector.file.ArrowReader;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.stream.ArrowStreamWriter;
 
 /**
  * Converts an Arrow file to an Arrow stream. The file should be specified as the
@@ -38,16 +37,12 @@ import org.apache.arrow.vector.stream.ArrowStreamWriter;
 public class FileToStream {
   public static void convert(FileInputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    try(
-        ArrowReader reader = new ArrowReader(in.getChannel(), allocator);) {
+    try (ArrowFileReader reader = new ArrowFileReader(in.getChannel(), allocator)) {
       ArrowFooter footer = reader.readFooter();
-      try (
-        ArrowStreamWriter writer = new ArrowStreamWriter(out, footer.getSchema());
-      ) {
+      try (ArrowStreamWriter writer = new ArrowStreamWriter(footer.getSchema().getFields(), reader.getVectors(), out)) {
         for (ArrowBlock block: footer.getRecordBatches()) {
-          try (ArrowRecordBatch batch = reader.readRecordBatch(block)) {
-            writer.writeRecordBatch(batch);
-          }
+          int loaded = reader.loadRecordBatch(block);
+          writer.writeBatch(loaded);
         }
       }
     }

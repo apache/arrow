@@ -17,15 +17,7 @@
  */
 package org.apache.arrow.tools;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.arrow.flatbuf.MessageHeader;
+import com.google.common.base.Preconditions;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
@@ -35,7 +27,13 @@ import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);
@@ -65,37 +63,22 @@ public class EchoServer {
         InputStream in = socket.getInputStream();
         OutputStream out = socket.getOutputStream();
         ArrowStreamReader reader = new ArrowStreamReader(in, allocator);
-      ) {
-        // Read the entire input stream.
-        reader.init();
+        ArrowStreamWriter writer = new ArrowStreamWriter(reader.getSchema().getFields(), reader.getVectors(), out)) {
+        // Read the entire input stream and write it back
+        writer.start();
+        int echoed = 0;
         while (true) {
-          Byte type = reader.nextBatchType();
-          if (type == null) {
+          int loaded = reader.loadNextBatch();
+          if (loaded == 0) {
             break;
-          } else if (type == MessageHeader.RecordBatch) {
-            batches.add(reader.nextRecordBatch());
-          } else if (type == MessageHeader.DictionaryBatch) {
-            dictionaries.add(reader.nextDictionaryBatch());
           } else {
-            throw new IOException("Unexpected message header type " + type);
+            writer.writeBatch(loaded);
+            echoed += loaded;
           }
         }
-        LOGGER.info(String.format("Received %d batches and %d dictionaries", batches.size(), dictionaries.size()));
-
-        // Write it back
-        try (ArrowStreamWriter writer = new ArrowStreamWriter(out, reader.getSchema())) {
-          for (ArrowDictionaryBatch batch: dictionaries) {
-            writer.writeDictionaryBatch(batch);
-            batch.close();
-          }
-          for (ArrowRecordBatch batch: batches) {
-            writer.writeRecordBatch(batch);
-            batch.close();
-          }
-          writer.end();
-          Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
-        }
-        LOGGER.info("Done writing stream back.");
+        writer.end();
+        Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
+        LOGGER.info(String.format("Echoed %d records", echoed));
       }
     }
 

@@ -20,37 +20,41 @@ package org.apache.arrow.vector.schema;
 import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.DictionaryBatch;
 
-public class ArrowDictionaryBatch implements FBSerializable, AutoCloseable {
+public class ArrowDictionaryBatch implements ArrowMessage {
 
-  private final long dictionaryId;
-  private final ArrowRecordBatch dictionary;
+    private final long dictionaryId;
+    private final ArrowRecordBatch dictionary;
 
-  public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
-    this.dictionaryId = dictionaryId;
-    this.dictionary = dictionary;
-  }
+    public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
+        this.dictionaryId = dictionaryId;
+        this.dictionary = dictionary;
+    }
 
-  public long getDictionaryId() { return dictionaryId; }
-  public ArrowRecordBatch getDictionary() { return dictionary; }
+    public long getDictionaryId() { return dictionaryId; }
+    public ArrowRecordBatch getDictionary() { return dictionary; }
 
-  @Override
-  public int writeTo(FlatBufferBuilder builder) {
-    int dataOffset = dictionary.writeTo(builder);
-    DictionaryBatch.startDictionaryBatch(builder);
-    DictionaryBatch.addId(builder, dictionaryId);
-    DictionaryBatch.addData(builder, dataOffset);
-    return DictionaryBatch.endDictionaryBatch(builder);
-  }
+    @Override
+    public int writeTo(FlatBufferBuilder builder) {
+        int dataOffset = dictionary.writeTo(builder);
+        DictionaryBatch.startDictionaryBatch(builder);
+        DictionaryBatch.addId(builder, dictionaryId);
+        DictionaryBatch.addData(builder, dataOffset);
+        return DictionaryBatch.endDictionaryBatch(builder);
+    }
 
-  public int computeBodyLength() { return dictionary.computeBodyLength(); }
+    @Override
+    public int computeBodyLength() { return dictionary.computeBodyLength(); }
 
-  @Override
-  public String toString() {
-    return "ArrowDictionaryBatch [dictionaryId=" + dictionaryId + ", dictionary=" + dictionary + "]";
-  }
+    @Override
+    public <T> T accepts(ArrowMessageVisitor<T> visitor) { return visitor.visit(this); }
 
-  @Override
-  public void close() {
-    dictionary.close();
-  }
+    @Override
+    public String toString() {
+       return "ArrowDictionaryBatch [dictionaryId=" + dictionaryId + ", dictionary=" + dictionary + "]";
+    }
+
+    @Override
+    public void close() {
+      dictionary.close();
+    }
 }

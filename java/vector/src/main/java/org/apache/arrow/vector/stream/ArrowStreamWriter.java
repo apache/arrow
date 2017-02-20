@@ -17,71 +17,45 @@
  */
 package org.apache.arrow.vector.stream;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
-
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.file.ArrowBlock;
+import org.apache.arrow.vector.file.ArrowWriter;
 import org.apache.arrow.vector.file.WriteChannel;
-import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-public class ArrowStreamWriter implements AutoCloseable {
-  private final WriteChannel out;
-  private final Schema schema;
-  private boolean headerSent = false;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.channels.WritableByteChannel;
+import java.util.List;
 
-  /**
-   * Creates the stream writer. non-blocking.
-   * totalBatches can be set if the writer knows beforehand. Can be -1 if unknown.
-   */
-  public ArrowStreamWriter(WritableByteChannel out, Schema schema) {
-    this.out = new WriteChannel(out);
-    this.schema = schema;
-  }
+public class ArrowStreamWriter extends ArrowWriter {
 
-  public ArrowStreamWriter(OutputStream out, Schema schema)
-      throws IOException {
-    this(Channels.newChannel(out), schema);
-  }
-
-  public long bytesWritten() { return out.getCurrentPosition(); }
-
-
-  public void writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
-    // Send the header if we have not yet.
-    checkAndSendHeader();
-    MessageSerializer.serialize(out, batch);
-  }
-
-  public void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
-    // Send the header if we have not yet.
-    checkAndSendHeader();
-    MessageSerializer.serialize(out, batch);
-  }
-
-  /**
-   * End the stream. This is not required and this object can simply be closed.
-   */
-  public void end() throws IOException {
-    checkAndSendHeader();
-    out.writeIntLittleEndian(0);
-  }
-
-  @Override
-  public void close() throws IOException {
-    // The header might not have been sent if this is an empty stream. Send it even in
-    // this case so readers see a valid empty stream.
-    checkAndSendHeader();
-    out.close();
-  }
-
-  private void checkAndSendHeader() throws IOException {
-    if (!headerSent) {
-      MessageSerializer.serialize(out, schema);
-      headerSent = true;
+    public ArrowStreamWriter(Schema schema, OutputStream out, BufferAllocator allocator) {
+        super(schema, out, allocator);
     }
-  }
+
+    public ArrowStreamWriter(Schema schema, WritableByteChannel out, BufferAllocator allocator) {
+        super(schema, out, allocator);
+    }
+
+    public ArrowStreamWriter(List<Field> fields, List<FieldVector> vectors, OutputStream out) {
+       super(fields, vectors, out);
+    }
+
+    public ArrowStreamWriter(List<Field> fields, List<FieldVector> vectors, WritableByteChannel out) {
+       super(fields, vectors, out, false);
+    }
+
+    @Override
+    protected void startInternal(WriteChannel out) throws IOException {}
+
+    @Override
+    protected void endInternal(WriteChannel out,
+                               List<ArrowBlock> dictionaries,
+                               List<ArrowBlock> records) throws IOException {
+       out.writeIntLittleEndian(0);
+    }
 }
 

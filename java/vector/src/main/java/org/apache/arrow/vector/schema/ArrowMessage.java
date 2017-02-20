@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,26 +14,17 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
-package org.apache.arrow.vector.types.pojo;
+ */
+package org.apache.arrow.vector.schema;
 
-public class DictionaryEncoding {
+public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
-  // TODO for now all encodings are signed 32-bit ints
+    public int computeBodyLength();
 
-  private final long id;
-  private final boolean ordered;
+    public <T> T accepts(ArrowMessageVisitor<T> visitor);
 
-  public DictionaryEncoding(long id, boolean ordered) {
-    this.id = id;
-    this.ordered = ordered;
-  }
-
-  public long getId() {
-  return id;
-  }
-
-  public boolean isOrdered() {
-  return ordered;
-  }
+    public static interface ArrowMessageVisitor<T> {
+        public T visit(ArrowDictionaryBatch message);
+        public T visit(ArrowRecordBatch message);
+    }
 }

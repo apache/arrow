@@ -17,13 +17,10 @@
  */
 package org.apache.arrow.vector.stream;
 
-import com.google.common.base.Preconditions;
-import org.apache.arrow.flatbuf.Message;
-import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.file.ArrowReader;
 import org.apache.arrow.vector.file.ReadChannel;
-import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.IOException;
@@ -34,94 +31,29 @@ import java.nio.channels.ReadableByteChannel;
 /**
  * This classes reads from an input stream and produces ArrowRecordBatches.
  */
-public class ArrowStreamReader implements AutoCloseable {
-  private ReadChannel in;
-  private final BufferAllocator allocator;
-  private Schema schema;
-  private Message nextMessage;
+public class ArrowStreamReader extends ArrowReader<ReadChannel> {
 
-  /**
-   * Constructs a streaming read, reading bytes from 'in'. Non-blocking.
-   */
-  public ArrowStreamReader(ReadableByteChannel in, BufferAllocator allocator) {
-    super();
-    this.in = new ReadChannel(in);
-    this.allocator = allocator;
-  }
-
-  public ArrowStreamReader(InputStream in, BufferAllocator allocator) {
-    this(Channels.newChannel(in), allocator);
-  }
-
-  /**
-   * Initializes the reader. Must be called before the other APIs. This is blocking.
-   */
-  public void init() throws IOException {
-    Preconditions.checkState(this.schema == null, "Cannot call init() more than once.");
-    this.schema = readSchema();
-  }
-
-  /**
-   * Returns the schema for all records in this stream.
-   */
-  public Schema getSchema () {
-    Preconditions.checkState(this.schema != null, "Must call init() first.");
-    return schema;
-  }
-
-  public long bytesRead() { return in.bytesRead(); }
-
-  /**
-   * Reads and returns the type of the next batch. Returns null if this is the end of the stream.
-   *
-   * @return org.apache.arrow.flatbuf.MessageHeader type
-   * @throws IOException
-   */
-  public Byte nextBatchType() throws IOException {
-    nextMessage = MessageSerializer.deserializeMessage(in);
-    if (nextMessage == null) {
-      return null;
-    } else {
-      return nextMessage.headerType();
+    /**
+    * Constructs a streaming read, reading bytes from 'in'. Non-blocking.
+    */
+    public ArrowStreamReader(ReadableByteChannel in, BufferAllocator allocator) {
+        super(new ReadChannel(in), allocator);
     }
-  }
 
-  /**
-   * Reads and returns the next ArrowRecordBatch. Returns null if this is the end
-   * of stream.
-   */
-  public ArrowDictionaryBatch nextDictionaryBatch() throws IOException {
-    Preconditions.checkState(this.in != null, "Cannot call after close()");
-    Preconditions.checkState(this.schema != null, "Must call init() first.");
-    Preconditions.checkState(this.nextMessage.headerType() == MessageHeader.DictionaryBatch,
-                             "Must call nextBatchType() and receive MessageHeader.DictionaryBatch.");
-    return MessageSerializer.deserializeDictionaryBatch(in, nextMessage, allocator);
-  }
-
-  /**
-   * Reads and returns the next ArrowRecordBatch. Returns null if this is the end
-   * of stream.
-   */
-  public ArrowRecordBatch nextRecordBatch() throws IOException {
-    Preconditions.checkState(this.in != null, "Cannot call after close()");
-    Preconditions.checkState(this.schema != null, "Must call init() first.");
-    Preconditions.checkState(this.nextMessage.headerType() == MessageHeader.RecordBatch,
-                             "Must call nextBatchType() and receive MessageHeader.RecordBatch.");
-    return MessageSerializer.deserializeRecordBatch(in, nextMessage, allocator);
-  }
-
-  @Override
-  public void close() throws IOException {
-    if (this.in != null) {
-      in.close();
-      in = null;
+    public ArrowStreamReader(InputStream in, BufferAllocator allocator) {
+        this(Channels.newChannel(in), allocator);
     }
-  }
 
-  /**
-   * Reads the schema message from the beginning of the stream.
-   */
-  private Schema readSchema() throws IOException {
-    return MessageSerializer.deserializeSchema(in);
-  }
+    /**
+     * Reads the schema message from the beginning of the stream.
+     */
+    @Override
+    protected Schema readSchema(ReadChannel in) throws IOException {
+        return MessageSerializer.deserializeSchema(in);
+    }
+
+    @Override
+    protected ArrowMessage readMessage(ReadChannel in, BufferAllocator allocator) throws IOException {
+        return MessageSerializer.deserializeMessageBatch(in, allocator);
+    }
 }

@@ -18,29 +18,27 @@
 package org.apache.arrow.vector.types.pojo;
 
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
-
-import java.util.List;
-import java.util.Objects;
-
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import org.apache.arrow.flatbuf.DictionaryEncoding;
-import org.apache.arrow.vector.schema.TypeLayout;
-import org.apache.arrow.vector.schema.VectorLayout;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.vector.schema.TypeLayout;
+import org.apache.arrow.vector.schema.VectorLayout;
+
+import java.util.List;
+import java.util.Objects;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 public class Field {
   private final String name;
   private final boolean nullable;
   private final ArrowType type;
-  private final Long dictionary;
+  private final DictionaryEncoding dictionary;
   private final List<Field> children;
   private final TypeLayout typeLayout;
 
@@ -49,7 +47,7 @@ public class Field {
       @JsonProperty("name") String name,
       @JsonProperty("nullable") boolean nullable,
       @JsonProperty("type") ArrowType type,
-      @JsonProperty("dictionary") Long dictionary,
+      @JsonProperty("dictionary") DictionaryEncoding dictionary,
       @JsonProperty("children") List<Field> children,
       @JsonProperty("typeLayout") TypeLayout typeLayout) {
     this.name = name;
@@ -68,7 +66,7 @@ public class Field {
     this(name, nullable, type, null, children, TypeLayout.getTypeLayout(checkNotNull(type)));
   }
 
-  public Field(String name, boolean nullable, ArrowType type, Long dictionary, List<Field> children) {
+  public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
     this(name, nullable, type, dictionary, children, TypeLayout.getTypeLayout(checkNotNull(type)));
   }
 
@@ -76,10 +74,10 @@ public class Field {
     String name = field.name();
     boolean nullable = field.nullable();
     ArrowType type = getTypeForField(field);
-    DictionaryEncoding dictionaryEncoding = field.dictionary();
-    Long dictionary = null;
-    if (dictionaryEncoding != null) {
-      dictionary = dictionaryEncoding.id();
+    DictionaryEncoding dictionary = null;
+    org.apache.arrow.flatbuf.DictionaryEncoding dictionaryFB = field.dictionary();
+    if (dictionaryFB != null) {
+      dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered());
     }
     ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
     for (int i = 0; i < field.layoutLength(); ++i) {
@@ -105,11 +103,11 @@ public class Field {
     int typeOffset = type.getType(builder);
     int dictionaryOffset = -1;
     if (dictionary != null) {
-      DictionaryEncoding.startDictionaryEncoding(builder);
-      DictionaryEncoding.addId(builder, dictionary);
-      DictionaryEncoding.addIsOrdered(builder, false); // TODO ordered
-      // TODO index type
-      dictionaryOffset = DictionaryEncoding.endDictionaryEncoding(builder);
+      // TODO encode dictionary type - currently type is only signed 32 bit int (default null)
+      org.apache.arrow.flatbuf.DictionaryEncoding.startDictionaryEncoding(builder);
+      org.apache.arrow.flatbuf.DictionaryEncoding.addId(builder, dictionary.getId());
+      org.apache.arrow.flatbuf.DictionaryEncoding.addIsOrdered(builder, dictionary.isOrdered());
+      dictionaryOffset = org.apache.arrow.flatbuf.DictionaryEncoding.endDictionaryEncoding(builder);
     }
     int[] childrenData = new int[children.size()];
     for (int i = 0; i < children.size(); i++) {
@@ -150,7 +148,7 @@ public class Field {
   }
 
   @JsonInclude(Include.NON_NULL)
-  public Long getDictionary() { return dictionary; }
+  public DictionaryEncoding getDictionary() { return dictionary; }
 
   public List<Field> getChildren() {
     return children;
@@ -171,8 +169,8 @@ public class Field {
             Objects.equals(this.type, that.type) &&
            Objects.equals(this.dictionary, that.dictionary) &&
             (Objects.equals(this.children, that.children) ||
-                    (this.children == null && that.children.size() == 0) ||
-                    (this.children.size() == 0 && that.children == null));
+                    (this.children == null || this.children.size() == 0) &&
+                    (that.children == null || that.children.size() == 0));
   }
 
   @Override
@@ -183,7 +181,7 @@ public class Field {
     }
     sb.append(type);
     if (dictionary != null) {
-      sb.append("[dictionary: ").append(dictionary).append("]");
+      sb.append("[dictionary: ").append(dictionary.getId()).append("]");
     }
     if (!children.isEmpty()) {
       sb.append("<").append(Joiner.on(", ").join(children)).append(">");

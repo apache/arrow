@@ -29,12 +29,12 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -90,9 +90,9 @@ public class MessageSerializerTest {
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     ReadChannel channel = new ReadChannel(Channels.newChannel(in));
-    Message message = MessageSerializer.deserializeMessage(channel);
-    ArrowRecordBatch deserialized = MessageSerializer.deserializeRecordBatch(channel, message, alloc);
-    verifyBatch(deserialized, validity, values);
+    ArrowMessage deserialized = MessageSerializer.deserializeMessageBatch(channel, alloc);
+    assertEquals(ArrowRecordBatch.class, deserialized.getClass());
+    verifyBatch((ArrowRecordBatch) deserialized, validity, values);
   }
 
   public static Schema testSchema() {

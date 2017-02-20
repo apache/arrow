@@ -27,7 +27,6 @@ import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public class TestDictionaryVector {
@@ -49,62 +48,7 @@ public class TestDictionaryVector {
   }
 
   @Test
-  public void testEncodeStringsWithGeneratedDictionary() {
-    // Create a new value vector
-    try (final NullableVarCharVector vector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector("foo", allocator, null)) {
-      final NullableVarCharVector.Mutator m = vector.getMutator();
-      vector.allocateNew(512, 5);
-
-      // set some values
-      m.setSafe(0, zero, 0, zero.length);
-      m.setSafe(1, one, 0, one.length);
-      m.setSafe(2, one, 0, one.length);
-      m.setSafe(3, two, 0, two.length);
-      m.setSafe(4, zero, 0, zero.length);
-      m.setValueCount(5);
-
-      DictionaryVector encoded = DictionaryVector.encode(vector);
-
-      try {
-        // verify values in the dictionary
-        ValueVector dictionary = encoded.getDictionary().getVector();
-        assertEquals(vector.getClass(), dictionary.getClass());
-
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary).getAccessor();
-        assertEquals(3, dictionaryAccessor.getValueCount());
-        assertArrayEquals(zero, dictionaryAccessor.get(0));
-        assertArrayEquals(one, dictionaryAccessor.get(1));
-        assertArrayEquals(two, dictionaryAccessor.get(2));
-
-        // verify indices
-        ValueVector indices = encoded.getIndexVector();
-        assertEquals(NullableIntVector.class, indices.getClass());
-
-        NullableIntVector.Accessor indexAccessor = ((NullableIntVector) indices).getAccessor();
-        assertEquals(5, indexAccessor.getValueCount());
-        assertEquals(0, indexAccessor.get(0));
-        assertEquals(1, indexAccessor.get(1));
-        assertEquals(1, indexAccessor.get(2));
-        assertEquals(2, indexAccessor.get(3));
-        assertEquals(0, indexAccessor.get(4));
-
-        // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryVector.decode(indices, encoded.getDictionary())) {
-          assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getAccessor().getValueCount(), decoded.getAccessor().getValueCount());
-          for (int i = 0; i < 5; i++) {
-            assertEquals(vector.getAccessor().getObject(i), decoded.getAccessor().getObject(i));
-          }
-        }
-      } finally {
-        encoded.getDictionary().getVector().close();
-        encoded.getIndexVector().close();
-      }
-    }
-  }
-
-  @Test
-  public void testEncodeStringsWithProvidedDictionary() {
+  public void testEncodeStrings() {
     // Create a new value vector
     try (final NullableVarCharVector vector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector("foo", allocator, null);
          final NullableVarCharVector dictionary = (NullableVarCharVector) MinorType.VARCHAR.getNewVector("dict", allocator, null)) {
@@ -127,7 +71,7 @@ public class TestDictionaryVector {
       m2.setSafe(2, two, 0, two.length);
       m2.setValueCount(3);
 
-      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary))) {
+      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary, 1L, false))) {
         // verify indices
         ValueVector indices = encoded.getIndexVector();
         assertEquals(NullableIntVector.class, indices.getClass());

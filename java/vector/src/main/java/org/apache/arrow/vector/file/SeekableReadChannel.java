@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,26 +14,26 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
-package org.apache.arrow.vector.types.pojo;
+ */
+package org.apache.arrow.vector.file;
 
-public class DictionaryEncoding {
+import java.io.IOException;
+import java.nio.channels.SeekableByteChannel;
 
-  // TODO for now all encodings are signed 32-bit ints
+public class SeekableReadChannel extends ReadChannel {
 
-  private final long id;
-  private final boolean ordered;
+    private final SeekableByteChannel in;
 
-  public DictionaryEncoding(long id, boolean ordered) {
-    this.id = id;
-    this.ordered = ordered;
-  }
+    public SeekableReadChannel(SeekableByteChannel in) {
+        super(in);
+        this.in = in;
+    }
 
-  public long getId() {
-  return id;
-  }
+    public void setPosition(long position) throws IOException {
+        in.position(position);
+    }
 
-  public boolean isOrdered() {
-  return ordered;
-  }
+    public long size() throws IOException {
+        return in.size();
+    }
 }
