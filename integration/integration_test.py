@@ -36,7 +36,7 @@ np.random.seed(12345)
 
 def load_version_from_pom():
     import xml.etree.ElementTree as ET
-    tree = ET.parse(os.path.join(ARROW_HOME, 'java', 'pom.xml')
+    tree = ET.parse(os.path.join(ARROW_HOME, 'java', 'pom.xml'))
     version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
     return version_tag.text
 
