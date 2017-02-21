@@ -18,6 +18,12 @@
 cmake_minimum_required(VERSION 2.7)
 project(arrow)
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
+string(REGEX MATCHALL
+  "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
+string(REGEX REPLACE
+  "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
