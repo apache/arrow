@@ -189,7 +189,7 @@ int64_t GZipCodec::Compress(
     if (ret == Z_OK) {
       // will return Z_OK (and stream.msg NOT set) if stream.avail_out is too
       // small
-      throw ParquetException("zlib deflate failed, output buffer to small");
+      throw ParquetException("zlib deflate failed, output buffer too small");
     }
     std::stringstream ss;
     ss << "zlib deflate failed: " << stream_.msg;

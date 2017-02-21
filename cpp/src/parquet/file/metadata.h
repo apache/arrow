@@ -45,32 +45,47 @@ enum SortOrder { SIGNED, UNSIGNED, UNKNOWN };
 
 class ApplicationVersion {
  public:
-  /// Known Versions with Issues
+  // Known Versions with Issues
   static const ApplicationVersion PARQUET_251_FIXED_VERSION;
   static const ApplicationVersion PARQUET_816_FIXED_VERSION;
+  // Regular expression for the version format
+  // major . minor . patch unknown - prerelease.x + build info
+  // Eg: 1.5.0ab-cdh5.5.0+cd
+  static constexpr char const* VERSION_FORMAT =
+      "^(\\d+)\\.(\\d+)\\.(\\d+)([^-+]*)?(?:-([^+]*))?(?:\\+(.*))?$";
+  // Regular expression for the application format
+  // application_name version VERSION_FORMAT (build build_name)
+  // Eg: parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
+  static constexpr char const* APPLICATION_FORMAT =
+      "(.*?)\\s*(?:(version\\s*(?:([^(]*?)\\s*(?:\\(\\s*build\\s*([^)]*?)\\s*\\))?)?)?)";
 
-  /// Application that wrote the file. e.g. "IMPALA"
-  std::string application;
+  // Application that wrote the file. e.g. "IMPALA"
+  std::string application_;
+  // Build name
+  std::string build_;
 
-  /// Version of the application that wrote the file, expressed in three parts
-  /// (<major>.<minor>.<patch>). Unspecified parts default to 0, and extra parts are
-  /// ignored. e.g.:
-  /// "1.2.3"    => {1, 2, 3}
-  /// "1.2"      => {1, 2, 0}
-  /// "1.2-cdh5" => {1, 2, 0}
+  // Version of the application that wrote the file, expressed as
+  // (<major>.<minor>.<patch>). Unmatched parts default to 0.
+  // "1.2.3"    => {1, 2, 3}
+  // "1.2"      => {0, 0, 0}
+  // "1.2-cdh5" => {0, 0, 0}
+  // TODO (majetideepak): Implement support for pre_release
   struct {
     int major;
     int minor;
     int patch;
+    std::string unknown;
+    std::string pre_release;
+    std::string build_info;
   } version;
 
   ApplicationVersion() {}
   explicit ApplicationVersion(const std::string& created_by);
 
-  /// Returns true if version is strictly less than other_version
+  // Returns true if version is strictly less than other_version
   bool VersionLt(const ApplicationVersion& other_version) const;
 
-  /// Returns true if version is strictly less than other_version
+  // Returns true if version is strictly less than other_version
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column

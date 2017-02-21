@@ -27,6 +27,8 @@
 #include "parquet/util/memory.h"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
+
 
 namespace parquet {
 
@@ -474,29 +476,36 @@ void FileMetaData::WriteTo(OutputStream* dst) {
 }
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
-  namespace ba = boost::algorithm;
+  boost::regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
+  boost::regex ver_regex{ApplicationVersion::VERSION_FORMAT};
+  boost::smatch app_matches;
+  boost::smatch ver_matches;
 
   std::string created_by_lower = created_by;
   std::transform(created_by_lower.begin(), created_by_lower.end(),
       created_by_lower.begin(), ::tolower);
 
-  std::vector<std::string> tokens;
-  ba::split(tokens, created_by_lower, ba::is_any_of(" "), ba::token_compress_on);
-  // Boost always creates at least one token
-  DCHECK_GT(tokens.size(), 0);
-  application = tokens[0];
+  bool app_success = boost::regex_match(created_by_lower, app_matches, app_regex);
+  bool ver_success = false;
+  std::string version_str;
 
-  if (tokens.size() >= 3 && tokens[1] == "version") {
-    std::string version_string = tokens[2];
-    // Ignore any trailing nodextra characters
-    int n = version_string.find_first_not_of("0123456789.");
-    std::string version_string_trimmed = version_string.substr(0, n);
+  if (app_success && app_matches.size() >= 4) {
+    // first match is the entire string. sub-matches start from second.
+    application_ = app_matches[1];
+    version_str = app_matches[3];
+    build_ = app_matches[4];
+    ver_success = boost::regex_match(version_str, ver_matches, ver_regex);
+  } else {
+      application_ = "unknown";
+  }
 
-    std::vector<std::string> version_tokens;
-    ba::split(version_tokens, version_string_trimmed, ba::is_any_of("."));
-    version.major = version_tokens.size() >= 1 ? atoi(version_tokens[0].c_str()) : 0;
-    version.minor = version_tokens.size() >= 2 ? atoi(version_tokens[1].c_str()) : 0;
-    version.patch = version_tokens.size() >= 3 ? atoi(version_tokens[2].c_str()) : 0;
+  if (ver_success && ver_matches.size() >= 7) {
+    version.major = atoi(ver_matches[1].str().c_str());
+    version.minor = atoi(ver_matches[2].str().c_str());
+    version.patch = atoi(ver_matches[3].str().c_str());
+    version.unknown = ver_matches[4].str();
+    version.pre_release = ver_matches[5].str();
+    version.build_info = ver_matches[6].str();
   } else {
     version.major = 0;
     version.minor = 0;
@@ -505,7 +514,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
 }
 
 bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) const {
-  if (application != other_version.application) return false;
+  if (application_ != other_version.application_) return false;
 
   if (version.major < other_version.version.major) return true;
   if (version.major > other_version.version.major) return false;
@@ -517,7 +526,7 @@ bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) cons
 }
 
 bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) const {
-  return application == other_version.application &&
+  return application_ == other_version.application_ &&
          version.major == other_version.version.major &&
          version.minor == other_version.version.minor &&
          version.patch == other_version.version.patch;
@@ -537,7 +546,7 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type) const {
 
   // created_by is not populated, which could have been caused by
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
-  if (application == "unknown") { return true; }
+  if (application_ == "unknown") { return true; }
 
   // PARQUET-251
   if (VersionLt(PARQUET_251_FIXED_VERSION)) { return false; }

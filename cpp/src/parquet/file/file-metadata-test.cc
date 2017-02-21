@@ -186,16 +186,32 @@ TEST(ApplicationVersion, Basics) {
   ApplicationVersion version1("parquet-mr version 1.8.0");
   ApplicationVersion version2("parquet-cpp version 1.0.0");
   ApplicationVersion version3("");
+  ApplicationVersion version4("parquet-mr version 1.5.0ab-cdh5.5.0+cd (build abcd)");
+  ApplicationVersion version5("parquet-mr");
 
-  ASSERT_EQ("parquet-mr", version.application);
+  ASSERT_EQ("parquet-mr", version.application_);
   ASSERT_EQ(1, version.version.major);
   ASSERT_EQ(7, version.version.minor);
   ASSERT_EQ(9, version.version.patch);
 
-  ASSERT_EQ("parquet-cpp", version2.application);
+  ASSERT_EQ("parquet-cpp", version2.application_);
   ASSERT_EQ(1, version2.version.major);
   ASSERT_EQ(0, version2.version.minor);
   ASSERT_EQ(0, version2.version.patch);
+
+  ASSERT_EQ("parquet-mr", version4.application_);
+  ASSERT_EQ("abcd", version4.build_);
+  ASSERT_EQ(1, version4.version.major);
+  ASSERT_EQ(5, version4.version.minor);
+  ASSERT_EQ(0, version4.version.patch);
+  ASSERT_EQ("ab", version4.version.unknown);
+  ASSERT_EQ("cdh5.5.0", version4.version.pre_release);
+  ASSERT_EQ("cd", version4.version.build_info);
+
+  ASSERT_EQ("parquet-mr", version5.application_);
+  ASSERT_EQ(0, version5.version.major);
+  ASSERT_EQ(0, version5.version.minor);
+  ASSERT_EQ(0, version5.version.patch);
 
   ASSERT_EQ(true, version.VersionLt(version1));
 
