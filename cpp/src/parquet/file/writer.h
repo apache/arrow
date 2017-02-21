@@ -38,6 +38,7 @@ class PARQUET_EXPORT RowGroupWriter {
   // easily create test fixtures
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
+    virtual ~Contents() = default;
     virtual int num_columns() const = 0;
     virtual int64_t num_rows() const = 0;
 
