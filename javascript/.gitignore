@@ -1,0 +1,4 @@
+lib/*_generated.js
+dist
+node_modules
+typings
