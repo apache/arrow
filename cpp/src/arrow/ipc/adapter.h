@@ -77,6 +77,12 @@ Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
     int64_t* body_length, MemoryPool* pool,
     int max_recursion_depth = kMaxIpcRecursionDepth);
 
+// Write Array as a DictionaryBatch message
+Status ARROW_EXPORT WriteDictionary(int64_t dictionary_id,
+    const std::shared_ptr<Array>& dictionary, int64_t buffer_start_offset,
+    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
+    MemoryPool* pool, int max_recursion_depth = kMaxIpcRecursionDepth);
+
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.

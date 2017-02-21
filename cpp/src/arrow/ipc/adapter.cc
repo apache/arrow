@@ -58,6 +58,8 @@ class RecordBatchWriter : public ArrayVisitor {
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset) {}
 
+  virtual ~RecordBatchWriter() = default;
+
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
@@ -127,6 +129,12 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
+  // Override this for writing dictionary metadata
+  virtual Status WriteMetadataMessage(int64_t body_length, std::shared_ptr<Buffer>* out) {
+    return WriteRecordBatchMetadata(
+        batch_.num_rows(), body_length, field_nodes_, buffer_meta_, out);
+  }
+
   Status WriteMetadata(
       int64_t body_length, io::OutputStream* dst, int32_t* metadata_length) {
     // Now that we have computed the locations of all of the buffers in shared
@@ -135,8 +143,7 @@ class RecordBatchWriter : public ArrayVisitor {
     // Note: The memory written here is prefixed by the size of the flatbuffer
     // itself as an int32_t.
     std::shared_ptr<Buffer> metadata_fb;
-    RETURN_NOT_OK(WriteRecordBatchMetadata(
-        batch_.num_rows(), body_length, field_nodes_, buffer_meta_, &metadata_fb));
+    RETURN_NOT_OK(WriteMetadataMessage(body_length, &metadata_fb));
 
     // Need to write 4 bytes (metadata size), the metadata, plus padding to
     // end on an 8-byte offset
@@ -484,13 +491,33 @@ class RecordBatchWriter : public ArrayVisitor {
   int64_t buffer_start_offset_;
 };
 
-Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+class DictionaryWriter : public RecordBatchWriter {
+ public:
+  DictionaryWriter(MemoryPool* pool, int64_t buffer_start_offset, int max_recursion_depth)
+      : pool_(pool),
+        batch_(nullptr),
+        max_recursion_depth_(max_recursion_depth),
+        buffer_start_offset_(buffer_start_offset) {}
+
+  Status WriteMetadataMessage(
+      int64_t body_length, std::shared_ptr<Buffer>* out) override {
+    return WriteDictionaryMetadata(
+        batch_.num_rows(), body_length, field_nodes_, buffer_meta_, out);
+  }
+}
+
+Status
+WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth) {
   DCHECK_GT(max_recursion_depth, 0);
   RecordBatchWriter serializer(pool, batch, buffer_start_offset, max_recursion_depth);
   return serializer.Write(dst, metadata_length, body_length);
 }
+
+Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool, int max_recursion_depth) {}
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
   RecordBatchWriter serializer(default_memory_pool(), batch, 0, kMaxIpcRecursionDepth);

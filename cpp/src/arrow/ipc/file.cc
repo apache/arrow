@@ -51,11 +51,12 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
 }
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, io::OutputStream* out) {
+    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
+    io::OutputStream* out) {
   FBB fbb;
 
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, &fb_schema));
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
 
   auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
@@ -171,22 +172,17 @@ Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& s
 Status FileWriter::Start() {
   RETURN_NOT_OK(WriteAligned(
       reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes)));
-  started_ = true;
-  return Status::OK();
-}
 
-Status FileWriter::WriteRecordBatch(const RecordBatch& batch) {
-  // Push an empty FileBlock
-  // Append metadata, to be written in the footer later
-  record_batches_.emplace_back(0, 0, 0);
-  return StreamWriter::WriteRecordBatch(
-      batch, &record_batches_[record_batches_.size() - 1]);
+  // We write the schema at the start of the file (and the end). This also
+  // writes all the dictionaries at the beginning of the file
+  return StreamWriter::Start();
 }
 
 Status FileWriter::Close() {
   // Write metadata
   int64_t initial_position = position_;
-  RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
+  RETURN_NOT_OK(WriteFileFooter(
+      *schema_, dictionaries_, record_batches_, dictionary_memo_.get(), sink_));
   RETURN_NOT_OK(UpdatePosition());
 
   // Write footer length

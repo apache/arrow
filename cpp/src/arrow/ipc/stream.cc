@@ -26,6 +26,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/adapter.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
@@ -44,6 +45,7 @@ StreamWriter::~StreamWriter() {}
 StreamWriter::StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
     : sink_(sink),
       schema_(schema),
+      dictionary_memo_(std::make_shared<DictionaryMemo>()),
       pool_(default_memory_pool()),
       position_(-1),
       started_(false) {}
@@ -107,7 +109,7 @@ Status StreamWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>&
 
 Status StreamWriter::Start() {
   std::shared_ptr<Buffer> schema_fb;
-  RETURN_NOT_OK(WriteSchema(*schema_, &schema_fb));
+  RETURN_NOT_OK(WriteSchema(*schema_, dictionary_memo_.get(), &schema_fb));
 
   int32_t flatbuffer_size = schema_fb->size();
   RETURN_NOT_OK(
@@ -115,14 +117,48 @@ Status StreamWriter::Start() {
 
   // Write the flatbuffer
   RETURN_NOT_OK(Write(schema_fb->data(), flatbuffer_size));
+
+  // If there are any dictionaries, write them as the next messages
+  RETURN_NOT_OK(WriteDictionaries());
+
   started_ = true;
   return Status::OK();
 }
 
 Status StreamWriter::WriteRecordBatch(const RecordBatch& batch) {
-  // Pass FileBlock, but results not used
-  FileBlock dummy_block;
-  return WriteRecordBatch(batch, &dummy_block);
+  // Push an empty FileBlock. Can be written in the footer later
+  record_batches_.emplace_back(0, 0, 0);
+  return WriteRecordBatch(batch, &record_batches_[record_batches_.size() - 1]);
+}
+
+Status StreamWriter::WriteDictionaries() {
+  const std::unordered_map<int32_t, std::shared_ptr<Array>>& id_to_dictionary =
+      dictionary_memo_->id_to_dictionary();
+
+  dictionaries_.resize(id_to_dictionary.size());
+
+  // TODO(wesm): does sorting by id yield any benefit?
+  int dict_index = 0;
+  for (const auto& entry : id_to_dictionary) {
+    FileBlock* block = &dictionaries_[dict_index++];
+
+    block->offset = position_;
+
+    // Frame of reference in file format is 0, see ARROW-384
+    const int64_t buffer_start_offset = 0;
+    RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, buffer_start_offset, sink_,
+        &block->metadata_length, &block->body_length, pool_));
+    RETURN_NOT_OK(UpdatePosition());
+    DCHECK(position_ % 8 == 0) << "WriteDictionary did not perform aligned writes";
+
+    // Make the record batch. A bit tedious as we have to make a schema
+    std::vector<std::shared_ptr<Field>> fields = {
+        arrow::field("dictionary", dict->type())};
+    auto schema = std::make_shared<Schema>(fields);
+    auto batch = std::make_shared<RecordBatch>(schema, dict->length(), {dict});
+  }
+
+  return Status::OK();
 }
 
 Status StreamWriter::Close() {

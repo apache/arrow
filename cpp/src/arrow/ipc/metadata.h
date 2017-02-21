@@ -22,12 +22,15 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Array;
 class Buffer;
 struct Field;
 class Schema;
@@ -47,9 +50,37 @@ struct MetadataVersion {
 
 //----------------------------------------------------------------------
 
-// Serialize arrow::Schema as a Flatbuffer
-ARROW_EXPORT
-Status WriteSchema(const Schema& schema, std::shared_ptr<Buffer>* out);
+// Memoization data structure for handling shared dictionaries
+class DictionaryMemo {
+ public:
+  DictionaryMemo();
+
+  using DictionaryMap = std::unordered_map<int32_t, std::shared_ptr<Array>>;
+
+  // Returns KeyError if dictionary not found
+  Status GetDictionary(int32_t id, std::shared_ptr<Array>* dictionary) const;
+
+  int32_t GetId(const std::shared_ptr<Array> dictionary);
+
+  bool HasDictionary(const std::shared_ptr<Array> dictionary) const;
+  bool HasDictionaryId(int32_t id) const;
+
+  // Add a dictionary to the memo with a particular id. Returns KeyError if
+  // that dictionary already exists
+  Status AddDictionary(int32_t id, const std::shared_ptr<Array>& dictionary);
+
+  const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
+
+ private:
+  // Dictionary memory addresses, to track whether a dictionary has been seen
+  // before
+  std::unordered_map<intptr_t, int32_t> dictionary_to_id_;
+
+  // Map of dictionary id to dictionary array
+  DictionaryMap id_to_dictionary_;
+
+  DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
+};
 
 // Read interface classes. We do not fully deserialize the flatbuffers so that
 // individual fields metadata can be retrieved from very large schema without
@@ -147,16 +178,6 @@ class ARROW_EXPORT Message {
   // Hide serialization details from user API
   class MessageImpl;
   std::unique_ptr<MessageImpl> impl_;
-};
-
-struct ARROW_EXPORT FileBlock {
-  FileBlock() {}
-  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
-      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
-
-  int64_t offset;
-  int32_t metadata_length;
-  int64_t body_length;
 };
 
 }  // namespace ipc

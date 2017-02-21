@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"
@@ -38,11 +39,60 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
-Status WriteSchema(const Schema& schema, std::shared_ptr<Buffer>* out) {
-  MessageBuilder message;
-  RETURN_NOT_OK(message.SetSchema(schema));
-  RETURN_NOT_OK(message.Finish());
-  return message.GetBuffer(out);
+// ----------------------------------------------------------------------
+// Memoization data structure for handling shared dictionaries
+
+DictionaryMemo::DictionaryMemo() {}
+
+// Returns KeyError if dictionary not found
+Status DictionaryMemo::GetDictionary(
+    int32_t id, std::shared_ptr<Array>* dictionary) const {
+  auto it = id_to_dictionary_.find(id);
+  if (it == id_to_dictionary_.end()) {
+    std::stringstream ss;
+    ss << "Dictionary with id " << id << " not found";
+    return Status::KeyError(ss.str());
+  }
+  *dictionary = it->second;
+  return Status::OK();
+}
+
+int32_t DictionaryMemo::GetId(const std::shared_ptr<Array> dictionary) {
+  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
+  auto it = dictionary_to_id_.find(address);
+  if (it != dictionary_to_id_.end()) {
+    // Dictionary already observed, return the id
+    return it->second;
+  } else {
+    int32_t new_id = static_cast<int32_t>(dictionary_to_id_.size()) + 1;
+    dictionary_to_id_[address] = new_id;
+    id_to_dictionary_[new_id] = dictionary;
+    return new_id;
+  }
+}
+
+bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array> dictionary) const {
+  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
+  auto it = dictionary_to_id_.find(address);
+  return it != dictionary_to_id_.end();
+}
+
+bool DictionaryMemo::HasDictionaryId(int32_t id) const {
+  auto it = id_to_dictionary_.find(id);
+  return it != id_to_dictionary_.end();
+}
+
+Status DictionaryMemo::AddDictionary(
+    int32_t id, const std::shared_ptr<Array>& dictionary) {
+  if (HasDictionaryId(id)) {
+    std::stringstream ss;
+    ss << "Dictionary with id " << id << " already exists";
+    return Status::KeyError(ss.str());
+  }
+  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
+  id_to_dictionary_[id] = dictionary;
+  dictionary_to_id_[address] = id;
+  return Status::OK();
 }
 
 //----------------------------------------------------------------------

@@ -114,6 +114,8 @@ class BufferDescr {
 
 class TypeVisitor {
  public:
+  virtual ~TypeVisitor() = default;
+
   virtual Status Visit(const NullType& type) = 0;
   virtual Status Visit(const BooleanType& type) = 0;
   virtual Status Visit(const Int8Type& type) = 0;

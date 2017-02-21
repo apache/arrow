@@ -70,13 +70,8 @@ set(ARROW_IO_STATIC_PRIVATE_LINK_LIBS
   boost_system_static
   boost_filesystem_static)
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_IO_TEST_LINK_LIBS
-    arrow_io_static)
-else()
-  set(ARROW_IO_TEST_LINK_LIBS
-    arrow_io_shared)
-endif()
+set(ARROW_IO_TEST_LINK_LIBS
+  arrow_io_static)
 
 set(ARROW_IO_SRCS
   file.cc

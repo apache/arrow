@@ -25,6 +25,7 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/schema.h"
@@ -36,62 +37,6 @@ namespace arrow {
 namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
-
-// ----------------------------------------------------------------------
-// Memoization data structure for handling shared dictionaries
-
-DictionaryMemo::DictionaryMemo() {}
-
-// Returns KeyError if dictionary not found
-Status DictionaryMemo::GetDictionary(
-    int32_t id, std::shared_ptr<Array>* dictionary) const {
-  auto it = id_to_dictionary_.find(id);
-  if (it == id_to_dictionary_.end()) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " not found";
-    return Status::KeyError(ss.str());
-  }
-  *dictionary = it->second;
-  return Status::OK();
-}
-
-int32_t DictionaryMemo::GetId(const std::shared_ptr<Array> dictionary) {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  if (it != dictionary_to_id_.end()) {
-    // Dictionary already observed, return the id
-    return it->second;
-  } else {
-    int32_t new_id = static_cast<int32_t>(dictionary_to_id_.size()) + 1;
-    dictionary_to_id_[address] = new_id;
-    id_to_dictionary_[new_id] = dictionary;
-    return new_id;
-  }
-}
-
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array> dictionary) const {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  return it != dictionary_to_id_.end();
-}
-
-bool DictionaryMemo::HasDictionaryId(int32_t id) const {
-  auto it = id_to_dictionary_.find(id);
-  return it != id_to_dictionary_.end();
-}
-
-Status DictionaryMemo::AddDictionary(
-    int32_t id, const std::shared_ptr<Array>& dictionary) {
-  if (HasDictionaryId(id)) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " already exists";
-    return Status::KeyError(ss.str());
-  }
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  id_to_dictionary_[id] = dictionary;
-  dictionary_to_id_[address] = id;
-  return Status::OK();
-}
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -182,12 +127,20 @@ static Offset FloatToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
   return flatbuf::CreateFloatingPoint(fbb, precision).Union();
 }
 
+static Status AppendChildFields(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo) {
+  FieldOffset field;
+  for (int i = 0; i < type->num_children(); ++i) {
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(i), dictionary_memo, &field));
+    out_children->push_back(field);
+  }
+  return Status::OK();
+}
+
 static Status ListToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo,
     Offset* offset) {
-  FieldOffset field;
-  RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(0), dictionary_memo, &field));
-  out_children->push_back(field);
+  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
   *offset = flatbuf::CreateList(fbb).Union();
   return Status::OK();
 }
@@ -195,12 +148,16 @@ static Status ListToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
 static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo,
     Offset* offset) {
-  FieldOffset field;
-  for (int i = 0; i < type->num_children(); ++i) {
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(i), dictionary_memo, &field));
-    out_children->push_back(field);
-  }
+  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
   *offset = flatbuf::CreateStruct_(fbb).Union();
+  return Status::OK();
+}
+
+static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo,
+    Offset* offset) {
+  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
+  *offset = flatbuf::CreateUnion(fbb).Union();
   return Status::OK();
 }
 
@@ -209,9 +166,19 @@ static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
+// TODO(wesm): Convert this to visitor pattern
 static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* children, std::vector<VectorLayoutOffset>* layout,
     flatbuf::Type* out_type, DictionaryMemo* dictionary_memo, Offset* offset) {
+  if (type->type == Type::DICTIONARY) {
+    // In this library, the dictionary "type" is a logical construct. Here we
+    // pass through to the value type, as we've already captured the index
+    // type in the DictionaryEncoding metadata in the parent field
+    const auto& dict_type = static_cast<const DictionaryType&>(*type);
+    return TypeToFlatbuffer(fbb, dict_type.dictionary()->type(), children, layout,
+        out_type, dictionary_memo, offset);
+  }
+
   std::vector<BufferDescr> buffer_layout = type->GetBufferLayout();
   for (const BufferDescr& descr : buffer_layout) {
     flatbuf::VectorType vector_type;
@@ -279,6 +246,9 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::STRUCT:
       *out_type = flatbuf::Type_Struct_;
       return StructToFlatbuffer(fbb, type, children, dictionary_memo, offset);
+    case Type::UNION:
+      *out_type = flatbuf::Type_Union;
+      return UnionToFlatBuffer(fbb, type, children, dictionary_memo, offset);
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
       std::stringstream ss;
@@ -362,14 +332,13 @@ flatbuf::Endianness endianness() {
   return bint.c[0] == 1 ? flatbuf::Endianness_Big : flatbuf::Endianness_Little;
 }
 
-Status SchemaToFlatbuffer(
-    FBB& fbb, const Schema& schema, flatbuffers::Offset<flatbuf::Schema>* out) {
+Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
+    flatbuffers::Offset<flatbuf::Schema>* out) {
   std::vector<FieldOffset> field_offsets;
-  DictionaryMemo dictionary_memo;
   for (int i = 0; i < schema.num_fields(); ++i) {
     std::shared_ptr<Field> field = schema.field(i);
     FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, &dictionary_memo, &offset));
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, dictionary_memo, &offset));
     field_offsets.push_back(offset);
   }
 
@@ -377,26 +346,60 @@ Status SchemaToFlatbuffer(
   return Status::OK();
 }
 
-Status MessageBuilder::SetSchema(const Schema& schema) {
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, &fb_schema));
+class MessageBuilder {
+ public:
+  Status SetSchema(const Schema& schema, DictionaryMemo* dictionary_memo) {
+    flatbuffers::Offset<flatbuf::Schema> fb_schema;
+    RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, dictionary_memo, &fb_schema));
 
-  header_type_ = flatbuf::MessageHeader_Schema;
-  header_ = fb_schema.Union();
-  body_length_ = 0;
-  return Status::OK();
-}
+    header_type_ = flatbuf::MessageHeader_Schema;
+    header_ = fb_schema.Union();
+    body_length_ = 0;
+    return Status::OK();
+  }
 
-Status MessageBuilder::SetRecordBatch(int32_t length, int64_t body_length,
-    const std::vector<flatbuf::FieldNode>& nodes,
-    const std::vector<flatbuf::Buffer>& buffers) {
-  header_type_ = flatbuf::MessageHeader_RecordBatch;
-  header_ = flatbuf::CreateRecordBatch(fbb_, length, fbb_.CreateVectorOfStructs(nodes),
-                fbb_.CreateVectorOfStructs(buffers))
-                .Union();
-  body_length_ = body_length;
+  Status SetRecordBatch(int32_t length, int64_t body_length,
+      const std::vector<flatbuf::FieldNode>& nodes,
+      const std::vector<flatbuf::Buffer>& buffers) {
+    header_type_ = flatbuf::MessageHeader_RecordBatch;
+    header_ = flatbuf::CreateRecordBatch(fbb_, length, fbb_.CreateVectorOfStructs(nodes),
+                  fbb_.CreateVectorOfStructs(buffers))
+                  .Union();
+    body_length_ = body_length;
 
-  return Status::OK();
+    return Status::OK();
+  }
+
+  Status SetDictionary(int64_t id, int32_t length, int64_t body_length,
+      const std::vector<flatbuf::FieldNode>& nodes,
+      const std::vector<flatbuf::Buffer>& buffers) {
+    header_type_ = flatbuf::MessageHeader_DictionaryBatch;
+
+    auto record_batch = flatbuf::CreateRecordBatch(fbb_, length,
+        fbb_.CreateVectorOfStructs(nodes), fbb_.CreateVectorOfStructs(buffers));
+
+    header_ = flatbuf::CreateDictionaryBatch(fbb_, id, record_batch).Union();
+    body_length_ = body_length;
+    return Status::OK();
+  }
+
+  Status Finish();
+
+  Status GetBuffer(std::shared_ptr<Buffer>* out);
+
+ private:
+  flatbuf::MessageHeader header_type_;
+  flatbuffers::Offset<void> header_;
+  int64_t body_length_;
+  flatbuffers::FlatBufferBuilder fbb_;
+};
+
+Status WriteSchema(
+    const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out) {
+  MessageBuilder message;
+  RETURN_NOT_OK(message.SetSchema(schema, dictionary_memo));
+  RETURN_NOT_OK(message.Finish());
+  return message.GetBuffer(out);
 }
 
 Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
@@ -404,6 +407,15 @@ Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
   MessageBuilder builder;
   RETURN_NOT_OK(builder.SetRecordBatch(length, body_length, nodes, buffers));
+  RETURN_NOT_OK(builder.Finish());
+  return builder.GetBuffer(out);
+}
+
+Status WriteDictionaryMetadata(int64_t id, int32_t length, int64_t body_length,
+    const std::vector<flatbuf::FieldNode>& nodes,
+    const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
+  MessageBuilder builder;
+  RETURN_NOT_OK(builder.SetDictionary(id, length, body_length, nodes, buffers));
   RETURN_NOT_OK(builder.Finish());
   return builder.GetBuffer(out);
 }

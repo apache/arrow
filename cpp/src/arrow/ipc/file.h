@@ -74,16 +74,13 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
 
-  Status WriteRecordBatch(const RecordBatch& batch) override;
+  using StreamWriter::WriteRecordBatch;
   Status Close() override;
 
  private:
   FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   Status Start() override;
-
-  std::vector<FileBlock> dictionaries_;
-  std::vector<FileBlock> record_batches_;
 };
 
 class ARROW_EXPORT FileReader {
