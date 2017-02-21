@@ -468,10 +468,8 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const DictionaryArray& array) override {
-    // Dictionary written out separately
-    const auto& indices = static_cast<const PrimitiveArray&>(*array.indices().get());
-    buffers_.push_back(indices.data());
-    return Status::OK();
+    // Dictionary written out separately. Slice offset contained in the indices
+    return array.indices()->Accept(this);
   }
 
   // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
@@ -580,10 +578,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status LoadPrimitive(const DataType& type) {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    std::shared_ptr<Buffer> null_bitmap, data;
 
-    std::shared_ptr<Buffer> data;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
     } else {
@@ -597,11 +594,9 @@ class ArrayLoader : public TypeVisitor {
   template <typename CONTAINER>
   Status LoadBinary() {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    std::shared_ptr<Buffer> null_bitmap, offsets, values;
 
-    std::shared_ptr<Buffer> offsets;
-    std::shared_ptr<Buffer> values;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
@@ -661,11 +656,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status Visit(const ListType& type) override {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap, offsets;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::shared_ptr<Buffer> offsets;
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &offsets));
     } else {
@@ -715,12 +708,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status Visit(const UnionType& type) override {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap, type_ids, offsets;
+
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::shared_ptr<Buffer> type_ids = nullptr;
-    std::shared_ptr<Buffer> offsets = nullptr;
-
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
       if (type.mode == UnionMode::DENSE) {
@@ -738,7 +728,17 @@ class ArrayLoader : public TypeVisitor {
   }
 
   Status Visit(const DictionaryType& type) override {
-    return Status::NotImplemented("dictionary");
+    FieldMetadata field_meta;
+    std::shared_ptr<Buffer> null_bitmap, indices_data;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &indices_data));
+
+    std::shared_ptr<Array> indices;
+    RETURN_NOT_OK(MakePrimitiveArray(type.index_type(), field_meta.length, indices_data,
+        null_bitmap, field_meta.null_count, 0, &indices));
+
+    result_ = std::make_shared<DictionaryArray>(field_.type, indices);
+    return Status::OK();
   };
 };
 

@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"
@@ -27,11 +28,13 @@
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 
+class Array;
 class Buffer;
 struct Field;
 class Schema;
@@ -50,6 +53,34 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* 
 
 Status SchemaToFlatbuffer(
     FBB& fbb, const Schema& schema, flatbuffers::Offset<flatbuf::Schema>* out);
+
+// Memoization data structure for handling shared dictionaries
+class DictionaryMemo {
+ public:
+  DictionaryMemo();
+
+  // Returns KeyError if dictionary not found
+  Status GetDictionary(int32_t id, std::shared_ptr<Array>* dictionary) const;
+
+  int32_t GetId(const std::shared_ptr<Array> dictionary);
+
+  bool HasDictionary(const std::shared_ptr<Array> dictionary) const;
+  bool HasDictionaryId(int32_t id) const;
+
+  // Add a dictionary to the memo with a particular id. Returns KeyError if
+  // that dictionary already exists
+  Status AddDictionary(int32_t id, const std::shared_ptr<Array>& dictionary);
+
+ private:
+  // Dictionary memory addresses, to track whether a dictionary has been seen
+  // before
+  std::unordered_map<intptr_t, int32_t> dictionary_to_id_;
+
+  // Map of dictionary id to dictionary array
+  std::unordered_map<int32_t, std::shared_ptr<Array>> id_to_dictionary_;
+
+  DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
+};
 
 class MessageBuilder {
  public:

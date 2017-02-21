@@ -40,12 +40,8 @@
 namespace arrow {
 namespace ipc {
 
-class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
-                             public io::MemoryMapFixture {
+class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
-
   Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
       std::shared_ptr<RecordBatch>* batch_result) {
     std::string path = "test-write-row-batch";
@@ -112,14 +108,29 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
   MemoryPool* pool_;
 };
 
-TEST_P(TestWriteRecordBatch, RoundTrip) {
+class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+};
+
+class TestRecordBatchParam : public ::testing::TestWithParam<MakeRecordBatch*>,
+                             public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  using IpcTestFixture::RoundTripHelper;
+  using IpcTestFixture::CheckRoundtrip;
+};
+
+TEST_P(TestRecordBatchParam, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
   CheckRoundtrip(*batch, 1 << 20);
 }
 
-TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
+TEST_P(TestRecordBatchParam, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
@@ -130,7 +141,7 @@ TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
   CheckRoundtrip(*sliced_batch, 1 << 20);
 }
 
-TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
+TEST_P(TestRecordBatchParam, ZeroLengthArrays) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
@@ -159,10 +170,10 @@ TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
 }
 
 INSTANTIATE_TEST_CASE_P(
-    RoundTripTests, TestWriteRecordBatch,
+    RoundTripTests, TestRecordBatchParam,
     ::testing::Values(&MakeIntRecordBatch, &MakeStringTypesRecordBatch,
         &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeListRecordBatch,
-        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion));
+        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion, &MakeDictionary));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
