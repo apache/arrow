@@ -29,13 +29,13 @@ source /multibuild/manylinux_utils.sh
 
 cd /arrow/python
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib:/arrow-dist/lib"
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_TESTS=ON'
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
-export ARROW_HOME="/usr"
+export ARROW_HOME="/arrow-dist"
 export PARQUET_HOME="/usr"
 
 # Ensure the target directory exists
@@ -44,8 +44,9 @@ mkdir -p /io/dist
 rm_mkdir unfixed_wheels
 
 PY35_BIN=/opt/python/cp35-cp35m/bin
-$PY35_BIN/pip install 'pyelftools<0.24'
-$PY35_BIN/pip install 'git+https://github.com/xhochy/auditwheel.git@pyarrow-fixes'
+#$PY35_BIN/pip install 'pyelftools<0.24'
+#$PY35_BIN/pip install 'git+https://github.com/xhochy/auditwheel.git@pyarrow-fixes'
+$PY35_BIN/pip install auditwheel
 
 # Override repair_wheelhouse function
 function repair_wheelhouse {
@@ -71,7 +72,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.24"
 
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc --bundle-arrow-cpp
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
     # Test for optional modules
@@ -80,5 +81,6 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.jemalloc"
 
     repair_wheelhouse dist /io/dist
+    exit 0
 done
 

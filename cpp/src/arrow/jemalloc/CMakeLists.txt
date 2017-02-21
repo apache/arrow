@@ -40,10 +40,18 @@ if (NOT APPLE)
   set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} pthread)
 endif()
 
-set(ARROW_JEMALLOC_SHARED_LINK_LIBS
-  arrow_shared
-  jemalloc_shared
-)
+if (ARROW_JEMALLOC_USE_SHARED)
+  set(ARROW_JEMALLOC_SHARED_LINK_LIBS
+    arrow_shared
+    jemalloc_shared
+  )
+else()
+  set(ARROW_JEMALLOC_SHARED_LINK_LIBS
+    arrow_shared
+    jemalloc_static
+    rt
+  )
+endif()
 
 if (ARROW_BUILD_STATIC)
   set(ARROW_JEMALLOC_TEST_LINK_LIBS

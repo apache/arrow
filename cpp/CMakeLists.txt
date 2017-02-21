@@ -88,6 +88,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow jemalloc-based allocator"
     ON)
 
+  option(ARROW_JEMALLOC_USE_SHARED
+    "Rely on jemalloc shared libraries where relevant"
+    ON)
+
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
@@ -103,6 +107,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BUILD_UTILITIES
     "Build Arrow commandline utilities"
     ON)
+
+  option(ARROW_RPATH_ORIGIN
+    "Build Arrow libraries with RATH set to \$ORIGIN"
+    OFF)
 endif()
 
 if(ARROW_BUILD_TESTS)
