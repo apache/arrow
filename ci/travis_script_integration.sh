@@ -26,9 +26,6 @@ popd
 
 pushd $TRAVIS_BUILD_DIR/integration
 
-VERSION=0.1.1-SNAPSHOT
-export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-
 export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh

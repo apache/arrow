@@ -34,6 +34,12 @@ ARROW_HOME = os.path.abspath(__file__).rsplit("/", 2)[0]
 # Control for flakiness
 np.random.seed(12345)
 
+def load_version_from_pom():
+    import xml.etree.ElementTree as ET
+    tree = ET.parse(os.path.join(ARROW_HOME, 'java', 'pom.xml'))
+    version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
+    return version_tag.text
+
 
 def guid():
     return uuid.uuid4().hex
@@ -638,11 +644,12 @@ class Tester(object):
 
 class JavaTester(Tester):
 
+    _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
         'ARROW_JAVA_INTEGRATION_JAR',
         os.path.join(ARROW_HOME,
-                     'java/tools/target/arrow-tools-0.1.1-'
-                     'SNAPSHOT-jar-with-dependencies.jar'))
+                     'java/tools/target/arrow-tools-{}-'
+                     'jar-with-dependencies.jar'.format(_arrow_version)))
 
     name = 'Java'
 
