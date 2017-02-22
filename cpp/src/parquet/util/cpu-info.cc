@@ -39,6 +39,7 @@
 #include <string>
 
 #include "parquet/exception.h"
+#include "parquet/util/logging.h"
 
 using boost::algorithm::contains;
 using boost::algorithm::trim;
@@ -174,6 +175,31 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
     DCHECK((original_hardware_flags_ & flag) != 0);
     hardware_flags_ |= flag;
   }
+}
+
+int64_t CpuInfo::hardware_flags() {
+  DCHECK(initialized_);
+  return hardware_flags_;
+}
+
+int64_t CpuInfo::CacheSize(CacheLevel level) {
+  DCHECK(initialized_);
+  return cache_sizes_[level];
+}
+
+int64_t CpuInfo::cycles_per_ms() {
+  DCHECK(initialized_);
+  return cycles_per_ms_;
+}
+
+int CpuInfo::num_cores() {
+  DCHECK(initialized_);
+  return num_cores_;
+}
+
+std::string CpuInfo::model_name() {
+  DCHECK(initialized_);
+  return model_name_;
 }
 
 }  // namespace parquet

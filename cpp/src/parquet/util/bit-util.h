@@ -30,6 +30,11 @@
 
 #include "parquet/util/compiler-util.h"
 
+#ifdef PARQUET_USE_SSE
+#include "parquet/util/cpu-info.h"
+#include "parquet/util/sse-util.h"
+#endif
+
 namespace parquet {
 
 #define INIT_BITSET(valid_bits_vector, valid_bits_index)        \

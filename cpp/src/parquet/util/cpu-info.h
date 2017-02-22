@@ -24,8 +24,6 @@
 #include <cstdint>
 #include <string>
 
-#include "parquet/util/logging.h"
-
 namespace parquet {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
@@ -54,14 +52,10 @@ class CpuInfo {
   static void VerifyCpuRequirements();
 
   /// Returns all the flags for this cpu
-  static int64_t hardware_flags() {
-    DCHECK(initialized_);
-    return hardware_flags_;
-  }
+  static int64_t hardware_flags();
 
   /// Returns whether of not the cpu supports this flag
   inline static bool IsSupported(int64_t flag) {
-    DCHECK(initialized_);
     return (hardware_flags_ & flag) != 0;
   }
 
@@ -70,28 +64,16 @@ class CpuInfo {
   static void EnableFeature(int64_t flag, bool enable);
 
   /// Returns the size of the cache in KB at this cache level
-  static int64_t CacheSize(CacheLevel level) {
-    DCHECK(initialized_);
-    return cache_sizes_[level];
-  }
+  static int64_t CacheSize(CacheLevel level);
 
   /// Returns the number of cpu cycles per millisecond
-  static int64_t cycles_per_ms() {
-    DCHECK(initialized_);
-    return cycles_per_ms_;
-  }
+  static int64_t cycles_per_ms();
 
   /// Returns the number of cores (including hyper-threaded) on this machine.
-  static int num_cores() {
-    DCHECK(initialized_);
-    return num_cores_;
-  }
+  static int num_cores();
 
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
-  static std::string model_name() {
-    DCHECK(initialized_);
-    return model_name_;
-  }
+  static std::string model_name();
 
   static bool initialized() { return initialized_; }
 
