@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "arrow/buffer.h"
