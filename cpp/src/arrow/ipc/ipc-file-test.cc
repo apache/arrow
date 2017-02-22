@@ -180,7 +180,7 @@ TEST_P(TestStreamFormat, RoundTrip) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
-      &MakeStruct, &MakeUnion, &MakeDictionary);
+      &MakeStruct, &MakeDictionary);
 
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
@@ -194,7 +194,9 @@ class TestFileFooter : public ::testing::Test {
     auto buffer = std::make_shared<PoolBuffer>();
     io::BufferOutputStream stream(buffer);
 
-    ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &stream));
+    DictionaryMemo dictionary_memo;
+    ASSERT_OK(
+        WriteFileFooter(schema, dictionaries, record_batches, &dictionary_memo, &stream));
 
     std::unique_ptr<FileFooter> footer;
     ASSERT_OK(FileFooter::Open(buffer, &footer));

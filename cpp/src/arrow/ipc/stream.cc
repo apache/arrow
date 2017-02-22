@@ -109,7 +109,7 @@ Status StreamWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>&
 
 Status StreamWriter::Start() {
   std::shared_ptr<Buffer> schema_fb;
-  RETURN_NOT_OK(WriteSchema(*schema_, dictionary_memo_.get(), &schema_fb));
+  RETURN_NOT_OK(WriteSchemaMessage(*schema_, dictionary_memo_.get(), &schema_fb));
 
   int32_t flatbuffer_size = schema_fb->size();
   RETURN_NOT_OK(
@@ -150,12 +150,6 @@ Status StreamWriter::WriteDictionaries() {
         &block->metadata_length, &block->body_length, pool_));
     RETURN_NOT_OK(UpdatePosition());
     DCHECK(position_ % 8 == 0) << "WriteDictionary did not perform aligned writes";
-
-    // Make the record batch. A bit tedious as we have to make a schema
-    std::vector<std::shared_ptr<Field>> fields = {
-        arrow::field("dictionary", dict->type())};
-    auto schema = std::make_shared<Schema>(fields);
-    auto batch = std::make_shared<RecordBatch>(schema, dict->length(), {dict});
   }
 
   return Status::OK();
@@ -184,20 +178,54 @@ Status StreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
 
 Status StreamReader::ReadSchema() {
   std::shared_ptr<Message> message;
-  RETURN_NOT_OK(ReadNextMessage(&message));
-
-  if (message->type() != Message::SCHEMA) {
-    return Status::IOError("First message was not schema type");
-  }
+  RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
 
   SchemaMetadata schema_meta(message);
+  RETURN_NOT_OK(schema_meta.GetDictionaryTypes(&dictionary_types_));
 
-  // TODO(wesm): If the schema contains dictionaries, we must read all the
-  // dictionaries from the stream before constructing the final Schema
-  return schema_meta.GetSchema(&schema_);
+  DictionaryMemo dictionary_memo;
+
+  // TODO(wesm): In future, we may want to reconcile the ids in the stream with
+  // those found in the schema
+  int num_dictionaries = static_cast<int>(ids.size());
+  for (int i = 0; i < num_dictionaries; ++i) {
+    RETURN_NOT_OK(GetNextDictionary(&dictionary_memo));
+  }
+
+  return schema_meta.GetSchema(dictionary_memo, &schema_);
 }
 
-Status StreamReader::ReadNextMessage(std::shared_ptr<Message>* message) {
+Status StreamReader::GetNextDictionary(DictionaryMemo* dictionary_memo) {
+  std::shared_ptr<Message> message;
+  RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
+
+  RecordBatchMetadata batch_metadata(message);
+  std::shared_ptr<Buffer> batch_body;
+  RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
+
+  if (batch_body->size() < message->body_length()) {
+    return Status::IOError("Unexpected EOS when reading message body");
+  }
+
+  io::BufferReader reader(batch_body);
+
+  return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+}
+
+static inline std::string message_type_name(Message::Type type) {
+  switch (type) {
+    case Message::SCHEMA:
+      return "schema";
+    case Message::RECORD_BATCH:
+      return "record batch";
+    case Message::DICTIONARY_BATCH return "dictionary"; default:
+      break;
+  }
+  return "unknown";
+}
+
+Status StreamReader::ReadNextMessage(
+    Message::Type expected_type, std::shared_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
 
@@ -212,7 +240,15 @@ Status StreamReader::ReadNextMessage(std::shared_ptr<Message>* message) {
   if (buffer->size() != message_length) {
     return Status::IOError("Unexpected end of stream trying to read message");
   }
-  return Message::Open(buffer, 0, message);
+
+  RETURN_NOT_OK(Message::Open(buffer, 0, message));
+
+  if (message->type() != expected_type) {
+    std::stringstream ss;
+    ss << "Message not expected type: " << message_type_name(expected_type);
+    return Status::IOError(ss.str());
+  }
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> StreamReader::schema() const {
@@ -221,7 +257,7 @@ std::shared_ptr<Schema> StreamReader::schema() const {
 
 Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
   std::shared_ptr<Message> message;
-  RETURN_NOT_OK(ReadNextMessage(&message));
+  RETURN_NOT_OK(ReadNextMessage(Message::RECORD_BATCH, &message));
 
   if (message == nullptr) {
     // End of stream
@@ -229,12 +265,7 @@ Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
     return Status::OK();
   }
 
-  if (message->type() != Message::RECORD_BATCH) {
-    return Status::IOError("Metadata not record batch");
-  }
-
-  auto batch_metadata = std::make_shared<RecordBatchMetadata>(message);
-
+  RecordBatchMetadata batch_metadata(message);
   std::shared_ptr<Buffer> batch_body;
   RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
 

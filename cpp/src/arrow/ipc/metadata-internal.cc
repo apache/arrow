@@ -157,7 +157,22 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo,
     Offset* offset) {
   RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
-  *offset = flatbuf::CreateUnion(fbb).Union();
+
+  const auto& union_type = static_cast<const UnionType&>(*type);
+
+  flatbuf::UnionMode mode = union_type->mode == UnionMode::SPARSE
+                                ? flatbuf::UnionMode_Sparse
+                                : flatbuf::UnionMode_Dense;
+
+  std::vector<int32_t> type_ids;
+  type_ids.reserve(union_type.type_codes.size);
+  for (uint8_t code : union_type.type_codes) {
+    type_ids.push_back(code);
+  }
+
+  auto fb_type_ids = fbb.CreateVector(type_ids);
+
+  *offset = flatbuf::CreateUnion(fbb, mode, fb_type_ids).Union();
   return Status::OK();
 }
 
@@ -303,18 +318,55 @@ static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
-Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out) {
-  std::shared_ptr<DataType> type;
+Status FieldFromFlatbufferDictionary(
+    const flatbuf::Field* field, std::shared_ptr<Field>* out) {
+  // Need an empty memo to pass down for constructing children
+  DictionaryMemo dummy_memo;
 
+  // Any DictionaryEncoding set is ignored here
+
+  std::shared_ptr<DataType> type;
   auto children = field->children();
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (size_t i = 0; i < children->size(); ++i) {
-    RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), &child_fields[i]));
+    RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), dummy_memo, &child_fields[i]));
   }
 
   RETURN_NOT_OK(
       TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));
 
+  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
+  return Status::OK();
+}
+
+Status FieldFromFlatbuffer(const flatbuf::Field* field,
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Field>* out) {
+  std::shared_ptr<DataType> type;
+
+  const flatbuf::DictionaryEncoding* encoding = field->dictionary();
+
+  if (encoding == nullptr) {
+    // The field is not dictionary encoded. We must potentially visit its
+    // children to fully reconstruct the data type
+    auto children = field->children();
+    std::vector<std::shared_ptr<Field>> child_fields(children->size());
+    for (size_t i = 0; i < children->size(); ++i) {
+      RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), &child_fields[i]));
+    }
+    RETURN_NOT_OK(
+        TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));
+  } else {
+    // The field is dictionary encoded. The type of the dictionary values has
+    // been determined elsewhere, and is stored in the DictionaryMemo. Here we
+    // construct the logical DictionaryType object
+
+    std::shared_ptr<Array> dictionary;
+    RETURN_NOT_OK(dictionary_memo.GetDictionary(encoding->id(), &dictionary));
+
+    std::shared_ptr<DataType> index_type;
+    RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
+    type = std::make_shared<DictionaryType>(index_type, dictionary);
+  }
   *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
   return Status::OK();
 }
@@ -394,7 +446,7 @@ class MessageBuilder {
   flatbuffers::FlatBufferBuilder fbb_;
 };
 
-Status WriteSchema(
+Status WriteSchemaMessage(
     const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out) {
   MessageBuilder message;
   RETURN_NOT_OK(message.SetSchema(schema, dictionary_memo));
@@ -402,7 +454,7 @@ Status WriteSchema(
   return message.GetBuffer(out);
 }
 
-Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
+Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
   MessageBuilder builder;
@@ -411,7 +463,7 @@ Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
   return builder.GetBuffer(out);
 }
 
-Status WriteDictionaryMetadata(int64_t id, int32_t length, int64_t body_length,
+Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out) {
   MessageBuilder builder;

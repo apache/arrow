@@ -46,7 +46,7 @@ DictionaryMemo::DictionaryMemo() {}
 
 // Returns KeyError if dictionary not found
 Status DictionaryMemo::GetDictionary(
-    int32_t id, std::shared_ptr<Array>* dictionary) const {
+    int64_t id, std::shared_ptr<Array>* dictionary) const {
   auto it = id_to_dictionary_.find(id);
   if (it == id_to_dictionary_.end()) {
     std::stringstream ss;
@@ -57,14 +57,14 @@ Status DictionaryMemo::GetDictionary(
   return Status::OK();
 }
 
-int32_t DictionaryMemo::GetId(const std::shared_ptr<Array> dictionary) {
+int64_t DictionaryMemo::GetId(const std::shared_ptr<Array>& dictionary) {
   intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
   auto it = dictionary_to_id_.find(address);
   if (it != dictionary_to_id_.end()) {
     // Dictionary already observed, return the id
     return it->second;
   } else {
-    int32_t new_id = static_cast<int32_t>(dictionary_to_id_.size()) + 1;
+    int64_t new_id = static_cast<int64_t>(dictionary_to_id_.size()) + 1;
     dictionary_to_id_[address] = new_id;
     id_to_dictionary_[new_id] = dictionary;
     return new_id;
@@ -77,13 +77,13 @@ bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array> dictionary) cons
   return it != dictionary_to_id_.end();
 }
 
-bool DictionaryMemo::HasDictionaryId(int32_t id) const {
+bool DictionaryMemo::HasDictionaryId(int64_t id) const {
   auto it = id_to_dictionary_.find(id);
   return it != id_to_dictionary_.end();
 }
 
 Status DictionaryMemo::AddDictionary(
-    int32_t id, const std::shared_ptr<Array>& dictionary) {
+    int64_t id, const std::shared_ptr<Array>& dictionary) {
   if (HasDictionaryId(id)) {
     std::stringstream ss;
     ss << "Dictionary with id " << id << " already exists";
@@ -163,9 +163,34 @@ class SchemaMetadata::SchemaMetadataImpl {
   explicit SchemaMetadataImpl(const void* schema)
       : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
 
-  const flatbuf::Field* field(int i) const { return schema_->fields()->Get(i); }
+  const flatbuf::Field* get_field(int i) const { return schema_->fields()->Get(i); }
 
   int num_fields() const { return schema_->fields()->size(); }
+
+  Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_field) {
+    const DictionaryEncoding* dict_metadata = field->dictionary();
+    if (dictionary == nullptr) {
+      // Field is not dictionary encoded. Visit children
+      auto children = field->children();
+      for (flatbuffers::uoffset_t i = 0; i < children->size(); ++i) {
+        RETURN_NOT_OK(VisitField(children->Get(i), id_to_field));
+      }
+    } else {
+      // Field is dictionary encoded. Construct the data type for the
+      // dictionary (no descendents can be dictionary encoded)
+      std::shared_ptr<Field> dictionary_field;
+      RETURN_NOT_OK(FieldFromFlatbufferDictionary(field, &dictionary_field));
+      id_to_field.insert({dictionary->id(), dictionary_field});
+    }
+    return Status::OK();
+  }
+
+  Status GetDictionaryTypes(DictionaryTypeMap* id_to_field) const {
+    for (int i = 0; i < num_fields(); ++i) {
+      RETURN_NOT_OK(VisitField(field(i), id_to_field));
+    }
+    return Status::OK();
+  }
 
  private:
   const flatbuf::Schema* schema_;
@@ -188,15 +213,16 @@ int SchemaMetadata::num_fields() const {
   return impl_->num_fields();
 }
 
-Status SchemaMetadata::GetField(int i, std::shared_ptr<Field>* out) const {
-  const flatbuf::Field* field = impl_->field(i);
-  return FieldFromFlatbuffer(field, out);
+void SchemaMetadata::GetDictionaryIds(std::vector<int64_t>* ids) const {
+  impl_->GetDictionaryIds(ids);
 }
 
-Status SchemaMetadata::GetSchema(std::shared_ptr<Schema>* out) const {
+Status SchemaMetadata::GetSchema(
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
   std::vector<std::shared_ptr<Field>> fields(num_fields());
   for (int i = 0; i < this->num_fields(); ++i) {
-    RETURN_NOT_OK(GetField(i, &fields[i]));
+    const flatbuf::Field* field = impl_->get_field(i);
+    RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
   *out = std::make_shared<Schema>(fields);
   return Status::OK();
@@ -223,28 +249,37 @@ class RecordBatchMetadata::RecordBatchMetadataImpl {
 
   int num_fields() const { return batch_->nodes()->size(); }
 
+  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
+
+  void set_buffer(const std::shared_ptr<Buffer>& buffer) { buffer_ = buffer; }
+
  private:
   const flatbuf::RecordBatch* batch_;
   const flatbuffers::Vector<const flatbuf::FieldNode*>* nodes_;
   const flatbuffers::Vector<const flatbuf::Buffer*>* buffers_;
+
+  // Possible parents, owns the flatbuffer data
+  std::shared_ptr<Message> message_;
+  std::shared_ptr<Buffer> buffer_;
 };
 
 RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message) {
-  message_ = message;
   impl_.reset(new RecordBatchMetadataImpl(message->impl_->header()));
+  impl_->set_message(message);
 }
 
-RecordBatchMetadata::RecordBatchMetadata(
-    const std::shared_ptr<Buffer>& buffer, int64_t offset) {
-  message_ = nullptr;
-  buffer_ = buffer;
-
+RecordBatchMetadata::RecordBatchMetadata(const void* header) {
   const flatbuf::RecordBatch* metadata =
       flatbuffers::GetRoot<flatbuf::RecordBatch>(buffer->data() + offset);
 
-  // TODO(wesm): validate table
+  impl_.reset(new RecordBatchMetadataImpl(metadata);
+}
 
-  impl_.reset(new RecordBatchMetadataImpl(metadata));
+RecordBatchMetadata::RecordBatchMetadata(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset)
+    : RecordBatchMetadata(buffer->data() + offset) {
+  // Preserve ownership
+  impl_->set_buffer(buffer);
 }
 
 RecordBatchMetadata::~RecordBatchMetadata() {}
@@ -280,6 +315,44 @@ int RecordBatchMetadata::num_buffers() const {
 
 int RecordBatchMetadata::num_fields() const {
   return impl_->num_fields();
+}
+
+// ----------------------------------------------------------------------
+// DictionaryBatchMetadata
+
+class DictionaryBatchMetadata::DictionaryBatchMetadataImpl {
+ public:
+  explicit DictionaryBatchMetadataImpl(const void* dictionary)
+      : batch_(static_cast<const flatbuf::DictionaryBatch*>(dictionary)) {
+    record_batch_.reset(new RecordBatchMetadata(batch_->data()));
+  }
+
+  int64_t id() const { return batch_->id(); }
+  const RecordBatchMetadata& record_batch() const { return *record_batch_; }
+
+  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
+
+ private:
+  const flatbuf::DictionaryBatch* metadata_;
+
+  std::unique_ptr<RecordBatchMetadata> record_batch_;
+
+  // Parent, owns the flatbuffer data
+  std::shared_ptr<Message> message_;
+};
+
+DictionaryBatchMetadata::DictionaryBatchMetadata(
+    const std::shared_ptr<Message>& message) {
+  impl_.reset(new DictionaryBatchMetadataImpl(message->impl_->header()));
+  impl_->set_message(message);
+}
+
+int64_t DictionaryBatchMetadata::id() const {
+  return impl_->id();
+}
+
+const RecordBatchMetadata& DictionaryBatchMetadata::record_batch() const {
+  return impl_->record_batch();
 }
 
 }  // namespace ipc

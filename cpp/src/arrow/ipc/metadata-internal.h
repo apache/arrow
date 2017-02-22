@@ -46,10 +46,18 @@ using Offset = flatbuffers::Offset<void>;
 
 static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V2;
 
-Status FieldFromFlatbuffer(const flatbuf::Field* field, std::shared_ptr<Field>* out);
+// Construct a field with type for a dictionary-encoded field. None of its
+// children or children's descendents can be dictionary encoded
+Status FieldFromFlatbufferDictionary(
+    const flatbuf::Field* field, std::shared_ptr<Field>* out);
 
-Status SchemaToFlatbuffer(
-    FBB& fbb, const Schema& schema, flatbuffers::Offset<flatbuf::Schema>* out);
+// Construct a field for a non-dictionary-encoded field. Its children may be
+// dictionary encoded
+Status FieldFromFlatbuffer(const flatbuf::Field* field,
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Field>* out);
+
+Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
+    flatbuffers::Offset<flatbuf::Schema>* out);
 
 // Serialize arrow::Schema as a Flatbuffer
 //
@@ -58,14 +66,14 @@ Status SchemaToFlatbuffer(
 // dictionary ids
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome
-Status WriteSchema(
+Status WriteSchemaMessage(
     const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
 
-Status WriteRecordBatchMetadata(int32_t length, int64_t body_length,
+Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 
-Status WriteDictionaryMetadata(int64_t id, int32_t length, int64_t body_length,
+Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
     const std::vector<flatbuf::FieldNode>& nodes,
     const std::vector<flatbuf::Buffer>& buffers, std::shared_ptr<Buffer>* out);
 

@@ -81,7 +81,7 @@ Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
 Status ARROW_EXPORT WriteDictionary(int64_t dictionary_id,
     const std::shared_ptr<Array>& dictionary, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxIpcRecursionDepth);
+    MemoryPool* pool);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
@@ -98,11 +98,11 @@ Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 Status ARROW_EXPORT ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
     io::ReadableFileInterface* file, std::shared_ptr<RecordBatchMetadata>* metadata);
 
-Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ARROW_EXPORT ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
     std::shared_ptr<RecordBatch>* out);
 
-Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ARROW_EXPORT ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
     io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out);
 

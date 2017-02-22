@@ -22,7 +22,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
+#include "arrow/ipc/metadata.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,9 +45,6 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
-
-class DictionaryMemo;
-class Message;
 
 struct ARROW_EXPORT FileBlock {
   FileBlock() {}
@@ -129,8 +128,12 @@ class ARROW_EXPORT StreamReader {
   explicit StreamReader(const std::shared_ptr<io::InputStream>& stream);
 
   Status ReadSchema();
+  Status ReadNextMessage(Message::Type expected_type, std::shared_ptr<Message>* message);
 
-  Status ReadNextMessage(std::shared_ptr<Message>* message);
+  Status GetNextDictionary(std::shared_ptr<Array>* dictionary);
+
+  // dictionary_id -> type
+  DictionaryTypeMap dictionary_types_;
 
   std::shared_ptr<io::InputStream> stream_;
   std::shared_ptr<Schema> schema_;

@@ -104,9 +104,10 @@ class FileFooter::FileFooterImpl {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
   }
 
-  Status GetSchema(std::shared_ptr<Schema>* out) const {
+  Status GetSchema(
+      const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
     auto schema_msg = std::make_shared<SchemaMetadata>(nullptr, footer_->schema());
-    return schema_msg->GetSchema(out);
+    return schema_msg->GetSchema(dictionary_memo, out);
   }
 
  private:
@@ -152,8 +153,9 @@ FileBlock FileFooter::dictionary(int i) const {
   return impl_->dictionary(i);
 }
 
-Status FileFooter::GetSchema(std::shared_ptr<Schema>* out) const {
-  return impl_->GetSchema(out);
+Status FileFooter::GetSchema(
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
+  return impl_->GetSchema(dictionary_memo, out);
 }
 
 // ----------------------------------------------------------------------
@@ -216,7 +218,8 @@ Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
 Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
     int64_t footer_offset, std::shared_ptr<FileReader>* reader) {
   *reader = std::shared_ptr<FileReader>(new FileReader(file, footer_offset));
-  return (*reader)->ReadFooter();
+  RETURN_NOT_OK((*reader)->ReadFooter());
+  return ReadSchema();
 }
 
 Status FileReader::ReadFooter() {
@@ -245,10 +248,14 @@ Status FileReader::ReadFooter() {
   // Now read the footer
   RETURN_NOT_OK(file_->ReadAt(
       footer_offset_ - footer_length - file_end_size, footer_length, &buffer));
-  RETURN_NOT_OK(FileFooter::Open(buffer, &footer_));
+  return FileFooter::Open(buffer, &footer_);
+}
+
+Status FileReader::ReadSchema() {
+  DictionaryMemo dictionary_memo;
 
   // Get the schema
-  return footer_->GetSchema(&schema_);
+  return footer_->GetSchema(dictionary_memo, &schema_);
 }
 
 std::shared_ptr<Schema> FileReader::schema() const {
@@ -282,7 +289,7 @@ Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
   io::BufferReader reader(buffer_block);
 
-  return ReadRecordBatch(metadata, schema_, &reader, batch);
+  return ReadRecordBatch(*metadata, schema_, &reader, batch);
 }
 
 }  // namespace ipc

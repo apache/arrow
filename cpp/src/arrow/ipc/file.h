@@ -45,7 +45,8 @@ class ReadableFileInterface;
 namespace ipc {
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, io::OutputStream* out);
+    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
+    io::OutputStream* out);
 
 class ARROW_EXPORT FileFooter {
  public:
