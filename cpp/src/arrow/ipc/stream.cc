@@ -226,36 +226,15 @@ class StreamReader::StreamReaderImpl {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
 
-    DictionaryBatchMetadata dictionary_metadata(message);
+    DictionaryBatchMetadata metadata(message);
 
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
     io::BufferReader reader(batch_body);
 
-    int64_t id = dictionary_metadata.id();
-
-    auto it = dictionary_types_.find(id);
-    if (it == dictionary_types_.end()) {
-      std::stringstream ss;
-      ss << "Do not have type metadata for dictionary with id: " << id;
-      return Status::KeyError(ss.str());
-    }
-
-    std::vector<std::shared_ptr<Field>> fields = {it->second};
-
-    // We need a schema for the record batch
-    auto dummy_schema = std::make_shared<Schema>(fields);
-
-    // The dictionary is embedded in a record batch with a single column
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(ReadRecordBatch(
-        dictionary_metadata.record_batch(), dummy_schema, &reader, &batch));
-
-    if (batch->num_columns() != 1) {
-      return Status::Invalid("Dictionary record batch must only contain one field");
-    }
-
-    return dictionary_memo_.AddDictionary(id, batch->column(0));
+    std::shared_ptr<Array> dictionary;
+    RETURN_NOT_OK(ReadDictionary(metadata, dictionary_types_, &reader, &dictionary));
+    return dictionary_memo_.AddDictionary(metadata.id(), dictionary);
   }
 
   Status ReadSchema() {

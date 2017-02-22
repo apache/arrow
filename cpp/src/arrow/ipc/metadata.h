@@ -40,6 +40,7 @@ class Status;
 namespace io {
 
 class OutputStream;
+class ReadableFileInterface;
 
 }  // namespace io
 
@@ -198,6 +199,20 @@ class ARROW_EXPORT Message {
 
   DISALLOW_COPY_AND_ASSIGN(Message);
 };
+
+/// Read a length-prefixed message flatbuffer starting at the indicated file
+/// offset
+///
+/// The metadata_length includes at least the length prefix and the flatbuffer
+///
+/// \param[in] offset the position in the file where the message starts. The
+/// first 4 bytes after the offset are the message length
+/// \param[in] metadata_length the total number of bytes to read from file
+/// \param[in] file the seekable file interface to read from
+/// \param[out] message the message read
+/// \return Status success or failure
+Status ReadMessage(int64_t offset, int32_t metadata_length,
+    io::ReadableFileInterface* file, std::shared_ptr<Message>* message);
 
 }  // namespace ipc
 }  // namespace arrow

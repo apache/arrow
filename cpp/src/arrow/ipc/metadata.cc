@@ -269,10 +269,7 @@ RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message
 }
 
 RecordBatchMetadata::RecordBatchMetadata(const void* header) {
-  const flatbuf::RecordBatch* metadata =
-      flatbuffers::GetRoot<flatbuf::RecordBatch>(header);
-
-  impl_.reset(new RecordBatchMetadataImpl(metadata));
+  impl_.reset(new RecordBatchMetadataImpl(header));
 }
 
 RecordBatchMetadata::RecordBatchMetadata(
@@ -355,6 +352,25 @@ int64_t DictionaryBatchMetadata::id() const {
 
 const RecordBatchMetadata& DictionaryBatchMetadata::record_batch() const {
   return impl_->record_batch();
+}
+
+// ----------------------------------------------------------------------
+// Conveniences
+
+Status ReadMessage(int64_t offset, int32_t metadata_length,
+    io::ReadableFileInterface* file, std::shared_ptr<Message>* message) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
+
+  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
+
+  if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
+    std::stringstream ss;
+    ss << "flatbuffer size " << metadata_length << " invalid. File offset: " << offset
+       << ", metadata length: " << metadata_length;
+    return Status::Invalid(ss.str());
+  }
+  return Message::Open(buffer, 4, message);
 }
 
 }  // namespace ipc

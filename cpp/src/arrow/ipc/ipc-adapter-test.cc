@@ -27,6 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/adapter.h"
+#include "arrow/ipc/metadata.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/ipc/util.h"
 
@@ -55,8 +56,9 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(WriteRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
 
-    std::shared_ptr<RecordBatchMetadata> metadata;
-    RETURN_NOT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // The buffer offsets start at 0, so we must construct a
     // ReadableFileInterface according to that frame of reference
@@ -262,8 +264,9 @@ TEST_F(RecursionLimits, ReadLimit) {
   std::shared_ptr<Schema> schema;
   ASSERT_OK(WriteToMmap(64, true, &metadata_length, &body_length, &schema));
 
-  std::shared_ptr<RecordBatchMetadata> metadata;
-  ASSERT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+  std::shared_ptr<Message> message;
+  ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+  auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
   std::shared_ptr<Buffer> payload;
   ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));

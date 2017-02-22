@@ -822,26 +822,6 @@ class RecordBatchReader {
   io::ReadableFileInterface* file_;
 };
 
-Status ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
-    io::ReadableFileInterface* file, std::shared_ptr<RecordBatchMetadata>* metadata) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
-
-  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
-    std::stringstream ss;
-    ss << "flatbuffer size " << metadata_length << " invalid. File offset: " << offset
-       << ", metadata length: " << metadata_length;
-    return Status::Invalid(ss.str());
-  }
-
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(Message::Open(buffer, 4, &message));
-  *metadata = std::make_shared<RecordBatchMetadata>(message);
-  return Status::OK();
-}
-
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
     std::shared_ptr<RecordBatch>* out) {
@@ -853,6 +833,34 @@ Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out) {
   RecordBatchReader reader(metadata, schema, max_recursion_depth, file);
   return reader.Read(out);
+}
+
+Status ReadDictionary(const DictionaryBatchMetadata& metadata,
+    const DictionaryTypeMap& dictionary_types, io::ReadableFileInterface* file,
+    std::shared_ptr<Array>* out) {
+  int64_t id = metadata.id();
+  auto it = dictionary_types.find(id);
+  if (it == dictionary_types.end()) {
+    std::stringstream ss;
+    ss << "Do not have type metadata for dictionary with id: " << id;
+    return Status::KeyError(ss.str());
+  }
+
+  std::vector<std::shared_ptr<Field>> fields = {it->second};
+
+  // We need a schema for the record batch
+  auto dummy_schema = std::make_shared<Schema>(fields);
+
+  // The dictionary is embedded in a record batch with a single column
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(ReadRecordBatch(metadata.record_batch(), dummy_schema, file, &batch));
+
+  if (batch->num_columns() != 1) {
+    return Status::Invalid("Dictionary record batch must only contain one field");
+  }
+
+  *out = batch->column(0);
+  return Status::OK();
 }
 
 }  // namespace ipc

@@ -119,6 +119,8 @@ Status FileWriter::Close() {
 
 class FileReader::FileReaderImpl {
  public:
+  FileReaderImpl() { dictionary_memo_ = std::make_shared<DictionaryMemo>(); }
+
   Status ReadFooter() {
     int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
 
@@ -179,24 +181,15 @@ class FileReader::FileReaderImpl {
 
   const SchemaMetadata& schema_metadata() const { return *schema_metadata_; }
 
-  Status ReadSchema() {
-    DictionaryMemo dictionary_memo;
-    DictionaryTypeMap id_to_field;
-
-    RETURN_NOT_OK(schema_metadata_->GetDictionaryTypes(&id_to_field));
-
-    // Get the schema
-    return schema_metadata_->GetSchema(dictionary_memo, &schema_);
-  }
-
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
     FileBlock block = record_batch(i);
 
-    std::shared_ptr<RecordBatchMetadata> metadata;
-    RETURN_NOT_OK(ReadRecordBatchMetadata(
-        block.offset, block.metadata_length, file_.get(), &metadata));
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(
+        ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
+    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
     // ARROW-384).
@@ -205,6 +198,35 @@ class FileReader::FileReaderImpl {
     io::BufferReader reader(buffer_block);
 
     return ReadRecordBatch(*metadata, schema_, &reader, batch);
+  }
+
+  Status ReadSchema() {
+    RETURN_NOT_OK(schema_metadata_->GetDictionaryTypes(&dictionary_fields_));
+
+    // Read all the dictionaries
+    for (int i = 0; i < num_dictionaries(); ++i) {
+      FileBlock block = dictionary(i);
+      std::shared_ptr<Message> message;
+      RETURN_NOT_OK(
+          ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
+
+      // TODO(wesm): ARROW-577: This code is duplicated, can be fixed with a more
+      // invasive refactor
+      DictionaryBatchMetadata metadata(message);
+
+      // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
+      // ARROW-384).
+      std::shared_ptr<Buffer> buffer_block;
+      RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
+      io::BufferReader reader(buffer_block);
+
+      std::shared_ptr<Array> dictionary;
+      RETURN_NOT_OK(ReadDictionary(metadata, dictionary_fields_, &reader, &dictionary));
+      RETURN_NOT_OK(dictionary_memo_->AddDictionary(metadata.id(), dictionary));
+    }
+
+    // Get the schema
+    return schema_metadata_->GetSchema(*dictionary_memo_, &schema_);
   }
 
   Status Open(
@@ -228,6 +250,9 @@ class FileReader::FileReaderImpl {
   std::shared_ptr<Buffer> footer_buffer_;
   const flatbuf::Footer* footer_;
   std::unique_ptr<SchemaMetadata> schema_metadata_;
+
+  DictionaryTypeMap dictionary_fields_;
+  std::shared_ptr<DictionaryMemo> dictionary_memo_;
 
   // Reconstructed schema, including any read dictionaries
   std::shared_ptr<Schema> schema_;
