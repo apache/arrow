@@ -58,7 +58,7 @@ struct ARROW_EXPORT FileBlock {
 
 class ARROW_EXPORT StreamWriter {
  public:
-  virtual ~StreamWriter();
+  virtual ~StreamWriter() = default;
 
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<StreamWriter>* out);
@@ -125,18 +125,10 @@ class ARROW_EXPORT StreamReader {
   Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
 
  private:
-  explicit StreamReader(const std::shared_ptr<io::InputStream>& stream);
+  StreamReader();
 
-  Status ReadSchema();
-  Status ReadNextMessage(Message::Type expected_type, std::shared_ptr<Message>* message);
-
-  Status GetNextDictionary(std::shared_ptr<Array>* dictionary);
-
-  // dictionary_id -> type
-  DictionaryTypeMap dictionary_types_;
-
-  std::shared_ptr<io::InputStream> stream_;
-  std::shared_ptr<Schema> schema_;
+  class ARROW_NO_EXPORT StreamReaderImpl;
+  std::unique_ptr<StreamReaderImpl> impl_;
 };
 
 }  // namespace ipc

@@ -160,12 +160,12 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
 
   const auto& union_type = static_cast<const UnionType&>(*type);
 
-  flatbuf::UnionMode mode = union_type->mode == UnionMode::SPARSE
+  flatbuf::UnionMode mode = union_type.mode == UnionMode::SPARSE
                                 ? flatbuf::UnionMode_Sparse
                                 : flatbuf::UnionMode_Dense;
 
   std::vector<int32_t> type_ids;
-  type_ids.reserve(union_type.type_codes.size);
+  type_ids.reserve(union_type.type_codes.size());
   for (uint8_t code : union_type.type_codes) {
     type_ids.push_back(code);
   }
@@ -351,7 +351,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field,
     auto children = field->children();
     std::vector<std::shared_ptr<Field>> child_fields(children->size());
     for (size_t i = 0; i < children->size(); ++i) {
-      RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), &child_fields[i]));
+      RETURN_NOT_OK(
+          FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
     }
     RETURN_NOT_OK(
         TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));

@@ -52,8 +52,10 @@ class TestSchemaMetadata : public ::testing::Test {
     auto schema_msg = std::make_shared<SchemaMetadata>(message);
     ASSERT_EQ(schema.num_fields(), schema_msg->num_fields());
 
+    DictionaryMemo empty_memo;
+
     std::shared_ptr<Schema> schema2;
-    ASSERT_OK(schema_msg->GetSchema(&schema2));
+    ASSERT_OK(schema_msg->GetSchema(empty_memo, &schema2));
 
     AssertSchemaEqual(schema, *schema2);
   }

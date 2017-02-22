@@ -167,9 +167,9 @@ class SchemaMetadata::SchemaMetadataImpl {
 
   int num_fields() const { return schema_->fields()->size(); }
 
-  Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_field) {
-    const DictionaryEncoding* dict_metadata = field->dictionary();
-    if (dictionary == nullptr) {
+  Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_field) const {
+    const flatbuf::DictionaryEncoding* dict_metadata = field->dictionary();
+    if (dict_metadata == nullptr) {
       // Field is not dictionary encoded. Visit children
       auto children = field->children();
       for (flatbuffers::uoffset_t i = 0; i < children->size(); ++i) {
@@ -180,14 +180,14 @@ class SchemaMetadata::SchemaMetadataImpl {
       // dictionary (no descendents can be dictionary encoded)
       std::shared_ptr<Field> dictionary_field;
       RETURN_NOT_OK(FieldFromFlatbufferDictionary(field, &dictionary_field));
-      id_to_field.insert({dictionary->id(), dictionary_field});
+      (*id_to_field)[dict_metadata->id()] = dictionary_field;
     }
     return Status::OK();
   }
 
   Status GetDictionaryTypes(DictionaryTypeMap* id_to_field) const {
     for (int i = 0; i < num_fields(); ++i) {
-      RETURN_NOT_OK(VisitField(field(i), id_to_field));
+      RETURN_NOT_OK(VisitField(get_field(i), id_to_field));
     }
     return Status::OK();
   }
@@ -213,8 +213,8 @@ int SchemaMetadata::num_fields() const {
   return impl_->num_fields();
 }
 
-void SchemaMetadata::GetDictionaryIds(std::vector<int64_t>* ids) const {
-  impl_->GetDictionaryIds(ids);
+Status SchemaMetadata::GetDictionaryTypes(DictionaryTypeMap* id_to_field) const {
+  return impl_->GetDictionaryTypes(id_to_field);
 }
 
 Status SchemaMetadata::GetSchema(
@@ -270,9 +270,9 @@ RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message
 
 RecordBatchMetadata::RecordBatchMetadata(const void* header) {
   const flatbuf::RecordBatch* metadata =
-      flatbuffers::GetRoot<flatbuf::RecordBatch>(buffer->data() + offset);
+      flatbuffers::GetRoot<flatbuf::RecordBatch>(header);
 
-  impl_.reset(new RecordBatchMetadataImpl(metadata);
+  impl_.reset(new RecordBatchMetadataImpl(metadata));
 }
 
 RecordBatchMetadata::RecordBatchMetadata(
@@ -323,11 +323,11 @@ int RecordBatchMetadata::num_fields() const {
 class DictionaryBatchMetadata::DictionaryBatchMetadataImpl {
  public:
   explicit DictionaryBatchMetadataImpl(const void* dictionary)
-      : batch_(static_cast<const flatbuf::DictionaryBatch*>(dictionary)) {
-    record_batch_.reset(new RecordBatchMetadata(batch_->data()));
+      : metadata_(static_cast<const flatbuf::DictionaryBatch*>(dictionary)) {
+    record_batch_.reset(new RecordBatchMetadata(metadata_->data()));
   }
 
-  int64_t id() const { return batch_->id(); }
+  int64_t id() const { return metadata_->id(); }
   const RecordBatchMetadata& record_batch() const { return *record_batch_; }
 
   void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
@@ -346,6 +346,8 @@ DictionaryBatchMetadata::DictionaryBatchMetadata(
   impl_.reset(new DictionaryBatchMetadataImpl(message->impl_->header()));
   impl_->set_message(message);
 }
+
+DictionaryBatchMetadata::~DictionaryBatchMetadata() {}
 
 int64_t DictionaryBatchMetadata::id() const {
   return impl_->id();

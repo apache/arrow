@@ -36,8 +36,6 @@ namespace arrow {
 namespace ipc {
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
-// ----------------------------------------------------------------------
-// File footer
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
 FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
@@ -73,89 +71,6 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
 static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
-}
-
-class FileFooter::FileFooterImpl {
- public:
-  FileFooterImpl(const std::shared_ptr<Buffer>& buffer, const flatbuf::Footer* footer)
-      : buffer_(buffer), footer_(footer) {}
-
-  int num_dictionaries() const { return footer_->dictionaries()->size(); }
-
-  int num_record_batches() const { return footer_->recordBatches()->size(); }
-
-  MetadataVersion::type version() const {
-    switch (footer_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        return MetadataVersion::V2;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V2;
-    }
-  }
-
-  FileBlock record_batch(int i) const {
-    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
-  }
-
-  FileBlock dictionary(int i) const {
-    return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
-  }
-
-  Status GetSchema(
-      const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
-    auto schema_msg = std::make_shared<SchemaMetadata>(nullptr, footer_->schema());
-    return schema_msg->GetSchema(dictionary_memo, out);
-  }
-
- private:
-  // Retain reference to memory
-  std::shared_ptr<Buffer> buffer_;
-
-  const flatbuf::Footer* footer_;
-};
-
-FileFooter::FileFooter() {}
-
-FileFooter::~FileFooter() {}
-
-Status FileFooter::Open(
-    const std::shared_ptr<Buffer>& buffer, std::unique_ptr<FileFooter>* out) {
-  const flatbuf::Footer* footer = flatbuf::GetFooter(buffer->data());
-
-  *out = std::unique_ptr<FileFooter>(new FileFooter());
-
-  // TODO(wesm): Verify the footer
-  (*out)->impl_.reset(new FileFooterImpl(buffer, footer));
-
-  return Status::OK();
-}
-
-int FileFooter::num_dictionaries() const {
-  return impl_->num_dictionaries();
-}
-
-int FileFooter::num_record_batches() const {
-  return impl_->num_record_batches();
-}
-
-MetadataVersion::type FileFooter::version() const {
-  return impl_->version();
-}
-
-FileBlock FileFooter::record_batch(int i) const {
-  return impl_->record_batch(i);
-}
-
-FileBlock FileFooter::dictionary(int i) const {
-  return impl_->dictionary(i);
-}
-
-Status FileFooter::GetSchema(
-    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
-  return impl_->GetSchema(dictionary_memo, out);
 }
 
 // ----------------------------------------------------------------------
@@ -202,9 +117,125 @@ Status FileWriter::Close() {
 // ----------------------------------------------------------------------
 // Reader implementation
 
-FileReader::FileReader(
-    const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset)
-    : file_(file), footer_offset_(footer_offset) {}
+class FileReader::FileReaderImpl {
+ public:
+  Status ReadFooter() {
+    int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
+
+    if (footer_offset_ <= magic_size * 2 + 4) {
+      std::stringstream ss;
+      ss << "File is too small: " << footer_offset_;
+      return Status::Invalid(ss.str());
+    }
+
+    std::shared_ptr<Buffer> buffer;
+    int file_end_size = magic_size + sizeof(int32_t);
+    RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+
+    if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
+      return Status::Invalid("Not an Arrow file");
+    }
+
+    int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+    if (footer_length <= 0 || footer_length + magic_size * 2 + 4 > footer_offset_) {
+      return Status::Invalid("File is smaller than indicated metadata size");
+    }
+
+    // Now read the footer
+    RETURN_NOT_OK(file_->ReadAt(
+        footer_offset_ - footer_length - file_end_size, footer_length, &footer_buffer_));
+
+    // TODO(wesm): Verify the footer
+    footer_ = flatbuf::GetFooter(footer_buffer_->data());
+    schema_metadata_.reset(new SchemaMetadata(nullptr, footer_->schema()));
+
+    return Status::OK();
+  }
+
+  int num_dictionaries() const { return footer_->dictionaries()->size(); }
+
+  int num_record_batches() const { return footer_->recordBatches()->size(); }
+
+  MetadataVersion::type version() const {
+    switch (footer_->version()) {
+      case flatbuf::MetadataVersion_V1:
+        return MetadataVersion::V1;
+      case flatbuf::MetadataVersion_V2:
+        return MetadataVersion::V2;
+      // Add cases as other versions become available
+      default:
+        return MetadataVersion::V2;
+    }
+  }
+
+  FileBlock record_batch(int i) const {
+    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
+  }
+
+  FileBlock dictionary(int i) const {
+    return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
+  }
+
+  const SchemaMetadata& schema_metadata() const { return *schema_metadata_; }
+
+  Status ReadSchema() {
+    DictionaryMemo dictionary_memo;
+    DictionaryTypeMap id_to_field;
+
+    RETURN_NOT_OK(schema_metadata_->GetDictionaryTypes(&id_to_field));
+
+    // Get the schema
+    return schema_metadata_->GetSchema(dictionary_memo, &schema_);
+  }
+
+  Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, num_record_batches());
+    FileBlock block = record_batch(i);
+
+    std::shared_ptr<RecordBatchMetadata> metadata;
+    RETURN_NOT_OK(ReadRecordBatchMetadata(
+        block.offset, block.metadata_length, file_.get(), &metadata));
+
+    // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
+    // ARROW-384).
+    std::shared_ptr<Buffer> buffer_block;
+    RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
+    io::BufferReader reader(buffer_block);
+
+    return ReadRecordBatch(*metadata, schema_, &reader, batch);
+  }
+
+  Status Open(
+      const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset) {
+    file_ = file;
+    footer_offset_ = footer_offset;
+    RETURN_NOT_OK(ReadFooter());
+    return ReadSchema();
+  }
+
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+ private:
+  std::shared_ptr<io::ReadableFileInterface> file_;
+
+  // The location where the Arrow file layout ends. May be the end of the file
+  // or some other location if embedded in a larger file.
+  int64_t footer_offset_;
+
+  // Footer metadata
+  std::shared_ptr<Buffer> footer_buffer_;
+  const flatbuf::Footer* footer_;
+  std::unique_ptr<SchemaMetadata> schema_metadata_;
+
+  // Reconstructed schema, including any read dictionaries
+  std::shared_ptr<Schema> schema_;
+};
+
+FileReader::FileReader() {
+  impl_.reset(new FileReaderImpl());
+}
 
 FileReader::~FileReader() {}
 
@@ -217,79 +248,24 @@ Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
 
 Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
     int64_t footer_offset, std::shared_ptr<FileReader>* reader) {
-  *reader = std::shared_ptr<FileReader>(new FileReader(file, footer_offset));
-  RETURN_NOT_OK((*reader)->ReadFooter());
-  return ReadSchema();
-}
-
-Status FileReader::ReadFooter() {
-  int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
-
-  if (footer_offset_ <= magic_size * 2 + 4) {
-    std::stringstream ss;
-    ss << "File is too small: " << footer_offset_;
-    return Status::Invalid(ss.str());
-  }
-
-  std::shared_ptr<Buffer> buffer;
-  int file_end_size = magic_size + sizeof(int32_t);
-  RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
-
-  if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
-    return Status::Invalid("Not an Arrow file");
-  }
-
-  int32_t footer_length = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  if (footer_length <= 0 || footer_length + magic_size * 2 + 4 > footer_offset_) {
-    return Status::Invalid("File is smaller than indicated metadata size");
-  }
-
-  // Now read the footer
-  RETURN_NOT_OK(file_->ReadAt(
-      footer_offset_ - footer_length - file_end_size, footer_length, &buffer));
-  return FileFooter::Open(buffer, &footer_);
-}
-
-Status FileReader::ReadSchema() {
-  DictionaryMemo dictionary_memo;
-
-  // Get the schema
-  return footer_->GetSchema(dictionary_memo, &schema_);
+  *reader = std::shared_ptr<FileReader>(new FileReader());
+  return (*reader)->impl_->Open(file, footer_offset);
 }
 
 std::shared_ptr<Schema> FileReader::schema() const {
-  return schema_;
-}
-
-int FileReader::num_dictionaries() const {
-  return footer_->num_dictionaries();
+  return impl_->schema();
 }
 
 int FileReader::num_record_batches() const {
-  return footer_->num_record_batches();
+  return impl_->num_record_batches();
 }
 
 MetadataVersion::type FileReader::version() const {
-  return footer_->version();
+  return impl_->version();
 }
 
 Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
-  DCHECK_GE(i, 0);
-  DCHECK_LT(i, num_record_batches());
-  FileBlock block = footer_->record_batch(i);
-
-  std::shared_ptr<RecordBatchMetadata> metadata;
-  RETURN_NOT_OK(ReadRecordBatchMetadata(
-      block.offset, block.metadata_length, file_.get(), &metadata));
-
-  // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
-  // ARROW-384).
-  std::shared_ptr<Buffer> buffer_block;
-  RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
-  io::BufferReader reader(buffer_block);
-
-  return ReadRecordBatch(*metadata, schema_, &reader, batch);
+  return impl_->GetRecordBatch(i, batch);
 }
 
 }  // namespace ipc

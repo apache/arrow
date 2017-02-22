@@ -64,7 +64,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
     io::BufferReader buffer_reader(buffer_payload);
 
-    return ReadRecordBatch(metadata, batch.schema(), &buffer_reader, batch_result);
+    return ReadRecordBatch(*metadata, batch.schema(), &buffer_reader, batch_result);
   }
 
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
@@ -271,7 +271,7 @@ TEST_F(RecursionLimits, ReadLimit) {
   io::BufferReader reader(payload);
 
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_RAISES(Invalid, ReadRecordBatch(metadata, schema, &reader, &batch));
+  ASSERT_RAISES(Invalid, ReadRecordBatch(*metadata, schema, &reader, &batch));
 }
 
 }  // namespace ipc

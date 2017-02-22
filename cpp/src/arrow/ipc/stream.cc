@@ -32,6 +32,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -39,8 +40,6 @@ namespace ipc {
 
 // ----------------------------------------------------------------------
 // Stream writer implementation
-
-StreamWriter::~StreamWriter() {}
 
 StreamWriter::StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
     : sink_(sink),
@@ -132,8 +131,7 @@ Status StreamWriter::WriteRecordBatch(const RecordBatch& batch) {
 }
 
 Status StreamWriter::WriteDictionaries() {
-  const std::unordered_map<int32_t, std::shared_ptr<Array>>& id_to_dictionary =
-      dictionary_memo_->id_to_dictionary();
+  const DictionaryMap& id_to_dictionary = dictionary_memo_->id_to_dictionary();
 
   dictionaries_.resize(id_to_dictionary.size());
 
@@ -164,118 +162,168 @@ Status StreamWriter::Close() {
 // ----------------------------------------------------------------------
 // StreamReader implementation
 
-StreamReader::StreamReader(const std::shared_ptr<io::InputStream>& stream)
-    : stream_(stream), schema_(nullptr) {}
-
-StreamReader::~StreamReader() {}
-
-Status StreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
-    std::shared_ptr<StreamReader>* reader) {
-  // Private ctor
-  *reader = std::shared_ptr<StreamReader>(new StreamReader(stream));
-  return (*reader)->ReadSchema();
-}
-
-Status StreamReader::ReadSchema() {
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
-
-  SchemaMetadata schema_meta(message);
-  RETURN_NOT_OK(schema_meta.GetDictionaryTypes(&dictionary_types_));
-
-  DictionaryMemo dictionary_memo;
-
-  // TODO(wesm): In future, we may want to reconcile the ids in the stream with
-  // those found in the schema
-  int num_dictionaries = static_cast<int>(ids.size());
-  for (int i = 0; i < num_dictionaries; ++i) {
-    RETURN_NOT_OK(GetNextDictionary(&dictionary_memo));
-  }
-
-  return schema_meta.GetSchema(dictionary_memo, &schema_);
-}
-
-Status StreamReader::GetNextDictionary(DictionaryMemo* dictionary_memo) {
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
-
-  RecordBatchMetadata batch_metadata(message);
-  std::shared_ptr<Buffer> batch_body;
-  RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
-
-  if (batch_body->size() < message->body_length()) {
-    return Status::IOError("Unexpected EOS when reading message body");
-  }
-
-  io::BufferReader reader(batch_body);
-
-  return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
-}
-
 static inline std::string message_type_name(Message::Type type) {
   switch (type) {
     case Message::SCHEMA:
       return "schema";
     case Message::RECORD_BATCH:
       return "record batch";
-    case Message::DICTIONARY_BATCH return "dictionary"; default:
+    case Message::DICTIONARY_BATCH:
+      return "dictionary";
+    default:
       break;
   }
   return "unknown";
 }
 
-Status StreamReader::ReadNextMessage(
-    Message::Type expected_type, std::shared_ptr<Message>* message) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
+class StreamReader::StreamReaderImpl {
+ public:
+  StreamReaderImpl() {}
+  ~StreamReaderImpl() {}
 
-  if (buffer->size() != sizeof(int32_t)) {
-    *message = nullptr;
+  Status Open(const std::shared_ptr<io::InputStream>& stream) {
+    stream_ = stream;
+    return ReadSchema();
+  }
+
+  Status ReadNextMessage(Message::Type expected_type, std::shared_ptr<Message>* message) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
+
+    if (buffer->size() != sizeof(int32_t)) {
+      *message = nullptr;
+      return Status::OK();
+    }
+
+    int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+    RETURN_NOT_OK(stream_->Read(message_length, &buffer));
+    if (buffer->size() != message_length) {
+      return Status::IOError("Unexpected end of stream trying to read message");
+    }
+
+    RETURN_NOT_OK(Message::Open(buffer, 0, message));
+
+    if ((*message)->type() != expected_type) {
+      std::stringstream ss;
+      ss << "Message not expected type: " << message_type_name(expected_type)
+         << ", was: " << (*message)->type();
+      return Status::IOError(ss.str());
+    }
     return Status::OK();
   }
 
-  int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
+  Status ReadExact(int64_t size, std::shared_ptr<Buffer>* buffer) {
+    RETURN_NOT_OK(stream_->Read(size, buffer));
 
-  RETURN_NOT_OK(stream_->Read(message_length, &buffer));
-  if (buffer->size() != message_length) {
-    return Status::IOError("Unexpected end of stream trying to read message");
+    if ((*buffer)->size() < size) {
+      return Status::IOError("Unexpected EOS when reading buffer");
+    }
+    return Status::OK();
   }
 
-  RETURN_NOT_OK(Message::Open(buffer, 0, message));
+  Status ReadNextDictionary() {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
 
-  if (message->type() != expected_type) {
-    std::stringstream ss;
-    ss << "Message not expected type: " << message_type_name(expected_type);
-    return Status::IOError(ss.str());
+    DictionaryBatchMetadata dictionary_metadata(message);
+
+    std::shared_ptr<Buffer> batch_body;
+    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
+    io::BufferReader reader(batch_body);
+
+    int64_t id = dictionary_metadata.id();
+
+    auto it = dictionary_types_.find(id);
+    if (it == dictionary_types_.end()) {
+      std::stringstream ss;
+      ss << "Do not have type metadata for dictionary with id: " << id;
+      return Status::KeyError(ss.str());
+    }
+
+    std::vector<std::shared_ptr<Field>> fields = {it->second};
+
+    // We need a schema for the record batch
+    auto dummy_schema = std::make_shared<Schema>(fields);
+
+    // The dictionary is embedded in a record batch with a single column
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(ReadRecordBatch(
+        dictionary_metadata.record_batch(), dummy_schema, &reader, &batch));
+
+    if (batch->num_columns() != 1) {
+      return Status::Invalid("Dictionary record batch must only contain one field");
+    }
+
+    return dictionary_memo_.AddDictionary(id, batch->column(0));
   }
-  return Status::OK();
+
+  Status ReadSchema() {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
+
+    SchemaMetadata schema_meta(message);
+    RETURN_NOT_OK(schema_meta.GetDictionaryTypes(&dictionary_types_));
+
+    // TODO(wesm): In future, we may want to reconcile the ids in the stream with
+    // those found in the schema
+    int num_dictionaries = static_cast<int>(dictionary_types_.size());
+    for (int i = 0; i < num_dictionaries; ++i) {
+      RETURN_NOT_OK(ReadNextDictionary());
+    }
+
+    return schema_meta.GetSchema(dictionary_memo_, &schema_);
+  }
+
+  Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::RECORD_BATCH, &message));
+
+    if (message == nullptr) {
+      // End of stream
+      *batch = nullptr;
+      return Status::OK();
+    }
+
+    RecordBatchMetadata batch_metadata(message);
+
+    std::shared_ptr<Buffer> batch_body;
+    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
+    io::BufferReader reader(batch_body);
+    return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+  }
+
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+ private:
+  // dictionary_id -> type
+  DictionaryTypeMap dictionary_types_;
+
+  DictionaryMemo dictionary_memo_;
+
+  std::shared_ptr<io::InputStream> stream_;
+  std::shared_ptr<Schema> schema_;
+};
+
+StreamReader::StreamReader() {
+  impl_.reset(new StreamReaderImpl());
+}
+
+StreamReader::~StreamReader() {}
+
+Status StreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+    std::shared_ptr<StreamReader>* reader) {
+  // Private ctor
+  *reader = std::shared_ptr<StreamReader>(new StreamReader());
+  return (*reader)->impl_->Open(stream);
 }
 
 std::shared_ptr<Schema> StreamReader::schema() const {
-  return schema_;
+  return impl_->schema();
 }
 
 Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(ReadNextMessage(Message::RECORD_BATCH, &message));
-
-  if (message == nullptr) {
-    // End of stream
-    *batch = nullptr;
-    return Status::OK();
-  }
-
-  RecordBatchMetadata batch_metadata(message);
-  std::shared_ptr<Buffer> batch_body;
-  RETURN_NOT_OK(stream_->Read(message->body_length(), &batch_body));
-
-  if (batch_body->size() < message->body_length()) {
-    return Status::IOError("Unexpected EOS when reading message body");
-  }
-
-  io::BufferReader reader(batch_body);
-
-  return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+  return impl_->GetNextRecordBatch(batch);
 }
 
 }  // namespace ipc

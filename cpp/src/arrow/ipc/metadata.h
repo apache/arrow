@@ -51,12 +51,13 @@ struct MetadataVersion {
 
 //----------------------------------------------------------------------
 
+using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
+using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
+
 // Memoization data structure for handling shared dictionaries
 class DictionaryMemo {
  public:
   DictionaryMemo();
-
-  using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
 
   // Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
@@ -89,8 +90,6 @@ class DictionaryMemo {
 
 class Message;
 
-using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<DataType>>;
-
 // Container for serialized Schema metadata contained in an IPC message
 class ARROW_EXPORT SchemaMetadata {
  public:
@@ -119,6 +118,8 @@ class ARROW_EXPORT SchemaMetadata {
 
   class SchemaMetadataImpl;
   std::unique_ptr<SchemaMetadataImpl> impl_;
+
+  DISALLOW_COPY_AND_ASSIGN(SchemaMetadata);
 };
 
 // Field metadata
@@ -139,9 +140,7 @@ class ARROW_EXPORT RecordBatchMetadata {
   // Instantiate from opaque pointer. Memory ownership must be preserved
   // elsewhere (e.g. in a dictionary batch)
   explicit RecordBatchMetadata(const void* header);
-
   explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
-
   RecordBatchMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
 
   ~RecordBatchMetadata();
@@ -156,11 +155,14 @@ class ARROW_EXPORT RecordBatchMetadata {
  private:
   class RecordBatchMetadataImpl;
   std::unique_ptr<RecordBatchMetadataImpl> impl_;
+
+  DISALLOW_COPY_AND_ASSIGN(RecordBatchMetadata);
 };
 
 class ARROW_EXPORT DictionaryBatchMetadata {
  public:
   explicit DictionaryBatchMetadata(const std::shared_ptr<Message>& message);
+  ~DictionaryBatchMetadata();
 
   int64_t id() const;
   const RecordBatchMetadata& record_batch() const;
@@ -168,6 +170,8 @@ class ARROW_EXPORT DictionaryBatchMetadata {
  private:
   class DictionaryBatchMetadataImpl;
   std::unique_ptr<DictionaryBatchMetadataImpl> impl_;
+
+  DISALLOW_COPY_AND_ASSIGN(DictionaryBatchMetadata);
 };
 
 class ARROW_EXPORT Message {
@@ -184,12 +188,15 @@ class ARROW_EXPORT Message {
  private:
   Message(const std::shared_ptr<Buffer>& buffer, int64_t offset);
 
+  friend class DictionaryBatchMetadata;
   friend class RecordBatchMetadata;
   friend class SchemaMetadata;
 
   // Hide serialization details from user API
   class MessageImpl;
   std::unique_ptr<MessageImpl> impl_;
+
+  DISALLOW_COPY_AND_ASSIGN(Message);
 };
 
 }  // namespace ipc
