@@ -32,7 +32,7 @@ namespace arrow {
 
 class Array;
 class Buffer;
-class DataType;
+struct DataType;
 struct Field;
 class Schema;
 class Status;
