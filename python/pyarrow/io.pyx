@@ -995,11 +995,6 @@ cdef class _FileReader:
             else:
                 check_status(CFileReader.Open(reader, &self.reader))
 
-    property num_dictionaries:
-
-        def __get__(self):
-            return self.reader.get().num_dictionaries()
-
     property num_record_batches:
 
         def __get__(self):

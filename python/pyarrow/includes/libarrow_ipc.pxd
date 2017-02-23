@@ -63,7 +63,6 @@ cdef extern from "arrow/ipc/file.h" namespace "arrow::ipc" nogil:
 
         shared_ptr[CSchema] schema()
 
-        int num_dictionaries()
         int num_record_batches()
 
         CStatus GetRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
