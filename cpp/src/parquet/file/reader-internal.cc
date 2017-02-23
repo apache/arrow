@@ -196,7 +196,7 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
   stream = properties_.GetStream(source_, col_start, col_length);
 
   return std::unique_ptr<PageReader>(new SerializedPageReader(std::move(stream),
-      row_group_metadata_->num_rows(), col->compression(), properties_.memory_pool()));
+      col->num_values(), col->compression(), properties_.memory_pool()));
 }
 
 // ----------------------------------------------------------------------
