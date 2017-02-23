@@ -15,12 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SET(LINK_LIBS
-  snappystatic
-  thriftstatic)
-
 if (PARQUET_BUILD_EXECUTABLES)
   add_executable(reader-writer reader-writer.cc)
-  target_link_libraries(reader-writer ${LINK_LIBS}
-	parquet_static)
+  target_link_libraries(reader-writer parquet_static)
 endif()
