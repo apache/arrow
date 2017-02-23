@@ -507,10 +507,12 @@ class DictionaryWriter : public RecordBatchWriter {
       io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
     dictionary_id_ = dictionary_id;
 
+    // Make a dummy record batch. A bit tedious as we have to make a schema
     std::vector<std::shared_ptr<Field>> fields = {
         arrow::field("dictionary", dictionary->type())};
     auto schema = std::make_shared<Schema>(fields);
     RecordBatch batch(schema, dictionary->length(), {dictionary});
+
     return RecordBatchWriter::Write(batch, dst, metadata_length, body_length);
   }
 
@@ -529,7 +531,6 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length, MemoryPool* pool) {
-  // Make a dummy record batch. A bit tedious as we have to make a schema
   DictionaryWriter writer(pool, buffer_start_offset, kMaxIpcRecursionDepth);
   return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
 }

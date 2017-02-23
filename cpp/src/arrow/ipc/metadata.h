@@ -65,7 +65,7 @@ class DictionaryMemo {
 
   int64_t GetId(const std::shared_ptr<Array>& dictionary);
 
-  bool HasDictionary(const std::shared_ptr<Array> dictionary) const;
+  bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
   bool HasDictionaryId(int64_t id) const;
 
   // Add a dictionary to the memo with a particular id. Returns KeyError if

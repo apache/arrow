@@ -71,7 +71,7 @@ int64_t DictionaryMemo::GetId(const std::shared_ptr<Array>& dictionary) {
   }
 }
 
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array> dictionary) const {
+bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array>& dictionary) const {
   intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
   auto it = dictionary_to_id_.find(address);
   return it != dictionary_to_id_.end();
