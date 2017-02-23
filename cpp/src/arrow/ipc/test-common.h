@@ -379,7 +379,8 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<int32_t> list_offsets = {0, 0, 2, 2, 5, 6, 9};
   std::shared_ptr<Array> offsets, indices3;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, list_offsets, &offsets);
+  ArrayFromVector<Int32Type, int32_t>(
+      std::vector<bool>(list_offsets.size(), true), list_offsets, &offsets);
 
   std::vector<int8_t> indices3_values = {0, 1, 2, 0, 1, 2, 0, 1, 2};
   std::vector<bool> is_valid3(9, true);
