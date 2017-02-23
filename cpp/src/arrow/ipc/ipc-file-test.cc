@@ -185,5 +185,40 @@ TEST_P(TestStreamFormat, RoundTrip) {
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
 
+void CheckBatchDictionaries(const RecordBatch& batch) {
+  // Check that dictionaries that should be the same are the same
+  auto schema = batch.schema();
+
+  const auto& t0 = static_cast<const DictionaryType&>(*schema->field(0)->type);
+  const auto& t1 = static_cast<const DictionaryType&>(*schema->field(1)->type);
+
+  ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
+
+  // Same dictionary used for list values
+  const auto& t3 = static_cast<const ListType&>(*schema->field(3)->type);
+  const auto& t3_value = static_cast<const DictionaryType&>(*t3.value_type());
+  ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
+}
+
+TEST_F(TestStreamFormat, DictionaryRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionary(&batch));
+
+  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  ASSERT_OK(RoundTripHelper(*batch, &out_batches));
+
+  CheckBatchDictionaries(*out_batches[0]);
+}
+
+TEST_F(TestFileFormat, DictionaryRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionary(&batch));
+
+  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  ASSERT_OK(RoundTripHelper({batch}, &out_batches));
+
+  CheckBatchDictionaries(*out_batches[0]);
+}
+
 }  // namespace ipc
 }  // namespace arrow
