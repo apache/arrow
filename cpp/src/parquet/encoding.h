@@ -63,7 +63,7 @@ class Encoder {
     Put(data, num_valid_values);
   }
 
-  const Encoding::type encoding() const { return encoding_; }
+  Encoding::type encoding() const { return encoding_; }
 
  protected:
   explicit Encoder(const ColumnDescriptor* descr, const Encoding::type& encoding,
