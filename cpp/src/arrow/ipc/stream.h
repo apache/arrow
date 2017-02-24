@@ -22,7 +22,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
+#include "arrow/ipc/metadata.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -44,12 +46,19 @@ class OutputStream;
 
 namespace ipc {
 
-struct FileBlock;
-class Message;
+struct ARROW_EXPORT FileBlock {
+  FileBlock() {}
+  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
+      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
+
+  int64_t offset;
+  int32_t metadata_length;
+  int64_t body_length;
+};
 
 class ARROW_EXPORT StreamWriter {
  public:
-  virtual ~StreamWriter();
+  virtual ~StreamWriter() = default;
 
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<StreamWriter>* out);
@@ -72,6 +81,8 @@ class ARROW_EXPORT StreamWriter {
   Status CheckStarted();
   Status UpdatePosition();
 
+  Status WriteDictionaries();
+
   Status WriteRecordBatch(const RecordBatch& batch, FileBlock* block);
 
   // Adds padding bytes if necessary to ensure all memory blocks are written on
@@ -87,10 +98,17 @@ class ARROW_EXPORT StreamWriter {
   io::OutputStream* sink_;
   std::shared_ptr<Schema> schema_;
 
+  // When writing out the schema, we keep track of all the dictionaries we
+  // encounter, as they must be written out first in the stream
+  std::shared_ptr<DictionaryMemo> dictionary_memo_;
+
   MemoryPool* pool_;
 
   int64_t position_;
   bool started_;
+
+  std::vector<FileBlock> dictionaries_;
+  std::vector<FileBlock> record_batches_;
 };
 
 class ARROW_EXPORT StreamReader {
@@ -107,14 +125,10 @@ class ARROW_EXPORT StreamReader {
   Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
 
  private:
-  explicit StreamReader(const std::shared_ptr<io::InputStream>& stream);
+  StreamReader();
 
-  Status ReadSchema();
-
-  Status ReadNextMessage(std::shared_ptr<Message>* message);
-
-  std::shared_ptr<io::InputStream> stream_;
-  std::shared_ptr<Schema> schema_;
+  class ARROW_NO_EXPORT StreamReaderImpl;
+  std::unique_ptr<StreamReaderImpl> impl_;
 };
 
 }  // namespace ipc

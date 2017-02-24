@@ -40,6 +40,8 @@ class Status;
 
 class ArrayVisitor {
  public:
+  virtual ~ArrayVisitor() = default;
+
   virtual Status Visit(const NullArray& array) = 0;
   virtual Status Visit(const BooleanArray& array) = 0;
   virtual Status Visit(const Int8Array& array) = 0;

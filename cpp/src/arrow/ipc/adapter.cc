@@ -51,12 +51,15 @@ namespace ipc {
 
 class RecordBatchWriter : public ArrayVisitor {
  public:
-  RecordBatchWriter(MemoryPool* pool, const RecordBatch& batch,
-      int64_t buffer_start_offset, int max_recursion_depth)
+  RecordBatchWriter(
+      MemoryPool* pool, int64_t buffer_start_offset, int max_recursion_depth)
       : pool_(pool),
-        batch_(batch),
         max_recursion_depth_(max_recursion_depth),
-        buffer_start_offset_(buffer_start_offset) {}
+        buffer_start_offset_(buffer_start_offset) {
+    DCHECK_GT(max_recursion_depth, 0);
+  }
+
+  virtual ~RecordBatchWriter() = default;
 
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
@@ -81,7 +84,7 @@ class RecordBatchWriter : public ArrayVisitor {
     return arr.Accept(this);
   }
 
-  Status Assemble(int64_t* body_length) {
+  Status Assemble(const RecordBatch& batch, int64_t* body_length) {
     if (field_nodes_.size() > 0) {
       field_nodes_.clear();
       buffer_meta_.clear();
@@ -89,8 +92,8 @@ class RecordBatchWriter : public ArrayVisitor {
     }
 
     // Perform depth-first traversal of the row-batch
-    for (int i = 0; i < batch_.num_columns(); ++i) {
-      RETURN_NOT_OK(VisitArray(*batch_.column(i)));
+    for (int i = 0; i < batch.num_columns(); ++i) {
+      RETURN_NOT_OK(VisitArray(*batch.column(i)));
     }
 
     // The position for the start of a buffer relative to the passed frame of
@@ -127,16 +130,22 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status WriteMetadata(
-      int64_t body_length, io::OutputStream* dst, int32_t* metadata_length) {
+  // Override this for writing dictionary metadata
+  virtual Status WriteMetadataMessage(
+      int32_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) {
+    return WriteRecordBatchMessage(
+        num_rows, body_length, field_nodes_, buffer_meta_, out);
+  }
+
+  Status WriteMetadata(int32_t num_rows, int64_t body_length, io::OutputStream* dst,
+      int32_t* metadata_length) {
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out
     //
     // Note: The memory written here is prefixed by the size of the flatbuffer
     // itself as an int32_t.
     std::shared_ptr<Buffer> metadata_fb;
-    RETURN_NOT_OK(WriteRecordBatchMetadata(
-        batch_.num_rows(), body_length, field_nodes_, buffer_meta_, &metadata_fb));
+    RETURN_NOT_OK(WriteMetadataMessage(num_rows, body_length, &metadata_fb));
 
     // Need to write 4 bytes (metadata size), the metadata, plus padding to
     // end on an 8-byte offset
@@ -166,15 +175,16 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Write(io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
-    RETURN_NOT_OK(Assemble(body_length));
+  Status Write(const RecordBatch& batch, io::OutputStream* dst, int32_t* metadata_length,
+      int64_t* body_length) {
+    RETURN_NOT_OK(Assemble(batch, body_length));
 
 #ifndef NDEBUG
     int64_t start_position, current_position;
     RETURN_NOT_OK(dst->Tell(&start_position));
 #endif
 
-    RETURN_NOT_OK(WriteMetadata(*body_length, dst, metadata_length));
+    RETURN_NOT_OK(WriteMetadata(batch.num_rows(), *body_length, dst, metadata_length));
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
@@ -206,17 +216,17 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status GetTotalSize(int64_t* size) {
+  Status GetTotalSize(const RecordBatch& batch, int64_t* size) {
     // emulates the behavior of Write without actually writing
     int32_t metadata_length = 0;
     int64_t body_length = 0;
     MockOutputStream dst;
-    RETURN_NOT_OK(Write(&dst, &metadata_length, &body_length));
+    RETURN_NOT_OK(Write(batch, &dst, &metadata_length, &body_length));
     *size = dst.GetExtentBytesWritten();
     return Status::OK();
   }
 
- private:
+ protected:
   Status Visit(const NullArray& array) override { return Status::NotImplemented("null"); }
 
   template <typename ArrayType>
@@ -468,15 +478,12 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const DictionaryArray& array) override {
-    // Dictionary written out separately
-    const auto& indices = static_cast<const PrimitiveArray&>(*array.indices().get());
-    buffers_.push_back(indices.data());
-    return Status::OK();
+    // Dictionary written out separately. Slice offset contained in the indices
+    return array.indices()->Accept(this);
   }
 
   // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
   MemoryPool* pool_;
-  const RecordBatch& batch_;
 
   std::vector<flatbuf::FieldNode> field_nodes_;
   std::vector<flatbuf::Buffer> buffer_meta_;
@@ -486,17 +493,51 @@ class RecordBatchWriter : public ArrayVisitor {
   int64_t buffer_start_offset_;
 };
 
+class DictionaryWriter : public RecordBatchWriter {
+ public:
+  using RecordBatchWriter::RecordBatchWriter;
+
+  Status WriteMetadataMessage(
+      int32_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
+    return WriteDictionaryMessage(
+        dictionary_id_, num_rows, body_length, field_nodes_, buffer_meta_, out);
+  }
+
+  Status Write(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+      io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
+    dictionary_id_ = dictionary_id;
+
+    // Make a dummy record batch. A bit tedious as we have to make a schema
+    std::vector<std::shared_ptr<Field>> fields = {
+        arrow::field("dictionary", dictionary->type())};
+    auto schema = std::make_shared<Schema>(fields);
+    RecordBatch batch(schema, dictionary->length(), {dictionary});
+
+    return RecordBatchWriter::Write(batch, dst, metadata_length, body_length);
+  }
+
+ private:
+  // TODO(wesm): Setting this in Write is a bit unclean, but it works
+  int64_t dictionary_id_;
+};
+
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth) {
-  DCHECK_GT(max_recursion_depth, 0);
-  RecordBatchWriter serializer(pool, batch, buffer_start_offset, max_recursion_depth);
-  return serializer.Write(dst, metadata_length, body_length);
+  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth);
+  return writer.Write(batch, dst, metadata_length, body_length);
+}
+
+Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool) {
+  DictionaryWriter writer(pool, buffer_start_offset, kMaxIpcRecursionDepth);
+  return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter serializer(default_memory_pool(), batch, 0, kMaxIpcRecursionDepth);
-  RETURN_NOT_OK(serializer.GetTotalSize(size));
+  RecordBatchWriter writer(default_memory_pool(), 0, kMaxIpcRecursionDepth);
+  RETURN_NOT_OK(writer.GetTotalSize(batch, size));
   return Status::OK();
 }
 
@@ -580,10 +621,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status LoadPrimitive(const DataType& type) {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    std::shared_ptr<Buffer> null_bitmap, data;
 
-    std::shared_ptr<Buffer> data;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
     } else {
@@ -597,11 +637,9 @@ class ArrayLoader : public TypeVisitor {
   template <typename CONTAINER>
   Status LoadBinary() {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    std::shared_ptr<Buffer> null_bitmap, offsets, values;
 
-    std::shared_ptr<Buffer> offsets;
-    std::shared_ptr<Buffer> values;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
       RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
@@ -661,11 +699,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status Visit(const ListType& type) override {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap, offsets;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::shared_ptr<Buffer> offsets;
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &offsets));
     } else {
@@ -715,12 +751,9 @@ class ArrayLoader : public TypeVisitor {
 
   Status Visit(const UnionType& type) override {
     FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap, type_ids, offsets;
+
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::shared_ptr<Buffer> type_ids = nullptr;
-    std::shared_ptr<Buffer> offsets = nullptr;
-
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
       if (type.mode == UnionMode::DENSE) {
@@ -738,13 +771,23 @@ class ArrayLoader : public TypeVisitor {
   }
 
   Status Visit(const DictionaryType& type) override {
-    return Status::NotImplemented("dictionary");
+    FieldMetadata field_meta;
+    std::shared_ptr<Buffer> null_bitmap, indices_data;
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &indices_data));
+
+    std::shared_ptr<Array> indices;
+    RETURN_NOT_OK(MakePrimitiveArray(type.index_type(), field_meta.length, indices_data,
+        null_bitmap, field_meta.null_count, 0, &indices));
+
+    result_ = std::make_shared<DictionaryArray>(field_.type, indices);
+    return Status::OK();
   };
 };
 
 class RecordBatchReader {
  public:
-  RecordBatchReader(const std::shared_ptr<RecordBatchMetadata>& metadata,
+  RecordBatchReader(const RecordBatchMetadata& metadata,
       const std::shared_ptr<Schema>& schema, int max_recursion_depth,
       io::ReadableFileInterface* file)
       : metadata_(metadata),
@@ -758,7 +801,7 @@ class RecordBatchReader {
     // The field_index and buffer_index are incremented in the ArrayLoader
     // based on how much of the batch is "consumed" (through nested data
     // reconstruction, for example)
-    context_.metadata = metadata_.get();
+    context_.metadata = &metadata_;
     context_.field_index = 0;
     context_.buffer_index = 0;
     context_.max_recursion_depth = max_recursion_depth_;
@@ -768,49 +811,57 @@ class RecordBatchReader {
       RETURN_NOT_OK(loader.Load(&arrays[i]));
     }
 
-    *out = std::make_shared<RecordBatch>(schema_, metadata_->length(), arrays);
+    *out = std::make_shared<RecordBatch>(schema_, metadata_.length(), arrays);
     return Status::OK();
   }
 
  private:
   RecordBatchContext context_;
-  std::shared_ptr<RecordBatchMetadata> metadata_;
+  const RecordBatchMetadata& metadata_;
   std::shared_ptr<Schema> schema_;
   int max_recursion_depth_;
   io::ReadableFileInterface* file_;
 };
 
-Status ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
-    io::ReadableFileInterface* file, std::shared_ptr<RecordBatchMetadata>* metadata) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
-
-  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
-    std::stringstream ss;
-    ss << "flatbuffer size " << metadata_length << " invalid. File offset: " << offset
-       << ", metadata length: " << metadata_length;
-    return Status::Invalid(ss.str());
-  }
-
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(Message::Open(buffer, 4, &message));
-  *metadata = std::make_shared<RecordBatchMetadata>(message);
-  return Status::OK();
-}
-
-Status ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
     std::shared_ptr<RecordBatch>* out) {
   return ReadRecordBatch(metadata, schema, kMaxIpcRecursionDepth, file, out);
 }
 
-Status ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
     io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out) {
   RecordBatchReader reader(metadata, schema, max_recursion_depth, file);
   return reader.Read(out);
+}
+
+Status ReadDictionary(const DictionaryBatchMetadata& metadata,
+    const DictionaryTypeMap& dictionary_types, io::ReadableFileInterface* file,
+    std::shared_ptr<Array>* out) {
+  int64_t id = metadata.id();
+  auto it = dictionary_types.find(id);
+  if (it == dictionary_types.end()) {
+    std::stringstream ss;
+    ss << "Do not have type metadata for dictionary with id: " << id;
+    return Status::KeyError(ss.str());
+  }
+
+  std::vector<std::shared_ptr<Field>> fields = {it->second};
+
+  // We need a schema for the record batch
+  auto dummy_schema = std::make_shared<Schema>(fields);
+
+  // The dictionary is embedded in a record batch with a single column
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(ReadRecordBatch(metadata.record_batch(), dummy_schema, file, &batch));
+
+  if (batch->num_columns() != 1) {
+    return Status::Invalid("Dictionary record batch must only contain one field");
+  }
+
+  *out = batch->column(0);
+  return Status::OK();
 }
 
 }  // namespace ipc

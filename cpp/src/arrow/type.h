@@ -114,6 +114,8 @@ class BufferDescr {
 
 class TypeVisitor {
  public:
+  virtual ~TypeVisitor() = default;
+
   virtual Status Visit(const NullType& type) = 0;
   virtual Status Visit(const BooleanType& type) = 0;
   virtual Status Visit(const Int8Type& type) = 0;
@@ -205,13 +207,9 @@ struct ARROW_EXPORT Field {
   // Fields can be nullable
   bool nullable;
 
-  // optional dictionary id if the field is dictionary encoded
-  // 0 means it's not dictionary encoded
-  int64_t dictionary;
-
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
-      bool nullable = true, int64_t dictionary = 0)
-      : name(name), type(type), nullable(nullable), dictionary(dictionary) {}
+      bool nullable = true)
+      : name(name), type(type), nullable(nullable) {}
 
   bool operator==(const Field& other) const { return this->Equals(other); }
   bool operator!=(const Field& other) const { return !this->Equals(other); }
@@ -556,8 +554,8 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
-std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
-    const std::shared_ptr<DataType>& type, bool nullable = true, int64_t dictionary = 0);
+std::shared_ptr<Field> ARROW_EXPORT field(
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true);
 
 // ----------------------------------------------------------------------
 //

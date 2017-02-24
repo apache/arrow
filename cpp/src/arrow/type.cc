@@ -29,7 +29,7 @@ namespace arrow {
 bool Field::Equals(const Field& other) const {
   return (this == &other) ||
          (this->name == other.name && this->nullable == other.nullable &&
-             this->dictionary == dictionary && this->type->Equals(*other.type.get()));
+             this->type->Equals(*other.type.get()));
 }
 
 bool Field::Equals(const std::shared_ptr<Field>& other) const {
@@ -234,8 +234,8 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 }
 
 std::shared_ptr<Field> field(
-    const std::string& name, const TypePtr& type, bool nullable, int64_t dictionary) {
-  return std::make_shared<Field>(name, type, nullable, dictionary);
+    const std::string& name, const TypePtr& type, bool nullable) {
+  return std::make_shared<Field>(name, type, nullable);
 }
 
 static const BufferDescr kValidityBuffer(BufferType::VALIDITY, 1);

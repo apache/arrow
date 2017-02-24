@@ -24,20 +24,9 @@ set(ARROW_IPC_SHARED_LINK_LIBS
   arrow_shared
 )
 
-set(ARROW_IPC_STATIC_LINK_LIBS
-  arrow_static
+set(ARROW_IPC_TEST_LINK_LIBS
   arrow_io_static
-)
-
-if (ARROW_BUILD_STATIC)
-  set(ARROW_IPC_TEST_LINK_LIBS
-    arrow_io_static
-    arrow_ipc_static)
-else()
-  set(ARROW_IPC_TEST_LINK_LIBS
-    arrow_io_shared
-    arrow_ipc_shared)
-endif()
+  arrow_ipc_static)
 
 set(ARROW_IPC_SRCS
   adapter.cc

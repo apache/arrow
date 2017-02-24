@@ -25,6 +25,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/metadata.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,8 +44,6 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
-
-class RecordBatchMetadata;
 
 // ----------------------------------------------------------------------
 // Write path
@@ -72,33 +71,34 @@ constexpr int kMaxIpcRecursionDepth = 64;
 //
 // @param(out) body_length: the size of the contiguous buffer block plus
 // padding bytes
-Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
+Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
+    MemoryPool* pool, int max_recursion_depth = kMaxIpcRecursionDepth);
+
+// Write Array as a DictionaryBatch message
+Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, MemoryPool* pool,
-    int max_recursion_depth = kMaxIpcRecursionDepth);
+    int64_t* body_length, MemoryPool* pool);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
+Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 // ----------------------------------------------------------------------
 // "Read" path; does not copy data if the input supports zero copy reads
 
-// Read the record batch flatbuffer metadata starting at the indicated file offset
-//
-// The flatbuffer is expected to be length-prefixed, so the metadata_length
-// includes at least the length prefix and the flatbuffer
-Status ARROW_EXPORT ReadRecordBatchMetadata(int64_t offset, int32_t metadata_length,
-    io::ReadableFileInterface* file, std::shared_ptr<RecordBatchMetadata>* metadata);
-
-Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
     std::shared_ptr<RecordBatch>* out);
 
-Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<RecordBatchMetadata>& metadata,
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
     io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out);
+
+Status ReadDictionary(const DictionaryBatchMetadata& metadata,
+    const DictionaryTypeMap& dictionary_types, io::ReadableFileInterface* file,
+    std::shared_ptr<Array>* out);
 
 }  // namespace ipc
 }  // namespace arrow

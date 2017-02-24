@@ -345,6 +345,86 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
+  const int32_t length = 6;
+
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::shared_ptr<Array> dict1, dict2;
+
+  std::vector<std::string> dict1_values = {"foo", "bar", "baz"};
+  std::vector<std::string> dict2_values = {"foo", "bar", "baz", "qux"};
+
+  ArrayFromVector<StringType, std::string>(dict1_values, &dict1);
+  ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
+
+  auto f0_type = arrow::dictionary(arrow::int32(), dict1);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
+  auto f2_type = arrow::dictionary(arrow::int32(), dict2);
+
+  std::shared_ptr<Array> indices0, indices1, indices2;
+  std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
+  std::vector<int8_t> indices1_values = {0, 0, 2, 2, 1, 1};
+  std::vector<int32_t> indices2_values = {3, 0, 2, 1, 0, 2};
+
+  ArrayFromVector<Int32Type, int32_t>(is_valid, indices0_values, &indices0);
+  ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
+  ArrayFromVector<Int32Type, int32_t>(is_valid, indices2_values, &indices2);
+
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1);
+  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
+
+  // List of dictionary-encoded string
+  auto f3_type = list(f1_type);
+
+  std::vector<int32_t> list_offsets = {0, 0, 2, 2, 5, 6, 9};
+  std::shared_ptr<Array> offsets, indices3;
+  ArrayFromVector<Int32Type, int32_t>(
+      std::vector<bool>(list_offsets.size(), true), list_offsets, &offsets);
+
+  std::vector<int8_t> indices3_values = {0, 1, 2, 0, 1, 2, 0, 1, 2};
+  std::vector<bool> is_valid3(9, true);
+  ArrayFromVector<Int8Type, int8_t>(is_valid3, indices3_values, &indices3);
+
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(test::GetBitmapFromBoolVector(is_valid, &null_bitmap));
+
+  std::shared_ptr<Array> a3 = std::make_shared<ListArray>(f3_type, length,
+      std::static_pointer_cast<PrimitiveArray>(offsets)->data(),
+      std::make_shared<DictionaryArray>(f1_type, indices3), null_bitmap, 1);
+
+  // Dictionary-encoded list of integer
+  auto f4_value_type = list(int8());
+
+  std::shared_ptr<Array> offsets4, values4, indices4;
+
+  std::vector<int32_t> list_offsets4 = {0, 2, 2, 3};
+  ArrayFromVector<Int32Type, int32_t>(
+      std::vector<bool>(4, true), list_offsets4, &offsets4);
+
+  std::vector<int8_t> list_values4 = {0, 1, 2};
+  ArrayFromVector<Int8Type, int8_t>(std::vector<bool>(3, true), list_values4, &values4);
+
+  auto dict3 = std::make_shared<ListArray>(f4_value_type, 3,
+      std::static_pointer_cast<PrimitiveArray>(offsets4)->data(), values4);
+
+  std::vector<int8_t> indices4_values = {0, 1, 2, 0, 1, 2};
+  ArrayFromVector<Int8Type, int8_t>(is_valid, indices4_values, &indices4);
+
+  auto f4_type = dictionary(int8(), dict3);
+  auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4);
+
+  // construct batch
+  std::shared_ptr<Schema> schema(new Schema({field("dict1", f0_type),
+      field("sparse", f1_type), field("dense", f2_type),
+      field("list of encoded string", f3_type), field("encoded list<int8>", f4_type)}));
+
+  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
+
+  out->reset(new RecordBatch(schema, length, arrays));
+  return Status::OK();
+}
+
 }  // namespace ipc
 }  // namespace arrow
 

@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/io/memory.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/schema.h"
@@ -39,9 +40,9 @@ class TestSchemaMetadata : public ::testing::Test {
  public:
   void SetUp() {}
 
-  void CheckRoundtrip(const Schema& schema) {
+  void CheckRoundtrip(const Schema& schema, DictionaryMemo* memo) {
     std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(WriteSchema(schema, &buffer));
+    ASSERT_OK(WriteSchemaMessage(schema, memo, &buffer));
 
     std::shared_ptr<Message> message;
     ASSERT_OK(Message::Open(buffer, 0, &message));
@@ -51,8 +52,10 @@ class TestSchemaMetadata : public ::testing::Test {
     auto schema_msg = std::make_shared<SchemaMetadata>(message);
     ASSERT_EQ(schema.num_fields(), schema_msg->num_fields());
 
+    DictionaryMemo empty_memo;
+
     std::shared_ptr<Schema> schema2;
-    ASSERT_OK(schema_msg->GetSchema(&schema2));
+    ASSERT_OK(schema_msg->GetSchema(empty_memo, &schema2));
 
     AssertSchemaEqual(schema, *schema2);
   }
@@ -74,7 +77,9 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
   auto f10 = std::make_shared<Field>("f10", std::make_shared<BooleanType>());
 
   Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
-  CheckRoundtrip(schema);
+  DictionaryMemo memo;
+
+  CheckRoundtrip(schema, &memo);
 }
 
 TEST_F(TestSchemaMetadata, NestedFields) {
@@ -86,7 +91,9 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto f1 = std::make_shared<Field>("f1", type2);
 
   Schema schema({f0, f1});
-  CheckRoundtrip(schema);
+  DictionaryMemo memo;
+
+  CheckRoundtrip(schema, &memo);
 }
 
 }  // namespace ipc

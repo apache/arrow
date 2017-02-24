@@ -27,6 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/adapter.h"
+#include "arrow/ipc/metadata.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/ipc/util.h"
 
@@ -40,12 +41,8 @@
 namespace arrow {
 namespace ipc {
 
-class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
-                             public io::MemoryMapFixture {
+class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
-  void TearDown() { io::MemoryMapFixture::TearDown(); }
-
   Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
       std::shared_ptr<RecordBatch>* batch_result) {
     std::string path = "test-write-row-batch";
@@ -59,8 +56,9 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     RETURN_NOT_OK(WriteRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
 
-    std::shared_ptr<RecordBatchMetadata> metadata;
-    RETURN_NOT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // The buffer offsets start at 0, so we must construct a
     // ReadableFileInterface according to that frame of reference
@@ -68,7 +66,7 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
     RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
     io::BufferReader buffer_reader(buffer_payload);
 
-    return ReadRecordBatch(metadata, batch.schema(), &buffer_reader, batch_result);
+    return ReadRecordBatch(*metadata, batch.schema(), &buffer_reader, batch_result);
   }
 
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
@@ -112,14 +110,29 @@ class TestWriteRecordBatch : public ::testing::TestWithParam<MakeRecordBatch*>,
   MemoryPool* pool_;
 };
 
-TEST_P(TestWriteRecordBatch, RoundTrip) {
+class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+};
+
+class TestRecordBatchParam : public ::testing::TestWithParam<MakeRecordBatch*>,
+                             public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+  using IpcTestFixture::RoundTripHelper;
+  using IpcTestFixture::CheckRoundtrip;
+};
+
+TEST_P(TestRecordBatchParam, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
   CheckRoundtrip(*batch, 1 << 20);
 }
 
-TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
+TEST_P(TestRecordBatchParam, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
@@ -130,7 +143,7 @@ TEST_P(TestWriteRecordBatch, SliceRoundTrip) {
   CheckRoundtrip(*sliced_batch, 1 << 20);
 }
 
-TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
+TEST_P(TestRecordBatchParam, ZeroLengthArrays) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
@@ -159,10 +172,10 @@ TEST_P(TestWriteRecordBatch, ZeroLengthArrays) {
 }
 
 INSTANTIATE_TEST_CASE_P(
-    RoundTripTests, TestWriteRecordBatch,
+    RoundTripTests, TestRecordBatchParam,
     ::testing::Values(&MakeIntRecordBatch, &MakeStringTypesRecordBatch,
         &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeListRecordBatch,
-        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion));
+        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion, &MakeDictionary));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
@@ -251,8 +264,9 @@ TEST_F(RecursionLimits, ReadLimit) {
   std::shared_ptr<Schema> schema;
   ASSERT_OK(WriteToMmap(64, true, &metadata_length, &body_length, &schema));
 
-  std::shared_ptr<RecordBatchMetadata> metadata;
-  ASSERT_OK(ReadRecordBatchMetadata(0, metadata_length, mmap_.get(), &metadata));
+  std::shared_ptr<Message> message;
+  ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+  auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
   std::shared_ptr<Buffer> payload;
   ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
@@ -260,7 +274,7 @@ TEST_F(RecursionLimits, ReadLimit) {
   io::BufferReader reader(payload);
 
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_RAISES(Invalid, ReadRecordBatch(metadata, schema, &reader, &batch));
+  ASSERT_RAISES(Invalid, ReadRecordBatch(*metadata, schema, &reader, &batch));
 }
 
 }  // namespace ipc

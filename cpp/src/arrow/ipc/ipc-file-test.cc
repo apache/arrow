@@ -180,72 +180,44 @@ TEST_P(TestStreamFormat, RoundTrip) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
-      &MakeStruct);
+      &MakeStruct, &MakeDictionary);
 
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
 
-class TestFileFooter : public ::testing::Test {
- public:
-  void SetUp() {}
+void CheckBatchDictionaries(const RecordBatch& batch) {
+  // Check that dictionaries that should be the same are the same
+  auto schema = batch.schema();
 
-  void CheckRoundtrip(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-      const std::vector<FileBlock>& record_batches) {
-    auto buffer = std::make_shared<PoolBuffer>();
-    io::BufferOutputStream stream(buffer);
+  const auto& t0 = static_cast<const DictionaryType&>(*schema->field(0)->type);
+  const auto& t1 = static_cast<const DictionaryType&>(*schema->field(1)->type);
 
-    ASSERT_OK(WriteFileFooter(schema, dictionaries, record_batches, &stream));
+  ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
 
-    std::unique_ptr<FileFooter> footer;
-    ASSERT_OK(FileFooter::Open(buffer, &footer));
+  // Same dictionary used for list values
+  const auto& t3 = static_cast<const ListType&>(*schema->field(3)->type);
+  const auto& t3_value = static_cast<const DictionaryType&>(*t3.value_type());
+  ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
+}
 
-    ASSERT_EQ(MetadataVersion::V2, footer->version());
+TEST_F(TestStreamFormat, DictionaryRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionary(&batch));
 
-    // Check schema
-    std::shared_ptr<Schema> schema2;
-    ASSERT_OK(footer->GetSchema(&schema2));
-    AssertSchemaEqual(schema, *schema2);
+  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  ASSERT_OK(RoundTripHelper(*batch, &out_batches));
 
-    // Check blocks
-    ASSERT_EQ(dictionaries.size(), footer->num_dictionaries());
-    ASSERT_EQ(record_batches.size(), footer->num_record_batches());
+  CheckBatchDictionaries(*out_batches[0]);
+}
 
-    for (int i = 0; i < footer->num_dictionaries(); ++i) {
-      CheckBlocks(dictionaries[i], footer->dictionary(i));
-    }
+TEST_F(TestFileFormat, DictionaryRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeDictionary(&batch));
 
-    for (int i = 0; i < footer->num_record_batches(); ++i) {
-      CheckBlocks(record_batches[i], footer->record_batch(i));
-    }
-  }
+  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  ASSERT_OK(RoundTripHelper({batch}, &out_batches));
 
-  void CheckBlocks(const FileBlock& left, const FileBlock& right) {
-    ASSERT_EQ(left.offset, right.offset);
-    ASSERT_EQ(left.metadata_length, right.metadata_length);
-    ASSERT_EQ(left.body_length, right.body_length);
-  }
-
- private:
-  std::shared_ptr<Schema> example_schema_;
-};
-
-TEST_F(TestFileFooter, Basics) {
-  auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
-  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>());
-  Schema schema({f0, f1});
-
-  std::vector<FileBlock> dictionaries;
-  dictionaries.emplace_back(8, 92, 900);
-  dictionaries.emplace_back(1000, 100, 1900);
-  dictionaries.emplace_back(3000, 100, 2900);
-
-  std::vector<FileBlock> record_batches;
-  record_batches.emplace_back(6000, 100, 900);
-  record_batches.emplace_back(7000, 100, 1900);
-  record_batches.emplace_back(9000, 100, 2900);
-  record_batches.emplace_back(12000, 100, 3900);
-
-  CheckRoundtrip(schema, dictionaries, record_batches);
+  CheckBatchDictionaries(*out_batches[0]);
 }
 
 }  // namespace ipc
