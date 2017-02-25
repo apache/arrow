@@ -369,10 +369,18 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     add_library(${LIB_NAME} STATIC IMPORTED)
     set_target_properties(${LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    SET(AUG_LIB_NAME "${LIB_NAME}_static")
+    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
     message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
   elseif(ARG_SHARED_LIB)
     add_library(${LIB_NAME} SHARED IMPORTED)
     set_target_properties(${LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
+    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
       PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   else()
