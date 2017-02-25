@@ -27,6 +27,7 @@
 namespace arrow {
 
 class Array;
+struct DataType;
 class Status;
 
 /// Returns true if the arrays are exactly equal
@@ -40,6 +41,10 @@ Status ARROW_EXPORT ArrayApproxEquals(
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
     int32_t start_idx, int32_t end_idx, int32_t other_start_idx, bool* are_equal);
+
+/// Returns true if the type metadata are exactly equal
+Status ARROW_EXPORT TypeEquals(
+    const DataType& left, const DataType& right, bool* are_equal);
 
 }  // namespace arrow
 

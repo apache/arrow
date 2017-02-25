@@ -316,8 +316,6 @@ class JsonSchemaWriter : public TypeVisitor {
     return WritePrimitive("interval", type);
   }
 
-  Status Visit(const DecimalType& type) override { return Status::NotImplemented("NYI"); }
-
   Status Visit(const ListType& type) override {
     WriteName("list", type);
     RETURN_NOT_OK(WriteChildren(type.children()));
@@ -337,14 +335,6 @@ class JsonSchemaWriter : public TypeVisitor {
     WriteChildren(type.children());
     WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
-  }
-
-  Status Visit(const DictionaryType& type) override {
-    // WriteName("dictionary", type);
-    // WriteChildren(type.children());
-    // WriteBufferLayout(type.GetBufferLayout());
-    // return Status::OK();
-    return Status::NotImplemented("dictionary type");
   }
 
  private:
@@ -531,22 +521,6 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
 
-  Status Visit(const DateArray& array) override { return Status::NotImplemented("date"); }
-
-  Status Visit(const TimeArray& array) override { return Status::NotImplemented("time"); }
-
-  Status Visit(const TimestampArray& array) override {
-    return Status::NotImplemented("timestamp");
-  }
-
-  Status Visit(const IntervalArray& array) override {
-    return Status::NotImplemented("interval");
-  }
-
-  Status Visit(const DecimalArray& array) override {
-    return Status::NotImplemented("decimal");
-  }
-
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
@@ -569,10 +543,6 @@ class JsonArrayWriter : public ArrayVisitor {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
     return WriteChildren(type->children(), array.children());
-  }
-
-  Status Visit(const DictionaryArray& array) override {
-    return Status::NotImplemented("dictionary");
   }
 
  private:

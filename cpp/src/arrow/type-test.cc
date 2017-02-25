@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Unit tests for DataType (and subclasses), Field, and Schema
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -45,8 +47,8 @@ TEST(TestField, Equals) {
   Field f0_nn("f0", int32(), false);
   Field f0_other("f0", int32());
 
-  ASSERT_EQ(f0, f0_other);
-  ASSERT_NE(f0, f0_nn);
+  ASSERT_TRUE(f0.Equals(f0_other));
+  ASSERT_FALSE(f0.Equals(f0_nn));
 }
 
 class TestSchema : public ::testing::Test {
@@ -65,9 +67,9 @@ TEST_F(TestSchema, Basics) {
   auto schema = std::make_shared<Schema>(fields);
 
   ASSERT_EQ(3, schema->num_fields());
-  ASSERT_EQ(f0, schema->field(0));
-  ASSERT_EQ(f1, schema->field(1));
-  ASSERT_EQ(f2, schema->field(2));
+  ASSERT_TRUE(f0->Equals(schema->field(0)));
+  ASSERT_TRUE(f1->Equals(schema->field(1)));
+  ASSERT_TRUE(f2->Equals(schema->field(2)));
 
   auto schema2 = std::make_shared<Schema>(fields);
 
@@ -117,6 +119,28 @@ TEST_F(TestSchema, GetFieldByName) {
 
   result = schema->GetFieldByName("not-found");
   ASSERT_TRUE(result == nullptr);
+}
+
+TEST(TestTimeType, Equals) {
+  TimeType t1;
+  TimeType t2;
+  TimeType t3(TimeUnit::NANO);
+  TimeType t4(TimeUnit::NANO);
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+  ASSERT_TRUE(t3.Equals(t4));
+}
+
+TEST(TestTimestampType, Equals) {
+  TimestampType t1;
+  TimestampType t2;
+  TimestampType t3(TimeUnit::NANO);
+  TimestampType t4(TimeUnit::NANO);
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+  ASSERT_TRUE(t3.Equals(t4));
 }
 
 }  // namespace arrow
