@@ -57,6 +57,9 @@ endif(CCACHE_FOUND)
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  set(ARROW_CXXFLAGS "" CACHE STRING
+    "Compiler flags to append when compiling Arrow")
+
   option(ARROW_BUILD_STATIC
     "Build the libarrow static libraries"
     ON)
@@ -120,7 +123,7 @@ endif()
 include(SetupCxxFlags)
 
 # Add common flags
-set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${ARROW_CXXFLAGS} ${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 # Determine compiler version
 include(CompilerInfo)

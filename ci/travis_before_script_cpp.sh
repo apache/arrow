@@ -36,11 +36,11 @@ CMAKE_COMMON_FLAGS="\
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake -DARROW_TEST_MEMCHECK=on \
           $CMAKE_COMMON_FLAGS \
-          -DCMAKE_CXX_FLAGS="-Werror" \
+          -DARROW_CXXFLAGS=-Werror \
           $CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
-          -DCMAKE_CXX_FLAGS="-Werror" \
+          -DARROW_CXXFLAGS=-Werror \
           $CPP_DIR
 fi
 
