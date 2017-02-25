@@ -504,7 +504,7 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
 }
 
 // ----------------------------------------------------------------------
-// Default implementations of TypeVisitor methods
+// Default implementations of ArrayVisitor methods
 
 #define ARRAY_VISITOR_DEFAULT(ARRAY_CLASS)                   \
   Status ArrayVisitor::Visit(const ARRAY_CLASS& array) {     \
