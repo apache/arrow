@@ -98,7 +98,7 @@ Status GetEmptyBitmap(
   return Status::OK();
 }
 
-Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int32_t offset, int32_t length,
+Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
     std::shared_ptr<Buffer>* out) {
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));

@@ -51,7 +51,7 @@ const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(
-    int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   test::MakeRandomInt32PoolBuffer(length, pool, &data);
   Int32Builder builder(pool, int32());
@@ -121,12 +121,12 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    int32_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int64_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
   Builder builder(pool);
   const auto values_len = values.size();
-  for (int32_t i = 0; i < length; ++i) {
+  for (int64_t i = 0; i < length; ++i) {
     int values_index = i % values_len;
     if (values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
@@ -140,7 +140,7 @@ Status MakeRandomBinaryArray(
 }
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  const int32_t length = 500;
+  const int64_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
   auto f0 = field("f0", string_type);
@@ -302,7 +302,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<std::shared_ptr<Array>> sparse_children(2);
   std::vector<std::shared_ptr<Array>> dense_children(2);
 
-  const int32_t length = 7;
+  const int64_t length = 7;
 
   std::shared_ptr<Buffer> type_ids_buffer;
   std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
@@ -346,7 +346,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 }
 
 Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
-  const int32_t length = 6;
+  const int64_t length = 6;
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
   std::shared_ptr<Array> dict1, dict2;

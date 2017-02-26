@@ -64,15 +64,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
 
-        int32_t length()
-        int32_t null_count()
+        int64_t length()
+        int64_t null_count()
         Type type_enum()
 
         c_bool Equals(const shared_ptr[CArray]& arr)
         c_bool IsNull(int i)
 
-        shared_ptr[CArray] Slice(int32_t offset)
-        shared_ptr[CArray] Slice(int32_t offset, int32_t length)
+        shared_ptr[CArray] Slice(int64_t offset)
+        shared_ptr[CArray] Slice(int64_t offset, int64_t length)
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
@@ -217,7 +217,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] data()
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":
-        CRecordBatch(const shared_ptr[CSchema]& schema, int32_t num_rows,
+        CRecordBatch(const shared_ptr[CSchema]& schema, int64_t num_rows,
                      const vector[shared_ptr[CArray]]& columns)
 
         c_bool Equals(const CRecordBatch& other)
@@ -229,10 +229,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const vector[shared_ptr[CArray]]& columns()
 
         int num_columns()
-        int32_t num_rows()
+        int64_t num_rows()
 
-        shared_ptr[CRecordBatch] Slice(int32_t offset)
-        shared_ptr[CRecordBatch] Slice(int32_t offset, int32_t length)
+        shared_ptr[CRecordBatch] Slice(int64_t offset)
+        shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
     cdef cppclass CTable" arrow::Table":
         CTable(const c_string& name, const shared_ptr[CSchema]& schema,

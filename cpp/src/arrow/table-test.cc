@@ -150,7 +150,7 @@ TEST_F(TestTable, Equals) {
 }
 
 TEST_F(TestTable, FromRecordBatches) {
-  const int32_t length = 10;
+  const int64_t length = 10;
   MakeExample1(length);
 
   auto batch1 = std::make_shared<RecordBatch>(schema_, length, arrays_);
@@ -184,7 +184,7 @@ TEST_F(TestTable, FromRecordBatches) {
 }
 
 TEST_F(TestTable, ConcatenateTables) {
-  const int32_t length = 10;
+  const int64_t length = 10;
 
   MakeExample1(length);
   auto batch1 = std::make_shared<RecordBatch>(schema_, length, arrays_);

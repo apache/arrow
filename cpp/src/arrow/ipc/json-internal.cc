@@ -394,7 +394,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
-    for (int i = 0; i < arr.length(); ++i) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
       int32_t length;
       const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
 
@@ -430,7 +430,7 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   template <typename T>
-  void WriteIntegerField(const char* name, const T* values, int32_t length) {
+  void WriteIntegerField(const char* name, const T* values, int64_t length) {
     writer_->Key(name);
     writer_->StartArray();
     for (int i = 0; i < length; ++i) {

@@ -224,13 +224,13 @@ Status AppendObjectStrings(arrow::StringBuilder& string_builder, PyObject** obje
         PyErr_Clear();
         return Status::TypeError("failed converting unicode to UTF8");
       }
-      const int32_t length = PyBytes_GET_SIZE(obj);
+      const int64_t length = PyBytes_GET_SIZE(obj);
       Status s = string_builder.Append(PyBytes_AS_STRING(obj), length);
       Py_DECREF(obj);
       if (!s.ok()) { return s; }
     } else if (PyBytes_Check(obj)) {
       *have_bytes = true;
-      const int32_t length = PyBytes_GET_SIZE(obj);
+      const int64_t length = PyBytes_GET_SIZE(obj);
       RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
     } else {
       string_builder.AppendNull();
@@ -413,7 +413,7 @@ inline void ConvertIntegerNoNullsCast(const ChunkedArray& data, OutType* out_val
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<arrow::PrimitiveArray*>(arr.get());
     auto in_values = reinterpret_cast<const InType*>(prim_arr->data()->data());
-    for (int32_t i = 0; i < arr->length(); ++i) {
+    for (int64_t i = 0; i < arr->length(); ++i) {
       *out_values = in_values[i];
     }
   }
@@ -507,7 +507,6 @@ inline Status ConvertListsLike(
     auto arr = std::static_pointer_cast<arrow::ListArray>(data.chunk(c));
 
     const uint8_t* data_ptr;
-    int32_t length;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
       if (has_nulls && arr->IsNull(i)) {
@@ -1520,7 +1519,7 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
   }
 
   // For readability
-  constexpr int32_t kOffset = 0;
+  constexpr int64_t kOffset = 0;
 
   RETURN_NOT_OK(ConvertData());
   std::shared_ptr<DataType> type;
@@ -1636,7 +1635,7 @@ inline Status ArrowSerializer<TYPE>::ConvertTypedLists(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, ITEM_TYPE));
 
-      int32_t size = PyArray_DIM(numpy_array, 0);
+      int64_t size = PyArray_DIM(numpy_array, 0);
       auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
       if (traits::supports_nulls) {
         null_bitmap_->Resize(size, false);
@@ -1678,7 +1677,7 @@ ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      int32_t size = PyArray_DIM(numpy_array, 0);
+      int64_t size = PyArray_DIM(numpy_array, 0);
       auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
       RETURN_NOT_OK(AppendObjectStrings(*value_builder.get(), data, size, &have_bytes));
     } else if (PyList_Check(objects[i])) {

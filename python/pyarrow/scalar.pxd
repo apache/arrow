@@ -32,10 +32,10 @@ cdef class NAType(Scalar):
 cdef class ArrayValue(Scalar):
     cdef:
         shared_ptr[CArray] sp_array
-        int index
+        int64_t index
 
     cdef void init(self, DataType type,
-                   const shared_ptr[CArray]& sp_array, int index)
+                   const shared_ptr[CArray]& sp_array, int64_t index)
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
 
@@ -55,7 +55,7 @@ cdef class ListValue(ArrayValue):
     cdef:
         CListArray* ap
 
-    cdef getitem(self, int i)
+    cdef getitem(self, int64_t i)
 
 
 cdef class StringValue(ArrayValue):
@@ -63,4 +63,4 @@ cdef class StringValue(ArrayValue):
 
 cdef object box_scalar(DataType type,
                        const shared_ptr[CArray]& sp_array,
-                       int index)
+                       int64_t index)

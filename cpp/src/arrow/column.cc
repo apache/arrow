@@ -42,15 +42,15 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   // Check contents of the underlying arrays. This checks for equality of
   // the underlying data independently of the chunk size.
   int this_chunk_idx = 0;
-  int32_t this_start_idx = 0;
+  int64_t this_start_idx = 0;
   int other_chunk_idx = 0;
-  int32_t other_start_idx = 0;
+  int64_t other_start_idx = 0;
 
   int64_t elements_compared = 0;
   while (elements_compared < length_) {
     const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
     const std::shared_ptr<Array> other_array = other.chunk(other_chunk_idx);
-    int32_t common_length = std::min(
+    int64_t common_length = std::min(
         this_array->length() - this_start_idx, other_array->length() - other_start_idx);
     if (!this_array->RangeEquals(this_start_idx, this_start_idx + common_length,
             other_start_idx, other_array)) {

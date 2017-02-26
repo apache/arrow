@@ -46,7 +46,7 @@ NA = NAType()
 cdef class ArrayValue(Scalar):
 
     cdef void init(self, DataType type, const shared_ptr[CArray]& sp_array,
-                   int index):
+                   int64_t index):
         self.type = type
         self.index = index
         self._set_array(sp_array)
@@ -201,13 +201,13 @@ cdef class ListValue(ArrayValue):
         self.ap = <CListArray*> sp_array.get()
         self.value_type = box_data_type(self.ap.value_type())
 
-    cdef getitem(self, int i):
-        cdef int j = self.ap.value_offset(self.index) + i
+    cdef getitem(self, int64_t i):
+        cdef int64_t j = self.ap.value_offset(self.index) + i
         return box_scalar(self.value_type, self.ap.values(), j)
 
     def as_py(self):
         cdef:
-            int j
+            int64_t j
             list result = []
 
         for j in range(len(self)):
@@ -236,7 +236,7 @@ cdef dict _scalar_classes = {
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
-                       int index):
+                       int64_t index):
     cdef ArrayValue val
     if type.type.type == Type_NA:
         return NA

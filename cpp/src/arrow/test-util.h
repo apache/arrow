@@ -183,7 +183,7 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   return out;
 }
 
-Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
+Status MakeRandomInt32PoolBuffer(int64_t length, MemoryPool* pool,
     std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
   DCHECK(pool);
   auto data = std::make_shared<PoolBuffer>(pool);
@@ -194,7 +194,7 @@ Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
+Status MakeRandomBytePoolBuffer(int64_t length, MemoryPool* pool,
     std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
   auto bytes = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(bytes->Resize(length));
@@ -213,7 +213,7 @@ class TestBase : public ::testing::Test {
   }
 
   template <typename ArrayType>
-  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+  std::shared_ptr<Array> MakePrimitive(int64_t length, int64_t null_count = 0) {
     auto data = std::make_shared<PoolBuffer>(pool_);
     const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
     EXPECT_OK(data->Resize(data_nbytes));

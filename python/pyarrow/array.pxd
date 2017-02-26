@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.common cimport shared_ptr
+from pyarrow.includes.common cimport shared_ptr, int64_t
 from pyarrow.includes.libarrow cimport CArray
 
 from pyarrow.scalar import NA
@@ -36,7 +36,7 @@ cdef class Array:
         DataType type
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
-    cdef getitem(self, int i)
+    cdef getitem(self, int64_t i)
 
 cdef object box_array(const shared_ptr[CArray]& sp_array)
 

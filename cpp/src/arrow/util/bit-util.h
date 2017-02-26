@@ -127,8 +127,8 @@ Status ARROW_EXPORT GetEmptyBitmap(
 /// \param[out] out the resulting copy
 ///
 /// \return Status message
-Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int32_t offset,
-    int32_t length, std::shared_ptr<Buffer>* out);
+Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
+    int64_t length, std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///

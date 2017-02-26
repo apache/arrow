@@ -165,7 +165,7 @@ class ARROW_EXPORT BufferBuilder {
       : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
 
   /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
-  Status Resize(int32_t elements) {
+  Status Resize(int64_t elements) {
     if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
     RETURN_NOT_OK(buffer_->Resize(elements));
     capacity_ = buffer_->capacity();

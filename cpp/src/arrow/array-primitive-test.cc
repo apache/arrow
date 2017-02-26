@@ -111,7 +111,7 @@ class TestPrimitiveBuilder : public TestBuilder {
         reinterpret_cast<uint8_t*>(draws_.data()), size * sizeof(T));
 
     std::shared_ptr<Buffer> ex_null_bitmap;
-    int32_t ex_null_count = 0;
+    int64_t ex_null_count = 0;
 
     if (nullable) {
       ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);
@@ -207,7 +207,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   auto ex_data = test::bytes_to_null_buffer(draws_);
 
   std::shared_ptr<Buffer> ex_null_bitmap;
-  int32_t ex_null_count = 0;
+  int64_t ex_null_count = 0;
 
   if (nullable) {
     ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);

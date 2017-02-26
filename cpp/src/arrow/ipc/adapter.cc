@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <vector>
 
@@ -65,8 +66,14 @@ class RecordBatchWriter : public ArrayVisitor {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
+
+    if (arr.length() > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
+    }
+
     // push back all common elements
-    field_nodes_.push_back(flatbuf::FieldNode(arr.length(), arr.null_count()));
+    field_nodes_.push_back(
+        flatbuf::FieldNode(static_cast<int32_t>(arr.length()), arr.null_count()));
     if (arr.null_count() > 0) {
       std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
 
@@ -430,7 +437,7 @@ class RecordBatchWriter : public ArrayVisitor {
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-        for (int32_t i = 0; i < array.length(); ++i) {
+        for (int64_t i = 0; i < array.length(); ++i) {
           const uint8_t code = type_ids[i];
           int32_t shift = child_offsets[code];
           if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
