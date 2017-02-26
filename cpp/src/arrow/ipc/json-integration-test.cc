@@ -29,8 +29,9 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/io/file.h"
-#include "arrow/ipc/file.h"
 #include "arrow/ipc/json.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"

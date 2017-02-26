@@ -39,22 +39,11 @@ class Status;
 
 namespace io {
 
-class InputStream;
 class OutputStream;
 
 }  // namespace io
 
 namespace ipc {
-
-struct ARROW_EXPORT FileBlock {
-  FileBlock() {}
-  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
-      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
-
-  int64_t offset;
-  int32_t metadata_length;
-  int64_t body_length;
-};
 
 class ARROW_EXPORT StreamWriter {
  public:
@@ -74,61 +63,27 @@ class ARROW_EXPORT StreamWriter {
   void set_memory_pool(MemoryPool* pool);
 
  protected:
-  StreamWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
-
-  virtual Status Start();
-
-  Status CheckStarted();
-  Status UpdatePosition();
-
-  Status WriteDictionaries();
-
-  Status WriteRecordBatch(const RecordBatch& batch, FileBlock* block);
-
-  // Adds padding bytes if necessary to ensure all memory blocks are written on
-  // 8-byte boundaries.
-  Status Align();
-
-  // Write data and update position
-  Status Write(const uint8_t* data, int64_t nbytes);
-
-  // Write and align
-  Status WriteAligned(const uint8_t* data, int64_t nbytes);
-
-  io::OutputStream* sink_;
-  std::shared_ptr<Schema> schema_;
-
-  // When writing out the schema, we keep track of all the dictionaries we
-  // encounter, as they must be written out first in the stream
-  std::shared_ptr<DictionaryMemo> dictionary_memo_;
-
-  MemoryPool* pool_;
-
-  int64_t position_;
-  bool started_;
-
-  std::vector<FileBlock> dictionaries_;
-  std::vector<FileBlock> record_batches_;
+  StreamWriter();
+  class ARROW_NO_EXPORT StreamWriterImpl;
+  std::unique_ptr<StreamWriterImpl> impl_;
 };
 
-class ARROW_EXPORT StreamReader {
+Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
+    io::OutputStream* out);
+
+class ARROW_EXPORT FileWriter : public StreamWriter {
  public:
-  ~StreamReader();
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      std::shared_ptr<FileWriter>* out);
 
-  // Open an stream.
-  static Status Open(const std::shared_ptr<io::InputStream>& stream,
-      std::shared_ptr<StreamReader>* reader);
-
-  std::shared_ptr<Schema> schema() const;
-
-  // Returned batch is nullptr when end of stream reached
-  Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
+  Status WriteRecordBatch(const RecordBatch& batch) override;
+  Status Close() override;
 
  private:
-  StreamReader();
-
-  class ARROW_NO_EXPORT StreamReaderImpl;
-  std::unique_ptr<StreamReaderImpl> impl_;
+  FileWriter();
+  class ARROW_NO_EXPORT FileWriterImpl;
+  std::unique_ptr<FileWriterImpl> impl_;
 };
 
 }  // namespace ipc

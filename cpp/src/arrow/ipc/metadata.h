@@ -50,6 +50,18 @@ struct MetadataVersion {
   enum type { V1, V2 };
 };
 
+static constexpr const char* kArrowMagicBytes = "ARROW1";
+
+struct ARROW_EXPORT FileBlock {
+  FileBlock() {}
+  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
+      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
+
+  int64_t offset;
+  int32_t metadata_length;
+  int64_t body_length;
+};
+
 //----------------------------------------------------------------------
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
