@@ -169,7 +169,7 @@ bool Table::Equals(const Table& other) const {
   if (!schema_->Equals(other.schema())) { return false; }
   if (static_cast<int64_t>(columns_.size()) != other.num_columns()) { return false; }
 
-  for (size_t i = 0; i < columns_.size(); i++) {
+  for (int i = 0; i < static_cast<int>(columns_.size()); i++) {
     if (!columns_[i]->Equals(other.column(i))) { return false; }
   }
   return true;

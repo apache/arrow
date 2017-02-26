@@ -44,7 +44,7 @@ class ARROW_EXPORT ChunkedArray {
 
   int64_t null_count() const { return null_count_; }
 
-  int num_chunks() const { return chunks_.size(); }
+  int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 

@@ -47,7 +47,7 @@ class ARROW_EXPORT Schema {
   // Render a string representation of the schema suitable for debugging
   std::string ToString() const;
 
-  int num_fields() const { return fields_.size(); }
+  int num_fields() const { return static_cast<int>(fields_.size()); }
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;

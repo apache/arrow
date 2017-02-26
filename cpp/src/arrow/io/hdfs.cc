@@ -114,7 +114,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     tSize ret;
     if (driver_->HasPread()) {
       ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
-          reinterpret_cast<void*>(buffer), nbytes);
+          reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
     } else {
       RETURN_NOT_OK(Seek(position));
       return Read(nbytes, bytes_read, buffer);
@@ -141,7 +141,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
       tSize ret = driver_->Read(fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
-          std::min<int64_t>(buffer_size_, nbytes - total_bytes));
+          static_cast<tSize>(std::min<int64_t>(buffer_size_, nbytes - total_bytes)));
       RETURN_NOT_OK(CheckReadResult(ret));
       total_bytes += ret;
       if (ret == 0) { break; }
@@ -253,7 +253,8 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
   }
 
   Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
-    tSize ret = driver_->Write(fs_, file_, reinterpret_cast<const void*>(buffer), nbytes);
+    tSize ret = driver_->Write(
+        fs_, file_, reinterpret_cast<const void*>(buffer), static_cast<tSize>(nbytes));
     CHECK_FAILURE(ret, "Write");
     *bytes_written = ret;
     return Status::OK();
@@ -328,7 +329,7 @@ class HdfsClient::HdfsClientImpl {
     if (!config->host.empty()) {
       driver_->BuilderSetNameNode(builder, config->host.c_str());
     }
-    driver_->BuilderSetNameNodePort(builder, config->port);
+    driver_->BuilderSetNameNodePort(builder, static_cast<tPort>(config->port));
     if (!config->user.empty()) {
       driver_->BuilderSetUserName(builder, config->user.c_str());
     }
@@ -411,7 +412,7 @@ class HdfsClient::HdfsClientImpl {
 
     // Allocate additional space for elements
 
-    int vec_offset = listing->size();
+    int vec_offset = static_cast<int>(listing->size());
     listing->resize(vec_offset + num_entries);
 
     for (int i = 0; i < num_entries; ++i) {
@@ -449,8 +450,8 @@ class HdfsClient::HdfsClientImpl {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
-    hdfsFile handle = driver_->OpenFile(
-        fs_, path.c_str(), flags, buffer_size, replication, default_block_size);
+    hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), flags, buffer_size,
+        replication, static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
       // TODO(wesm): determine cause of failure

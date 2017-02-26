@@ -42,7 +42,7 @@ void BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 Status BitUtil::BytesToBits(
     const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
-  int bit_length = BitUtil::BytesForBits(bytes.size());
+  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
 
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), bit_length, &buffer));

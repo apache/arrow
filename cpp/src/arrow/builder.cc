@@ -55,7 +55,7 @@ Status ArrayBuilder::Init(int64_t capacity) {
   null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
   // Buffers might allocate more then necessary to satisfy padding requirements
-  const int byte_capacity = null_bitmap_->capacity();
+  const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = capacity;
   null_bitmap_data_ = null_bitmap_->mutable_data();
   memset(null_bitmap_data_, 0, byte_capacity);
@@ -115,15 +115,15 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     return;
   }
 
-  int byte_offset = length_ / 8;
-  int bit_offset = length_ % 8;
+  int64_t byte_offset = length_ / 8;
+  int64_t bit_offset = length_ % 8;
   uint8_t bitset = null_bitmap_data_[byte_offset];
 
   for (int64_t i = 0; i < length; ++i) {
     if (valid_bytes[i]) {
-      bitset |= (1 << bit_offset);
+      bitset |= BitUtil::kBitmask[bit_offset];
     } else {
-      bitset &= ~(1 << bit_offset);
+      bitset &= BitUtil::kFlippedBitmask[bit_offset];
       ++null_count_;
     }
 
@@ -201,7 +201,8 @@ Status PrimitiveBuilder<T>::Append(
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
-    memcpy(raw_data_ + length_, values, TypeTraits<T>::bytes_required(length));
+    std::memcpy(raw_data_ + length_, values,
+        static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
   }
 
   // length_ is update by these
@@ -297,7 +298,7 @@ Status BooleanBuilder::Append(
     const uint8_t* values, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
-  for (int i = 0; i < length; ++i) {
+  for (int64_t i = 0; i < length; ++i) {
     // Skip reading from unitialised memory
     // TODO: This actually is only to keep valgrind happy but may or may not
     // have a performance impact.

@@ -61,7 +61,7 @@ class ARROW_EXPORT ArrayBuilder {
   /// skip shared pointers and just return a raw pointer
   ArrayBuilder* child(int i) { return children_[i].get(); }
 
-  int num_children() const { return children_.size(); }
+  int num_children() const { return static_cast<int>(children_.size()); }
 
   int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
@@ -341,7 +341,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
-    RETURN_NOT_OK(offset_builder_.Append<int32_t>(value_builder_->length()));
+    RETURN_NOT_OK(
+        offset_builder_.Append<int32_t>(static_cast<int32_t>(value_builder_->length())));
     return Status::OK();
   }
 
@@ -375,7 +376,9 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+  Status Append(const std::string& value) {
+    return Append(value.c_str(), static_cast<int32_t>(value.size()));
+  }
 
   Status Finish(std::shared_ptr<Array>* out) override;
 

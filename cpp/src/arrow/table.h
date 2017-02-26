@@ -59,7 +59,7 @@ class ARROW_EXPORT RecordBatch {
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
-  int num_columns() const { return columns_.size(); }
+  int num_columns() const { return static_cast<int>(columns_.size()); }
 
   // @returns: the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -105,7 +105,7 @@ class ARROW_EXPORT Table {
   std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
   // @returns: the number of columns in the table
-  int num_columns() const { return columns_.size(); }
+  int num_columns() const { return static_cast<int>(columns_.size()); }
 
   // @returns: the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }

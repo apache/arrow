@@ -162,7 +162,7 @@ struct ARROW_EXPORT DataType {
 
   const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
 
-  int num_children() const { return children_.size(); }
+  int num_children() const { return static_cast<int>(children_.size()); }
 
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 

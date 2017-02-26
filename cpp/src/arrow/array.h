@@ -401,7 +401,7 @@ class ARROW_EXPORT StructArray : public Array {
 
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
-  std::shared_ptr<Array> field(int32_t pos) const;
+  std::shared_ptr<Array> field(int pos) const;
 
   const std::vector<std::shared_ptr<Array>>& fields() const { return children_; }
 
@@ -442,7 +442,7 @@ class ARROW_EXPORT UnionArray : public Array {
 
   UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
 
-  std::shared_ptr<Array> child(int32_t pos) const;
+  std::shared_ptr<Array> child(int pos) const;
 
   const std::vector<std::shared_ptr<Array>>& children() const { return children_; }
 

@@ -326,7 +326,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
   children_ = children;
 }
 
-std::shared_ptr<Array> StructArray::field(int32_t pos) const {
+std::shared_ptr<Array> StructArray::field(int pos) const {
   DCHECK_GT(children_.size(), 0);
   return children_[pos];
 }
@@ -396,7 +396,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   }
 }
 
-std::shared_ptr<Array> UnionArray::child(int32_t pos) const {
+std::shared_ptr<Array> UnionArray::child(int pos) const {
   DCHECK_GT(children_.size(), 0);
   return children_[pos];
 }

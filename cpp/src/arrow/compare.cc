@@ -197,11 +197,11 @@ class RangeEqualsVisitor : public ArrayVisitor {
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
-      for (size_t j = 0; j < left.fields().size(); ++j) {
+      for (int j = 0; j < static_cast<int>(left.fields().size()); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
-        const int left_abs_index = i + left.offset();
-        const int right_abs_index = o_i + right.offset();
+        const int64_t left_abs_index = i + left.offset();
+        const int64_t right_abs_index = o_i + right.offset();
 
         equal_fields = left.field(j)->RangeEquals(
             left_abs_index, left_abs_index + 1, right_abs_index, right.field(j));
@@ -252,8 +252,8 @@ class RangeEqualsVisitor : public ArrayVisitor {
       id = left_ids[i];
       child_num = type_id_to_child_num[id];
 
-      const int left_abs_index = i + left.offset();
-      const int right_abs_index = o_i + right.offset();
+      const int64_t left_abs_index = i + left.offset();
+      const int64_t right_abs_index = o_i + right.offset();
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
@@ -314,7 +314,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       const uint8_t* left_data = left.data()->data();
       const uint8_t* right_data = right.data()->data();
 
-      for (int i = 0; i < left.length(); ++i) {
+      for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) &&
             BitUtil::GetBit(left_data, i) != BitUtil::GetBit(right_data, i)) {
           result_ = false;
@@ -339,7 +339,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     const uint8_t* right_data = right.data()->data() + right.offset() * value_byte_size;
 
     if (left.null_count() > 0) {
-      for (int i = 0; i < left.length(); ++i) {
+      for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) && memcmp(left_data, right_data, value_byte_size)) {
           return false;
         }
@@ -496,7 +496,7 @@ inline bool FloatingApproxEquals(
   const T* left_data = left.raw_data();
   const T* right_data = right.raw_data();
 
-  static constexpr T EPSILON = 1E-5;
+  static constexpr T EPSILON = static_cast<T>(1E-5);
 
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {

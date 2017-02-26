@@ -32,7 +32,7 @@ template <>
 struct TypeTraits<UInt8Type> {
   using ArrayType = UInt8Array;
   using BuilderType = UInt8Builder;
-  static inline int bytes_required(int elements) { return elements; }
+  static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint8(); }
 };
@@ -41,7 +41,7 @@ template <>
 struct TypeTraits<Int8Type> {
   using ArrayType = Int8Array;
   using BuilderType = Int8Builder;
-  static inline int bytes_required(int elements) { return elements; }
+  static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int8(); }
 };
@@ -51,7 +51,9 @@ struct TypeTraits<UInt16Type> {
   using ArrayType = UInt16Array;
   using BuilderType = UInt16Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(uint16_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint16(); }
 };
@@ -61,7 +63,9 @@ struct TypeTraits<Int16Type> {
   using ArrayType = Int16Array;
   using BuilderType = Int16Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int16_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int16_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int16(); }
 };
@@ -71,7 +75,9 @@ struct TypeTraits<UInt32Type> {
   using ArrayType = UInt32Array;
   using BuilderType = UInt32Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(uint32_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(uint32_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint32(); }
 };
@@ -81,7 +87,9 @@ struct TypeTraits<Int32Type> {
   using ArrayType = Int32Array;
   using BuilderType = Int32Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int32_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int32_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int32(); }
 };
@@ -91,7 +99,9 @@ struct TypeTraits<UInt64Type> {
   using ArrayType = UInt64Array;
   using BuilderType = UInt64Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(uint64_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(uint64_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint64(); }
 };
@@ -101,7 +111,9 @@ struct TypeTraits<Int64Type> {
   using ArrayType = Int64Array;
   using BuilderType = Int64Builder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int64_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int64(); }
 };
@@ -111,7 +123,9 @@ struct TypeTraits<DateType> {
   using ArrayType = DateArray;
   // using BuilderType = DateBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int64_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return date(); }
 };
@@ -121,7 +135,9 @@ struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
   // using BuilderType = TimestampBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int64_t);
+  }
   constexpr static bool is_parameter_free = false;
 };
 
@@ -130,7 +146,9 @@ struct TypeTraits<TimeType> {
   using ArrayType = TimeArray;
   // using BuilderType = TimestampBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(int64_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int64_t);
+  }
   constexpr static bool is_parameter_free = false;
 };
 
@@ -139,7 +157,9 @@ struct TypeTraits<HalfFloatType> {
   using ArrayType = HalfFloatArray;
   using BuilderType = HalfFloatBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(uint16_t); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(uint16_t);
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
 };
@@ -149,7 +169,9 @@ struct TypeTraits<FloatType> {
   using ArrayType = FloatArray;
   using BuilderType = FloatBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(float); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return static_cast<int64_t>(elements * sizeof(float));
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float32(); }
 };
@@ -159,7 +181,9 @@ struct TypeTraits<DoubleType> {
   using ArrayType = DoubleArray;
   using BuilderType = DoubleBuilder;
 
-  static inline int bytes_required(int elements) { return elements * sizeof(double); }
+  static inline int64_t bytes_required(int64_t elements) {
+    return static_cast<int64_t>(elements * sizeof(double));
+  }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float64(); }
 };
@@ -169,7 +193,7 @@ struct TypeTraits<BooleanType> {
   using ArrayType = BooleanArray;
   using BuilderType = BooleanBuilder;
 
-  static inline int bytes_required(int elements) {
+  static inline int64_t bytes_required(int64_t elements) {
     return BitUtil::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;

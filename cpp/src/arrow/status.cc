@@ -18,7 +18,7 @@ namespace arrow {
 
 Status::Status(StatusCode code, const std::string& msg, int16_t posix_code) {
   assert(code != StatusCode::OK);
-  const uint32_t size = msg.size();
+  const uint32_t size = static_cast<uint32_t>(msg.size());
   char* result = new char[size + 7];
   memcpy(result, &size, sizeof(size));
   result[4] = static_cast<char>(code);

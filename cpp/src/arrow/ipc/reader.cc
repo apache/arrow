@@ -146,6 +146,8 @@ class StreamReader::StreamReaderImpl {
     }
 
     RecordBatchMetadata batch_metadata(message);
+    // Write footer length
+    int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
 
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
@@ -203,7 +205,7 @@ class FileReader::FileReaderImpl {
     }
 
     std::shared_ptr<Buffer> buffer;
-    int file_end_size = magic_size + sizeof(int32_t);
+    int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
 
     if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
