@@ -38,34 +38,34 @@ class MemoryPool;
 class MutableBuffer;
 class Status;
 
-class ArrayVisitor {
+class ARROW_EXPORT ArrayVisitor {
  public:
   virtual ~ArrayVisitor() = default;
 
-  virtual Status Visit(const NullArray& array) = 0;
-  virtual Status Visit(const BooleanArray& array) = 0;
-  virtual Status Visit(const Int8Array& array) = 0;
-  virtual Status Visit(const Int16Array& array) = 0;
-  virtual Status Visit(const Int32Array& array) = 0;
-  virtual Status Visit(const Int64Array& array) = 0;
-  virtual Status Visit(const UInt8Array& array) = 0;
-  virtual Status Visit(const UInt16Array& array) = 0;
-  virtual Status Visit(const UInt32Array& array) = 0;
-  virtual Status Visit(const UInt64Array& array) = 0;
-  virtual Status Visit(const HalfFloatArray& array) = 0;
-  virtual Status Visit(const FloatArray& array) = 0;
-  virtual Status Visit(const DoubleArray& array) = 0;
-  virtual Status Visit(const StringArray& array) = 0;
-  virtual Status Visit(const BinaryArray& array) = 0;
-  virtual Status Visit(const DateArray& array) = 0;
-  virtual Status Visit(const TimeArray& array) = 0;
-  virtual Status Visit(const TimestampArray& array) = 0;
-  virtual Status Visit(const IntervalArray& array) = 0;
-  virtual Status Visit(const DecimalArray& array) = 0;
-  virtual Status Visit(const ListArray& array) = 0;
-  virtual Status Visit(const StructArray& array) = 0;
-  virtual Status Visit(const UnionArray& array) = 0;
-  virtual Status Visit(const DictionaryArray& type) = 0;
+  virtual Status Visit(const NullArray& array);
+  virtual Status Visit(const BooleanArray& array);
+  virtual Status Visit(const Int8Array& array);
+  virtual Status Visit(const Int16Array& array);
+  virtual Status Visit(const Int32Array& array);
+  virtual Status Visit(const Int64Array& array);
+  virtual Status Visit(const UInt8Array& array);
+  virtual Status Visit(const UInt16Array& array);
+  virtual Status Visit(const UInt32Array& array);
+  virtual Status Visit(const UInt64Array& array);
+  virtual Status Visit(const HalfFloatArray& array);
+  virtual Status Visit(const FloatArray& array);
+  virtual Status Visit(const DoubleArray& array);
+  virtual Status Visit(const StringArray& array);
+  virtual Status Visit(const BinaryArray& array);
+  virtual Status Visit(const DateArray& array);
+  virtual Status Visit(const TimeArray& array);
+  virtual Status Visit(const TimestampArray& array);
+  virtual Status Visit(const IntervalArray& array);
+  virtual Status Visit(const DecimalArray& array);
+  virtual Status Visit(const ListArray& array);
+  virtual Status Visit(const StructArray& array);
+  virtual Status Visit(const UnionArray& array);
+  virtual Status Visit(const DictionaryArray& type);
 };
 
 /// Immutable data array with some logical type and some length.

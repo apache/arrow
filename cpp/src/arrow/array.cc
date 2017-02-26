@@ -503,4 +503,40 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int32_t length,
 #endif
 }
 
+// ----------------------------------------------------------------------
+// Default implementations of ArrayVisitor methods
+
+#define ARRAY_VISITOR_DEFAULT(ARRAY_CLASS)                   \
+  Status ArrayVisitor::Visit(const ARRAY_CLASS& array) {     \
+    return Status::NotImplemented(array.type()->ToString()); \
+  }
+
+ARRAY_VISITOR_DEFAULT(NullArray);
+ARRAY_VISITOR_DEFAULT(BooleanArray);
+ARRAY_VISITOR_DEFAULT(Int8Array);
+ARRAY_VISITOR_DEFAULT(Int16Array);
+ARRAY_VISITOR_DEFAULT(Int32Array);
+ARRAY_VISITOR_DEFAULT(Int64Array);
+ARRAY_VISITOR_DEFAULT(UInt8Array);
+ARRAY_VISITOR_DEFAULT(UInt16Array);
+ARRAY_VISITOR_DEFAULT(UInt32Array);
+ARRAY_VISITOR_DEFAULT(UInt64Array);
+ARRAY_VISITOR_DEFAULT(HalfFloatArray);
+ARRAY_VISITOR_DEFAULT(FloatArray);
+ARRAY_VISITOR_DEFAULT(DoubleArray);
+ARRAY_VISITOR_DEFAULT(StringArray);
+ARRAY_VISITOR_DEFAULT(BinaryArray);
+ARRAY_VISITOR_DEFAULT(DateArray);
+ARRAY_VISITOR_DEFAULT(TimeArray);
+ARRAY_VISITOR_DEFAULT(TimestampArray);
+ARRAY_VISITOR_DEFAULT(IntervalArray);
+ARRAY_VISITOR_DEFAULT(ListArray);
+ARRAY_VISITOR_DEFAULT(StructArray);
+ARRAY_VISITOR_DEFAULT(UnionArray);
+ARRAY_VISITOR_DEFAULT(DictionaryArray);
+
+Status ArrayVisitor::Visit(const DecimalArray& array) {
+  return Status::NotImplemented("decimal");
+}
+
 }  // namespace arrow

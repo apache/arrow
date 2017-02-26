@@ -227,8 +227,6 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
  protected:
-  Status Visit(const NullArray& array) override { return Status::NotImplemented("null"); }
-
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
     std::shared_ptr<Buffer> data_buffer = array.data();
@@ -358,14 +356,6 @@ class RecordBatchWriter : public ArrayVisitor {
 
   Status Visit(const TimestampArray& array) override {
     return VisitFixedWidth<TimestampArray>(array);
-  }
-
-  Status Visit(const IntervalArray& array) override {
-    return Status::NotImplemented("interval");
-  }
-
-  Status Visit(const DecimalArray& array) override {
-    return Status::NotImplemented("decimal");
   }
 
   Status Visit(const ListArray& array) override {
@@ -653,8 +643,6 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) override { return Status::NotImplemented("null"); }
-
   Status Visit(const BooleanType& type) override { return LoadPrimitive(type); }
 
   Status Visit(const Int8Type& type) override { return LoadPrimitive(type); }
@@ -688,14 +676,6 @@ class ArrayLoader : public TypeVisitor {
   Status Visit(const TimeType& type) override { return LoadPrimitive(type); }
 
   Status Visit(const TimestampType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const IntervalType& type) override {
-    return Status::NotImplemented(type.ToString());
-  }
-
-  Status Visit(const DecimalType& type) override {
-    return Status::NotImplemented(type.ToString());
-  }
 
   Status Visit(const ListType& type) override {
     FieldMetadata field_meta;

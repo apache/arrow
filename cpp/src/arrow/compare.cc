@@ -301,9 +301,9 @@ class RangeEqualsVisitor : public ArrayVisitor {
   bool result_;
 };
 
-class EqualsVisitor : public RangeEqualsVisitor {
+class ArrayEqualsVisitor : public RangeEqualsVisitor {
  public:
-  explicit EqualsVisitor(const Array& right)
+  explicit ArrayEqualsVisitor(const Array& right)
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
   Status Visit(const NullArray& left) override { return Status::OK(); }
@@ -511,9 +511,9 @@ inline bool FloatingApproxEquals(
   return true;
 }
 
-class ApproxEqualsVisitor : public EqualsVisitor {
+class ApproxEqualsVisitor : public ArrayEqualsVisitor {
  public:
-  using EqualsVisitor::EqualsVisitor;
+  using ArrayEqualsVisitor::ArrayEqualsVisitor;
 
   Status Visit(const FloatArray& left) override {
     result_ =
@@ -549,7 +549,7 @@ Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
   } else if (left.length() == 0) {
     *are_equal = true;
   } else {
-    EqualsVisitor visitor(right);
+    ArrayEqualsVisitor visitor(right);
     RETURN_NOT_OK(left.Accept(&visitor));
     *are_equal = visitor.result();
   }
@@ -584,6 +584,104 @@ Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal)
     ApproxEqualsVisitor visitor(right);
     RETURN_NOT_OK(left.Accept(&visitor));
     *are_equal = visitor.result();
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Implement TypeEquals
+
+class TypeEqualsVisitor : public TypeVisitor {
+ public:
+  explicit TypeEqualsVisitor(const DataType& right) : right_(right), result_(false) {}
+
+  Status VisitChildren(const DataType& left) {
+    if (left.num_children() != right_.num_children()) {
+      result_ = false;
+      return Status::OK();
+    }
+
+    for (int i = 0; i < left.num_children(); ++i) {
+      if (!left.child(i)->Equals(right_.child(i))) {
+        result_ = false;
+        break;
+      }
+    }
+    result_ = true;
+    return Status::OK();
+  }
+
+  Status Visit(const TimeType& left) override {
+    const auto& right = static_cast<const TimeType&>(right_);
+    result_ = left.unit == right.unit;
+    return Status::OK();
+  }
+
+  Status Visit(const TimestampType& left) override {
+    const auto& right = static_cast<const TimestampType&>(right_);
+    result_ = left.unit == right.unit;
+    return Status::OK();
+  }
+
+  Status Visit(const ListType& left) override { return VisitChildren(left); }
+
+  Status Visit(const StructType& left) override { return VisitChildren(left); }
+
+  Status Visit(const UnionType& left) override {
+    const auto& right = static_cast<const UnionType&>(right_);
+
+    if (left.mode != right.mode || left.type_codes.size() != right.type_codes.size()) {
+      result_ = false;
+      return Status::OK();
+    }
+
+    const std::vector<uint8_t> left_codes = left.type_codes;
+    const std::vector<uint8_t> right_codes = right.type_codes;
+
+    for (size_t i = 0; i < left_codes.size(); ++i) {
+      if (left_codes[i] != right_codes[i]) {
+        result_ = false;
+        break;
+      }
+    }
+    result_ = true;
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& left) override {
+    const auto& right = static_cast<const DictionaryType&>(right_);
+    result_ = left.index_type()->Equals(right.index_type()) &&
+              left.dictionary()->Equals(right.dictionary());
+    return Status::OK();
+  }
+
+  bool result() const { return result_; }
+
+ protected:
+  const DataType& right_;
+  bool result_;
+};
+
+Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
+  // The arrays are the same object
+  if (&left == &right) {
+    *are_equal = true;
+  } else if (left.type != right.type) {
+    *are_equal = false;
+  } else {
+    TypeEqualsVisitor visitor(right);
+    Status s = left.Accept(&visitor);
+
+    // We do not implement any type visitors where there is no additional
+    // metadata to compare.
+    if (s.IsNotImplemented()) {
+      // Not implemented means there is no additional metadata to compare
+      *are_equal = true;
+    } else if (!s.ok()) {
+      return s;
+    } else {
+      *are_equal = visitor.result();
+    }
   }
   return Status::OK();
 }

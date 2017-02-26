@@ -112,34 +112,34 @@ class BufferDescr {
   int bit_width_;
 };
 
-class TypeVisitor {
+class ARROW_EXPORT TypeVisitor {
  public:
   virtual ~TypeVisitor() = default;
 
-  virtual Status Visit(const NullType& type) = 0;
-  virtual Status Visit(const BooleanType& type) = 0;
-  virtual Status Visit(const Int8Type& type) = 0;
-  virtual Status Visit(const Int16Type& type) = 0;
-  virtual Status Visit(const Int32Type& type) = 0;
-  virtual Status Visit(const Int64Type& type) = 0;
-  virtual Status Visit(const UInt8Type& type) = 0;
-  virtual Status Visit(const UInt16Type& type) = 0;
-  virtual Status Visit(const UInt32Type& type) = 0;
-  virtual Status Visit(const UInt64Type& type) = 0;
-  virtual Status Visit(const HalfFloatType& type) = 0;
-  virtual Status Visit(const FloatType& type) = 0;
-  virtual Status Visit(const DoubleType& type) = 0;
-  virtual Status Visit(const StringType& type) = 0;
-  virtual Status Visit(const BinaryType& type) = 0;
-  virtual Status Visit(const DateType& type) = 0;
-  virtual Status Visit(const TimeType& type) = 0;
-  virtual Status Visit(const TimestampType& type) = 0;
-  virtual Status Visit(const IntervalType& type) = 0;
-  virtual Status Visit(const DecimalType& type) = 0;
-  virtual Status Visit(const ListType& type) = 0;
-  virtual Status Visit(const StructType& type) = 0;
-  virtual Status Visit(const UnionType& type) = 0;
-  virtual Status Visit(const DictionaryType& type) = 0;
+  virtual Status Visit(const NullType& type);
+  virtual Status Visit(const BooleanType& type);
+  virtual Status Visit(const Int8Type& type);
+  virtual Status Visit(const Int16Type& type);
+  virtual Status Visit(const Int32Type& type);
+  virtual Status Visit(const Int64Type& type);
+  virtual Status Visit(const UInt8Type& type);
+  virtual Status Visit(const UInt16Type& type);
+  virtual Status Visit(const UInt32Type& type);
+  virtual Status Visit(const UInt64Type& type);
+  virtual Status Visit(const HalfFloatType& type);
+  virtual Status Visit(const FloatType& type);
+  virtual Status Visit(const DoubleType& type);
+  virtual Status Visit(const StringType& type);
+  virtual Status Visit(const BinaryType& type);
+  virtual Status Visit(const DateType& type);
+  virtual Status Visit(const TimeType& type);
+  virtual Status Visit(const TimestampType& type);
+  virtual Status Visit(const IntervalType& type);
+  virtual Status Visit(const DecimalType& type);
+  virtual Status Visit(const ListType& type);
+  virtual Status Visit(const StructType& type);
+  virtual Status Visit(const UnionType& type);
+  virtual Status Visit(const DictionaryType& type);
 };
 
 struct ARROW_EXPORT DataType {
@@ -156,10 +156,7 @@ struct ARROW_EXPORT DataType {
   // Types that are logically convertable from one to another e.g. List<UInt8>
   // and Binary are NOT equal).
   virtual bool Equals(const DataType& other) const;
-
-  bool Equals(const std::shared_ptr<DataType>& other) const {
-    return Equals(*other.get());
-  }
+  bool Equals(const std::shared_ptr<DataType>& other) const;
 
   std::shared_ptr<Field> child(int i) const { return children_[i]; }
 
@@ -211,8 +208,6 @@ struct ARROW_EXPORT Field {
       bool nullable = true)
       : name(name), type(type), nullable(nullable) {}
 
-  bool operator==(const Field& other) const { return this->Equals(other); }
-  bool operator!=(const Field& other) const { return !this->Equals(other); }
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
 
@@ -411,10 +406,7 @@ struct ARROW_EXPORT UnionType : public DataType {
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE)
-      : DataType(Type::UNION), mode(mode), type_codes(type_codes) {
-    children_ = fields;
-  }
+      const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
   static std::string name() { return "union"; }
@@ -522,8 +514,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::shared_ptr<DataType> index_type() const { return index_type_; }
 
   std::shared_ptr<Array> dictionary() const;
-
-  bool Equals(const DataType& other) const override;
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;

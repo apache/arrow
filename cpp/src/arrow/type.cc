@@ -21,6 +21,7 @@
 #include <string>
 
 #include "arrow/array.h"
+#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -46,16 +47,14 @@ std::string Field::ToString() const {
 DataType::~DataType() {}
 
 bool DataType::Equals(const DataType& other) const {
-  bool equals =
-      ((this == &other) || ((this->type == other.type) &&
-                               ((this->num_children() == other.num_children()))));
-  if (equals) {
-    for (int i = 0; i < num_children(); ++i) {
-      // TODO(emkornfield) limit recursion
-      if (!children_[i]->Equals(other.children_[i])) { return false; }
-    }
-  }
-  return equals;
+  bool are_equal = false;
+  Status error = TypeEquals(*this, other, &are_equal);
+  if (!error.ok()) { DCHECK(false) << "Types not comparable: " << error.ToString(); }
+  return are_equal;
+}
+
+bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
+  return Equals(*other.get());
 }
 
 std::string BooleanType::ToString() const {
@@ -104,6 +103,15 @@ std::string DateType::ToString() const {
   return std::string("date");
 }
 
+// ----------------------------------------------------------------------
+// Union type
+
+UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
+    const std::vector<uint8_t>& type_codes, UnionMode mode)
+    : DataType(Type::UNION), mode(mode), type_codes(type_codes) {
+  children_ = fields;
+}
+
 std::string UnionType::ToString() const {
   std::stringstream s;
 
@@ -136,14 +144,6 @@ int DictionaryType::bit_width() const {
 
 std::shared_ptr<Array> DictionaryType::dictionary() const {
   return dictionary_;
-}
-
-bool DictionaryType::Equals(const DataType& other) const {
-  if (other.type != Type::DICTIONARY) { return false; }
-  const auto& other_dict = static_cast<const DictionaryType&>(other);
-
-  return index_type_->Equals(other_dict.index_type_) &&
-         dictionary_->Equals(other_dict.dictionary_);
 }
 
 std::string DictionaryType::ToString() const {
@@ -285,5 +285,38 @@ std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
   // TODO(wesm)
   return {};
 }
+
+// ----------------------------------------------------------------------
+// Default implementations of TypeVisitor methods
+
+#define TYPE_VISITOR_DEFAULT(TYPE_CLASS)              \
+  Status TypeVisitor::Visit(const TYPE_CLASS& type) { \
+    return Status::NotImplemented(type.ToString());   \
+  }
+
+TYPE_VISITOR_DEFAULT(NullType);
+TYPE_VISITOR_DEFAULT(BooleanType);
+TYPE_VISITOR_DEFAULT(Int8Type);
+TYPE_VISITOR_DEFAULT(Int16Type);
+TYPE_VISITOR_DEFAULT(Int32Type);
+TYPE_VISITOR_DEFAULT(Int64Type);
+TYPE_VISITOR_DEFAULT(UInt8Type);
+TYPE_VISITOR_DEFAULT(UInt16Type);
+TYPE_VISITOR_DEFAULT(UInt32Type);
+TYPE_VISITOR_DEFAULT(UInt64Type);
+TYPE_VISITOR_DEFAULT(HalfFloatType);
+TYPE_VISITOR_DEFAULT(FloatType);
+TYPE_VISITOR_DEFAULT(DoubleType);
+TYPE_VISITOR_DEFAULT(StringType);
+TYPE_VISITOR_DEFAULT(BinaryType);
+TYPE_VISITOR_DEFAULT(DateType);
+TYPE_VISITOR_DEFAULT(TimeType);
+TYPE_VISITOR_DEFAULT(TimestampType);
+TYPE_VISITOR_DEFAULT(IntervalType);
+TYPE_VISITOR_DEFAULT(DecimalType);
+TYPE_VISITOR_DEFAULT(ListType);
+TYPE_VISITOR_DEFAULT(StructType);
+TYPE_VISITOR_DEFAULT(UnionType);
+TYPE_VISITOR_DEFAULT(DictionaryType);
 
 }  // namespace arrow
