@@ -112,7 +112,7 @@ class BufferDescr {
   int bit_width_;
 };
 
-class TypeVisitor {
+class ARROW_EXPORT TypeVisitor {
  public:
   virtual ~TypeVisitor() = default;
 

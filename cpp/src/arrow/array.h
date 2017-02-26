@@ -38,7 +38,7 @@ class MemoryPool;
 class MutableBuffer;
 class Status;
 
-class ArrayVisitor {
+class ARROW_EXPORT ArrayVisitor {
  public:
   virtual ~ArrayVisitor() = default;
 
