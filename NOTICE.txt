@@ -42,6 +42,10 @@ This product includes software from the CMake project
 This product includes software from https://github.com/matthew-brett/multibuild (BSD 2-clause)
  * Copyright (c) 2013-2016, Matt Terry and Matthew Brett; all rights reserved.
 
+This product includes software from the Ibis project (Apache 2.0)
+ * Copyright (c) 2015 Cloudera, Inc.
+ * https://github.com/cloudera/ibis
+
 --------------------------------------------------------------------------------
 
 This product includes code from Apache Kudu, which includes the following in

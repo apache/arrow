@@ -48,6 +48,7 @@ def hdfs_test_client(driver='libhdfs'):
     return HdfsClient(host, port, user, driver=driver)
 
 
+@pytest.mark.hdfs
 class HdfsTestCases(object):
 
     def _make_test_file(self, hdfs, test_name, test_path, test_data):
@@ -190,7 +191,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not io.have_libhdfs():
-            pytest.skip('No libhdfs available on system')
+            pytest.fail('No libhdfs available on system')
 
     def test_hdfs_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -209,4 +210,4 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not io.have_libhdfs3():
-            pytest.skip('No libhdfs3 available on system')
+            pytest.fail('No libhdfs3 available on system')
