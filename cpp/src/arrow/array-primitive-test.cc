@@ -191,9 +191,9 @@ struct PBoolean {
 };
 
 template <>
-void TestPrimitiveBuilder<PBoolean>::RandomData(size_t N, double pct_null) {
-  draws_.resize(N);
-  valid_bytes_.resize(N);
+void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
+  draws_.resize(static_cast<size_t>(N));
+  valid_bytes_.resize(static_cast<size_t>(N));
 
   test::random_null_bytes(N, 0.5, draws_.data());
   test::random_null_bytes(N, pct_null, valid_bytes_.data());
@@ -234,7 +234,9 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   ASSERT_EQ(expected->length(), result->length());
 
   for (int64_t i = 0; i < result->length(); ++i) {
-    if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
+    if (nullable) {
+      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
+    }
     bool actual = BitUtil::GetBit(result->data()->data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }
