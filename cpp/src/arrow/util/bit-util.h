@@ -67,6 +67,10 @@ static inline void SetBit(uint8_t* bits, int64_t i) {
   bits[i / 8] |= kBitmask[i % 8];
 }
 
+static inline void SetBit(uint8_t* bits, size_t i) {
+  bits[i / 8] |= kBitmask[i % 8];
+}
+
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // See https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
