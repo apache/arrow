@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/file.h"
+#include "arrow/ipc/reader.h"
 
 #include <cstdint>
 #include <cstring>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -35,83 +36,154 @@
 namespace arrow {
 namespace ipc {
 
-static constexpr const char* kArrowMagicBytes = "ARROW1";
-
-static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
-FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
-  std::vector<flatbuf::Block> fb_blocks;
-
-  for (const FileBlock& block : blocks) {
-    fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
-  }
-
-  return fbb.CreateVectorOfStructs(fb_blocks);
-}
-
-Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
-    io::OutputStream* out) {
-  FBB fbb;
-
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-
-  auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
-  auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
-
-  auto footer = flatbuf::CreateFooter(
-      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
-
-  fbb.Finish(footer);
-
-  int32_t size = fbb.GetSize();
-
-  return out->Write(fbb.GetBufferPointer(), size);
-}
+// ----------------------------------------------------------------------
+// StreamReader implementation
 
 static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
 }
 
-// ----------------------------------------------------------------------
-// File writer implementation
-
-FileWriter::FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
-    : StreamWriter(sink, schema) {}
-
-Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    std::shared_ptr<FileWriter>* out) {
-  *out = std::shared_ptr<FileWriter>(new FileWriter(sink, schema));  // ctor is private
-  RETURN_NOT_OK((*out)->UpdatePosition());
-  return Status::OK();
+static inline std::string message_type_name(Message::Type type) {
+  switch (type) {
+    case Message::SCHEMA:
+      return "schema";
+    case Message::RECORD_BATCH:
+      return "record batch";
+    case Message::DICTIONARY_BATCH:
+      return "dictionary";
+    default:
+      break;
+  }
+  return "unknown";
 }
 
-Status FileWriter::Start() {
-  RETURN_NOT_OK(WriteAligned(
-      reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes)));
+class StreamReader::StreamReaderImpl {
+ public:
+  StreamReaderImpl() {}
+  ~StreamReaderImpl() {}
 
-  // We write the schema at the start of the file (and the end). This also
-  // writes all the dictionaries at the beginning of the file
-  return StreamWriter::Start();
+  Status Open(const std::shared_ptr<io::InputStream>& stream) {
+    stream_ = stream;
+    return ReadSchema();
+  }
+
+  Status ReadNextMessage(Message::Type expected_type, std::shared_ptr<Message>* message) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
+
+    if (buffer->size() != sizeof(int32_t)) {
+      *message = nullptr;
+      return Status::OK();
+    }
+
+    int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+    RETURN_NOT_OK(stream_->Read(message_length, &buffer));
+    if (buffer->size() != message_length) {
+      return Status::IOError("Unexpected end of stream trying to read message");
+    }
+
+    RETURN_NOT_OK(Message::Open(buffer, 0, message));
+
+    if ((*message)->type() != expected_type) {
+      std::stringstream ss;
+      ss << "Message not expected type: " << message_type_name(expected_type)
+         << ", was: " << (*message)->type();
+      return Status::IOError(ss.str());
+    }
+    return Status::OK();
+  }
+
+  Status ReadExact(int64_t size, std::shared_ptr<Buffer>* buffer) {
+    RETURN_NOT_OK(stream_->Read(size, buffer));
+
+    if ((*buffer)->size() < size) {
+      return Status::IOError("Unexpected EOS when reading buffer");
+    }
+    return Status::OK();
+  }
+
+  Status ReadNextDictionary() {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
+
+    DictionaryBatchMetadata metadata(message);
+
+    std::shared_ptr<Buffer> batch_body;
+    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
+    io::BufferReader reader(batch_body);
+
+    std::shared_ptr<Array> dictionary;
+    RETURN_NOT_OK(ReadDictionary(metadata, dictionary_types_, &reader, &dictionary));
+    return dictionary_memo_.AddDictionary(metadata.id(), dictionary);
+  }
+
+  Status ReadSchema() {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
+
+    SchemaMetadata schema_meta(message);
+    RETURN_NOT_OK(schema_meta.GetDictionaryTypes(&dictionary_types_));
+
+    // TODO(wesm): In future, we may want to reconcile the ids in the stream with
+    // those found in the schema
+    int num_dictionaries = static_cast<int>(dictionary_types_.size());
+    for (int i = 0; i < num_dictionaries; ++i) {
+      RETURN_NOT_OK(ReadNextDictionary());
+    }
+
+    return schema_meta.GetSchema(dictionary_memo_, &schema_);
+  }
+
+  Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+    std::shared_ptr<Message> message;
+    RETURN_NOT_OK(ReadNextMessage(Message::RECORD_BATCH, &message));
+
+    if (message == nullptr) {
+      // End of stream
+      *batch = nullptr;
+      return Status::OK();
+    }
+
+    RecordBatchMetadata batch_metadata(message);
+
+    std::shared_ptr<Buffer> batch_body;
+    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
+    io::BufferReader reader(batch_body);
+    return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+  }
+
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+ private:
+  // dictionary_id -> type
+  DictionaryTypeMap dictionary_types_;
+
+  DictionaryMemo dictionary_memo_;
+
+  std::shared_ptr<io::InputStream> stream_;
+  std::shared_ptr<Schema> schema_;
+};
+
+StreamReader::StreamReader() {
+  impl_.reset(new StreamReaderImpl());
 }
 
-Status FileWriter::Close() {
-  // Write metadata
-  int64_t initial_position = position_;
-  RETURN_NOT_OK(WriteFileFooter(
-      *schema_, dictionaries_, record_batches_, dictionary_memo_.get(), sink_));
-  RETURN_NOT_OK(UpdatePosition());
+StreamReader::~StreamReader() {}
 
-  // Write footer length
-  int32_t footer_length = position_ - initial_position;
+Status StreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+    std::shared_ptr<StreamReader>* reader) {
+  // Private ctor
+  *reader = std::shared_ptr<StreamReader>(new StreamReader());
+  return (*reader)->impl_->Open(stream);
+}
 
-  if (footer_length <= 0) { return Status::Invalid("Invalid file footer"); }
+std::shared_ptr<Schema> StreamReader::schema() const {
+  return impl_->schema();
+}
 
-  RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(&footer_length), sizeof(int32_t)));
-
-  // Write magic bytes to end file
-  return Write(
-      reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes));
+Status StreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+  return impl_->GetNextRecordBatch(batch);
 }
 
 // ----------------------------------------------------------------------

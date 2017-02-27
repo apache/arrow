@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow_io cimport (InputStream, OutputStream,
                                            ReadableFileInterface)
 
 
-cdef extern from "arrow/ipc/stream.h" namespace "arrow::ipc" nogil:
+cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CStreamWriter " arrow::ipc::StreamWriter":
         @staticmethod
@@ -42,9 +42,6 @@ cdef extern from "arrow/ipc/stream.h" namespace "arrow::ipc" nogil:
         shared_ptr[CSchema] schema()
 
         CStatus GetNextRecordBatch(shared_ptr[CRecordBatch]* batch)
-
-
-cdef extern from "arrow/ipc/file.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CFileWriter " arrow::ipc::FileWriter"(CStreamWriter):
         @staticmethod

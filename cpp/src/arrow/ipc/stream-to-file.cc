@@ -16,8 +16,8 @@
 // under the License.
 
 #include "arrow/io/file.h"
-#include "arrow/ipc/file.h"
-#include "arrow/ipc/stream.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include <iostream>
 
@@ -25,21 +25,23 @@
 
 namespace arrow {
 
-// Reads a file on the file system and prints to stdout the stream version of it.
-Status ConvertToStream(const char* path) {
-  std::shared_ptr<io::ReadableFile> in_file;
-  std::shared_ptr<ipc::FileReader> reader;
-
-  RETURN_NOT_OK(io::ReadableFile::Open(path, &in_file));
-  RETURN_NOT_OK(ipc::FileReader::Open(in_file, &reader));
+// Converts a stream from stdin to a file written to standard out.
+// A typical usage would be:
+// $ <program that produces streaming output> | stream-to-file > file.arrow
+Status ConvertToFile() {
+  std::shared_ptr<io::InputStream> input(new io::StdinStream);
+  std::shared_ptr<ipc::StreamReader> reader;
+  RETURN_NOT_OK(ipc::StreamReader::Open(input, &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<ipc::StreamWriter> writer;
-  RETURN_NOT_OK(ipc::StreamWriter::Open(&sink, reader->schema(), &writer));
-  for (int i = 0; i < reader->num_record_batches(); ++i) {
-    std::shared_ptr<RecordBatch> chunk;
-    RETURN_NOT_OK(reader->GetRecordBatch(i, &chunk));
-    RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
+  std::shared_ptr<ipc::FileWriter> writer;
+  RETURN_NOT_OK(ipc::FileWriter::Open(&sink, reader->schema(), &writer));
+
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    RETURN_NOT_OK(reader->GetNextRecordBatch(&batch));
+    if (batch == nullptr) break;
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
   return writer->Close();
 }
@@ -47,13 +49,9 @@ Status ConvertToStream(const char* path) {
 }  // namespace arrow
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-    std::cerr << "Usage: file-to-stream <input arrow file>" << std::endl;
-    return 1;
-  }
-  arrow::Status status = arrow::ConvertToStream(argv[1]);
+  arrow::Status status = arrow::ConvertToFile();
   if (!status.ok()) {
-    std::cerr << "Could not convert to stream: " << status.ToString() << std::endl;
+    std::cerr << "Could not convert to file: " << status.ToString() << std::endl;
     return 1;
   }
   return 0;

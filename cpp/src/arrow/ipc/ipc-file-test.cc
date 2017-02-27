@@ -28,10 +28,10 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/adapter.h"
-#include "arrow/ipc/file.h"
-#include "arrow/ipc/stream.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/ipc/util.h"
+#include "arrow/ipc/writer.h"
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"

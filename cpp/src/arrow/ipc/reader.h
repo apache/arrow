@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/ipc/metadata.h"
-#include "arrow/ipc/stream.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -37,29 +36,31 @@ class Status;
 
 namespace io {
 
-class OutputStream;
+class InputStream;
 class ReadableFileInterface;
 
 }  // namespace io
 
 namespace ipc {
 
-Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
-    io::OutputStream* out);
-
-class ARROW_EXPORT FileWriter : public StreamWriter {
+class ARROW_EXPORT StreamReader {
  public:
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<FileWriter>* out);
+  ~StreamReader();
 
-  using StreamWriter::WriteRecordBatch;
-  Status Close() override;
+  // Open an stream.
+  static Status Open(const std::shared_ptr<io::InputStream>& stream,
+      std::shared_ptr<StreamReader>* reader);
+
+  std::shared_ptr<Schema> schema() const;
+
+  // Returned batch is nullptr when end of stream reached
+  Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
 
  private:
-  FileWriter(io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  StreamReader();
 
-  Status Start() override;
+  class ARROW_NO_EXPORT StreamReaderImpl;
+  std::unique_ptr<StreamReaderImpl> impl_;
 };
 
 class ARROW_EXPORT FileReader {
