@@ -434,7 +434,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
             left.value_offset(left.length()) - left.value_offset(0);
         return std::memcmp(left_data + left.value_offset(0),
                    right_data + right.value_offset(0),
-                   static_cast<int32_t>(total_bytes)) == 0;
+                   static_cast<size_t>(total_bytes)) == 0;
       }
     } else {
       // ARROW-537: Only compare data in non-null slots
