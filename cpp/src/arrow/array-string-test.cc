@@ -64,7 +64,7 @@ class TestStringArray : public ::testing::Test {
   }
 
   void MakeArray() {
-    length_ = offsets_.size() - 1;
+    length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = test::GetBufferFromVector(chars_);
     offsets_buf_ = test::GetBufferFromVector(offsets_);
     null_bitmap_ = test::bytes_to_null_buffer(valid_bytes_);
@@ -85,8 +85,8 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<Buffer> offsets_buf_;
   std::shared_ptr<Buffer> null_bitmap_;
 
-  int null_count_;
-  int length_;
+  int64_t null_count_;
+  int64_t length_;
 
   std::shared_ptr<StringArray> strings_;
 };
@@ -109,7 +109,7 @@ TEST_F(TestStringArray, TestListFunctions) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
     ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
-    pos += expected_[i].size();
+    pos += static_cast<int>(expected_[i].size());
   }
 }
 
@@ -131,7 +131,7 @@ TEST_F(TestStringArray, TestGetString) {
 TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
   offsets_buf_ = test::GetBufferFromVector(offsets_);
-  length_ = offsets_.size() - 1;
+  length_ = static_cast<int64_t>(offsets_.size() - 1);
 
   auto strings_a = std::make_shared<StringArray>(
       length_, offsets_buf_, nullptr, null_bitmap_, null_count_);
@@ -208,7 +208,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
   std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
-  int N = strings.size();
+  int N = static_cast<int>(strings.size());
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
@@ -263,7 +263,7 @@ class TestBinaryArray : public ::testing::Test {
   }
 
   void MakeArray() {
-    length_ = offsets_.size() - 1;
+    length_ = static_cast<int64_t>(offsets_.size() - 1);
     value_buf_ = test::GetBufferFromVector(chars_);
     offsets_buf_ = test::GetBufferFromVector(offsets_);
 
@@ -285,8 +285,8 @@ class TestBinaryArray : public ::testing::Test {
   std::shared_ptr<Buffer> offsets_buf_;
   std::shared_ptr<Buffer> null_bitmap_;
 
-  int null_count_;
-  int length_;
+  int64_t null_count_;
+  int64_t length_;
 
   std::shared_ptr<BinaryArray> strings_;
 };
@@ -305,7 +305,7 @@ TEST_F(TestBinaryArray, TestType) {
 }
 
 TEST_F(TestBinaryArray, TestListFunctions) {
-  int pos = 0;
+  size_t pos = 0;
   for (size_t i = 0; i < expected_.size(); ++i) {
     ASSERT_EQ(pos, strings_->value_offset(i));
     ASSERT_EQ(static_cast<int>(expected_[i].size()), strings_->value_length(i));
@@ -376,7 +376,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
   std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
-  int N = strings.size();
+  int N = static_cast<int>(strings.size());
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
@@ -425,7 +425,7 @@ void CheckSliceEquality() {
   std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
   std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
 
-  int N = strings.size();
+  int N = static_cast<int>(strings.size());
   int reps = 10;
 
   for (int j = 0; j < reps; ++j) {

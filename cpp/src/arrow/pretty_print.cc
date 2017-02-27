@@ -196,7 +196,7 @@ class ArrayPrinter : public ArrayVisitor {
   }
 
   Status PrintChildren(
-      const std::vector<std::shared_ptr<Array>>& fields, int32_t offset, int32_t length) {
+      const std::vector<std::shared_ptr<Array>>& fields, int64_t offset, int64_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;

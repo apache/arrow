@@ -51,7 +51,7 @@ const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(
-    int32_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   test::MakeRandomInt32PoolBuffer(length, pool, &data);
   Int32Builder builder(pool, int32());
@@ -79,7 +79,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   std::vector<int32_t> list_sizes(num_lists, 0);
   std::vector<int32_t> offsets(
       num_lists + 1, 0);  // +1 so we can shift for nulls. See partial sum below.
-  const int seed = child_array->length();
+  const uint32_t seed = static_cast<uint32_t>(child_array->length());
   if (num_lists > 0) {
     test::rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
     // make sure sizes are consistent with null
@@ -89,7 +89,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
     std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
     // Force invariants
-    const int child_length = child_array->length();
+    const int64_t child_length = child_array->length();
     offsets[0] = 0;
     std::replace_if(offsets.begin(), offsets.end(),
         [child_length](int32_t offset) { return offset > child_length; }, child_length);
@@ -121,26 +121,26 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    int32_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int64_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
   Builder builder(pool);
-  const auto values_len = values.size();
-  for (int32_t i = 0; i < length; ++i) {
-    int values_index = i % values_len;
+  const size_t values_len = values.size();
+  for (int64_t i = 0; i < length; ++i) {
+    int64_t values_index = i % values_len;
     if (values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       const std::string& value = values[values_index];
-      RETURN_NOT_OK(
-          builder.Append(reinterpret_cast<const RawType*>(value.data()), value.size()));
+      RETURN_NOT_OK(builder.Append(reinterpret_cast<const RawType*>(value.data()),
+          static_cast<int32_t>(value.size())));
     }
   }
   return builder.Finish(out);
 }
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  const int32_t length = 500;
+  const int64_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
   auto f0 = field("f0", string_type);
@@ -302,7 +302,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<std::shared_ptr<Array>> sparse_children(2);
   std::vector<std::shared_ptr<Array>> dense_children(2);
 
-  const int32_t length = 7;
+  const int64_t length = 7;
 
   std::shared_ptr<Buffer> type_ids_buffer;
   std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
@@ -346,7 +346,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 }
 
 Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
-  const int32_t length = 6;
+  const int64_t length = 6;
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
   std::shared_ptr<Array> dict1, dict2;

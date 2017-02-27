@@ -69,7 +69,7 @@ class JsonWriter::JsonWriterImpl {
 
     writer_->StartObject();
     writer_->Key("count");
-    writer_->Int(batch.num_rows());
+    writer_->Int(static_cast<int32_t>(batch.num_rows()));
 
     writer_->Key("columns");
     writer_->StartArray();
@@ -158,7 +158,7 @@ class JsonReader::JsonReaderImpl {
     const auto& json_columns = it->value.GetArray();
 
     std::vector<std::shared_ptr<Array>> columns(json_columns.Size());
-    for (size_t i = 0; i < columns.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(columns.size()); ++i) {
       const std::shared_ptr<DataType>& type = schema_->field(i)->type;
       RETURN_NOT_OK(ReadJsonArray(pool_, json_columns[i], type, &columns[i]));
     }

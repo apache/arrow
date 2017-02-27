@@ -165,7 +165,7 @@ class ARROW_EXPORT BufferBuilder {
       : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
 
   /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
-  Status Resize(int32_t elements) {
+  Status Resize(int64_t elements) {
     if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
     RETURN_NOT_OK(buffer_->Resize(elements));
     capacity_ = buffer_->capacity();
@@ -173,7 +173,7 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
-  Status Append(const uint8_t* data, int length) {
+  Status Append(const uint8_t* data, int64_t length) {
     if (capacity_ < length + size_) { RETURN_NOT_OK(Resize(length + size_)); }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -187,7 +187,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   template <typename T>
-  Status Append(const T* arithmetic_values, int num_elements) {
+  Status Append(const T* arithmetic_values, int64_t num_elements) {
     static_assert(std::is_arithmetic<T>::value,
         "Convenience buffer append only supports arithmetic types");
     return Append(
@@ -195,7 +195,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   // Unsafe methods don't check existing size
-  void UnsafeAppend(const uint8_t* data, int length) {
+  void UnsafeAppend(const uint8_t* data, int64_t length) {
     memcpy(data_ + size_, data, length);
     size_ += length;
   }
@@ -208,7 +208,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   template <typename T>
-  void UnsafeAppend(const T* arithmetic_values, int num_elements) {
+  void UnsafeAppend(const T* arithmetic_values, int64_t num_elements) {
     static_assert(std::is_arithmetic<T>::value,
         "Convenience buffer append only supports arithmetic types");
     UnsafeAppend(
@@ -221,8 +221,8 @@ class ARROW_EXPORT BufferBuilder {
     capacity_ = size_ = 0;
     return result;
   }
-  int capacity() { return capacity_; }
-  int length() { return size_; }
+  int64_t capacity() { return capacity_; }
+  int64_t length() { return size_; }
 
  private:
   std::shared_ptr<PoolBuffer> buffer_;

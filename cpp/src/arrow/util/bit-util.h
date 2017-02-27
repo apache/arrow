@@ -34,6 +34,11 @@ class Status;
 
 namespace BitUtil {
 
+static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
+
+// the ~i byte version of kBitmaks
+static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
+
 static inline int64_t CeilByte(int64_t size) {
   return (size + 7) & ~7;
 }
@@ -46,28 +51,26 @@ static inline int64_t Ceil2Bytes(int64_t size) {
   return (size + 15) & ~15;
 }
 
-static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
-
-static inline bool GetBit(const uint8_t* bits, int i) {
+static inline bool GetBit(const uint8_t* bits, int64_t i) {
   return static_cast<bool>(bits[i / 8] & kBitmask[i % 8]);
 }
 
-static inline bool BitNotSet(const uint8_t* bits, int i) {
+static inline bool BitNotSet(const uint8_t* bits, int64_t i) {
   return (bits[i / 8] & kBitmask[i % 8]) == 0;
 }
 
-static inline void ClearBit(uint8_t* bits, int i) {
-  bits[i / 8] &= ~kBitmask[i % 8];
+static inline void ClearBit(uint8_t* bits, int64_t i) {
+  bits[i / 8] &= kFlippedBitmask[i % 8];
 }
 
-static inline void SetBit(uint8_t* bits, int i) {
+static inline void SetBit(uint8_t* bits, int64_t i) {
   bits[i / 8] |= kBitmask[i % 8];
 }
 
-static inline void SetBitTo(uint8_t* bits, int i, bool bit_is_set) {
+static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // See https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
-  bits[i / 8] ^= (-bit_is_set ^ bits[i / 8]) & kBitmask[i % 8];
+  bits[i / 8] ^= static_cast<uint8_t>(-bit_is_set ^ bits[i / 8]) & kBitmask[i % 8];
 }
 
 static inline int64_t NextPower2(int64_t n) {
@@ -127,8 +130,8 @@ Status ARROW_EXPORT GetEmptyBitmap(
 /// \param[out] out the resulting copy
 ///
 /// \return Status message
-Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int32_t offset,
-    int32_t length, std::shared_ptr<Buffer>* out);
+Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
+    int64_t length, std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///

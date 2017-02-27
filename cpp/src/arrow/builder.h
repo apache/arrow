@@ -37,7 +37,7 @@ namespace arrow {
 
 class Array;
 
-static constexpr int32_t kMinBuilderCapacity = 1 << 5;
+static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
 //
@@ -61,38 +61,38 @@ class ARROW_EXPORT ArrayBuilder {
   /// skip shared pointers and just return a raw pointer
   ArrayBuilder* child(int i) { return children_[i].get(); }
 
-  int num_children() const { return children_.size(); }
+  int num_children() const { return static_cast<int>(children_.size()); }
 
-  int32_t length() const { return length_; }
-  int32_t null_count() const { return null_count_; }
-  int32_t capacity() const { return capacity_; }
+  int64_t length() const { return length_; }
+  int64_t null_count() const { return null_count_; }
+  int64_t capacity() const { return capacity_; }
 
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
   /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
   /// assume all of length bits are valid.
-  Status AppendToBitmap(const uint8_t* valid_bytes, int32_t length);
+  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
   /// Set the next length bits to not null (i.e. valid).
-  Status SetNotNull(int32_t length);
+  Status SetNotNull(int64_t length);
 
   /// Allocates initial capacity requirements for the builder.  In most
   /// cases subclasses should override and call there parent classes
   /// method as well.
-  virtual Status Init(int32_t capacity);
+  virtual Status Init(int64_t capacity);
 
   /// Resizes the null_bitmap array.  In most
   /// cases subclasses should override and call there parent classes
   /// method as well.
-  virtual Status Resize(int32_t new_bits);
+  virtual Status Resize(int64_t new_bits);
 
   /// Ensures there is enough space for adding the number of elements by checking
   /// capacity and calling Resize if necessary.
-  Status Reserve(int32_t elements);
+  Status Reserve(int64_t elements);
 
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
-  Status Advance(int32_t elements);
+  Status Advance(int64_t elements);
 
   std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
@@ -109,12 +109,12 @@ class ARROW_EXPORT ArrayBuilder {
 
   // When null_bitmap are first appended to the builder, the null bitmap is allocated
   std::shared_ptr<PoolBuffer> null_bitmap_;
-  int32_t null_count_;
+  int64_t null_count_;
   uint8_t* null_bitmap_data_;
 
   // Array length, so far. Also, the index of the next element to be added
-  int32_t length_;
-  int32_t capacity_;
+  int64_t length_;
+  int64_t capacity_;
 
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
@@ -127,9 +127,9 @@ class ARROW_EXPORT ArrayBuilder {
   void UnsafeAppendToBitmap(bool is_valid);
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
-  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length);
+  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
   // Set the next length bits to not null (i.e. valid).
-  void UnsafeSetNotNull(int32_t length);
+  void UnsafeSetNotNull(int64_t length);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
@@ -146,7 +146,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
@@ -165,14 +165,14 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(
-      const value_type* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+      const value_type* values, int64_t length, const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
-  Status Init(int32_t capacity) override;
+  Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
   /// number of elements
-  Status Resize(int32_t capacity) override;
+  Status Resize(int64_t capacity) override;
 
  protected:
   std::shared_ptr<PoolBuffer> data_;
@@ -246,7 +246,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(const uint8_t* valid_bytes, int32_t length) {
+  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
@@ -278,14 +278,14 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(
-      const uint8_t* values, int32_t length, const uint8_t* valid_bytes = nullptr);
+      const uint8_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
-  Status Init(int32_t capacity) override;
+  Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
   /// number of elements
-  Status Resize(int32_t capacity) override;
+  Status Resize(int64_t capacity) override;
 
  protected:
   std::shared_ptr<PoolBuffer> data_;
@@ -318,8 +318,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ListBuilder(
       MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
 
-  Status Init(int32_t elements) override;
-  Status Resize(int32_t capacity) override;
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
 
   /// Vector append
@@ -327,7 +327,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(
-      const int32_t* offsets, int32_t length, const uint8_t* valid_bytes = nullptr) {
+      const int32_t* offsets, int64_t length, const uint8_t* valid_bytes = nullptr) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     offset_builder_.UnsafeAppend<int32_t>(offsets, length);
@@ -341,7 +341,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status Append(bool is_valid = true) {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
-    RETURN_NOT_OK(offset_builder_.Append<int32_t>(value_builder_->length()));
+    RETURN_NOT_OK(
+        offset_builder_.Append<int32_t>(static_cast<int32_t>(value_builder_->length())));
     return Status::OK();
   }
 
@@ -375,7 +376,9 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Status Append(const std::string& value) { return Append(value.c_str(), value.size()); }
+  Status Append(const std::string& value) {
+    return Append(value.c_str(), static_cast<int32_t>(value.size()));
+  }
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
@@ -417,7 +420,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// will be considered as a null for that field, but users must using app-
   /// end methods or advance methods of the child builders' independently to
   /// insert data.
-  Status Append(int32_t length, const uint8_t* valid_bytes) {
+  Status Append(int64_t length, const uint8_t* valid_bytes) {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();

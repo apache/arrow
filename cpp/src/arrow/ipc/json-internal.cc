@@ -355,7 +355,7 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->String(name);
 
     writer_->Key("count");
-    writer_->Int(arr.length());
+    writer_->Int(static_cast<int32_t>(arr.length()));
 
     RETURN_NOT_OK(arr.Accept(this));
 
@@ -394,7 +394,7 @@ class JsonArrayWriter : public ArrayVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& arr) {
-    for (int i = 0; i < arr.length(); ++i) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
       int32_t length;
       const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
 
@@ -430,7 +430,7 @@ class JsonArrayWriter : public ArrayVisitor {
   }
 
   template <typename T>
-  void WriteIntegerField(const char* name, const T* values, int32_t length) {
+  void WriteIntegerField(const char* name, const T* values, int64_t length) {
     writer_->Key(name);
     writer_->StartArray();
     for (int i = 0; i < length; ++i) {
@@ -573,7 +573,7 @@ class JsonSchemaReader {
     const auto& values = obj.GetArray();
 
     fields->resize(values.Size());
-    for (size_t i = 0; i < fields->size(); ++i) {
+    for (rj::SizeType i = 0; i < fields->size(); ++i) {
       RETURN_NOT_OK(GetField(values[i], &(*fields)[i]));
     }
     return Status::OK();
@@ -712,7 +712,7 @@ class JsonSchemaReader {
     const auto& id_array = json_type_codes->value.GetArray();
     for (const rj::Value& val : id_array) {
       DCHECK(val.IsUint());
-      type_codes.push_back(val.GetUint());
+      type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
     }
 
     *type = union_(children, type_codes, mode);
@@ -770,8 +770,36 @@ static inline Status ParseHexValue(const char* data, uint8_t* out) {
   // Error checking
   if (*pos1 != c1 || *pos2 != c2) { return Status::Invalid("Encountered non-hex digit"); }
 
-  *out = (pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable);
+  *out = static_cast<uint8_t>((pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable));
   return Status::OK();
+}
+
+template <typename T>
+inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsInt());
+  return static_cast<typename T::c_type>(val.GetInt64());
+}
+
+template <typename T>
+inline typename std::enable_if<IsUnsignedInt<T>::value, typename T::c_type>::type
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsUint());
+  return static_cast<typename T::c_type>(val.GetUint64());
+}
+
+template <typename T>
+inline typename std::enable_if<IsFloatingPoint<T>::value, typename T::c_type>::type
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsFloat());
+  return static_cast<typename T::c_type>(val.GetDouble());
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_base_of<BooleanType, T>::value, bool>::type
+UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsBool());
+  return val.GetBool();
 }
 
 class JsonArrayReader {
@@ -820,22 +848,7 @@ class JsonArrayReader {
       }
 
       const rj::Value& val = json_data_arr[i];
-      if (IsSignedInt<T>::value) {
-        DCHECK(val.IsInt());
-        builder.Append(val.GetInt64());
-      } else if (IsUnsignedInt<T>::value) {
-        DCHECK(val.IsUint());
-        builder.Append(val.GetUint64());
-      } else if (IsFloatingPoint<T>::value) {
-        DCHECK(val.IsFloat());
-        builder.Append(val.GetDouble());
-      } else if (std::is_base_of<BooleanType, T>::value) {
-        DCHECK(val.IsBool());
-        builder.Append(val.GetBool());
-      } else {
-        // We are in the wrong function
-        return Status::Invalid(type->ToString());
-      }
+      builder.Append(UnboxValue<T>(val));
     }
 
     return builder.Finish(array);
@@ -869,13 +882,13 @@ class JsonArrayReader {
         std::string hex_string = val.GetString();
 
         DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
-        int64_t length = static_cast<int>(hex_string.size()) / 2;
+        int32_t length = static_cast<int>(hex_string.size()) / 2;
 
         if (byte_buffer->size() < length) { RETURN_NOT_OK(byte_buffer->Resize(length)); }
 
         const char* hex_data = hex_string.c_str();
         uint8_t* byte_buffer_data = byte_buffer->mutable_data();
-        for (int64_t j = 0; j < length; ++j) {
+        for (int32_t j = 0; j < length; ++j) {
           RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
         }
         RETURN_NOT_OK(builder.Append(byte_buffer_data, length));

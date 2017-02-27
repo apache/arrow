@@ -95,7 +95,7 @@ TEST(TestDictionary, Equals) {
   ASSERT_FALSE(array->RangeEquals(1, 3, 1, array4));
 
   // ARROW-33 Test slices
-  const int size = array->length();
+  const int64_t size = array->length();
 
   std::shared_ptr<Array> slice, slice2;
   slice = array->Array::Slice(2);

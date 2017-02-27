@@ -49,7 +49,7 @@ class TestHdfsClient : public ::testing::Test {
   }
 
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
-      bool append = false, int buffer_size = 0, int replication = 0,
+      bool append = false, int buffer_size = 0, int16_t replication = 0,
       int default_block_size = 0) {
     std::shared_ptr<HdfsOutputStream> file;
     RETURN_NOT_OK(client_->OpenWriteable(

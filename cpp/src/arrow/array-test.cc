@@ -58,7 +58,7 @@ TEST_F(TestArray, TestLength) {
 
 std::shared_ptr<Array> MakeArrayFromValidBytes(
     const std::vector<uint8_t>& v, MemoryPool* pool) {
-  int32_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
+  int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
   std::shared_ptr<Buffer> null_buf = test::bytes_to_null_buffer(v);
 
   BufferBuilder value_builder(pool);
@@ -121,7 +121,7 @@ TEST_F(TestArray, TestIsNull) {
                                       1, 0, 1, 1, 0, 1, 0, 0,
                                       1, 0, 0, 1};
   // clang-format on
-  int32_t null_count = 0;
+  int64_t null_count = 0;
   for (uint8_t x : null_bitmap) {
     if (x == 0) { ++null_count; }
   }
@@ -138,6 +138,19 @@ TEST_F(TestArray, TestIsNull) {
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
     EXPECT_EQ(null_bitmap[i], !arr->IsNull(i)) << i;
   }
+}
+
+TEST_F(TestArray, BuildLargeInMemoryArray) {
+  const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+
+  BooleanBuilder builder(default_memory_pool());
+  ASSERT_OK(builder.Reserve(length));
+  ASSERT_OK(builder.Advance(length));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  ASSERT_EQ(length, result->length());
 }
 
 TEST_F(TestArray, TestCopy) {}

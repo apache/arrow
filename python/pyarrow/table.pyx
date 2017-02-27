@@ -497,7 +497,7 @@ cdef class RecordBatch:
             shared_ptr[CSchema] schema
             shared_ptr[CRecordBatch] batch
             vector[shared_ptr[CArray]] c_arrays
-            int32_t num_rows
+            int64_t num_rows
 
         if len(arrays) == 0:
             raise ValueError('Record batch cannot contain no arrays (for now)')

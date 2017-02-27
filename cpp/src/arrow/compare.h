@@ -40,7 +40,7 @@ Status ARROW_EXPORT ArrayApproxEquals(
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
-    int32_t start_idx, int32_t end_idx, int32_t other_start_idx, bool* are_equal);
+    int64_t start_idx, int64_t end_idx, int64_t other_start_idx, bool* are_equal);
 
 /// Returns true if the type metadata are exactly equal
 Status ARROW_EXPORT TypeEquals(

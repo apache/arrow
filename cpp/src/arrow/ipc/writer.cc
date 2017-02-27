@@ -61,7 +61,7 @@ class StreamWriter::StreamWriterImpl {
     std::shared_ptr<Buffer> schema_fb;
     RETURN_NOT_OK(WriteSchemaMessage(*schema_, dictionary_memo_.get(), &schema_fb));
 
-    int32_t flatbuffer_size = schema_fb->size();
+    int32_t flatbuffer_size = static_cast<int32_t>(schema_fb->size());
     RETURN_NOT_OK(
         Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
 
@@ -252,7 +252,7 @@ class FileWriter::FileWriterImpl : public StreamWriter::StreamWriterImpl {
     RETURN_NOT_OK(UpdatePosition());
 
     // Write footer length
-    int32_t footer_length = position_ - initial_position;
+    int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
 
     if (footer_length <= 0) { return Status::Invalid("Invalid file footer"); }
 

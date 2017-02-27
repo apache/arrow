@@ -375,7 +375,7 @@ class BytesConverter : public TypedConverter<arrow::BinaryBuilder> {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
-    int32_t length;
+    int64_t length;
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);
@@ -409,7 +409,7 @@ class UTF8Converter : public TypedConverter<arrow::StringBuilder> {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
-    int32_t length;
+    int64_t length;
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);

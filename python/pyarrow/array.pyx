@@ -210,7 +210,7 @@ cdef class Array:
 
         return self.getitem(key)
 
-    cdef getitem(self, int i):
+    cdef getitem(self, int64_t i):
         return scalar.box_scalar(self.type, self.sp_array, i)
 
     def slice(self, offset=0, length=None):

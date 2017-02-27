@@ -37,8 +37,8 @@ namespace arrow {
 
 class RangeEqualsVisitor : public ArrayVisitor {
  public:
-  RangeEqualsVisitor(const Array& right, int32_t left_start_idx, int32_t left_end_idx,
-      int32_t right_start_idx)
+  RangeEqualsVisitor(const Array& right, int64_t left_start_idx, int64_t left_end_idx,
+      int64_t right_start_idx)
       : right_(right),
         left_start_idx_(left_start_idx),
         left_end_idx_(left_end_idx),
@@ -55,7 +55,7 @@ class RangeEqualsVisitor : public ArrayVisitor {
   inline Status CompareValues(const ArrayType& left) {
     const auto& right = static_cast<const ArrayType&>(right_);
 
-    for (int32_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i) ||
@@ -71,7 +71,7 @@ class RangeEqualsVisitor : public ArrayVisitor {
   bool CompareBinaryRange(const BinaryArray& left) const {
     const auto& right = static_cast<const BinaryArray&>(right_);
 
-    for (int32_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i)) { return false; }
@@ -164,7 +164,7 @@ class RangeEqualsVisitor : public ArrayVisitor {
     const std::shared_ptr<Array>& left_values = left.values();
     const std::shared_ptr<Array>& right_values = right.values();
 
-    for (int32_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i)) { return false; }
@@ -193,15 +193,15 @@ class RangeEqualsVisitor : public ArrayVisitor {
   bool CompareStructs(const StructArray& left) {
     const auto& right = static_cast<const StructArray&>(right_);
     bool equal_fields = true;
-    for (int32_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
-      for (size_t j = 0; j < left.fields().size(); ++j) {
+      for (int j = 0; j < static_cast<int>(left.fields().size()); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
-        const int left_abs_index = i + left.offset();
-        const int right_abs_index = o_i + right.offset();
+        const int64_t left_abs_index = i + left.offset();
+        const int64_t right_abs_index = o_i + right.offset();
 
         equal_fields = left.field(j)->RangeEquals(
             left_abs_index, left_abs_index + 1, right_abs_index, right.field(j));
@@ -243,7 +243,7 @@ class RangeEqualsVisitor : public ArrayVisitor {
     const uint8_t* right_ids = right.raw_type_ids();
 
     uint8_t id, child_num;
-    for (int32_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
@@ -252,8 +252,8 @@ class RangeEqualsVisitor : public ArrayVisitor {
       id = left_ids[i];
       child_num = type_id_to_child_num[id];
 
-      const int left_abs_index = i + left.offset();
-      const int right_abs_index = o_i + right.offset();
+      const int64_t left_abs_index = i + left.offset();
+      const int64_t right_abs_index = o_i + right.offset();
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
@@ -294,9 +294,9 @@ class RangeEqualsVisitor : public ArrayVisitor {
 
  protected:
   const Array& right_;
-  int32_t left_start_idx_;
-  int32_t left_end_idx_;
-  int32_t right_start_idx_;
+  int64_t left_start_idx_;
+  int64_t left_end_idx_;
+  int64_t right_start_idx_;
 
   bool result_;
 };
@@ -314,7 +314,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       const uint8_t* left_data = left.data()->data();
       const uint8_t* right_data = right.data()->data();
 
-      for (int i = 0; i < left.length(); ++i) {
+      for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) &&
             BitUtil::GetBit(left_data, i) != BitUtil::GetBit(right_data, i)) {
           result_ = false;
@@ -339,7 +339,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     const uint8_t* right_data = right.data()->data() + right.offset() * value_byte_size;
 
     if (left.null_count() > 0) {
-      for (int i = 0; i < left.length(); ++i) {
+      for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) && memcmp(left_data, right_data, value_byte_size)) {
           return false;
         }
@@ -401,7 +401,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
           reinterpret_cast<const int32_t*>(right.value_offsets()->data()) +
           right.offset();
 
-      for (int32_t i = 0; i < left.length() + 1; ++i) {
+      for (int64_t i = 0; i < left.length() + 1; ++i) {
         if (left_offsets[i] - left_offsets[0] != right_offsets[i] - right_offsets[0]) {
           return false;
         }
@@ -437,7 +437,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       // ARROW-537: Only compare data in non-null slots
       const int32_t* left_offsets = left.raw_value_offsets();
       const int32_t* right_offsets = right.raw_value_offsets();
-      for (int32_t i = 0; i < left.length(); ++i) {
+      for (int64_t i = 0; i < left.length(); ++i) {
         if (left.IsNull(i)) { continue; }
         if (std::memcmp(left_data + left_offsets[i], right_data + right_offsets[i],
                 left.value_length(i))) {
@@ -496,15 +496,15 @@ inline bool FloatingApproxEquals(
   const T* left_data = left.raw_data();
   const T* right_data = right.raw_data();
 
-  static constexpr T EPSILON = 1E-5;
+  static constexpr T EPSILON = static_cast<T>(1E-5);
 
   if (left.null_count() > 0) {
-    for (int32_t i = 0; i < left.length(); ++i) {
+    for (int64_t i = 0; i < left.length(); ++i) {
       if (left.IsNull(i)) continue;
       if (fabs(left_data[i] - right_data[i]) > EPSILON) { return false; }
     }
   } else {
-    for (int32_t i = 0; i < left.length(); ++i) {
+    for (int64_t i = 0; i < left.length(); ++i) {
       if (fabs(left_data[i] - right_data[i]) > EPSILON) { return false; }
     }
   }
@@ -556,8 +556,8 @@ Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
   return Status::OK();
 }
 
-Status ArrayRangeEquals(const Array& left, const Array& right, int32_t left_start_idx,
-    int32_t left_end_idx, int32_t right_start_idx, bool* are_equal) {
+Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
+    int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
   if (&left == &right) {
     *are_equal = true;
   } else if (left.type_enum() != right.type_enum()) {

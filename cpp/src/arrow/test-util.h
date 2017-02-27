@@ -73,16 +73,17 @@ void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
   T val;
   for (int64_t i = 0; i < N; ++i) {
     draw = rng.Uniform64(span);
-    val = lower + static_cast<T>(draw);
+    val = static_cast<T>(draw + lower);
     out->push_back(val);
   }
 }
 
 template <typename T>
-void random_real(int n, uint32_t seed, T min_value, T max_value, std::vector<T>* out) {
+void random_real(
+    int64_t n, uint32_t seed, T min_value, T max_value, std::vector<T>* out) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<T> d(min_value, max_value);
-  for (int i = 0; i < n; ++i) {
+  for (int64_t i = 0; i < n; ++i) {
     out->push_back(d(gen));
   }
 }
@@ -108,13 +109,13 @@ inline Status CopyBufferFromVector(
 
 static inline Status GetBitmapFromBoolVector(
     const std::vector<bool>& is_valid, std::shared_ptr<Buffer>* result) {
-  int length = static_cast<int>(is_valid.size());
+  int64_t length = static_cast<int64_t>(is_valid.size());
 
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(GetEmptyBitmap(default_memory_pool(), length, &buffer));
 
   uint8_t* bitmap = buffer->mutable_data();
-  for (int i = 0; i < length; ++i) {
+  for (int64_t i = 0; i < length; ++i) {
     if (is_valid[i]) { BitUtil::SetBit(bitmap, i); }
   }
 
@@ -126,7 +127,7 @@ static inline Status GetBitmapFromBoolVector(
 // and the rest to non-zero (true) values.
 static inline void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   Random rng(random_seed());
-  for (int i = 0; i < n; ++i) {
+  for (int64_t i = 0; i < n; ++i) {
     null_bytes[i] = rng.NextDoubleFraction() > pct_null;
   }
 }
@@ -134,41 +135,41 @@ static inline void random_null_bytes(int64_t n, double pct_null, uint8_t* null_b
 static inline void random_is_valid(
     int64_t n, double pct_null, std::vector<bool>* is_valid) {
   Random rng(random_seed());
-  for (int i = 0; i < n; ++i) {
+  for (int64_t i = 0; i < n; ++i) {
     is_valid->push_back(rng.NextDoubleFraction() > pct_null);
   }
 }
 
-static inline void random_bytes(int n, uint32_t seed, uint8_t* out) {
+static inline void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
 
-  for (int i = 0; i < n; ++i) {
-    out[i] = d(gen) & 0xFF;
+  for (int64_t i = 0; i < n; ++i) {
+    out[i] = static_cast<uint8_t>(d(gen) & 0xFF);
   }
 }
 
-static inline void random_ascii(int n, uint32_t seed, uint8_t* out) {
+static inline void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d(65, 122);
 
-  for (int i = 0; i < n; ++i) {
-    out[i] = d(gen) & 0xFF;
+  for (int64_t i = 0; i < n; ++i) {
+    out[i] = static_cast<uint8_t>(d(gen) & 0xFF);
   }
 }
 
 template <typename T>
-void rand_uniform_int(int n, uint32_t seed, T min_value, T max_value, T* out) {
+void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, T* out) {
   DCHECK(out || (n == 0));
   std::mt19937 gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
-  for (int i = 0; i < n; ++i) {
-    out[i] = d(gen);
+  for (int64_t i = 0; i < n; ++i) {
+    out[i] = static_cast<T>(d(gen));
   }
 }
 
-static inline int null_count(const std::vector<uint8_t>& valid_bytes) {
-  int result = 0;
+static inline int64_t null_count(const std::vector<uint8_t>& valid_bytes) {
+  int64_t result = 0;
   for (size_t i = 0; i < valid_bytes.size(); ++i) {
     if (valid_bytes[i] == 0) { ++result; }
   }
@@ -183,7 +184,7 @@ std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) 
   return out;
 }
 
-Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
+Status MakeRandomInt32PoolBuffer(int64_t length, MemoryPool* pool,
     std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
   DCHECK(pool);
   auto data = std::make_shared<PoolBuffer>(pool);
@@ -194,7 +195,7 @@ Status MakeRandomInt32PoolBuffer(int32_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-Status MakeRandomBytePoolBuffer(int32_t length, MemoryPool* pool,
+Status MakeRandomBytePoolBuffer(int64_t length, MemoryPool* pool,
     std::shared_ptr<PoolBuffer>* pool_buffer, uint32_t seed = 0) {
   auto bytes = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(bytes->Resize(length));
@@ -213,7 +214,7 @@ class TestBase : public ::testing::Test {
   }
 
   template <typename ArrayType>
-  std::shared_ptr<Array> MakePrimitive(int32_t length, int32_t null_count = 0) {
+  std::shared_ptr<Array> MakePrimitive(int64_t length, int64_t null_count = 0) {
     auto data = std::make_shared<PoolBuffer>(pool_);
     const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
     EXPECT_OK(data->Resize(data_nbytes));
@@ -275,9 +276,9 @@ class TestBuilder : public ::testing::Test {
 
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
-    int size, Builder* builder, std::shared_ptr<Array>* out) {
+    int64_t size, Builder* builder, std::shared_ptr<Array>* out) {
   // Append the first 1000
-  for (int i = 0; i < size; ++i) {
+  for (int64_t i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {
       RETURN_NOT_OK(builder->Append(values[i]));
     } else {

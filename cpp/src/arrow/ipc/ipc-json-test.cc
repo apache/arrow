@@ -240,7 +240,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   const int nbatches = 3;
   std::vector<std::shared_ptr<RecordBatch>> batches;
   for (int i = 0; i < nbatches; ++i) {
-    int32_t num_rows = 5 + i * 5;
+    int num_rows = 5 + i * 5;
     std::vector<std::shared_ptr<Array>> arrays;
 
     MakeBatchArrays(schema, num_rows, &arrays);

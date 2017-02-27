@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <vector>
 
@@ -65,8 +66,14 @@ class RecordBatchWriter : public ArrayVisitor {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
+
+    if (arr.length() > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
+    }
+
     // push back all common elements
-    field_nodes_.push_back(flatbuf::FieldNode(arr.length(), arr.null_count()));
+    field_nodes_.push_back(flatbuf::FieldNode(
+        static_cast<int32_t>(arr.length()), static_cast<int32_t>(arr.null_count())));
     if (arr.null_count() > 0) {
       std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
 
@@ -152,13 +159,14 @@ class RecordBatchWriter : public ArrayVisitor {
     int64_t start_offset;
     RETURN_NOT_OK(dst->Tell(&start_offset));
 
-    int64_t padded_metadata_length = metadata_fb->size() + 4;
-    const int remainder = (padded_metadata_length + start_offset) % 8;
+    int32_t padded_metadata_length = static_cast<int32_t>(metadata_fb->size()) + 4;
+    const int32_t remainder =
+        (padded_metadata_length + static_cast<int32_t>(start_offset)) % 8;
     if (remainder != 0) { padded_metadata_length += 8 - remainder; }
 
     // The returned metadata size includes the length prefix, the flatbuffer,
     // plus padding
-    *metadata_length = static_cast<int32_t>(padded_metadata_length);
+    *metadata_length = padded_metadata_length;
 
     // Write the flatbuffer size prefix including padding
     int32_t flatbuffer_size = padded_metadata_length - 4;
@@ -169,7 +177,8 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(dst->Write(metadata_fb->data(), metadata_fb->size()));
 
     // Write any padding
-    int64_t padding = padded_metadata_length - metadata_fb->size() - 4;
+    int32_t padding =
+        padded_metadata_length - static_cast<int32_t>(metadata_fb->size()) - 4;
     if (padding > 0) { RETURN_NOT_OK(dst->Write(kPaddingBytes, padding)); }
 
     return Status::OK();
@@ -184,7 +193,8 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(dst->Tell(&start_position));
 #endif
 
-    RETURN_NOT_OK(WriteMetadata(batch.num_rows(), *body_length, dst, metadata_length));
+    RETURN_NOT_OK(WriteMetadata(
+        static_cast<int32_t>(batch.num_rows()), *body_length, dst, metadata_length));
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
@@ -430,7 +440,7 @@ class RecordBatchWriter : public ArrayVisitor {
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-        for (int32_t i = 0; i < array.length(); ++i) {
+        for (int64_t i = 0; i < array.length(); ++i) {
           const uint8_t code = type_ids[i];
           int32_t shift = child_offsets[code];
           if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }

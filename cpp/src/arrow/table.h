@@ -40,7 +40,7 @@ class ARROW_EXPORT RecordBatch {
   // num_rows is a parameter to allow for record batches of a particular size not
   // having any materialized columns. Each array should have the same length as
   // num_rows
-  RecordBatch(const std::shared_ptr<Schema>& schema, int32_t num_rows,
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
   bool Equals(const RecordBatch& other) const;
@@ -59,18 +59,18 @@ class ARROW_EXPORT RecordBatch {
   const std::string& column_name(int i) const;
 
   // @returns: the number of columns in the table
-  int num_columns() const { return columns_.size(); }
+  int num_columns() const { return static_cast<int>(columns_.size()); }
 
   // @returns: the number of rows (the corresponding length of each column)
-  int32_t num_rows() const { return num_rows_; }
+  int64_t num_rows() const { return num_rows_; }
 
   /// Slice each of the arrays in the record batch and construct a new RecordBatch object
-  std::shared_ptr<RecordBatch> Slice(int32_t offset);
-  std::shared_ptr<RecordBatch> Slice(int32_t offset, int32_t length);
+  std::shared_ptr<RecordBatch> Slice(int64_t offset);
+  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length);
 
  private:
   std::shared_ptr<Schema> schema_;
-  int32_t num_rows_;
+  int64_t num_rows_;
   std::vector<std::shared_ptr<Array>> columns_;
 };
 
@@ -105,7 +105,7 @@ class ARROW_EXPORT Table {
   std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
   // @returns: the number of columns in the table
-  int num_columns() const { return columns_.size(); }
+  int num_columns() const { return static_cast<int>(columns_.size()); }
 
   // @returns: the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }

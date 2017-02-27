@@ -43,33 +43,33 @@ Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   return Status::OK();
 }
 
-Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
+Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
   RETURN_NOT_OK(Reserve(length));
 
   UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
 }
 
-Status ArrayBuilder::Init(int32_t capacity) {
-  int32_t to_alloc = BitUtil::CeilByte(capacity) / 8;
+Status ArrayBuilder::Init(int64_t capacity) {
+  int64_t to_alloc = BitUtil::CeilByte(capacity) / 8;
   null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
   // Buffers might allocate more then necessary to satisfy padding requirements
-  const int byte_capacity = null_bitmap_->capacity();
+  const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = capacity;
   null_bitmap_data_ = null_bitmap_->mutable_data();
   memset(null_bitmap_data_, 0, byte_capacity);
   return Status::OK();
 }
 
-Status ArrayBuilder::Resize(int32_t new_bits) {
+Status ArrayBuilder::Resize(int64_t new_bits) {
   if (!null_bitmap_) { return Init(new_bits); }
-  int32_t new_bytes = BitUtil::CeilByte(new_bits) / 8;
-  int32_t old_bytes = null_bitmap_->size();
+  int64_t new_bytes = BitUtil::CeilByte(new_bits) / 8;
+  int64_t old_bytes = null_bitmap_->size();
   RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
   null_bitmap_data_ = null_bitmap_->mutable_data();
   // The buffer might be overpadded to deal with padding according to the spec
-  const int32_t byte_capacity = null_bitmap_->capacity();
+  const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = new_bits;
   if (old_bytes < new_bytes) {
     memset(null_bitmap_data_ + old_bytes, 0, byte_capacity - old_bytes);
@@ -77,7 +77,7 @@ Status ArrayBuilder::Resize(int32_t new_bits) {
   return Status::OK();
 }
 
-Status ArrayBuilder::Advance(int32_t elements) {
+Status ArrayBuilder::Advance(int64_t elements) {
   if (length_ + elements > capacity_) {
     return Status::Invalid("Builder must be expanded");
   }
@@ -85,16 +85,16 @@ Status ArrayBuilder::Advance(int32_t elements) {
   return Status::OK();
 }
 
-Status ArrayBuilder::Reserve(int32_t elements) {
+Status ArrayBuilder::Reserve(int64_t elements) {
   if (length_ + elements > capacity_) {
     // TODO(emkornfield) power of 2 growth is potentially suboptimal
-    int32_t new_capacity = BitUtil::NextPower2(length_ + elements);
+    int64_t new_capacity = BitUtil::NextPower2(length_ + elements);
     return Resize(new_capacity);
   }
   return Status::OK();
 }
 
-Status ArrayBuilder::SetNotNull(int32_t length) {
+Status ArrayBuilder::SetNotNull(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeSetNotNull(length);
   return Status::OK();
@@ -109,21 +109,21 @@ void ArrayBuilder::UnsafeAppendToBitmap(bool is_valid) {
   ++length_;
 }
 
-void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t length) {
+void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
   if (valid_bytes == nullptr) {
     UnsafeSetNotNull(length);
     return;
   }
 
-  int byte_offset = length_ / 8;
-  int bit_offset = length_ % 8;
+  int64_t byte_offset = length_ / 8;
+  int64_t bit_offset = length_ % 8;
   uint8_t bitset = null_bitmap_data_[byte_offset];
 
-  for (int32_t i = 0; i < length; ++i) {
+  for (int64_t i = 0; i < length; ++i) {
     if (valid_bytes[i]) {
-      bitset |= (1 << bit_offset);
+      bitset |= BitUtil::kBitmask[bit_offset];
     } else {
-      bitset &= ~(1 << bit_offset);
+      bitset &= BitUtil::kFlippedBitmask[bit_offset];
       ++null_count_;
     }
 
@@ -140,22 +140,22 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t leng
   length_ += length;
 }
 
-void ArrayBuilder::UnsafeSetNotNull(int32_t length) {
-  const int32_t new_length = length + length_;
+void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
+  const int64_t new_length = length + length_;
 
   // Fill up the bytes until we have a byte alignment
-  int32_t pad_to_byte = 8 - (length_ % 8);
+  int64_t pad_to_byte = 8 - (length_ % 8);
   if (pad_to_byte == 8) { pad_to_byte = 0; }
-  for (int32_t i = 0; i < pad_to_byte; ++i) {
+  for (int64_t i = 0; i < pad_to_byte; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
 
   // Fast bitsetting
-  int32_t fast_length = (length - pad_to_byte) / 8;
+  int64_t fast_length = (length - pad_to_byte) / 8;
   memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 255, fast_length);
 
   // Trailing bytes
-  for (int32_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
+  for (int64_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
 
@@ -163,7 +163,7 @@ void ArrayBuilder::UnsafeSetNotNull(int32_t length) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Init(int32_t capacity) {
+Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
   data_ = std::make_shared<PoolBuffer>(pool_);
 
@@ -177,7 +177,7 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
+Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
   // XXX: Set floor size for now
   if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
 
@@ -197,11 +197,12 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
 
 template <typename T>
 Status PrimitiveBuilder<T>::Append(
-    const value_type* values, int32_t length, const uint8_t* valid_bytes) {
+    const value_type* values, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
-    memcpy(raw_data_ + length_, values, TypeTraits<T>::bytes_required(length));
+    std::memcpy(raw_data_ + length_, values,
+        static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
   }
 
   // length_ is update by these
@@ -248,7 +249,7 @@ BooleanBuilder::BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
   DCHECK_EQ(Type::BOOL, type->type);
 }
 
-Status BooleanBuilder::Init(int32_t capacity) {
+Status BooleanBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
   data_ = std::make_shared<PoolBuffer>(pool_);
 
@@ -261,7 +262,7 @@ Status BooleanBuilder::Init(int32_t capacity) {
   return Status::OK();
 }
 
-Status BooleanBuilder::Resize(int32_t capacity) {
+Status BooleanBuilder::Resize(int64_t capacity) {
   // XXX: Set floor size for now
   if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
 
@@ -294,10 +295,10 @@ Status BooleanBuilder::Finish(std::shared_ptr<Array>* out) {
 }
 
 Status BooleanBuilder::Append(
-    const uint8_t* values, int32_t length, const uint8_t* valid_bytes) {
+    const uint8_t* values, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
-  for (int i = 0; i < length; ++i) {
+  for (int64_t i = 0; i < length; ++i) {
     // Skip reading from unitialised memory
     // TODO: This actually is only to keep valgrind happy but may or may not
     // have a performance impact.
@@ -333,17 +334,17 @@ ListBuilder::ListBuilder(
       offset_builder_(pool),
       values_(values) {}
 
-Status ListBuilder::Init(int32_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
+Status ListBuilder::Init(int64_t elements) {
+  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
-  return offset_builder_.Resize((elements + 1) * sizeof(int32_t));
+  return offset_builder_.Resize((elements + 1) * sizeof(int64_t));
 }
 
-Status ListBuilder::Resize(int32_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+Status ListBuilder::Resize(int64_t capacity) {
+  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
   // one more then requested for offsets
-  RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -351,7 +352,7 @@ Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> items = values_;
   if (!items) { RETURN_NOT_OK(value_builder_->Finish(&items)); }
 
-  RETURN_NOT_OK(offset_builder_.Append<int32_t>(items->length()));
+  RETURN_NOT_OK(offset_builder_.Append<int64_t>(items->length()));
   std::shared_ptr<Buffer> offsets = offset_builder_.Finish();
 
   *out = std::make_shared<ListArray>(

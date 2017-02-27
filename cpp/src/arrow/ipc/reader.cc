@@ -203,7 +203,7 @@ class FileReader::FileReaderImpl {
     }
 
     std::shared_ptr<Buffer> buffer;
-    int file_end_size = magic_size + sizeof(int32_t);
+    int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
 
     if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {

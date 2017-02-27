@@ -97,7 +97,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     builder_nn_ = std::dynamic_pointer_cast<BuilderType>(tmp);
   }
 
-  void RandomData(int N, double pct_null = 0.1) {
+  void RandomData(int64_t N, double pct_null = 0.1) {
     Attrs::draw(N, &draws_);
 
     valid_bytes_.resize(N);
@@ -105,13 +105,13 @@ class TestPrimitiveBuilder : public TestBuilder {
   }
 
   void Check(const std::shared_ptr<BuilderType>& builder, bool nullable) {
-    int size = builder->length();
+    int64_t size = builder->length();
 
     auto ex_data = std::make_shared<Buffer>(
         reinterpret_cast<uint8_t*>(draws_.data()), size * sizeof(T));
 
     std::shared_ptr<Buffer> ex_null_bitmap;
-    int32_t ex_null_count = 0;
+    int64_t ex_null_count = 0;
 
     if (nullable) {
       ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);
@@ -157,18 +157,18 @@ class TestPrimitiveBuilder : public TestBuilder {
     return std::shared_ptr<DataType>(new Type()); \
   }
 
-#define PINT_DECL(CapType, c_type, LOWER, UPPER) \
-  struct P##CapType {                            \
-    PTYPE_DECL(CapType, c_type);                 \
-    static void draw(int N, vector<T>* draws) {  \
-      test::randint<T>(N, LOWER, UPPER, draws);  \
-    }                                            \
+#define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
+  struct P##CapType {                               \
+    PTYPE_DECL(CapType, c_type);                    \
+    static void draw(int64_t N, vector<T>* draws) { \
+      test::randint<T>(N, LOWER, UPPER, draws);     \
+    }                                               \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)     \
   struct P##CapType {                                  \
     PTYPE_DECL(CapType, c_type);                       \
-    static void draw(int N, vector<T>* draws) {        \
+    static void draw(int64_t N, vector<T>* draws) {    \
       test::random_real<T>(N, 0, LOWER, UPPER, draws); \
     }                                                  \
   }
@@ -191,7 +191,7 @@ struct PBoolean {
 };
 
 template <>
-void TestPrimitiveBuilder<PBoolean>::RandomData(int N, double pct_null) {
+void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
   draws_.resize(N);
   valid_bytes_.resize(N);
 
@@ -202,12 +202,12 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int N, double pct_null) {
 template <>
 void TestPrimitiveBuilder<PBoolean>::Check(
     const std::shared_ptr<BooleanBuilder>& builder, bool nullable) {
-  int size = builder->length();
+  int64_t size = builder->length();
 
   auto ex_data = test::bytes_to_null_buffer(draws_);
 
   std::shared_ptr<Buffer> ex_null_bitmap;
-  int32_t ex_null_count = 0;
+  int64_t ex_null_count = 0;
 
   if (nullable) {
     ex_null_bitmap = test::bytes_to_null_buffer(valid_bytes_);
@@ -233,7 +233,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   ASSERT_EQ(expected->length(), result->length());
 
-  for (int i = 0; i < result->length(); ++i) {
+  for (int64_t i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
     bool actual = BitUtil::GetBit(result->data()->data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
@@ -256,7 +256,7 @@ TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();
 
-  int n = 1000;
+  int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
   ASSERT_EQ(BitUtil::NextPower2(n), this->builder_->capacity());
   ASSERT_EQ(BitUtil::NextPower2(TypeTraits<Type>::bytes_required(n)),
@@ -267,15 +267,15 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
-  int size = 1000;
-  for (int i = 0; i < size; ++i) {
+  int64_t size = 1000;
+  for (int64_t i = 0; i < size; ++i) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
   std::shared_ptr<Array> result;
   ASSERT_OK(this->builder_->Finish(&result));
 
-  for (int i = 0; i < size; ++i) {
+  for (int64_t i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
   }
 }
@@ -283,7 +283,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   DECL_T();
 
-  int size = 1000;
+  int64_t size = 1000;
 
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
@@ -294,7 +294,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 
   this->builder_->Reserve(size);
 
-  int i;
+  int64_t i;
   for (i = 0; i < size; ++i) {
     if (valid_bytes[i] > 0) {
       this->builder_->Append(draws[i]);
@@ -314,7 +314,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
   DECL_T();
 
-  const int size = 1000;
+  const int64_t size = 1000;
   this->RandomData(size);
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
@@ -326,10 +326,11 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   // Make the not equal array by negating the first valid element with itself.
   const auto first_valid = std::find_if(
       valid_bytes.begin(), valid_bytes.end(), [](uint8_t valid) { return valid > 0; });
-  const int first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
+  const int64_t first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
   // This should be true with a very high probability, but might introduce flakiness
   ASSERT_LT(first_valid_idx, size - 1);
-  draws[first_valid_idx] = ~*reinterpret_cast<int64_t*>(&draws[first_valid_idx]);
+  draws[first_valid_idx] =
+      static_cast<T>(~*reinterpret_cast<int64_t*>(&draws[first_valid_idx]));
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &unequal_array));
 
   // test normal equality
@@ -350,7 +351,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
 TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
   DECL_T();
 
-  const int size = 1000;
+  const int64_t size = 1000;
   this->RandomData(size);
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
@@ -383,7 +384,7 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 
-  const int size = 10000;
+  const int64_t size = 10000;
 
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
@@ -393,8 +394,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->builder_->Reserve(1000);
   this->builder_nn_->Reserve(1000);
 
-  int i;
-  int null_count = 0;
+  int64_t i;
+  int64_t null_count = 0;
   // Append the first 1000
   for (i = 0; i < 1000; ++i) {
     if (valid_bytes[i] > 0) {
@@ -440,14 +441,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   DECL_T();
 
-  int size = 10000;
+  int64_t size = 10000;
   this->RandomData(size);
 
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
   // first slug
-  int K = 1000;
+  int64_t K = 1000;
 
   ASSERT_OK(this->builder_->Append(draws.data(), K, valid_bytes.data()));
   ASSERT_OK(this->builder_nn_->Append(draws.data(), K));
@@ -470,7 +471,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
-  int n = 1000;
+  int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
 
   ASSERT_OK(this->builder_->Advance(100));
@@ -478,14 +479,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 
   ASSERT_OK(this->builder_->Advance(900));
 
-  int too_many = this->builder_->capacity() - 1000 + 1;
+  int64_t too_many = this->builder_->capacity() - 1000 + 1;
   ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   DECL_TYPE();
 
-  int cap = kMinBuilderCapacity * 2;
+  int64_t cap = kMinBuilderCapacity * 2;
 
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
@@ -510,7 +511,7 @@ template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
-  const int kSize = 50;
+  const int64_t kSize = 50;
   std::vector<T> draws1;
   std::vector<T> draws2;
 
@@ -520,7 +521,7 @@ void CheckSliceApproxEquals() {
 
   // Make the draws equal in the sliced segment, but unequal elsewhere (to
   // catch not using the slice offset)
-  for (int i = 10; i < 30; ++i) {
+  for (int64_t i = 10; i < 30; ++i) {
     draws2[i] = draws1[i];
   }
 

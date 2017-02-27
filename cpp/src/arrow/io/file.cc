@@ -263,9 +263,9 @@ static inline Status FileWrite(int fd, const uint8_t* buffer, int64_t nbytes) {
   if (nbytes > INT32_MAX) {
     return Status::IOError("Unable to write > 2GB blocks to file yet");
   }
-  ret = _write(fd, buffer, static_cast<unsigned int>(nbytes));
+  ret = static_cast<int>(_write(fd, buffer, static_cast<unsigned int>(nbytes)));
 #else
-  ret = write(fd, buffer, nbytes);
+  ret = static_cast<int>(write(fd, buffer, nbytes));
 #endif
 
   if (ret == -1) {
@@ -303,9 +303,9 @@ static inline Status FileClose(int fd) {
   int ret;
 
 #if defined(_MSC_VER)
-  ret = _close(fd);
+  ret = static_cast<int>(_close(fd));
 #else
-  ret = close(fd);
+  ret = static_cast<int>(close(fd));
 #endif
 
   if (ret == -1) { return Status::IOError("error closing file"); }

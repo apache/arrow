@@ -29,7 +29,7 @@
 
 namespace arrow {
 
-RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int num_rows,
+RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
     const std::vector<std::shared_ptr<Array>>& columns)
     : schema_(schema), num_rows_(num_rows), columns_(columns) {}
 
@@ -61,18 +61,18 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   return true;
 }
 
-std::shared_ptr<RecordBatch> RecordBatch::Slice(int32_t offset) {
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) {
   return Slice(offset, this->num_rows() - offset);
 }
 
-std::shared_ptr<RecordBatch> RecordBatch::Slice(int32_t offset, int32_t length) {
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset, int64_t length) {
   std::vector<std::shared_ptr<Array>> arrays;
   arrays.reserve(num_columns());
   for (const auto& field : columns_) {
     arrays.emplace_back(field->Slice(offset, length));
   }
 
-  int32_t num_rows = std::min(num_rows_ - offset, length);
+  int64_t num_rows = std::min(num_rows_ - offset, length);
   return std::make_shared<RecordBatch>(schema_, num_rows, arrays);
 }
 
@@ -169,7 +169,7 @@ bool Table::Equals(const Table& other) const {
   if (!schema_->Equals(other.schema())) { return false; }
   if (static_cast<int64_t>(columns_.size()) != other.num_columns()) { return false; }
 
-  for (size_t i = 0; i < columns_.size(); i++) {
+  for (int i = 0; i < static_cast<int>(columns_.size()); i++) {
     if (!columns_[i]->Equals(other.column(i))) { return false; }
   }
   return true;

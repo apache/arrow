@@ -214,7 +214,8 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
         vector_type = flatbuf::VectorType_DATA;
         break;
     }
-    auto offset = flatbuf::CreateVectorLayout(fbb, descr.bit_width(), vector_type);
+    auto offset = flatbuf::CreateVectorLayout(
+        fbb, static_cast<int16_t>(descr.bit_width()), vector_type);
     layout->push_back(offset);
   }
 
@@ -328,7 +329,7 @@ Status FieldFromFlatbufferDictionary(
   std::shared_ptr<DataType> type;
   auto children = field->children();
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
-  for (size_t i = 0; i < children->size(); ++i) {
+  for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), dummy_memo, &child_fields[i]));
   }
 
@@ -350,7 +351,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field,
     // children to fully reconstruct the data type
     auto children = field->children();
     std::vector<std::shared_ptr<Field>> child_fields(children->size());
-    for (size_t i = 0; i < children->size(); ++i) {
+    for (int i = 0; i < static_cast<int>(children->size()); ++i) {
       RETURN_NOT_OK(
           FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
     }

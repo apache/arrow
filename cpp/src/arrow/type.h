@@ -162,7 +162,7 @@ struct ARROW_EXPORT DataType {
 
   const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
 
-  int num_children() const { return children_.size(); }
+  int num_children() const { return static_cast<int>(children_.size()); }
 
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 
@@ -226,7 +226,7 @@ struct ARROW_EXPORT CTypeImpl : public PrimitiveCType {
 
   CTypeImpl() : PrimitiveCType(TYPE_ID) {}
 
-  int bit_width() const override { return sizeof(C_TYPE) * 8; }
+  int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * 8); }
 
   Status Accept(TypeVisitor* visitor) const override {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
@@ -432,7 +432,7 @@ struct ARROW_EXPORT DateType : public FixedWidthType {
 
   DateType() : FixedWidthType(Type::DATE) {}
 
-  int bit_width() const override { return sizeof(c_type) * 8; }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -448,7 +448,7 @@ struct ARROW_EXPORT TimeType : public FixedWidthType {
 
   TimeUnit unit;
 
-  int bit_width() const override { return sizeof(c_type) * 8; }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
   explicit TimeType(TimeUnit unit = TimeUnit::MILLI)
       : FixedWidthType(Type::TIME), unit(unit) {}
@@ -465,7 +465,7 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
   typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
 
-  int bit_width() const override { return sizeof(int64_t) * 8; }
+  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * 8); }
 
   TimeUnit unit;
 
@@ -485,7 +485,7 @@ struct ARROW_EXPORT IntervalType : public FixedWidthType {
   using c_type = int64_t;
   static constexpr Type::type type_id = Type::INTERVAL;
 
-  int bit_width() const override { return sizeof(int64_t) * 8; }
+  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * 8); }
 
   Unit unit;
 
