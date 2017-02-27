@@ -47,7 +47,7 @@ Status BitUtil::BytesToBits(
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), bit_length, &buffer));
 
-  memset(buffer->mutable_data(), 0, bit_length);
+  memset(buffer->mutable_data(), 0, static_cast<size_t>(bit_length));
   BytesToBits(bytes, buffer->mutable_data());
 
   *out = buffer;
@@ -94,7 +94,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 Status GetEmptyBitmap(
     MemoryPool* pool, int64_t length, std::shared_ptr<MutableBuffer>* result) {
   RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
-  memset((*result)->mutable_data(), 0, (*result)->size());
+  memset((*result)->mutable_data(), 0, static_cast<size_t>((*result)->size()));
   return Status::OK();
 }
 

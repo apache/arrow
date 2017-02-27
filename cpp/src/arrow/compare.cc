@@ -87,7 +87,8 @@ class RangeEqualsVisitor : public ArrayVisitor {
 
       if (end_offset - begin_offset > 0 &&
           std::memcmp(left.data()->data() + begin_offset,
-              right.data()->data() + right_begin_offset, end_offset - begin_offset)) {
+              right.data()->data() + right_begin_offset,
+              static_cast<size_t>(end_offset - begin_offset))) {
         return false;
       }
     }
@@ -348,7 +349,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       }
       return true;
     } else {
-      return memcmp(left_data, right_data, value_byte_size * left.length()) == 0;
+      return memcmp(left_data, right_data,
+                 static_cast<size_t>(value_byte_size * left.length())) == 0;
     }
   }
 
@@ -431,7 +433,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
         const int64_t total_bytes =
             left.value_offset(left.length()) - left.value_offset(0);
         return std::memcmp(left_data + left.value_offset(0),
-                   right_data + right.value_offset(0), total_bytes) == 0;
+                   right_data + right.value_offset(0),
+                   static_cast<size_t>(total_bytes)) == 0;
       }
     } else {
       // ARROW-537: Only compare data in non-null slots

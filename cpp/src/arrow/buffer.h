@@ -64,17 +64,8 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
 
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes
-  bool Equals(const Buffer& other, int64_t nbytes) const {
-    return this == &other ||
-           (size_ >= nbytes && other.size_ >= nbytes &&
-               (data_ == other.data_ || !memcmp(data_, other.data_, nbytes)));
-  }
-
-  bool Equals(const Buffer& other) const {
-    return this == &other ||
-           (size_ == other.size_ &&
-               (data_ == other.data_ || !memcmp(data_, other.data_, size_)));
-  }
+  bool Equals(const Buffer& other, int64_t nbytes) const;
+  bool Equals(const Buffer& other) const;
 
   /// Copy a section of the buffer into a new Buffer.
   Status Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
@@ -196,7 +187,7 @@ class ARROW_EXPORT BufferBuilder {
 
   // Unsafe methods don't check existing size
   void UnsafeAppend(const uint8_t* data, int64_t length) {
-    memcpy(data_ + size_, data, length);
+    memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
 

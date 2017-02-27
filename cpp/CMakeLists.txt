@@ -499,11 +499,7 @@ if(ARROW_BUILD_TESTS)
 
   # gflags (formerly Googleflags) command line parsing
   if("$ENV{GFLAGS_HOME}" STREQUAL "")
-    if(APPLE)
-      set(GFLAGS_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
-    else()
-      set(GFLAGS_CMAKE_CXX_FLAGS "-fPIC")
-    endif()
+    set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")

@@ -45,7 +45,7 @@ Status Buffer::Copy(
   auto new_buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(new_buffer->Resize(nbytes));
 
-  std::memcpy(new_buffer->mutable_data(), data() + start, nbytes);
+  std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
 
   *out = new_buffer;
   return Status::OK();
@@ -53,6 +53,19 @@ Status Buffer::Copy(
 
 Status Buffer::Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const {
   return Copy(start, nbytes, default_memory_pool(), out);
+}
+
+bool Buffer::Equals(const Buffer& other, int64_t nbytes) const {
+  return this == &other ||
+         (size_ >= nbytes && other.size_ >= nbytes &&
+             (data_ == other.data_ ||
+                 !memcmp(data_, other.data_, static_cast<size_t>(nbytes))));
+}
+
+bool Buffer::Equals(const Buffer& other) const {
+  return this == &other || (size_ == other.size_ && (data_ == other.data_ ||
+                                                        !memcmp(data_, other.data_,
+                                                            static_cast<size_t>(size_))));
 }
 
 std::shared_ptr<Buffer> SliceBuffer(

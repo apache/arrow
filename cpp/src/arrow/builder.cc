@@ -58,7 +58,7 @@ Status ArrayBuilder::Init(int64_t capacity) {
   const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = capacity;
   null_bitmap_data_ = null_bitmap_->mutable_data();
-  memset(null_bitmap_data_, 0, byte_capacity);
+  memset(null_bitmap_data_, 0, static_cast<size_t>(byte_capacity));
   return Status::OK();
 }
 
@@ -72,7 +72,8 @@ Status ArrayBuilder::Resize(int64_t new_bits) {
   const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = new_bits;
   if (old_bytes < new_bytes) {
-    memset(null_bitmap_data_ + old_bytes, 0, byte_capacity - old_bytes);
+    memset(
+        null_bitmap_data_ + old_bytes, 0, static_cast<size_t>(byte_capacity - old_bytes));
   }
   return Status::OK();
 }
@@ -152,7 +153,8 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 
   // Fast bitsetting
   int64_t fast_length = (length - pad_to_byte) / 8;
-  memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 255, fast_length);
+  memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 255,
+      static_cast<size_t>(fast_length));
 
   // Trailing bytes
   for (int64_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
@@ -170,7 +172,7 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
   // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, nbytes);
+  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
@@ -190,7 +192,8 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
     // TODO(emkornfield) valgrind complains without this
-    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    memset(
+        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -256,7 +259,7 @@ Status BooleanBuilder::Init(int64_t capacity) {
   int64_t nbytes = BitUtil::BytesForBits(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
   // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, nbytes);
+  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
 
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
   return Status::OK();
@@ -275,7 +278,8 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    memset(
+        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }

@@ -109,13 +109,13 @@ inline Status CopyBufferFromVector(
 
 static inline Status GetBitmapFromBoolVector(
     const std::vector<bool>& is_valid, std::shared_ptr<Buffer>* result) {
-  int64_t length = static_cast<int64_t>(is_valid.size());
+  size_t length = is_valid.size();
 
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(GetEmptyBitmap(default_memory_pool(), length, &buffer));
 
   uint8_t* bitmap = buffer->mutable_data();
-  for (int64_t i = 0; i < length; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
     if (is_valid[i]) { BitUtil::SetBit(bitmap, i); }
   }
 

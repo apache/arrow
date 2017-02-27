@@ -36,14 +36,16 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   constexpr size_t kAlignment = 64;
 #ifdef _MSC_VER
   // Special code path for MSVC
-  *out = reinterpret_cast<uint8_t*>(_aligned_malloc(size, kAlignment));
+  *out =
+      reinterpret_cast<uint8_t*>(_aligned_malloc(static_cast<size_t>(size), kAlignment));
   if (!*out) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
     return Status::OutOfMemory(ss.str());
   }
 #else
-  const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment, size);
+  const int result = posix_memalign(
+      reinterpret_cast<void**>(out), kAlignment, static_cast<size_t>(size));
   if (result == ENOMEM) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
@@ -90,7 +92,7 @@ Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t
   uint8_t* out;
   RETURN_NOT_OK(AllocateAligned(new_size, &out));
   // Copy contents and release old memory chunk
-  memcpy(out, *ptr, std::min(new_size, old_size));
+  memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
 #ifdef _MSC_VER
   _aligned_free(*ptr);
 #else

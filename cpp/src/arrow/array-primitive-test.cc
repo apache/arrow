@@ -100,7 +100,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   void RandomData(int64_t N, double pct_null = 0.1) {
     Attrs::draw(N, &draws_);
 
-    valid_bytes_.resize(N);
+    valid_bytes_.resize(static_cast<size_t>(N));
     test::random_null_bytes(N, pct_null, valid_bytes_.data());
   }
 
@@ -192,8 +192,8 @@ struct PBoolean {
 
 template <>
 void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
-  draws_.resize(N);
-  valid_bytes_.resize(N);
+  draws_.resize(static_cast<size_t>(N));
+  valid_bytes_.resize(static_cast<size_t>(N));
 
   test::random_null_bytes(N, 0.5, draws_.data());
   test::random_null_bytes(N, pct_null, valid_bytes_.data());
@@ -394,10 +394,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->builder_->Reserve(1000);
   this->builder_nn_->Reserve(1000);
 
-  int64_t i;
   int64_t null_count = 0;
   // Append the first 1000
-  for (i = 0; i < 1000; ++i) {
+  for (size_t i = 0; i < 1000; ++i) {
     if (valid_bytes[i] > 0) {
       this->builder_->Append(draws[i]);
     } else {
@@ -419,7 +418,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->builder_nn_->Reserve(size - 1000);
 
   // Append the next 9000
-  for (i = 1000; i < size; ++i) {
+  for (size_t i = 1000; i < size; ++i) {
     if (valid_bytes[i] > 0) {
       this->builder_->Append(draws[i]);
     } else {
