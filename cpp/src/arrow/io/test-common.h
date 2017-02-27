@@ -53,9 +53,9 @@ class MemoryMapFixture {
     FILE* file = fopen(path.c_str(), "w");
     if (file != nullptr) { tmp_files_.push_back(path); }
 #ifdef _MSC_VER
-    _chsize(fileno(file), size);
+    _chsize(fileno(file), static_cast<size_t>(size));
 #else
-    ftruncate(fileno(file), size);
+    ftruncate(fileno(file), static_cast<size_t>(size));
 #endif
     fclose(file);
   }

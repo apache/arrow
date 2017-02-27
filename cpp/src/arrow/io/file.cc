@@ -244,9 +244,9 @@ static inline Status FileRead(
     int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
 #if defined(_MSC_VER)
   if (nbytes > INT32_MAX) { return Status::IOError("Unable to read > 2GB blocks yet"); }
-  *bytes_read = _read(fd, buffer, static_cast<unsigned int>(nbytes));
+  *bytes_read = _read(fd, buffer, static_cast<size_t>(nbytes));
 #else
-  *bytes_read = read(fd, buffer, nbytes);
+  *bytes_read = read(fd, buffer, static_cast<size_t>(nbytes));
 #endif
 
   if (*bytes_read == -1) {
@@ -263,9 +263,9 @@ static inline Status FileWrite(int fd, const uint8_t* buffer, int64_t nbytes) {
   if (nbytes > INT32_MAX) {
     return Status::IOError("Unable to write > 2GB blocks to file yet");
   }
-  ret = static_cast<int>(_write(fd, buffer, static_cast<unsigned int>(nbytes)));
+  ret = static_cast<int>(_write(fd, buffer, static_cast<size_t>(nbytes)));
 #else
-  ret = static_cast<int>(write(fd, buffer, nbytes));
+  ret = static_cast<int>(write(fd, buffer, static_cast<size_t>(nbytes)));
 #endif
 
   if (ret == -1) {
@@ -526,7 +526,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
   ~MemoryMap() {
     if (file_->is_open()) {
-      munmap(mutable_data_, size_);
+      munmap(mutable_data_, static_cast<size_t>(size_));
       file_->Close();
     }
   }
@@ -554,7 +554,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       is_mutable_ = false;
     }
 
-    void* result = mmap(nullptr, file_->size(), prot_flags, map_mode, file_->fd(), 0);
+    void* result = mmap(nullptr, static_cast<size_t>(file_->size()), prot_flags, map_mode,
+        file_->fd(), 0);
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
@@ -630,7 +631,7 @@ Status MemoryMappedFile::Close() {
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   nbytes = std::max<int64_t>(
       0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
-  if (nbytes > 0) { std::memcpy(out, memory_map_->head(), nbytes); }
+  if (nbytes > 0) { std::memcpy(out, memory_map_->head(), static_cast<size_t>(nbytes)); }
   *bytes_read = nbytes;
   memory_map_->advance(nbytes);
   return Status::OK();
@@ -677,7 +678,7 @@ Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
 }
 
 Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
-  memcpy(memory_map_->head(), data, nbytes);
+  memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
   return Status::OK();
 }
