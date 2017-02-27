@@ -146,8 +146,6 @@ class StreamReader::StreamReaderImpl {
     }
 
     RecordBatchMetadata batch_metadata(message);
-    // Write footer length
-    int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
 
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
