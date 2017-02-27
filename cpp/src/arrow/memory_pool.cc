@@ -36,16 +36,16 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
   constexpr size_t kAlignment = 64;
 #ifdef _MSC_VER
   // Special code path for MSVC
-  *out = reinterpret_cast<uint8_t*>(_aligned_malloc(
-          static_cast<size_t>(size), kAlignment));
+  *out =
+      reinterpret_cast<uint8_t*>(_aligned_malloc(static_cast<size_t>(size), kAlignment));
   if (!*out) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
     return Status::OutOfMemory(ss.str());
   }
 #else
-  const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment,
-      static_cast<size_t>(size));
+  const int result = posix_memalign(
+      reinterpret_cast<void**>(out), kAlignment, static_cast<size_t>(size));
   if (result == ENOMEM) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";

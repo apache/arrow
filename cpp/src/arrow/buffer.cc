@@ -57,16 +57,15 @@ Status Buffer::Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out)
 
 bool Buffer::Equals(const Buffer& other, int64_t nbytes) const {
   return this == &other ||
-    (size_ >= nbytes && other.size_ >= nbytes &&
-        (data_ == other.data_ || !memcmp(data_, other.data_,
-            static_cast<size_t>(nbytes))));
+         (size_ >= nbytes && other.size_ >= nbytes &&
+             (data_ == other.data_ ||
+                 !memcmp(data_, other.data_, static_cast<size_t>(nbytes))));
 }
 
 bool Buffer::Equals(const Buffer& other) const {
-  return this == &other ||
-    (size_ == other.size_ &&
-        (data_ == other.data_ ||
-            !memcmp(data_, other.data_, static_cast<size_t>(size_))));
+  return this == &other || (size_ == other.size_ && (data_ == other.data_ ||
+                                                        !memcmp(data_, other.data_,
+                                                            static_cast<size_t>(size_))));
 }
 
 std::shared_ptr<Buffer> SliceBuffer(

@@ -234,9 +234,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   ASSERT_EQ(expected->length(), result->length());
 
   for (int64_t i = 0; i < result->length(); ++i) {
-    if (nullable) {
-      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
-    }
+    if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
     bool actual = BitUtil::GetBit(result->data()->data(), i);
     ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
   }

@@ -72,8 +72,8 @@ Status ArrayBuilder::Resize(int64_t new_bits) {
   const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = new_bits;
   if (old_bytes < new_bytes) {
-    memset(null_bitmap_data_ + old_bytes, 0,
-        static_cast<size_t>(byte_capacity - old_bytes));
+    memset(
+        null_bitmap_data_ + old_bytes, 0, static_cast<size_t>(byte_capacity - old_bytes));
   }
   return Status::OK();
 }
@@ -192,8 +192,8 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
     // TODO(emkornfield) valgrind complains without this
-    memset(data_->mutable_data() + old_bytes, 0,
-        static_cast<size_t>(new_bytes - old_bytes));
+    memset(
+        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -278,8 +278,8 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    memset(data_->mutable_data() + old_bytes, 0,
-        static_cast<size_t>(new_bytes - old_bytes));
+    memset(
+        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
