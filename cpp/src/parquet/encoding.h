@@ -66,7 +66,7 @@ class Encoder {
   Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Encoder(const ColumnDescriptor* descr, const Encoding::type& encoding,
+  explicit Encoder(const ColumnDescriptor* descr, Encoding::type encoding,
       ::arrow::MemoryPool* pool)
       : descr_(descr), encoding_(encoding), pool_(pool) {}
 
@@ -123,10 +123,10 @@ class Decoder {
   // the number of values left in this page.
   int values_left() const { return num_values_; }
 
-  const Encoding::type encoding() const { return encoding_; }
+  Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Decoder(const ColumnDescriptor* descr, const Encoding::type& encoding)
+  explicit Decoder(const ColumnDescriptor* descr, Encoding::type encoding)
       : descr_(descr), encoding_(encoding), num_values_(0) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
