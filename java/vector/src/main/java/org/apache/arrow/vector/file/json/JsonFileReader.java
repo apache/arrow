@@ -91,7 +91,7 @@ public class JsonFileReader implements AutoCloseable {
   public VectorSchemaRoot read() throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
-      VectorSchemaRoot recordBatch = new VectorSchemaRoot(schema, allocator);
+      VectorSchemaRoot recordBatch = VectorSchemaRoot.create(schema, allocator);
       {
         int count = readNextField("count", Integer.class);
         recordBatch.setRowCount(count);

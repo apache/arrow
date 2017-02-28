@@ -22,12 +22,12 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.DictionaryVector;
+import org.apache.arrow.vector.dictionary.DictionaryUtils;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
-import org.apache.arrow.vector.types.Dictionary;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
@@ -333,7 +333,7 @@ public class TestArrowFile extends BaseFileTest {
       mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
       mutator.setValueCount(3);
 
-      DictionaryVector dictionaryVector = DictionaryVector.encode(vector, new Dictionary(dictionary, 1L, false));
+      DictionaryUtils dictionaryVector = DictionaryUtils.encode(vector, new Dictionary(dictionary, 1L, false));
 
       List<Field> fields = ImmutableList.of(dictionaryVector.getField());
       List<FieldVector> vectors = ImmutableList.of((FieldVector) dictionaryVector);
@@ -377,8 +377,8 @@ public class TestArrowFile extends BaseFileTest {
 
   private void validateDictionary(FieldVector vector) {
     Assert.assertNotNull(vector);
-    Assert.assertEquals(DictionaryVector.class, vector.getClass());
-    Dictionary dictionary = ((DictionaryVector) vector).getDictionary();
+    Assert.assertEquals(DictionaryUtils.class, vector.getClass());
+    Dictionary dictionary = ((DictionaryUtils) vector).getDictionary();
     try {
       Assert.assertNotNull(dictionary.getId());
       NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();

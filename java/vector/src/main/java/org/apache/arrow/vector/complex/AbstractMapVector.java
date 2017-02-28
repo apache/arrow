@@ -26,6 +26,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
 
@@ -110,7 +111,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    */
   @Override
-  public <T extends FieldVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, int... precisionScale) {
+  public <T extends FieldVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, DictionaryEncoding dictionary, int... precisionScale) {
     final ValueVector existing = getChild(name);
     boolean create = false;
     if (existing == null) {
@@ -122,7 +123,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       create = true;
     }
     if (create) {
-      final T vector = clazz.cast(minorType.getNewVector(name, allocator, callBack, precisionScale));
+      final T vector = clazz.cast(minorType.getNewVector(name, allocator, dictionary, callBack, precisionScale));
       putChild(name, vector);
       if (callBack!=null) {
         callBack.doWork();
@@ -162,12 +163,12 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     return typeify(v, clazz);
   }
 
-  protected ValueVector add(String name, MinorType minorType, int... precisionScale) {
+  protected ValueVector add(String name, MinorType minorType, DictionaryEncoding dictionary, int... precisionScale) {
     final ValueVector existing = getChild(name);
     if (existing != null) {
       throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));
     }
-    FieldVector vector = minorType.getNewVector(name, allocator, callBack, precisionScale);
+    FieldVector vector = minorType.getNewVector(name, allocator, dictionary, callBack, precisionScale);
     putChild(name, vector);
     if (callBack!=null) {
       callBack.doWork();

@@ -28,6 +28,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 import com.google.common.base.Preconditions;
@@ -150,10 +151,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return vector == DEFAULT_DATA_VECTOR ? 0:1;
   }
 
-  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType) {
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType, DictionaryEncoding dictionary) {
     boolean created = false;
     if (vector instanceof ZeroVector) {
-      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, null);
+      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, dictionary, null);
       // returned vector must have the same field
       created = true;
     }

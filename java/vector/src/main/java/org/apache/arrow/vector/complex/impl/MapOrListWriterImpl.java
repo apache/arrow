@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
 public class MapOrListWriterImpl implements MapOrListWriter {
 
@@ -81,32 +82,74 @@ public class MapOrListWriterImpl implements MapOrListWriter {
     return list != null;
   }
 
+  @Override
   public VarCharWriter varChar(final String name) {
-    return (map != null) ? map.varChar(name) : list.varChar();
+    return varChar(name, null);
   }
 
+  @Override
+  public VarCharWriter varChar(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.varChar(name, dictionary) : list.varChar(dictionary);
+  }
+
+  @Override
   public IntWriter integer(final String name) {
-    return (map != null) ? map.integer(name) : list.integer();
+    return integer(name, null);
   }
 
+  @Override
+  public IntWriter integer(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.integer(name, dictionary) : list.integer(dictionary);
+  }
+
+  @Override
   public BigIntWriter bigInt(final String name) {
-    return (map != null) ? map.bigInt(name) : list.bigInt();
+    return bigInt(name, null);
   }
 
+  @Override
+  public BigIntWriter bigInt(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.bigInt(name, dictionary) : list.bigInt(dictionary);
+  }
+
+  @Override
   public Float4Writer float4(final String name) {
-    return (map != null) ? map.float4(name) : list.float4();
+    return float4(name, null);
   }
 
+  @Override
+  public Float4Writer float4(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.float4(name, dictionary) : list.float4(dictionary);
+  }
+
+  @Override
   public Float8Writer float8(final String name) {
-    return (map != null) ? map.float8(name) : list.float8();
+    return float8(name, null);
   }
 
+  @Override
+  public Float8Writer float8(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.float8(name, dictionary) : list.float8(dictionary);
+  }
+
+  @Override
   public BitWriter bit(final String name) {
-    return (map != null) ? map.bit(name) : list.bit();
+    return bit(name, null);
   }
 
+  @Override
+  public BitWriter bit(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.bit(name, dictionary) : list.bit(dictionary);
+  }
+
+  @Override
   public VarBinaryWriter binary(final String name) {
-    return (map != null) ? map.varBinary(name) : list.varBinary();
+    return binary(name, null);
+  }
+
+  @Override
+  public VarBinaryWriter binary(String name, DictionaryEncoding dictionary) {
+    return (map != null) ? map.varBinary(name, dictionary) : list.varBinary(dictionary);
   }
 
 }

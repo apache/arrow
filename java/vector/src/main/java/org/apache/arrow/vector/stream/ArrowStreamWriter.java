@@ -19,6 +19,8 @@ package org.apache.arrow.vector.stream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ArrowWriter;
 import org.apache.arrow.vector.file.WriteChannel;
@@ -27,25 +29,18 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 
 public class ArrowStreamWriter extends ArrowWriter {
 
-    public ArrowStreamWriter(Schema schema, OutputStream out, BufferAllocator allocator) {
-        super(schema, out, allocator);
+    public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, OutputStream out) {
+       this(root, provider, Channels.newChannel(out));
     }
 
-    public ArrowStreamWriter(Schema schema, WritableByteChannel out, BufferAllocator allocator) {
-        super(schema, out, allocator);
-    }
-
-    public ArrowStreamWriter(List<Field> fields, List<FieldVector> vectors, OutputStream out) {
-       super(fields, vectors, out);
-    }
-
-    public ArrowStreamWriter(List<Field> fields, List<FieldVector> vectors, WritableByteChannel out) {
-       super(fields, vectors, out, false);
+    public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+       super(root, provider, out);
     }
 
     @Override
@@ -53,9 +48,9 @@ public class ArrowStreamWriter extends ArrowWriter {
 
     @Override
     protected void endInternal(WriteChannel out,
+                               Schema schema,
                                List<ArrowBlock> dictionaries,
                                List<ArrowBlock> records) throws IOException {
        out.writeIntLittleEndian(0);
     }
 }
-

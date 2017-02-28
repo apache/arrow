@@ -18,6 +18,12 @@
 package org.apache.arrow.vector.types.pojo;
 
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
+
+import java.util.List;
+import java.util.Objects;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -25,14 +31,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
+
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.schema.VectorLayout;
-
-import java.util.List;
-import java.util.Objects;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
   private final String name;
@@ -70,6 +76,13 @@ public class Field {
     this(name, nullable, type, dictionary, children, TypeLayout.getTypeLayout(checkNotNull(type)));
   }
 
+  public FieldVector createVector(BufferAllocator allocator) {
+    MinorType minorType = Types.getMinorTypeForArrowType(type);
+    FieldVector vector = minorType.getNewVector(name, allocator, dictionary, null);
+    vector.initializeChildrenFromFields(children);
+    return vector;
+  }
+
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     String name = field.name();
     boolean nullable = field.nullable();
@@ -77,7 +90,12 @@ public class Field {
     DictionaryEncoding dictionary = null;
     org.apache.arrow.flatbuf.DictionaryEncoding dictionaryFB = field.dictionary();
     if (dictionaryFB != null) {
-      dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered());
+      Int indexType = null;
+      org.apache.arrow.flatbuf.Int indexTypeFB = dictionaryFB.indexType();
+      if (indexTypeFB != null) {
+        indexType = new Int(indexTypeFB.bitWidth(), indexTypeFB.isSigned());
+      }
+      dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
     ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
     for (int i = 0; i < field.layoutLength(); ++i) {

@@ -28,6 +28,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -207,4 +208,7 @@ public class ZeroVector implements FieldVector {
   public List<BufferBacked> getFieldInnerVectors() {
     return Collections.emptyList();
   }
+
+  @Override
+  public DictionaryEncoding getDictionaryEncoding() { return null; }
 }

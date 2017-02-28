@@ -18,8 +18,8 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.DictionaryVector;
-import org.apache.arrow.vector.types.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryUtils;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.junit.After;
 import org.junit.Before;
@@ -71,7 +71,7 @@ public class TestDictionaryVector {
       m2.setSafe(2, two, 0, two.length);
       m2.setValueCount(3);
 
-      try(final DictionaryVector encoded = DictionaryVector.encode(vector, new Dictionary(dictionary, 1L, false))) {
+      try(final DictionaryUtils encoded = DictionaryUtils.encode(vector, new Dictionary(dictionary, 1L, false))) {
         // verify indices
         ValueVector indices = encoded.getIndexVector();
         assertEquals(NullableIntVector.class, indices.getClass());
@@ -85,7 +85,7 @@ public class TestDictionaryVector {
         assertEquals(0, indexAccessor.get(4));
 
         // now run through the decoder and verify we get the original back
-        try (ValueVector decoded = DictionaryVector.decode(indices, encoded.getDictionary())) {
+        try (ValueVector decoded = DictionaryUtils.decode(indices, encoded.getDictionary())) {
           assertEquals(vector.getClass(), decoded.getClass());
           assertEquals(vector.getAccessor().getValueCount(), decoded.getAccessor().getValueCount());
           for (int i = 0; i < 5; i++) {

@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import java.util.List;
 
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 
 import io.netty.buffer.ArrowBuf;
@@ -62,4 +63,5 @@ public interface FieldVector extends ValueVector {
    */
   List<BufferBacked> getFieldInnerVectors();
 
+  DictionaryEncoding getDictionaryEncoding();
 }

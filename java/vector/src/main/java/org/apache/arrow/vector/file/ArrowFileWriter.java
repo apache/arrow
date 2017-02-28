@@ -19,6 +19,8 @@ package org.apache.arrow.vector.file;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
@@ -32,12 +34,8 @@ public class ArrowFileWriter extends ArrowWriter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
-  public ArrowFileWriter(Schema schema, WritableByteChannel out, BufferAllocator allocator) {
-    super(schema, out, allocator);
-  }
-
-  public ArrowFileWriter(List<Field> fields, List<FieldVector> vectors, WritableByteChannel out) {
-    super(fields, vectors, out, false);
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+    super(root, provider, out);
   }
 
   @Override
@@ -46,9 +44,12 @@ public class ArrowFileWriter extends ArrowWriter {
   }
 
   @Override
-  protected void endInternal(WriteChannel out, List<ArrowBlock> dictionaries, List<ArrowBlock> records) throws IOException {
+  protected void endInternal(WriteChannel out,
+                             Schema schema,
+                             List<ArrowBlock> dictionaries,
+                             List<ArrowBlock> records) throws IOException {
     long footerStart = out.getCurrentPosition();
-    out.write(new ArrowFooter(getSchema(), dictionaries, records), false);
+    out.write(new ArrowFooter(schema, dictionaries, records), false);
     int footerLength = (int)(out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");

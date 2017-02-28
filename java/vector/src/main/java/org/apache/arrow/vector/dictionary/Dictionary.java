@@ -16,49 +16,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-package org.apache.arrow.vector.types;
+package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
 import java.util.Objects;
 
 public class Dictionary {
 
-    private final long id;
-    private final FieldVector dictionary;
-    private final boolean ordered;
+  private final DictionaryEncoding encoding;
+  private final FieldVector dictionary;
 
-    public Dictionary(FieldVector dictionary, long id, boolean ordered) {
-        this.id = id;
-        this.dictionary = dictionary;
-        this.ordered = ordered;
-    }
+  public Dictionary(FieldVector dictionary, DictionaryEncoding encoding) {
+    this.dictionary = dictionary;
+    this.encoding = encoding;
+  }
 
-    public long getId() { return id; }
+  public FieldVector getVector() { return dictionary; }
 
-    public FieldVector getVector() {
-    return dictionary;
-    }
+  public DictionaryEncoding getEncoding() { return encoding; }
 
-    public boolean isOrdered() {
-    return ordered;
-    }
+  public ArrowType getVectorType() { return dictionary.getField().getType(); }
 
-    public DictionaryEncoding getEncoding() { return new DictionaryEncoding(id, ordered); }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Dictionary that = (Dictionary) o;
+    return Objects.equals(encoding, that.encoding) && Objects.equals(dictionary, that.dictionary);
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Dictionary that = (Dictionary) o;
-        return this.id == that.id &&
-            ordered == that.ordered &&
-            Objects.equals(dictionary, that.dictionary);
-    }
-
-    @Override
-    public int hashCode() {
-    return Objects.hash(id, dictionary, ordered);
+  @Override
+  public int hashCode() {
+  return Objects.hash(encoding, dictionary);
   }
 }

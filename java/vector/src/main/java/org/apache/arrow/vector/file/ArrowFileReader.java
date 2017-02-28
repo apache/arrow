@@ -17,6 +17,12 @@
  */
 package org.apache.arrow.vector.file;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
@@ -27,17 +33,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-
 public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileReader.class);
-
-  public static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 
   private ArrowFooter footer;
   private int currentDictionaryBatch = 0;
@@ -53,39 +51,6 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
 
   @Override
   protected Schema readSchema(SeekableReadChannel in) throws IOException {
-    readFooter(in);
-    return footer.getSchema();
-  }
-
-  @Override
-  protected ArrowMessage readMessage(SeekableReadChannel in, BufferAllocator allocator) throws IOException {
-    if (currentDictionaryBatch < footer.getDictionaries().size()) {
-      ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
-      return readDictionaryBatch(in, block, allocator);
-    } else if (currentRecordBatch < footer.getRecordBatches().size()) {
-      ArrowBlock block = footer.getRecordBatches().get(currentRecordBatch++);
-      return readRecordBatch(in, block, allocator);
-    } else {
-      return null;
-    }
-  }
-
-  public ArrowFooter readFooter() throws IOException {
-    ensureInitialized();
-    return footer;
-  }
-
-  public int loadRecordBatch(ArrowBlock block) throws IOException {
-    ensureInitialized();
-    int blockIndex = footer.getRecordBatches().indexOf(block);
-    if (blockIndex == -1) {
-      throw new IllegalArgumentException("Arrow bock does not exist in record batchs");
-    }
-    currentRecordBatch = blockIndex;
-    return loadNextBatch();
-  }
-
-  private void readFooter(SeekableReadChannel in) throws IOException {
     if (footer == null) {
       if (in.size() <= (MAGIC.length * 2 + 4)) {
         throw new InvalidArrowFileException("file too small: " + in.size());
@@ -112,6 +77,40 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
       Footer footerFB = Footer.getRootAsFooter(footerBuffer);
       this.footer = new ArrowFooter(footerFB);
     }
+    return footer.getSchema();
+  }
+
+  @Override
+  protected ArrowMessage readMessage(SeekableReadChannel in, BufferAllocator allocator) throws IOException {
+    if (currentDictionaryBatch < footer.getDictionaries().size()) {
+      ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
+      return readDictionaryBatch(in, block, allocator);
+    } else if (currentRecordBatch < footer.getRecordBatches().size()) {
+      ArrowBlock block = footer.getRecordBatches().get(currentRecordBatch++);
+      return readRecordBatch(in, block, allocator);
+    } else {
+      return null;
+    }
+  }
+
+  public List<ArrowBlock> getDictionaryBlocks() throws IOException {
+    ensureInitialized();
+    return footer.getDictionaries();
+  }
+
+  public List<ArrowBlock> getRecordBlocks() throws IOException {
+    ensureInitialized();
+    return footer.getRecordBatches();
+  }
+
+  public void loadRecordBatch(ArrowBlock block) throws IOException {
+    ensureInitialized();
+    int blockIndex = footer.getRecordBatches().indexOf(block);
+    if (blockIndex == -1) {
+      throw new IllegalArgumentException("Arrow bock does not exist in record batchs");
+    }
+    currentRecordBatch = blockIndex;
+    loadNextBatch();
   }
 
   private ArrowDictionaryBatch readDictionaryBatch(SeekableReadChannel in,

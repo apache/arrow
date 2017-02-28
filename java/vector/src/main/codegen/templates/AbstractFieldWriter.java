@@ -123,12 +123,22 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
 
   @Override
   public ${capName}Writer ${lowerName}(String name) {
+    return ${lowerName}(name, null);
+  }
+
+  @Override
+  public ${capName}Writer ${lowerName}(String name, DictionaryEncoding dictionary) {
     fail("${capName}");
     return null;
   }
 
   @Override
   public ${capName}Writer ${lowerName}() {
+    return ${lowerName}((DictionaryEncoding) null);
+  }
+
+  @Override
+  public ${capName}Writer ${lowerName}(DictionaryEncoding dictionary) {
     fail("${capName}");
     return null;
   }

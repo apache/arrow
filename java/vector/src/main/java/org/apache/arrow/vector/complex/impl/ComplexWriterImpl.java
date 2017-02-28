@@ -149,7 +149,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch(mode){
 
     case INIT:
-      NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class);
+      // TODO allow dictionaries in complex types
+      NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class, null);
       mapRoot = nullableMapWriterFactory.build(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
@@ -180,7 +181,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       int vectorCount = container.size();
-      ListVector listVector = container.addOrGet(name, MinorType.LIST, ListVector.class);
+      // TODO allow dictionaries in complex types
+      ListVector listVector = container.addOrGet(name, MinorType.LIST, ListVector.class, null);
       if (container.size() > vectorCount) {
         listVector.allocateNew();
       }

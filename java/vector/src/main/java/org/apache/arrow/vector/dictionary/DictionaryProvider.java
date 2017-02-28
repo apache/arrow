@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,30 +14,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
-package org.apache.arrow.vector.types.pojo;
+ */
+package org.apache.arrow.vector.dictionary;
 
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import java.util.Map;
 
-public class DictionaryEncoding {
+public interface DictionaryProvider {
 
-  private final long id;
-  private final boolean ordered;
-  private final Int indexType;
+  public Dictionary lookup(long id);
 
-  public DictionaryEncoding(long id, boolean ordered, Int indexType) {
-    this.id = id;
-    this.ordered = ordered;
-    this.indexType = indexType == null ? new Int(32, true) : indexType;
+  public static class MapDictionaryProvider implements DictionaryProvider {
+    private final Map<Long, Dictionary> map;
+    public MapDictionaryProvider(Map<Long, Dictionary> map) {
+      this.map = map;
+    }
+    public Dictionary lookup(long id) { return map.get(id); }
   }
-
-  public long getId() {
-  return id;
-  }
-
-  public boolean isOrdered() {
-  return ordered;
-  }
-
-  public Int getIndexType() { return indexType; }
 }

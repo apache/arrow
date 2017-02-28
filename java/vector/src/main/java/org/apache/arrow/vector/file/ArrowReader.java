@@ -17,227 +17,175 @@
  */
 package org.apache.arrow.vector.file;
 
-import com.google.common.collect.Iterators;
-import io.netty.buffer.ArrowBuf;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.google.common.collect.ImmutableList;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.complex.DictionaryVector;
+import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowMessage.ArrowMessageVisitor;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.schema.VectorLayout;
-import org.apache.arrow.vector.types.Dictionary;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic implements AutoCloseable {
 
-import static com.google.common.base.Preconditions.checkArgument;
+  private final T in;
+  private final BufferAllocator allocator;
 
-public abstract class ArrowReader<T extends ReadChannel> implements AutoCloseable {
+  private VectorLoader loader;
+  private VectorSchemaRoot root;
+  private Map<Long, Dictionary> dictionaries;
 
-    private final T in;
-    private final BufferAllocator allocator;
-    private Schema schema;
+  private boolean initialized = false;
 
-    private List<FieldVector> vectors;
-    private Map<String, FieldVector> vectorsByName;
-    private Map<Long, FieldVector> dictionaries;
+  protected ArrowReader(T in, BufferAllocator allocator) {
+    this.in = in;
+    this.allocator = allocator;
+  }
 
-    private int batchCount = 0;
-    private boolean initialized = false;
+  /**
+   * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch
+   *
+   * @return
+   * @throws IOException
+   */
+  public VectorSchemaRoot getVectorSchemaRoot() throws IOException {
+    ensureInitialized();
+    return root;
+  }
 
-    protected ArrowReader(T in, BufferAllocator allocator) {
-        this.in = in;
-        this.allocator = allocator;
+  /**
+   * Returns any dictionaries
+   *
+   * @return
+   * @throws IOException
+   */
+  public Map<Long, Dictionary> getDictionaryVectors() throws IOException {
+    ensureInitialized();
+    return dictionaries;
+  }
+
+  public void loadNextBatch() throws IOException {
+    ensureInitialized();
+    // read in all dictionary batches, then stop after our first record batch
+    ArrowMessageVisitor<Boolean> visitor = new ArrowMessageVisitor<Boolean>() {
+      @Override
+      public Boolean visit(ArrowDictionaryBatch message) {
+        try { load(message); } finally { message.close(); }
+        return true;
+      }
+      @Override
+      public Boolean visit(ArrowRecordBatch message) {
+        try { loader.load(message); } finally { message.close(); }
+        return false;
+      }
+    };
+    ArrowMessage message = readMessage(in, allocator);
+    while (message != null && message.accepts(visitor)) {
+      message = readMessage(in, allocator);
+    }
+  }
+
+  public long bytesRead() { return in.bytesRead(); }
+
+  @Override
+  public void close() throws IOException {
+    if (initialized) {
+      for (FieldVector vector: root.getFieldVectors()) {
+        vector.close();
+      }
+      for (Dictionary dictionary: dictionaries.values()) {
+        dictionary.getVector().close();
+      }
+    }
+    in.close();
+  }
+
+  protected abstract Schema readSchema(T in) throws IOException;
+
+  protected abstract ArrowMessage readMessage(T in, BufferAllocator allocator) throws IOException;
+
+  protected void ensureInitialized() throws IOException {
+    if (!initialized) {
+      initialize();
+      initialized = true;
+    }
+  }
+
+  /**
+   * Reads the schema and initializes the vectors
+   */
+  private void initialize() throws IOException {
+    Schema schema = readSchema(in);
+    List<Field> fields = new ArrayList<>();
+    List<FieldVector> vectors = new ArrayList<>();
+    Map<Long, Dictionary> dictionaries = new HashMap<>();
+
+    for (Field field: schema.getFields()) {
+      Field updated = toMemoryFormat(field, dictionaries);
+      fields.add(updated);
+      vectors.add(updated.createVector(allocator));
     }
 
-    public Schema getSchema() throws IOException {
-        ensureInitialized();
-        return schema;
+    this.root = new VectorSchemaRoot(fields, vectors, 0);
+    this.loader = new VectorLoader(root);
+    this.dictionaries = Collections.unmodifiableMap(dictionaries);
+  }
+
+  // in the message format, fields have the dictionary type
+  // in the memory format, they have the index type
+  private Field toMemoryFormat(Field field, Map<Long, Dictionary> dictionaries) {
+    DictionaryEncoding encoding = field.getDictionary();
+    List<Field> children = field.getChildren();
+
+    if (encoding == null && children.isEmpty()) {
+      return field;
     }
 
-    public List<FieldVector> getVectors() throws IOException {
-        ensureInitialized();
-        return vectors;
+    List<Field> updatedChildren = new ArrayList<>(children.size());
+    for (Field child: children) {
+      updatedChildren.add(toMemoryFormat(child, dictionaries));
     }
 
-    public int loadNextBatch() throws IOException {
-        ensureInitialized();
-        batchCount = 0;
-        // read in all dictionary batches, then stop after our first record batch
-        ArrowMessageVisitor<Boolean> visitor = new ArrowMessageVisitor<Boolean>() {
-            @Override
-            public Boolean visit(ArrowDictionaryBatch message) {
-                try {
-                    load(message);
-                } finally {
-                    message.close();
-                }
-                return true;
-            }
-            @Override
-            public Boolean visit(ArrowRecordBatch message) {
-                try {
-                    load(message);
-                } finally {
-                    message.close();
-                }
-                return false;
-            }
-        };
-        ArrowMessage message = readMessage(in, allocator);
-        while (message != null && message.accepts(visitor)) {
-            message = readMessage(in, allocator);
-        }
-        return batchCount;
+    ArrowType type;
+    if (encoding == null) {
+      type = field.getType();
+    } else {
+      // re-tyep the field for in-memory format
+      type = encoding.getIndexType();
+      // get existing or create dictionary vector
+      if (!dictionaries.containsKey(encoding.getId())) {
+        // create a new dictionary vector for the values
+        FieldVector dictionaryVector = field.createVector(allocator);
+        dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
+      }
     }
 
-    public long bytesRead() { return in.bytesRead(); }
+    return new Field(field.getName(), field.isNullable(), type, encoding, updatedChildren);
+  }
 
-    @Override
-    public void close() throws IOException {
-        if (initialized) {
-            for (FieldVector vector: vectors) {
-                vector.close();
-            }
-            for (FieldVector vector: dictionaries.values()) {
-                vector.close();
-            }
-        }
-        in.close();
+  private void load(ArrowDictionaryBatch dictionaryBatch) {
+    long id = dictionaryBatch.getDictionaryId();
+    Dictionary dictionary = dictionaries.get(id);
+    if (dictionary == null) {
+      throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
     }
-
-    protected abstract Schema readSchema(T in) throws IOException;
-
-    protected abstract ArrowMessage readMessage(T in, BufferAllocator allocator) throws IOException;
-
-    protected void ensureInitialized() throws IOException {
-        if (!initialized) {
-            initialize();
-            initialized = true;
-        }
-    }
-
-    /**
-     * Reads the schema and initializes the vectors
-     */
-    private void initialize() throws IOException {
-        Schema schema = readSchema(in);
-        List<Field> fields = new ArrayList<>();
-        List<FieldVector> vectors = new ArrayList<>();
-        Map<String, FieldVector> vectorsByName = new HashMap<>();
-        Map<Long, FieldVector> dictionaries = new HashMap<>();
-        // in the message format, fields have dictionary ids and the dictionary type
-        // in the memory format, they have no dictionary id and the index type
-        for (Field field: schema.getFields()) {
-            DictionaryEncoding dictionaryEncoding = field.getDictionary();
-            if (dictionaryEncoding == null) {
-                MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-                FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
-                vector.initializeChildrenFromFields(field.getChildren());
-                fields.add(field);
-                vectors.add(vector);
-                vectorsByName.put(field.getName(), vector);
-            } else {
-                // get existing or create dictionary vector
-                FieldVector dictionaryVector = dictionaries.get(dictionaryEncoding.getId());
-                if (dictionaryVector == null) {
-                    MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-                    dictionaryVector = minorType.getNewVector(field.getName(), allocator, null);
-                    dictionaryVector.initializeChildrenFromFields(field.getChildren());
-                    dictionaries.put(dictionaryEncoding.getId(), dictionaryVector);
-                }
-                // create index vector
-                ArrowType dictionaryType = new ArrowType.Int(32, true); // TODO check actual index type
-                Field updated = new Field(field.getName(), field.isNullable(), dictionaryType, null);
-                MinorType minorType = Types.getMinorTypeForArrowType(dictionaryType);
-                FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
-                // note: we don't need to initialize children as the index vector won't have any
-                Dictionary metadata = new Dictionary(dictionaryVector, dictionaryEncoding.getId(), dictionaryEncoding.isOrdered());
-                DictionaryVector dictionary = new DictionaryVector(vector, metadata);
-                fields.add(updated);
-                vectors.add(dictionary);
-                vectorsByName.put(updated.getName(), dictionary);
-            }
-        }
-        this.schema = new Schema(fields);
-        this.vectors = Collections.unmodifiableList(vectors);
-        this.vectorsByName = Collections.unmodifiableMap(vectorsByName);
-        this.dictionaries = Collections.unmodifiableMap(dictionaries);
-    }
-
-    private void load(ArrowDictionaryBatch dictionaryBatch) {
-        long id = dictionaryBatch.getDictionaryId();
-        FieldVector vector = dictionaries.get(id);
-        if (vector == null) {
-            throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
-        }
-        ArrowRecordBatch recordBatch = dictionaryBatch.getDictionary();
-        Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
-        Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-        loadBuffers(vector, vector.getField(), buffers, nodes);
-    }
-
-    /**
-     * Loads the record batch in the vectors
-     * will not close the record batch
-     * @param recordBatch
-     */
-    private void load(ArrowRecordBatch recordBatch) {
-        Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
-        Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-        List<Field> fields = schema.getFields();
-        for (Field field : fields) {
-            FieldVector fieldVector = vectorsByName.get(field.getName());
-            loadBuffers(fieldVector, field, buffers, nodes);
-        }
-        this.batchCount = recordBatch.getLength();
-        if (nodes.hasNext() || buffers.hasNext()) {
-            throw new IllegalArgumentException("not all nodes and buffers where consumed. nodes: " +
-                Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
-        }
-    }
-
-    private static void loadBuffers(FieldVector vector,
-                                    Field field,
-                                    Iterator<ArrowBuf> buffers,
-                                    Iterator<ArrowFieldNode> nodes) {
-        checkArgument(nodes.hasNext(),
-                      "no more field nodes for for field " + field + " and vector " + vector);
-        ArrowFieldNode fieldNode = nodes.next();
-        List<VectorLayout> typeLayout = field.getTypeLayout().getVectors();
-        List<ArrowBuf> ownBuffers = new ArrayList<>(typeLayout.size());
-        for (int j = 0; j < typeLayout.size(); j++) {
-            ownBuffers.add(buffers.next());
-        }
-        try {
-            vector.loadFieldBuffers(fieldNode, ownBuffers);
-        } catch (RuntimeException e) {
-            throw new IllegalArgumentException("Could not load buffers for field " +
-                field + ". error message: " + e.getMessage(), e);
-        }
-        List<Field> children = field.getChildren();
-        if (children.size() > 0) {
-            List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-            checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: found " + childrenFromFields.size() + " expected " + children.size());
-            for (int i = 0; i < childrenFromFields.size(); i++) {
-                Field child = children.get(i);
-                FieldVector fieldVector = childrenFromFields.get(i);
-                loadBuffers(fieldVector, child, buffers, nodes);
-            }
-        }
-    }
+    FieldVector vector = dictionary.getVector();
+    VectorSchemaRoot root = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), 0);
+    VectorLoader loader = new VectorLoader(root);
+    loader.load(dictionaryBatch.getDictionary());
+  }
 }
