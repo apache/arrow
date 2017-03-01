@@ -493,6 +493,7 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
     MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
     MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
     MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, TimestampArray);
+    MAKE_PRIMITIVE_ARRAY_CASE(DATE, DateArray);
     default:
       return Status::NotImplemented(type->ToString());
   }

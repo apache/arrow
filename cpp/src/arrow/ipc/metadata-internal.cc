@@ -78,6 +78,22 @@ static Status FloatFromFlatuffer(
   return Status::OK();
 }
 
+static inline TimeUnit FlatbufferToTimeUnit(flatbuf::TimeUnit unit) {
+  switch (unit) {
+    case flatbuf::TimeUnit_SECOND:
+      return TimeUnit::SECOND;
+    case flatbuf::TimeUnit_MILLISECOND:
+      return TimeUnit::MILLI;
+    case flatbuf::TimeUnit_MICROSECOND:
+      return TimeUnit::MICRO;
+    case flatbuf::TimeUnit_NANOSECOND:
+      return TimeUnit::NANO;
+  }
+
+  return TimeUnit::SECOND; // Default
+}
+
+
 // Forward declaration
 static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
     DictionaryMemo* dictionary_memo, FieldOffset* offset);
@@ -165,10 +181,30 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+static inline flatbuf::TimeUnit TimeUnitToFlatbuffer(TimeUnit unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return flatbuf::TimeUnit_SECOND;
+    case TimeUnit::MILLI:
+      return flatbuf::TimeUnit_MILLISECOND;
+    case TimeUnit::MICRO:
+      return flatbuf::TimeUnit_MICROSECOND;
+    case TimeUnit::NANO:
+      return flatbuf::TimeUnit_NANOSECOND;
+  }
+
+  return flatbuf::TimeUnit_SECOND; // Default
+}
+
+#define TIME_TO_FB(fbb, unit, type) \
+  flatbuf::Create ##  type(fbb, TimeUnitToFlatbuffer(unit)).Union();
+
+
 #define INT_TO_FB_CASE(BIT_WIDTH, IS_SIGNED)            \
   *out_type = flatbuf::Type_Int;                        \
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
+
 
 static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
@@ -190,7 +226,30 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       *out = boolean();
       return Status::OK();
     case flatbuf::Type_Decimal:
-    case flatbuf::Type_Timestamp:
+      return Status::NotImplemented("Type Decimal is not implemented");
+    case flatbuf::Type_Date:
+      *out = date();
+      return Status::OK();
+    case flatbuf::Type_Time: {
+      auto unit = static_cast<const flatbuf::Time*>(type_data)->unit();
+      if ((unit < flatbuf::TimeUnit_MIN) || (unit > flatbuf::TimeUnit_MAX)) {
+          std::stringstream ss;
+          ss << "Unknown TimeUnit: " << unit << std::endl;
+          return Status::Invalid(ss.str());
+      }
+      *out = time(FlatbufferToTimeUnit(unit));
+      return Status::OK();
+    }
+    case flatbuf::Type_Timestamp: {
+      auto unit = static_cast<const flatbuf::Timestamp*>(type_data)->unit();
+      if ((unit < flatbuf::TimeUnit_MIN) || (unit > flatbuf::TimeUnit_MAX)) {
+          std::stringstream ss;
+          ss << "Unknown TimeUnit: " << unit << std::endl;
+          return Status::Invalid(ss.str());
+      }
+      *out = timestamp(FlatbufferToTimeUnit(unit));
+      return Status::OK();
+    }
     case flatbuf::Type_List:
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
@@ -292,6 +351,22 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::UNION:
       *out_type = flatbuf::Type_Union;
       return UnionToFlatBuffer(fbb, type, children, dictionary_memo, offset);
+    case Type::DATE:
+      *out_type = flatbuf::Type_Date;
+      *offset = flatbuf::CreateDate(fbb).Union();
+      break;
+    case Type::TIME: {
+        auto& unit = static_cast<const TimeType&>(*type).unit;
+        *out_type = flatbuf::Type_Time;
+        *offset = TIME_TO_FB(fbb, unit, Time);
+      }
+      break;
+    case Type::TIMESTAMP: {
+        auto& unit = static_cast<const TimestampType&>(*type).unit;
+        *out_type = flatbuf::Type_Timestamp;
+        *offset = TIME_TO_FB(fbb, unit, Timestamp);
+      }
+      break;
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
       std::stringstream ss;

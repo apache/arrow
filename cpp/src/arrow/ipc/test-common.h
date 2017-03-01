@@ -425,6 +425,38 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeDateRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", date());
+  std::shared_ptr<Schema> schema(new Schema({f0}));
+
+  // Example data
+  std::shared_ptr<Array> date_array;
+  std::vector<bool> is_valid{true, true, false, true, true};
+  std::vector<int64_t> values{0, -7, 636390, 706397, 736390};
+  ArrayFromVector<DateType, int64_t>(is_valid, values, &date_array);
+
+  out->reset(new RecordBatch(schema, values.size(), {date_array}));
+  return Status::OK();
+}
+
+/* FIXME: This won't compile
+Status MakeTimeRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("t0", timestamp(TimeUnit::MILLI));
+  std::shared_ptr<Schema> schema(new Schema({f0}));
+
+  // Example data
+  std::shared_ptr<Array> time_array;
+  std::vector<bool> is_valid{true, true, false, true, true};
+  std::vector<int64_t> values{0, -27, 390, 7097, 36390};
+  ArrayFromVector<TimeType, int64_t>(is_valid, values, &time_array);
+
+  out->reset(new RecordBatch(schema, values.size(), {time_array}));
+  return Status::OK();
+}
+*/
+
 }  // namespace ipc
 }  // namespace arrow
 

@@ -23,4 +23,5 @@
 *.so
 *.dylib
 .build_cache_dir
+.vscode
 MANIFEST

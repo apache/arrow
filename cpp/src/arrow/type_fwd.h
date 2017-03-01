@@ -88,20 +88,11 @@ _NUMERIC_TYPE_DECL(UInt64);
 _NUMERIC_TYPE_DECL(HalfFloat);
 _NUMERIC_TYPE_DECL(Float);
 _NUMERIC_TYPE_DECL(Double);
+_NUMERIC_TYPE_DECL(Date);
+_NUMERIC_TYPE_DECL(Time);
+_NUMERIC_TYPE_DECL(Timestamp);
 
 #undef _NUMERIC_TYPE_DECL
-
-struct DateType;
-using DateArray = NumericArray<DateType>;
-using DateBuilder = NumericBuilder<DateType>;
-
-struct TimeType;
-using TimeArray = NumericArray<TimeType>;
-using TimeBuilder = NumericBuilder<TimeType>;
-
-struct TimestampType;
-using TimestampArray = NumericArray<TimestampType>;
-using TimestampBuilder = NumericBuilder<TimestampType>;
 
 struct IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
@@ -125,6 +116,7 @@ std::shared_ptr<DataType> ARROW_EXPORT float64();
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
 std::shared_ptr<DataType> ARROW_EXPORT binary();
 std::shared_ptr<DataType> ARROW_EXPORT date();
+//std::shared_ptr<TimeType> ARROW_EXPORT time();
 
 }  // namespace arrow
 
