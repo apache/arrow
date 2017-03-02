@@ -205,6 +205,11 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    // no op
+  }
+
+  @Override
   public List<ArrowBuf> getFieldBuffers() {
     return Collections.emptyList();
   }

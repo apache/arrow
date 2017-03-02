@@ -27,6 +27,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVectorDefinitionSetter;
 import org.apache.arrow.vector.ValueVector;
@@ -78,6 +79,16 @@ public class NullableMapVector extends MapVector implements FieldVector {
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
     this.valueCount = fieldNode.getLength();
+  }
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitsData);
+    for (FieldVector child : getChildrenFromFields()) {
+      child.loadFieldBuffers(buffersIterator, buf);
+    }
   }
 
   @Override

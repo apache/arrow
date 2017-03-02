@@ -30,6 +30,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
@@ -102,6 +103,23 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     // variable width values: truncate offset vector buffer to size (#1)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, offsets.getBufferSizeFor(fieldNode.getLength() + 1));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
+  }
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    offsets.load(offsetsData);
+    if (buffersIterator.length() == 0) {
+      offsets.allocateNew(1);
+      offsets.zeroVector();
+    }
+    lastSet = (int) buffersIterator.length() / 4 - 1;
+    // this doesn't match arrow spec, but for backward compatibility, doing it in this order to match getBuffers() method
+    buffersIterator.next();
+    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitsData);
+    getDataVector().loadFieldBuffers(buffersIterator, buf);
   }
 
   @Override
@@ -292,7 +310,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector(name, allocator, callBack);
+    UnionVector vector = new UnionVector("$data", allocator, callBack);
     replaceDataVector(vector);
     reader = new UnionListReader(this);
     if (callBack != null) {
