@@ -22,12 +22,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
-import io.netty.buffer.ArrowBuf;
+import javax.annotation.Nullable;
+
+import org.apache.arrow.flatbuf.Buffer;
+import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.MapVector;
@@ -46,6 +52,15 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
 
 public class TestVectorUnloadLoad {
 
@@ -245,6 +260,109 @@ public class TestVectorUnloadLoad {
     List<FieldVector> fields = root.getChildrenFromFields();
     VectorSchemaRoot vsr = new VectorSchemaRoot(schema.getFields(), fields, valueCount);
     return new VectorUnloader(vsr);
+  }
+
+  @Test
+  public void testWithoutFieldNodes() throws Exception {
+    BufferAllocator original = allocator.newChildAllocator("original", 0, Integer.MAX_VALUE);
+    NullableIntVector intVector = new NullableIntVector("int", original, null);
+    NullableVarCharVector varCharVector = new NullableVarCharVector("int", original, null);
+
+    intVector.allocateNew();;
+    varCharVector.allocateNew();
+
+    for (int i = 0; i < 100; i++) {
+      if (i % 3 == 0) {
+        continue;
+      }
+      intVector.getMutator().setSafe(i, i);
+      byte[] s = ("val" + i).getBytes();
+      varCharVector.getMutator().setSafe(i, s, 0, s.length);
+    }
+
+    intVector.getMutator().setValueCount(100);
+    varCharVector.getMutator().setValueCount(100);
+
+    ByteBuf[] bufs = FluentIterable.from(
+            ImmutableList.<FieldVector>of(intVector, varCharVector))
+            .transformAndConcat(new Function<FieldVector, Iterable<ArrowBuf>>() {
+              @Override
+              public Iterable<ArrowBuf> apply(FieldVector vector) {
+                return Arrays.asList(vector.getBuffers(true));
+              }
+            }).toList().toArray(new ByteBuf[0]);
+
+    RecordBatch recordBatch = RecordBatch.getRootAsRecordBatch(getArrowRecordBatch(bufs, 100));
+
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+
+
+    for (ByteBuf buf : bufs) {
+      buf.readBytes(outputStream, buf.readableBytes());
+      buf.release();
+    }
+    outputStream.close();
+    byte[] bytes = outputStream.toByteArray();
+
+    BufferAllocator newAllocator = allocator.newChildAllocator("new allocator", 0, Integer.MAX_VALUE);
+
+    ArrowBuf body = newAllocator.buffer(bytes.length);
+
+    body.writeBytes(bytes);
+
+
+    NullableIntVector newIntVector = new NullableIntVector("newInt", newAllocator, null);
+    NullableVarCharVector newVarCharVector = new NullableVarCharVector("newVarChar", newAllocator, null);
+
+    BuffersIterator buffersIterator = new BuffersIterator(recordBatch);
+
+    newIntVector.loadFieldBuffers(buffersIterator, body);
+    newIntVector.getMutator().setValueCount(100);
+    newVarCharVector.loadFieldBuffers(buffersIterator, body);
+    newVarCharVector.getMutator().setValueCount(100);
+
+    body.release();
+
+    for (int i = 0; i < recordBatch.length(); i++) {
+      if (i %3 == 0) {
+        Assert.assertNull(newIntVector.getAccessor().getObject(i));
+        Assert.assertNull(newVarCharVector.getAccessor().getObject(i));
+      } else {
+        Assert.assertEquals(Integer.valueOf(i), newIntVector.getAccessor().getObject(i));
+        Assert.assertEquals("val" + i, newVarCharVector.getAccessor().getObject(i).toString());
+      }
+    }
+
+    newIntVector.clear();
+    newVarCharVector.clear();
+    original.close();
+    newAllocator.close();
+  }
+
+  private ByteBuffer getArrowRecordBatch(ByteBuf[] buffers, int recordCount) {
+    int length = 0;
+    for (ByteBuf buf : buffers) {
+      length += buf.writerIndex();
+    }
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    RecordBatch.startNodesVector(builder, 0);
+    int nodesOffset = builder.endVector();
+    RecordBatch.startBuffersVector(builder, buffers.length);
+    int offset = length;
+    for (int i = buffers.length - 1; i >= 0; i--) {
+      long currentLength = buffers[i].writerIndex();
+      offset -= currentLength;
+      Buffer.createBuffer(builder, 0, offset, currentLength);
+    }
+    int buffersOffset = builder.endVector();
+    RecordBatch.startRecordBatch(builder);
+    RecordBatch.addLength(builder, recordCount);
+    RecordBatch.addNodes(builder, nodesOffset);
+    RecordBatch.addBuffers(builder, buffersOffset);
+    int recordBatch = RecordBatch.endRecordBatch(builder);
+    builder.finish(recordBatch);
+    return builder.dataBuffer();
   }
 
   @AfterClass

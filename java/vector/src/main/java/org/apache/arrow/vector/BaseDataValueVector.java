@@ -131,6 +131,12 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
   }
 
   @Override
+  public void load(ArrowBuf data) {
+    this.data.release();
+    this.data = data.retain(allocator);
+  }
+
+  @Override
   public ArrowBuf unLoad() {
     return this.data.readerIndex(0);
   }

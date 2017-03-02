@@ -30,6 +30,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
@@ -102,6 +103,17 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     // variable width values: truncate offset vector buffer to size (#1)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, offsets.getBufferSizeFor(fieldNode.getLength() + 1));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
+  }
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitsData);
+    buffersIterator.next();
+    ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    offsets.load(offsetsData);
+    getDataVector().loadFieldBuffers(buffersIterator, buf);
   }
 
   @Override
