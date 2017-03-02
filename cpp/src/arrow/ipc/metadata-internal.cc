@@ -78,43 +78,6 @@ static Status FloatFromFlatuffer(
   return Status::OK();
 }
 
-static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
-    const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
-  switch (type) {
-    case flatbuf::Type_NONE:
-      return Status::Invalid("Type metadata cannot be none");
-    case flatbuf::Type_Int:
-      return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
-    case flatbuf::Type_FloatingPoint:
-      return FloatFromFlatuffer(
-          static_cast<const flatbuf::FloatingPoint*>(type_data), out);
-    case flatbuf::Type_Binary:
-      *out = binary();
-      return Status::OK();
-    case flatbuf::Type_Utf8:
-      *out = utf8();
-      return Status::OK();
-    case flatbuf::Type_Bool:
-      *out = boolean();
-      return Status::OK();
-    case flatbuf::Type_Decimal:
-    case flatbuf::Type_Timestamp:
-    case flatbuf::Type_List:
-      if (children.size() != 1) {
-        return Status::Invalid("List must have exactly 1 child field");
-      }
-      *out = std::make_shared<ListType>(children[0]);
-      return Status::OK();
-    case flatbuf::Type_Struct_:
-      *out = std::make_shared<StructType>(children);
-      return Status::OK();
-    case flatbuf::Type_Union:
-      return Status::NotImplemented("Type is not implemented");
-    default:
-      return Status::Invalid("Unrecognized type");
-  }
-}
-
 // Forward declaration
 static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
     DictionaryMemo* dictionary_memo, FieldOffset* offset);
@@ -153,6 +116,32 @@ static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type
   return Status::OK();
 }
 
+// ----------------------------------------------------------------------
+// Union implementation
+
+static Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
+    const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
+  UnionMode mode = union_data->mode() == flatbuf::UnionMode_Sparse ? UnionMode::SPARSE
+                                                                   : UnionMode::DENSE;
+
+  std::vector<uint8_t> type_codes;
+
+  const flatbuffers::Vector<int32_t>* fb_type_ids = union_data->typeIds();
+  if (fb_type_ids == nullptr) {
+    for (uint8_t i = 0; i < children.size(); ++i) {
+      type_codes.push_back(i);
+    }
+  } else {
+    for (int32_t id : (*fb_type_ids)) {
+      // TODO(wesm): can these values exceed 255?
+      type_codes.push_back(static_cast<uint8_t>(id));
+    }
+  }
+
+  *out = union_(children, type_codes, mode);
+  return Status::OK();
+}
+
 static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* out_children, DictionaryMemo* dictionary_memo,
     Offset* offset) {
@@ -180,6 +169,44 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   *out_type = flatbuf::Type_Int;                        \
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
+
+static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
+    const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
+  switch (type) {
+    case flatbuf::Type_NONE:
+      return Status::Invalid("Type metadata cannot be none");
+    case flatbuf::Type_Int:
+      return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
+    case flatbuf::Type_FloatingPoint:
+      return FloatFromFlatuffer(
+          static_cast<const flatbuf::FloatingPoint*>(type_data), out);
+    case flatbuf::Type_Binary:
+      *out = binary();
+      return Status::OK();
+    case flatbuf::Type_Utf8:
+      *out = utf8();
+      return Status::OK();
+    case flatbuf::Type_Bool:
+      *out = boolean();
+      return Status::OK();
+    case flatbuf::Type_Decimal:
+    case flatbuf::Type_Timestamp:
+    case flatbuf::Type_List:
+      if (children.size() != 1) {
+        return Status::Invalid("List must have exactly 1 child field");
+      }
+      *out = std::make_shared<ListType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type_Struct_:
+      *out = std::make_shared<StructType>(children);
+      return Status::OK();
+    case flatbuf::Type_Union:
+      return UnionFromFlatbuffer(
+          static_cast<const flatbuf::Union*>(type_data), children, out);
+    default:
+      return Status::Invalid("Unrecognized type");
+  }
+}
 
 // TODO(wesm): Convert this to visitor pattern
 static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
