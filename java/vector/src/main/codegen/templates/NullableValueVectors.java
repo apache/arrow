@@ -143,7 +143,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     buffersIterator.next();
     ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
     values.offsetVector.load(offsetsData);
-    getMutator().lastSet = (int) buffersIterator.length() / 4 - 2;
+    getMutator().lastSet = (int) buffersIterator.length() / 4 - 1;
     </#if>
     buffersIterator.next();
     ArrowBuf data = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
