@@ -36,9 +36,13 @@ import org.apache.arrow.flatbuf.Buffer;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
@@ -46,6 +50,7 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -267,9 +272,14 @@ public class TestVectorUnloadLoad {
     BufferAllocator original = allocator.newChildAllocator("original", 0, Integer.MAX_VALUE);
     NullableIntVector intVector = new NullableIntVector("int", original, null);
     NullableVarCharVector varCharVector = new NullableVarCharVector("int", original, null);
+    ListVector listVector = new ListVector("list", original, null, null);
+    ListVector innerListVector = (ListVector) listVector.addOrGetVector(MinorType.LIST, null).getVector();
 
     intVector.allocateNew();;
     varCharVector.allocateNew();
+    listVector.allocateNew();
+
+    UnionListWriter listWriter = listVector.getWriter();
 
     for (int i = 0; i < 100; i++) {
       if (i % 3 == 0) {
@@ -278,13 +288,26 @@ public class TestVectorUnloadLoad {
       intVector.getMutator().setSafe(i, i);
       byte[] s = ("val" + i).getBytes();
       varCharVector.getMutator().setSafe(i, s, 0, s.length);
+      listWriter.setPosition(i);
+      listWriter.startList();
+      ListWriter innerListWriter = listWriter.list();
+      innerListWriter.startList();
+      innerListWriter.integer().writeInt(i);
+      innerListWriter.integer().writeInt(i + 1);
+      innerListWriter.endList();
+      innerListWriter.startList();
+      innerListWriter.integer().writeInt(i + 2);
+      innerListWriter.integer().writeInt(i + 3);
+      innerListWriter.endList();
+      listWriter.endList();
     }
 
     intVector.getMutator().setValueCount(100);
     varCharVector.getMutator().setValueCount(100);
+    listVector.getMutator().setValueCount(100);
 
     ByteBuf[] bufs = FluentIterable.from(
-            ImmutableList.<FieldVector>of(intVector, varCharVector))
+            ImmutableList.<FieldVector>of(intVector, varCharVector, listVector))
             .transformAndConcat(new Function<FieldVector, Iterable<ArrowBuf>>() {
               @Override
               public Iterable<ArrowBuf> apply(FieldVector vector) {
@@ -314,6 +337,8 @@ public class TestVectorUnloadLoad {
 
     NullableIntVector newIntVector = new NullableIntVector("newInt", newAllocator, null);
     NullableVarCharVector newVarCharVector = new NullableVarCharVector("newVarChar", newAllocator, null);
+    ListVector newListVector = new ListVector("newListVector", newAllocator, null, null);
+    ((ListVector) newListVector.addOrGetVector(MinorType.LIST, null).getVector()).addOrGetVector(MinorType.INT, null);
 
     BuffersIterator buffersIterator = new BuffersIterator(recordBatch);
 
@@ -321,6 +346,8 @@ public class TestVectorUnloadLoad {
     newIntVector.getMutator().setValueCount(100);
     newVarCharVector.loadFieldBuffers(buffersIterator, body);
     newVarCharVector.getMutator().setValueCount(100);
+    newListVector.loadFieldBuffers(buffersIterator, body);
+    newListVector.getMutator().setValueCount(100);
 
     body.release();
 
@@ -328,14 +355,17 @@ public class TestVectorUnloadLoad {
       if (i %3 == 0) {
         Assert.assertNull(newIntVector.getAccessor().getObject(i));
         Assert.assertNull(newVarCharVector.getAccessor().getObject(i));
+        Assert.assertNull(newListVector.getAccessor().getObject(i));
       } else {
         Assert.assertEquals(Integer.valueOf(i), newIntVector.getAccessor().getObject(i));
         Assert.assertEquals("val" + i, newVarCharVector.getAccessor().getObject(i).toString());
+        Assert.assertEquals(ImmutableList.of(ImmutableList.of(i, i + 1), ImmutableList.of(i + 2, i + 3)), newListVector.getAccessor().getObject(i));
       }
     }
 
     newIntVector.clear();
     newVarCharVector.clear();
+    newListVector.clear();
     original.close();
     newAllocator.close();
   }

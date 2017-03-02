@@ -108,11 +108,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   @Override
   public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
     buffersIterator.next();
-    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
-    bits.load(bitsData);
-    buffersIterator.next();
     ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
     offsets.load(offsetsData);
+    lastSet = (int) buffersIterator.length() / 4 - 1;
+    // this doesn't match arrow spec, but for backward compatibility, doing it in this order to match getBuffers() method
+    buffersIterator.next();
+    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitsData);
     getDataVector().loadFieldBuffers(buffersIterator, buf);
   }
 
