@@ -20,11 +20,21 @@
 
 include_directories(SYSTEM "{JEMALLOC_INCLUDE_DIR}")
 
-# arrow_jemalloc library
-set(ARROW_JEMALLOC_STATIC_LINK_LIBS
-  arrow_static
-  jemalloc_static
-)
+# In the case that jemalloc is only available as a shared library also use it to
+# link it in the static requirements. In contrast to other libraries we try in
+# most cases to use the system provided version of jemalloc to better align with
+# other potential users of jemalloc.
+if (JEMALLOC_STATIC_LIB)
+  set(ARROW_JEMALLOC_STATIC_LINK_LIBS
+    arrow_static
+    jemalloc_static
+  )
+else()
+  set(ARROW_JEMALLOC_STATIC_LINK_LIBS
+    arrow_static
+    jemalloc_shared
+  )
+endif()
 
 if (NOT APPLE)
   set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} pthread)
