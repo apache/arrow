@@ -213,7 +213,8 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   Status WriteToMmap(int recursion_level, bool override_level, int32_t* metadata_length,
-      int64_t* body_length, std::shared_ptr<Schema>* schema) {
+      int64_t* body_length, std::shared_ptr<RecordBatch>* batch,
+      std::shared_ptr<Schema>* schema) {
     const int batch_length = 5;
     TypePtr type = int32();
     std::shared_ptr<Array> array;
@@ -230,18 +231,18 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     *schema = std::shared_ptr<Schema>(new Schema({f0}));
 
     std::vector<std::shared_ptr<Array>> arrays = {array};
-    auto batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
+    *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
 
     std::string path = "test-write-past-max-recursion";
-    const int memory_map_size = 1 << 16;
+    const int memory_map_size = 1 << 20;
     io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
 
     if (override_level) {
-      return WriteRecordBatch(*batch, 0, mmap_.get(), metadata_length, body_length, pool_,
-          recursion_level + 1);
+      return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,
+          pool_, recursion_level + 1);
     } else {
       return WriteRecordBatch(
-          *batch, 0, mmap_.get(), metadata_length, body_length, pool_);
+          **batch, 0, mmap_.get(), metadata_length, body_length, pool_);
     }
   }
 
@@ -254,15 +255,21 @@ TEST_F(RecursionLimits, WriteLimit) {
   int32_t metadata_length = -1;
   int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
-  ASSERT_RAISES(
-      Invalid, WriteToMmap((1 << 8) + 1, false, &metadata_length, &body_length, &schema));
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_RAISES(Invalid,
+      WriteToMmap((1 << 8) + 1, false, &metadata_length, &body_length, &batch, &schema));
 }
 
 TEST_F(RecursionLimits, ReadLimit) {
   int32_t metadata_length = -1;
   int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
-  ASSERT_OK(WriteToMmap(64, true, &metadata_length, &body_length, &schema));
+
+  const int recursion_depth = 64;
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(WriteToMmap(
+      recursion_depth, true, &metadata_length, &body_length, &batch, &schema));
 
   std::shared_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
@@ -273,8 +280,39 @@ TEST_F(RecursionLimits, ReadLimit) {
 
   io::BufferReader reader(payload);
 
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_RAISES(Invalid, ReadRecordBatch(*metadata, schema, &reader, &batch));
+  std::shared_ptr<RecordBatch> result;
+  ASSERT_RAISES(Invalid, ReadRecordBatch(*metadata, schema, &reader, &result));
+}
+
+TEST_F(RecursionLimits, StressLimit) {
+  auto CheckDepth = [this](int recursion_depth, bool* it_works) {
+    int32_t metadata_length = -1;
+    int64_t body_length = -1;
+    std::shared_ptr<Schema> schema;
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(WriteToMmap(
+        recursion_depth, true, &metadata_length, &body_length, &batch, &schema));
+
+    std::shared_ptr<Message> message;
+    ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+    auto metadata = std::make_shared<RecordBatchMetadata>(message);
+
+    std::shared_ptr<Buffer> payload;
+    ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
+
+    io::BufferReader reader(payload);
+
+    std::shared_ptr<RecordBatch> result;
+    ASSERT_OK(ReadRecordBatch(*metadata, schema, recursion_depth + 1, &reader, &result));
+    *it_works = result->Equals(*batch);
+  };
+
+  bool it_works = false;
+  CheckDepth(100, &it_works);
+  ASSERT_TRUE(it_works);
+
+  CheckDepth(500, &it_works);
+  ASSERT_TRUE(it_works);
 }
 
 }  // namespace ipc
