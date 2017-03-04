@@ -69,6 +69,7 @@ class StructBuilder;
 
 struct DecimalType;
 class DecimalArray;
+class DecimalBuilder;
 
 struct UnionType;
 class UnionArray;
@@ -146,6 +147,7 @@ std::shared_ptr<DataType> ARROW_EXPORT binary();
 
 std::shared_ptr<DataType> ARROW_EXPORT date32();
 std::shared_ptr<DataType> ARROW_EXPORT date64();
+std::shared_ptr<DataType> ARROW_EXPORT decimal(int precision, int scale);
 
 }  // namespace arrow
 

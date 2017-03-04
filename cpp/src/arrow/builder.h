@@ -37,6 +37,9 @@ namespace arrow {
 
 class Array;
 
+template <typename T>
+struct Decimal;
+
 static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
@@ -76,12 +79,12 @@ class ARROW_EXPORT ArrayBuilder {
   Status SetNotNull(int64_t length);
 
   /// Allocates initial capacity requirements for the builder.  In most
-  /// cases subclasses should override and call there parent classes
+  /// cases subclasses should override and call their parent class's
   /// method as well.
   virtual Status Init(int64_t capacity);
 
   /// Resizes the null_bitmap array.  In most
-  /// cases subclasses should override and call there parent classes
+  /// cases subclasses should override and call their parent class's
   /// method as well.
   virtual Status Resize(int64_t new_bits);
 
@@ -275,9 +278,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status Append(uint8_t val) {
-    return Append(val != 0);
-  }
+  Status Append(uint8_t val) { return Append(val != 0); }
 
   /// Vector append
   ///
@@ -413,6 +414,24 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
+};
+
+class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
+ public:
+  explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
+
+  template <typename T>
+  ARROW_EXPORT Status Append(const Decimal<T>& val);
+
+  Status Init(int64_t capacity) override;
+  Status Resize(int64_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ private:
+  /// We only need these for 128 bit decimals, because boost stores the sign
+  /// separate from the underlying bytes.
+  std::shared_ptr<ResizableBuffer> sign_bitmap_;
+  uint8_t* sign_bitmap_data_;
 };
 
 // ----------------------------------------------------------------------

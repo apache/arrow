@@ -20,6 +20,7 @@ from pyarrow.includes.libarrow cimport *
 
 from pyarrow.schema cimport DataType
 
+
 cdef class Scalar:
     cdef readonly:
         DataType type

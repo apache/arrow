@@ -17,9 +17,10 @@
 
 from pyarrow.schema cimport DataType, box_data_type
 
+from pyarrow.includes.common cimport int128_t
 from pyarrow.compat import frombytes
 import pyarrow.schema as schema
-
+import decimal
 import datetime
 
 cimport cpython as cp
@@ -64,7 +65,7 @@ cdef class ArrayValue(Scalar):
         if hasattr(self, 'as_py'):
             return repr(self.as_py())
         else:
-            return Scalar.__repr__(self)
+            return super(Scalar, self).__repr__()
 
 
 cdef class BooleanValue(ArrayValue):
@@ -199,6 +200,25 @@ cdef class DoubleValue(ArrayValue):
         return ap.Value(self.index)
 
 
+cdef class DecimalValue(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CDecimalArray* ap = <CDecimalArray*> self.sp_array.get()
+            CDecimalType* t = <CDecimalType*> ap.type().get()
+            int bit_width = t.bit_width()
+            int precision = t.precision
+            int scale = t.scale
+            c_string s
+        if bit_width == 32:
+            s = ToString[int32_t](ap.Value[int32_t](self.index), precision, scale)
+        elif bit_width == 64:
+            s = ToString[int64_t](ap.Value[int64_t](self.index), precision, scale)
+        elif bit_width == 128:
+            s = ToString[int128_t](ap.Value[int128_t](self.index), precision, scale)
+        return decimal.Decimal(s.decode('utf8'))
+
+
 cdef class StringValue(ArrayValue):
 
     def as_py(self):
@@ -286,6 +306,7 @@ cdef dict _scalar_classes = {
     Type_BINARY: BinaryValue,
     Type_STRING: StringValue,
     Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
+    Type_DECIMAL: DecimalValue,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,

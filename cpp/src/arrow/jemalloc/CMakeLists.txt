@@ -104,7 +104,8 @@ ARROW_TEST_LINK_LIBRARIES(jemalloc-memory_pool-test
 
 ADD_ARROW_BENCHMARK(jemalloc-builder-benchmark)
 ARROW_BENCHMARK_LINK_LIBRARIES(jemalloc-builder-benchmark
-  ${ARROW_JEMALLOC_TEST_LINK_LIBS})
+  ${ARROW_JEMALLOC_TEST_LINK_LIBS}
+  ${BOOST_REGEX_LIBRARY})
 
 # Headers: top level
 install(FILES

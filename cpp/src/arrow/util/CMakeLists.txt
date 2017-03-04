@@ -22,6 +22,7 @@
 # Headers: top level
 install(FILES
   bit-util.h
+  decimal.h
   logging.h
   macros.h
   random.h
@@ -70,3 +71,4 @@ endif()
 
 ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(stl-util-test)
+ADD_ARROW_TEST(decimal-test)

@@ -149,7 +149,6 @@ int64_t ARROW_EXPORT CountSetBits(
 
 bool ARROW_EXPORT BitmapEquals(const uint8_t* left, int64_t left_offset,
     const uint8_t* right, int64_t right_offset, int64_t bit_length);
-
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H

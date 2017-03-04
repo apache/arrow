@@ -29,6 +29,7 @@ from pyarrow.array cimport Array
 from pyarrow.error cimport check_status
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
                                         CFixedSizeBinaryType,
+                                        CDecimalType,
                                         TimeUnit_SECOND, TimeUnit_MILLI,
                                         TimeUnit_MICRO, TimeUnit_NANO,
                                         Type, TimeUnit)
@@ -45,7 +46,7 @@ cdef class DataType:
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
         self.type = type.get()
 
@@ -66,14 +67,14 @@ cdef class DataType:
 
 cdef class DictionaryType(DataType):
 
-    cdef init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
 
 cdef class TimestampType(DataType):
 
-    cdef init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.ts_type = <const CTimestampType*> type.get()
 
@@ -93,7 +94,7 @@ cdef class TimestampType(DataType):
 
 cdef class FixedSizeBinaryType(DataType):
 
-    cdef init(self, const shared_ptr[CDataType]& type):
+    cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.fixed_size_binary_type = <const CFixedSizeBinaryType*> type.get()
 
@@ -101,6 +102,13 @@ cdef class FixedSizeBinaryType(DataType):
 
         def __get__(self):
             return self.fixed_size_binary_type.byte_width()
+
+
+cdef class DecimalType(FixedSizeBinaryType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.decimal_type = <const CDecimalType*> type.get()
 
 
 cdef class Field:
@@ -354,6 +362,12 @@ def float64():
     return primitive_type(la.Type_DOUBLE)
 
 
+cpdef DataType decimal(int precision, int scale=0):
+    cdef shared_ptr[CDataType] decimal_type
+    decimal_type.reset(new CDecimalType(precision, scale))
+    return box_data_type(decimal_type)
+
+
 def string():
     """
     UTF8 string
@@ -374,11 +388,9 @@ def binary(int length=-1):
     if length == -1:
         return primitive_type(la.Type_BINARY)
 
-    cdef FixedSizeBinaryType out = FixedSizeBinaryType()
     cdef shared_ptr[CDataType] fixed_size_binary_type
     fixed_size_binary_type.reset(new CFixedSizeBinaryType(length))
-    out.init(fixed_size_binary_type)
-    return out
+    return box_data_type(fixed_size_binary_type)
 
 
 def list_(DataType value_type):
@@ -436,6 +448,8 @@ cdef DataType box_data_type(const shared_ptr[CDataType]& type):
         out = TimestampType()
     elif type.get().type == la.Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType()
+    elif type.get().type == la.Type_DECIMAL:
+        out = DecimalType()
     else:
         out = DataType()
 

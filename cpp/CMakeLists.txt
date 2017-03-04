@@ -398,30 +398,36 @@ if (ARROW_BOOST_USE_SHARED)
     add_definitions(-DBOOST_ALL_DYN_LINK)
   endif()
 
-  find_package(Boost COMPONENTS system filesystem REQUIRED)
+  find_package(Boost COMPONENTS system filesystem regex REQUIRED)
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
     set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
   else()
     set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
     set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
   endif()
   set(BOOST_SYSTEM_LIBRARY boost_system_shared)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+  set(BOOST_REGEX_LIBRARY boost_regex_shared)
 else()
   # Find static boost headers and libs
   # TODO Differentiate here between release and debug builds
   set(Boost_USE_STATIC_LIBS ON)
-  find_package(Boost COMPONENTS system filesystem REQUIRED)
+  find_package(Boost COMPONENTS system filesystem regex REQUIRED)
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
     set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
   else()
     set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
     set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
   endif()
   set(BOOST_SYSTEM_LIBRARY boost_system_static)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
@@ -435,7 +441,11 @@ ADD_THIRDPARTY_LIB(boost_filesystem
     STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
     SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
-SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+ADD_THIRDPARTY_LIB(boost_regex
+        STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}"
+        SHARED_LIB "${BOOST_SHARED_REGEX_LIBRARY}")
+
+SET(ARROW_BOOST_LIBS boost_system boost_filesystem boost_regex)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -695,14 +705,16 @@ endif()
 set(ARROW_MIN_TEST_LIBS
   arrow_static
   arrow_test_main
-  ${ARROW_BASE_LIBS})
+  ${ARROW_BASE_LIBS}
+  ${BOOST_REGEX_LIBRARY})
 
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
-  ${ARROW_BASE_LIBS})
+  ${ARROW_BASE_LIBS}
+  ${BOOST_REGEX_LIBRARY})
 
 ############################################################
 # "make ctags" target
@@ -796,7 +808,7 @@ endif()
 ############################################################
 
 set(ARROW_LINK_LIBS
-)
+    ${BOOST_REGEX_LIBRARY})
 
 set(ARROW_PRIVATE_LINK_LIBS
 )
@@ -816,6 +828,7 @@ set(ARROW_SRCS
   src/arrow/visitor.cc
 
   src/arrow/util/bit-util.cc
+  src/arrow/util/decimal.cc
 )
 
 if(NOT APPLE AND NOT MSVC)
@@ -825,9 +838,11 @@ if(NOT APPLE AND NOT MSVC)
   set(ARROW_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
+
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_SRCS}
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
+  SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
 )
 
 add_subdirectory(src/arrow)

@@ -41,12 +41,14 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
@@ -375,6 +377,7 @@ class PandasConverter : public TypeVisitor {
   Status ConvertDates();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertObjects();
+  Status ConvertDecimals();
 
  protected:
   MemoryPool* pool_;
@@ -468,14 +471,13 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
   RETURN_IF_PYERROR();
   DCHECK_NE(type_name.obj(), nullptr);
 
-  OwnedRef bytes_obj(PyUnicode_AsUTF8String(type_name.obj()));
+  PyObjectStringify bytestring(type_name.obj());
   RETURN_IF_PYERROR();
-  DCHECK_NE(bytes_obj.obj(), nullptr);
 
-  Py_ssize_t size = PyBytes_GET_SIZE(bytes_obj.obj());
-  const char* bytes = PyBytes_AS_STRING(bytes_obj.obj());
-
+  const char* bytes = bytestring.bytes;
   DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
+
+  Py_ssize_t size = bytestring.size;
 
   std::string cpp_type_name(bytes, size);
 
@@ -517,6 +519,59 @@ Status PandasConverter::ConvertDates() {
   return date_builder.Finish(&out_);
 }
 
+#define CONVERT_DECIMAL_CASE(bit_width, builder, object)      \
+  case bit_width: {                                           \
+    Decimal##bit_width d;                                     \
+    RETURN_NOT_OK(PythonDecimalToArrowDecimal((object), &d)); \
+    RETURN_NOT_OK((builder).Append(d));                       \
+    break;                                                    \
+  }
+
+Status PandasConverter::ConvertDecimals() {
+  PyAcquireGIL lock;
+
+  // Import the decimal module and Decimal class
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+
+  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  PyObject* object = objects[0];
+
+  int precision;
+  int scale;
+
+  RETURN_NOT_OK(InferDecimalPrecisionAndScale(object, &precision, &scale));
+
+  type_ = std::make_shared<DecimalType>(precision, scale);
+
+  const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
+  DecimalBuilder decimal_builder(pool_, type_);
+
+  RETURN_NOT_OK(decimal_builder.Resize(length_));
+
+  for (int64_t i = 0; i < length_; ++i) {
+    object = objects[i];
+    if (PyObject_IsInstance(object, Decimal.obj())) {
+      switch (bit_width) {
+        CONVERT_DECIMAL_CASE(32, decimal_builder, object)
+        CONVERT_DECIMAL_CASE(64, decimal_builder, object)
+        CONVERT_DECIMAL_CASE(128, decimal_builder, object)
+        default:
+          break;
+      }
+    } else if (PyObject_is_null(object)) {
+      decimal_builder.AppendNull();
+    } else {
+      return InvalidConversion(object, "decimal.Decimal");
+    }
+  }
+  return decimal_builder.Finish(&out_);
+}
+
+#undef CONVERT_DECIMAL_CASE
+
 Status PandasConverter::ConvertObjectStrings() {
   PyAcquireGIL lock;
 
@@ -551,6 +606,90 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
   RETURN_NOT_OK(builder.Resize(length_));
   RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, value_size, &builder));
   RETURN_NOT_OK(builder.Finish(&out_));
+  return Status::OK();
+}
+
+template <typename T>
+Status validate_precision(int precision) {
+  constexpr static const int maximum_precision = DecimalPrecision<T>::maximum;
+  if (!(precision > 0 && precision <= maximum_precision)) {
+    std::stringstream ss;
+    ss << "Invalid precision: " << precision << ". Minimum is 1, maximum is "
+       << maximum_precision;
+    return Status::Invalid(ss.str());
+  }
+  return Status::OK();
+}
+
+template <typename T>
+Status RawDecimalToString(
+    const uint8_t* bytes, int precision, int scale, std::string* result) {
+  DCHECK_NE(bytes, nullptr);
+  DCHECK_NE(result, nullptr);
+  RETURN_NOT_OK(validate_precision<T>(precision));
+  Decimal<T> decimal;
+  FromBytes(bytes, &decimal);
+  *result = ToString(decimal, precision, scale);
+  return Status::OK();
+}
+
+template Status RawDecimalToString<int32_t>(
+    const uint8_t*, int, int, std::string* result);
+template Status RawDecimalToString<int64_t>(
+    const uint8_t*, int, int, std::string* result);
+
+Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
+    bool is_negative, std::string* result) {
+  DCHECK_NE(bytes, nullptr);
+  DCHECK_NE(result, nullptr);
+  RETURN_NOT_OK(validate_precision<int128_t>(precision));
+  Decimal128 decimal;
+  FromBytes(bytes, is_negative, &decimal);
+  *result = ToString(decimal, precision, scale);
+  return Status::OK();
+}
+
+static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
+  PyAcquireGIL lock;
+  OwnedRef decimal_ref;
+  OwnedRef Decimal_ref;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal_ref));
+  RETURN_NOT_OK(ImportFromModule(decimal_ref, "Decimal", &Decimal_ref));
+  PyObject* Decimal = Decimal_ref.obj();
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto* arr(static_cast<arrow::DecimalArray*>(data.chunk(c).get()));
+    auto type(std::dynamic_pointer_cast<arrow::DecimalType>(arr->type()));
+    const int precision = type->precision;
+    const int scale = type->scale;
+    const int bit_width = type->bit_width();
+
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      if (arr->IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values++ = Py_None;
+      } else {
+        const uint8_t* raw_value = arr->GetValue(i);
+        std::string s;
+        switch (bit_width) {
+          case 32:
+            RETURN_NOT_OK(RawDecimalToString<int32_t>(raw_value, precision, scale, &s));
+            break;
+          case 64:
+            RETURN_NOT_OK(RawDecimalToString<int64_t>(raw_value, precision, scale, &s));
+            break;
+          case 128:
+            RETURN_NOT_OK(
+                RawDecimalToString(raw_value, precision, scale, arr->IsNegative(i), &s));
+            break;
+          default:
+            break;
+        }
+        RETURN_NOT_OK(DecimalFromString(Decimal, s, out_values++));
+      }
+    }
+  }
+
   return Status::OK();
 }
 
@@ -598,6 +737,7 @@ Status PandasConverter::ConvertObjects() {
   //
   // * Strings
   // * Booleans with nulls
+  // * decimal.Decimals
   // * Mixed type (not supported at the moment by arrow format)
   //
   // Additionally, nulls may be encoded either as np.nan or None. So we have to
@@ -613,6 +753,7 @@ Status PandasConverter::ConvertObjects() {
     PyDateTime_IMPORT;
   }
 
+  // This means we received an explicit type from the user
   if (type_) {
     switch (type_->type) {
       case Type::STRING:
@@ -627,10 +768,17 @@ Status PandasConverter::ConvertObjects() {
         const auto& list_field = static_cast<const ListType&>(*type_);
         return ConvertLists(list_field.value_field()->type);
       }
+      case Type::DECIMAL:
+        return ConvertDecimals();
       default:
         return Status::TypeError("No known conversion to Arrow type");
     }
   } else {
+    OwnedRef decimal;
+    OwnedRef Decimal;
+    RETURN_NOT_OK(ImportModule("decimal", &decimal));
+    RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+
     for (int64_t i = 0; i < length_; ++i) {
       if (PyObject_is_null(objects[i])) {
         continue;
@@ -640,6 +788,8 @@ Status PandasConverter::ConvertObjects() {
         return ConvertBooleans();
       } else if (PyDate_CheckExact(objects[i])) {
         return ConvertDates();
+      } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
+        return ConvertDecimals();
       } else {
         return InvalidConversion(
             const_cast<PyObject*>(objects[i]), "string, bool, or date");
@@ -847,6 +997,7 @@ class PandasBlock {
     INT64,
     FLOAT,
     DOUBLE,
+    DECIMAL,
     BOOL,
     DATETIME,
     DATETIME_WITH_TZ,
@@ -1193,6 +1344,8 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<StringArray>(data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
       RETURN_NOT_OK(ConvertFixedSizeBinary(data, out_buffer));
+    } else if (type == Type::DECIMAL) {
+      RETURN_NOT_OK(ConvertDecimals(data, out_buffer));
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->type) {
@@ -1519,6 +1672,7 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     BLOCK_CASE(DOUBLE, Float64Block);
     BLOCK_CASE(BOOL, BoolBlock);
     BLOCK_CASE(DATETIME, DatetimeBlock);
+    BLOCK_CASE(DECIMAL, ObjectBlock);
     default:
       return Status::NotImplemented("Unsupported block type");
   }
@@ -1648,6 +1802,9 @@ class DataFrameBlockCreator {
         } break;
         case Type::DICTIONARY:
           output_type = PandasBlock::CATEGORICAL;
+          break;
+        case Type::DECIMAL:
+          output_type = PandasBlock::DECIMAL;
           break;
         default:
           return Status::NotImplemented(col->type()->ToString());
@@ -1892,6 +2049,7 @@ class ArrowDeserializer {
       CONVERT_CASE(TIMESTAMP);
       CONVERT_CASE(DICTIONARY);
       CONVERT_CASE(LIST);
+      CONVERT_CASE(DECIMAL);
       default: {
         std::stringstream ss;
         ss << "Arrow type reading not implemented for " << col_->type()->ToString();
@@ -1999,6 +2157,13 @@ class ArrowDeserializer {
     return ConvertFixedSizeBinary(data_, out_values);
   }
 
+  template <int TYPE>
+  inline typename std::enable_if<TYPE == Type::DECIMAL, Status>::type ConvertValues() {
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    return ConvertDecimals(data_, out_values);
+  }
+
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
   case Type::ArrowEnum:                                    \
     return ConvertListsLike<ArrowType>(col_, out_values);
@@ -2021,6 +2186,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
       CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
+      CONVERTVALUES_LISTSLIKE_CASE(DecimalType, DECIMAL)
       default: {
         std::stringstream ss;
         ss << "Not implemented type for lists: " << list_type->value_type()->ToString();

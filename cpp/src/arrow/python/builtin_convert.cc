@@ -17,12 +17,16 @@
 
 #include <Python.h>
 #include <datetime.h>
+
+#include <algorithm>
 #include <sstream>
+#include <string>
 
 #include "arrow/python/builtin_convert.h"
 
 #include "arrow/api.h"
 #include "arrow/status.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"
@@ -109,7 +113,6 @@ class ScalarVisitor {
   int64_t float_count_;
   int64_t binary_count_;
   int64_t unicode_count_;
-
   // Place to accumulate errors
   // std::vector<Status> errors_;
 };
@@ -394,8 +397,7 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
       } else if (PyBytes_Check(item)) {
         bytes_obj = item;
       } else {
-        return Status::Invalid(
-            "Value that cannot be converted to bytes was encountered");
+        return Status::Invalid("Value that cannot be converted to bytes was encountered");
       }
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
@@ -429,8 +431,7 @@ class FixedWidthBytesConverter : public TypedConverter<FixedSizeBinaryBuilder> {
       } else if (PyBytes_Check(item)) {
         bytes_obj = item;
       } else {
-        return Status::Invalid(
-            "Value that cannot be converted to bytes was encountered");
+        return Status::Invalid("Value that cannot be converted to bytes was encountered");
       }
       // No error checking
       RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
@@ -495,6 +496,54 @@ class ListConverter : public TypedConverter<ListBuilder> {
   std::shared_ptr<SeqConverter> value_converter_;
 };
 
+#define DECIMAL_CONVERT_CASE(bit_width, item, builder)        \
+  case bit_width: {                                           \
+    arrow::Decimal##bit_width out;                            \
+    RETURN_NOT_OK(PythonDecimalToArrowDecimal((item), &out)); \
+    RETURN_NOT_OK((builder)->Append(out));                    \
+    break;                                                    \
+  }
+
+class DecimalConverter : public TypedConverter<arrow::DecimalBuilder> {
+ public:
+  Status AppendData(PyObject* seq) override {
+    /// Ensure we've allocated enough space
+    Py_ssize_t size = PySequence_Size(seq);
+    RETURN_NOT_OK(typed_builder_->Reserve(size));
+
+    /// Can the compiler figure out that the case statement below isn't necessary
+    /// once we're running?
+    const int bit_width =
+        std::dynamic_pointer_cast<arrow::DecimalType>(typed_builder_->type())
+            ->bit_width();
+
+    OwnedRef ref;
+    PyObject* item = nullptr;
+    for (int64_t i = 0; i < size; ++i) {
+      ref.reset(PySequence_GetItem(seq, i));
+      item = ref.obj();
+
+      /// TODO(phillipc): Check for nan?
+      if (item != Py_None) {
+        switch (bit_width) {
+          DECIMAL_CONVERT_CASE(32, item, typed_builder_)
+          DECIMAL_CONVERT_CASE(64, item, typed_builder_)
+          DECIMAL_CONVERT_CASE(128, item, typed_builder_)
+          default:
+            break;
+        }
+        RETURN_IF_PYERROR();
+      } else {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
+#undef DECIMAL_CONVERT_CASE
+
 // Dynamic constructor for sequence converters
 std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
   switch (type->type) {
@@ -516,6 +565,9 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<UTF8Converter>();
     case Type::LIST:
       return std::make_shared<ListConverter>();
+    case Type::DECIMAL: {
+      return std::make_shared<DecimalConverter>();
+    }
     case Type::STRUCT:
     default:
       return nullptr;
