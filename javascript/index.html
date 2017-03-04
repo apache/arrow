@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>arrow.js browser test</title>
+    <meta charset="utf-8">
+    <style>
+/* adapted from http://codepen.io/brennowilliam/pen/PwJoPq */
+table {
+  font-family:Arial, Helvetica, sans-serif;
+  color:#666;
+  font-size:12px;
+  background:#eaebec;
+  margin:10px;
+  border:#ccc 1px solid;
+}
+
+table th {
+  padding: 5px;
+  border-top:1px solid #fafafa;
+  border-bottom:1px solid #e0e0e0;
+
+  background: #ededed;
+}
+table tr {
+  text-align: center;
+}
+table td {
+  padding: 5px;
+  border-top: 1px solid #ffffff;
+  border-bottom:1px solid #e0e0e0;
+  border-left: 1px solid #e0e0e0;
+
+  background: #fafafa;
+}
+table tr.even td {
+  background: #f6f6f6;
+}
+    </style>
+    <script type="text/javascript">
+var reader = new FileReader();
+function addCell (tr, type, name) {
+  var td = document.createElement(type)
+  td.textContent = name;
+  tr.appendChild(td);
+}
+reader.onload = function (evt) {
+  var buf = new Uint8Array(evt.target.result);
+  var schema = arrow.loadSchema(buf);
+  var vectors = arrow.loadVectors(buf);
+  var length = vectors[schema[0].name].length;
+
+  var thead = document.getElementById("thead");
+  var tbody = document.getElementById("tbody");
+  var header_row = document.createElement("tr");
+
+  schema.forEach(function (d) {
+    addCell(header_row, "th", d.name);
+  });
+
+  thead.appendChild(header_row);
+
+  for (var i = 0; i < length; i += 1|0) {
+    var tr = document.createElement("tr");
+    schema.forEach(function (d) { addCell(tr, "td", vectors[d.name].get(i)); });
+    tbody.appendChild(tr);
+  }
+}
+
+function handleFiles(files) {
+  reader.readAsArrayBuffer(files[0]);
+}
+    </script>
+  </head>
+  <body>
+    <input id="arrow-in" type="file" onchange="handleFiles(this.files)" />
+    <table cellspacing="0">
+      <thead id="thead">
+      </thead>
+      <tbody id="tbody">
+      </tbody>
+    </table>
+    <script type="text/javascript" src="./dist/arrow-bundle.js"></script>
+  </body>
+</html>
