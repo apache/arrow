@@ -116,10 +116,24 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int32_t leng
 
 void ArrayBuilder::UnsafeSetNotNull(int32_t length) {
   const int32_t new_length = length + length_;
-  // TODO(emkornfield) Optimize for large values of length?
-  for (int32_t i = length_; i < new_length; ++i) {
+
+  // Fill up the bytes until we have a byte alignment
+  int32_t pad_to_byte = 8 - (length_ % 8);
+  if (pad_to_byte == 8) { pad_to_byte = 0; }
+  for (int32_t i = 0; i < pad_to_byte; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
+
+  // Fast bitsetting
+  int32_t fast_length = (length - pad_to_byte) / 8;
+  memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 255,
+      static_cast<size_t>(fast_length));
+
+  // Trailing bytes
+  for (int32_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
+    BitUtil::SetBit(null_bitmap_data_, i);
+  }
+
   length_ = new_length;
 }
 
