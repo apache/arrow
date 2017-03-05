@@ -81,7 +81,7 @@ function _loadFooter(bb) {
 
     var footerLengthOffset: number = fileLength - MAGIC.length - 4;
     bb.setPosition(footerLengthOffset);
-    var footerLength: number = _arrayToInt(bb, footerLengthOffset)
+    var footerLength: number = Int64FromByteBuffer(bb, footerLengthOffset)
 
     if (footerLength <= 0 || footerLength + MAGIC.length*2 + 4 > fileLength)  {
       console.log("Invalid footer length: " + footerLength)
@@ -94,7 +94,7 @@ function _loadFooter(bb) {
     return footer;
 }
 
-function _arrayToInt(bb, offset) {
+function Int64FromByteBuffer(bb, offset) {
     return ((bb.bytes_[offset + 3] & 255) << 24) |
            ((bb.bytes_[offset + 2] & 255) << 16) |
            ((bb.bytes_[offset + 1] & 255) << 8) |
