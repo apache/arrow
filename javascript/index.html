@@ -4,36 +4,11 @@
     <title>arrow.js browser test</title>
     <meta charset="utf-8">
     <style>
-/* adapted from http://codepen.io/brennowilliam/pen/PwJoPq */
 table {
-  font-family:Arial, Helvetica, sans-serif;
-  color:#666;
-  font-size:12px;
-  background:#eaebec;
-  margin:10px;
-  border:#ccc 1px solid;
+  border-collapse: collapse;
 }
-
-table th {
-  padding: 5px;
-  border-top:1px solid #fafafa;
-  border-bottom:1px solid #e0e0e0;
-
-  background: #ededed;
-}
-table tr {
-  text-align: center;
-}
-table td {
-  padding: 5px;
-  border-top: 1px solid #ffffff;
-  border-bottom:1px solid #e0e0e0;
-  border-left: 1px solid #e0e0e0;
-
-  background: #fafafa;
-}
-table tr.even td {
-  background: #f6f6f6;
+table, th, td {
+  border: 1px solid black;
 }
     </style>
     <script type="text/javascript">
@@ -73,7 +48,7 @@ function handleFiles(files) {
   </head>
   <body>
     <input id="arrow-in" type="file" onchange="handleFiles(this.files)" />
-    <table cellspacing="0">
+    <table>
       <thead id="thead">
       </thead>
       <tbody id="tbody">
