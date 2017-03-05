@@ -25,7 +25,7 @@ Include `dist/arrow-bundle.js` in a `<script />` tag:
 ``` html
 <script src="arrow-bundle.js"/>
 ```
-See [index.html](index.html) for a usage example - or try it out now at [theneuralbit.github.io/arrow](http://theneuralbit.github.io/arrow)
+See [examples/read_file.html](examples/read_file.html) for a usage example - or try it out now at [theneuralbit.github.io/arrow](http://theneuralbit.github.io/arrow)
 
 ### API
 ##### `arrow.loadSchema(buffer)`
