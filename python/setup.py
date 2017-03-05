@@ -81,7 +81,8 @@ class build_ext(_build_ext):
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
-                     ('with-jemalloc', None, 'build the jemalloc extension')] +
+                     ('with-jemalloc', None, 'build the jemalloc extension'),
+                     ('bundle-arrow-cpp', None, 'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -90,6 +91,7 @@ class build_ext(_build_ext):
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
         self.with_parquet = False
         self.with_jemalloc = False
+        self.bundle_arrow_cpp = False
 
     CYTHON_MODULE_NAMES = [
         'array',
@@ -136,11 +138,14 @@ class build_ext(_build_ext):
             build_tests_option,
         ]
 
-        if self.with_parquet:
+        if self.with_parquet or True:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
 
-        if self.with_jemalloc:
+        if self.with_jemalloc or True:
             cmake_options.append('-DPYARROW_BUILD_JEMALLOC=on')
+
+        if self.bundle_arrow_cpp or True:
+            cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
 
         if sys.platform != 'win32':
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
@@ -181,17 +186,35 @@ class build_ext(_build_ext):
 
         # Move the built libpyarrow library to the place expected by the Python
         # build
-        if sys.platform != 'win32':
-            name, = glob.glob(pjoin(self.build_type, 'libpyarrow.*'))
-            try:
-                os.makedirs(pjoin(build_lib, 'pyarrow'))
-            except OSError:
-                pass
-            shutil.move(name,
-                        pjoin(build_lib, 'pyarrow', os.path.split(name)[1]))
+        shared_library_prefix = 'lib'
+        if sys.platform == 'darwin':
+            shared_library_suffix = '.dylib'
+        elif sys.platform == 'win32':
+            shared_library_suffix = '.dll'
+            shared_library_prefix = ''
         else:
-            shutil.move(pjoin(self.build_type, 'pyarrow.dll'),
-                        pjoin(build_lib, 'pyarrow', 'pyarrow.dll'))
+            shared_library_suffix = '.so'
+
+        try:
+            os.makedirs(pjoin(build_lib, 'pyarrow'))
+        except OSError:
+            pass
+
+        def move_lib(lib_name):
+            lib_filename = shared_library_prefix + lib_name + shared_library_suffix
+            shutil.move(pjoin(self.build_type, lib_filename),
+                        pjoin(build_lib, 'pyarrow', lib_filename))
+
+        move_lib("pyarrow")
+        if self.bundle_arrow_cpp or True:
+            move_lib("arrow")
+            move_lib("arrow_io")
+            move_lib("arrow_ipc")
+            if self.with_jemalloc or True:
+                move_lib("arrow_jemalloc")
+            if self.with_parquet or True:
+                move_lib("parquet")
+                move_lib("parquet_arrow")
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
@@ -287,7 +310,7 @@ setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx']},
+    package_data={'pyarrow': ['*.pxd', '*.pyx', 'libarrow.so']},
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
 
