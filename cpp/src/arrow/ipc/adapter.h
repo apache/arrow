@@ -47,8 +47,10 @@ namespace ipc {
 
 // ----------------------------------------------------------------------
 // Write path
-// We have trouble decoding flatbuffers if the size i > 70, so 64 is a nice round number
-// TODO(emkornfield) investigate this more
+//
+// ARROW-109: We set this number arbitrarily to help catch user mistakes. For
+// deeply nested schemas, it is expected the user will indicate explicitly the
+// maximum allowed recursion depth
 constexpr int kMaxIpcRecursionDepth = 64;
 
 // Write the RecordBatch (collection of equal-length Arrow arrays) to the
