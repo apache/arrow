@@ -176,7 +176,7 @@ INSTANTIATE_TEST_CASE_P(
     ::testing::Values(&MakeIntRecordBatch, &MakeStringTypesRecordBatch,
         &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeListRecordBatch,
         &MakeDeeplyNestedList, &MakeStruct, &MakeUnion, &MakeDictionary, 
-	&MakeDateRecordBatch//, &MakeTimeRecordBatch,
+	&MakeDateRecordBatch, // &MakeTimeRecordBatch,
 ));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {

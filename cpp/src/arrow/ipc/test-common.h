@@ -440,7 +440,6 @@ Status MakeDateRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-/* FIXME: This won't compile
 Status MakeTimeRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("t0", timestamp(TimeUnit::MILLI));
@@ -455,7 +454,6 @@ Status MakeTimeRecordBatch(std::shared_ptr<RecordBatch>* out) {
   out->reset(new RecordBatch(schema, values.size(), {time_array}));
   return Status::OK();
 }
-*/
 
 }  // namespace ipc
 }  // namespace arrow

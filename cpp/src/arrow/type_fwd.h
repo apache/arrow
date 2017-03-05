@@ -116,7 +116,7 @@ std::shared_ptr<DataType> ARROW_EXPORT float64();
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
 std::shared_ptr<DataType> ARROW_EXPORT binary();
 std::shared_ptr<DataType> ARROW_EXPORT date();
-//std::shared_ptr<TimeType> ARROW_EXPORT time();
+std::shared_ptr<DataType> ARROW_EXPORT time();
 
 }  // namespace arrow
 
