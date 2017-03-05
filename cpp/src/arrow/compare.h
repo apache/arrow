@@ -46,6 +46,10 @@ Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
 Status ARROW_EXPORT TypeEquals(
     const DataType& left, const DataType& right, bool* are_equal);
 
+/// Returns true if the type metadata are exactly equal
+Status ARROW_EXPORT TypeEquals(
+    const DataType& left, const DataType& right, bool* are_equal);
+
 }  // namespace arrow
 
 #endif  // ARROW_COMPARE_H
