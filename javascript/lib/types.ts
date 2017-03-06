@@ -16,6 +16,7 @@
 // under the License.
 
 import { BitArray } from './bitarray';
+import { TextDecoder } from 'text-encoding';
 import { org } from './Arrow_generated';
 var arrow = org.apache.arrow;
 
@@ -139,11 +140,9 @@ class NullableInt32Vector   extends NullableSimpleVector<Uint32Array>  { constru
 class NullableFloat32Vector extends NullableSimpleVector<Float32Array> { constructor(name: string) { super(Float32Array, name); }; }
 class NullableFloat64Vector extends NullableSimpleVector<Float64Array> { constructor(name: string) { super(Float64Array, name); }; }
 
-import { TextDecoder } from 'text-encoding';
-var decoder = new TextDecoder('utf8')
-
 class Utf8Vector extends SimpleVector<Uint8Array> {
     protected offsetView: Int32Array;
+    static decoder: TextDecoder = new TextDecoder('utf8');
 
     constructor(name: string) {
         super(Uint8Array, name);
@@ -155,7 +154,8 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
     }
 
     get(i) {
-        return decoder.decode(this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
+        return Utf8Vector.decoder.decode
+            (this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
     }
 
     slice(start: number, end: number) {
@@ -178,7 +178,7 @@ class NullableUtf8Vector extends Utf8Vector {
 
     get(i) {
         if (!this.validityView.get(i)) return null;
-        return decoder.decode(this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
+        return super.get(i);
     }
 }
 
