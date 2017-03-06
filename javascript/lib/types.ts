@@ -31,9 +31,12 @@ export abstract class Vector {
     constructor(name: string) {
         this.name = name;
     }
+    /* Access datum at index i */
     abstract get(i);
+    /* Return array representing data in the range [start, end) */
     abstract slice(start: number, end: number);
 
+    /* Use recordBatch fieldNodes and Buffers to construct this Vector */
     public loadData(recordBatch: any, buffer: any, bufReader: any, baseOffset: any) {
         var fieldNode = recordBatch.nodes(bufReader.node_index);
         this.length = fieldNode.length();
@@ -42,8 +45,10 @@ export abstract class Vector {
 
         this.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
     }
+
     protected abstract loadBuffers(recordBatch: any, buffer: any, bufReader: any, baseOffset: any);
 
+    /* Helper function for loading a VALIDITY buffer (for Nullable types) */
     static loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset) : BitArray {
         var buf_meta = recordBatch.buffers(bufReader.index);
         var offset = baseOffset + buf_meta.offset().low;
@@ -52,6 +57,7 @@ export abstract class Vector {
         return new BitArray(buffer, offset, length*8);
     }
 
+    /* Helper function for loading an OFFSET buffer */
     static loadOffsetBuffer(recordBatch, buffer, bufReader, baseOffset) : Int32Array {
         var buf_meta = recordBatch.buffers(bufReader.index);
         var offset = baseOffset + buf_meta.offset().low;
@@ -146,7 +152,6 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
     loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
         this.offsetView = Vector.loadOffsetBuffer(recordBatch, buffer, bufReader, baseOffset);
         this.dataView = this.loadDataBuffer(recordBatch, buffer, bufReader, baseOffset);
-        //this.length = this.offsetView.length - 1;
     }
 
     get(i) {
