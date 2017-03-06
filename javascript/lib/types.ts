@@ -25,7 +25,7 @@ interface ArrayView {
 }
 
 export abstract class Vector {
-	name: string;
+    name: string;
     length: number;
     null_count: number;
     constructor(name: string) {
@@ -35,10 +35,10 @@ export abstract class Vector {
     abstract slice(start: number, end: number);
 
     public loadData(recordBatch: any, buffer: any, bufReader: any, baseOffset: any) {
-		var fieldNode = recordBatch.nodes(bufReader.node_index);
+        var fieldNode = recordBatch.nodes(bufReader.node_index);
         this.length = fieldNode.length();
         this.null_count = fieldNode.length();
-		bufReader.node_index += 1|0;
+        bufReader.node_index += 1|0;
 
         this.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
     }
@@ -82,7 +82,7 @@ class SimpleVector<T extends ArrayView> extends Vector {
     loadDataBuffer(recordBatch, buffer, bufReader, baseOffset) : T {
         var buf_meta = recordBatch.buffers(bufReader.index);
         var offset = baseOffset + buf_meta.offset().low;
-		var length = buf_meta.length().low/this.TypedArray.BYTES_PER_ELEMENT;
+        var length = buf_meta.length().low/this.TypedArray.BYTES_PER_ELEMENT;
         bufReader.index += 1|0;
         return new this.TypedArray(buffer, offset, length);
     }
@@ -205,7 +205,7 @@ class ListVector extends Uint32Vector {
         return "length: " + (this.length);
     }
 
-	slice(start : number, end : number) { return []; };
+    slice(start : number, end : number) { return []; };
 }
 
 class NullableListVector extends ListVector {
@@ -223,24 +223,24 @@ class NullableListVector extends ListVector {
 }
 
 class StructVector extends Vector {
-	private validityView: BitArray;
-	private vectors : Vector[];
-	constructor(name: string, vectors: Vector[]) {
+    private validityView: BitArray;
+    private vectors : Vector[];
+    constructor(name: string, vectors: Vector[]) {
         super(name);
-		this.vectors = vectors;
-	}
+        this.vectors = vectors;
+    }
 
-	loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-		this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-		this.vectors.forEach((v: Vector) => v.loadData(recordBatch, buffer, bufReader, baseOffset));
-	}
+    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
+        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
+        this.vectors.forEach((v: Vector) => v.loadData(recordBatch, buffer, bufReader, baseOffset));
+    }
 
-	get(i : number) {
-		if (!this.validityView.get(i)) return null;
-		return this.vectors.map((v: Vector) => v.get(i));
-	}
+    get(i : number) {
+        if (!this.validityView.get(i)) return null;
+        return this.vectors.map((v: Vector) => v.get(i));
+    }
 
-	slice(start : number, end : number) {
+    slice(start : number, end : number) {
         var rtrn = [];
         for (var i: number = start; i < end; i += 1|0) {
             rtrn.push(this.get(i));
@@ -250,13 +250,13 @@ class StructVector extends Vector {
 }
 
 class DateVector extends SimpleVector<Uint32Array> {
-	constructor (name: string) {
-		super(Uint32Array, name);
-	}
+    constructor (name: string) {
+        super(Uint32Array, name);
+    }
 
-	get (i) {
-		return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
-	}
+    get (i) {
+        return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
+    }
 }
 
 class NullableDateVector extends DateVector {
@@ -267,10 +267,10 @@ class NullableDateVector extends DateVector {
         super.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
     }
 
-	get (i) {
+    get (i) {
         if (!this.validityView.get(i)) return null;
-		return super.get(i);
-	}
+        return super.get(i);
+    }
 }
 
 var BASIC_TYPES = [arrow.flatbuf.Type.Int, arrow.flatbuf.Type.FloatingPoint, arrow.flatbuf.Type.Utf8, arrow.flatbuf.Type.Date];
@@ -281,43 +281,43 @@ export function vectorFromField(field) : Vector {
         var type = field.typeType();
         if (type === arrow.flatbuf.Type.Int) {
             type = field.type(new arrow.flatbuf.Int());
-			var VectorConstructor : {new(string) : Vector};
+            var VectorConstructor : {new(string) : Vector};
             if (type.isSigned()) {
                 if (type.bitWidth() == 32)
-					VectorConstructor = field.nullable() ? NullableInt32Vector : Int32Vector;
+                    VectorConstructor = field.nullable() ? NullableInt32Vector : Int32Vector;
                 else if (type.bitWidth() == 16)
-					VectorConstructor = field.nullable() ? NullableInt16Vector : Int16Vector;
+                    VectorConstructor = field.nullable() ? NullableInt16Vector : Int16Vector;
                 else if (type.bitWidth() == 8)
-					VectorConstructor = field.nullable() ? NullableInt8Vector : Int8Vector;
+                    VectorConstructor = field.nullable() ? NullableInt8Vector : Int8Vector;
             } else {
                 if (type.bitWidth() == 32)
-					VectorConstructor = field.nullable() ? NullableUint32Vector : Uint32Vector;
+                    VectorConstructor = field.nullable() ? NullableUint32Vector : Uint32Vector;
                 else if (type.bitWidth() == 16)
-					VectorConstructor = field.nullable() ? NullableUint16Vector : Uint16Vector;
+                    VectorConstructor = field.nullable() ? NullableUint16Vector : Uint16Vector;
                 else if (type.bitWidth() == 8)
-					VectorConstructor = field.nullable() ? NullableUint8Vector : Uint8Vector;
+                    VectorConstructor = field.nullable() ? NullableUint8Vector : Uint8Vector;
             }
         } else if (type === arrow.flatbuf.Type.FloatingPoint) {
             type = field.type(new arrow.flatbuf.FloatingPoint());
             if (type.precision() == arrow.flatbuf.Precision.SINGLE)
-				VectorConstructor = field.nullable() ? NullableFloat32Vector : Float32Vector;
+                VectorConstructor = field.nullable() ? NullableFloat32Vector : Float32Vector;
             else if (type.precision() == arrow.flatbuf.Precision.DOUBLE)
-				VectorConstructor = field.nullable() ? NullableFloat64Vector : Float64Vector;
+                VectorConstructor = field.nullable() ? NullableFloat64Vector : Float64Vector;
         } else if (type === arrow.flatbuf.Type.Utf8) {
-			VectorConstructor = field.nullable() ? NullableUtf8Vector : Utf8Vector;
+            VectorConstructor = field.nullable() ? NullableUtf8Vector : Utf8Vector;
         } else if (type === arrow.flatbuf.Type.Date) {
-			VectorConstructor = field.nullable() ? NullableDateVector : DateVector;
-		}
+            VectorConstructor = field.nullable() ? NullableDateVector : DateVector;
+        }
 
-		return new VectorConstructor(field.name());
+        return new VectorConstructor(field.name());
     } else if (typeType === arrow.flatbuf.Type.List) {
         var dataVector = vectorFromField(field.children(0));
         return field.nullable() ? new NullableListVector(field.name(), dataVector) : new ListVector(field.name(), dataVector);
     } else if (typeType === arrow.flatbuf.Type.Struct_) {
-		var vectors : Vector[] = [];
-		for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
-			vectors.push(vectorFromField(field.children(i)));
-		}
-		return new StructVector(field.name(), vectors);
+        var vectors : Vector[] = [];
+        for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
+            vectors.push(vectorFromField(field.children(i)));
+        }
+        return new StructVector(field.name(), vectors);
     }
 }

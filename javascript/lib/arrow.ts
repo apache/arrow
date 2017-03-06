@@ -24,7 +24,7 @@ export function loadVectors(buf) {
     var fileLength = buf.length, bb, footerLengthOffset, footerLength,
         footerOffset, footer, schema, field, type, type_str, i,
         len, rb_metas, rb_meta, rtrn, recordBatchBlock, recordBatchBlocks = [];
-	var vectors : Vector[] = [];
+    var vectors : Vector[] = [];
 
     bb = new flatbuffers.ByteBuffer(buf);
 
