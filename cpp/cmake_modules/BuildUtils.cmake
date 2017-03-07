@@ -53,11 +53,21 @@ function(ADD_ARROW_LIB LIB_NAME)
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       LINK_FLAGS "${ARG_SHARED_LINK_FLAGS}"
       OUTPUT_NAME ${LIB_NAME})
-  target_link_libraries(${LIB_NAME}_shared
+    target_link_libraries(${LIB_NAME}_shared
       LINK_PUBLIC ${ARG_SHARED_LINK_LIBS}
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
+
+    if (ARROW_RPATH_ORIGIN)
+        if (APPLE)
+            set(_lib_install_rpath "@loader_path")
+        else()
+            set(_lib_install_rpath "\$ORIGIN")
+        endif()
+        set_target_properties(${LIB_NAME}_shared PROPERTIES
+            INSTALL_RPATH ${_lib_install_rpath})
+    endif()
   
-  install(TARGETS ${LIB_NAME}_shared
+    install(TARGETS ${LIB_NAME}_shared
       LIBRARY DESTINATION lib
       ARCHIVE DESTINATION lib)
   endif()

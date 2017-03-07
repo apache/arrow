@@ -29,38 +29,19 @@ source /multibuild/manylinux_utils.sh
 
 cd /arrow/python
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib"
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_TESTS=ON'
+export PYARROW_WITH_PARQUET=1
+export PYARROW_WITH_JEMALLOC=1
+export PYARROW_BUNDLE_ARROW_CPP=1
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
-export ARROW_HOME="/usr"
+export ARROW_HOME="/arrow-dist"
 export PARQUET_HOME="/usr"
 
 # Ensure the target directory exists
 mkdir -p /io/dist
-# Temporary directory to store the wheels that should be sent through auditwheel
-rm_mkdir unfixed_wheels
-
-PY35_BIN=/opt/python/cp35-cp35m/bin
-$PY35_BIN/pip install 'pyelftools<0.24'
-$PY35_BIN/pip install 'git+https://github.com/xhochy/auditwheel.git@pyarrow-fixes'
-
-# Override repair_wheelhouse function
-function repair_wheelhouse {
-    local in_dir=$1
-    local out_dir=$2
-    for whl in $in_dir/*.whl; do
-        if [[ $whl == *none-any.whl ]]; then
-            cp $whl $out_dir
-        else
-            # Store libraries directly in . not .libs to fix problems with libpyarrow.so linkage.
-            $PY35_BIN/auditwheel -v repair -L . $whl -w $out_dir/
-        fi
-    done
-    chmod -R a+rwX $out_dir
-}
 
 for PYTHON in ${PYTHON_VERSIONS}; do
     PYTHON_INTERPRETER="$(cpython_path $PYTHON)/bin/python"
@@ -68,17 +49,36 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PIPI_IO="$PIP install -f $MANYLINUX_URL"
     PATH="$PATH:$(cpython_path $PYTHON)"
 
+    echo "=== (${PYTHON}) Installing build dependencies ==="
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.24"
 
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc
+    # Clear output directory
+    rm -rf dist/
+    echo "=== (${PYTHON}) Building wheel ==="
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc --bundle-arrow-cpp
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
-    # Test for optional modules
+    echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIPI_IO -r requirements.txt
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.jemalloc"
 
-    repair_wheelhouse dist /io/dist
+    echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
+    mkdir -p repaired_wheels/
+    auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
+
+    echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
+    # Fix version to keep build reproducible"
+    $PIPI_IO "virtualenv==15.1.0"
+    rm -rf venv
+    "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download venv
+    source ./venv/bin/activate
+    pip install repaired_wheels/*.whl
+    pip install pytest pandas
+    py.test venv/lib/*/site-packages/pyarrow
+    deactivate
+
+    mv repaired_wheels/*.whl /io/dist
 done
 
