@@ -47,7 +47,15 @@ if (PARQUET_BUILD_SHARED)
       arrow
       arrow_io
       parquet_shared)
-    if (APPLE)
+    if (PARQUET_RPATH_ORIGIN)
+        if (APPLE)
+            set(_lib_install_rpath "@loader_path")
+        else()
+            set(_lib_install_rpath "\$ORIGIN")
+        endif()
+        set_target_properties(parquet_arrow_shared PROPERTIES
+            INSTALL_RPATH ${_lib_install_rpath})
+    elseif (APPLE)
       set_target_properties(parquet_arrow_shared
         PROPERTIES
         BUILD_WITH_INSTALL_RPATH ON
