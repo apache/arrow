@@ -64,6 +64,8 @@ class TestTypes(unittest.TestCase):
         assert len(sch) == 3
         assert sch[0].name == 'foo'
         assert sch[0].type == fields[0].type
+        assert sch.field_by_name('foo').name == 'foo'
+        assert sch.field_by_name('foo').type == fields[0].type
 
         assert repr(sch) == """\
 foo: int32

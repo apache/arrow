@@ -88,6 +88,7 @@ cdef class Field:
     cdef init(self, const shared_ptr[CField]& field):
         self.sp_field = field
         self.field = field.get()
+        self.type = box_data_type(field.get().type)
 
     @classmethod
     def from_py(cls, object name, DataType type, bint nullable=True):
@@ -326,11 +327,15 @@ def schema(fields):
     return Schema.from_fields(fields)
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):
+    if type.get() == NULL:
+        return None
     cdef DataType out = DataType()
     out.init(type)
     return out
 
 cdef Field box_field(const shared_ptr[CField]& field):
+    if field.get() == NULL:
+        return None
     cdef Field out = Field()
     out.init(field)
     return out
