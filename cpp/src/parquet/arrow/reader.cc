@@ -361,9 +361,27 @@ Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96Typ
   PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(
                            values_to_read, nullptr, nullptr, values, &values_read));
 
-  int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
+  int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_) + valid_bits_idx_;
   for (int64_t i = 0; i < values_read; i++) {
     *out_ptr++ = impala_timestamp_to_nanoseconds(values[i]);
+  }
+  valid_bits_idx_ += values_read;
+
+  return Status::OK();
+}
+
+template <>
+Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::DateType, Int32Type>(
+    TypedColumnReader<Int32Type>* reader, int64_t values_to_read, int64_t* levels_read) {
+  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
+  auto values = reinterpret_cast<int32_t*>(values_buffer_.mutable_data());
+  int64_t values_read;
+  PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(
+                           values_to_read, nullptr, nullptr, values, &values_read));
+
+  int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_) + valid_bits_idx_;
+  for (int64_t i = 0; i < values_read; i++) {
+    *out_ptr++ = static_cast<int64_t>(values[i]) * 86400000;
   }
   valid_bits_idx_ += values_read;
 
@@ -454,6 +472,30 @@ Status ColumnReader::Impl::ReadNullableBatch<::arrow::TimestampType, Int96Type>(
   for (int64_t i = 0; i < *values_read; i++) {
     if (bitset_valid_bits_ptr_ & (1 << bit_offset_valid_bits_ptr_)) {
       data_ptr[valid_bits_idx_ + i] = impala_timestamp_to_nanoseconds(values[i]);
+    }
+    READ_NEXT_BITSET(valid_bits_ptr_);
+  }
+  null_count_ += null_count;
+  valid_bits_idx_ += *values_read;
+
+  return Status::OK();
+}
+
+template <>
+Status ColumnReader::Impl::ReadNullableBatch<::arrow::DateType, Int32Type>(
+    TypedColumnReader<Int32Type>* reader, int16_t* def_levels, int16_t* rep_levels,
+    int64_t values_to_read, int64_t* levels_read, int64_t* values_read) {
+  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
+  auto values = reinterpret_cast<int32_t*>(values_buffer_.mutable_data());
+  int64_t null_count;
+  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(values_to_read, def_levels, rep_levels,
+      values, valid_bits_ptr_, valid_bits_idx_, levels_read, values_read, &null_count));
+
+  auto data_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
+  INIT_BITSET(valid_bits_ptr_, valid_bits_idx_);
+  for (int64_t i = 0; i < *values_read; i++) {
+    if (bitset_valid_bits_ptr_ & (1 << bit_offset_valid_bits_ptr_)) {
+      data_ptr[valid_bits_idx_ + i] = static_cast<int64_t>(values[i]) * 86400000;
     }
     READ_NEXT_BITSET(valid_bits_ptr_);
   }
@@ -843,6 +885,7 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     TYPED_BATCH_CASE(INT16, ::arrow::Int16Type, Int32Type)
     TYPED_BATCH_CASE(UINT32, ::arrow::UInt32Type, Int32Type)
     TYPED_BATCH_CASE(INT32, ::arrow::Int32Type, Int32Type)
+    TYPED_BATCH_CASE(DATE, ::arrow::DateType, Int32Type)
     TYPED_BATCH_CASE(UINT64, ::arrow::UInt64Type, Int64Type)
     TYPED_BATCH_CASE(INT64, ::arrow::Int64Type, Int64Type)
     TYPED_BATCH_CASE(FLOAT, ::arrow::FloatType, FloatType)
@@ -865,7 +908,9 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
       break;
     }
     default:
-      return Status::NotImplemented(field_->type->ToString());
+      std::stringstream ss;
+      ss << "No support for reading columns of type " << field_->type->ToString();
+      return Status::NotImplemented(ss.str());
   }
 }
 

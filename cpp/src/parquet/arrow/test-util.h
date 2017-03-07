@@ -34,6 +34,9 @@ template <typename ArrowType>
 using is_arrow_int = std::is_integral<typename ArrowType::c_type>;
 
 template <typename ArrowType>
+using is_arrow_date = std::is_same<ArrowType, ::arrow::DateType>;
+
+template <typename ArrowType>
 using is_arrow_string = std::is_same<ArrowType, ::arrow::StringType>;
 
 template <typename ArrowType>
@@ -53,10 +56,27 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NonNullA
 }
 
 template <class ArrowType>
-typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NonNullArray(
+typename std::enable_if<
+    is_arrow_int<ArrowType>::value && !is_arrow_date<ArrowType>::value, Status>::type
+NonNullArray(size_t size, std::shared_ptr<Array>* out) {
+  std::vector<typename ArrowType::c_type> values;
+  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+
+  // Passing data type so this will work with TimestampType too
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  builder.Append(values.data(), values.size());
+  return builder.Finish(out);
+}
+
+template <class ArrowType>
+typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
   ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  for (size_t i = 0; i < size; i++) {
+    values[i] *= 86400000;
+  }
 
   // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(
@@ -107,13 +127,38 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type Nullable
 
 // This helper function only supports (size/2) nulls.
 template <typename ArrowType>
-typename std::enable_if<is_arrow_int<ArrowType>::value, Status>::type NullableArray(
+typename std::enable_if<
+    is_arrow_int<ArrowType>::value && !is_arrow_date<ArrowType>::value, Status>::type
+NullableArray(size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
+  std::vector<typename ArrowType::c_type> values;
+
+  // Seed is random in Arrow right now
+  (void)seed;
+  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  std::vector<uint8_t> valid_bytes(size, 1);
+
+  for (size_t i = 0; i < num_nulls; i++) {
+    valid_bytes[i * 2] = 0;
+  }
+
+  // Passing data type so this will work with TimestampType too
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  builder.Append(values.data(), values.size(), valid_bytes.data());
+  return builder.Finish(out);
+}
+
+template <typename ArrowType>
+typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NullableArray(
     size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
 
   // Seed is random in Arrow right now
   (void)seed;
   ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  for (size_t i = 0; i < size; i++) {
+    values[i] *= 86400000;
+  }
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {

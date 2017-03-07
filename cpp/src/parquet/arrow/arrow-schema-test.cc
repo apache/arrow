@@ -98,6 +98,10 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
       ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_MS, false));
 
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "date", Repetition::REQUIRED, ParquetType::INT32, LogicalType::DATE));
+  arrow_fields.push_back(std::make_shared<Field>("date", ::arrow::date(), false));
+
   parquet_fields.push_back(
       PrimitiveNode::Make("timestamp96", Repetition::REQUIRED, ParquetType::INT96));
   arrow_fields.push_back(std::make_shared<Field>("timestamp96", TIMESTAMP_NS, false));
@@ -339,9 +343,6 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
 TEST_F(TestConvertParquetSchema, UnsupportedThings) {
   std::vector<NodePtr> unsupported_nodes;
 
-  unsupported_nodes.push_back(PrimitiveNode::Make(
-      "int32", Repetition::OPTIONAL, ParquetType::INT32, LogicalType::DATE));
-
   for (const NodePtr& node : unsupported_nodes) {
     ASSERT_RAISES(NotImplemented, ConvertSchema({node}));
   }
@@ -393,6 +394,10 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
   parquet_fields.push_back(
       PrimitiveNode::Make("int64", Repetition::REQUIRED, ParquetType::INT64));
   arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
+
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "date", Repetition::REQUIRED, ParquetType::INT32, LogicalType::DATE));
+  arrow_fields.push_back(std::make_shared<Field>("date", ::arrow::date(), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
       ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));

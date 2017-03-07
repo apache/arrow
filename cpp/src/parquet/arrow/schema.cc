@@ -77,7 +77,10 @@ static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
       *out = MakeDecimalType(node);
       break;
     default:
-      return Status::NotImplemented("unhandled type");
+      std::stringstream ss;
+      ss << "Unhandled logical type " << LogicalTypeToString(node->logical_type())
+         << " for fixed-length binary array";
+      return Status::NotImplemented(ss.str());
       break;
   }
 
@@ -104,11 +107,17 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::UINT_32:
       *out = ::arrow::uint32();
       break;
+    case LogicalType::DATE:
+      *out = ::arrow::date();
+      break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
       break;
     default:
-      return Status::NotImplemented("Unhandled logical type for int32");
+      std::stringstream ss;
+      ss << "Unhandled logical type " << LogicalTypeToString(node->logical_type())
+         << " for INT32";
+      return Status::NotImplemented(ss.str());
       break;
   }
   return Status::OK();
@@ -129,7 +138,10 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
       *out = TIMESTAMP_MS;
       break;
     default:
-      return Status::NotImplemented("Unhandled logical type for int64");
+      std::stringstream ss;
+      ss << "Unhandled logical type " << LogicalTypeToString(node->logical_type())
+         << " for INT64";
+      return Status::NotImplemented(ss.str());
       break;
   }
   return Status::OK();
