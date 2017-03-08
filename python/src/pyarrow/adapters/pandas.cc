@@ -925,6 +925,32 @@ class DatetimeBlock : public PandasBlock {
   }
 };
 
+class DatetimeTZBlock : public DatetimeBlock {
+ public:
+  DatetimeTZBlock(const std::string& timezone, int64_t num_rows)
+      : DatetimeBlock(num_rows, 1), timezone_(timezone) {}
+
+  Status GetPyResult(PyObject** output) override {
+    PyObject* result = PyDict_New();
+    RETURN_IF_PYERROR();
+
+    PyObject* py_tz = PyUnicode_FromStringAndSize(
+        timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
+    RETURN_IF_PYERROR();
+
+    PyDict_SetItemString(result, "block", block_arr_.obj());
+    PyDict_SetItemString(result, "timezone", py_tz);
+    PyDict_SetItemString(result, "placement", placement_arr_.obj());
+
+    *output = result;
+
+    return Status::OK();
+  }
+
+ private:
+  std::string timezone_;
+};
+
 template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
@@ -1068,6 +1094,8 @@ static inline Status MakeCategoricalBlock(const std::shared_ptr<DataType>& type,
   return (*block)->Allocate();
 }
 
+using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
+
 // Construct the exact pandas 0.x "BlockManager" memory layout
 //
 // * For each column determine the correct output pandas type
@@ -1138,9 +1166,14 @@ class DataFrameBlockCreator {
         case Type::DATE:
           output_type = PandasBlock::DATETIME;
           break;
-        case Type::TIMESTAMP:
-          output_type = PandasBlock::DATETIME;
-          break;
+        case Type::TIMESTAMP: {
+          const auto& ts_type = static_cast<const arrow::TimestampType&>(*col->type());
+          if (ts_type.timezone != "") {
+            output_type = PandasBlock::DATETIME_WITH_TZ;
+          } else {
+            output_type = PandasBlock::DATETIME;
+          }
+        } break;
         case Type::LIST: {
           auto list_type = std::static_pointer_cast<ListType>(col->type());
           if (!ListTypeSupported(list_type->value_type()->type)) {
@@ -1159,10 +1192,15 @@ class DataFrameBlockCreator {
       }
 
       int block_placement = 0;
+      std::shared_ptr<PandasBlock> block;
       if (output_type == PandasBlock::CATEGORICAL) {
-        std::shared_ptr<PandasBlock> block;
         RETURN_NOT_OK(MakeCategoricalBlock(col->type(), table_->num_rows(), &block));
         categorical_blocks_[i] = block;
+      } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
+        const auto& ts_type = static_cast<const arrow::TimestampType&>(*col->type());
+        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone, table_->num_rows());
+        RETURN_NOT_OK(block->Allocate());
+        datetimetz_blocks_[i] = block;
       } else {
         auto it = type_counts_.find(output_type);
         if (it != type_counts_.end()) {
@@ -1252,28 +1290,24 @@ class DataFrameBlockCreator {
     return Status::OK();
   }
 
+  Status AppendBlocks(const BlockMap& blocks, PyObject* list) {
+    for (const auto& it : blocks) {
+      PyObject* item;
+      RETURN_NOT_OK(it.second->GetPyResult(&item));
+      if (PyList_Append(list, item) < 0) { RETURN_IF_PYERROR(); }
+    }
+    return Status::OK();
+  }
+
   Status GetResultList(PyObject** out) {
     PyAcquireGIL lock;
 
-    auto num_blocks =
-        static_cast<Py_ssize_t>(blocks_.size() + categorical_blocks_.size());
-    PyObject* result = PyList_New(num_blocks);
+    PyObject* result = PyList_New(0);
     RETURN_IF_PYERROR();
 
-    int i = 0;
-    for (const auto& it : blocks_) {
-      const std::shared_ptr<PandasBlock> block = it.second;
-      PyObject* item;
-      RETURN_NOT_OK(block->GetPyResult(&item));
-      if (PyList_SET_ITEM(result, i++, item) < 0) { RETURN_IF_PYERROR(); }
-    }
-
-    for (const auto& it : categorical_blocks_) {
-      const std::shared_ptr<PandasBlock> block = it.second;
-      PyObject* item;
-      RETURN_NOT_OK(block->GetPyResult(&item));
-      if (PyList_SET_ITEM(result, i++, item) < 0) { RETURN_IF_PYERROR(); }
-    }
+    RETURN_NOT_OK(AppendBlocks(blocks_, result));
+    RETURN_NOT_OK(AppendBlocks(categorical_blocks_, result));
+    RETURN_NOT_OK(AppendBlocks(datetimetz_blocks_, result));
 
     *out = result;
     return Status::OK();
@@ -1292,10 +1326,13 @@ class DataFrameBlockCreator {
   std::unordered_map<int, int> type_counts_;
 
   // block type -> block
-  std::unordered_map<int, std::shared_ptr<PandasBlock>> blocks_;
+  BlockMap blocks_;
 
   // column number -> categorical block
-  std::unordered_map<int, std::shared_ptr<PandasBlock>> categorical_blocks_;
+  BlockMap categorical_blocks_;
+
+  // column number -> datetimetz block
+  BlockMap datetimetz_blocks_;
 };
 
 Status ConvertTableToPandas(
