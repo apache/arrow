@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/ipc/metadata.h"
+#include "arrow/loader.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -47,11 +48,6 @@ namespace ipc {
 
 // ----------------------------------------------------------------------
 // Write path
-//
-// ARROW-109: We set this number arbitrarily to help catch user mistakes. For
-// deeply nested schemas, it is expected the user will indicate explicitly the
-// maximum allowed recursion depth
-constexpr int kMaxIpcRecursionDepth = 64;
 
 // Write the RecordBatch (collection of equal-length Arrow arrays) to the
 // output stream in a contiguous block. The record batch metadata is written as
@@ -75,7 +71,7 @@ constexpr int kMaxIpcRecursionDepth = 64;
 // padding bytes
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxIpcRecursionDepth);
+    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth);
 
 // Write Array as a DictionaryBatch message
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,

@@ -158,8 +158,8 @@ TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_TRUE(result_->field(1)->IsNull(0));
   ASSERT_TRUE(result_->field(1)->IsNull(1));
 
-  ASSERT_EQ(Type::LIST, result_->field(0)->type_enum());
-  ASSERT_EQ(Type::INT32, result_->field(1)->type_enum());
+  ASSERT_EQ(Type::LIST, result_->field(0)->type_id());
+  ASSERT_EQ(Type::INT32, result_->field(1)->type_id());
 }
 
 TEST_F(TestStructBuilder, TestBasics) {

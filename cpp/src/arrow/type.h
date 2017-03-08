@@ -67,8 +67,11 @@ struct Type {
     // Variable-length bytes (no guarantee of UTF8-ness)
     BINARY,
 
-    // By default, int32 days since the UNIX epoch
+    // int64_t milliseconds since the UNIX epoch
     DATE,
+
+    // int32_t days since the UNIX epoch
+    DATE32,
 
     // Exact timestamp encoded with int64 since UNIX epoch
     // Default unit millisecond
@@ -132,6 +135,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const StringType& type);
   virtual Status Visit(const BinaryType& type);
   virtual Status Visit(const DateType& type);
+  virtual Status Visit(const Date32Type& type);
   virtual Status Visit(const TimeType& type);
   virtual Status Visit(const TimestampType& type);
   virtual Status Visit(const IntervalType& type);
@@ -425,6 +429,7 @@ struct ARROW_EXPORT UnionType : public DataType {
 // ----------------------------------------------------------------------
 // Date and time types
 
+/// Date as int64_t milliseconds since UNIX epoch
 struct ARROW_EXPORT DateType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DATE;
 
@@ -437,6 +442,20 @@ struct ARROW_EXPORT DateType : public FixedWidthType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "date"; }
+};
+
+/// Date as int32_t days since UNIX epoch
+struct ARROW_EXPORT Date32Type : public FixedWidthType {
+  static constexpr Type::type type_id = Type::DATE32;
+
+  using c_type = int32_t;
+
+  Date32Type() : FixedWidthType(Type::DATE32) {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
 };
 
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
@@ -467,16 +486,20 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * 8); }
 
-  TimeUnit unit;
-
   explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
       : FixedWidthType(Type::TIMESTAMP), unit(unit) {}
+
+  explicit TimestampType(const std::string& timezone, TimeUnit unit = TimeUnit::MILLI)
+      : FixedWidthType(Type::TIMESTAMP), unit(unit), timezone(timezone) {}
 
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
   static std::string name() { return "timestamp"; }
+
+  TimeUnit unit;
+  std::string timezone;
 };
 
 struct ARROW_EXPORT IntervalType : public FixedWidthType {
@@ -507,7 +530,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DICTIONARY;
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
-      const std::shared_ptr<Array>& dictionary);
+      const std::shared_ptr<Array>& dictionary, bool ordered = false);
 
   int bit_width() const override;
 
@@ -518,11 +541,13 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
+  bool ordered() const { return ordered_; }
+
  private:
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
-
   std::shared_ptr<Array> dictionary_;
+  bool ordered_;
 };
 
 // ----------------------------------------------------------------------
@@ -532,6 +557,8 @@ std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
 
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit unit);
+std::shared_ptr<DataType> ARROW_EXPORT timestamp(
+    const std::string& timezone, TimeUnit unit);
 std::shared_ptr<DataType> ARROW_EXPORT time(TimeUnit unit);
 
 std::shared_ptr<DataType> ARROW_EXPORT struct_(
@@ -595,6 +622,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::FLOAT:
     case Type::DOUBLE:
     case Type::DATE:
+    case Type::DATE32:
     case Type::TIMESTAMP:
     case Type::TIME:
     case Type::INTERVAL:

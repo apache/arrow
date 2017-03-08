@@ -97,6 +97,9 @@ Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>
   }
 }
 
+Column::Column(const std::string& name, const std::shared_ptr<Array>& data)
+    : Column(::arrow::field(name, data->type()), data) {}
+
 Column::Column(
     const std::shared_ptr<Field>& field, const std::shared_ptr<ChunkedArray>& data)
     : field_(field), data_(data) {}

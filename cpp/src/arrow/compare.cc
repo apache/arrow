@@ -145,6 +145,10 @@ class RangeEqualsVisitor : public ArrayVisitor {
 
   Status Visit(const DateArray& left) override { return CompareValues<DateArray>(left); }
 
+  Status Visit(const Date32Array& left) override {
+    return CompareValues<Date32Array>(left);
+  }
+
   Status Visit(const TimeArray& left) override { return CompareValues<TimeArray>(left); }
 
   Status Visit(const TimestampArray& left) override {
@@ -381,6 +385,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const DateArray& left) override { return ComparePrimitive(left); }
 
+  Status Visit(const Date32Array& left) override { return ComparePrimitive(left); }
+
   Status Visit(const TimeArray& left) override { return ComparePrimitive(left); }
 
   Status Visit(const TimestampArray& left) override { return ComparePrimitive(left); }
@@ -533,7 +539,7 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
   if (left.length() != right.length() || left.null_count() != right.null_count() ||
-      left.type_enum() != right.type_enum()) {
+      left.type_id() != right.type_id()) {
     return false;
   }
   if (left.null_count() > 0) {
@@ -563,7 +569,7 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
     int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
   if (&left == &right) {
     *are_equal = true;
-  } else if (left.type_enum() != right.type_enum()) {
+  } else if (left.type_id() != right.type_id()) {
     *are_equal = false;
   } else if (left.length() == 0) {
     *are_equal = true;
@@ -622,7 +628,7 @@ class TypeEqualsVisitor : public TypeVisitor {
 
   Status Visit(const TimestampType& left) override {
     const auto& right = static_cast<const TimestampType&>(right_);
-    result_ = left.unit == right.unit;
+    result_ = left.unit == right.unit && left.timezone == right.timezone;
     return Status::OK();
   }
 

@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/loader.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -133,12 +134,6 @@ class ARROW_EXPORT SchemaMetadata {
   std::unique_ptr<SchemaMetadataImpl> impl_;
 
   DISALLOW_COPY_AND_ASSIGN(SchemaMetadata);
-};
-
-// Field metadata
-struct ARROW_EXPORT FieldMetadata {
-  int32_t length;
-  int32_t null_count;
 };
 
 struct ARROW_EXPORT BufferMetadata {

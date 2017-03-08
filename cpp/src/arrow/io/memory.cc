@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace io {
@@ -43,9 +44,17 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
       position_(0),
       mutable_data_(buffer->mutable_data()) {}
 
+Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
+    std::shared_ptr<BufferOutputStream>* out) {
+  std::shared_ptr<ResizableBuffer> buffer;
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer));
+  *out = std::make_shared<BufferOutputStream>(buffer);
+  return Status::OK();
+}
+
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
-  Close();
+  if (buffer_) { Close(); }
 }
 
 Status BufferOutputStream::Close() {
@@ -56,12 +65,20 @@ Status BufferOutputStream::Close() {
   }
 }
 
+Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
+  RETURN_NOT_OK(Close());
+  *result = buffer_;
+  buffer_ = nullptr;
+  return Status::OK();
+}
+
 Status BufferOutputStream::Tell(int64_t* position) {
   *position = position_;
   return Status::OK();
 }
 
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+  DCHECK(buffer_);
   RETURN_NOT_OK(Reserve(nbytes));
   std::memcpy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;

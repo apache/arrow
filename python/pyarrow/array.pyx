@@ -54,7 +54,8 @@ cdef class Array:
         self.type.init(self.sp_array.get().type())
 
     @staticmethod
-    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None, MemoryPool memory_pool=None):
+    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None,
+                    MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array.
 
@@ -75,8 +76,9 @@ cdef class Array:
 
         Notes
         -----
-        Localized timestamps will currently be returned as UTC (pandas's native representation).
-        Timezone-naive data will be implicitly interpreted as UTC.
+        Localized timestamps will currently be returned as UTC (pandas's native
+        representation).  Timezone-naive data will be implicitly interpreted as
+        UTC.
 
         Examples
         --------
@@ -119,9 +121,9 @@ cdef class Array:
         series_values = get_series_values(obj)
 
         if isinstance(series_values, pd.Categorical):
-            return DictionaryArray.from_arrays(series_values.codes,
-                                               series_values.categories.values,
-                                               mask=mask, memory_pool=memory_pool)
+            return DictionaryArray.from_arrays(
+                series_values.codes, series_values.categories.values,
+                mask=mask, memory_pool=memory_pool)
         else:
             if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
                 series_values = series_values.astype('datetime64[ms]')
@@ -134,7 +136,8 @@ cdef class Array:
             return box_array(out)
 
     @staticmethod
-    def from_list(object list_obj, DataType type=None, MemoryPool memory_pool=None):
+    def from_list(object list_obj, DataType type=None,
+                  MemoryPool memory_pool=None):
         """
         Convert Python list to Arrow array
 
@@ -358,7 +361,8 @@ cdef class BinaryArray(Array):
 cdef class DictionaryArray(Array):
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None, MemoryPool memory_pool=None):
+    def from_arrays(indices, dictionary, mask=None,
+                    MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -380,8 +384,15 @@ cdef class DictionaryArray(Array):
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
 
-        arrow_indices = Array.from_pandas(indices, mask=mask, memory_pool=memory_pool)
-        arrow_dictionary = Array.from_pandas(dictionary, memory_pool=memory_pool)
+        if mask is None:
+            mask = indices == -1
+        else:
+            mask = mask | (indices == -1)
+
+        arrow_indices = Array.from_pandas(indices, mask=mask,
+                                          memory_pool=memory_pool)
+        arrow_dictionary = Array.from_pandas(dictionary,
+                                             memory_pool=memory_pool)
 
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')

@@ -32,6 +32,7 @@
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/loader.h"
 #include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
@@ -531,12 +532,12 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length, MemoryPool* pool) {
-  DictionaryWriter writer(pool, buffer_start_offset, kMaxIpcRecursionDepth);
+  DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth);
   return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter writer(default_memory_pool(), 0, kMaxIpcRecursionDepth);
+  RecordBatchWriter writer(default_memory_pool(), 0, kMaxNestingDepth);
   RETURN_NOT_OK(writer.GetTotalSize(batch, size));
   return Status::OK();
 }
@@ -544,235 +545,33 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
 // ----------------------------------------------------------------------
 // Record batch read path
 
-struct RecordBatchContext {
-  const RecordBatchMetadata* metadata;
-  int buffer_index;
-  int field_index;
-  int max_recursion_depth;
-};
-
-// Traverse the flattened record batch metadata and reassemble the
-// corresponding array containers
-class ArrayLoader : public TypeVisitor {
+class IpcComponentSource : public ArrayComponentSource {
  public:
-  ArrayLoader(
-      const Field& field, RecordBatchContext* context, io::ReadableFileInterface* file)
-      : field_(field), context_(context), file_(file) {}
+  IpcComponentSource(const RecordBatchMetadata& metadata, io::ReadableFileInterface* file)
+      : metadata_(metadata), file_(file) {}
 
-  Status Load(std::shared_ptr<Array>* out) {
-    if (context_->max_recursion_depth <= 0) {
-      return Status::Invalid("Max recursion depth reached");
+  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
+    BufferMetadata buffer_meta = metadata_.buffer(buffer_index);
+    if (buffer_meta.length == 0) {
+      *out = nullptr;
+      return Status::OK();
+    } else {
+      return file_->ReadAt(buffer_meta.offset, buffer_meta.length, out);
     }
+  }
 
-    // Load the array
-    RETURN_NOT_OK(field_.type->Accept(this));
-
-    *out = std::move(result_);
+  Status GetFieldMetadata(int field_index, FieldMetadata* metadata) override {
+    // pop off a field
+    if (field_index >= metadata_.num_fields()) {
+      return Status::Invalid("Ran out of field metadata, likely malformed");
+    }
+    *metadata = metadata_.field(field_index);
     return Status::OK();
   }
 
  private:
-  const Field& field_;
-  RecordBatchContext* context_;
+  const RecordBatchMetadata& metadata_;
   io::ReadableFileInterface* file_;
-
-  // Used in visitor pattern
-  std::shared_ptr<Array> result_;
-
-  Status LoadChild(const Field& field, std::shared_ptr<Array>* out) {
-    ArrayLoader loader(field, context_, file_);
-    --context_->max_recursion_depth;
-    RETURN_NOT_OK(loader.Load(out));
-    ++context_->max_recursion_depth;
-    return Status::OK();
-  }
-
-  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
-    BufferMetadata metadata = context_->metadata->buffer(buffer_index);
-
-    if (metadata.length == 0) {
-      *out = nullptr;
-      return Status::OK();
-    } else {
-      return file_->ReadAt(metadata.offset, metadata.length, out);
-    }
-  }
-
-  Status LoadCommon(FieldMetadata* field_meta, std::shared_ptr<Buffer>* null_bitmap) {
-    // pop off a field
-    if (context_->field_index >= context_->metadata->num_fields()) {
-      return Status::Invalid("Ran out of field metadata, likely malformed");
-    }
-
-    // This only contains the length and null count, which we need to figure
-    // out what to do with the buffers. For example, if null_count == 0, then
-    // we can skip that buffer without reading from shared memory
-    *field_meta = context_->metadata->field(context_->field_index++);
-
-    // extract null_bitmap which is common to all arrays
-    if (field_meta->null_count == 0) {
-      *null_bitmap = nullptr;
-    } else {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, null_bitmap));
-    }
-    context_->buffer_index++;
-    return Status::OK();
-  }
-
-  Status LoadPrimitive(const DataType& type) {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, data;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
-    } else {
-      context_->buffer_index++;
-      data.reset(new Buffer(nullptr, 0));
-    }
-    return MakePrimitiveArray(field_.type, field_meta.length, data, null_bitmap,
-        field_meta.null_count, 0, &result_);
-  }
-
-  template <typename CONTAINER>
-  Status LoadBinary() {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, offsets, values;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
-    } else {
-      context_->buffer_index += 2;
-      offsets = values = nullptr;
-    }
-
-    result_ = std::make_shared<CONTAINER>(
-        field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const Int8Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const Int16Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const Int32Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const Int64Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const UInt8Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const UInt16Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const UInt32Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const UInt64Type& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const HalfFloatType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const FloatType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const DoubleType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const StringType& type) override { return LoadBinary<StringArray>(); }
-
-  Status Visit(const BinaryType& type) override { return LoadBinary<BinaryArray>(); }
-
-  Status Visit(const DateType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const TimeType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const TimestampType& type) override { return LoadPrimitive(type); }
-
-  Status Visit(const ListType& type) override {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, offsets;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &offsets));
-    } else {
-      offsets = nullptr;
-    }
-    ++context_->buffer_index;
-
-    const int num_children = type.num_children();
-    if (num_children != 1) {
-      std::stringstream ss;
-      ss << "Wrong number of children: " << num_children;
-      return Status::Invalid(ss.str());
-    }
-    std::shared_ptr<Array> values_array;
-
-    RETURN_NOT_OK(LoadChild(*type.child(0).get(), &values_array));
-
-    result_ = std::make_shared<ListArray>(field_.type, field_meta.length, offsets,
-        values_array, null_bitmap, field_meta.null_count);
-    return Status::OK();
-  }
-
-  Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields,
-      std::vector<std::shared_ptr<Array>>* arrays) {
-    arrays->reserve(static_cast<int>(child_fields.size()));
-
-    for (const auto& child_field : child_fields) {
-      std::shared_ptr<Array> field_array;
-      RETURN_NOT_OK(LoadChild(*child_field.get(), &field_array));
-      arrays->emplace_back(field_array);
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const StructType& type) override {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
-
-    result_ = std::make_shared<StructArray>(
-        field_.type, field_meta.length, fields, null_bitmap, field_meta.null_count);
-    return Status::OK();
-  }
-
-  Status Visit(const UnionType& type) override {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, type_ids, offsets;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
-      if (type.mode == UnionMode::DENSE) {
-        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &offsets));
-      }
-    }
-    context_->buffer_index += type.mode == UnionMode::DENSE ? 2 : 1;
-
-    std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
-
-    result_ = std::make_shared<UnionArray>(field_.type, field_meta.length, fields,
-        type_ids, offsets, null_bitmap, field_meta.null_count);
-    return Status::OK();
-  }
-
-  Status Visit(const DictionaryType& type) override {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, indices_data;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &indices_data));
-
-    std::shared_ptr<Array> indices;
-    RETURN_NOT_OK(MakePrimitiveArray(type.index_type(), field_meta.length, indices_data,
-        null_bitmap, field_meta.null_count, 0, &indices));
-
-    result_ = std::make_shared<DictionaryArray>(field_.type, indices);
-    return Status::OK();
-  };
 };
 
 class RecordBatchReader {
@@ -788,17 +587,15 @@ class RecordBatchReader {
   Status Read(std::shared_ptr<RecordBatch>* out) {
     std::vector<std::shared_ptr<Array>> arrays(schema_->num_fields());
 
-    // The field_index and buffer_index are incremented in the ArrayLoader
-    // based on how much of the batch is "consumed" (through nested data
-    // reconstruction, for example)
-    context_.metadata = &metadata_;
-    context_.field_index = 0;
-    context_.buffer_index = 0;
-    context_.max_recursion_depth = max_recursion_depth_;
+    IpcComponentSource source(metadata_, file_);
+    ArrayLoaderContext context;
+    context.source = &source;
+    context.field_index = 0;
+    context.buffer_index = 0;
+    context.max_recursion_depth = max_recursion_depth_;
 
     for (int i = 0; i < schema_->num_fields(); ++i) {
-      ArrayLoader loader(*schema_->field(i).get(), &context_, file_);
-      RETURN_NOT_OK(loader.Load(&arrays[i]));
+      RETURN_NOT_OK(LoadArray(schema_->field(i)->type, &context, &arrays[i]));
     }
 
     *out = std::make_shared<RecordBatch>(schema_, metadata_.length(), arrays);
@@ -806,7 +603,6 @@ class RecordBatchReader {
   }
 
  private:
-  RecordBatchContext context_;
   const RecordBatchMetadata& metadata_;
   std::shared_ptr<Schema> schema_;
   int max_recursion_depth_;
@@ -816,7 +612,7 @@ class RecordBatchReader {
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
     std::shared_ptr<RecordBatch>* out) {
-  return ReadRecordBatch(metadata, schema, kMaxIpcRecursionDepth, file, out);
+  return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
 }
 
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
