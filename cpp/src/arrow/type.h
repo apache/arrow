@@ -67,7 +67,7 @@ struct Type {
     // Variable-length bytes (no guarantee of UTF8-ness)
     BINARY,
 
-    // By default, int32 days since the UNIX epoch
+    // By default, int64 days since the UNIX epoch
     DATE,
 
     // Exact timestamp encoded with int64 since UNIX epoch
@@ -439,7 +439,12 @@ struct ARROW_EXPORT DateType : public FixedWidthType {
   static std::string name() { return "date"; }
 };
 
-enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+enum class TimeUnit : char {
+  SECOND = 0,
+  MILLI = 1,
+  MICRO = 2,
+  NANO = 3,
+};
 
 struct ARROW_EXPORT TimeType : public FixedWidthType {
   static constexpr Type::type type_id = Type::TIME;

@@ -521,6 +521,20 @@ class JsonArrayWriter : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
 
+  Status Visit(const DateArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const TimeArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const TimestampArray& array) override { return WritePrimitive(array); }
+
+  Status Visit(const IntervalArray& array) override {
+    return Status::NotImplemented("interval");
+  }
+
+  Status Visit(const DecimalArray& array) override {
+    return Status::NotImplemented("decimal");
+  }
+
   Status Visit(const ListArray& array) override {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
@@ -829,7 +843,10 @@ class JsonArrayReader {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
-                              std::is_base_of<BooleanType, T>::value,
+                              std::is_base_of<BooleanType, T>::value ||
+			      std::is_base_of<DateType, T>::value ||
+			      std::is_base_of<TimeType, T>::value ||
+			      std::is_base_of<TimestampType, T>::value,
       Status>::type
   ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
@@ -938,6 +955,7 @@ class JsonArrayReader {
 
     return Status::OK();
   }
+
 
   template <typename T>
   typename std::enable_if<std::is_base_of<StructType, T>::value, Status>::type ReadArray(
@@ -1081,9 +1099,9 @@ class JsonArrayReader {
       TYPE_CASE(DoubleType);
       TYPE_CASE(StringType);
       TYPE_CASE(BinaryType);
-      NOT_IMPLEMENTED_CASE(DATE);
-      NOT_IMPLEMENTED_CASE(TIMESTAMP);
-      NOT_IMPLEMENTED_CASE(TIME);
+      TYPE_CASE(DateType);
+      TYPE_CASE(TimestampType);
+      TYPE_CASE(TimeType);
       NOT_IMPLEMENTED_CASE(INTERVAL);
       TYPE_CASE(ListType);
       TYPE_CASE(StructType);
