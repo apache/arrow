@@ -206,8 +206,7 @@ class SeqVisitor {
 };
 
 // Non-exhaustive type inference
-static Status InferArrowType(
-    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
+Status InferArrowType(PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
   *size = PySequence_Size(obj);
   if (PyErr_Occurred()) {
     // Not a sequence
@@ -496,6 +495,19 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   return Status::OK();
 }
 
+Status AppendPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
+    const std::shared_ptr<ArrayBuilder>& builder) {
+  std::shared_ptr<SeqConverter> converter = GetConverter(type);
+  if (converter == nullptr) {
+    std::stringstream ss;
+    ss << "No type converter implemented for " << type->ToString();
+    return Status::NotImplemented(ss.str());
+  }
+  converter->Init(builder);
+
+  return converter->AppendData(obj);
+}
+
 Status ConvertPySequence(
     PyObject* obj, MemoryPool* pool, std::shared_ptr<arrow::Array>* out) {
   std::shared_ptr<DataType> type;
@@ -509,19 +521,10 @@ Status ConvertPySequence(
     return Status::OK();
   }
 
-  std::shared_ptr<SeqConverter> converter = GetConverter(type);
-  if (converter == nullptr) {
-    std::stringstream ss;
-    ss << "No type converter implemented for " << type->ToString();
-    return Status::NotImplemented(ss.str());
-  }
-
   // Give the sequence converter an array builder
   std::shared_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(arrow::MakeBuilder(pool, type, &builder));
-  converter->Init(builder);
-
-  RETURN_NOT_OK(converter->AppendData(obj));
+  RETURN_NOT_OK(AppendPySequence(obj, type, builder));
 
   return builder->Finish(out);
 }

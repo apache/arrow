@@ -76,3 +76,43 @@ def dataframe_with_arrays():
     schema = pa.Schema.from_fields(fields)
 
     return df, schema
+
+def dataframe_with_lists():
+    """
+    Dataframe with list columns of every possible primtive type.
+
+    Returns
+    -------
+    df: pandas.DataFrame
+    schema: pyarrow.Schema
+        Arrow schema definition that is in line with the constructed df.
+    """
+    arrays = OrderedDict()
+    fields = []
+
+    fields.append(pa.field('int64', pa.list_(pa.int64())))
+    arrays['int64'] = [
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [0, 1, 2, 3, 4],
+        None,
+        [0]
+    ]
+    fields.append(pa.field('double', pa.list_(pa.double())))
+    arrays['double'] = [
+        [0., 1., 2., 3., 4., 5., 6., 7., 8., 9.],
+        [0., 1., 2., 3., 4.],
+        None,
+        [0.]
+    ]
+    fields.append(pa.field('str_list', pa.list_(pa.string())))
+    arrays['str_list'] = [
+        [u"1", u"ä"],
+        None,
+        [u"1"],
+        [u"1", u"2", u"3"]
+    ]
+
+    df = pd.DataFrame(arrays)
+    schema = pa.Schema.from_fields(fields)
+
+    return df, schema
