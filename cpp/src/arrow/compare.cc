@@ -539,7 +539,7 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
   if (left.length() != right.length() || left.null_count() != right.null_count() ||
-      left.type_id() != right.type_id()) {
+      left.type_enum() != right.type_enum()) {
     return false;
   }
   if (left.null_count() > 0) {
@@ -569,7 +569,7 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
     int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
   if (&left == &right) {
     *are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
+  } else if (left.type_enum() != right.type_enum()) {
     *are_equal = false;
   } else if (left.length() == 0) {
     *are_equal = true;

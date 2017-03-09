@@ -101,7 +101,7 @@ TEST_F(TestStringArray, TestType) {
   TypePtr type = strings_->type();
 
   ASSERT_EQ(Type::STRING, type->type);
-  ASSERT_EQ(Type::STRING, strings_->type_id());
+  ASSERT_EQ(Type::STRING, strings_->type_enum());
 }
 
 TEST_F(TestStringArray, TestListFunctions) {
@@ -301,7 +301,7 @@ TEST_F(TestBinaryArray, TestType) {
   TypePtr type = strings_->type();
 
   ASSERT_EQ(Type::BINARY, type->type);
-  ASSERT_EQ(Type::BINARY, strings_->type_id());
+  ASSERT_EQ(Type::BINARY, strings_->type_enum());
 }
 
 TEST_F(TestBinaryArray, TestListFunctions) {

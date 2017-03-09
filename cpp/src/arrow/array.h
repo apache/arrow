@@ -107,7 +107,7 @@ class ARROW_EXPORT Array {
   int64_t null_count() const;
 
   std::shared_ptr<DataType> type() const { return type_; }
-  Type::type type_id() const { return type_->type; }
+  Type::type type_enum() const { return type_->type; }
 
   /// Buffer for the null bitmap.
   ///

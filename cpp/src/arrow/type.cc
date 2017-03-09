@@ -54,9 +54,7 @@ bool DataType::Equals(const DataType& other) const {
 }
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
-  if (!other) {
-    return false;
-  }
+  if (!other) { return false; }
   return Equals(*other.get());
 }
 
