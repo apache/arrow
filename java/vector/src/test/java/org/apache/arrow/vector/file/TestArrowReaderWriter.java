@@ -40,6 +40,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types;
@@ -77,7 +78,7 @@ public class TestArrowReaderWriter {
   public void test() throws IOException {
     Schema schema = new Schema(asList(new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
     MinorType minorType = Types.getMinorTypeForArrowType(schema.getFields().get(0).getType());
-    FieldVector vector = minorType.getNewVector("testField", allocator, null);
+    FieldVector vector = minorType.getNewVector("testField", allocator, null,null);
     vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());
 
     byte[] validity = new byte[] { (byte) 255, 0};
@@ -85,7 +86,8 @@ public class TestArrowReaderWriter {
     byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (ArrowFileWriter writer = new ArrowFileWriter(schema.getFields(), asList(vector), newChannel(out))) {
+    try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(vector), 16);
+         ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out))) {
       ArrowBuf validityb = buf(validity);
       ArrowBuf valuesb =  buf(values);
       writer.writeRecordBatch(new ArrowRecordBatch(16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb)));
@@ -95,12 +97,11 @@ public class TestArrowReaderWriter {
 
     SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(byteArray));
     try (ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
-      ArrowFooter footer = reader.readFooter();
-      Schema readSchema = footer.getSchema();
+      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
       assertEquals(schema, readSchema);
       assertTrue(readSchema.getFields().get(0).getTypeLayout().getVectorTypes().toString(), readSchema.getFields().get(0).getTypeLayout().getVectors().size() > 0);
       // TODO: dictionaries
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      List<ArrowBlock> recordBatches = reader.getRecordBlocks();
       assertEquals(1, recordBatches.size());
       ArrowRecordBatch recordBatch = (ArrowRecordBatch) reader.readMessage(channel, allocator);
       List<ArrowFieldNode> nodes = recordBatch.getNodes();

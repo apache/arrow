@@ -18,6 +18,12 @@
  */
 package org.apache.arrow.tools;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -30,16 +36,8 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ArrowFileReader;
 import org.apache.arrow.vector.file.ArrowFileWriter;
-import org.apache.arrow.vector.file.ArrowFooter;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.List;
 
 public class ArrowFileTestFixtures {
   static final int COUNT = 10;
@@ -63,12 +61,10 @@ public class ArrowFileTestFixtures {
     try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
          FileInputStream fileInputStream = new FileInputStream(testOutFile);
          ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
-      ArrowFooter footer = arrowReader.readFooter();
-      Schema schema = footer.getSchema();
-      VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), arrowReader.getVectors());
-      for (ArrowBlock rbBlock : footer.getRecordBatches()) {
-        int loaded = arrowReader.loadRecordBatch(rbBlock);
-        root.setRowCount(loaded);
+      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+      Schema schema = root.getSchema();
+      for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
+        arrowReader.loadRecordBatch(rbBlock);
         validateContent(COUNT, root);
       }
     }
@@ -83,12 +79,10 @@ public class ArrowFileTestFixtures {
   }
 
   static void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
-    Schema schema = new Schema(parent.getField().getChildren());
-    int valueCount = parent.getAccessor().getValueCount();
-    List<FieldVector> vectors = parent.getChildrenFromFields();
+    VectorSchemaRoot root = new VectorSchemaRoot(parent);
     try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-         ArrowFileWriter arrowWriter = new ArrowFileWriter(schema.getFields(), vectors, fileOutputStream.getChannel())) {
-      arrowWriter.writeBatch(valueCount);
+         ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel())) {
+      arrowWriter.writeBatch();
     }
   }
 

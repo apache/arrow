@@ -22,6 +22,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -57,8 +58,9 @@ public class EchoServerTest {
                               int batches)
       throws UnknownHostException, IOException {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
+    VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
     try (Socket socket = new Socket("localhost", serverPort);
-        ArrowStreamWriter writer = new ArrowStreamWriter(asList(field), asList((FieldVector) vector), socket.getOutputStream());
+        ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
         ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
       writer.start();
       for (int i = 0; i < batches; i++) {
@@ -68,24 +70,25 @@ public class EchoServerTest {
           vector.getMutator().set(j + 8, 0, (byte) (j + i));
         }
         vector.getMutator().setValueCount(16);
-        writer.writeBatch(16);
+        root.setRowCount(16);
+        writer.writeBatch();
       }
       writer.end();
 
-      assertEquals(new Schema(asList(field)), reader.getSchema());
+      assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 
-      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectors().get(0);
+      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
-        int loaded = reader.loadNextBatch();
-        assertEquals(16, loaded);
+        reader.loadNextBatch();
+        assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
         assertEquals(16, readVector.getAccessor().getValueCount());
         for (int j = 0; j < 8; j++) {
           assertEquals(j + i, readVector.getAccessor().get(j));
           assertTrue(readVector.getAccessor().isNull(j + 8));
         }
       }
-      int loaded = reader.loadNextBatch();
-      assertEquals(0, loaded);
+      reader.loadNextBatch();
+      assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
       assertEquals(reader.bytesRead(), writer.bytesWritten());
     }
   }
@@ -109,7 +112,7 @@ public class EchoServerTest {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
     Field field = new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList());
-    NullableTinyIntVector vector = new NullableTinyIntVector("testField", alloc);
+    NullableTinyIntVector vector = new NullableTinyIntVector("testField", alloc, null);
     Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.

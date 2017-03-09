@@ -86,7 +86,7 @@ public class TestValueVector {
   public void testNullableVarLen2() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator, null)) {
       final NullableVarCharVector.Mutator m = vector.getMutator();
       vector.allocateNew(1024 * 10, 1024);
 
@@ -116,7 +116,7 @@ public class TestValueVector {
   public void testNullableFixedType() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableUInt4Vector vector = new NullableUInt4Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final NullableUInt4Vector vector = new NullableUInt4Vector(EMPTY_SCHEMA_PATH, allocator, null)) {
       final NullableUInt4Vector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
 
@@ -186,7 +186,7 @@ public class TestValueVector {
   @Test
   public void testNullableFloat() {
     // Create a new value vector for 1024 integers
-    try (final NullableFloat4Vector vector = (NullableFloat4Vector) MinorType.FLOAT4.getNewVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (final NullableFloat4Vector vector = (NullableFloat4Vector) MinorType.FLOAT4.getNewVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       final NullableFloat4Vector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
 
@@ -233,7 +233,7 @@ public class TestValueVector {
   @Test
   public void testNullableInt() {
     // Create a new value vector for 1024 integers
-    try (final NullableIntVector vector = (NullableIntVector) MinorType.INT.getNewVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (final NullableIntVector vector = (NullableIntVector) MinorType.INT.getNewVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       final NullableIntVector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
 
@@ -403,7 +403,7 @@ public class TestValueVector {
   @Test
   public void testReAllocNullableFixedWidthVector() {
     // Create a new value vector for 1024 integers
-    try (final NullableFloat4Vector vector = (NullableFloat4Vector) MinorType.FLOAT4.getNewVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (final NullableFloat4Vector vector = (NullableFloat4Vector) MinorType.FLOAT4.getNewVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       final NullableFloat4Vector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
 
@@ -436,7 +436,7 @@ public class TestValueVector {
   @Test
   public void testReAllocNullableVariableWidthVector() {
     // Create a new value vector for 1024 integers
-    try (final NullableVarCharVector vector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (final NullableVarCharVector vector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       final NullableVarCharVector.Mutator m = vector.getMutator();
       vector.allocateNew();
 

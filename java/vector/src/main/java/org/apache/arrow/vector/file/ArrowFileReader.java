@@ -107,7 +107,7 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
     ensureInitialized();
     int blockIndex = footer.getRecordBatches().indexOf(block);
     if (blockIndex == -1) {
-      throw new IllegalArgumentException("Arrow bock does not exist in record batchs");
+      throw new IllegalArgumentException("Arrow bock does not exist in record batches");
     }
     currentRecordBatch = blockIndex;
     loadNextBatch();

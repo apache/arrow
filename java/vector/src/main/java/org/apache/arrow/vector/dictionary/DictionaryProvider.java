@@ -17,6 +17,7 @@
  */
 package org.apache.arrow.vector.dictionary;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public interface DictionaryProvider {
@@ -24,10 +25,11 @@ public interface DictionaryProvider {
   public Dictionary lookup(long id);
 
   public static class MapDictionaryProvider implements DictionaryProvider {
-    private final Map<Long, Dictionary> map;
-    public MapDictionaryProvider(Map<Long, Dictionary> map) {
-      this.map = map;
-    }
+    private final Map<Long, Dictionary> map = new HashMap<>();
+
+    public void put(Dictionary dictionary) { map.put(dictionary.getEncoding().getId(), dictionary); }
+
+    @Override
     public Dictionary lookup(long id) { return map.get(id); }
   }
 }

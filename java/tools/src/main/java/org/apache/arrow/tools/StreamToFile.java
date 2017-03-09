@@ -17,11 +17,6 @@
  */
 package org.apache.arrow.tools;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.file.ArrowFileWriter;
-import org.apache.arrow.vector.stream.ArrowStreamReader;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,6 +25,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.file.ArrowFileWriter;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+
 /**
  * Converts an Arrow stream to an Arrow file.
  */
@@ -37,14 +37,14 @@ public class StreamToFile {
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
-      try (ArrowFileWriter writer = new ArrowFileWriter(reader.getSchema().getFields(), reader.getVectors(), Channels.newChannel(out))) {
+      try (ArrowFileWriter writer = new ArrowFileWriter(reader.getVectorSchemaRoot(), reader, Channels.newChannel(out))) {
         writer.start();
         while (true) {
-          int loaded = reader.loadNextBatch();
-          if (loaded == 0) {
+          reader.loadNextBatch();
+          if (reader.getVectorSchemaRoot().getRowCount() == 0) {
             break;
           }
-          writer.writeBatch(loaded);
+          writer.writeBatch();
         }
         writer.end();
       }

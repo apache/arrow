@@ -17,72 +17,63 @@
  */
 package org.apache.arrow.vector.file;
 
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowMessage;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.stream.ArrowStreamReader;
-import org.apache.arrow.vector.stream.ArrowStreamWriter;
-import org.apache.arrow.vector.stream.MessageSerializerTest;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.channels.Pipe;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
-import java.util.List;
 
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.schema.ArrowMessage;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+import org.apache.arrow.vector.stream.ArrowStreamWriter;
+import org.apache.arrow.vector.stream.MessageSerializerTest;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class TestArrowStreamPipe {
   Schema schema = MessageSerializerTest.testSchema();
-  // second half is "undefined"
-  byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
   BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
   private final class WriterThread extends Thread {
 
     private final int numBatches;
     private final ArrowStreamWriter writer;
+    private final VectorSchemaRoot root;
 
     public WriterThread(int numBatches, WritableByteChannel sinkChannel)
         throws IOException {
       this.numBatches = numBatches;
       BufferAllocator allocator = alloc.newChildAllocator("writer thread", 0, Integer.MAX_VALUE);
-      List<FieldVector> vectors = new ArrayList<>();
-      for (Field field : schema.getFields()) {
-        MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-        FieldVector vector = minorType.getNewVector(field.getName(), allocator, null);
-        vector.initializeChildrenFromFields(field.getChildren());
-        vectors.add(vector);
-      }
-      writer = new ArrowStreamWriter(schema.getFields(), vectors, sinkChannel);
+      root = VectorSchemaRoot.create(schema, allocator);
+      writer = new ArrowStreamWriter(root, null, sinkChannel);
     }
 
     @Override
     public void run() {
       try {
         writer.start();
-        ArrowBuf valuesb =  MessageSerializerTest.buf(alloc, values);
-        for (int i = 0; i < numBatches; i++) {
-          // Send a changing byte id first.
-          byte[] validity = new byte[] { (byte)i, 0};
-          ArrowBuf validityb = MessageSerializerTest.buf(alloc, validity);
-          writer.writeRecordBatch(new ArrowRecordBatch(
-              16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb)));
+        for (int j = 0; j < numBatches; j++) {
+          root.getFieldVectors().get(0).allocateNew();
+          NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
+          // Send a changing batch id first
+          mutator.set(0, j);
+          for (int i = 1; i < 16; i++) {
+            mutator.set(i, i < 8 ? 1 : 0, (byte)(i + 1));
+          }
+          mutator.setValueCount(16);
+          root.setRowCount(16);
+
+          writer.writeBatch();
         }
         writer.close();
+        root.close();
       } catch (IOException e) {
         e.printStackTrace();
         Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
@@ -103,23 +94,31 @@ public class TestArrowStreamPipe {
       reader = new ArrowStreamReader(sourceChannel, alloc) {
         @Override
         protected ArrowMessage readMessage(ReadChannel in, BufferAllocator allocator) throws IOException {
+          // Read all the batches. Each batch contains an incrementing id and then some
+          // constant data. Verify both.
           ArrowMessage message = super.readMessage(in, allocator);
           if (message == null) {
             done = true;
           } else {
-            byte[] validity = new byte[] {(byte) batchesRead, 0};
-            MessageSerializerTest.verifyBatch((ArrowRecordBatch) message, validity, values);
             batchesRead++;
           }
           return message;
         }
         @Override
-        public int loadNextBatch() throws IOException {
-          // the batches being sent aren't valid so the decoding fails... catch and suppress
-          try {
-            return super.loadNextBatch();
-          } catch (Exception e) {
-            return 0;
+        public void loadNextBatch() throws IOException {
+          super.loadNextBatch();
+          if (!done) {
+            VectorSchemaRoot root = getVectorSchemaRoot();
+            Assert.assertEquals(16, root.getRowCount());
+            NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
+            Assert.assertEquals((byte)(batchesRead - 1), vector.getAccessor().get(0));
+            for (int i = 1; i < 16; i++) {
+              if (i < 8) {
+                Assert.assertEquals((byte)(i + 1), vector.getAccessor().get(i));
+              } else {
+                Assert.assertTrue(vector.getAccessor().isNull(i));
+              }
+            }
           }
         }
       };
@@ -128,13 +127,10 @@ public class TestArrowStreamPipe {
     @Override
     public void run() {
       try {
-        assertEquals(schema, reader.getSchema());
+        assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
         assertTrue(
-            reader.getSchema().getFields().get(0).getTypeLayout().getVectorTypes().toString(),
-            reader.getSchema().getFields().get(0).getTypeLayout().getVectors().size() > 0);
-
-        // Read all the batches. Each batch contains an incrementing id and then some
-        // constant data. Verify both.
+            reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectorTypes().toString(),
+            reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectors().size() > 0);
         while (!done) {
           reader.loadNextBatch();
         }

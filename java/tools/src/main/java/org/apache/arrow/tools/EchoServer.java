@@ -17,23 +17,20 @@
  */
 package org.apache.arrow.tools;
 
-import com.google.common.base.Preconditions;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.stream.ArrowStreamReader;
-import org.apache.arrow.vector.stream.ArrowStreamWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+
+import com.google.common.base.Preconditions;
+
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.stream.ArrowStreamReader;
+import org.apache.arrow.vector.stream.ArrowStreamWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);
@@ -57,22 +54,21 @@ public class EchoServer {
 
     public void run() throws IOException {
       BufferAllocator  allocator = new RootAllocator(Long.MAX_VALUE);
-      List<ArrowRecordBatch> batches = new ArrayList<>();
-      List<ArrowDictionaryBatch> dictionaries = new ArrayList<>();
       try (
         InputStream in = socket.getInputStream();
         OutputStream out = socket.getOutputStream();
         ArrowStreamReader reader = new ArrowStreamReader(in, allocator);
-        ArrowStreamWriter writer = new ArrowStreamWriter(reader.getSchema().getFields(), reader.getVectors(), out)) {
+        ArrowStreamWriter writer = new ArrowStreamWriter(reader.getVectorSchemaRoot(), reader, out)) {
         // Read the entire input stream and write it back
         writer.start();
         int echoed = 0;
         while (true) {
-          int loaded = reader.loadNextBatch();
+          reader.loadNextBatch();
+          int loaded = reader.getVectorSchemaRoot().getRowCount();
           if (loaded == 0) {
             break;
           } else {
-            writer.writeBatch(loaded);
+            writer.writeBatch();
             echoed += loaded;
           }
         }

@@ -53,7 +53,7 @@ public class TestPromotableWriter {
   public void testPromoteToUnion() throws Exception {
 
     try (final MapVector container = new MapVector(EMPTY_SCHEMA_PATH, allocator, null);
-         final NullableMapVector v = container.addOrGet("test", MinorType.MAP, NullableMapVector.class);
+         final NullableMapVector v = container.addOrGet("test", MinorType.MAP, NullableMapVector.class, null);
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
       container.allocateNew();

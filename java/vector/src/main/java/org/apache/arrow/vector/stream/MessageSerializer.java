@@ -111,10 +111,10 @@ public class MessageSerializer {
 
     int metadataLength = serializedMessage.remaining();
 
-    // Add extra padding bytes so that length prefix + metadata is a multiple
-    // of 8 after alignment
-    if ((start + metadataLength + 4) % 8 != 0) {
-        metadataLength += 8 - (start + metadataLength + 4) % 8;
+    // calculate alignment bytes so that metadata length points to the correct location after alignment
+    int padding = (int)((start + metadataLength + 4) % 8);
+    if (padding != 0) {
+        metadataLength += (8 - padding);
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -155,12 +155,6 @@ public class MessageSerializer {
    */
   private static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
       throws IOException {
-    if (message == null) return null;
-
-    if (message.bodyLength() > Integer.MAX_VALUE) {
-      throw new IOException("Cannot currently deserialize record batches over 2GB");
-    }
-
     RecordBatch recordBatchFB = (RecordBatch) message.header(new RecordBatch());
 
     int bodyLength = (int) message.bodyLength();

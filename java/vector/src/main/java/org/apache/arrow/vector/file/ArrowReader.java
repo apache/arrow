@@ -30,6 +30,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowMessage.ArrowMessageVisitor;
@@ -40,7 +41,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic implements AutoCloseable {
+public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic implements DictionaryProvider, AutoCloseable {
 
   private final T in;
   private final BufferAllocator allocator;
@@ -59,8 +60,8 @@ public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic impl
   /**
    * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch
    *
-   * @return
-   * @throws IOException
+   * @return the vector schema root
+   * @throws IOException if reading of schema fails
    */
   public VectorSchemaRoot getVectorSchemaRoot() throws IOException {
     ensureInitialized();
@@ -70,12 +71,21 @@ public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic impl
   /**
    * Returns any dictionaries
    *
-   * @return
-   * @throws IOException
+   * @return dictionaries, if any
+   * @throws IOException if reading of schema fails
    */
   public Map<Long, Dictionary> getDictionaryVectors() throws IOException {
     ensureInitialized();
     return dictionaries;
+  }
+
+  @Override
+  public Dictionary lookup(long id) {
+    if (initialized) {
+      return dictionaries.get(id);
+    } else {
+      return null;
+    }
   }
 
   public void loadNextBatch() throws IOException {
@@ -93,6 +103,7 @@ public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic impl
         return false;
       }
     };
+    root.setRowCount(0);
     ArrowMessage message = readMessage(in, allocator);
     while (message != null && message.accepts(visitor)) {
       message = readMessage(in, allocator);
@@ -104,9 +115,7 @@ public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic impl
   @Override
   public void close() throws IOException {
     if (initialized) {
-      for (FieldVector vector: root.getFieldVectors()) {
-        vector.close();
-      }
+      root.close();
       for (Dictionary dictionary: dictionaries.values()) {
         dictionary.getVector().close();
       }

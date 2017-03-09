@@ -18,11 +18,17 @@
  */
 package org.apache.arrow.tools;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.file.ArrowFileReader;
 import org.apache.arrow.vector.file.ArrowFileWriter;
-import org.apache.arrow.vector.file.ArrowFooter;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -31,12 +37,6 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
 
 public class FileRoundtrip {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileRoundtrip.class);
@@ -83,20 +83,21 @@ public class FileRoundtrip {
       try (FileInputStream fileInputStream = new FileInputStream(inFile);
            ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
 
-        ArrowFooter footer = arrowReader.readFooter();
-        Schema schema = footer.getSchema();
+        VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+        Schema schema = root.getSchema();
         LOGGER.debug("Input file size: " + inFile.length());
         LOGGER.debug("Found schema: " + schema);
 
         try (FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-             ArrowFileWriter arrowWriter = new ArrowFileWriter(schema.getFields(), arrowReader.getVectors(), fileOutputStream.getChannel())) {
+             ArrowFileWriter arrowWriter = new ArrowFileWriter(root, arrowReader, fileOutputStream.getChannel())) {
           arrowWriter.start();
           while (true) {
-            int loaded = arrowReader.loadNextBatch();
+            arrowReader.loadNextBatch();
+            int loaded = root.getRowCount();
             if (loaded == 0) {
               break;
             } else {
-              arrowWriter.writeBatch(loaded);
+              arrowWriter.writeBatch();
             }
           }
           arrowWriter.end();
