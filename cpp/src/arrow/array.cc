@@ -165,6 +165,7 @@ template class NumericArray<Int32Type>;
 template class NumericArray<Int64Type>;
 template class NumericArray<TimestampType>;
 template class NumericArray<DateType>;
+template class NumericArray<Date32Type>;
 template class NumericArray<TimeType>;
 template class NumericArray<HalfFloatType>;
 template class NumericArray<FloatType>;
@@ -193,7 +194,7 @@ std::shared_ptr<Array> BooleanArray::Slice(int64_t offset, int64_t length) const
 
 Status ListArray::Validate() const {
   if (length_ < 0) { return Status::Invalid("Length was negative"); }
-  if (!value_offsets_) { return Status::Invalid("value_offsets_ was null"); }
+  if (length_ && !value_offsets_) { return Status::Invalid("value_offsets_ was null"); }
   if (value_offsets_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
     std::stringstream ss;
     ss << "offset buffer size (bytes): " << value_offsets_->size()
@@ -425,20 +426,6 @@ std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-Status DictionaryArray::FromBuffer(const std::shared_ptr<DataType>& type, int64_t length,
-    const std::shared_ptr<Buffer>& indices, const std::shared_ptr<Buffer>& null_bitmap,
-    int64_t null_count, int64_t offset, std::shared_ptr<DictionaryArray>* out) {
-  DCHECK_EQ(type->type, Type::DICTIONARY);
-  const auto& dict_type = static_cast<const DictionaryType*>(type.get());
-
-  std::shared_ptr<Array> boxed_indices;
-  RETURN_NOT_OK(MakePrimitiveArray(dict_type->index_type(), length, indices, null_bitmap,
-      null_count, offset, &boxed_indices));
-
-  *out = std::make_shared<DictionaryArray>(type, boxed_indices);
-  return Status::OK();
-}
-
 DictionaryArray::DictionaryArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
     : Array(type, indices->length(), indices->null_bitmap(), indices->null_count(),
@@ -470,40 +457,6 @@ std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) co
 }
 
 // ----------------------------------------------------------------------
-
-#define MAKE_PRIMITIVE_ARRAY_CASE(ENUM, ArrayType)                                  \
-  case Type::ENUM:                                                                  \
-    out->reset(new ArrayType(type, length, data, null_bitmap, null_count, offset)); \
-    break;
-
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
-    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
-    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
-  switch (type->type) {
-    MAKE_PRIMITIVE_ARRAY_CASE(BOOL, BooleanArray);
-    MAKE_PRIMITIVE_ARRAY_CASE(UINT8, UInt8Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(INT8, Int8Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(UINT16, UInt16Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(INT16, Int16Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(UINT32, UInt32Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(INT32, Int32Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(UINT64, UInt64Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(INT64, Int64Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(FLOAT, FloatArray);
-    MAKE_PRIMITIVE_ARRAY_CASE(DOUBLE, DoubleArray);
-    MAKE_PRIMITIVE_ARRAY_CASE(TIME, Int64Array);
-    MAKE_PRIMITIVE_ARRAY_CASE(TIMESTAMP, TimestampArray);
-    default:
-      return Status::NotImplemented(type->ToString());
-  }
-#ifdef NDEBUG
-  return Status::OK();
-#else
-  return (*out)->Validate();
-#endif
-}
-
-// ----------------------------------------------------------------------
 // Default implementations of ArrayVisitor methods
 
 #define ARRAY_VISITOR_DEFAULT(ARRAY_CLASS)                   \
@@ -527,6 +480,7 @@ ARRAY_VISITOR_DEFAULT(DoubleArray);
 ARRAY_VISITOR_DEFAULT(StringArray);
 ARRAY_VISITOR_DEFAULT(BinaryArray);
 ARRAY_VISITOR_DEFAULT(DateArray);
+ARRAY_VISITOR_DEFAULT(Date32Array);
 ARRAY_VISITOR_DEFAULT(TimeArray);
 ARRAY_VISITOR_DEFAULT(TimestampArray);
 ARRAY_VISITOR_DEFAULT(IntervalArray);

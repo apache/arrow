@@ -58,6 +58,7 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const StringArray& array);
   virtual Status Visit(const BinaryArray& array);
   virtual Status Visit(const DateArray& array);
+  virtual Status Visit(const Date32Array& array);
   virtual Status Visit(const TimeArray& array);
   virtual Status Visit(const TimestampArray& array);
   virtual Status Visit(const IntervalArray& array);
@@ -485,12 +486,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   DictionaryArray(
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices);
 
-  // Alternate ctor; other attributes (like null count) are inherited from the
-  // passed indices array
-  static Status FromBuffer(const std::shared_ptr<DataType>& type, int64_t length,
-      const std::shared_ptr<Buffer>& indices, const std::shared_ptr<Buffer>& null_bitmap,
-      int64_t null_count, int64_t offset, std::shared_ptr<DictionaryArray>* out);
-
   Status Validate() const override;
 
   std::shared_ptr<Array> indices() const { return indices_; }
@@ -531,20 +526,12 @@ extern template class ARROW_EXPORT NumericArray<FloatType>;
 extern template class ARROW_EXPORT NumericArray<DoubleType>;
 extern template class ARROW_EXPORT NumericArray<TimestampType>;
 extern template class ARROW_EXPORT NumericArray<DateType>;
+extern template class ARROW_EXPORT NumericArray<Date32Type>;
 extern template class ARROW_EXPORT NumericArray<TimeType>;
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-
-// ----------------------------------------------------------------------
-// Helper functions
-
-// Create new arrays for logical types that are backed by primitive arrays.
-Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-    int64_t length, const std::shared_ptr<Buffer>& data,
-    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset,
-    std::shared_ptr<Array>* out);
 
 }  // namespace arrow
 

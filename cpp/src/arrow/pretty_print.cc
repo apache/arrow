@@ -145,9 +145,11 @@ class ArrayPrinter : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
 
-  Status Visit(const DateArray& array) override { return Status::NotImplemented("date"); }
+  Status Visit(const DateArray& array) override { return WritePrimitive(array); }
 
-  Status Visit(const TimeArray& array) override { return Status::NotImplemented("time"); }
+  Status Visit(const Date32Array& array) override { return WritePrimitive(array); }
+
+  Status Visit(const TimeArray& array) override { return WritePrimitive(array); }
 
   Status Visit(const TimestampArray& array) override {
     return Status::NotImplemented("timestamp");

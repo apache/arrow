@@ -19,10 +19,11 @@
 install(FILES
   api.h
   array.h
-  column.h
-  compare.h
   buffer.h
   builder.h
+  column.h
+  compare.h
+  loader.h
   memory_pool.h
   pretty_print.h
   schema.h

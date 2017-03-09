@@ -81,7 +81,11 @@ class TestPandasConversion(unittest.TestCase):
         arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
                                   field=field)
         result = arr.to_pandas()
-        tm.assert_series_equal(pd.Series(result), pd.Series(values), check_names=False)
+
+        assert arr.null_count == pd.isnull(values).sum()
+
+        tm.assert_series_equal(pd.Series(result), pd.Series(values),
+                               check_names=False)
 
     def test_float_no_nulls(self):
         data = {}

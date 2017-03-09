@@ -54,9 +54,7 @@ bool DataType::Equals(const DataType& other) const {
 }
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
-  if (!other) {
-    return false;
-  }
+  if (!other) { return false; }
   return Equals(*other.get());
 }
 
@@ -106,6 +104,10 @@ std::string DateType::ToString() const {
   return std::string("date");
 }
 
+std::string Date32Type::ToString() const {
+  return std::string("date32");
+}
+
 // ----------------------------------------------------------------------
 // Union type
 
@@ -135,11 +137,12 @@ std::string UnionType::ToString() const {
 // ----------------------------------------------------------------------
 // DictionaryType
 
-DictionaryType::DictionaryType(
-    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& dictionary)
+DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<Array>& dictionary, bool ordered)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
-      dictionary_(dictionary) {}
+      dictionary_(dictionary),
+      ordered_(ordered) {}
 
 int DictionaryType::bit_width() const {
   return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
@@ -178,6 +181,7 @@ ACCEPT_VISITOR(StructType);
 ACCEPT_VISITOR(DecimalType);
 ACCEPT_VISITOR(UnionType);
 ACCEPT_VISITOR(DateType);
+ACCEPT_VISITOR(Date32Type);
 ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
 ACCEPT_VISITOR(IntervalType);
@@ -205,9 +209,14 @@ TYPE_FACTORY(float64, DoubleType);
 TYPE_FACTORY(utf8, StringType);
 TYPE_FACTORY(binary, BinaryType);
 TYPE_FACTORY(date, DateType);
+TYPE_FACTORY(date32, Date32Type);
 
 std::shared_ptr<DataType> timestamp(TimeUnit unit) {
   return std::make_shared<TimestampType>(unit);
+}
+
+std::shared_ptr<DataType> timestamp(const std::string& timezone, TimeUnit unit) {
+  return std::make_shared<TimestampType>(timezone, unit);
 }
 
 std::shared_ptr<DataType> time(TimeUnit unit) {
@@ -313,6 +322,7 @@ TYPE_VISITOR_DEFAULT(DoubleType);
 TYPE_VISITOR_DEFAULT(StringType);
 TYPE_VISITOR_DEFAULT(BinaryType);
 TYPE_VISITOR_DEFAULT(DateType);
+TYPE_VISITOR_DEFAULT(Date32Type);
 TYPE_VISITOR_DEFAULT(TimeType);
 TYPE_VISITOR_DEFAULT(TimestampType);
 TYPE_VISITOR_DEFAULT(IntervalType);

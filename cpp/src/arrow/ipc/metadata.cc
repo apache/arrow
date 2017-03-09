@@ -289,6 +289,7 @@ FieldMetadata RecordBatchMetadata::field(int i) const {
   FieldMetadata result;
   result.length = node->length();
   result.null_count = node->null_count();
+  result.offset = 0;
   return result;
 }
 

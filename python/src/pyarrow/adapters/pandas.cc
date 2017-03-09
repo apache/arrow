@@ -34,6 +34,7 @@
 #include <unordered_map>
 
 #include "arrow/api.h"
+#include "arrow/loader.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -610,6 +611,7 @@ class PandasBlock {
     DOUBLE,
     BOOL,
     DATETIME,
+    DATETIME_WITH_TZ,
     CATEGORICAL
   };
 
@@ -1157,7 +1159,7 @@ class DataFrameBlockCreator {
       }
 
       int block_placement = 0;
-      if (column_type == Type::DICTIONARY) {
+      if (output_type == PandasBlock::CATEGORICAL) {
         std::shared_ptr<PandasBlock> block;
         RETURN_NOT_OK(MakeCategoricalBlock(col->type(), table_->num_rows(), &block));
         categorical_blocks_[i] = block;
@@ -1518,15 +1520,16 @@ inline Status ArrowSerializer<TYPE>::Convert(std::shared_ptr<Array>* out) {
     null_count = ValuesToBitmap<TYPE>(PyArray_DATA(arr_), length_, null_bitmap_data_);
   }
 
-  // For readability
-  constexpr int64_t kOffset = 0;
-
   RETURN_NOT_OK(ConvertData());
   std::shared_ptr<DataType> type;
   RETURN_NOT_OK(MakeDataType(&type));
-  RETURN_NOT_OK(
-      MakePrimitiveArray(type, length_, data_, null_bitmap_, null_count, kOffset, out));
-  return Status::OK();
+
+  std::vector<arrow::FieldMetadata> fields(1);
+  fields[0].length = length_;
+  fields[0].null_count = null_count;
+  fields[0].offset = 0;
+
+  return arrow::LoadArray(type, fields, {null_bitmap_, data_}, out);
 }
 
 template <>

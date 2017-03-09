@@ -69,6 +69,9 @@ class ARROW_EXPORT Column {
 
   Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data);
 
+  /// Construct from name and array
+  Column(const std::string& name, const std::shared_ptr<Array>& data);
+
   int64_t length() const { return data_->length(); }
 
   int64_t null_count() const { return data_->null_count(); }

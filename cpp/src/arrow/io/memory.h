@@ -43,12 +43,18 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
+  static Status Create(int64_t initial_capacity, MemoryPool* pool,
+      std::shared_ptr<BufferOutputStream>* out);
+
   ~BufferOutputStream();
 
   // Implement the OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) override;
   Status Write(const uint8_t* data, int64_t nbytes) override;
+
+  /// Close the stream and return the buffer
+  Status Finish(std::shared_ptr<Buffer>* result);
 
  private:
   // Ensures there is sufficient space available to write nbytes

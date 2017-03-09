@@ -145,6 +145,10 @@ class RangeEqualsVisitor : public ArrayVisitor {
 
   Status Visit(const DateArray& left) override { return CompareValues<DateArray>(left); }
 
+  Status Visit(const Date32Array& left) override {
+    return CompareValues<Date32Array>(left);
+  }
+
   Status Visit(const TimeArray& left) override { return CompareValues<TimeArray>(left); }
 
   Status Visit(const TimestampArray& left) override {
@@ -380,6 +384,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   Status Visit(const DoubleArray& left) override { return ComparePrimitive(left); }
 
   Status Visit(const DateArray& left) override { return ComparePrimitive(left); }
+
+  Status Visit(const Date32Array& left) override { return ComparePrimitive(left); }
 
   Status Visit(const TimeArray& left) override { return ComparePrimitive(left); }
 
@@ -622,7 +628,7 @@ class TypeEqualsVisitor : public TypeVisitor {
 
   Status Visit(const TimestampType& left) override {
     const auto& right = static_cast<const TimestampType&>(right_);
-    result_ = left.unit == right.unit;
+    result_ = left.unit == right.unit && left.timezone == right.timezone;
     return Status::OK();
   }
 

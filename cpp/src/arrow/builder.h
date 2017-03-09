@@ -233,6 +233,7 @@ using Int64Builder = NumericBuilder<Int64Type>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
 using TimeBuilder = NumericBuilder<TimeType>;
 using DateBuilder = NumericBuilder<DateType>;
+using Date32Builder = NumericBuilder<Date32Type>;
 
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;

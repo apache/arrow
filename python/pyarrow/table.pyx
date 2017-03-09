@@ -359,7 +359,8 @@ cdef class RecordBatch:
         """
         Number of rows
 
-        Due to the definition of a RecordBatch, all columns have the same number of rows.
+        Due to the definition of a RecordBatch, all columns have the same
+        number of rows.
 
         Returns
         -------

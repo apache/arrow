@@ -95,6 +95,10 @@ struct DateType;
 using DateArray = NumericArray<DateType>;
 using DateBuilder = NumericBuilder<DateType>;
 
+struct Date32Type;
+using Date32Array = NumericArray<Date32Type>;
+using Date32Builder = NumericBuilder<Date32Type>;
+
 struct TimeType;
 using TimeArray = NumericArray<TimeType>;
 using TimeBuilder = NumericBuilder<TimeType>;
@@ -125,6 +129,7 @@ std::shared_ptr<DataType> ARROW_EXPORT float64();
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
 std::shared_ptr<DataType> ARROW_EXPORT binary();
 std::shared_ptr<DataType> ARROW_EXPORT date();
+std::shared_ptr<DataType> ARROW_EXPORT date32();
 
 }  // namespace arrow
 
