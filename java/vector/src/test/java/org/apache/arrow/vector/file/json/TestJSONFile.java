@@ -120,6 +120,42 @@ public class TestJSONFile extends BaseFileTest {
   }
 
   @Test
+  public void testWriteReadDateTimeJSON() throws IOException {
+    File file = new File("target/mytest_datetime.json");
+    int count = COUNT;
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
+
+      writeDateTimeData(count, parent);
+
+      printVectors(parent.getChildrenFromFields());
+
+      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
+      validateDateTimeContent(count, root);
+
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")));
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateDateTimeContent(count, root);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
   public void testSetStructLength() throws IOException {
     File file = new File("../../integration/data/struct_example.json");
     try (
