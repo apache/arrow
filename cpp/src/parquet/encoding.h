@@ -66,8 +66,8 @@ class Encoder {
   Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Encoder(const ColumnDescriptor* descr, Encoding::type encoding,
-      ::arrow::MemoryPool* pool)
+  explicit Encoder(
+      const ColumnDescriptor* descr, Encoding::type encoding, ::arrow::MemoryPool* pool)
       : descr_(descr), encoding_(encoding), pool_(pool) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY

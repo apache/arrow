@@ -55,9 +55,7 @@ class CpuInfo {
   static int64_t hardware_flags();
 
   /// Returns whether of not the cpu supports this flag
-  inline static bool IsSupported(int64_t flag) {
-    return (hardware_flags_ & flag) != 0;
-  }
+  inline static bool IsSupported(int64_t flag) { return (hardware_flags_ & flag) != 0; }
 
   /// Toggle a hardware feature on and off.  It is not valid to turn on a feature
   /// that the underlying hardware cannot support. This is useful for testing.

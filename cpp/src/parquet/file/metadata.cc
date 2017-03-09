@@ -29,7 +29,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 
-
 namespace parquet {
 
 const ApplicationVersion ApplicationVersion::PARQUET_251_FIXED_VERSION =
@@ -496,7 +495,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
     build_ = app_matches[4];
     ver_success = boost::regex_match(version_str, ver_matches, ver_regex);
   } else {
-      application_ = "unknown";
+    application_ = "unknown";
   }
 
   if (ver_success && ver_matches.size() >= 7) {
