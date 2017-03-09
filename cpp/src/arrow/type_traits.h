@@ -135,7 +135,7 @@ struct TypeTraits<Date32Type> {
   using ArrayType = Date32Array;
   using BuilderType = Date32Builder;
 
-  static inline int64_t bytes_required(int32_t elements) {
+  static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = true;
