@@ -68,7 +68,7 @@ public class VectorLoader {
 
   private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(),
-                  "no more field nodes for for field " + field + " and vector " + vector);
+        "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();
     List<VectorLayout> typeLayout = field.getTypeLayout().getVectors();
     List<ArrowBuf> ownBuffers = new ArrayList<>(typeLayout.size());
@@ -79,7 +79,7 @@ public class VectorLoader {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
     } catch (RuntimeException e) {
       throw new IllegalArgumentException("Could not load buffers for field " +
-                                         field + ". error message: " + e.getMessage(), e);
+            field + ". error message: " + e.getMessage(), e);
     }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {

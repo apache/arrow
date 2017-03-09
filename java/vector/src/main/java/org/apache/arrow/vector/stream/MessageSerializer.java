@@ -17,7 +17,13 @@
  */
 package org.apache.arrow.vector.stream;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.google.flatbuffers.FlatBufferBuilder;
+
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Buffer;
 import org.apache.arrow.flatbuf.DictionaryBatch;
@@ -36,11 +42,6 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Utility class for serializing Messages. Messages are all serialized a similar way.
@@ -144,7 +145,7 @@ public class MessageSerializer {
       out.write(buffer);
       if (out.getCurrentPosition() != startPosition + layout.getSize()) {
         throw new IllegalStateException("wrong buffer size: " + out.getCurrentPosition() +
-                                        " != " + startPosition + layout.getSize());
+            " != " + startPosition + layout.getSize());
       }
     }
     return out.getCurrentPosition() - bufferStart;

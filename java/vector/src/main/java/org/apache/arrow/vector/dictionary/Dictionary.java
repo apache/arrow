@@ -18,11 +18,11 @@
  ******************************************************************************/
 package org.apache.arrow.vector.dictionary;
 
+import java.util.Objects;
+
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-
-import java.util.Objects;
 
 public class Dictionary {
 
