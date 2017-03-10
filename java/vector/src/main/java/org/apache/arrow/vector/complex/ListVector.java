@@ -110,9 +110,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     return innerVectors;
   }
 
-  @Override
-  public DictionaryEncoding getDictionaryEncoding() { return dictionary; }
-
   public UnionListWriter getWriter() {
     return writer;
   }
@@ -161,11 +158,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
     public TransferImpl(ListVector to) {
       this.to = to;
-      to.addOrGetVector(vector.getMinorType(), vector.getDictionaryEncoding());
+      to.addOrGetVector(vector.getMinorType(), vector.getField().getDictionary());
       pairs[0] = offsets.makeTransferPair(to.offsets);
       pairs[1] = bits.makeTransferPair(to.bits);
       if (to.getDataVector() instanceof ZeroVector) {
-        to.addOrGetVector(vector.getMinorType(), vector.getDictionaryEncoding());
+        to.addOrGetVector(vector.getMinorType(), vector.getField().getDictionary());
       }
       pairs[2] = getDataVector().makeTransferPair(to.getDataVector());
     }

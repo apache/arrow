@@ -80,9 +80,6 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   @Override
-  public DictionaryEncoding getDictionaryEncoding() { return dictionary; }
-
-  @Override
   public FieldReader getReader() {
     return reader;
   }

@@ -19,11 +19,9 @@ package org.apache.arrow.vector;
 
 import java.util.List;
 
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.types.pojo.Field;
-
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.pojo.Field;
 
 /**
  * A vector corresponding to a Field in the schema
@@ -62,6 +60,4 @@ public interface FieldVector extends ValueVector {
    * @return the inner vectors for this field as defined by the TypeLayout
    */
   List<BufferBacked> getFieldInnerVectors();
-
-  DictionaryEncoding getDictionaryEncoding();
 }

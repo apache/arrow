@@ -184,11 +184,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   @Override
-  public DictionaryEncoding getDictionaryEncoding() {
-    return dictionary;
-  }
-
-  @Override
   public FieldReader getReader(){
     return reader;
   }

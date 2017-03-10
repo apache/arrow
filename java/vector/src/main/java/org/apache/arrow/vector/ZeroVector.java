@@ -208,7 +208,4 @@ public class ZeroVector implements FieldVector {
   public List<BufferBacked> getFieldInnerVectors() {
     return Collections.emptyList();
   }
-
-  @Override
-  public DictionaryEncoding getDictionaryEncoding() { return null; }
 }

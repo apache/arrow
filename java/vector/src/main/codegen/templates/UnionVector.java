@@ -119,11 +119,6 @@ public class UnionVector implements FieldVector {
      return this.innerVectors;
   }
 
-  @Override
-  public DictionaryEncoding getDictionaryEncoding() {
-    return null;
-  }
-
   public NullableMapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
@@ -267,7 +262,7 @@ public class UnionVector implements FieldVector {
   public FieldVector addVector(FieldVector v) {
     String name = v.getMinorType().name().toLowerCase();
     Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final FieldVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass(), v.getDictionaryEncoding());
+    final FieldVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass(), v.getField().getDictionary());
     v.makeTransferPair(newVector).transfer();
     internalMap.putChild(name, newVector);
     if (callBack != null) {

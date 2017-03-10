@@ -160,7 +160,7 @@ public class MapVector extends AbstractMapVector {
         // (This is similar to what happens in ScanBatch where the children cannot be added till they are
         // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
         // include the hashCode of the children but is based only on MaterializedField$key.
-        final FieldVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass(), vector.getDictionaryEncoding());
+        final FieldVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass(), vector.getField().getDictionary());
         if (allocate && to.size() != preSize) {
           newVector.allocateNew();
         }

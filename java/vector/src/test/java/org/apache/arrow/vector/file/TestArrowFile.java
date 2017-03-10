@@ -50,6 +50,7 @@ import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.stream.MessageSerializerTest;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -205,7 +206,7 @@ public class TestArrowFile extends BaseFileTest {
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          MapVector parent = new MapVector("parent", originalVectorAllocator, null);
-         FileOutputStream fileOutputStream = new FileOutputStream(file);){
+         FileOutputStream fileOutputStream = new FileOutputStream(file)){
       writeData(counts[0], parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
 
@@ -449,7 +450,7 @@ public class TestArrowFile extends BaseFileTest {
   private void validateFlatDictionary(FieldVector vector, DictionaryProvider provider) {
     Assert.assertNotNull(vector);
 
-    DictionaryEncoding encoding = vector.getDictionaryEncoding();
+    DictionaryEncoding encoding = vector.getField().getDictionary();
     Assert.assertNotNull(encoding);
     Assert.assertEquals(1L, encoding.getId());
 
@@ -552,13 +553,13 @@ public class TestArrowFile extends BaseFileTest {
 
   private void validateNestedDictionary(ListVector vector, DictionaryProvider provider) {
     Assert.assertNotNull(vector);
-    Assert.assertNull(vector.getDictionaryEncoding());
+    Assert.assertNull(vector.getField().getDictionary());
     Field nestedField = vector.getField().getChildren().get(0);
 
     DictionaryEncoding encoding = nestedField.getDictionary();
     Assert.assertNotNull(encoding);
     Assert.assertEquals(2L, encoding.getId());
-    Assert.assertNull(encoding.getIndexType());
+    Assert.assertEquals(new Int(32, true), encoding.getIndexType());
 
     ListVector.Accessor accessor = vector.getAccessor();
     Assert.assertEquals(3, accessor.getValueCount());

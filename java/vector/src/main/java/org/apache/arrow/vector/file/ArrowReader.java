@@ -37,6 +37,7 @@ import org.apache.arrow.vector.schema.ArrowMessage.ArrowMessageVisitor;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -173,12 +174,16 @@ public abstract class ArrowReader<T extends ReadChannel> extends ArrowMagic impl
     if (encoding == null) {
       type = field.getType();
     } else {
-      // re-tyep the field for in-memory format
+      // re-type the field for in-memory format
       type = encoding.getIndexType();
+      if (type == null) {
+        type = new Int(32, true);
+      }
       // get existing or create dictionary vector
       if (!dictionaries.containsKey(encoding.getId())) {
         // create a new dictionary vector for the values
-        FieldVector dictionaryVector = field.createVector(allocator);
+        Field dictionaryField = new Field(field.getName(), field.isNullable(), field.getType(), null, children);
+        FieldVector dictionaryVector = dictionaryField.createVector(allocator);
         dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
       }
     }
