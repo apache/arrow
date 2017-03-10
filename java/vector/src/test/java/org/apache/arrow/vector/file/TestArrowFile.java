@@ -42,7 +42,7 @@ import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.dictionary.DictionaryUtils;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
@@ -402,7 +402,7 @@ public class TestArrowFile extends BaseFileTest {
       MapDictionaryProvider provider = new MapDictionaryProvider();
       provider.put(dictionary);
 
-      FieldVector encodedVector = (FieldVector) DictionaryUtils.encode(vector, dictionary);
+      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
 
       List<Field> fields = ImmutableList.of(encodedVector.getField());
       List<FieldVector> vectors = ImmutableList.of(encodedVector);

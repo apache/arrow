@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 public class ArrowFileWriter extends ArrowWriter {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileWriter.class);
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     super(root, provider, out);

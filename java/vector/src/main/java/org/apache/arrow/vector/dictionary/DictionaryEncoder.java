@@ -20,9 +20,7 @@ package org.apache.arrow.vector.dictionary;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
@@ -30,12 +28,10 @@ import com.google.common.collect.ImmutableList;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class DictionaryUtils {
+public class DictionaryEncoder {
 
   // TODO recursively examine fields?
 
@@ -130,7 +126,7 @@ public class DictionaryUtils {
     // byte arrays don't work as keys in our dictionary map - we could wrap them with something to
     // implement equals and hashcode if we want that functionality
     if (type == MinorType.VARBINARY || type == MinorType.LIST || type == MinorType.MAP || type == MinorType.UNION) {
-      throw new IllegalArgumentException("Dictionary encoding for complex types not implemented");
+      throw new IllegalArgumentException("Dictionary encoding for complex types not implemented: type " + type);
     }
   }
 }
