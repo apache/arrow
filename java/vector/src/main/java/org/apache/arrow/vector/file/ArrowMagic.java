@@ -17,8 +17,20 @@
  */
 package org.apache.arrow.vector.file;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class ArrowMagic {
-  protected static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
+
+  protected final int magicLength = MAGIC.length;
+
+  protected void writeMagic(WriteChannel out) throws IOException {
+    out.write(MAGIC);
+  }
+
+  protected boolean validateMagic(byte[] array) {
+    return Arrays.equals(MAGIC, array);
+  }
 }

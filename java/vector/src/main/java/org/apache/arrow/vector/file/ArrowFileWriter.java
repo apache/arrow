@@ -54,10 +54,6 @@ public class ArrowFileWriter extends ArrowWriter {
     out.writeIntLittleEndian(footerLength);
     LOGGER.debug(String.format("Footer starts at %d, length: %d", footerStart, footerLength));
     writeMagic(out);
-  }
-
-  private void writeMagic(WriteChannel out) throws IOException {
-    out.write(MAGIC);
     LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
   }
 }
