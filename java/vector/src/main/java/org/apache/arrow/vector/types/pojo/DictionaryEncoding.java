@@ -33,12 +33,19 @@ public class DictionaryEncoding {
   }
 
   public long getId() {
-  return id;
+    return id;
   }
 
   public boolean isOrdered() {
-  return ordered;
+    return ordered;
   }
 
-  public Int getIndexType() { return indexType; }
+  public Int getIndexType() {
+    return indexType;
+  }
+
+  @Override
+  public String toString() {
+    return "DictionaryEncoding[id=" + id + ",ordered=" + ordered + ",indexType=" + indexType + "]";
+  }
 }

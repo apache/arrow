@@ -34,11 +34,22 @@ public class Dictionary {
     this.encoding = encoding;
   }
 
-  public FieldVector getVector() { return dictionary; }
+  public FieldVector getVector() {
+    return dictionary;
+  }
 
-  public DictionaryEncoding getEncoding() { return encoding; }
+  public DictionaryEncoding getEncoding() {
+    return encoding;
+  }
 
-  public ArrowType getVectorType() { return dictionary.getField().getType(); }
+  public ArrowType getVectorType() {
+    return dictionary.getField().getType();
+  }
+
+  @Override
+  public String toString() {
+    return "Dictionary " + encoding + " " + dictionary;
+  }
 
   @Override
   public boolean equals(Object o) {
@@ -50,6 +61,6 @@ public class Dictionary {
 
   @Override
   public int hashCode() {
-  return Objects.hash(encoding, dictionary);
+    return Objects.hash(encoding, dictionary);
   }
 }

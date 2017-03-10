@@ -25,11 +25,23 @@ public interface DictionaryProvider {
   public Dictionary lookup(long id);
 
   public static class MapDictionaryProvider implements DictionaryProvider {
-    private final Map<Long, Dictionary> map = new HashMap<>();
 
-    public void put(Dictionary dictionary) { map.put(dictionary.getEncoding().getId(), dictionary); }
+    private final Map<Long, Dictionary> map;
+
+    public MapDictionaryProvider(Dictionary... dictionaries) {
+      this.map = new HashMap<>();
+      for (Dictionary dictionary: dictionaries) {
+        put(dictionary);
+      }
+    }
+
+    public void put(Dictionary dictionary) {
+      map.put(dictionary.getEncoding().getId(), dictionary);
+    }
 
     @Override
-    public Dictionary lookup(long id) { return map.get(id); }
+    public Dictionary lookup(long id) {
+      return map.get(id);
+    }
   }
 }
