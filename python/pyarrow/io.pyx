@@ -39,6 +39,7 @@ from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
                             table_from_ctable)
 
 cimport cpython as cp
+from cpython.buffer cimport PyBUF_READ
 
 import re
 import six
@@ -56,6 +57,9 @@ cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
+cdef extern from "Python.h":
+    PyObject* PyMemoryView_FromMemory" PyMemoryView_FromMemory"(
+        char *v, Py_ssize_t len, int flags) except NULL
 
 cdef class NativeFile:
 
@@ -449,12 +453,21 @@ cdef class Buffer:
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
+    def to_memoryview(self):
+        return PyObject_to_object(
+            PyMemoryView_FromMemory(
+                <char*>self.buffer.get().data(),
+                self.buffer.get().size(),
+                PyBUF_READ))
+
 
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))
     return result
 
+#cdef buffer_to_memoryview(const shared_ptr[CBuffer]& buf):
+    
 
 cdef class InMemoryOutputStream(NativeFile):
 

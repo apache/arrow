@@ -135,6 +135,16 @@ def test_buffer_bytes():
 
     assert result == val
 
+def test_buffer_memoryview_bytes():
+    val = b'some data'
+
+    buf = io.buffer_from_bytes(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = buf.to_memoryview().tobytes()
+
+    assert result == val
+
 
 def test_memory_output_stream():
     # 10 bytes
@@ -150,6 +160,7 @@ def test_memory_output_stream():
 
     assert len(buf) == len(val) * K
     assert buf.to_pybytes() == val * K
+    assert buf.to_memoryview().tobytes() == val * K
 
 
 def test_inmemory_write_after_closed():
