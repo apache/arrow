@@ -57,7 +57,7 @@ public class ArrowFileWriter extends ArrowWriter {
   }
 
   private void writeMagic(WriteChannel out) throws IOException {
-    out.write(ArrowFileReader.MAGIC);
+    out.write(MAGIC);
     LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
   }
 }
