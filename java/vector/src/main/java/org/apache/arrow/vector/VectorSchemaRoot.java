@@ -43,6 +43,10 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors, int rowCount) {
+    if (fields.size() != fieldVectors.size()) {
+      throw new IllegalArgumentException("Fields must match field vectors. Found " +
+          fieldVectors.size() + " vectors and " + fields.size() + " fields");
+    }
     this.schema = new Schema(fields);
     this.rowCount = rowCount;
     this.fieldVectors = fieldVectors;
