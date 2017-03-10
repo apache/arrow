@@ -57,7 +57,6 @@ package org.apache.arrow.vector.complex.writer;
     ${capName}Writer ${lowerName}(String name, int scale, int precision);
     </#if>
     ${capName}Writer ${lowerName}(String name);
-    ${capName}Writer ${lowerName}(String name, DictionaryEncoding dictionary);
     </#list></#list>
 
     void copyReaderToField(String name, FieldReader reader);
@@ -80,7 +79,6 @@ package org.apache.arrow.vector.complex.writer;
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
     ${capName}Writer ${lowerName}();
-    ${capName}Writer ${lowerName}(DictionaryEncoding dictionary);
     </#list></#list>
   }
 
@@ -108,18 +106,11 @@ package org.apache.arrow.vector.complex.writer;
     boolean isMapWriter();
     boolean isListWriter();
     VarCharWriter varChar(String name);
-    VarCharWriter varChar(String name, DictionaryEncoding dictionary);
     IntWriter integer(String name);
-    IntWriter integer(String name, DictionaryEncoding dictionary);
     BigIntWriter bigInt(String name);
-    BigIntWriter bigInt(String name, DictionaryEncoding dictionary);
     Float4Writer float4(String name);
-    Float4Writer float4(String name, DictionaryEncoding dictionary);
     Float8Writer float8(String name);
-    Float8Writer float8(String name, DictionaryEncoding dictionary);
     BitWriter bit(String name);
-    BitWriter bit(String name, DictionaryEncoding dictionary);
     VarBinaryWriter binary(String name);
-    VarBinaryWriter binary(String name, DictionaryEncoding dictionary);
   }
 }

@@ -214,16 +214,15 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   }
 
   public ${minor.class}Writer ${lowerName}(String name, int scale, int precision) {
-    DictionaryEncoding dictionary = null;
   <#else>
   @Override
-  public ${minor.class}Writer ${lowerName}(String name, DictionaryEncoding dictionary) {
+  public ${minor.class}Writer ${lowerName}(String name) {
   </#if>
     FieldWriter writer = fields.get(handleCase(name));
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
-      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class, dictionary<#if minor.class == "Decimal"> , new int[] {precision, scale}</#if>);
+      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class, null<#if minor.class == "Decimal"> , new int[] {precision, scale}</#if>);
       writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;
       if (currentVector == null || currentVector != vector) {
