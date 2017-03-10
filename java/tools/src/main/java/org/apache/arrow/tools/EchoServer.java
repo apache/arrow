@@ -18,8 +18,6 @@
 package org.apache.arrow.tools;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -27,6 +25,7 @@ import com.google.common.base.Preconditions;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.slf4j.Logger;
@@ -54,27 +53,28 @@ public class EchoServer {
 
     public void run() throws IOException {
       BufferAllocator  allocator = new RootAllocator(Long.MAX_VALUE);
-      try (
-        InputStream in = socket.getInputStream();
-        OutputStream out = socket.getOutputStream();
-        ArrowStreamReader reader = new ArrowStreamReader(in, allocator);
-        ArrowStreamWriter writer = new ArrowStreamWriter(reader.getVectorSchemaRoot(), reader, out)) {
-        // Read the entire input stream and write it back
-        writer.start();
-        int echoed = 0;
-        while (true) {
-          reader.loadNextBatch();
-          int loaded = reader.getVectorSchemaRoot().getRowCount();
-          if (loaded == 0) {
-            break;
-          } else {
-            writer.writeBatch();
-            echoed += loaded;
+      // Read the entire input stream and write it back
+      try (ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
+        VectorSchemaRoot root = reader.getVectorSchemaRoot();
+        // load the first batch before instantiating the writer so that we have any dictionaries
+        reader.loadNextBatch();
+        try (ArrowStreamWriter writer = new ArrowStreamWriter(root, reader, socket.getOutputStream())) {
+          writer.start();
+          int echoed = 0;
+          while (true) {
+            int rowCount = reader.getVectorSchemaRoot().getRowCount();
+            if (rowCount == 0) {
+              break;
+            } else {
+              writer.writeBatch();
+              echoed += rowCount;
+              reader.loadNextBatch();
+            }
           }
+          writer.end();
+          Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
+          LOGGER.info(String.format("Echoed %d records", echoed));
         }
-        writer.end();
-        Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
-        LOGGER.info(String.format("Echoed %d records", echoed));
       }
     }
 
