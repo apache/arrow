@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.vector.file;
+package org.apache.arrow.vector.util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
