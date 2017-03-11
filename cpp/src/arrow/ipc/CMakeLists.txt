@@ -25,11 +25,12 @@ set(ARROW_IPC_SHARED_LINK_LIBS
 )
 
 set(ARROW_IPC_TEST_LINK_LIBS
-  arrow_io_static
-  arrow_ipc_static)
+  arrow_ipc_static
+  arrow_io_static)
 
 set(ARROW_IPC_SRCS
   adapter.cc
+  feather.cc
   json.cc
   json-internal.cc
   metadata.cc
@@ -58,6 +59,10 @@ endif()
 if(FLATBUFFERS_VENDORED)
   add_dependencies(arrow_ipc_objlib flatbuffers_ep)
 endif()
+
+ADD_ARROW_TEST(feather-test)
+ARROW_TEST_LINK_LIBRARIES(feather-test
+  ${ARROW_IPC_TEST_LINK_LIBS})
 
 ADD_ARROW_TEST(ipc-adapter-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-adapter-test
@@ -105,14 +110,20 @@ if (ARROW_BUILD_TESTS)
 endif()
 
 # make clean will delete the generated file
-set_source_files_properties(Metadata_generated.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(Message_generated.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(feather_generated.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(File_generated.h PROPERTIES GENERATED TRUE)
 
 set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/arrow/ipc)
-set(FBS_OUTPUT_FILES "${OUTPUT_DIR}/Message_generated.h")
+set(FBS_OUTPUT_FILES
+  "${OUTPUT_DIR}/File_generated.h"
+  "${OUTPUT_DIR}/Message_generated.h"
+  "${OUTPUT_DIR}/feather_generated.h")
 
 set(FBS_SRC
   ${CMAKE_SOURCE_DIR}/../format/Message.fbs
-  ${CMAKE_SOURCE_DIR}/../format/File.fbs)
+  ${CMAKE_SOURCE_DIR}/../format/File.fbs
+  ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
 
 foreach(FIL ${FBS_SRC})
   get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
@@ -139,6 +150,7 @@ add_dependencies(arrow_ipc_objlib metadata_fbs)
 install(FILES
   adapter.h
   api.h
+  feather.h
   json.h
   metadata.h
   reader.h
