@@ -222,7 +222,7 @@ class TableReader::TableReaderImpl {
     source_ = source;
 
     int magic_size = static_cast<int>(strlen(kFeatherMagicBytes));
-    int footer_size = magic_size + sizeof(uint32_t);
+    int footer_size = magic_size + static_cast<int>(sizeof(uint32_t));
 
     // Pathological issue where the file is smaller than
     int64_t size = 0;
