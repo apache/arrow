@@ -437,6 +437,7 @@ set(CYTHON_EXTENSIONS
   config
   error
   io
+  _feather
   memory
   scalar
   schema

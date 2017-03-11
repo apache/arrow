@@ -540,6 +540,11 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
             block = _int.make_block(cat, placement=placement,
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)
+        elif 'timezone' in item:
+            from pandas.types.api import DatetimeTZDtype
+            dtype = DatetimeTZDtype('ns', tz=item['timezone'])
+            block = _int.make_block(block_arr, placement=placement,
+                                    dtype=dtype, fastpath=True)
         else:
             block = _int.make_block(block_arr, placement=placement)
         blocks.append(block)
