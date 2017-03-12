@@ -185,6 +185,9 @@ public class Field {
     if (!children.isEmpty()) {
       sb.append("<").append(Joiner.on(", ").join(children)).append(">");
     }
+    if (!nullable) {
+      sb.append(" not null");
+    }
     return sb.toString();
   }
 }

@@ -53,7 +53,7 @@ public class TestSchema {
         ));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Int(8, true), b: Struct<c: Int(16, true), d: Utf8>, e: List<Date>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND), h: Interval(DAY_TIME)>",
+        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND), h: Interval(DAY_TIME)>",
         schema.toString());
   }
 
