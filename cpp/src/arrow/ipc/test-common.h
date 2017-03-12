@@ -425,6 +425,103 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
+  const int64_t length = 6;
+
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::shared_ptr<Array> dict1, dict2;
+
+  std::vector<std::string> dict1_values = {"foo", "bar", "baz"};
+  std::vector<std::string> dict2_values = {"foo", "bar", "baz", "qux"};
+
+  ArrayFromVector<StringType, std::string>(dict1_values, &dict1);
+  ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
+
+  auto f0_type = arrow::dictionary(arrow::int32(), dict1);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
+  auto f2_type = arrow::dictionary(arrow::int32(), dict2);
+
+  std::shared_ptr<Array> indices0, indices1, indices2;
+  std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
+  std::vector<int8_t> indices1_values = {0, 0, 2, 2, 1, 1};
+  std::vector<int32_t> indices2_values = {3, 0, 2, 1, 0, 2};
+
+  ArrayFromVector<Int32Type, int32_t>(is_valid, indices0_values, &indices0);
+  ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
+  ArrayFromVector<Int32Type, int32_t>(is_valid, indices2_values, &indices2);
+
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1);
+  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
+
+  // construct batch
+  std::shared_ptr<Schema> schema(new Schema(
+      {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type)}));
+
+  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2};
+  out->reset(new RecordBatch(schema, length, arrays));
+  return Status::OK();
+}
+
+Status MakeDates(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
+  auto f0 = field("f0", date32());
+  auto f1 = field("f1", date());
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  std::vector<int64_t> date_values = {1489269000000, 1489270000000, 1489271000000,
+      1489272000000, 1489272000000, 1489273000000};
+  std::vector<int32_t> date32_values = {0, 1, 2, 3, 4, 5, 6};
+
+  std::shared_ptr<Array> date_array, date32_array;
+  ArrayFromVector<DateType, int64_t>(is_valid, date_values, &date_array);
+  ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
+
+  std::vector<std::shared_ptr<Array>> arrays = {date32_array, date_array};
+  *out = std::make_shared<RecordBatch>(schema, date_array->length(), arrays);
+  return Status::OK();
+}
+
+Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
+  auto f0 = field("f0", timestamp(TimeUnit::MILLI));
+  auto f1 = field("f1", timestamp(TimeUnit::NANO));
+  auto f2 = field("f2", timestamp("US/Los_Angeles", TimeUnit::SECOND));
+  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+
+  std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
+      1489272000000, 1489272000000, 1489273000000};
+
+  std::shared_ptr<Array> a0, a1, a2;
+  ArrayFromVector<TimestampType, int64_t>(f0->type, is_valid, ts_values, &a0);
+  ArrayFromVector<TimestampType, int64_t>(f1->type, is_valid, ts_values, &a1);
+  ArrayFromVector<TimestampType, int64_t>(f2->type, is_valid, ts_values, &a2);
+
+  ArrayVector arrays = {a0, a1, a2};
+  *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
+  return Status::OK();
+}
+
+Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
+  auto f0 = field("f0", time(TimeUnit::MILLI));
+  auto f1 = field("f1", time(TimeUnit::NANO));
+  auto f2 = field("f2", time(TimeUnit::SECOND));
+  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+
+  std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
+      1489272000000, 1489272000000, 1489273000000};
+
+  std::shared_ptr<Array> a0, a1, a2;
+  ArrayFromVector<TimeType, int64_t>(f0->type, is_valid, ts_values, &a0);
+  ArrayFromVector<TimeType, int64_t>(f1->type, is_valid, ts_values, &a1);
+  ArrayFromVector<TimeType, int64_t>(f2->type, is_valid, ts_values, &a2);
+
+  ArrayVector arrays = {a0, a1, a2};
+  *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
+  return Status::OK();
+}
+
 }  // namespace ipc
 }  // namespace arrow
 

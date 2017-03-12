@@ -63,6 +63,8 @@
 
 namespace arrow {
 
+using ArrayVector = std::vector<std::shared_ptr<Array>>;
+
 namespace test {
 
 template <typename T>
@@ -231,6 +233,22 @@ class TestBase : public ::testing::Test {
   uint32_t random_seed_;
   MemoryPool* pool_;
 };
+
+template <typename TYPE, typename C_TYPE>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+    const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
+    std::shared_ptr<Array>* out) {
+  MemoryPool* pool = default_memory_pool();
+  typename TypeTraits<TYPE>::BuilderType builder(pool, type);
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (is_valid[i]) {
+      ASSERT_OK(builder.Append(values[i]));
+    } else {
+      ASSERT_OK(builder.AppendNull());
+    }
+  }
+  ASSERT_OK(builder.Finish(out));
+}
 
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,

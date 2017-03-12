@@ -344,44 +344,6 @@ TEST_F(TestTableWriter, PrimitiveRoundTrip) {
   ASSERT_EQ("f1", col->name());
 }
 
-Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
-  const int64_t length = 6;
-
-  std::vector<bool> is_valid = {true, true, false, true, true, true};
-  std::shared_ptr<Array> dict1, dict2;
-
-  std::vector<std::string> dict1_values = {"foo", "bar", "baz"};
-  std::vector<std::string> dict2_values = {"foo", "bar", "baz", "qux"};
-
-  ArrayFromVector<StringType, std::string>(dict1_values, &dict1);
-  ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
-
-  auto f0_type = arrow::dictionary(arrow::int32(), dict1);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
-  auto f2_type = arrow::dictionary(arrow::int32(), dict2);
-
-  std::shared_ptr<Array> indices0, indices1, indices2;
-  std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
-  std::vector<int8_t> indices1_values = {0, 0, 2, 2, 1, 1};
-  std::vector<int32_t> indices2_values = {3, 0, 2, 1, 0, 2};
-
-  ArrayFromVector<Int32Type, int32_t>(is_valid, indices0_values, &indices0);
-  ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
-  ArrayFromVector<Int32Type, int32_t>(is_valid, indices2_values, &indices2);
-
-  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0);
-  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1);
-  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
-
-  // construct batch
-  std::shared_ptr<Schema> schema(new Schema(
-      {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type)}));
-
-  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2};
-  out->reset(new RecordBatch(schema, length, arrays));
-  return Status::OK();
-}
-
 TEST_F(TestTableWriter, CategoryRoundtrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionaryFlat(&batch));
