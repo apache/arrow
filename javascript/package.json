@@ -1,0 +1,19 @@
+{
+  "name": "arrow",
+  "version": "0.0.0",
+  "description": "",
+  "main": "dist/arrow.js",
+  "scripts": {
+    "postinstall": "./postinstall.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "flatbuffers": "^1.5.0",
+    "text-encoding": "^0.6.4"
+  },
+  "dependencies": {
+    "commander": "^2.9.0"
+  }
+}
