@@ -124,7 +124,7 @@ Install `pyarrow`
     # --with-jemalloc enables the jemalloc allocator support in PyArrow
     # --build-type=release disables debugging information and turns on
     #       compiler optimizations for native code
-    python setup.py build_ext --with-parquet --with--jemalloc --build-type=release install
+    python setup.py build_ext --with-parquet --with-jemalloc --build-type=release install
     python setup.py install
 
 .. warning::
@@ -134,7 +134,7 @@ Install `pyarrow`
 .. note::
     In development installations, you will also need to set a correct
     ``LD_LIBARY_PATH``. This is most probably done with
-    ``export LD_LIBARY_PATH=$ARROW_HOME/lib:$LD_LIBARY_PATH``.
+    ``export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH``.
 
 
 .. code-block:: python
