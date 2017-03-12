@@ -26,9 +26,8 @@
 
 #include "pyarrow/common.h"
 
-using arrow::Status;
-
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 // ----------------------------------------------------------------------
 // Python file
@@ -151,7 +150,7 @@ Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   return Status::OK();
 }
 
-Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) {
+Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   PyAcquireGIL lock;
 
   PyObject* bytes_obj;
@@ -214,8 +213,9 @@ Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 // A readable file that is backed by a PyBytes
 
 PyBytesReader::PyBytesReader(PyObject* obj)
-    : arrow::io::BufferReader(std::make_shared<PyBytesBuffer>(obj)) {}
+    : io::BufferReader(std::make_shared<PyBytesBuffer>(obj)) {}
 
 PyBytesReader::~PyBytesReader() {}
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow

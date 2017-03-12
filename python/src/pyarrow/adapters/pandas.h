@@ -25,28 +25,26 @@
 
 #include <memory>
 
-#include "pyarrow/visibility.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
 class Column;
-class Field;
+class DataType;
 class MemoryPool;
 class Status;
 class Table;
 
-}  // namespace arrow
+namespace py {
 
-namespace pyarrow {
+ARROW_EXPORT
+Status ConvertArrayToPandas(
+    const std::shared_ptr<Array>& arr, PyObject* py_ref, PyObject** out);
 
-PYARROW_EXPORT
-arrow::Status ConvertArrayToPandas(
-    const std::shared_ptr<arrow::Array>& arr, PyObject* py_ref, PyObject** out);
-
-PYARROW_EXPORT
-arrow::Status ConvertColumnToPandas(
-    const std::shared_ptr<arrow::Column>& col, PyObject* py_ref, PyObject** out);
+ARROW_EXPORT
+Status ConvertColumnToPandas(
+    const std::shared_ptr<Column>& col, PyObject* py_ref, PyObject** out);
 
 struct PandasOptions {
   bool strings_to_categorical;
@@ -58,14 +56,24 @@ struct PandasOptions {
 // BlockManager structure of the pandas.DataFrame used as of pandas 0.19.x.
 //
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
-PYARROW_EXPORT
-arrow::Status ConvertTableToPandas(
-    const std::shared_ptr<arrow::Table>& table, int nthreads, PyObject** out);
+ARROW_EXPORT
+Status ConvertTableToPandas(
+    const std::shared_ptr<Table>& table, int nthreads, PyObject** out);
 
-PYARROW_EXPORT
-arrow::Status PandasToArrow(arrow::MemoryPool* pool, PyObject* ao, PyObject* mo,
-    const std::shared_ptr<arrow::Field>& field, std::shared_ptr<arrow::Array>* out);
+ARROW_EXPORT
+Status PandasDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
 
-}  // namespace pyarrow
+ARROW_EXPORT
+Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+
+/// Convert dtype=object arrays. If target data type is not known, pass a type
+/// with nullptr
+ARROW_EXPORT
+Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_ADAPTERS_PANDAS_H

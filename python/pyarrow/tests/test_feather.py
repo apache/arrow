@@ -23,8 +23,8 @@ import numpy as np
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
+import pyarrow as pa
 from pyarrow.compat import guid
-from pyarrow.error import ArrowException
 from pyarrow.feather import (read_feather, write_feather,
                              FeatherReader)
 from pyarrow._feather import FeatherWriter
@@ -47,7 +47,7 @@ class TestFeatherReader(unittest.TestCase):
                 pass
 
     def test_file_not_exist(self):
-        with self.assertRaises(ArrowException):
+        with self.assertRaises(pa.ArrowException):
             FeatherReader('test_invalid_file')
 
     def _get_null_counts(self, path, columns=None):
@@ -291,7 +291,6 @@ class TestFeatherReader(unittest.TestCase):
         self._check_pandas_roundtrip(df, expected,
                                      null_counts=[2 * repeats])
 
-    @pytest.mark.xfail
     def test_timestamp(self):
         df = pd.DataFrame({'naive': pd.date_range('2016-03-28', periods=10)})
         df['with_tz'] = (df.naive.dt.tz_localize('utc')
@@ -299,7 +298,6 @@ class TestFeatherReader(unittest.TestCase):
 
         self._check_pandas_roundtrip(df)
 
-    @pytest.mark.xfail
     def test_timestamp_with_nulls(self):
         df = pd.DataFrame({'test': [pd.datetime(2016, 1, 1),
                                     None,
@@ -308,7 +306,6 @@ class TestFeatherReader(unittest.TestCase):
 
         self._check_pandas_roundtrip(df, null_counts=[1, 1])
 
-    @pytest.mark.xfail
     def test_out_of_float64_timestamp_with_nulls(self):
         df = pd.DataFrame(
             {'test': pd.DatetimeIndex([1451606400000000001,

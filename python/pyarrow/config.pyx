@@ -17,10 +17,10 @@
 cdef extern from 'pyarrow/do_import_numpy.h':
     pass
 
-cdef extern from 'pyarrow/numpy_interop.h' namespace 'pyarrow':
+cdef extern from 'pyarrow/numpy_interop.h' namespace 'arrow::py':
     int import_numpy()
 
-cdef extern from 'pyarrow/config.h' namespace 'pyarrow':
+cdef extern from 'pyarrow/config.h' namespace 'arrow::py':
     void pyarrow_init()
     void pyarrow_set_numpy_nan(object o)
 

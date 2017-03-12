@@ -108,6 +108,31 @@ std::string Date32Type::ToString() const {
   return std::string("date32");
 }
 
+static inline void print_time_unit(TimeUnit unit, std::ostream* stream) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      (*stream) << "s";
+      break;
+    case TimeUnit::MILLI:
+      (*stream) << "ms";
+      break;
+    case TimeUnit::MICRO:
+      (*stream) << "us";
+      break;
+    case TimeUnit::NANO:
+      (*stream) << "ns";
+      break;
+  }
+}
+
+std::string TimestampType::ToString() const {
+  std::stringstream ss;
+  ss << "timestamp[";
+  print_time_unit(this->unit, &ss);
+  ss << "]";
+  return ss.str();
+}
+
 // ----------------------------------------------------------------------
 // Union type
 

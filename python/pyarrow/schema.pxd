@@ -16,7 +16,9 @@
 # under the License.
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CDataType, CDictionaryType,
+from pyarrow.includes.libarrow cimport (CDataType,
+                                        CDictionaryType,
+                                        CTimestampType,
                                         CField, CSchema)
 
 cdef class DataType:
@@ -30,6 +32,12 @@ cdef class DataType:
 cdef class DictionaryType(DataType):
     cdef:
         const CDictionaryType* dict_type
+
+
+cdef class TimestampType(DataType):
+    cdef:
+        const CTimestampType* ts_type
+
 
 cdef class Field:
     cdef:

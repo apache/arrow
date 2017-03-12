@@ -24,24 +24,23 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
-using arrow::Status;
-
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 static std::mutex memory_pool_mutex;
-static arrow::MemoryPool* default_pyarrow_pool = nullptr;
+static MemoryPool* default_pyarrow_pool = nullptr;
 
-void set_default_memory_pool(arrow::MemoryPool* pool) {
+void set_default_memory_pool(MemoryPool* pool) {
   std::lock_guard<std::mutex> guard(memory_pool_mutex);
   default_pyarrow_pool = pool;
 }
 
-arrow::MemoryPool* get_memory_pool() {
+MemoryPool* get_memory_pool() {
   std::lock_guard<std::mutex> guard(memory_pool_mutex);
   if (default_pyarrow_pool) {
     return default_pyarrow_pool;
   } else {
-    return arrow::default_memory_pool();
+    return default_memory_pool();
   }
 }
 
@@ -60,4 +59,5 @@ PyBytesBuffer::~PyBytesBuffer() {
   Py_DECREF(obj_);
 }
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow

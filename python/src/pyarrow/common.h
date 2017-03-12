@@ -19,16 +19,16 @@
 #define PYARROW_COMMON_H
 
 #include "pyarrow/config.h"
-#include "pyarrow/visibility.h"
 
 #include "arrow/buffer.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
-class MemoryPool;
-}
 
-namespace pyarrow {
+class MemoryPool;
+
+namespace py {
 
 class PyAcquireGIL {
  public:
@@ -98,10 +98,10 @@ struct PyObjectStringify {
   }
 
 // Return the common PyArrow memory pool
-PYARROW_EXPORT void set_default_memory_pool(arrow::MemoryPool* pool);
-PYARROW_EXPORT arrow::MemoryPool* get_memory_pool();
+ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);
+ARROW_EXPORT MemoryPool* get_memory_pool();
 
-class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
+class ARROW_EXPORT NumPyBuffer : public Buffer {
  public:
   NumPyBuffer(PyArrayObject* arr) : Buffer(nullptr, 0) {
     arr_ = arr;
@@ -118,7 +118,7 @@ class PYARROW_EXPORT NumPyBuffer : public arrow::Buffer {
   PyArrayObject* arr_;
 };
 
-class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
+class ARROW_EXPORT PyBytesBuffer : public Buffer {
  public:
   PyBytesBuffer(PyObject* obj);
   ~PyBytesBuffer();
@@ -127,6 +127,7 @@ class PYARROW_EXPORT PyBytesBuffer : public arrow::Buffer {
   PyObject* obj_;
 };
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_COMMON_H
