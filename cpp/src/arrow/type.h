@@ -452,7 +452,7 @@ struct ARROW_EXPORT Date32Type : public FixedWidthType {
 
   Date32Type() : FixedWidthType(Type::DATE32) {}
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
