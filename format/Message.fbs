@@ -68,6 +68,11 @@ table Utf8 {
 table Binary {
 }
 
+table FixedWidthBinary {
+  /// Number of bytes per value
+  byteWidth: int;
+}
+
 table Bool {
 }
 
@@ -113,7 +118,8 @@ union Type {
   Interval,
   List,
   Struct_,
-  Union
+  Union,
+  FixedWidthBinary
 }
 
 /// ----------------------------------------------------------------------

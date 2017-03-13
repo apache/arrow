@@ -88,6 +88,14 @@ std::string BinaryType::ToString() const {
   return std::string("binary");
 }
 
+int FixedWidthBinaryType::bit_width() const {
+  return 8 * byte_width();
+}
+
+std::string FixedWidthBinaryType::ToString() const {
+  return "fixed_width_binary";
+}
+
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
@@ -200,6 +208,7 @@ std::string NullType::ToString() const {
 ACCEPT_VISITOR(NullType);
 ACCEPT_VISITOR(BooleanType);
 ACCEPT_VISITOR(BinaryType);
+ACCEPT_VISITOR(FixedWidthBinaryType);
 ACCEPT_VISITOR(StringType);
 ACCEPT_VISITOR(ListType);
 ACCEPT_VISITOR(StructType);
@@ -235,6 +244,10 @@ TYPE_FACTORY(utf8, StringType);
 TYPE_FACTORY(binary, BinaryType);
 TYPE_FACTORY(date, DateType);
 TYPE_FACTORY(date32, Date32Type);
+
+std::shared_ptr<DataType> fixed_width_binary(int byte_width) {
+  return std::make_shared<FixedWidthBinaryType>(byte_width);
+}
 
 std::shared_ptr<DataType> timestamp(TimeUnit unit) {
   return std::make_shared<TimestampType>(unit);
@@ -296,6 +309,10 @@ std::vector<BufferDescr> BinaryType::GetBufferLayout() const {
   return {kValidityBuffer, kOffsetBuffer, kValues8};
 }
 
+std::vector<BufferDescr> FixedWidthBinaryType::GetBufferLayout() const {
+  return {kValidityBuffer, BufferDescr(BufferType::DATA, byte_width_ * 8)};
+}
+
 std::vector<BufferDescr> ListType::GetBufferLayout() const {
   return {kValidityBuffer, kOffsetBuffer};
 }
@@ -346,6 +363,7 @@ TYPE_VISITOR_DEFAULT(FloatType);
 TYPE_VISITOR_DEFAULT(DoubleType);
 TYPE_VISITOR_DEFAULT(StringType);
 TYPE_VISITOR_DEFAULT(BinaryType);
+TYPE_VISITOR_DEFAULT(FixedWidthBinaryType);
 TYPE_VISITOR_DEFAULT(DateType);
 TYPE_VISITOR_DEFAULT(Date32Type);
 TYPE_VISITOR_DEFAULT(TimeType);
