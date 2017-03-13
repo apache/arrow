@@ -18,19 +18,18 @@
 #ifndef PYARROW_HELPERS_H
 #define PYARROW_HELPERS_H
 
-#include <arrow/api.h>
 #include <memory>
 
-#include "pyarrow/visibility.h"
+#include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
-using arrow::DataType;
-using arrow::Type;
-
-PYARROW_EXPORT
+ARROW_EXPORT
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_HELPERS_H

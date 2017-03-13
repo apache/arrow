@@ -26,22 +26,18 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.array cimport Array
+from pyarrow.error cimport check_status
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
-                                        Type_NA, Type_BOOL,
-                                        Type_UINT8, Type_INT8,
-                                        Type_UINT16, Type_INT16,
-                                        Type_UINT32, Type_INT32,
-                                        Type_UINT64, Type_INT64,
-                                        Type_TIMESTAMP, Type_DATE,
-                                        Type_FLOAT, Type_DOUBLE,
-                                        Type_STRING, Type_BINARY,
                                         TimeUnit_SECOND, TimeUnit_MILLI,
                                         TimeUnit_MICRO, TimeUnit_NANO,
                                         Type, TimeUnit)
 cimport pyarrow.includes.pyarrow as pyarrow
-cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow as la
 
 cimport cpython
+
+import six
+
 
 cdef class DataType:
 
@@ -73,11 +69,31 @@ cdef class DictionaryType(DataType):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
-    def __str__(self):
-        return frombytes(self.type.ToString())
-
     def __repr__(self):
         return 'DictionaryType({0})'.format(str(self))
+
+
+cdef class TimestampType(DataType):
+
+    cdef init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.ts_type = <const CTimestampType*> type.get()
+
+    property unit:
+
+        def __get__(self):
+            return timeunit_to_string(self.ts_type.unit)
+
+    property tz:
+
+        def __get__(self):
+            if self.ts_type.timezone.size() > 0:
+                return frombytes(self.ts_type.timezone)
+            else:
+                return None
+
+    def __repr__(self):
+        return 'TimestampType({0})'.format(str(self))
 
 
 cdef class Field:
@@ -205,49 +221,76 @@ cdef DataType primitive_type(Type type):
 def field(name, type, bint nullable=True):
     return Field.from_py(name, type, nullable)
 
+
 cdef set PRIMITIVE_TYPES = set([
-    Type_NA, Type_BOOL,
-    Type_UINT8, Type_INT8,
-    Type_UINT16, Type_INT16,
-    Type_UINT32, Type_INT32,
-    Type_UINT64, Type_INT64,
-    Type_TIMESTAMP, Type_DATE,
-    Type_FLOAT, Type_DOUBLE])
+    la.Type_NA, la.Type_BOOL,
+    la.Type_UINT8, la.Type_INT8,
+    la.Type_UINT16, la.Type_INT16,
+    la.Type_UINT32, la.Type_INT32,
+    la.Type_UINT64, la.Type_INT64,
+    la.Type_TIMESTAMP, la.Type_DATE,
+    la.Type_FLOAT, la.Type_DOUBLE])
+
 
 def null():
-    return primitive_type(Type_NA)
+    return primitive_type(la.Type_NA)
+
 
 def bool_():
-    return primitive_type(Type_BOOL)
+    return primitive_type(la.Type_BOOL)
+
 
 def uint8():
-    return primitive_type(Type_UINT8)
+    return primitive_type(la.Type_UINT8)
+
 
 def int8():
-    return primitive_type(Type_INT8)
+    return primitive_type(la.Type_INT8)
+
 
 def uint16():
-    return primitive_type(Type_UINT16)
+    return primitive_type(la.Type_UINT16)
+
 
 def int16():
-    return primitive_type(Type_INT16)
+    return primitive_type(la.Type_INT16)
+
 
 def uint32():
-    return primitive_type(Type_UINT32)
+    return primitive_type(la.Type_UINT32)
+
 
 def int32():
-    return primitive_type(Type_INT32)
+    return primitive_type(la.Type_INT32)
+
 
 def uint64():
-    return primitive_type(Type_UINT64)
+    return primitive_type(la.Type_UINT64)
+
 
 def int64():
-    return primitive_type(Type_INT64)
+    return primitive_type(la.Type_INT64)
+
 
 cdef dict _timestamp_type_cache = {}
 
-def timestamp(unit_str):
-    cdef TimeUnit unit
+
+cdef timeunit_to_string(TimeUnit unit):
+    if unit == TimeUnit_SECOND:
+        return 's'
+    elif unit == TimeUnit_MILLI:
+        return 'ms'
+    elif unit == TimeUnit_MICRO:
+        return 'us'
+    elif unit == TimeUnit_NANO:
+        return 'ns'
+
+
+def timestamp(unit_str, tz=None):
+    cdef:
+        TimeUnit unit
+        c_string c_timezone
+
     if unit_str == "s":
         unit = TimeUnit_SECOND
     elif unit_str == 'ms':
@@ -259,34 +302,47 @@ def timestamp(unit_str):
     else:
         raise TypeError('Invalid TimeUnit string')
 
-    if unit in _timestamp_type_cache:
-        return _timestamp_type_cache[unit]
+    cdef TimestampType out = TimestampType()
 
-    cdef DataType out = DataType()
-    out.init(libarrow.timestamp(unit))
-    _timestamp_type_cache[unit] = out
+    if tz is None:
+        out.init(la.timestamp(unit))
+        if unit in _timestamp_type_cache:
+            return _timestamp_type_cache[unit]
+        _timestamp_type_cache[unit] = out
+    else:
+        if not isinstance(tz, six.string_types):
+            tz = tz.zone
+
+        c_timezone = tobytes(tz)
+        out.init(la.timestamp(c_timezone, unit))
+
     return out
 
+
 def date():
-    return primitive_type(Type_DATE)
+    return primitive_type(la.Type_DATE)
+
 
 def float_():
-    return primitive_type(Type_FLOAT)
+    return primitive_type(la.Type_FLOAT)
+
 
 def double():
-    return primitive_type(Type_DOUBLE)
+    return primitive_type(la.Type_DOUBLE)
+
 
 def string():
     """
     UTF8 string
     """
-    return primitive_type(Type_STRING)
+    return primitive_type(la.Type_STRING)
+
 
 def binary():
     """
     Binary (PyBytes-like) type
     """
-    return primitive_type(Type_BINARY)
+    return primitive_type(la.Type_BINARY)
 
 
 def list_(DataType value_type):
@@ -326,13 +382,25 @@ def struct(fields):
     out.init(struct_type)
     return out
 
+
 def schema(fields):
     return Schema.from_fields(fields)
 
+
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):
+    cdef:
+        DataType out
+
     if type.get() == NULL:
         return None
-    cdef DataType out = DataType()
+
+    if type.get().type == la.Type_DICTIONARY:
+        out = DictionaryType()
+    elif type.get().type == la.Type_TIMESTAMP:
+        out = TimestampType()
+    else:
+        out = DataType()
+
     out.init(type)
     return out
 
@@ -347,3 +415,11 @@ cdef Schema box_schema(const shared_ptr[CSchema]& type):
     cdef Schema out = Schema()
     out.init_schema(type)
     return out
+
+
+def type_from_numpy_dtype(object dtype):
+    cdef shared_ptr[CDataType] c_type
+    with nogil:
+        check_status(pyarrow.PandasDtypeToArrow(dtype, &c_type))
+
+    return box_data_type(c_type)

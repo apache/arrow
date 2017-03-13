@@ -30,7 +30,7 @@ import pyarrow.config
 from pyarrow.array cimport Array, box_array, wrap_array_output
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
-from pyarrow.schema cimport box_data_type, box_schema, Field
+from pyarrow.schema cimport box_data_type, box_schema, DataType
 
 from pyarrow.compat import frombytes, tobytes
 
@@ -302,14 +302,15 @@ cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
     cdef:
         list names = []
         list arrays = []
-        Field field = None
+        DataType type = None
 
     for name in df.columns:
         col = df[name]
         if schema is not None:
-            field = schema.field_by_name(name)
-        arr = Array.from_pandas(col, timestamps_to_ms=timestamps_to_ms,
-                                field=field)
+            type = schema.field_by_name(name).type
+
+        arr = Array.from_pandas(col, type=type,
+                                timestamps_to_ms=timestamps_to_ms)
         names.append(name)
         arrays.append(arr)
 
@@ -522,6 +523,7 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
 
     import pandas.core.internals as _int
     from pandas import RangeIndex, Categorical
+    from pyarrow.compat import DatetimeTZDtype
 
     with nogil:
         check_status(pyarrow.ConvertTableToPandas(table, nthreads,
@@ -541,9 +543,9 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)
         elif 'timezone' in item:
-            from pandas.types.api import DatetimeTZDtype
             dtype = DatetimeTZDtype('ns', tz=item['timezone'])
             block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
                                     dtype=dtype, fastpath=True)
         else:
             block = _int.make_block(block_arr, placement=placement)

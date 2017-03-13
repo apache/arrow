@@ -27,13 +27,8 @@
 #include "pyarrow/helpers.h"
 #include "pyarrow/util/datetime.h"
 
-using arrow::ArrayBuilder;
-using arrow::DataType;
-using arrow::MemoryPool;
-using arrow::Status;
-using arrow::Type;
-
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 static inline bool IsPyInteger(PyObject* obj) {
 #if PYARROW_IS_PY2
@@ -82,22 +77,22 @@ class ScalarVisitor {
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
     if (float_count_) {
-      return arrow::float64();
+      return float64();
     } else if (int_count_) {
       // TODO(wesm): tighter type later
-      return arrow::int64();
+      return int64();
     } else if (date_count_) {
-      return arrow::date();
+      return date();
     } else if (timestamp_count_) {
-      return arrow::timestamp(arrow::TimeUnit::MICRO);
+      return timestamp(TimeUnit::MICRO);
     } else if (bool_count_) {
-      return arrow::boolean();
+      return boolean();
     } else if (binary_count_) {
-      return arrow::binary();
+      return binary();
     } else if (unicode_count_) {
-      return arrow::utf8();
+      return utf8();
     } else {
-      return arrow::null();
+      return null();
     }
   }
 
@@ -157,14 +152,14 @@ class SeqVisitor {
   std::shared_ptr<DataType> GetType() {
     if (scalars_.total_count() == 0) {
       if (max_nesting_level_ == 0) {
-        return arrow::null();
+        return null();
       } else {
         return nullptr;
       }
     } else {
       std::shared_ptr<DataType> result = scalars_.GetType();
       for (int i = 0; i < max_nesting_level_; ++i) {
-        result = std::make_shared<arrow::ListType>(result);
+        result = std::make_shared<ListType>(result);
       }
       return result;
     }
@@ -215,7 +210,7 @@ Status InferArrowType(PyObject* obj, int64_t* size, std::shared_ptr<DataType>* o
   }
 
   // For 0-length sequences, refuse to guess
-  if (*size == 0) { *out_type = arrow::null(); }
+  if (*size == 0) { *out_type = null(); }
 
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));
@@ -255,7 +250,7 @@ class TypedConverter : public SeqConverter {
   BuilderType* typed_builder_;
 };
 
-class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
+class BoolConverter : public TypedConverter<BooleanBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     Py_ssize_t size = PySequence_Size(seq);
@@ -276,7 +271,7 @@ class BoolConverter : public TypedConverter<arrow::BooleanBuilder> {
   }
 };
 
-class Int64Converter : public TypedConverter<arrow::Int64Builder> {
+class Int64Converter : public TypedConverter<Int64Builder> {
  public:
   Status AppendData(PyObject* seq) override {
     int64_t val;
@@ -296,7 +291,7 @@ class Int64Converter : public TypedConverter<arrow::Int64Builder> {
   }
 };
 
-class DateConverter : public TypedConverter<arrow::DateBuilder> {
+class DateConverter : public TypedConverter<DateBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     Py_ssize_t size = PySequence_Size(seq);
@@ -314,7 +309,7 @@ class DateConverter : public TypedConverter<arrow::DateBuilder> {
   }
 };
 
-class TimestampConverter : public TypedConverter<arrow::TimestampBuilder> {
+class TimestampConverter : public TypedConverter<TimestampBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     Py_ssize_t size = PySequence_Size(seq);
@@ -347,7 +342,7 @@ class TimestampConverter : public TypedConverter<arrow::TimestampBuilder> {
   }
 };
 
-class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
+class DoubleConverter : public TypedConverter<DoubleBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     double val;
@@ -367,7 +362,7 @@ class DoubleConverter : public TypedConverter<arrow::DoubleBuilder> {
   }
 };
 
-class BytesConverter : public TypedConverter<arrow::BinaryBuilder> {
+class BytesConverter : public TypedConverter<BinaryBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     PyObject* item;
@@ -401,7 +396,7 @@ class BytesConverter : public TypedConverter<arrow::BinaryBuilder> {
   }
 };
 
-class UTF8Converter : public TypedConverter<arrow::StringBuilder> {
+class UTF8Converter : public TypedConverter<StringBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     PyObject* item;
@@ -433,7 +428,7 @@ class UTF8Converter : public TypedConverter<arrow::StringBuilder> {
   }
 };
 
-class ListConverter : public TypedConverter<arrow::ListBuilder> {
+class ListConverter : public TypedConverter<ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
@@ -483,10 +478,10 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
 
 Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
   builder_ = builder;
-  typed_builder_ = static_cast<arrow::ListBuilder*>(builder.get());
+  typed_builder_ = static_cast<ListBuilder*>(builder.get());
 
   value_converter_ =
-      GetConverter(static_cast<arrow::ListType*>(builder->type().get())->value_type());
+      GetConverter(static_cast<ListType*>(builder->type().get())->value_type());
   if (value_converter_ == nullptr) {
     return Status::NotImplemented("value type not implemented");
   }
@@ -508,8 +503,7 @@ Status AppendPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
   return converter->AppendData(obj);
 }
 
-Status ConvertPySequence(
-    PyObject* obj, MemoryPool* pool, std::shared_ptr<arrow::Array>* out) {
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
   PyDateTime_IMPORT;
@@ -517,16 +511,17 @@ Status ConvertPySequence(
 
   // Handle NA / NullType case
   if (type->type == Type::NA) {
-    out->reset(new arrow::NullArray(size));
+    out->reset(new NullArray(size));
     return Status::OK();
   }
 
   // Give the sequence converter an array builder
   std::shared_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(arrow::MakeBuilder(pool, type, &builder));
+  RETURN_NOT_OK(MakeBuilder(pool, type, &builder));
   RETURN_NOT_OK(AppendPySequence(obj, type, builder));
 
   return builder->Finish(out);
 }
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow

@@ -84,6 +84,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] indices()
         shared_ptr[CArray] dictionary()
 
+    cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
+        TimeUnit unit
+        c_string timezone
+
+    cdef cppclass CTimeType" arrow::TimeType"(CFixedWidthType):
+        TimeUnit unit
+
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
                         const shared_ptr[CArray]& dictionary)
@@ -92,6 +99,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] dictionary()
 
     shared_ptr[CDataType] timestamp(TimeUnit unit)
+    shared_ptr[CDataType] timestamp(const c_string& timezone, TimeUnit unit)
 
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
@@ -116,9 +124,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
-
-    cdef cppclass CTimestampType" arrow::TimestampType"(CDataType):
-        TimeUnit unit
 
     cdef cppclass CField" arrow::Field":
         c_string name

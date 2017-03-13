@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   Py_Initialize();
-  pyarrow::import_numpy();
+  arrow::py::import_numpy();
 
   int ret = RUN_ALL_TESTS();
 

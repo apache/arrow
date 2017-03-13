@@ -495,7 +495,7 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override { return name(); }
+  std::string ToString() const override;
   static std::string name() { return "timestamp"; }
 
   TimeUnit unit;

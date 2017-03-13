@@ -19,7 +19,8 @@
 
 #include "pyarrow/config.h"
 
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 void pyarrow_init() {}
 
@@ -30,4 +31,5 @@ void pyarrow_set_numpy_nan(PyObject* obj) {
   numpy_nan = obj;
 }
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow

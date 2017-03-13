@@ -19,6 +19,7 @@ import six
 from distutils.version import LooseVersion
 import pandas as pd
 
+from pyarrow.compat import pdapi
 from pyarrow._feather import FeatherError  # noqa
 from pyarrow.table import Table
 import pyarrow._feather as ext
@@ -26,11 +27,6 @@ import pyarrow._feather as ext
 
 if LooseVersion(pd.__version__) < '0.17.0':
     raise ImportError("feather requires pandas >= 0.17.0")
-
-if LooseVersion(pd.__version__) < '0.19.0':
-    pdapi = pd.core.common
-else:
-    pdapi = pd.api.types
 
 
 class FeatherReader(ext.FeatherReader):
