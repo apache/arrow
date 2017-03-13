@@ -30,9 +30,8 @@
 #include "arrow/type.h"
 #include "pyarrow/adapters/pandas.h"
 
-using namespace arrow;
-
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   StringBuilder builder;
@@ -61,4 +60,5 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   Py_END_ALLOW_THREADS;
 }
 
+}  // namespace py
 }  // namespace arrow

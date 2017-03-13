@@ -17,9 +17,11 @@
 
 # flake8: noqa
 
+from distutils.version import LooseVersion
 import itertools
 
 import numpy as np
+import pandas as pd
 
 import sys
 import six
@@ -114,6 +116,13 @@ def encode_file_path(path):
 
     return encoded_path
 
+
+if LooseVersion(pd.__version__) < '0.19.0':
+    pdapi = pd.core.common
+    from pandas.core.dtypes import DatetimeTZDtype
+else:
+    from pandas.types.dtypes import DatetimeTZDtype
+    pdapi = pd.api.types
 
 integer_types = six.integer_types + (np.integer,)
 

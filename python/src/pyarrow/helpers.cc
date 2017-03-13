@@ -19,9 +19,8 @@
 
 #include <arrow/api.h>
 
-using namespace arrow;
-
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
   case Type::NAME:                        \
@@ -51,4 +50,5 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow

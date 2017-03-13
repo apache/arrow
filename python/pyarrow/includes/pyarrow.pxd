@@ -18,21 +18,28 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CField,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn,
                                         CTable, CDataType, CStatus, Type,
                                         CMemoryPool, TimeUnit)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
 
 
-cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
+cdef extern from "pyarrow/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
-    CStatus ConvertPySequence(object obj, CMemoryPool* pool, shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              shared_ptr[CArray]* out)
+
+    CStatus PandasDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 
     CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
-                          shared_ptr[CField] field,
+                          const shared_ptr[CDataType]& type,
                           shared_ptr[CArray]* out)
+
+    CStatus PandasObjectsToArrow(CMemoryPool* pool, object ao, object mo,
+                                 const shared_ptr[CDataType]& type,
+                                 shared_ptr[CArray]* out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
                                  PyObject* py_ref, PyObject** out)
@@ -47,12 +54,12 @@ cdef extern from "pyarrow/api.h" namespace "pyarrow" nogil:
     CMemoryPool* get_memory_pool()
 
 
-cdef extern from "pyarrow/common.h" namespace "pyarrow" nogil:
+cdef extern from "pyarrow/common.h" namespace "arrow::py" nogil:
     cdef cppclass PyBytesBuffer(CBuffer):
         PyBytesBuffer(object o)
 
 
-cdef extern from "pyarrow/io.h" namespace "pyarrow" nogil:
+cdef extern from "pyarrow/io.h" namespace "arrow::py" nogil:
     cdef cppclass PyReadableFile(arrow_io.ReadableFileInterface):
         PyReadableFile(object fo)
 

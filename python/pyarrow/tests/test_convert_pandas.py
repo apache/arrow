@@ -77,9 +77,9 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
 
     def _check_array_roundtrip(self, values, expected=None,
-                               timestamps_to_ms=False, field=None):
+                               timestamps_to_ms=False, type=None):
         arr = A.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
-                                  field=field)
+                                  type=type)
         result = arr.to_pandas()
 
         assert arr.null_count == pd.isnull(values).sum()
@@ -134,11 +134,13 @@ class TestPandasConversion(unittest.TestCase):
         data = OrderedDict()
         fields = []
 
-        numpy_dtypes = [('i1', A.int8()), ('i2', A.int16()),
-                        ('i4', A.int32()), ('i8', A.int64()),
-                        ('u1', A.uint8()), ('u2', A.uint16()),
-                        ('u4', A.uint32()), ('u8', A.uint64()),
-                        ('longlong', A.int64()), ('ulonglong', A.uint64())]
+        numpy_dtypes = [
+            ('i1', A.int8()), ('i2', A.int16()),
+            ('i4', A.int32()), ('i8', A.int64()),
+            ('u1', A.uint8()), ('u2', A.uint16()),
+            ('u4', A.uint32()), ('u8', A.uint64()),
+            ('longlong', A.int64()), ('ulonglong', A.uint64())
+        ]
         num_values = 100
 
         for dtype, arrow_dtype in numpy_dtypes:
@@ -152,7 +154,6 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame(data)
         schema = A.Schema.from_fields(fields)
         self._check_pandas_roundtrip(df, expected_schema=schema)
-
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
@@ -301,9 +302,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
             })
-        df_est = df['datetime64'].dt.tz_localize('US/Eastern').to_frame()
-        df_utc = df_est['datetime64'].dt.tz_convert('UTC').to_frame()
-        self._check_pandas_roundtrip(df_est, expected=df_utc, timestamps_to_ms=True, check_dtype=False)
+        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
+                            .to_frame())
+        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
 
         # drop-in a null and ns instead of ms
         df = pd.DataFrame({
@@ -314,9 +315,9 @@ class TestPandasConversion(unittest.TestCase):
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
             })
-        df_est = df['datetime64'].dt.tz_localize('US/Eastern').to_frame()
-        df_utc = df_est['datetime64'].dt.tz_convert('UTC').to_frame()
-        self._check_pandas_roundtrip(df_est, expected=df_utc, timestamps_to_ms=False, check_dtype=False)
+        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
+                            .to_frame())
+        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
 
     def test_date(self):
         df = pd.DataFrame({
@@ -341,7 +342,7 @@ class TestPandasConversion(unittest.TestCase):
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            self._check_array_roundtrip(df[column], field=field)
+            self._check_array_roundtrip(df[column], type=field.type)
 
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()
@@ -351,7 +352,7 @@ class TestPandasConversion(unittest.TestCase):
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            self._check_array_roundtrip(df[column], field=field)
+            self._check_array_roundtrip(df[column], type=field.type)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()

@@ -20,17 +20,17 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/visibility.h"
 
 #include "pyarrow/config.h"
 
 #include "pyarrow/common.h"
-#include "pyarrow/visibility.h"
 
 namespace arrow {
-class MemoryPool;
-}
 
-namespace pyarrow {
+class MemoryPool;
+
+namespace py {
 
 // A common interface to a Python file-like object. Must acquire GIL before
 // calling any methods
@@ -39,31 +39,31 @@ class PythonFile {
   PythonFile(PyObject* file);
   ~PythonFile();
 
-  arrow::Status Close();
-  arrow::Status Seek(int64_t position, int whence);
-  arrow::Status Read(int64_t nbytes, PyObject** out);
-  arrow::Status Tell(int64_t* position);
-  arrow::Status Write(const uint8_t* data, int64_t nbytes);
+  Status Close();
+  Status Seek(int64_t position, int whence);
+  Status Read(int64_t nbytes, PyObject** out);
+  Status Tell(int64_t* position);
+  Status Write(const uint8_t* data, int64_t nbytes);
 
  private:
   PyObject* file_;
 };
 
-class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
+class ARROW_EXPORT PyReadableFile : public io::ReadableFileInterface {
  public:
   explicit PyReadableFile(PyObject* file);
   virtual ~PyReadableFile();
 
-  arrow::Status Close() override;
+  Status Close() override;
 
-  arrow::Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
-  arrow::Status Read(int64_t nbytes, std::shared_ptr<arrow::Buffer>* out) override;
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  arrow::Status GetSize(int64_t* size) override;
+  Status GetSize(int64_t* size) override;
 
-  arrow::Status Seek(int64_t position) override;
+  Status Seek(int64_t position) override;
 
-  arrow::Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) override;
 
   bool supports_zero_copy() const override;
 
@@ -71,21 +71,21 @@ class PYARROW_EXPORT PyReadableFile : public arrow::io::ReadableFileInterface {
   std::unique_ptr<PythonFile> file_;
 };
 
-class PYARROW_EXPORT PyOutputStream : public arrow::io::OutputStream {
+class ARROW_EXPORT PyOutputStream : public io::OutputStream {
  public:
   explicit PyOutputStream(PyObject* file);
   virtual ~PyOutputStream();
 
-  arrow::Status Close() override;
-  arrow::Status Tell(int64_t* position) override;
-  arrow::Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status Close() override;
+  Status Tell(int64_t* position) override;
+  Status Write(const uint8_t* data, int64_t nbytes) override;
 
  private:
   std::unique_ptr<PythonFile> file_;
 };
 
 // A zero-copy reader backed by a PyBytes object
-class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
+class ARROW_EXPORT PyBytesReader : public io::BufferReader {
  public:
   explicit PyBytesReader(PyObject* obj);
   virtual ~PyBytesReader();
@@ -93,6 +93,7 @@ class PYARROW_EXPORT PyBytesReader : public arrow::io::BufferReader {
 
 // TODO(wesm): seekable output files
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_IO_H

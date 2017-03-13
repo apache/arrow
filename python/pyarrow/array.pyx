@@ -34,7 +34,8 @@ from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
-from pyarrow.schema cimport Field, Schema, DictionaryType
+from pyarrow.schema cimport (DataType, Field, Schema, DictionaryType,
+                             box_data_type)
 import pyarrow.schema as schema
 
 cimport cpython
@@ -45,16 +46,40 @@ cdef _pandas():
     return pd
 
 
+cdef maybe_coerce_datetime64(values, dtype, DataType type,
+                             timestamps_to_ms=False):
+
+    from pyarrow.compat import DatetimeTZDtype
+
+    if values.dtype.type != np.datetime64:
+        return values, type
+
+    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
+
+    if coerce_ms:
+        values = values.astype('datetime64[ms]')
+
+    if isinstance(dtype, DatetimeTZDtype):
+        tz = dtype.tz
+        unit = 'ms' if coerce_ms else dtype.unit
+        type = schema.timestamp(unit, tz)
+    else:
+        # Trust the NumPy dtype
+        type = schema.type_from_numpy_dtype(values.dtype)
+
+    return values, type
+
+
 cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
-        self.type = DataType()
-        self.type.init(self.sp_array.get().type())
+        self.type = box_data_type(self.sp_array.get().type())
 
     @staticmethod
-    def from_pandas(obj, mask=None, timestamps_to_ms=False, Field field=None,
+    def from_pandas(obj, mask=None, DataType type=None,
+                    timestamps_to_ms=False,
                     MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array.
@@ -65,6 +90,9 @@ cdef class Array:
 
         mask : pandas.Series or numpy.ndarray, optional
             boolean mask if the object is valid or null
+
+        type : pyarrow.DataType
+            Explicit type to attempt to coerce to
 
         timestamps_to_ms : bool, optional
             Convert datetime columns to ms resolution. This is needed for
@@ -107,33 +135,43 @@ cdef class Array:
         """
         cdef:
             shared_ptr[CArray] out
-            shared_ptr[CField] c_field
+            shared_ptr[CDataType] c_type
             CMemoryPool* pool
 
         pd = _pandas()
 
-        if field is not None:
-            c_field = field.sp_field
-
         if mask is not None:
             mask = get_series_values(mask)
 
-        series_values = get_series_values(obj)
+        values = get_series_values(obj)
+        pool = maybe_unbox_memory_pool(memory_pool)
 
-        if isinstance(series_values, pd.Categorical):
+        if isinstance(values, pd.Categorical):
             return DictionaryArray.from_arrays(
-                series_values.codes, series_values.categories.values,
+                values.codes, values.categories.values,
                 mask=mask, memory_pool=memory_pool)
+        elif values.dtype == object:
+            # Object dtype undergoes a different conversion path as more type
+            # inference may be needed
+            if type is not None:
+                c_type = type.sp_type
+            with nogil:
+                check_status(pyarrow.PandasObjectsToArrow(
+                    pool, values, mask, c_type, &out))
         else:
-            if series_values.dtype.type == np.datetime64 and timestamps_to_ms:
-                series_values = series_values.astype('datetime64[ms]')
+            values, type = maybe_coerce_datetime64(
+                values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
-            pool = maybe_unbox_memory_pool(memory_pool)
+            if type is None:
+                check_status(pyarrow.PandasDtypeToArrow(values.dtype, &c_type))
+            else:
+                c_type = type.sp_type
+
             with nogil:
                 check_status(pyarrow.PandasToArrow(
-                    pool, series_values, mask, c_field, &out))
+                    pool, values, mask, c_type, &out))
 
-            return box_array(out)
+        return box_array(out)
 
     @staticmethod
     def from_list(object list_obj, DataType type=None,
@@ -338,6 +376,10 @@ cdef class DateArray(NumericArray):
     pass
 
 
+cdef class TimestampArray(NumericArray):
+    pass
+
+
 cdef class FloatArray(FloatingPointArray):
     pass
 
@@ -423,7 +465,7 @@ cdef dict _array_classes = {
     Type_LIST: ListArray,
     Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
-    Type_TIMESTAMP: Int64Array,
+    Type_TIMESTAMP: TimestampArray,
     Type_DICTIONARY: DictionaryArray
 }
 
