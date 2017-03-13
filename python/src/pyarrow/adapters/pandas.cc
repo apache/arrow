@@ -19,6 +19,7 @@
 
 #include <Python.h>
 
+#include "pyarrow/adapters/builtin.h"
 #include "pyarrow/adapters/pandas.h"
 #include "pyarrow/numpy_interop.h"
 
@@ -1661,6 +1662,7 @@ inline Status ArrowSerializer<TYPE>::ConvertTypedLists(
   typedef npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
+  PyAcquireGIL lock;
 
   auto value_builder = std::make_shared<BuilderT>(pool_, field->type);
   ListBuilder list_builder(pool_, value_builder);
@@ -1688,7 +1690,16 @@ inline Status ArrowSerializer<TYPE>::ConvertTypedLists(
         RETURN_NOT_OK(value_builder->Append(data, size));
       }
     } else if (PyList_Check(objects[i])) {
-      return Status::TypeError("Python lists are not yet supported");
+      int64_t size;
+      std::shared_ptr<arrow::DataType> type;
+      RETURN_NOT_OK(list_builder.Append(true));
+      RETURN_NOT_OK(InferArrowType(objects[i], &size, &type));
+      if (type->type != field->type->type) {
+        std::stringstream ss;
+        ss << type->ToString() << " cannot be converted to " << field->type->ToString();
+        return Status::TypeError(ss.str());
+      }
+      RETURN_NOT_OK(AppendPySequence(objects[i], field->type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1702,6 +1713,7 @@ inline Status
 ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(
     const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
   // TODO: If there are bytes involed, convert to Binary representation
+  PyAcquireGIL lock;
   bool have_bytes = false;
 
   auto value_builder = std::make_shared<arrow::StringBuilder>(pool_);
@@ -1721,7 +1733,16 @@ ArrowSerializer<NPY_OBJECT>::ConvertTypedLists<NPY_OBJECT, ::arrow::StringType>(
       auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
       RETURN_NOT_OK(AppendObjectStrings(*value_builder.get(), data, size, &have_bytes));
     } else if (PyList_Check(objects[i])) {
-      return Status::TypeError("Python lists are not yet supported");
+      int64_t size;
+      std::shared_ptr<arrow::DataType> type;
+      RETURN_NOT_OK(list_builder.Append(true));
+      RETURN_NOT_OK(InferArrowType(objects[i], &size, &type));
+      if (type->type != Type::STRING) {
+        std::stringstream ss;
+        ss << type->ToString() << " cannot be converted to STRING.";
+        return Status::TypeError(ss.str());
+      }
+      RETURN_NOT_OK(AppendPySequence(objects[i], type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
