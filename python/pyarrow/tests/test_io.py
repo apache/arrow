@@ -154,9 +154,13 @@ def test_buffer_memoryview_is_immutable():
 
     result = memoryview(buf)
 
-    assert result[:4] == b'some'
     with pytest.raises(TypeError) as exc:
         result[0] = b'h'
+        assert 'cannot modify read-only' in str(exc.value)
+
+    b = bytes(buf)
+    with pytest.raises(TypeError) as exc:
+        b[0] = b'h'
         assert 'cannot modify read-only' in str(exc.value)
 
 
@@ -183,6 +187,25 @@ def test_inmemory_write_after_closed():
 
     with pytest.raises(IOError):
         f.write(b'not ok')
+
+def test_buffer_protocol_ref_counting():
+    import gc
+
+    val = b'data'
+    buf = io.buffer_from_bytes(val)
+    as_bytes = bytes(buf)
+
+    def add_temporary_reference():
+        nonlocal buf
+        m = memoryview(buf)
+        del(buf)
+        gc.collect()
+        assert m == val
+
+    add_temporary_reference()
+    m = memoryview(as_bytes)
+    assert m == val
+
 
 
 # ----------------------------------------------------------------------

@@ -459,13 +459,11 @@ cdef class Buffer:
         buffer.itemsize = 1
         buffer.len = self.size
         buffer.ndim = 1
+        buffer.obj = self
         buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
-
-    def __releasebuffer__(self, cp.Py_buffer* buffer):
-        pass
 
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
