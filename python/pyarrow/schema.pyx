@@ -111,6 +111,9 @@ cdef class Field:
     property name:
 
         def __get__(self):
+            if box_field(self.sp_field) is None:
+                raise ReferenceError(
+                    'Field not initialized (references NULL pointer)')
             return frombytes(self.field.name)
 
 

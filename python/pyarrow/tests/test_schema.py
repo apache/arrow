@@ -87,3 +87,10 @@ baz: list<item: int8>"""
         del fields[-1]
         sch3 = A.schema(fields)
         assert not sch1.equals(sch3)
+
+
+class TestField(unittest.TestCase):
+    def test_empty_field(self):
+        f = arrow.Field()
+        with self.assertRaises(ReferenceError):
+            repr(f)
