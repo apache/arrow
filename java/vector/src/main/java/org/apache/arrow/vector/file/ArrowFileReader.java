@@ -52,20 +52,20 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
   @Override
   protected Schema readSchema(SeekableReadChannel in) throws IOException {
     if (footer == null) {
-      if (in.size() <= (magicLength * 2 + 4)) {
+      if (in.size() <= (ArrowMagic.MAGIC_LENGTH * 2 + 4)) {
         throw new InvalidArrowFileException("file too small: " + in.size());
       }
-      ByteBuffer buffer = ByteBuffer.allocate(4 + magicLength);
+      ByteBuffer buffer = ByteBuffer.allocate(4 + ArrowMagic.MAGIC_LENGTH);
       long footerLengthOffset = in.size() - buffer.remaining();
       in.setPosition(footerLengthOffset);
       in.readFully(buffer);
       buffer.flip();
       byte[] array = buffer.array();
-      if (!validateMagic(Arrays.copyOfRange(array, 4, array.length))) {
+      if (!ArrowMagic.validateMagic(Arrays.copyOfRange(array, 4, array.length))) {
         throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
       }
       int footerLength = MessageSerializer.bytesToInt(array);
-      if (footerLength <= 0 || footerLength + magicLength * 2 + 4 > in.size()) {
+      if (footerLength <= 0 || footerLength + ArrowMagic.MAGIC_LENGTH * 2 + 4 > in.size()) {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }
       long footerOffset = footerLengthOffset - footerLength;

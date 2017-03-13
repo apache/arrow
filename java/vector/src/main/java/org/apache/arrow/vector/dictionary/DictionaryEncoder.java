@@ -72,7 +72,7 @@ public class DictionaryEncoder {
       }
     }
     if (setter == null) {
-      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type");
+      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" + indices.getClass());
     }
 
     ValueVector.Accessor accessor = vector.getAccessor();
@@ -85,12 +85,19 @@ public class DictionaryEncoder {
         Object value = accessor.getObject(i);
         if (value != null) { // if it's null leave it null
           // note: this may fail if value was not included in the dictionary
-          setter.invoke(mutator, i, lookUps.get(value));
+          Object encoded = lookUps.get(value);
+          if (encoded == null) {
+            throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
+          }
+          setter.invoke(mutator, i, encoded);
         }
       }
-    } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new RuntimeException(e);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException("IllegalAccessException invoking vector mutator set():", e);
+    } catch (InvocationTargetException e) {
+      throw new RuntimeException("InvocationTargetException invoking vector mutator set():", e.getCause());
     }
+
     mutator.setValueCount(count);
 
     return indices;
@@ -107,13 +114,18 @@ public class DictionaryEncoder {
     ValueVector.Accessor accessor = indices.getAccessor();
     int count = accessor.getValueCount();
     ValueVector dictionaryVector = dictionary.getVector();
+    int dictionaryCount = dictionaryVector.getAccessor().getValueCount();
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
     transfer.getTo().allocateNewSafe();
     for (int i = 0; i < count; i++) {
       Object index = accessor.getObject(i);
       if (index != null) {
-        transfer.copyValueSafe(((Number) index).intValue(), i);
+        int indexAsInt = ((Number) index).intValue();
+        if (indexAsInt > dictionaryCount) {
+          throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
+        }
+        transfer.copyValueSafe(indexAsInt, i);
       }
     }
     // TODO do we need to worry about the field?

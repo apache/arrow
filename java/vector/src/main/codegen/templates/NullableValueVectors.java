@@ -52,7 +52,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final String bitsField = "$bits$";
   private final String valuesField = "$values$";
   private final Field field;
-  private final DictionaryEncoding dictionary;
 
   final BitVector bits = new BitVector(bitsField, allocator);
   final ${valuesName} values;
@@ -71,7 +70,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     values = new ${valuesName}(valuesField, allocator, precision, scale);
     this.precision = precision;
     this.scale = scale;
-    this.dictionary = dictionary;
     mutator = new Mutator();
     accessor = new Accessor();
     field = new Field(name, true, new Decimal(precision, scale), dictionary, null);
@@ -86,7 +84,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     values = new ${valuesName}(valuesField, allocator);
     mutator = new Mutator();
     accessor = new Accessor();
-    this.dictionary = dictionary;
   <#if minor.class == "TinyInt" ||
         minor.class == "SmallInt" ||
         minor.class == "Int" ||
@@ -381,9 +378,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     public TransferImpl(String name, BufferAllocator allocator){
       <#if minor.class == "Decimal">
-      to = new ${className}(name, allocator, dictionary, precision, scale);
+      to = new ${className}(name, allocator, field.getDictionary(), precision, scale);
       <#else>
-      to = new ${className}(name, allocator, dictionary);
+      to = new ${className}(name, allocator, field.getDictionary());
       </#if>
     }
 

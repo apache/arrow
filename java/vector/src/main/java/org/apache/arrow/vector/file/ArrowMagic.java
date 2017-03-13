@@ -22,15 +22,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class ArrowMagic {
+
   private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 
-  protected final int magicLength = MAGIC.length;
+  public static final int MAGIC_LENGTH = MAGIC.length;
 
-  protected void writeMagic(WriteChannel out) throws IOException {
+  public static void writeMagic(WriteChannel out) throws IOException {
     out.write(MAGIC);
   }
 
-  protected boolean validateMagic(byte[] array) {
+  public static boolean validateMagic(byte[] array) {
     return Arrays.equals(MAGIC, array);
   }
 }
