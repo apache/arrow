@@ -39,7 +39,7 @@ from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
                             table_from_ctable)
 
 cimport cpython as cp
-from cpython.buffer cimport PyBUF_READ
+from cpython cimport Py_buffer
 
 import re
 import six
@@ -56,10 +56,6 @@ DEFAULT_BUFFER_SIZE = 2 ** 16
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
-
-cdef extern from "Python.h":
-    PyObject* PyMemoryView_FromMemory" PyMemoryView_FromMemory"(
-        char *v, Py_ssize_t len, int flags) except NULL
 
 cdef class NativeFile:
 
@@ -453,21 +449,29 @@ cdef class Buffer:
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
-    def to_memoryview(self):
-        return PyObject_to_object(
-            PyMemoryView_FromMemory(
-                <char*>self.buffer.get().data(),
-                self.buffer.get().size(),
-                PyBUF_READ))
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self.shape[0] = self.size
+        self.strides[0] = <Py_ssize_t>(1)
 
+        buffer.buf = <char *>self.buffer.get().data()
+        buffer.format = 'b'
+        buffer.internal = NULL
+        buffer.itemsize = 1
+        buffer.len = self.size
+        buffer.ndim = 1
+        buffer.readonly = 0
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
+
+    def __releasebuffer__(self, cp.Py_buffer* buffer):
+        pass
 
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))
     return result
 
-#cdef buffer_to_memoryview(const shared_ptr[CBuffer]& buf):
-    
 
 cdef class InMemoryOutputStream(NativeFile):
 
