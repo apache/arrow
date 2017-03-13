@@ -195,14 +195,13 @@ def test_buffer_protocol_ref_counting():
     buf = io.buffer_from_bytes(val)
     as_bytes = bytes(buf)
 
-    def add_temporary_reference():
-        nonlocal buf
+    def add_temporary_reference(buf):
         m = memoryview(buf)
         del(buf)
         gc.collect()
         assert m == val
 
-    add_temporary_reference()
+    add_temporary_reference(buf)
     m = memoryview(as_bytes)
     assert m == val
 
