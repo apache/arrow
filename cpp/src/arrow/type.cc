@@ -108,7 +108,7 @@ std::string Date32Type::ToString() const {
   return std::string("date32");
 }
 
-static inline void print_time_unit(TimeUnit unit, std::ostream* stream) {
+static inline void PrintTimeUnit(TimeUnit unit, std::ostream* stream) {
   switch (unit) {
     case TimeUnit::SECOND:
       (*stream) << "s";
@@ -125,10 +125,21 @@ static inline void print_time_unit(TimeUnit unit, std::ostream* stream) {
   }
 }
 
+std::string TimeType::ToString() const {
+  std::stringstream ss;
+  ss << "time[";
+  PrintTimeUnit(this->unit, &ss);
+  ss << "]";
+  return ss.str();
+}
+
 std::string TimestampType::ToString() const {
   std::stringstream ss;
   ss << "timestamp[";
-  print_time_unit(this->unit, &ss);
+  PrintTimeUnit(this->unit, &ss);
+
+  if (this->timezone.size() > 0) { ss << ", tz=" << this->timezone; }
+
   ss << "]";
   return ss.str();
 }
