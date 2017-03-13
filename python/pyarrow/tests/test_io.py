@@ -196,13 +196,13 @@ def test_buffer_protocol_ref_counting():
     as_bytes = bytes(buf)
 
     def add_temporary_reference(buf):
-        m = memoryview(buf)
+        m = bytearray(buf)
         del(buf)
         gc.collect()
         assert m == val
 
     add_temporary_reference(buf)
-    m = memoryview(as_bytes)
+    m = bytearray(buf)
     assert m == val
 
 
