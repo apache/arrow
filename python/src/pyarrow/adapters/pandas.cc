@@ -542,15 +542,15 @@ inline Status PandasConverter::ConvertTypedLists(
 
     } else if (PyList_Check(objects[i])) {
       int64_t size;
-      std::shared_ptr<arrow::DataType> type;
+      std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
-      RETURN_NOT_OK(InferArrowType(objects[i], &size, &type));
-      if (type->type != field->type->type) {
+      RETURN_NOT_OK(InferArrowType(objects[i], &size, &inferred_type));
+      if (inferred_type->type != type->type) {
         std::stringstream ss;
-        ss << type->ToString() << " cannot be converted to " << field->type->ToString();
+        ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
       }
-      RETURN_NOT_OK(AppendPySequence(objects[i], field->type, value_builder));
+      RETURN_NOT_OK(AppendPySequence(objects[i], type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -582,7 +582,16 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
       RETURN_NOT_OK(AppendObjectStrings(*value_builder.get(), data, size, &have_bytes));
     } else if (PyList_Check(objects[i])) {
-      return Status::TypeError("Python lists are not yet supported");
+      int64_t size;
+      std::shared_ptr<DataType> inferred_type;
+      RETURN_NOT_OK(list_builder.Append(true));
+      RETURN_NOT_OK(InferArrowType(objects[i], &size, &inferred_type));
+      if (inferred_type->type != Type::STRING) {
+        std::stringstream ss;
+        ss << inferred_type->ToString() << " cannot be converted to STRING.";
+        return Status::TypeError(ss.str());
+      }
+      RETURN_NOT_OK(AppendPySequence(objects[i], inferred_type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }

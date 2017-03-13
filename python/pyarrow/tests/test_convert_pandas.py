@@ -352,7 +352,7 @@ class TestPandasConversion(unittest.TestCase):
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            self._check_array_roundtrip(df[column], field=field)
+            self._check_array_roundtrip(df[column], type=field.type)
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
