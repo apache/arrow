@@ -331,7 +331,6 @@ class TableReader::TableReaderImpl {
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(GetDataType(meta, metadata_type, metadata, &type));
 
-    std::vector<FieldMetadata> fields(1);
     std::vector<std::shared_ptr<Buffer>> buffers;
 
     // Buffer data from the source (may or may not perform a copy depending on
@@ -357,12 +356,7 @@ class TableReader::TableReaderImpl {
     }
 
     buffers.push_back(SliceBuffer(buffer, offset, buffer->size() - offset));
-
-    fields[0].length = meta->length();
-    fields[0].null_count = meta->null_count();
-    fields[0].offset = 0;
-
-    return LoadArray(type, fields, buffers, out);
+    return MakePrimitiveArray(type, buffers, meta->length(), meta->null_count(), 0, out);
   }
 
   bool HasDescription() const { return metadata_->HasDescription(); }
