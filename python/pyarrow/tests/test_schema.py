@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import unittest
+import pytest
+
 import pyarrow as pa
 
 import numpy as np
@@ -97,27 +98,10 @@ foo: int32
 bar: string
 baz: list<item: int8>"""
 
-<<<<<<< HEAD
-    def test_schema_equals(self):
-        fields = [
-            A.field('foo', A.int32()),
-            A.field('bar', A.string()),
-            A.field('baz', A.list_(A.int8()))
-        ]
-
-        sch1 = A.schema(fields)
-        print(dir(sch1))
-        sch2 = A.schema(fields)
-        assert sch1.equals(sch2)
-
-        del fields[-1]
-        sch3 = A.schema(fields)
-        assert not sch1.equals(sch3)
-
 
 def test_field_empty():
-    f = arrow.Field()
-    with self.assertRaises(ReferenceError):
+    f = pa.Field()
+    with pytest.raises(ReferenceError):
         repr(f)
 
 
