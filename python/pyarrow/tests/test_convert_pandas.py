@@ -30,7 +30,7 @@ import pandas.util.testing as tm
 from pyarrow.compat import u
 import pyarrow as A
 
-from .pandas_examples import dataframe_with_arrays
+from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 
 def _alltypes_example(size=100):
@@ -333,8 +333,18 @@ class TestPandasConversion(unittest.TestCase):
         expected['date'] = pd.to_datetime(df['date'])
         tm.assert_frame_equal(result, expected)
 
-    def test_column_of_lists(self):
+    def test_column_of_arrays(self):
         df, schema = dataframe_with_arrays()
+        self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
+        table = A.Table.from_pandas(df, schema=schema)
+        assert table.schema.equals(schema)
+
+        for column in df.columns:
+            field = schema.field_by_name(column)
+            self._check_array_roundtrip(df[column], field=field)
+
+    def test_column_of_lists(self):
+        df, schema = dataframe_with_lists()
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = A.Table.from_pandas(df, schema=schema)
         assert table.schema.equals(schema)
