@@ -133,7 +133,7 @@ Install `pyarrow`
 
 .. note::
     In development installations, you will also need to set a correct
-    ``LD_LIBARY_PATH``. This is most probably done with
+    ``LD_LIBRARY_PATH``. This is most probably done with
     ``export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH``.
 
 
