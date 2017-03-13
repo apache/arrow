@@ -459,7 +459,7 @@ cdef class Buffer:
         buffer.itemsize = 1
         buffer.len = self.size
         buffer.ndim = 1
-        buffer.readonly = 0
+        buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL

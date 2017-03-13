@@ -135,7 +135,7 @@ def test_buffer_bytes():
 
     assert result == val
 
-def test_buffer_memoryview_bytes():
+def test_buffer_memoryview():
     val = b'some data'
 
     buf = io.buffer_from_bytes(val)
@@ -144,6 +144,20 @@ def test_buffer_memoryview_bytes():
     result = memoryview(buf)
 
     assert result == val
+
+
+def test_buffer_memoryview_is_immutable():
+    val = b'some data'
+
+    buf = io.buffer_from_bytes(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = memoryview(buf)
+
+    assert result[:4] == b'some'
+    with pytest.raises(TypeError) as exc:
+        result[0] = b'h'
+        assert 'cannot modify read-only' in str(exc.value)
 
 
 def test_memory_output_stream():
