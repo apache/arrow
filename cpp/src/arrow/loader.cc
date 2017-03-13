@@ -295,7 +295,7 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
   std::vector<FieldMetadata> fields(1);
   fields[0].length = length;
   fields[0].null_count = null_count;
-  fields[0].offset = 0;
+  fields[0].offset = offset;
 
   return LoadArray(type, fields, buffers, out);
 }
