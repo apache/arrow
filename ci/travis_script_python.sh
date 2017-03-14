@@ -29,8 +29,13 @@ pushd $PYTHON_DIR
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 build_parquet_cpp() {
-  conda create -y -q -p $PARQUET_HOME thrift-cpp snappy zlib brotli boost
+  conda create -y -q -p $PARQUET_HOME python=3.5
   source activate $PARQUET_HOME
+
+  # In case some package wants to download the MKL
+  conda install -y -q nomkl
+
+  conda install -y -q thrift-cpp snappy zlib brotli boost
 
   export BOOST_ROOT=$PARQUET_HOME
   export SNAPPY_HOME=$PARQUET_HOME
