@@ -1,0 +1,171 @@
+<?xml version="1.0"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+  <!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+  <!ENTITY % gtkdocentities SYSTEM "xml/gtkdocentities.ent">
+  %gtkdocentities;
+]>
+<book id="index">
+  <bookinfo>
+    <title>&package_name; Reference Manual</title>
+    <releaseinfo>
+      for &package_string;.
+      <!--
+      The latest version of this documentation can be found on-line at
+      <ulink role="online-location" url="http://[SERVER]/&package_name;/">http://[SERVER]/&package_name;/</ulink>.
+      -->
+    </releaseinfo>
+  </bookinfo>
+
+  <part id="arrow">
+    <title>GArrow</title>
+    <chapter id="array">
+      <title>Array</title>
+      <xi:include href="xml/array.xml"/>
+      <xi:include href="xml/null-array.xml"/>
+      <xi:include href="xml/boolean-array.xml"/>
+      <xi:include href="xml/int8-array.xml"/>
+      <xi:include href="xml/uint8-array.xml"/>
+      <xi:include href="xml/int16-array.xml"/>
+      <xi:include href="xml/uint16-array.xml"/>
+      <xi:include href="xml/int32-array.xml"/>
+      <xi:include href="xml/uint32-array.xml"/>
+      <xi:include href="xml/int64-array.xml"/>
+      <xi:include href="xml/uint64-array.xml"/>
+      <xi:include href="xml/float-array.xml"/>
+      <xi:include href="xml/double-array.xml"/>
+      <xi:include href="xml/binary-array.xml"/>
+      <xi:include href="xml/string-array.xml"/>
+      <xi:include href="xml/list-array.xml"/>
+      <xi:include href="xml/struct-array.xml"/>
+    </chapter>
+    <chapter id="array-builder">
+      <title>Array builder</title>
+      <xi:include href="xml/array-builder.xml"/>
+      <xi:include href="xml/boolean-array-builder.xml"/>
+      <xi:include href="xml/int8-array-builder.xml"/>
+      <xi:include href="xml/uint8-array-builder.xml"/>
+      <xi:include href="xml/int16-array-builder.xml"/>
+      <xi:include href="xml/uint16-array-builder.xml"/>
+      <xi:include href="xml/int32-array-builder.xml"/>
+      <xi:include href="xml/uint32-array-builder.xml"/>
+      <xi:include href="xml/int64-array-builder.xml"/>
+      <xi:include href="xml/uint64-array-builder.xml"/>
+      <xi:include href="xml/float-array-builder.xml"/>
+      <xi:include href="xml/double-array-builder.xml"/>
+      <xi:include href="xml/binary-array-builder.xml"/>
+      <xi:include href="xml/string-array-builder.xml"/>
+      <xi:include href="xml/list-array-builder.xml"/>
+      <xi:include href="xml/struct-array-builder.xml"/>
+    </chapter>
+    <chapter id="type">
+      <title>Type</title>
+      <xi:include href="xml/type.xml"/>
+      <xi:include href="xml/data-type.xml"/>
+      <xi:include href="xml/null-data-type.xml"/>
+      <xi:include href="xml/boolean-data-type.xml"/>
+      <xi:include href="xml/int8-data-type.xml"/>
+      <xi:include href="xml/uint8-data-type.xml"/>
+      <xi:include href="xml/int16-data-type.xml"/>
+      <xi:include href="xml/uint16-data-type.xml"/>
+      <xi:include href="xml/int32-data-type.xml"/>
+      <xi:include href="xml/uint32-data-type.xml"/>
+      <xi:include href="xml/int64-data-type.xml"/>
+      <xi:include href="xml/uint64-data-type.xml"/>
+      <xi:include href="xml/float-data-type.xml"/>
+      <xi:include href="xml/double-data-type.xml"/>
+      <xi:include href="xml/binary-data-type.xml"/>
+      <xi:include href="xml/string-data-type.xml"/>
+      <xi:include href="xml/list-data-type.xml"/>
+      <xi:include href="xml/struct-data-type.xml"/>
+    </chapter>
+    <chapter id="schema">
+      <title>Schema</title>
+      <xi:include href="xml/field.xml"/>
+      <xi:include href="xml/schema.xml"/>
+    </chapter>
+    <chapter id="table">
+      <title>Table</title>
+      <xi:include href="xml/table.xml"/>
+      <xi:include href="xml/record-batch.xml"/>
+      <xi:include href="xml/column.xml"/>
+      <xi:include href="xml/chunked-array.xml"/>
+    </chapter>
+    <chapter id="error">
+      <title>Error</title>
+      <xi:include href="xml/error.xml"/>
+    </chapter>
+  </part>
+
+  <part id="arrow-io">
+    <title>GArrowIO</title>
+    <chapter id="io-mode">
+      <title>Enums</title>
+      <xi:include href="xml/io-file-mode.xml"/>
+    </chapter>
+    <chapter id="io-input">
+      <title>Input</title>
+      <xi:include href="xml/io-readable.xml"/>
+      <xi:include href="xml/io-input-stream.xml"/>
+      <xi:include href="xml/io-readable-file.xml"/>
+    </chapter>
+    <chapter id="io-output">
+      <title>Output</title>
+      <xi:include href="xml/io-writeable.xml"/>
+      <xi:include href="xml/io-output-stream.xml"/>
+      <xi:include href="xml/io-writeable-file.xml"/>
+      <xi:include href="xml/io-file-output-stream.xml"/>
+    </chapter>
+    <chapter id="io-input-output">
+      <title>Input and output</title>
+      <xi:include href="xml/io-file.xml"/>
+      <xi:include href="xml/io-memory-mapped-file.xml"/>
+    </chapter>
+  </part>
+
+  <part id="arrow-ipc">
+    <title>GArrowIPC</title>
+    <chapter id="ipc-metadata">
+      <title>Enums</title>
+      <xi:include href="xml/ipc-metadata-version.xml"/>
+    </chapter>
+    <chapter id="ipc-reader">
+      <title>Reader</title>
+      <xi:include href="xml/ipc-file-reader.xml"/>
+      <xi:include href="xml/ipc-stream-reader.xml"/>
+    </chapter>
+    <chapter id="ipc-writer">
+      <title>Input</title>
+      <xi:include href="xml/ipc-file-writer.xml"/>
+      <xi:include href="xml/ipc-stream-writer.xml"/>
+    </chapter>
+  </part>
+
+  <chapter id="object-tree">
+    <title>Object Hierarchy</title>
+    <xi:include href="xml/tree_index.sgml"/>
+  </chapter>
+  <index id="api-index-full">
+    <title>API Index</title>
+    <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="deprecated-api-index" role="deprecated">
+    <title>Index of deprecated API</title>
+    <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
+</book>
