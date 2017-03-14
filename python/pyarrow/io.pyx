@@ -56,7 +56,6 @@ cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
-
 cdef class NativeFile:
 
     def __cinit__(self):
@@ -421,6 +420,8 @@ cdef class Buffer:
 
     cdef init(self, const shared_ptr[CBuffer]& buffer):
         self.buffer = buffer
+        self.shape[0] = self.size
+        self.strides[0] = <Py_ssize_t>(1)
 
     def __len__(self):
         return self.size
@@ -449,6 +450,19 @@ cdef class Buffer:
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+
+        buffer.buf = <char *>self.buffer.get().data()
+        buffer.format = 'b'
+        buffer.internal = NULL
+        buffer.itemsize = 1
+        buffer.len = self.size
+        buffer.ndim = 1
+        buffer.obj = self
+        buffer.readonly = 1
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
 
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result

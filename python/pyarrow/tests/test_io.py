@@ -135,6 +135,34 @@ def test_buffer_bytes():
 
     assert result == val
 
+def test_buffer_memoryview():
+    val = b'some data'
+
+    buf = io.buffer_from_bytes(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = memoryview(buf)
+
+    assert result == val
+
+
+def test_buffer_memoryview_is_immutable():
+    val = b'some data'
+
+    buf = io.buffer_from_bytes(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = memoryview(buf)
+
+    with pytest.raises(TypeError) as exc:
+        result[0] = b'h'
+        assert 'cannot modify read-only' in str(exc.value)
+
+    b = bytes(buf)
+    with pytest.raises(TypeError) as exc:
+        b[0] = b'h'
+        assert 'cannot modify read-only' in str(exc.value)
+
 
 def test_memory_output_stream():
     # 10 bytes
@@ -159,6 +187,17 @@ def test_inmemory_write_after_closed():
 
     with pytest.raises(IOError):
         f.write(b'not ok')
+
+def test_buffer_protocol_ref_counting():
+    import gc
+
+    def make_buffer(bytes_obj):
+        return bytearray(io.buffer_from_bytes(bytes_obj))
+
+    buf = make_buffer(b'foo')
+    gc.collect()
+    assert buf == b'foo'
+
 
 
 # ----------------------------------------------------------------------

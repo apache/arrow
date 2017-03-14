@@ -25,6 +25,8 @@ from pyarrow.includes.libarrow_io cimport (ReadableFileInterface,
 cdef class Buffer:
     cdef:
         shared_ptr[CBuffer] buffer
+        Py_ssize_t shape[1]
+        Py_ssize_t strides[1]
 
     cdef init(self, const shared_ptr[CBuffer]& buffer)
 
