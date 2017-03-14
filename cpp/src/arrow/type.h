@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -459,6 +460,24 @@ struct ARROW_EXPORT Date32Type : public FixedWidthType {
 };
 
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
+static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      os << "s";
+      break;
+    case TimeUnit::MILLI:
+      os << "ms";
+      break;
+    case TimeUnit::MICRO:
+      os << "us";
+      break;
+    case TimeUnit::NANO:
+      os << "ns";
+      break;
+  }
+  return os;
+}
 
 struct ARROW_EXPORT TimeType : public FixedWidthType {
   static constexpr Type::type type_id = Type::TIME;
