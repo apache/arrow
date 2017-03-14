@@ -372,7 +372,7 @@ class ARROW_EXPORT FixedWidthBinaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::FIXED_WIDTH_BINARY;
 
-  FixedWidthBinaryType(int32_t byte_width)
+  explicit FixedWidthBinaryType(int32_t byte_width)
       : FixedWidthType(Type::FIXED_WIDTH_BINARY), byte_width_(byte_width) {}
 
   Status Accept(TypeVisitor* visitor) const override;
