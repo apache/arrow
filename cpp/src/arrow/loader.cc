@@ -235,8 +235,8 @@ class ArrayLoader : public TypeVisitor {
   std::shared_ptr<Array> result_;
 };
 
-Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
-    ArrayComponentSource* source, std::shared_ptr<Array>* out) {
+Status LoadArray(const std::shared_ptr<DataType>& type, ArrayComponentSource* source,
+    std::shared_ptr<Array>* out) {
   ArrayLoaderContext context;
   context.source = source;
   context.field_index = context.buffer_index = 0;
@@ -244,8 +244,8 @@ Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
   return LoadArray(type, &context, out);
 }
 
-Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
-    ArrayLoaderContext* context, std::shared_ptr<Array>* out) {
+Status LoadArray(const std::shared_ptr<DataType>& type, ArrayLoaderContext* context,
+    std::shared_ptr<Array>* out) {
   ArrayLoader loader(type, context);
   RETURN_NOT_OK(loader.Load(out));
 
@@ -275,11 +275,29 @@ class InMemorySource : public ArrayComponentSource {
   const std::vector<std::shared_ptr<Buffer>>& buffers_;
 };
 
-Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
+Status LoadArray(const std::shared_ptr<DataType>& type,
     const std::vector<FieldMetadata>& fields,
     const std::vector<std::shared_ptr<Buffer>>& buffers, std::shared_ptr<Array>* out) {
   InMemorySource source(fields, buffers);
   return LoadArray(type, &source, out);
+}
+
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
+  std::vector<std::shared_ptr<Buffer>> buffers = {null_bitmap, data};
+  return MakePrimitiveArray(type, buffers, length, null_count, offset, out);
+}
+
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t length,
+    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
+  std::vector<FieldMetadata> fields(1);
+  fields[0].length = length;
+  fields[0].null_count = null_count;
+  fields[0].offset = offset;
+
+  return LoadArray(type, fields, buffers, out);
 }
 
 }  // namespace arrow

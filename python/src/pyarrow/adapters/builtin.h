@@ -27,20 +27,28 @@
 
 #include <arrow/type.h>
 
+#include "arrow/util/visibility.h"
+
 #include "pyarrow/common.h"
-#include "pyarrow/visibility.h"
 
 namespace arrow {
+
 class Array;
 class Status;
-}
 
-namespace pyarrow {
+namespace py {
 
-PYARROW_EXPORT
-arrow::Status ConvertPySequence(
-    PyObject* obj, arrow::MemoryPool* pool, std::shared_ptr<arrow::Array>* out);
+ARROW_EXPORT arrow::Status InferArrowType(
+    PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
 
-}  // namespace pyarrow
+ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj,
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::ArrayBuilder>& builder);
+
+ARROW_EXPORT
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out);
+
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_ADAPTERS_BUILTIN_H

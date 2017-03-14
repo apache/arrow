@@ -108,6 +108,20 @@ std::string Date32Type::ToString() const {
   return std::string("date32");
 }
 
+std::string TimeType::ToString() const {
+  std::stringstream ss;
+  ss << "time[" << this->unit << "]";
+  return ss.str();
+}
+
+std::string TimestampType::ToString() const {
+  std::stringstream ss;
+  ss << "timestamp[" << this->unit;
+  if (this->timezone.size() > 0) { ss << ", tz=" << this->timezone; }
+  ss << "]";
+  return ss.str();
+}
+
 // ----------------------------------------------------------------------
 // Union type
 

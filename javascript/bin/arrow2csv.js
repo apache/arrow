@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -15,18 +17,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_VISIBILITY_H
-#define PYARROW_VISIBILITY_H
+var fs = require('fs')
+var process = require('process');
+var loadVectors = require('../dist/arrow.js').loadVectors;
+var program = require('commander');
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-#define PYARROW_EXPORT __declspec(dllexport)
-#else  // Not Windows
-#ifndef PYARROW_EXPORT
-#define PYARROW_EXPORT __attribute__((visibility("default")))
-#endif
-#ifndef PYARROW_NO_EXPORT
-#define PYARROW_NO_EXPORT __attribute__((visibility("hidden")))
-#endif
-#endif  // Non-Windows
+function list (val) {
+    return val.split(',');
+}
 
-#endif  // PYARROW_VISIBILITY_H
+program
+  .version('0.1.0')
+  .usage('[options] <file>')
+  .option('-s --schema <list>', 'A comma-separated list of column names', list)
+  .parse(process.argv);
+
+if (!program.schema) {
+    program.outputHelp();
+    process.exit(1);
+}
+
+var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
+var vectors = loadVectors(buf);
+
+for (var i = 0; i < vectors[program.schema[0]].length; i += 1|0) {
+    console.log(program.schema.map(function (field) {
+        return '' + vectors[field].get(i);
+    }).join(','));
+}

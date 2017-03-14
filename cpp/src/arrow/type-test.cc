@@ -132,6 +132,18 @@ TEST(TestTimeType, Equals) {
   ASSERT_TRUE(t3.Equals(t4));
 }
 
+TEST(TestTimeType, ToString) {
+  auto t1 = time(TimeUnit::MILLI);
+  auto t2 = time(TimeUnit::NANO);
+  auto t3 = time(TimeUnit::SECOND);
+  auto t4 = time(TimeUnit::MICRO);
+
+  ASSERT_EQ("time[ms]", t1->ToString());
+  ASSERT_EQ("time[ns]", t2->ToString());
+  ASSERT_EQ("time[s]", t3->ToString());
+  ASSERT_EQ("time[us]", t4->ToString());
+}
+
 TEST(TestTimestampType, Equals) {
   TimestampType t1;
   TimestampType t2;
@@ -141,6 +153,18 @@ TEST(TestTimestampType, Equals) {
   ASSERT_TRUE(t1.Equals(t2));
   ASSERT_FALSE(t1.Equals(t3));
   ASSERT_TRUE(t3.Equals(t4));
+}
+
+TEST(TestTimestampType, ToString) {
+  auto t1 = timestamp(TimeUnit::MILLI);
+  auto t2 = timestamp("US/Eastern", TimeUnit::NANO);
+  auto t3 = timestamp(TimeUnit::SECOND);
+  auto t4 = timestamp(TimeUnit::MICRO);
+
+  ASSERT_EQ("timestamp[ms]", t1->ToString());
+  ASSERT_EQ("timestamp[ns, tz=US/Eastern]", t2->ToString());
+  ASSERT_EQ("timestamp[s]", t3->ToString());
+  ASSERT_EQ("timestamp[us]", t4->ToString());
 }
 
 }  // namespace arrow

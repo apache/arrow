@@ -121,7 +121,7 @@ struct TypeTraits<Int64Type> {
 template <>
 struct TypeTraits<DateType> {
   using ArrayType = DateArray;
-  // using BuilderType = DateBuilder;
+  using BuilderType = DateBuilder;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -145,7 +145,7 @@ struct TypeTraits<Date32Type> {
 template <>
 struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
-  // using BuilderType = TimestampBuilder;
+  using BuilderType = TimestampBuilder;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -156,7 +156,7 @@ struct TypeTraits<TimestampType> {
 template <>
 struct TypeTraits<TimeType> {
   using ArrayType = TimeArray;
-  // using BuilderType = TimestampBuilder;
+  using BuilderType = TimeBuilder;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);

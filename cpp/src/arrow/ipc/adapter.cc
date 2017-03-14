@@ -309,65 +309,30 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Int8Array& array) override {
-    return VisitFixedWidth<Int8Array>(array);
-  }
+#define VISIT_FIXED_WIDTH(TYPE) \
+  Status Visit(const TYPE& array) override { return VisitFixedWidth<TYPE>(array); }
 
-  Status Visit(const Int16Array& array) override {
-    return VisitFixedWidth<Int16Array>(array);
-  }
+  VISIT_FIXED_WIDTH(Int8Array);
+  VISIT_FIXED_WIDTH(Int16Array);
+  VISIT_FIXED_WIDTH(Int32Array);
+  VISIT_FIXED_WIDTH(Int64Array);
+  VISIT_FIXED_WIDTH(UInt8Array);
+  VISIT_FIXED_WIDTH(UInt16Array);
+  VISIT_FIXED_WIDTH(UInt32Array);
+  VISIT_FIXED_WIDTH(UInt64Array);
+  VISIT_FIXED_WIDTH(HalfFloatArray);
+  VISIT_FIXED_WIDTH(FloatArray);
+  VISIT_FIXED_WIDTH(DoubleArray);
+  VISIT_FIXED_WIDTH(DateArray);
+  VISIT_FIXED_WIDTH(Date32Array);
+  VISIT_FIXED_WIDTH(TimeArray);
+  VISIT_FIXED_WIDTH(TimestampArray);
 
-  Status Visit(const Int32Array& array) override {
-    return VisitFixedWidth<Int32Array>(array);
-  }
-
-  Status Visit(const Int64Array& array) override {
-    return VisitFixedWidth<Int64Array>(array);
-  }
-
-  Status Visit(const UInt8Array& array) override {
-    return VisitFixedWidth<UInt8Array>(array);
-  }
-
-  Status Visit(const UInt16Array& array) override {
-    return VisitFixedWidth<UInt16Array>(array);
-  }
-
-  Status Visit(const UInt32Array& array) override {
-    return VisitFixedWidth<UInt32Array>(array);
-  }
-
-  Status Visit(const UInt64Array& array) override {
-    return VisitFixedWidth<UInt64Array>(array);
-  }
-
-  Status Visit(const HalfFloatArray& array) override {
-    return VisitFixedWidth<HalfFloatArray>(array);
-  }
-
-  Status Visit(const FloatArray& array) override {
-    return VisitFixedWidth<FloatArray>(array);
-  }
-
-  Status Visit(const DoubleArray& array) override {
-    return VisitFixedWidth<DoubleArray>(array);
-  }
+#undef VISIT_FIXED_WIDTH
 
   Status Visit(const StringArray& array) override { return VisitBinary(array); }
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
-
-  Status Visit(const DateArray& array) override {
-    return VisitFixedWidth<DateArray>(array);
-  }
-
-  Status Visit(const TimeArray& array) override {
-    return VisitFixedWidth<TimeArray>(array);
-  }
-
-  Status Visit(const TimestampArray& array) override {
-    return VisitFixedWidth<TimestampArray>(array);
-  }
 
   Status Visit(const ListArray& array) override {
     std::shared_ptr<Buffer> value_offsets;

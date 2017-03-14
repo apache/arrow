@@ -42,7 +42,8 @@
 #include <numpy/arrayobject.h>
 #include <numpy/ufuncobject.h>
 
-namespace pyarrow {
+namespace arrow {
+namespace py {
 
 inline int import_numpy() {
 #ifdef NUMPY_IMPORT_ARRAY
@@ -53,6 +54,7 @@ inline int import_numpy() {
   return 0;
 }
 
-}  // namespace pyarrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_NUMPY_INTEROP_H
