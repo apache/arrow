@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MEMORY_POOL_H
-#define ARROW_UTIL_MEMORY_POOL_H
+#ifndef ARROW_MEMORY_POOL_H
+#define ARROW_MEMORY_POOL_H
 
 #include <atomic>
 #include <cstdint>
@@ -93,4 +93,4 @@ ARROW_EXPORT MemoryPool* default_memory_pool();
 
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_MEMORY_POOL_H
+#endif  // ARROW_MEMORY_POOL_H
