@@ -84,6 +84,16 @@ Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
     const std::vector<FieldMetadata>& fields,
     const std::vector<std::shared_ptr<Buffer>>& buffers, std::shared_ptr<Array>* out);
 
+/// Create new arrays for logical types that are backed by primitive arrays.
+Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    int64_t length, const std::shared_ptr<Buffer>& data,
+    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset,
+    std::shared_ptr<Array>* out);
+
+Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t length,
+    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out);
+
 }  // namespace arrow
 
 #endif  // ARROW_LOADER_H
