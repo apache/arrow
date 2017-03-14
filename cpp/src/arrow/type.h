@@ -372,7 +372,7 @@ class ARROW_EXPORT FixedWidthBinaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::FIXED_WIDTH_BINARY;
 
-  FixedWidthBinaryType(int byte_width)
+  FixedWidthBinaryType(int32_t byte_width)
     : FixedWidthType(Type::FIXED_WIDTH_BINARY),
       byte_width_(byte_width) {}
 
@@ -381,11 +381,11 @@ class ARROW_EXPORT FixedWidthBinaryType : public FixedWidthType {
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
-  int byte_width() const { return byte_width_; }
+  int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
 
  protected:
-  int byte_width_;
+  int32_t byte_width_;
 };
 
 // UTF-8 encoded strings
@@ -577,6 +577,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
 // ----------------------------------------------------------------------
 // Factory functions
+
+std::shared_ptr<DataType> ARROW_EXPORT fixed_width_binary(int32_t byte_width);
 
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);

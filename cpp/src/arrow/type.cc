@@ -93,7 +93,10 @@ int FixedWidthBinaryType::bit_width() const {
 }
 
 std::string FixedWidthBinaryType::ToString() const {
-  return "fixed_width_binary";
+  std::stringstream ss;
+  ss << "fixed_width_binary["
+     << byte_width_ << "]";
+  return ss.str();
 }
 
 std::string StructType::ToString() const {
@@ -245,7 +248,7 @@ TYPE_FACTORY(binary, BinaryType);
 TYPE_FACTORY(date, DateType);
 TYPE_FACTORY(date32, Date32Type);
 
-std::shared_ptr<DataType> fixed_width_binary(int byte_width) {
+std::shared_ptr<DataType> fixed_width_binary(int32_t byte_width) {
   return std::make_shared<FixedWidthBinaryType>(byte_width);
 }
 
