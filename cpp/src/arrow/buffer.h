@@ -170,6 +170,14 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  // Advance pointer and zero out memory
+  Status Advance(int64_t length) {
+    if (capacity_ < length + size_) { RETURN_NOT_OK(Resize(length + size_)); }
+    memset(data_ + size_, 0, static_cast<size_t>(length));
+    size_ += length;
+    return Status::OK();
+  }
+
   template <typename T>
   Status Append(T arithmetic_value) {
     static_assert(std::is_arithmetic<T>::value,

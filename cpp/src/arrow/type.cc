@@ -94,8 +94,7 @@ int FixedWidthBinaryType::bit_width() const {
 
 std::string FixedWidthBinaryType::ToString() const {
   std::stringstream ss;
-  ss << "fixed_width_binary["
-     << byte_width_ << "]";
+  ss << "fixed_width_binary[" << byte_width_ << "]";
   return ss.str();
 }
 

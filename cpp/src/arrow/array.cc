@@ -286,9 +286,7 @@ FixedWidthBinaryArray::FixedWidthBinaryArray(const std::shared_ptr<DataType>& ty
       raw_data_(nullptr) {
   DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
   byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
-  if (data) {
-    raw_data_ = data->data();
-  }
+  if (data) { raw_data_ = data->data(); }
 }
 
 std::shared_ptr<Array> FixedWidthBinaryArray::Slice(

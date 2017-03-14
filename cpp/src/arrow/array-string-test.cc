@@ -458,4 +458,7 @@ TEST_F(TestBinaryArray, LengthZeroCtor) {
   BinaryArray array(0, nullptr, nullptr);
 }
 
+// ----------------------------------------------------------------------
+// FixedWidthBinary tests
+
 }  // namespace arrow
