@@ -39,7 +39,6 @@ from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
                             table_from_ctable)
 
 cimport cpython as cp
-from cpython cimport Py_buffer
 
 import re
 import six
@@ -421,6 +420,8 @@ cdef class Buffer:
 
     cdef init(self, const shared_ptr[CBuffer]& buffer):
         self.buffer = buffer
+        self.shape[0] = self.size
+        self.strides[0] = <Py_ssize_t>(1)
 
     def __len__(self):
         return self.size
@@ -450,8 +451,6 @@ cdef class Buffer:
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-        self.shape[0] = self.size
-        self.strides[0] = <Py_ssize_t>(1)
 
         buffer.buf = <char *>self.buffer.get().data()
         buffer.format = 'b'

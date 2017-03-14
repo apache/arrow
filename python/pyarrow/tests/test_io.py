@@ -191,19 +191,12 @@ def test_inmemory_write_after_closed():
 def test_buffer_protocol_ref_counting():
     import gc
 
-    val = b'data'
-    buf = io.buffer_from_bytes(val)
-    as_bytes = bytes(buf)
+    def make_buffer(bytes_obj):
+        return bytearray(io.buffer_from_bytes(bytes_obj))
 
-    def add_temporary_reference(buf):
-        m = bytearray(buf)
-        del(buf)
-        gc.collect()
-        assert m == val
-
-    add_temporary_reference(buf)
-    m = bytearray(buf)
-    assert m == val
+    buf = make_buffer(b'foo')
+    gc.collect()
+    assert buf == b'foo'
 
 
 
