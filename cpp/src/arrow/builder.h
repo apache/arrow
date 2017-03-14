@@ -396,7 +396,7 @@ class ARROW_EXPORT FixedWidthBinaryBuilder : public ArrayBuilder {
 
   Status Append(const uint8_t* value);
   Status Append(
-      const uint8_t* data, int32_t length, const uint8_t* valid_bytes = nullptr);
+      const uint8_t* data, int64_t length, const uint8_t* valid_bytes = nullptr);
   Status Append(const std::string& value);
   Status AppendNull();
 

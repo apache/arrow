@@ -461,4 +461,96 @@ TEST_F(TestBinaryArray, LengthZeroCtor) {
 // ----------------------------------------------------------------------
 // FixedWidthBinary tests
 
+class TestFWBinaryArray : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void InitBuilder(int byte_width) {
+    auto type = fixed_width_binary(byte_width);
+    builder_.reset(new FixedWidthBinaryBuilder(default_memory_pool(), type));
+  }
+
+ protected:
+  std::unique_ptr<FixedWidthBinaryBuilder> builder_;
+};
+
+TEST_F(TestFWBinaryArray, Builder) {
+  const int32_t byte_width = 10;
+  int64_t length = 4096;
+
+  int64_t nbytes = length * byte_width;
+
+  std::vector<uint8_t> data(nbytes);
+  test::random_bytes(nbytes, 0, data.data());
+
+  std::vector<uint8_t> is_valid(length);
+  test::random_null_bytes(length, 0.1, is_valid.data());
+
+  const uint8_t* raw_data = data.data();
+
+  std::shared_ptr<Array> result;
+
+  auto CheckResult = [this, &length, &is_valid, &raw_data, &byte_width](
+      const Array& result) {
+    // Verify output
+    const auto& fw_result = static_cast<const FixedWidthBinaryArray&>(result);
+
+    ASSERT_EQ(length, result.length());
+
+    for (int64_t i = 0; i < result.length(); ++i) {
+      if (is_valid[i]) {
+        ASSERT_EQ(
+            0, memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width));
+      } else {
+        ASSERT_TRUE(fw_result.IsNull(i));
+      }
+    }
+  };
+
+  // Build using iterative API
+  InitBuilder(byte_width);
+  for (int64_t i = 0; i < length; ++i) {
+    if (is_valid[i]) {
+      builder_->Append(raw_data + byte_width * i);
+    } else {
+      builder_->AppendNull();
+    }
+  }
+
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+
+  // Build using batch API
+  InitBuilder(byte_width);
+
+  const uint8_t* raw_is_valid = is_valid.data();
+
+  ASSERT_OK(builder_->Append(raw_data, 50, raw_is_valid));
+  ASSERT_OK(builder_->Append(raw_data + 50 * byte_width, length - 50, raw_is_valid + 50));
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+
+  // Build from std::string
+  InitBuilder(byte_width);
+  for (int64_t i = 0; i < length; ++i) {
+    if (is_valid[i]) {
+      builder_->Append(std::string(
+          reinterpret_cast<const char*>(raw_data + byte_width * i), byte_width));
+    } else {
+      builder_->AppendNull();
+    }
+  }
+
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+}
+
+TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
+  // TODO
+}
+
+TEST_F(TestFWBinaryArray, Slice) {
+  // TODO
+}
+
 }  // namespace arrow

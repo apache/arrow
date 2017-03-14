@@ -450,14 +450,14 @@ Status FixedWidthBinaryBuilder::Append(const uint8_t* value) {
 }
 
 Status FixedWidthBinaryBuilder::Append(
-    const uint8_t* data, int32_t length, const uint8_t* valid_bytes) {
+    const uint8_t* data, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
 }
 
 Status FixedWidthBinaryBuilder::Append(const std::string& value) {
-  return Append(value.c_str());
+  return Append(reinterpret_cast<const uint8_t*>(value.c_str()));
 }
 
 Status FixedWidthBinaryBuilder::AppendNull() {
@@ -468,7 +468,7 @@ Status FixedWidthBinaryBuilder::AppendNull() {
 
 Status FixedWidthBinaryBuilder::Init(int64_t elements) {
   DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
-  RETURN_NOT_OK(FixedWidthBinaryBuilder::Init(elements));
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
   return byte_builder_.Resize(elements * byte_width_);
 }
 
