@@ -100,6 +100,23 @@ def test_bytes_reader():
 
     f.close()
 
+def test_buffer_reader_init_from_buffer_object():
+    import array
+    import struct
+
+    val = b'test data'
+    view = memoryview(val)
+    f = io.BufferReader(view)
+    assert f.read(4) == b'test'
+    val = array.array('H', [32000])
+    assert val.itemsize == 2
+    with pytest.raises(ValueError):
+        f = io.BufferReader(val)
+    val = memoryview(struct.pack('b'*6, *list(range(6)))).cast('b', shape=[2,3])
+    assert val.ndim == 2
+    with pytest.raises(ValueError):
+        f = io.BufferReader(val)
+
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(ValueError):
@@ -143,7 +160,7 @@ def test_buffer_memoryview():
 
     result = memoryview(buf)
 
-    assert result == val
+    assert bytes(result) == val
 
 
 def test_buffer_memoryview_is_immutable():
@@ -197,7 +214,6 @@ def test_buffer_protocol_ref_counting():
     buf = make_buffer(b'foo')
     gc.collect()
     assert buf == b'foo'
-
 
 
 # ----------------------------------------------------------------------
