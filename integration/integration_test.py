@@ -680,12 +680,16 @@ class JavaTester(Tester):
         cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
                'org.apache.arrow.tools.StreamToFile',
                stream_path, file_path]
+        if self.debug:
+            print(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
                'org.apache.arrow.tools.FileToStream',
                file_path, stream_path]
+        if self.debug:
+            print(' '.join(cmd))
         run_cmd(cmd)
 
 
