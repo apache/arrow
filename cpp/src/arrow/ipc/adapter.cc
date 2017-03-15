@@ -304,6 +304,17 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const FixedWidthBinaryArray& array) override {
+    auto data = array.data();
+    int32_t width = array.byte_width();
+
+    if (array.offset() != 0) {
+      data = SliceBuffer(data, array.offset() * width, width * array.length());
+    }
+    buffers_.push_back(data);
+    return Status::OK();
+  }
+
   Status Visit(const BooleanArray& array) override {
     buffers_.push_back(array.data());
     return Status::OK();

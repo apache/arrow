@@ -228,6 +228,13 @@ struct TypeTraits<BinaryType> {
   static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
 };
 
+template <>
+struct TypeTraits<FixedWidthBinaryType> {
+  using ArrayType = FixedWidthBinaryArray;
+  using BuilderType = FixedWidthBinaryBuilder;
+  constexpr static bool is_parameter_free = false;
+};
+
 // Not all type classes have a c_type
 template <typename T>
 struct as_void {

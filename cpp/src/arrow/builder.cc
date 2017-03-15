@@ -121,6 +121,14 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
   uint8_t bitset = null_bitmap_data_[byte_offset];
 
   for (int64_t i = 0; i < length; ++i) {
+    if (bit_offset == 8) {
+      bit_offset = 0;
+      null_bitmap_data_[byte_offset] = bitset;
+      byte_offset++;
+      // TODO: Except for the last byte, this shouldn't be needed
+      bitset = null_bitmap_data_[byte_offset];
+    }
+
     if (valid_bytes[i]) {
       bitset |= BitUtil::kBitmask[bit_offset];
     } else {
@@ -129,13 +137,6 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     }
 
     bit_offset++;
-    if (bit_offset == 8) {
-      bit_offset = 0;
-      null_bitmap_data_[byte_offset] = bitset;
-      byte_offset++;
-      // TODO: Except for the last byte, this shouldn't be needed
-      bitset = null_bitmap_data_[byte_offset];
-    }
   }
   if (bit_offset != 0) { null_bitmap_data_[byte_offset] = bitset; }
   length_ += length;
@@ -324,20 +325,36 @@ Status BooleanBuilder::Append(
 // ----------------------------------------------------------------------
 // ListBuilder
 
-ListBuilder::ListBuilder(
-    MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder, const TypePtr& type)
+ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
+    const std::shared_ptr<DataType>& type)
     : ArrayBuilder(
           pool, type ? type : std::static_pointer_cast<DataType>(
                                   std::make_shared<ListType>(value_builder->type()))),
       offset_builder_(pool),
       value_builder_(value_builder) {}
 
-ListBuilder::ListBuilder(
-    MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type)
+ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
+    const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool, type ? type : std::static_pointer_cast<DataType>(
                                            std::make_shared<ListType>(values->type()))),
       offset_builder_(pool),
       values_(values) {}
+
+Status ListBuilder::Append(
+    const int32_t* offsets, int64_t length, const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(valid_bytes, length);
+  offset_builder_.UnsafeAppend<int32_t>(offsets, length);
+  return Status::OK();
+}
+
+Status ListBuilder::Append(bool is_valid) {
+  RETURN_NOT_OK(Reserve(1));
+  UnsafeAppendToBitmap(is_valid);
+  RETURN_NOT_OK(
+      offset_builder_.Append<int32_t>(static_cast<int32_t>(value_builder_->length())));
+  return Status::OK();
+}
 
 Status ListBuilder::Init(int64_t elements) {
   DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
@@ -386,7 +403,7 @@ BinaryBuilder::BinaryBuilder(MemoryPool* pool)
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
 
-BinaryBuilder::BinaryBuilder(MemoryPool* pool, const TypePtr& type)
+BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
     : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, uint8()), type) {
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
@@ -414,6 +431,58 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
 
   *out = std::make_shared<StringArray>(list->length(), list->value_offsets(),
       values->data(), list->null_bitmap(), list->null_count());
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Fixed width binary
+
+FixedWidthBinaryBuilder::FixedWidthBinaryBuilder(
+    MemoryPool* pool, const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(pool, type), byte_builder_(pool) {
+  DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
+  byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+}
+
+Status FixedWidthBinaryBuilder::Append(const uint8_t* value) {
+  RETURN_NOT_OK(Reserve(1));
+  UnsafeAppendToBitmap(true);
+  return byte_builder_.Append(value, byte_width_);
+}
+
+Status FixedWidthBinaryBuilder::Append(
+    const uint8_t* data, int64_t length, const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(valid_bytes, length);
+  return byte_builder_.Append(data, length * byte_width_);
+}
+
+Status FixedWidthBinaryBuilder::Append(const std::string& value) {
+  return Append(reinterpret_cast<const uint8_t*>(value.c_str()));
+}
+
+Status FixedWidthBinaryBuilder::AppendNull() {
+  RETURN_NOT_OK(Reserve(1));
+  UnsafeAppendToBitmap(false);
+  return byte_builder_.Advance(byte_width_);
+}
+
+Status FixedWidthBinaryBuilder::Init(int64_t elements) {
+  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
+  return byte_builder_.Resize(elements * byte_width_);
+}
+
+Status FixedWidthBinaryBuilder::Resize(int64_t capacity) {
+  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
+  RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
+  return ArrayBuilder::Resize(capacity);
+}
+
+Status FixedWidthBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
+  std::shared_ptr<Buffer> data = byte_builder_.Finish();
+  *out = std::make_shared<FixedWidthBinaryArray>(
+      type_, length_, data, null_bitmap_, null_count_);
   return Status::OK();
 }
 

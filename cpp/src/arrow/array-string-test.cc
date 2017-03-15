@@ -33,22 +33,6 @@ namespace arrow {
 
 class Buffer;
 
-TEST(TypesTest, BinaryType) {
-  BinaryType t1;
-  BinaryType e1;
-  StringType t2;
-  EXPECT_TRUE(t1.Equals(e1));
-  EXPECT_FALSE(t1.Equals(t2));
-  ASSERT_EQ(t1.type, Type::BINARY);
-  ASSERT_EQ(t1.ToString(), std::string("binary"));
-}
-
-TEST(TypesTest, TestStringType) {
-  StringType str;
-  ASSERT_EQ(str.type, Type::STRING);
-  ASSERT_EQ(str.ToString(), std::string("string"));
-}
-
 // ----------------------------------------------------------------------
 // String container
 
@@ -472,6 +456,184 @@ TEST_F(TestStringArray, TestSliceEquality) {
 
 TEST_F(TestBinaryArray, LengthZeroCtor) {
   BinaryArray array(0, nullptr, nullptr);
+}
+
+// ----------------------------------------------------------------------
+// FixedWidthBinary tests
+
+class TestFWBinaryArray : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void InitBuilder(int byte_width) {
+    auto type = fixed_width_binary(byte_width);
+    builder_.reset(new FixedWidthBinaryBuilder(default_memory_pool(), type));
+  }
+
+ protected:
+  std::unique_ptr<FixedWidthBinaryBuilder> builder_;
+};
+
+TEST_F(TestFWBinaryArray, Builder) {
+  const int32_t byte_width = 10;
+  int64_t length = 4096;
+
+  int64_t nbytes = length * byte_width;
+
+  std::vector<uint8_t> data(nbytes);
+  test::random_bytes(nbytes, 0, data.data());
+
+  std::vector<uint8_t> is_valid(length);
+  test::random_null_bytes(length, 0.1, is_valid.data());
+
+  const uint8_t* raw_data = data.data();
+
+  std::shared_ptr<Array> result;
+
+  auto CheckResult = [this, &length, &is_valid, &raw_data, &byte_width](
+      const Array& result) {
+    // Verify output
+    const auto& fw_result = static_cast<const FixedWidthBinaryArray&>(result);
+
+    ASSERT_EQ(length, result.length());
+
+    for (int64_t i = 0; i < result.length(); ++i) {
+      if (is_valid[i]) {
+        ASSERT_EQ(
+            0, memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width));
+      } else {
+        ASSERT_TRUE(fw_result.IsNull(i));
+      }
+    }
+  };
+
+  // Build using iterative API
+  InitBuilder(byte_width);
+  for (int64_t i = 0; i < length; ++i) {
+    if (is_valid[i]) {
+      builder_->Append(raw_data + byte_width * i);
+    } else {
+      builder_->AppendNull();
+    }
+  }
+
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+
+  // Build using batch API
+  InitBuilder(byte_width);
+
+  const uint8_t* raw_is_valid = is_valid.data();
+
+  ASSERT_OK(builder_->Append(raw_data, 50, raw_is_valid));
+  ASSERT_OK(builder_->Append(raw_data + 50 * byte_width, length - 50, raw_is_valid + 50));
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+
+  // Build from std::string
+  InitBuilder(byte_width);
+  for (int64_t i = 0; i < length; ++i) {
+    if (is_valid[i]) {
+      builder_->Append(std::string(
+          reinterpret_cast<const char*>(raw_data + byte_width * i), byte_width));
+    } else {
+      builder_->AppendNull();
+    }
+  }
+
+  ASSERT_OK(builder_->Finish(&result));
+  CheckResult(*result);
+}
+
+TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
+  // Check that we don't compare data in null slots
+
+  auto type = fixed_width_binary(4);
+  FixedWidthBinaryBuilder builder1(default_memory_pool(), type);
+  FixedWidthBinaryBuilder builder2(default_memory_pool(), type);
+
+  ASSERT_OK(builder1.Append("foo1"));
+  ASSERT_OK(builder1.AppendNull());
+
+  ASSERT_OK(builder2.Append("foo1"));
+  ASSERT_OK(builder2.Append("foo2"));
+
+  std::shared_ptr<Array> array1, array2;
+  ASSERT_OK(builder1.Finish(&array1));
+  ASSERT_OK(builder2.Finish(&array2));
+
+  const auto& a1 = static_cast<const FixedWidthBinaryArray&>(*array1);
+  const auto& a2 = static_cast<const FixedWidthBinaryArray&>(*array2);
+
+  FixedWidthBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
+  FixedWidthBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
+
+  ASSERT_TRUE(equal1.Equals(equal2));
+  ASSERT_TRUE(equal1.RangeEquals(equal2, 0, 2, 0));
+}
+
+TEST_F(TestFWBinaryArray, ZeroSize) {
+  auto type = fixed_width_binary(0);
+  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  const auto& fw_array = static_cast<const FixedWidthBinaryArray&>(*array);
+
+  // data is never allocated
+  ASSERT_TRUE(fw_array.data() == nullptr);
+  ASSERT_EQ(0, fw_array.byte_width());
+
+  ASSERT_EQ(6, array->length());
+  ASSERT_EQ(3, array->null_count());
+}
+
+TEST_F(TestFWBinaryArray, Slice) {
+  auto type = fixed_width_binary(4);
+  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+
+  std::vector<std::string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
+  std::vector<uint8_t> is_null = {0, 1, 0, 0, 0};
+
+  for (int i = 0; i < 5; ++i) {
+    if (is_null[i]) {
+      builder.AppendNull();
+    } else {
+      builder.Append(strings[i]);
+    }
+  }
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(1);
+  slice2 = array->Slice(1);
+  ASSERT_EQ(4, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, slice->length(), 0, slice));
+
+  // Chained slices
+  slice = array->Slice(2);
+  slice2 = array->Slice(1)->Slice(1);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(1, 3);
+  ASSERT_EQ(3, slice->length());
+
+  slice2 = array->Slice(1, 3);
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 }
 
 }  // namespace arrow

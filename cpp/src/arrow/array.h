@@ -57,6 +57,7 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const DoubleArray& array);
   virtual Status Visit(const StringArray& array);
   virtual Status Visit(const BinaryArray& array);
+  virtual Status Visit(const FixedWidthBinaryArray& array);
   virtual Status Visit(const DateArray& array);
   virtual Status Visit(const Date32Array& array);
   virtual Status Visit(const TimeArray& array);
@@ -384,6 +385,39 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
+};
+
+// ----------------------------------------------------------------------
+// Fixed width binary
+
+class ARROW_EXPORT FixedWidthBinaryArray : public Array {
+ public:
+  using TypeClass = FixedWidthBinaryType;
+
+  FixedWidthBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
+      const std::shared_ptr<Buffer>& data,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
+      int64_t offset = 0);
+
+  const uint8_t* GetValue(int64_t i) const {
+    return raw_data_ + (i + offset_) * byte_width_;
+  }
+
+  /// Note that this buffer does not account for any slice offset
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  int32_t byte_width() const { return byte_width_; }
+
+  const uint8_t* raw_data() const { return raw_data_; }
+
+  Status Accept(ArrayVisitor* visitor) const override;
+
+  std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
+
+ protected:
+  int32_t byte_width_;
+  std::shared_ptr<Buffer> data_;
+  const uint8_t* raw_data_;
 };
 
 // ----------------------------------------------------------------------

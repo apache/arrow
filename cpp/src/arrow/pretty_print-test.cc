@@ -56,7 +56,7 @@ void CheckPrimitive(int indent, const std::vector<bool>& is_valid,
     const std::vector<C_TYPE>& values, const char* expected) {
   std::shared_ptr<Array> array;
   ArrayFromVector<TYPE, C_TYPE>(is_valid, values, &array);
-  CheckArray(*array.get(), indent, expected);
+  CheckArray(*array, indent, expected);
 }
 
 TEST_F(TestPrettyPrint, PrimitiveType) {
@@ -69,6 +69,30 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   std::vector<std::string> values2 = {"foo", "bar", "", "baz", ""};
   static const char* ex2 = R"expected(["foo", "bar", null, "baz", null])expected";
   CheckPrimitive<StringType, std::string>(0, is_valid, values2, ex2);
+}
+
+TEST_F(TestPrettyPrint, BinaryType) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", ""};
+  static const char* ex = R"expected([666F6F, 626172, null, 62617A, null])expected";
+  CheckPrimitive<BinaryType, std::string>(0, is_valid, values, ex);
+}
+
+TEST_F(TestPrettyPrint, FixedWidthBinaryType) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<std::string> values = {"foo", "bar", "baz"};
+  static const char* ex = R"expected([666F6F, 626172, 62617A])expected";
+
+  std::shared_ptr<Array> array;
+  auto type = fixed_width_binary(3);
+  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+
+  builder.Append(values[0]);
+  builder.Append(values[1]);
+  builder.Append(values[2]);
+  builder.Finish(&array);
+
+  CheckArray(*array, 0, ex);
 }
 
 TEST_F(TestPrettyPrint, DictionaryType) {

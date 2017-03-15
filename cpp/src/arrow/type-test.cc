@@ -121,6 +121,58 @@ TEST_F(TestSchema, GetFieldByName) {
   ASSERT_TRUE(result == nullptr);
 }
 
+TEST(TestBinaryType, ToString) {
+  BinaryType t1;
+  BinaryType e1;
+  StringType t2;
+  EXPECT_TRUE(t1.Equals(e1));
+  EXPECT_FALSE(t1.Equals(t2));
+  ASSERT_EQ(t1.type, Type::BINARY);
+  ASSERT_EQ(t1.ToString(), std::string("binary"));
+}
+
+TEST(TestStringType, ToString) {
+  StringType str;
+  ASSERT_EQ(str.type, Type::STRING);
+  ASSERT_EQ(str.ToString(), std::string("string"));
+}
+
+TEST(TestFixedWidthBinaryType, ToString) {
+  auto t = fixed_width_binary(10);
+  ASSERT_EQ(t->type, Type::FIXED_WIDTH_BINARY);
+  ASSERT_EQ("fixed_width_binary[10]", t->ToString());
+}
+
+TEST(TestFixedWidthBinaryType, Equals) {
+  auto t1 = fixed_width_binary(10);
+  auto t2 = fixed_width_binary(10);
+  auto t3 = fixed_width_binary(3);
+
+  ASSERT_TRUE(t1->Equals(t1));
+  ASSERT_TRUE(t1->Equals(t2));
+  ASSERT_FALSE(t1->Equals(t3));
+}
+
+TEST(TestListType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  ListType list_type(vt);
+  ASSERT_EQ(list_type.type, Type::LIST);
+
+  ASSERT_EQ("list", list_type.name());
+  ASSERT_EQ("list<item: uint8>", list_type.ToString());
+
+  ASSERT_EQ(list_type.value_type()->type, vt->type);
+  ASSERT_EQ(list_type.value_type()->type, vt->type);
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st);
+  ASSERT_EQ("list<item: string>", lt->ToString());
+
+  ListType lt2(lt);
+  ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
+}
+
 TEST(TestTimeType, Equals) {
   TimeType t1;
   TimeType t2;

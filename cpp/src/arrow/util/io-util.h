@@ -18,8 +18,11 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
-#include "arrow/buffer.h"
 #include <iostream>
+
+#include "arrow/buffer.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace io {

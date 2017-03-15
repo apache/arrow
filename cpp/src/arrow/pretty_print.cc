@@ -26,6 +26,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -66,9 +67,9 @@ class ArrayPrinter : public ArrayVisitor {
     }
   }
 
-  // String (Utf8), Binary
+  // String (Utf8)
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, void>::type
+  typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
@@ -78,6 +79,37 @@ class ArrayPrinter : public ArrayVisitor {
       } else {
         const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
         (*sink_) << "\"" << std::string(buf, length) << "\"";
+      }
+    }
+  }
+
+  // Binary
+  template <typename T>
+  typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
+  WriteDataValues(const T& array) {
+    int32_t length;
+    for (int i = 0; i < array.length(); ++i) {
+      if (i > 0) { (*sink_) << ", "; }
+      if (array.IsNull(i)) {
+        Write("null");
+      } else {
+        const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
+        (*sink_) << HexEncode(buf, length);
+      }
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
+  WriteDataValues(const T& array) {
+    int32_t width = array.byte_width();
+    for (int i = 0; i < array.length(); ++i) {
+      if (i > 0) { (*sink_) << ", "; }
+      if (array.IsNull(i)) {
+        Write("null");
+      } else {
+        const char* buf = reinterpret_cast<const char*>(array.GetValue(i));
+        (*sink_) << HexEncode(buf, width);
       }
     }
   }
@@ -100,15 +132,7 @@ class ArrayPrinter : public ArrayVisitor {
   void CloseArray() { (*sink_) << "]"; }
 
   template <typename T>
-  Status WritePrimitive(const T& array) {
-    OpenArray();
-    WriteDataValues(array);
-    CloseArray();
-    return Status::OK();
-  }
-
-  template <typename T>
-  Status WriteVarBytes(const T& array) {
+  Status WriteArray(const T& array) {
     OpenArray();
     WriteDataValues(array);
     CloseArray();
@@ -117,39 +141,41 @@ class ArrayPrinter : public ArrayVisitor {
 
   Status Visit(const NullArray& array) override { return Status::OK(); }
 
-  Status Visit(const BooleanArray& array) override { return WritePrimitive(array); }
+  Status Visit(const BooleanArray& array) override { return WriteArray(array); }
 
-  Status Visit(const Int8Array& array) override { return WritePrimitive(array); }
+  Status Visit(const Int8Array& array) override { return WriteArray(array); }
 
-  Status Visit(const Int16Array& array) override { return WritePrimitive(array); }
+  Status Visit(const Int16Array& array) override { return WriteArray(array); }
 
-  Status Visit(const Int32Array& array) override { return WritePrimitive(array); }
+  Status Visit(const Int32Array& array) override { return WriteArray(array); }
 
-  Status Visit(const Int64Array& array) override { return WritePrimitive(array); }
+  Status Visit(const Int64Array& array) override { return WriteArray(array); }
 
-  Status Visit(const UInt8Array& array) override { return WritePrimitive(array); }
+  Status Visit(const UInt8Array& array) override { return WriteArray(array); }
 
-  Status Visit(const UInt16Array& array) override { return WritePrimitive(array); }
+  Status Visit(const UInt16Array& array) override { return WriteArray(array); }
 
-  Status Visit(const UInt32Array& array) override { return WritePrimitive(array); }
+  Status Visit(const UInt32Array& array) override { return WriteArray(array); }
 
-  Status Visit(const UInt64Array& array) override { return WritePrimitive(array); }
+  Status Visit(const UInt64Array& array) override { return WriteArray(array); }
 
-  Status Visit(const HalfFloatArray& array) override { return WritePrimitive(array); }
+  Status Visit(const HalfFloatArray& array) override { return WriteArray(array); }
 
-  Status Visit(const FloatArray& array) override { return WritePrimitive(array); }
+  Status Visit(const FloatArray& array) override { return WriteArray(array); }
 
-  Status Visit(const DoubleArray& array) override { return WritePrimitive(array); }
+  Status Visit(const DoubleArray& array) override { return WriteArray(array); }
 
-  Status Visit(const StringArray& array) override { return WriteVarBytes(array); }
+  Status Visit(const StringArray& array) override { return WriteArray(array); }
 
-  Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
+  Status Visit(const BinaryArray& array) override { return WriteArray(array); }
 
-  Status Visit(const DateArray& array) override { return WritePrimitive(array); }
+  Status Visit(const FixedWidthBinaryArray& array) override { return WriteArray(array); }
 
-  Status Visit(const Date32Array& array) override { return WritePrimitive(array); }
+  Status Visit(const DateArray& array) override { return WriteArray(array); }
 
-  Status Visit(const TimeArray& array) override { return WritePrimitive(array); }
+  Status Visit(const Date32Array& array) override { return WriteArray(array); }
+
+  Status Visit(const TimeArray& array) override { return WriteArray(array); }
 
   Status Visit(const TimestampArray& array) override {
     return Status::NotImplemented("timestamp");

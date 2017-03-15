@@ -128,10 +128,6 @@ std::shared_ptr<Array> NullArray::Slice(int64_t offset, int64_t length) const {
   return std::make_shared<NullArray>(length);
 }
 
-Status NullArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 // ----------------------------------------------------------------------
 // Primitive array base
 
@@ -144,32 +140,11 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 }
 
 template <typename T>
-Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-template <typename T>
 std::shared_ptr<Array> NumericArray<T>::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<NumericArray<T>>(
       type_, length, data_, null_bitmap_, kUnknownNullCount, offset);
 }
-
-template class NumericArray<UInt8Type>;
-template class NumericArray<UInt16Type>;
-template class NumericArray<UInt32Type>;
-template class NumericArray<UInt64Type>;
-template class NumericArray<Int8Type>;
-template class NumericArray<Int16Type>;
-template class NumericArray<Int32Type>;
-template class NumericArray<Int64Type>;
-template class NumericArray<TimestampType>;
-template class NumericArray<DateType>;
-template class NumericArray<Date32Type>;
-template class NumericArray<TimeType>;
-template class NumericArray<HalfFloatType>;
-template class NumericArray<FloatType>;
-template class NumericArray<DoubleType>;
 
 // ----------------------------------------------------------------------
 // BooleanArray
@@ -178,10 +153,6 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
     : PrimitiveArray(std::make_shared<BooleanType>(), length, data, null_bitmap,
           null_count, offset) {}
-
-Status BooleanArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
 
 std::shared_ptr<Array> BooleanArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
@@ -244,10 +215,6 @@ Status ListArray::Validate() const {
   return Status::OK();
 }
 
-Status ListArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> ListArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<ListArray>(
@@ -285,10 +252,6 @@ Status BinaryArray::Validate() const {
   return Status::OK();
 }
 
-Status BinaryArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> BinaryArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<BinaryArray>(
@@ -306,14 +269,31 @@ Status StringArray::Validate() const {
   return BinaryArray::Validate();
 }
 
-Status StringArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<StringArray>(
       length, value_offsets_, data_, null_bitmap_, kUnknownNullCount, offset);
+}
+
+// ----------------------------------------------------------------------
+// Fixed width binary
+
+FixedWidthBinaryArray::FixedWidthBinaryArray(const std::shared_ptr<DataType>& type,
+    int64_t length, const std::shared_ptr<Buffer>& data,
+    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
+    : Array(type, length, null_bitmap, null_count, offset),
+      data_(data),
+      raw_data_(nullptr) {
+  DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
+  byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+  if (data) { raw_data_ = data->data(); }
+}
+
+std::shared_ptr<Array> FixedWidthBinaryArray::Slice(
+    int64_t offset, int64_t length) const {
+  ConformSliceParams(offset_, length_, &offset, &length);
+  return std::make_shared<FixedWidthBinaryArray>(
+      type_, length, data_, null_bitmap_, kUnknownNullCount, offset);
 }
 
 // ----------------------------------------------------------------------
@@ -368,10 +348,6 @@ Status StructArray::Validate() const {
   return Status::OK();
 }
 
-Status StructArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> StructArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<StructArray>(
@@ -413,10 +389,6 @@ Status UnionArray::Validate() const {
   return Status::OK();
 }
 
-Status UnionArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<UnionArray>(type_, length, children_, type_ids_, value_offsets_,
@@ -447,17 +419,54 @@ std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
 }
 
-Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
 std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) const {
   std::shared_ptr<Array> sliced_indices = indices_->Slice(offset, length);
   return std::make_shared<DictionaryArray>(type_, sliced_indices);
 }
 
 // ----------------------------------------------------------------------
-// Default implementations of ArrayVisitor methods
+// Implement ArrayVisitor methods
+
+Status NullArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status BooleanArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+template <typename T>
+Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status BinaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status StringArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status FixedWidthBinaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status ListArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status StructArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status UnionArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
+
+Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
+  return visitor->Visit(*this);
+}
 
 #define ARRAY_VISITOR_DEFAULT(ARRAY_CLASS)                   \
   Status ArrayVisitor::Visit(const ARRAY_CLASS& array) {     \
@@ -477,8 +486,9 @@ ARRAY_VISITOR_DEFAULT(UInt64Array);
 ARRAY_VISITOR_DEFAULT(HalfFloatArray);
 ARRAY_VISITOR_DEFAULT(FloatArray);
 ARRAY_VISITOR_DEFAULT(DoubleArray);
-ARRAY_VISITOR_DEFAULT(StringArray);
 ARRAY_VISITOR_DEFAULT(BinaryArray);
+ARRAY_VISITOR_DEFAULT(StringArray);
+ARRAY_VISITOR_DEFAULT(FixedWidthBinaryArray);
 ARRAY_VISITOR_DEFAULT(DateArray);
 ARRAY_VISITOR_DEFAULT(Date32Array);
 ARRAY_VISITOR_DEFAULT(TimeArray);
@@ -492,5 +502,24 @@ ARRAY_VISITOR_DEFAULT(DictionaryArray);
 Status ArrayVisitor::Visit(const DecimalArray& array) {
   return Status::NotImplemented("decimal");
 }
+
+// ----------------------------------------------------------------------
+// Instantiate templates
+
+template class NumericArray<UInt8Type>;
+template class NumericArray<UInt16Type>;
+template class NumericArray<UInt32Type>;
+template class NumericArray<UInt64Type>;
+template class NumericArray<Int8Type>;
+template class NumericArray<Int16Type>;
+template class NumericArray<Int32Type>;
+template class NumericArray<Int64Type>;
+template class NumericArray<TimestampType>;
+template class NumericArray<DateType>;
+template class NumericArray<Date32Type>;
+template class NumericArray<TimeType>;
+template class NumericArray<HalfFloatType>;
+template class NumericArray<FloatType>;
+template class NumericArray<DoubleType>;
 
 }  // namespace arrow

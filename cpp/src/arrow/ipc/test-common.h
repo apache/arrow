@@ -463,22 +463,34 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDates(std::shared_ptr<RecordBatch>* out) {
+Status MakeDate(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
-  auto f0 = field("f0", date32());
   auto f1 = field("f1", date());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  std::shared_ptr<Schema> schema(new Schema({f1}));
 
   std::vector<int64_t> date_values = {1489269000000, 1489270000000, 1489271000000,
       1489272000000, 1489272000000, 1489273000000};
+
+  std::shared_ptr<Array> date_array;
+  ArrayFromVector<DateType, int64_t>(is_valid, date_values, &date_array);
+
+  std::vector<std::shared_ptr<Array>> arrays = {date_array};
+  *out = std::make_shared<RecordBatch>(schema, date_array->length(), arrays);
+  return Status::OK();
+}
+
+Status MakeDate32(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
+  auto f0 = field("f0", date32());
+  std::shared_ptr<Schema> schema(new Schema({f0}));
+
   std::vector<int32_t> date32_values = {0, 1, 2, 3, 4, 5, 6};
 
-  std::shared_ptr<Array> date_array, date32_array;
-  ArrayFromVector<DateType, int64_t>(is_valid, date_values, &date_array);
+  std::shared_ptr<Array> date32_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
-  std::vector<std::shared_ptr<Array>> arrays = {date32_array, date_array};
-  *out = std::make_shared<RecordBatch>(schema, date_array->length(), arrays);
+  std::vector<std::shared_ptr<Array>> arrays = {date32_array};
+  *out = std::make_shared<RecordBatch>(schema, date32_array->length(), arrays);
   return Status::OK();
 }
 
@@ -486,7 +498,7 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", timestamp(TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(TimeUnit::NANO));
-  auto f2 = field("f2", timestamp("US/Los_Angeles", TimeUnit::SECOND));
+  auto f2 = field("f2", timestamp(TimeUnit::SECOND));
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
@@ -519,6 +531,43 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
 
   ArrayVector arrays = {a0, a1, a2};
   *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
+  return Status::OK();
+}
+
+template <typename BuilderType, typename T>
+void AppendValues(const std::vector<bool>& is_valid, const std::vector<T>& values,
+    BuilderType* builder) {
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (is_valid[i]) {
+      builder->Append(values[i]);
+    } else {
+      builder->AppendNull();
+    }
+  }
+}
+
+Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false};
+  auto f0 = field("f0", fixed_width_binary(4));
+  auto f1 = field("f1", fixed_width_binary(0));
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  std::shared_ptr<Array> a1, a2;
+
+  FixedWidthBinaryBuilder b1(default_memory_pool(), f0->type);
+  FixedWidthBinaryBuilder b2(default_memory_pool(), f0->type);
+
+  std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
+  AppendValues(is_valid, values1, &b1);
+
+  std::vector<std::string> values2 = {"", "", "", ""};
+  AppendValues(is_valid, values2, &b2);
+
+  RETURN_NOT_OK(b1.Finish(&a1));
+  RETURN_NOT_OK(b2.Finish(&a2));
+
+  ArrayVector arrays = {a1, a2};
+  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
   return Status::OK();
 }
 

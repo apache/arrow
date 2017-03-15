@@ -48,6 +48,10 @@ struct BinaryType;
 class BinaryArray;
 class BinaryBuilder;
 
+class FixedWidthBinaryType;
+class FixedWidthBinaryArray;
+class FixedWidthBinaryBuilder;
+
 struct StringType;
 class StringArray;
 class StringBuilder;

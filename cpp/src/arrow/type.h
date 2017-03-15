@@ -68,6 +68,9 @@ struct Type {
     // Variable-length bytes (no guarantee of UTF8-ness)
     BINARY,
 
+    // Fixed-width binary. Each value occupies the same number of bytes
+    FIXED_WIDTH_BINARY,
+
     // int64_t milliseconds since the UNIX epoch
     DATE,
 
@@ -135,6 +138,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const DoubleType& type);
   virtual Status Visit(const StringType& type);
   virtual Status Visit(const BinaryType& type);
+  virtual Status Visit(const FixedWidthBinaryType& type);
   virtual Status Visit(const DateType& type);
   virtual Status Visit(const Date32Type& type);
   virtual Status Visit(const TimeType& type);
@@ -347,7 +351,7 @@ struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-// BinaryType type is reprsents lists of 1-byte values.
+// BinaryType type is represents lists of 1-byte values.
 struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BINARY;
 
@@ -364,7 +368,27 @@ struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   explicit BinaryType(Type::type logical_type) : DataType(logical_type) {}
 };
 
-// UTF encoded strings
+// BinaryType type is represents lists of 1-byte values.
+class ARROW_EXPORT FixedWidthBinaryType : public FixedWidthType {
+ public:
+  static constexpr Type::type type_id = Type::FIXED_WIDTH_BINARY;
+
+  explicit FixedWidthBinaryType(int32_t byte_width)
+      : FixedWidthType(Type::FIXED_WIDTH_BINARY), byte_width_(byte_width) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+
+  std::vector<BufferDescr> GetBufferLayout() const override;
+
+  int32_t byte_width() const { return byte_width_; }
+  int bit_width() const override;
+
+ protected:
+  int32_t byte_width_;
+};
+
+// UTF-8 encoded strings
 struct ARROW_EXPORT StringType : public BinaryType {
   static constexpr Type::type type_id = Type::STRING;
 
@@ -570,6 +594,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
 // ----------------------------------------------------------------------
 // Factory functions
+
+std::shared_ptr<DataType> ARROW_EXPORT fixed_width_binary(int32_t byte_width);
 
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);

@@ -39,11 +39,10 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace ipc {
-
-static const char* kAsciiTable = "0123456789ABCDEF";
 
 using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
@@ -401,14 +400,7 @@ class JsonArrayWriter : public ArrayVisitor {
       if (std::is_base_of<StringArray, T>::value) {
         writer_->String(buf, length);
       } else {
-        std::string hex_string;
-        hex_string.reserve(length * 2);
-        for (int32_t j = 0; j < length; ++j) {
-          // Convert to 2 base16 digits
-          hex_string.push_back(kAsciiTable[buf[j] >> 4]);
-          hex_string.push_back(kAsciiTable[buf[j] & 15]);
-        }
-        writer_->String(hex_string);
+        writer_->String(HexEncode(buf, length));
       }
     }
   }
@@ -759,20 +751,6 @@ class JsonSchemaReader {
  private:
   const rj::Value& json_schema_;
 };
-
-static inline Status ParseHexValue(const char* data, uint8_t* out) {
-  char c1 = data[0];
-  char c2 = data[1];
-
-  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c1);
-  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
-
-  // Error checking
-  if (*pos1 != c1 || *pos2 != c2) { return Status::Invalid("Encountered non-hex digit"); }
-
-  *out = static_cast<uint8_t>((pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable));
-  return Status::OK();
-}
 
 template <typename T>
 inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type

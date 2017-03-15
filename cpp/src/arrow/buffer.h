@@ -157,6 +157,8 @@ class ARROW_EXPORT BufferBuilder {
 
   /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
   Status Resize(int64_t elements) {
+    // Resize(0) is a no-op
+    if (elements == 0) { return Status::OK(); }
     if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
     RETURN_NOT_OK(buffer_->Resize(elements));
     capacity_ = buffer_->capacity();
@@ -167,6 +169,14 @@ class ARROW_EXPORT BufferBuilder {
   Status Append(const uint8_t* data, int64_t length) {
     if (capacity_ < length + size_) { RETURN_NOT_OK(Resize(length + size_)); }
     UnsafeAppend(data, length);
+    return Status::OK();
+  }
+
+  // Advance pointer and zero out memory
+  Status Advance(int64_t length) {
+    if (capacity_ < length + size_) { RETURN_NOT_OK(Resize(length + size_)); }
+    memset(data_ + size_, 0, static_cast<size_t>(length));
+    size_ += length;
     return Status::OK();
   }
 

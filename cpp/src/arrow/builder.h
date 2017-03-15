@@ -46,7 +46,7 @@ static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 /// the null count.
 class ARROW_EXPORT ArrayBuilder {
  public:
-  explicit ArrayBuilder(MemoryPool* pool, const TypePtr& type)
+  explicit ArrayBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
       : pool_(pool),
         type_(type),
         null_bitmap_(nullptr),
@@ -140,7 +140,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:
   using value_type = typename Type::c_type;
 
-  explicit PrimitiveBuilder(MemoryPool* pool, const TypePtr& type)
+  explicit PrimitiveBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
       : ArrayBuilder(pool, type), data_(nullptr), raw_data_(nullptr) {}
 
   using ArrayBuilder::Advance;
@@ -313,11 +313,11 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
-      const TypePtr& type = nullptr);
+      const std::shared_ptr<DataType>& type = nullptr);
 
   /// Use this constructor to build the list with a pre-existing values array
-  ListBuilder(
-      MemoryPool* pool, std::shared_ptr<Array> values, const TypePtr& type = nullptr);
+  ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
+      const std::shared_ptr<DataType>& type = nullptr);
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -328,24 +328,13 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(
-      const int32_t* offsets, int64_t length, const uint8_t* valid_bytes = nullptr) {
-    RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(valid_bytes, length);
-    offset_builder_.UnsafeAppend<int32_t>(offsets, length);
-    return Status::OK();
-  }
+      const int32_t* offsets, int64_t length, const uint8_t* valid_bytes = nullptr);
 
   /// Start a new variable-length list slot
   ///
   /// This function should be called before beginning to append elements to the
   /// value builder
-  Status Append(bool is_valid = true) {
-    RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(is_valid);
-    RETURN_NOT_OK(
-        offset_builder_.Append<int32_t>(static_cast<int32_t>(value_builder_->length())));
-    return Status::OK();
-  }
+  Status Append(bool is_valid = true);
 
   Status AppendNull() { return Append(false); }
 
@@ -362,11 +351,10 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 // ----------------------------------------------------------------------
 // Binary and String
 
-// BinaryBuilder : public ListBuilder
 class ARROW_EXPORT BinaryBuilder : public ListBuilder {
  public:
   explicit BinaryBuilder(MemoryPool* pool);
-  explicit BinaryBuilder(MemoryPool* pool, const TypePtr& type);
+  explicit BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   Status Append(const uint8_t* value, int32_t length) {
     RETURN_NOT_OK(ListBuilder::Append());
@@ -397,6 +385,28 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   Status Finish(std::shared_ptr<Array>* out) override;
 
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
+};
+
+// ----------------------------------------------------------------------
+// FixedWidthBinaryBuilder
+
+class ARROW_EXPORT FixedWidthBinaryBuilder : public ArrayBuilder {
+ public:
+  FixedWidthBinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
+
+  Status Append(const uint8_t* value);
+  Status Append(
+      const uint8_t* data, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const std::string& value);
+  Status AppendNull();
+
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ protected:
+  int32_t byte_width_;
+  BufferBuilder byte_builder_;
 };
 
 // ----------------------------------------------------------------------
