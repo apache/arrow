@@ -121,6 +121,14 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
   uint8_t bitset = null_bitmap_data_[byte_offset];
 
   for (int64_t i = 0; i < length; ++i) {
+    if (bit_offset == 8) {
+      bit_offset = 0;
+      null_bitmap_data_[byte_offset] = bitset;
+      byte_offset++;
+      // TODO: Except for the last byte, this shouldn't be needed
+      bitset = null_bitmap_data_[byte_offset];
+    }
+
     if (valid_bytes[i]) {
       bitset |= BitUtil::kBitmask[bit_offset];
     } else {
@@ -129,13 +137,6 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     }
 
     bit_offset++;
-    if (bit_offset == 8) {
-      bit_offset = 0;
-      null_bitmap_data_[byte_offset] = bitset;
-      byte_offset++;
-      // TODO: Except for the last byte, this shouldn't be needed
-      bitset = null_bitmap_data_[byte_offset];
-    }
   }
   if (bit_offset != 0) { null_bitmap_data_[byte_offset] = bitset; }
   length_ += length;
@@ -474,7 +475,6 @@ Status FixedWidthBinaryBuilder::Init(int64_t elements) {
 
 Status FixedWidthBinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
-  // one more then requested for offsets
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }
