@@ -43,14 +43,9 @@ public class FileToStream {
       reader.loadNextBatch();
       try (ArrowStreamWriter writer = new ArrowStreamWriter(root, reader, out)) {
         writer.start();
-        while (true) {
-          int rowCount = reader.getVectorSchemaRoot().getRowCount();
-          if (rowCount == 0) {
-            break;
-          } else {
-            writer.writeBatch();
-            reader.loadNextBatch();
-          }
+        while (root.getRowCount() > 0) {
+          writer.writeBatch();
+          reader.loadNextBatch();
         }
         writer.end();
       }
