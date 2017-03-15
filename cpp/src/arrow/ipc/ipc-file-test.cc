@@ -43,7 +43,10 @@ namespace arrow {
 namespace ipc {
 
 void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
-  ASSERT_TRUE(left.schema()->Equals(right.schema()));
+  if (!left.schema()->Equals(right.schema())) {
+    FAIL() << "Left schema: " << left.schema()->ToString()
+           << "\nRight schema: " << right.schema()->ToString();
+  }
   ASSERT_EQ(left.num_columns(), right.num_columns())
       << left.schema()->ToString() << " result: " << right.schema()->ToString();
   EXPECT_EQ(left.num_rows(), right.num_rows());
@@ -180,7 +183,8 @@ TEST_P(TestStreamFormat, RoundTrip) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
-      &MakeStruct, &MakeUnion, &MakeDictionary);
+      &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDate, &MakeTimestamps, &MakeTimes, \
+      &MakeFWBinary);
 
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());

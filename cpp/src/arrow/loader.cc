@@ -157,6 +157,18 @@ class ArrayLoader : public TypeVisitor {
 
   Status Visit(const BinaryType& type) override { return LoadBinary<BinaryArray>(); }
 
+  Status Visit(const FixedWidthBinaryType& type) override {
+    FieldMetadata field_meta;
+    std::shared_ptr<Buffer> null_bitmap, data;
+
+    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
+
+    result_ = std::make_shared<FixedWidthBinaryArray>(
+        type_, field_meta.length, data, null_bitmap, field_meta.null_count);
+    return Status::OK();
+  }
+
   Status Visit(const ListType& type) override {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, offsets;

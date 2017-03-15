@@ -175,8 +175,8 @@ INSTANTIATE_TEST_CASE_P(
     RoundTripTests, TestRecordBatchParam,
     ::testing::Values(&MakeIntRecordBatch, &MakeStringTypesRecordBatch,
         &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeListRecordBatch,
-        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDates,
-        &MakeTimestamps, &MakeTimes));
+        &MakeDeeplyNestedList, &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDate,
+        &MakeTimestamps, &MakeTimes, &MakeFWBinary));
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;

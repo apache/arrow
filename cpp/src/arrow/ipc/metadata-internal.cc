@@ -170,6 +170,39 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
+static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return flatbuf::TimeUnit_SECOND;
+    case TimeUnit::MILLI:
+      return flatbuf::TimeUnit_MILLISECOND;
+    case TimeUnit::MICRO:
+      return flatbuf::TimeUnit_MICROSECOND;
+    case TimeUnit::NANO:
+      return flatbuf::TimeUnit_NANOSECOND;
+    default:
+      break;
+  }
+  return flatbuf::TimeUnit_MIN;
+}
+
+static inline TimeUnit FromFlatbufferUnit(flatbuf::TimeUnit unit) {
+  switch (unit) {
+    case flatbuf::TimeUnit_SECOND:
+      return TimeUnit::SECOND;
+    case flatbuf::TimeUnit_MILLISECOND:
+      return TimeUnit::MILLI;
+    case flatbuf::TimeUnit_MICROSECOND:
+      return TimeUnit::MICRO;
+    case flatbuf::TimeUnit_NANOSECOND:
+      return TimeUnit::NANO;
+    default:
+      break;
+  }
+  // cannot reach
+  return TimeUnit::SECOND;
+}
+
 static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
   switch (type) {
@@ -183,6 +216,11 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
+    case flatbuf::Type_FixedWidthBinary: {
+      auto fw_binary = static_cast<const flatbuf::FixedWidthBinary*>(type_data);
+      *out = fixed_width_binary(fw_binary->byteWidth());
+      return Status::OK();
+    }
     case flatbuf::Type_Utf8:
       *out = utf8();
       return Status::OK();
@@ -190,7 +228,22 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       *out = boolean();
       return Status::OK();
     case flatbuf::Type_Decimal:
-    case flatbuf::Type_Timestamp:
+      return Status::NotImplemented("Decimal");
+    case flatbuf::Type_Date:
+      *out = date();
+      return Status::OK();
+    case flatbuf::Type_Time: {
+      auto time_type = static_cast<const flatbuf::Time*>(type_data);
+      *out = time(FromFlatbufferUnit(time_type->unit()));
+      return Status::OK();
+    }
+    case flatbuf::Type_Timestamp: {
+      auto ts_type = static_cast<const flatbuf::Timestamp*>(type_data);
+      *out = timestamp(FromFlatbufferUnit(ts_type->unit()));
+      return Status::OK();
+    }
+    case flatbuf::Type_Interval:
+      return Status::NotImplemented("Interval");
     case flatbuf::Type_List:
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
@@ -275,6 +328,11 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
       break;
+    case Type::FIXED_WIDTH_BINARY: {
+      const auto& fw_type = static_cast<const FixedWidthBinaryType&>(*type);
+      *out_type = flatbuf::Type_FixedWidthBinary;
+      *offset = flatbuf::CreateFixedWidthBinary(fbb, fw_type.byte_width()).Union();
+    } break;
     case Type::BINARY:
       *out_type = flatbuf::Type_Binary;
       *offset = flatbuf::CreateBinary(fbb).Union();
@@ -283,6 +341,20 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_Utf8;
       *offset = flatbuf::CreateUtf8(fbb).Union();
       break;
+    case Type::DATE:
+      *out_type = flatbuf::Type_Date;
+      *offset = flatbuf::CreateDate(fbb).Union();
+      break;
+    case Type::TIME: {
+      const auto& time_type = static_cast<const TimeType&>(*type);
+      *out_type = flatbuf::Type_Time;
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit)).Union();
+    } break;
+    case Type::TIMESTAMP: {
+      const auto& ts_type = static_cast<const TimestampType&>(*type);
+      *out_type = flatbuf::Type_Timestamp;
+      *offset = flatbuf::CreateTimestamp(fbb, ToFlatbufferUnit(ts_type.unit)).Union();
+    } break;
     case Type::LIST:
       *out_type = flatbuf::Type_List;
       return ListToFlatbuffer(fbb, type, children, dictionary_memo, offset);
