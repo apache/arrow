@@ -48,7 +48,7 @@ struct BinaryType;
 class BinaryArray;
 class BinaryBuilder;
 
-struct FixedWidthBinaryType;
+class FixedWidthBinaryType;
 class FixedWidthBinaryArray;
 class FixedWidthBinaryBuilder;
 

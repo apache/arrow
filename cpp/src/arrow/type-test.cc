@@ -143,6 +143,16 @@ TEST(TestFixedWidthBinaryType, ToString) {
   ASSERT_EQ("fixed_width_binary[10]", t->ToString());
 }
 
+TEST(TestFixedWidthBinaryType, Equals) {
+  auto t1 = fixed_width_binary(10);
+  auto t2 = fixed_width_binary(10);
+  auto t3 = fixed_width_binary(3);
+
+  ASSERT_TRUE(t1->Equals(t1));
+  ASSERT_TRUE(t1->Equals(t2));
+  ASSERT_FALSE(t1->Equals(t3));
+}
+
 TEST(TestListType, Basics) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 

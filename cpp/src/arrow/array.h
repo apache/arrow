@@ -408,6 +408,8 @@ class ARROW_EXPORT FixedWidthBinaryArray : public Array {
 
   int32_t byte_width() const { return byte_width_; }
 
+  const uint8_t* raw_data() const { return raw_data_; }
+
   Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;

@@ -546,11 +546,88 @@ TEST_F(TestFWBinaryArray, Builder) {
 }
 
 TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
-  // TODO
+  // Check that we don't compare data in null slots
+
+  auto type = fixed_width_binary(4);
+  FixedWidthBinaryBuilder builder1(default_memory_pool(), type);
+  FixedWidthBinaryBuilder builder2(default_memory_pool(), type);
+
+  ASSERT_OK(builder1.Append("foo1"));
+  ASSERT_OK(builder1.AppendNull());
+
+  ASSERT_OK(builder2.Append("foo1"));
+  ASSERT_OK(builder2.Append("foo2"));
+
+  std::shared_ptr<Array> array1, array2;
+  ASSERT_OK(builder1.Finish(&array1));
+  ASSERT_OK(builder2.Finish(&array2));
+
+  const auto& a1 = static_cast<const FixedWidthBinaryArray&>(*array1);
+  const auto& a2 = static_cast<const FixedWidthBinaryArray&>(*array2);
+
+  FixedWidthBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
+  FixedWidthBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
+
+  ASSERT_TRUE(equal1.Equals(equal2));
+  ASSERT_TRUE(equal1.RangeEquals(equal2, 0, 2, 0));
+}
+
+TEST_F(TestFWBinaryArray, ZeroSize) {
+  auto type = fixed_width_binary(0);
+  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  ASSERT_EQ(6, array->length());
+  ASSERT_EQ(3, array->null_count());
 }
 
 TEST_F(TestFWBinaryArray, Slice) {
-  // TODO
+  auto type = fixed_width_binary(4);
+  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+
+  std::vector<std::string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
+  std::vector<uint8_t> is_null = {0, 1, 0, 0, 0};
+
+  for (int i = 0; i < 5; ++i) {
+    if (is_null[i]) {
+      builder.AppendNull();
+    } else {
+      builder.Append(strings[i]);
+    }
+  }
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  std::shared_ptr<Array> slice, slice2;
+
+  slice = array->Slice(1);
+  slice2 = array->Slice(1);
+  ASSERT_EQ(4, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, slice->length(), 0, slice));
+
+  // Chained slices
+  slice = array->Slice(2);
+  slice2 = array->Slice(1)->Slice(1);
+  ASSERT_TRUE(slice->Equals(slice2));
+
+  slice = array->Slice(1, 3);
+  ASSERT_EQ(3, slice->length());
+
+  slice2 = array->Slice(1, 3);
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 }
 
 }  // namespace arrow

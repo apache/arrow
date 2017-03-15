@@ -143,6 +143,32 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const FixedWidthBinaryArray& left) override {
+    const auto& right = static_cast<const FixedWidthBinaryArray&>(right_);
+
+    int32_t width = left.byte_width();
+
+    const uint8_t* left_data = left.raw_data() + left.offset() * width;
+    const uint8_t* right_data = right.raw_data() + right.offset() * width;
+
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+         ++i, ++o_i) {
+      const bool is_null = left.IsNull(i);
+      if (is_null != right.IsNull(o_i)) {
+        result_ = false;
+        return Status::OK();
+      }
+      if (is_null) continue;
+
+      if (std::memcmp(left_data + width * i, right_data + width * o_i, width)) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+    result_ = true;
+    return Status::OK();
+  }
+
   Status Visit(const DateArray& left) override { return CompareValues<DateArray>(left); }
 
   Status Visit(const Date32Array& left) override {
@@ -629,6 +655,12 @@ class TypeEqualsVisitor : public TypeVisitor {
   Status Visit(const TimestampType& left) override {
     const auto& right = static_cast<const TimestampType&>(right_);
     result_ = left.unit == right.unit && left.timezone == right.timezone;
+    return Status::OK();
+  }
+
+  Status Visit(const FixedWidthBinaryType& left) override {
+    const auto& right = static_cast<const FixedWidthBinaryType&>(right_);
+    result_ = left.byte_width() == right.byte_width();
     return Status::OK();
   }
 
