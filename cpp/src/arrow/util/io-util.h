@@ -18,43 +18,13 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
-#include <algorithm>
 #include <iostream>
-#include <string>
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 
 namespace arrow {
-
-static const char* kAsciiTable = "0123456789ABCDEF";
-
-static inline std::string HexEncode(const char* data, int32_t length) {
-  std::string hex_string;
-  hex_string.reserve(length * 2);
-  for (int32_t j = 0; j < length; ++j) {
-    // Convert to 2 base16 digits
-    hex_string.push_back(kAsciiTable[data[j] >> 4]);
-    hex_string.push_back(kAsciiTable[data[j] & 15]);
-  }
-  return hex_string;
-}
-
-static inline Status ParseHexValue(const char* data, uint8_t* out) {
-  char c1 = data[0];
-  char c2 = data[1];
-
-  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c1);
-  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
-
-  // Error checking
-  if (*pos1 != c1 || *pos2 != c2) { return Status::Invalid("Encountered non-hex digit"); }
-
-  *out = static_cast<uint8_t>((pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable));
-  return Status::OK();
-}
-
 namespace io {
 
 // Output stream that just writes to stdout.

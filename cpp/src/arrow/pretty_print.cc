@@ -26,7 +26,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
