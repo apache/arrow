@@ -586,6 +586,12 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
 
+  const auto& fw_array = static_cast<const FixedWidthBinaryArray&>(*array);
+
+  // data is never allocated
+  ASSERT_TRUE(fw_array.data() == nullptr);
+  ASSERT_EQ(0, fw_array.byte_width());
+
   ASSERT_EQ(6, array->length());
   ASSERT_EQ(3, array->null_count());
 }
