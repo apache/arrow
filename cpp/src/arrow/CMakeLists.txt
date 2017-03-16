@@ -17,6 +17,7 @@
 
 # Headers: top level
 install(FILES
+  allocator.h
   api.h
   array.h
   buffer.h
@@ -47,6 +48,7 @@ install(
 # Unit tests
 #######################################
 
+ADD_ARROW_TEST(allocator-test)
 ADD_ARROW_TEST(array-test)
 ADD_ARROW_TEST(array-decimal-test)
 ADD_ARROW_TEST(array-dictionary-test)
