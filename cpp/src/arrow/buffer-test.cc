@@ -66,6 +66,25 @@ TEST_F(TestBuffer, Resize) {
   ASSERT_EQ(128, buf.capacity());
 }
 
+TEST_F(TestBuffer, TypedResize) {
+  PoolBuffer buf;
+
+  ASSERT_EQ(0, buf.size());
+  ASSERT_OK(buf.TypedResize<double>(100));
+  ASSERT_EQ(800, buf.size());
+  ASSERT_OK(buf.TypedResize<double>(200));
+  ASSERT_EQ(1600, buf.size());
+
+  ASSERT_OK(buf.TypedResize<double>(50, true));
+  ASSERT_EQ(400, buf.size());
+  ASSERT_EQ(448, buf.capacity());
+
+  ASSERT_OK(buf.TypedResize<double>(100));
+  ASSERT_EQ(832, buf.capacity());
+  ASSERT_OK(buf.TypedResize<double>(50, false));
+  ASSERT_EQ(832, buf.capacity());
+}
+
 TEST_F(TestBuffer, ResizeOOM) {
 // This test doesn't play nice with AddressSanitizer
 #ifndef ADDRESS_SANITIZER
