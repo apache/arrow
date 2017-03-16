@@ -135,6 +135,8 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile,
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
 
+using ReadableFileInterface = RandomAccessFile;
+
 }  // namespace io
 }  // namespace arrow
 
