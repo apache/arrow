@@ -66,7 +66,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   uint8_t* mutable_data_;
 };
 
-class ARROW_EXPORT BufferReader : public ReadableFileInterface {
+class ARROW_EXPORT BufferReader : public RandomAccessFile {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   BufferReader(const uint8_t* data, int64_t size);

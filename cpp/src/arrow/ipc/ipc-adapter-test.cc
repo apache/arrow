@@ -61,7 +61,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // The buffer offsets start at 0, so we must construct a
-    // ReadableFileInterface according to that frame of reference
+    // RandomAccessFile according to that frame of reference
     std::shared_ptr<Buffer> buffer_payload;
     RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
     io::BufferReader buffer_reader(buffer_payload);

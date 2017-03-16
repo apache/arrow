@@ -49,7 +49,7 @@ class PythonFile {
   PyObject* file_;
 };
 
-class ARROW_EXPORT PyReadableFile : public io::ReadableFileInterface {
+class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
  public:
   explicit PyReadableFile(PyObject* file);
   virtual ~PyReadableFile();

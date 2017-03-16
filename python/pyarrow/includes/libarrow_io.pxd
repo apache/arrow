@@ -51,7 +51,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass InputStream(FileInterface, Readable):
         pass
 
-    cdef cppclass ReadableFileInterface(InputStream, Seekable):
+    cdef cppclass RandomAccessFile(InputStream, Seekable):
         CStatus GetSize(int64_t* size)
 
         CStatus ReadAt(int64_t position, int64_t nbytes,
@@ -63,7 +63,7 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         CStatus WriteAt(int64_t position, const uint8_t* data,
                         int64_t nbytes)
 
-    cdef cppclass ReadWriteFileInterface(ReadableFileInterface,
+    cdef cppclass ReadWriteFileInterface(RandomAccessFile,
                                          WriteableFileInterface):
         pass
 
@@ -77,7 +77,7 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
-    cdef cppclass ReadableFile(ReadableFileInterface):
+    cdef cppclass ReadableFile(RandomAccessFile):
         @staticmethod
         CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
 
@@ -123,7 +123,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         int64_t block_size
         int16_t permissions
 
-    cdef cppclass HdfsReadableFile(ReadableFileInterface):
+    cdef cppclass HdfsReadableFile(RandomAccessFile):
         pass
 
     cdef cppclass HdfsOutputStream(OutputStream):
@@ -163,7 +163,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
 
 cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
     cdef cppclass CBufferReader" arrow::io::BufferReader"\
-        (ReadableFileInterface):
+        (RandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 

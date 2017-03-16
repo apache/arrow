@@ -20,7 +20,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CRecordBatch)
 from pyarrow.includes.libarrow_io cimport (InputStream, OutputStream,
-                                           ReadableFileInterface)
+                                           RandomAccessFile)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
@@ -51,11 +51,11 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CFileReader " arrow::ipc::FileReader":
 
         @staticmethod
-        CStatus Open(const shared_ptr[ReadableFileInterface]& file,
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
                      shared_ptr[CFileReader]* out)
 
         @staticmethod
-        CStatus Open2" Open"(const shared_ptr[ReadableFileInterface]& file,
+        CStatus Open2" Open"(const shared_ptr[RandomAccessFile]& file,
                      int64_t footer_offset, shared_ptr[CFileReader]* out)
 
         shared_ptr[CSchema] schema()
