@@ -24,7 +24,7 @@ wget -O miniconda.sh $MINICONDA_URL
 
 export MINICONDA=$HOME/miniconda
 
-bash miniconda.sh -b -p $MINICONDA
+bash miniconda.sh -f -b -p $MINICONDA
 export PATH="$MINICONDA/bin:$PATH"
 conda update -y -q conda
 conda info -a
