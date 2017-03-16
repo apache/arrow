@@ -18,6 +18,7 @@
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.BuffersIterator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.UnionVector.TransferImpl;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
@@ -120,9 +121,11 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
-    for (BufferBacked vector : getFieldInnerVectors()) {
-      buffersIterator.next();
-      ArrowBuf buffer = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    buffersIterator.next();
+    ArrowBuf buffer = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    typeVector.load(buffer);
+    for (FieldVector child : internalMap.getChildrenFromFields()) {
+      child.loadFieldBuffers(buffersIterator, buf);
     }
   }
 
