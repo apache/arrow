@@ -14,13 +14,33 @@
 
 # Arrow C++
 
-## Setup Build Environment
+## System setup
 
 Arrow uses CMake as a build configuration system. Currently, it supports in-source and
 out-of-source builds with the latter one being preferred.
 
-Arrow requires a C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
-sufficient.
+Build Arrow requires:
+
+* A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
+* CMake
+* Boost
+
+On Ubuntu/Debian you can install the requirements with:
+
+```shell
+sudo apt-get install cmake \
+     libboost-dev \
+     libboost-filesystem-dev \
+     libboost-system-dev
+```
+
+On OS X, you can use [Homebrew][1]:
+
+```shell
+brew install boost cmake
+```
+
+## Building Arrow
 
 Simple debug build:
 
@@ -49,7 +69,6 @@ and instead of make unittest run either `make; ctest` to run both unit tests
 and benchmarks or `make runbenchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
-
 
 ### Third-party environment variables
 
@@ -86,10 +105,12 @@ build failures by running the following checks before submitting your pull reque
 Note that the clang-tidy target may take a while to run.  You might consider
 running clang-tidy separately on the files you have added/changed before
 invoking the make target to reduce iteration time.  Also, it might generate warnings
-that aren't valid.  To avoid these you can use add a line comment `// NOLINT`. If  
-NOLINT doesn't suppress the warnings, you add the file in question to 
-the .clang-tidy-ignore file.  This will allow `make check-clang-tidy` to pass in 
+that aren't valid.  To avoid these you can use add a line comment `// NOLINT`. If
+NOLINT doesn't suppress the warnings, you add the file in question to
+the .clang-tidy-ignore file.  This will allow `make check-clang-tidy` to pass in
 travis-CI (but still surface the potential warnings in `make clang-tidy`).   Ideally,
 both of these options would be used rarely.  Current known uses-cases whent hey are required:
 
 *  Parameterized tests in google test.
+
+[1]: https://brew.sh/
