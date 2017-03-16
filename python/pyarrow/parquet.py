@@ -17,11 +17,15 @@
 
 import six
 
+from pyarrow import from_pylist
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, Schema, ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
-from pyarrow.table import concat_tables
+from pyarrow.filesystem import LocalFilesystem
+from pyarrow.table import concat_tables, Table
 
+from itertools import chain
+from os import path as osp
 
 EXCLUDED_PARQUET_PATHS = {'_metadata', '_common_metadata', '_SUCCESS'}
 
@@ -127,7 +131,6 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
     pyarrow.Table
         Content of the file as a table (of columns)
     """
-    from pyarrow.filesystem import LocalFilesystem
 
     if isinstance(source, six.string_types):
         fs = LocalFilesystem.get_instance()
@@ -226,4 +229,125 @@ def write_table(table, sink, row_group_size=None, version='1.0',
     writer = ParquetWriter(sink, use_dictionary=use_dictionary,
                            compression=compression,
                            version=version)
+<<<<<<< HEAD
     writer.write_table(table, row_group_size=row_group_size)
+||||||| parent of d9f764c... [ARROW-539] [Python] Support reading Parquet datasets with standard partition directory schemes
+    writer.write_table(table, row_group_size=chunk_size)
+=======
+    writer.write_table(table, row_group_size=chunk_size)
+
+
+def _iter_parquet(root_dir, fs, ext='.parq'):
+    """Yield all parquet files under root_dir"""
+    if not fs.isdir(root_dir):
+        raise ValueError('"{0}" is not a directory'.format(root_dir))
+
+    for path in fs.ls(root_dir):
+        if fs.isfile(path) and path.endswith(ext):
+            yield path
+        if fs.isdir(path):
+            for p in _iter_parquet(path, fs, ext):
+                yield p
+
+
+def _partitions(path, root):
+    """
+    >>> partitions('/root/x=1/y=2/x.parq')
+    {'x': '1', 'y': '2'}
+    """
+    parts = {}
+    # '/root/x=1/y=2/x.parq' -> '/x=1/y=2'
+    inner = osp.dirname(path[len(root):])
+    while True:
+        head, tail = osp.split(inner)
+        if '=' not in tail:
+            raise ValueError('sub directory without = in {0!r}'.format(path))
+        key, value = tail.split('=', maxsplit=1)
+        if key in parts:
+            raise ValueError(
+                'partition {0!r} appears twice in {1!r}'.format(key, path))
+        parts[key] = value
+        # /, \ or ''
+        if len(head) < 2:
+            return parts
+        inner = head
+
+
+def _add_parts(table, parts, part_fields):
+    """Add data from directory partitions to table"""
+    size = len(table)
+    names = []
+    arrays = []
+    for i, field in enumerate(table.schema):
+        names.append(field.name)
+        arrays.append(table.column(i))
+
+    for name in part_fields:
+        arrays.append(from_pylist([parts[name]] * size))
+        names.append(name)
+
+    return Table.from_arrays(arrays, names, table.name)
+
+
+def read_dir(root_dir, columns=None, filesystem=None, nthreads=1,
+             metadata=None, schema=None, ext='.parq'):
+    """
+    Read a partitioned directory as a single pyarrow.Table
+
+    Parameters
+    ----------
+    root_dir : str
+        Root directory
+    columns : List[str]
+        Names of columns to read from the file
+    filesystem : Filesystem, default None
+        If nothing passed, paths assumed to be found in the local on-disk
+        filesystem
+    nthreads : int, default 1
+        Number of columns to read in parallel. Requires that the underlying
+        file source is threadsafe
+    metadata : pyarrow.parquet.FileMetaData
+        Use metadata obtained elsewhere to validate file schemas
+    schema : pyarrow.parquet.Schema
+        Use schema obtained elsewhere to validate file schemas. Alternative to
+        metadata parameter
+    ext: str
+        Parqet file extension
+
+    Returns
+    -------
+    pyarrow.Table
+        Content of the directory as a table (of columns)
+    """
+    fs = LocalFilesystem() if filesystem is None else filesystem
+    files = _iter_parquet(root_dir, fs, ext)
+
+    try:
+        path = next(files)
+        part_fields = sorted(_partitions(path, root_dir))
+    except StopIteration:
+        raise ValueError('no parquet files in {0!r}'.format(root_dir))
+
+    if metadata is None and schema is None:
+        schema = ParquetFile(fs.open(path), metadata=metadata).schema
+    elif schema is None:
+        schema = metadata.schema
+
+    tps = []
+    for path in chain([path], files):
+        parts = _partitions(path, root_dir)
+        if sorted(parts) != part_fields:
+            raise ValueError(
+                '{0!r} has different partitioning than {1}'.format(
+                    path, part_fields))
+        pfile = ParquetFile(fs.open(path), metadata=metadata)
+        if not schema.equals(pfile.metadata.schema):
+            raise ValueError(
+                'Schema in {0} was different. {1!s} vs {2!s}'.format(
+                    path, pfile.metadata.schema, schema))
+
+        table = pfile.read(columns=columns, nthreads=nthreads)
+        tps.append((table, parts))
+
+    tables = [_add_parts(table, parts, part_fields) for table, parts in tps]
+    return concat_tables(tables)
