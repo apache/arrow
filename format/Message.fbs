@@ -99,7 +99,7 @@ table Timestamp {
   ///
   /// * If the time zone is null or equal to an empty string, the data is "time
   ///   zone naive" and shall be displayed *as is* to the user, not localized
-  ///   to the locale of the user's. This data can be though of as UTC but
+  ///   to the locale of the user. This data can be though of as UTC but
   ///   without having "UTC" as the time zone, it is not considered to be
   ///   localized to any time zone
   ///
