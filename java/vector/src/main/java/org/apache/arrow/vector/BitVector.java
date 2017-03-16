@@ -81,6 +81,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     } else {
       super.load(fieldNode, data);
     }
+    this.valueCount = fieldNode.getLength();
   }
 
   @Override
@@ -451,7 +452,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
     /**
      * set count bits to 1 in data starting at firstBitIndex
-     * @param data the buffer to set
      * @param firstBitIndex the index of the first bit to set
      * @param count the number of bits to set
      */

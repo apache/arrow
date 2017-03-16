@@ -128,6 +128,34 @@ public class TestIntegration {
     }
   }
 
+  @Test
+  public void testJSONRoundTripWithStruct() throws Exception {
+    File testJSONFile = new File("../../integration/data/struct_example.json");
+    File testOutFile = testFolder.newFile("testOutStruct.arrow");
+    File testRoundTripJSONFile = testFolder.newFile("testOutStruct.json");
+    testOutFile.delete();
+    testRoundTripJSONFile.delete();
+
+    Integration integration = new Integration();
+
+    // convert to arrow
+    String[] args1 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    integration.run(args1);
+
+    // convert back to json
+    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testRoundTripJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    integration.run(args2);
+
+    BufferedReader orig = readNormalized(testJSONFile);
+    BufferedReader rt = readNormalized(testRoundTripJSONFile);
+    String i, o;
+    int j = 0;
+    while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
+      assertEquals("line: " + j, i, o);
+      ++j;
+    }
+  }
+
   private ObjectMapper om = new ObjectMapper();
   {
     DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
