@@ -133,6 +133,16 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   /// It does not change buffer's reported size.
   virtual Status Reserve(int64_t new_capacity) = 0;
 
+  template <class T>
+  Status TypedResize(int64_t new_nb_elements, bool shrink_to_fit = true) {
+    return Resize(sizeof(T) * new_nb_elements, shrink_to_fit);
+  }
+
+  template <class T>
+  Status TypedReserve(int64_t new_nb_elements) {
+    return Reserve(sizeof(T) * new_nb_elements);
+  }
+
  protected:
   ResizableBuffer(uint8_t* data, int64_t size) : MutableBuffer(data, size) {}
 };
