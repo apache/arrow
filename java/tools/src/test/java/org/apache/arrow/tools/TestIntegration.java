@@ -33,6 +33,11 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.tools.Integration.Command;
@@ -48,11 +53,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class TestIntegration {
 
@@ -105,6 +105,34 @@ public class TestIntegration {
     File testJSONFile = new File("../../integration/data/simple.json");
     File testOutFile = testFolder.newFile("testOut.arrow");
     File testRoundTripJSONFile = testFolder.newFile("testOut.json");
+    testOutFile.delete();
+    testRoundTripJSONFile.delete();
+
+    Integration integration = new Integration();
+
+    // convert to arrow
+    String[] args1 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    integration.run(args1);
+
+    // convert back to json
+    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testRoundTripJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    integration.run(args2);
+
+    BufferedReader orig = readNormalized(testJSONFile);
+    BufferedReader rt = readNormalized(testRoundTripJSONFile);
+    String i, o;
+    int j = 0;
+    while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
+      assertEquals("line: " + j, i, o);
+      ++j;
+    }
+  }
+
+  @Test
+  public void testJSONRoundTripWithStruct() throws Exception {
+    File testJSONFile = new File("../../integration/data/struct_example.json");
+    File testOutFile = testFolder.newFile("testOutStruct.arrow");
+    File testRoundTripJSONFile = testFolder.newFile("testOutStruct.json");
     testOutFile.delete();
     testRoundTripJSONFile.delete();
 

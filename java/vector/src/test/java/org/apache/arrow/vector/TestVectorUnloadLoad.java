@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.MapVector;
@@ -45,8 +46,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestVectorUnloadLoad {
 
@@ -81,8 +80,8 @@ public class TestVectorUnloadLoad {
       try (
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
           BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-          VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
-          ) {
+          VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
 
         // load it
         VectorLoader vectorLoader = new VectorLoader(newRoot);
@@ -131,8 +130,8 @@ public class TestVectorUnloadLoad {
       try (
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
           BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-          VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
-          ) {
+          VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
         List<ArrowBuf> oldBuffers = recordBatch.getBuffers();
         List<ArrowBuf> newBuffers = new ArrayList<>();
         for (ArrowBuf oldBuffer : oldBuffers) {
@@ -185,7 +184,7 @@ public class TestVectorUnloadLoad {
     Schema schema = new Schema(asList(
         new Field("intDefined", true, new ArrowType.Int(32, true), Collections.<Field>emptyList()),
         new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
-        ));
+                                     ));
     int count = 10;
     ArrowBuf validity = allocator.buffer(10).slice(0, 0);
     ArrowBuf[] values = new ArrowBuf[2];
@@ -200,8 +199,8 @@ public class TestVectorUnloadLoad {
     try (
         ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values[0], validity, values[1]));
         BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-        VectorSchemaRoot newRoot = new VectorSchemaRoot(schema, finalVectorsAllocator);
-        ) {
+        VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+    ) {
 
       // load it
       VectorLoader vectorLoader = new VectorLoader(newRoot);
@@ -244,7 +243,8 @@ public class TestVectorUnloadLoad {
     Schema schema = new Schema(root.getField().getChildren());
     int valueCount = root.getAccessor().getValueCount();
     List<FieldVector> fields = root.getChildrenFromFields();
-    return new VectorUnloader(schema, valueCount, fields);
+    VectorSchemaRoot vsr = new VectorSchemaRoot(schema.getFields(), fields, valueCount);
+    return new VectorUnloader(vsr);
   }
 
   @AfterClass

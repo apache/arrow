@@ -22,7 +22,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Buffer;
+import org.apache.arrow.flatbuf.DictionaryBatch;
 import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.MessageHeader;
@@ -33,13 +37,11 @@ import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowBuffer;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Utility class for serializing Messages. Messages are all serialized a similar way.
@@ -81,35 +83,39 @@ public class MessageSerializer {
    * Deserializes a schema object. Format is from serialize().
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
-    Message message = deserializeMessage(in, MessageHeader.Schema);
+    Message message = deserializeMessage(in);
     if (message == null) {
       throw new IOException("Unexpected end of input. Missing schema.");
+    }
+    if (message.headerType() != MessageHeader.Schema) {
+      throw new IOException("Expected schema but header was " + message.headerType());
     }
 
     return Schema.convertSchema((org.apache.arrow.flatbuf.Schema)
         message.header(new org.apache.arrow.flatbuf.Schema()));
   }
 
+
   /**
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch)
-      throws IOException {
+          throws IOException {
+
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
 
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.RecordBatch,
-        batchOffset, bodyLength);
+    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.RecordBatch, batchOffset, bodyLength);
 
     int metadataLength = serializedMessage.remaining();
 
-    // Add extra padding bytes so that length prefix + metadata is a multiple
-    // of 8 after alignment
-    if ((start + metadataLength + 4) % 8 != 0) {
-        metadataLength += 8 - (start + metadataLength + 4) % 8;
+    // calculate alignment bytes so that metadata length points to the correct location after alignment
+    int padding = (int)((start + metadataLength + 4) % 8);
+    if (padding != 0) {
+        metadataLength += (8 - padding);
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -118,6 +124,13 @@ public class MessageSerializer {
     // Align the output to 8 byte boundary.
     out.align();
 
+    long bufferLength = writeBatchBuffers(out, batch);
+
+    // Metadata size in the Block account for the size prefix
+    return new ArrowBlock(start, metadataLength + 4, bufferLength);
+  }
+
+  private static long writeBatchBuffers(WriteChannel out, ArrowRecordBatch batch) throws IOException {
     long bufferStart = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
     List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -135,22 +148,14 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
-    // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, out.getCurrentPosition() - bufferStart);
+    return out.getCurrentPosition() - bufferStart;
   }
 
   /**
    * Deserializes a RecordBatch
    */
-  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in,
-      BufferAllocator alloc) throws IOException {
-    Message message = deserializeMessage(in, MessageHeader.RecordBatch);
-    if (message == null) return null;
-
-    if (message.bodyLength() > Integer.MAX_VALUE) {
-      throw new IOException("Cannot currently deserialize record batches over 2GB");
-    }
-
+  private static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
+      throws IOException {
     RecordBatch recordBatchFB = (RecordBatch) message.header(new RecordBatch());
 
     int bodyLength = (int) message.bodyLength();
@@ -191,9 +196,7 @@ public class MessageSerializer {
     // Now read the body
     final ArrowBuf body = buffer.slice(block.getMetadataLength(),
         (int) totalLen - block.getMetadataLength());
-    ArrowRecordBatch result = deserializeRecordBatch(recordBatchFB, body);
-
-    return result;
+    return deserializeRecordBatch(recordBatchFB, body);
   }
 
   // Deserializes a record batch given the Flatbuffer metadata and in-memory body
@@ -219,6 +222,106 @@ public class MessageSerializer {
   }
 
   /**
+   * Serializes a dictionary ArrowRecordBatch. Returns the offset and length of the written batch.
+   */
+  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
+    long start = out.getCurrentPosition();
+    int bodyLength = batch.computeBodyLength();
+
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = batch.writeTo(builder);
+
+    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.DictionaryBatch, batchOffset, bodyLength);
+
+    int metadataLength = serializedMessage.remaining();
+
+    // Add extra padding bytes so that length prefix + metadata is a multiple
+    // of 8 after alignment
+    if ((start + metadataLength + 4) % 8 != 0) {
+      metadataLength += 8 - (start + metadataLength + 4) % 8;
+    }
+
+    out.writeIntLittleEndian(metadataLength);
+    out.write(serializedMessage);
+
+    // Align the output to 8 byte boundary.
+    out.align();
+
+    // write the embedded record batch
+    long bufferLength = writeBatchBuffers(out, batch.getDictionary());
+
+    // Metadata size in the Block account for the size prefix
+    return new ArrowBlock(start, metadataLength + 4, bufferLength + 8);
+  }
+
+  /**
+   * Deserializes a DictionaryBatch
+   */
+  private static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
+                                                                 Message message,
+                                                                 BufferAllocator alloc) throws IOException {
+    DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
+
+    int bodyLength = (int) message.bodyLength();
+
+    // Now read the record batch body
+    ArrowBuf body = alloc.buffer(bodyLength);
+    if (in.readFully(body, bodyLength) != bodyLength) {
+      throw new IOException("Unexpected end of input trying to read batch.");
+    }
+    ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), body);
+    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+  }
+
+  /**
+   * Deserializes a DictionaryBatch knowing the size of the entire message up front. This
+   * minimizes the number of reads to the underlying stream.
+   */
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
+                                                                ArrowBlock block,
+                                                                BufferAllocator alloc) throws IOException {
+    // Metadata length contains integer prefix plus byte padding
+    long totalLen = block.getMetadataLength() + block.getBodyLength();
+
+    if (totalLen > Integer.MAX_VALUE) {
+      throw new IOException("Cannot currently deserialize record batches over 2GB");
+    }
+
+    ArrowBuf buffer = alloc.buffer((int) totalLen);
+    if (in.readFully(buffer, (int) totalLen) != totalLen) {
+      throw new IOException("Unexpected end of input trying to read batch.");
+    }
+
+    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
+
+    Message messageFB =
+        Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
+
+    DictionaryBatch dictionaryBatchFB = (DictionaryBatch) messageFB.header(new DictionaryBatch());
+
+    // Now read the body
+    final ArrowBuf body = buffer.slice(block.getMetadataLength(),
+                                       (int) totalLen - block.getMetadataLength());
+    ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), body);
+    return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+  }
+
+  public static ArrowMessage deserializeMessageBatch(ReadChannel in, BufferAllocator alloc) throws IOException {
+    Message message = deserializeMessage(in);
+    if (message == null) {
+      return null;
+    } else if (message.bodyLength() > Integer.MAX_VALUE) {
+      throw new IOException("Cannot currently deserialize record batches over 2GB");
+    }
+
+    switch (message.headerType()) {
+      case MessageHeader.RecordBatch: return deserializeRecordBatch(in, message, alloc);
+      case MessageHeader.DictionaryBatch: return deserializeDictionaryBatch(in, message, alloc);
+      default: throw new IOException("Unexpected message header type " + message.headerType());
+    }
+  }
+
+  /**
    * Serializes a message header.
    */
   private static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
@@ -232,7 +335,7 @@ public class MessageSerializer {
     return builder.dataBuffer();
   }
 
-  private static Message deserializeMessage(ReadChannel in, byte headerType) throws IOException {
+  private static Message deserializeMessage(ReadChannel in) throws IOException {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) != 4) return null;
@@ -246,11 +349,6 @@ public class MessageSerializer {
     }
     buffer.rewind();
 
-    Message message = Message.getRootAsMessage(buffer);
-    if (message.headerType() != headerType) {
-      throw new IOException("Invalid message: expecting " + headerType +
-          ". Message contained: " + message.headerType());
-    }
-    return message;
+    return Message.getRootAsMessage(buffer);
   }
 }

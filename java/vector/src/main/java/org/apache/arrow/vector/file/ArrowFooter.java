@@ -38,7 +38,6 @@ public class ArrowFooter implements FBSerializable {
   private final List<ArrowBlock> recordBatches;
 
   public ArrowFooter(Schema schema, List<ArrowBlock> dictionaries, List<ArrowBlock> recordBatches) {
-    super();
     this.schema = schema;
     this.dictionaries = dictionaries;
     this.recordBatches = recordBatches;

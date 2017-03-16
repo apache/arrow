@@ -70,7 +70,7 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null, null)) {
       writeComplexData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateComplexContent(root.getRowCount(), root);
@@ -92,7 +92,7 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null)) {
+        NullableMapVector parent = new NullableMapVector("parent", vectorAllocator, null, null)) {
 
       writeUnionData(count, parent);
 

@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,26 +14,34 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
-package org.apache.arrow.vector.types;
+ */
+package org.apache.arrow.vector.dictionary;
 
-import org.apache.arrow.vector.ValueVector;
+import java.util.HashMap;
+import java.util.Map;
 
-public class Dictionary {
+public interface DictionaryProvider {
 
-    private ValueVector dictionary;
-    private boolean ordered;
+  public Dictionary lookup(long id);
 
-    public Dictionary(ValueVector dictionary, boolean ordered) {
-        this.dictionary = dictionary;
-        this.ordered = ordered;
+  public static class MapDictionaryProvider implements DictionaryProvider {
+
+    private final Map<Long, Dictionary> map;
+
+    public MapDictionaryProvider(Dictionary... dictionaries) {
+      this.map = new HashMap<>();
+      for (Dictionary dictionary: dictionaries) {
+        put(dictionary);
+      }
     }
 
-    public ValueVector getDictionary() {
-        return dictionary;
+    public void put(Dictionary dictionary) {
+      map.put(dictionary.getEncoding().getId(), dictionary);
     }
 
-    public boolean isOrdered() {
-        return ordered;
+    @Override
+    public Dictionary lookup(long id) {
+      return map.get(id);
     }
+  }
 }

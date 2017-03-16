@@ -27,8 +27,8 @@ import java.nio.channels.Channels;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.file.ArrowWriter;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.file.ArrowFileWriter;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 
 /**
@@ -38,13 +38,16 @@ public class StreamToFile {
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
-      reader.init();
-      try (ArrowWriter writer = new ArrowWriter(Channels.newChannel(out), reader.getSchema());) {
-        while (true) {
-          ArrowRecordBatch batch = reader.nextRecordBatch();
-          if (batch == null) break;
-          writer.writeRecordBatch(batch);
+      VectorSchemaRoot root = reader.getVectorSchemaRoot();
+      // load the first batch before instantiating the writer so that we have any dictionaries
+      reader.loadNextBatch();
+      try (ArrowFileWriter writer = new ArrowFileWriter(root, reader, Channels.newChannel(out))) {
+        writer.start();
+        while (root.getRowCount() > 0) {
+          writer.writeBatch();
+          reader.loadNextBatch();
         }
+        writer.end();
       }
     }
   }

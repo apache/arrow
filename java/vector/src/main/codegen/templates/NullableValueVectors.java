@@ -65,21 +65,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final int precision;
   private final int scale;
 
-  public ${className}(String name, BufferAllocator allocator, int precision, int scale) {
+  public ${className}(String name, BufferAllocator allocator, DictionaryEncoding dictionary, int precision, int scale) {
     super(name, allocator);
     values = new ${valuesName}(valuesField, allocator, precision, scale);
     this.precision = precision;
     this.scale = scale;
     mutator = new Mutator();
     accessor = new Accessor();
-    field = new Field(name, true, new Decimal(precision, scale), null);
+    field = new Field(name, true, new Decimal(precision, scale), dictionary, null);
     innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
         bits,
         values
     ));
   }
   <#else>
-  public ${className}(String name, BufferAllocator allocator) {
+  public ${className}(String name, BufferAllocator allocator, DictionaryEncoding dictionary) {
     super(name, allocator);
     values = new ${valuesName}(valuesField, allocator);
     mutator = new Mutator();
@@ -88,38 +88,38 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         minor.class == "SmallInt" ||
         minor.class == "Int" ||
         minor.class == "BigInt">
-    field = new Field(name, true, new Int(${type.width} * 8, true), null);
+    field = new Field(name, true, new Int(${type.width} * 8, true), dictionary, null);
   <#elseif minor.class == "UInt1" ||
         minor.class == "UInt2" ||
         minor.class == "UInt4" ||
         minor.class == "UInt8">
-    field = new Field(name, true, new Int(${type.width} * 8, false), null);
+    field = new Field(name, true, new Int(${type.width} * 8, false), dictionary, null);
   <#elseif minor.class == "Date">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Date(), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Date(), dictionary, null);
   <#elseif minor.class == "Time">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), dictionary, null);
   <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE), dictionary, null);
   <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE), null);
+    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE), dictionary, null);
   <#elseif minor.class == "TimeStampSec">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND), dictionary, null);
   <#elseif minor.class == "TimeStampMilli">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND), dictionary, null);
   <#elseif minor.class == "TimeStampMicro">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND), dictionary, null);
   <#elseif minor.class == "TimeStampNano">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND), null);
+    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND), dictionary, null);
   <#elseif minor.class == "IntervalDay">
-    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.DAY_TIME), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.DAY_TIME), dictionary, null);
   <#elseif minor.class == "IntervalYear">
-    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.YEAR_MONTH), null);
+    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.YEAR_MONTH), dictionary, null);
   <#elseif minor.class == "VarChar">
-    field = new Field(name, true, new Utf8(), null);
+    field = new Field(name, true, new Utf8(), dictionary, null);
   <#elseif minor.class == "VarBinary">
-    field = new Field(name, true, new Binary(), null);
+    field = new Field(name, true, new Binary(), dictionary, null);
   <#elseif minor.class == "Bit">
-    field = new Field(name, true, new Bool(), null);
+    field = new Field(name, true, new Bool(), dictionary, null);
   </#if>
     innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
         bits,
@@ -378,9 +378,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     public TransferImpl(String name, BufferAllocator allocator){
       <#if minor.class == "Decimal">
-      to = new ${className}(name, allocator, precision, scale);
+      to = new ${className}(name, allocator, field.getDictionary(), precision, scale);
       <#else>
-      to = new ${className}(name, allocator);
+      to = new ${className}(name, allocator, field.getDictionary());
       </#if>
     }
 

@@ -18,90 +18,188 @@
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.arrow.flatbuf.Footer;
+import com.google.common.collect.ImmutableList;
+
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
+import org.apache.arrow.vector.schema.ArrowMessage;
+import org.apache.arrow.vector.schema.ArrowMessage.ArrowMessageVisitor;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.stream.MessageSerializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 
-public class ArrowReader implements AutoCloseable {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowReader.class);
+public abstract class ArrowReader<T extends ReadChannel> implements DictionaryProvider, AutoCloseable {
 
-  public static final byte[] MAGIC = "ARROW1".getBytes();
-
-  private final SeekableByteChannel in;
-
+  private final T in;
   private final BufferAllocator allocator;
 
-  private ArrowFooter footer;
+  private VectorLoader loader;
+  private VectorSchemaRoot root;
+  private Map<Long, Dictionary> dictionaries;
 
-  public ArrowReader(SeekableByteChannel in, BufferAllocator allocator) {
-    super();
+  private boolean initialized = false;
+
+  protected ArrowReader(T in, BufferAllocator allocator) {
     this.in = in;
     this.allocator = allocator;
   }
 
-  private int readFully(ByteBuffer buffer) throws IOException {
-    int total = 0;
-    int n;
-    do {
-      n = in.read(buffer);
-      total += n;
-    } while (n >= 0 && buffer.remaining() > 0);
-    buffer.flip();
-    return total;
+  /**
+   * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch
+   *
+   * @return the vector schema root
+   * @throws IOException if reading of schema fails
+   */
+  public VectorSchemaRoot getVectorSchemaRoot() throws IOException {
+    ensureInitialized();
+    return root;
   }
 
-  public ArrowFooter readFooter() throws IOException {
-    if (footer == null) {
-      if (in.size() <= (MAGIC.length * 2 + 4)) {
-        throw new InvalidArrowFileException("file too small: " + in.size());
-      }
-      ByteBuffer buffer = ByteBuffer.allocate(4 + MAGIC.length);
-      long footerLengthOffset = in.size() - buffer.remaining();
-      in.position(footerLengthOffset);
-      readFully(buffer);
-      byte[] array = buffer.array();
-      if (!Arrays.equals(MAGIC, Arrays.copyOfRange(array, 4, array.length))) {
-        throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
-      }
-      int footerLength = MessageSerializer.bytesToInt(array);
-      if (footerLength <= 0 || footerLength + MAGIC.length * 2 + 4 > in.size()) {
-        throw new InvalidArrowFileException("invalid footer length: " + footerLength);
-      }
-      long footerOffset = footerLengthOffset - footerLength;
-      LOGGER.debug(String.format("Footer starts at %d, length: %d", footerOffset, footerLength));
-      ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
-      in.position(footerOffset);
-      readFully(footerBuffer);
-      Footer footerFB = Footer.getRootAsFooter(footerBuffer);
-      this.footer = new ArrowFooter(footerFB);
-    }
-    return footer;
-  }
-
-  // TODO: read dictionaries
-
-  public ArrowRecordBatch readRecordBatch(ArrowBlock block) throws IOException {
-    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
-        block.getOffset(), block.getMetadataLength(),
-        block.getBodyLength()));
-    in.position(block.getOffset());
-    ArrowRecordBatch batch =  MessageSerializer.deserializeRecordBatch(
-        new ReadChannel(in, block.getOffset()), block, allocator);
-    if (batch == null) {
-      throw new IOException("Invalid file. No batch at offset: " + block.getOffset());
-    }
-    return batch;
+  /**
+   * Returns any dictionaries
+   *
+   * @return dictionaries, if any
+   * @throws IOException if reading of schema fails
+   */
+  public Map<Long, Dictionary> getDictionaryVectors() throws IOException {
+    ensureInitialized();
+    return dictionaries;
   }
 
   @Override
+  public Dictionary lookup(long id) {
+    if (initialized) {
+      return dictionaries.get(id);
+    } else {
+      return null;
+    }
+  }
+
+  public void loadNextBatch() throws IOException {
+    ensureInitialized();
+    // read in all dictionary batches, then stop after our first record batch
+    ArrowMessageVisitor<Boolean> visitor = new ArrowMessageVisitor<Boolean>() {
+      @Override
+      public Boolean visit(ArrowDictionaryBatch message) {
+        try { load(message); } finally { message.close(); }
+        return true;
+      }
+      @Override
+      public Boolean visit(ArrowRecordBatch message) {
+        try { loader.load(message); } finally { message.close(); }
+        return false;
+      }
+    };
+    root.setRowCount(0);
+    ArrowMessage message = readMessage(in, allocator);
+    while (message != null && message.accepts(visitor)) {
+      message = readMessage(in, allocator);
+    }
+  }
+
+  public long bytesRead() { return in.bytesRead(); }
+
+  @Override
   public void close() throws IOException {
+    if (initialized) {
+      root.close();
+      for (Dictionary dictionary: dictionaries.values()) {
+        dictionary.getVector().close();
+      }
+    }
     in.close();
+  }
+
+  protected abstract Schema readSchema(T in) throws IOException;
+
+  protected abstract ArrowMessage readMessage(T in, BufferAllocator allocator) throws IOException;
+
+  protected void ensureInitialized() throws IOException {
+    if (!initialized) {
+      initialize();
+      initialized = true;
+    }
+  }
+
+  /**
+   * Reads the schema and initializes the vectors
+   */
+  private void initialize() throws IOException {
+    Schema schema = readSchema(in);
+    List<Field> fields = new ArrayList<>();
+    List<FieldVector> vectors = new ArrayList<>();
+    Map<Long, Dictionary> dictionaries = new HashMap<>();
+
+    for (Field field: schema.getFields()) {
+      Field updated = toMemoryFormat(field, dictionaries);
+      fields.add(updated);
+      vectors.add(updated.createVector(allocator));
+    }
+
+    this.root = new VectorSchemaRoot(fields, vectors, 0);
+    this.loader = new VectorLoader(root);
+    this.dictionaries = Collections.unmodifiableMap(dictionaries);
+  }
+
+  // in the message format, fields have the dictionary type
+  // in the memory format, they have the index type
+  private Field toMemoryFormat(Field field, Map<Long, Dictionary> dictionaries) {
+    DictionaryEncoding encoding = field.getDictionary();
+    List<Field> children = field.getChildren();
+
+    if (encoding == null && children.isEmpty()) {
+      return field;
+    }
+
+    List<Field> updatedChildren = new ArrayList<>(children.size());
+    for (Field child: children) {
+      updatedChildren.add(toMemoryFormat(child, dictionaries));
+    }
+
+    ArrowType type;
+    if (encoding == null) {
+      type = field.getType();
+    } else {
+      // re-type the field for in-memory format
+      type = encoding.getIndexType();
+      if (type == null) {
+        type = new Int(32, true);
+      }
+      // get existing or create dictionary vector
+      if (!dictionaries.containsKey(encoding.getId())) {
+        // create a new dictionary vector for the values
+        Field dictionaryField = new Field(field.getName(), field.isNullable(), field.getType(), null, children);
+        FieldVector dictionaryVector = dictionaryField.createVector(allocator);
+        dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
+      }
+    }
+
+    return new Field(field.getName(), field.isNullable(), type, encoding, updatedChildren);
+  }
+
+  private void load(ArrowDictionaryBatch dictionaryBatch) {
+    long id = dictionaryBatch.getDictionaryId();
+    Dictionary dictionary = dictionaries.get(id);
+    if (dictionary == null) {
+      throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
+    }
+    FieldVector vector = dictionary.getVector();
+    VectorSchemaRoot root = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), 0);
+    VectorLoader loader = new VectorLoader(root);
+    loader.load(dictionaryBatch.getDictionary());
   }
 }

@@ -88,10 +88,34 @@ public class JsonFileReader implements AutoCloseable {
     }
   }
 
+  public void read(VectorSchemaRoot root) throws IOException {
+    JsonToken t = parser.nextToken();
+    if (t == START_OBJECT) {
+      {
+        int count = readNextField("count", Integer.class);
+        root.setRowCount(count);
+        nextFieldIs("columns");
+        readToken(START_ARRAY);
+        {
+          for (Field field : schema.getFields()) {
+            FieldVector vector = root.getVector(field.getName());
+            readVector(field, vector);
+          }
+        }
+        readToken(END_ARRAY);
+      }
+      readToken(END_OBJECT);
+    } else if (t == END_ARRAY) {
+      root.setRowCount(0);
+    } else {
+      throw new IllegalArgumentException("Invalid token: " + t);
+    }
+  }
+
   public VectorSchemaRoot read() throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
-      VectorSchemaRoot recordBatch = new VectorSchemaRoot(schema, allocator);
+      VectorSchemaRoot recordBatch = VectorSchemaRoot.create(schema, allocator);
       {
         int count = readNextField("count", Integer.class);
         recordBatch.setRowCount(count);

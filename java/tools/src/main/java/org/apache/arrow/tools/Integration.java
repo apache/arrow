@@ -28,16 +28,12 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.file.ArrowBlock;
-import org.apache.arrow.vector.file.ArrowFooter;
-import org.apache.arrow.vector.file.ArrowReader;
-import org.apache.arrow.vector.file.ArrowWriter;
+import org.apache.arrow.vector.file.ArrowFileReader;
+import org.apache.arrow.vector.file.ArrowFileWriter;
 import org.apache.arrow.vector.file.json.JsonFileReader;
 import org.apache.arrow.vector.file.json.JsonFileWriter;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
 import org.apache.commons.cli.CommandLine;
@@ -69,24 +65,18 @@ public class Integration {
     ARROW_TO_JSON(true, false) {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
-        try(
-            BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        try(BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
             FileInputStream fileInputStream = new FileInputStream(arrowFile);
-            ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), allocator);) {
-          ArrowFooter footer = arrowReader.readFooter();
-          Schema schema = footer.getSchema();
+            ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
+          VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+          Schema schema = root.getSchema();
           LOGGER.debug("Input file size: " + arrowFile.length());
           LOGGER.debug("Found schema: " + schema);
-          try (JsonFileWriter writer = new JsonFileWriter(jsonFile, JsonFileWriter.config().pretty(true));) {
+          try (JsonFileWriter writer = new JsonFileWriter(jsonFile, JsonFileWriter.config().pretty(true))) {
             writer.start(schema);
-            List<ArrowBlock> recordBatches = footer.getRecordBatches();
-            for (ArrowBlock rbBlock : recordBatches) {
-              try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                  VectorSchemaRoot root = new VectorSchemaRoot(schema, allocator);) {
-                VectorLoader vectorLoader = new VectorLoader(root);
-                vectorLoader.load(inRecordBatch);
-                writer.write(root);
-              }
+            for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
+              arrowReader.loadRecordBatch(rbBlock);
+              writer.write(root);
             }
           }
           LOGGER.debug("Output file size: " + jsonFile.length());
@@ -96,27 +86,22 @@ public class Integration {
     JSON_TO_ARROW(false, true) {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
-        try (
-            BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-            JsonFileReader reader = new JsonFileReader(jsonFile, allocator);
-            ) {
+        try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+             JsonFileReader reader = new JsonFileReader(jsonFile, allocator)) {
           Schema schema = reader.start();
           LOGGER.debug("Input file size: " + jsonFile.length());
           LOGGER.debug("Found schema: " + schema);
-          try (
-              FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
-              ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
-              ) {
-
-            // initialize vectors
-            VectorSchemaRoot root;
-            while ((root = reader.read()) != null) {
-              VectorUnloader vectorUnloader = new VectorUnloader(root);
-              try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();) {
-                arrowWriter.writeRecordBatch(recordBatch);
-              }
-              root.close();
+          try (FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
+               VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+               // TODO json dictionaries
+               ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel())) {
+            arrowWriter.start();
+            reader.read(root);
+            while (root.getRowCount() != 0) {
+              arrowWriter.writeBatch();
+              reader.read(root);
             }
+            arrowWriter.end();
           }
           LOGGER.debug("Output file size: " + arrowFile.length());
         }
@@ -125,32 +110,26 @@ public class Integration {
     VALIDATE(true, true) {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
-        try (
-            BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-            JsonFileReader jsonReader = new JsonFileReader(jsonFile, allocator);
-            FileInputStream fileInputStream = new FileInputStream(arrowFile);
-            ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), allocator);
-            ) {
+        try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+             JsonFileReader jsonReader = new JsonFileReader(jsonFile, allocator);
+             FileInputStream fileInputStream = new FileInputStream(arrowFile);
+             ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
           Schema jsonSchema = jsonReader.start();
-          ArrowFooter footer = arrowReader.readFooter();
-          Schema arrowSchema = footer.getSchema();
+          VectorSchemaRoot arrowRoot = arrowReader.getVectorSchemaRoot();
+          Schema arrowSchema = arrowRoot.getSchema();
           LOGGER.debug("Arrow Input file size: " + arrowFile.length());
           LOGGER.debug("ARROW schema: " + arrowSchema);
           LOGGER.debug("JSON Input file size: " + jsonFile.length());
           LOGGER.debug("JSON schema: " + jsonSchema);
           Validator.compareSchemas(jsonSchema, arrowSchema);
 
-          List<ArrowBlock> recordBatches = footer.getRecordBatches();
+          List<ArrowBlock> recordBatches = arrowReader.getRecordBlocks();
           Iterator<ArrowBlock> iterator = recordBatches.iterator();
           VectorSchemaRoot jsonRoot;
           while ((jsonRoot = jsonReader.read()) != null && iterator.hasNext()) {
             ArrowBlock rbBlock = iterator.next();
-            try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                VectorSchemaRoot arrowRoot = new VectorSchemaRoot(arrowSchema, allocator);) {
-              VectorLoader vectorLoader = new VectorLoader(arrowRoot);
-              vectorLoader.load(inRecordBatch);
-              Validator.compareVectorSchemaRoot(arrowRoot, jsonRoot);
-            }
+            arrowReader.loadRecordBatch(rbBlock);
+            Validator.compareVectorSchemaRoot(arrowRoot, jsonRoot);
             jsonRoot.close();
           }
           boolean hasMoreJSON = jsonRoot != null;

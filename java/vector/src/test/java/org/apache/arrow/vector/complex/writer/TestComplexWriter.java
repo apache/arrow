@@ -181,7 +181,7 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarType() {
-    ListVector listVector = new ListVector("list", allocator, null);
+    ListVector listVector = new ListVector("list", allocator, null, null);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
@@ -204,7 +204,7 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarTypeNullable() {
-    ListVector listVector = new ListVector("list", allocator, null);
+    ListVector listVector = new ListVector("list", allocator, null, null);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
@@ -233,7 +233,7 @@ public class TestComplexWriter {
 
   @Test
   public void listMapType() {
-    ListVector listVector = new ListVector("list", allocator, null);
+    ListVector listVector = new ListVector("list", allocator, null, null);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     MapWriter mapWriter = listWriter.map();
@@ -261,7 +261,7 @@ public class TestComplexWriter {
 
   @Test
   public void listListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null)) {
+    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -286,7 +286,7 @@ public class TestComplexWriter {
    */
   @Test
   public void listListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null)) {
+    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();
@@ -324,7 +324,7 @@ public class TestComplexWriter {
 
   @Test
   public void unionListListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null)) {
+    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -353,7 +353,7 @@ public class TestComplexWriter {
    */
   @Test
   public void unionListListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null)) {
+    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();

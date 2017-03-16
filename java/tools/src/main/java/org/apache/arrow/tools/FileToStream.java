@@ -25,10 +25,8 @@ import java.io.OutputStream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.file.ArrowBlock;
-import org.apache.arrow.vector.file.ArrowFooter;
-import org.apache.arrow.vector.file.ArrowReader;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.file.ArrowFileReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 
 /**
@@ -36,19 +34,20 @@ import org.apache.arrow.vector.stream.ArrowStreamWriter;
  * first argument and the output is written to standard out.
  */
 public class FileToStream {
+
   public static void convert(FileInputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    try(
-        ArrowReader reader = new ArrowReader(in.getChannel(), allocator);) {
-      ArrowFooter footer = reader.readFooter();
-      try (
-        ArrowStreamWriter writer = new ArrowStreamWriter(out, footer.getSchema());
-      ) {
-        for (ArrowBlock block: footer.getRecordBatches()) {
-          try (ArrowRecordBatch batch = reader.readRecordBatch(block)) {
-            writer.writeRecordBatch(batch);
-          }
+    try (ArrowFileReader reader = new ArrowFileReader(in.getChannel(), allocator)) {
+      VectorSchemaRoot root = reader.getVectorSchemaRoot();
+      // load the first batch before instantiating the writer so that we have any dictionaries
+      reader.loadNextBatch();
+      try (ArrowStreamWriter writer = new ArrowStreamWriter(root, reader, out)) {
+        writer.start();
+        while (root.getRowCount() > 0) {
+          writer.writeBatch();
+          reader.loadNextBatch();
         }
+        writer.end();
       }
     }
   }

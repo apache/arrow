@@ -36,15 +36,14 @@ import io.netty.buffer.ArrowBuf;
  * Loads buffers into vectors
  */
 public class VectorLoader {
+
   private final VectorSchemaRoot root;
 
   /**
    * will create children in root based on schema
-   * @param schema the expected schema
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
-    super();
     this.root = root;
   }
 
@@ -57,17 +56,15 @@ public class VectorLoader {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     List<Field> fields = root.getSchema().getFields();
-    for (int i = 0; i < fields.size(); ++i) {
-      Field field = fields.get(i);
+    for (Field field: fields) {
       FieldVector fieldVector = root.getVector(field.getName());
       loadBuffers(fieldVector, field, buffers, nodes);
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
-      throw new IllegalArgumentException("not all nodes and buffers where consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
+      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " + Iterators.toString(nodes) + " buffers: " + Iterators.toString(buffers));
     }
   }
-
 
   private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(),
@@ -82,7 +79,7 @@ public class VectorLoader {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
     } catch (RuntimeException e) {
       throw new IllegalArgumentException("Could not load buffers for field " +
-              field + ". error message: " + e.getMessage(), e);
+            field + ". error message: " + e.getMessage(), e);
     }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {

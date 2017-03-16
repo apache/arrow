@@ -17,12 +17,15 @@
  */
 package org.apache.arrow.vector.file;
 
+import static java.nio.channels.Channels.newChannel;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
@@ -34,8 +37,14 @@ import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullableIntVector;
+import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -69,12 +78,17 @@ public class TestArrowReaderWriter {
   @Test
   public void test() throws IOException {
     Schema schema = new Schema(asList(new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
-    byte[] validity = new byte[] { (byte)255, 0};
+    MinorType minorType = Types.getMinorTypeForArrowType(schema.getFields().get(0).getType());
+    FieldVector vector = minorType.getNewVector("testField", allocator, null,null);
+    vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());
+
+    byte[] validity = new byte[] { (byte) 255, 0};
     // second half is "undefined"
     byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (ArrowWriter writer = new ArrowWriter(Channels.newChannel(out), schema)) {
+    try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(vector), 16);
+         ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out))) {
       ArrowBuf validityb = buf(validity);
       ArrowBuf valuesb =  buf(values);
       writer.writeRecordBatch(new ArrowRecordBatch(16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb)));
@@ -82,15 +96,15 @@ public class TestArrowReaderWriter {
 
     byte[] byteArray = out.toByteArray();
 
-    try (ArrowReader reader = new ArrowReader(new ByteArrayReadableSeekableByteChannel(byteArray), allocator)) {
-      ArrowFooter footer = reader.readFooter();
-      Schema readSchema = footer.getSchema();
+    SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(byteArray));
+    try (ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
       assertEquals(schema, readSchema);
       assertTrue(readSchema.getFields().get(0).getTypeLayout().getVectorTypes().toString(), readSchema.getFields().get(0).getTypeLayout().getVectors().size() > 0);
       // TODO: dictionaries
-      List<ArrowBlock> recordBatches = footer.getRecordBatches();
+      List<ArrowBlock> recordBatches = reader.getRecordBlocks();
       assertEquals(1, recordBatches.size());
-      ArrowRecordBatch recordBatch = reader.readRecordBatch(recordBatches.get(0));
+      ArrowRecordBatch recordBatch = (ArrowRecordBatch) reader.readMessage(channel, allocator);
       List<ArrowFieldNode> nodes = recordBatch.getNodes();
       assertEquals(1, nodes.size());
       ArrowFieldNode node = nodes.get(0);

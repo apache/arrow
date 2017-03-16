@@ -34,6 +34,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -88,9 +89,10 @@ public class MessageSerializerTest {
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-    ArrowRecordBatch deserialized = MessageSerializer.deserializeRecordBatch(
-        new ReadChannel(Channels.newChannel(in)), alloc);
-    verifyBatch(deserialized, validity, values);
+    ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+    ArrowMessage deserialized = MessageSerializer.deserializeMessageBatch(channel, alloc);
+    assertEquals(ArrowRecordBatch.class, deserialized.getClass());
+    verifyBatch((ArrowRecordBatch) deserialized, validity, values);
   }
 
   public static Schema testSchema() {

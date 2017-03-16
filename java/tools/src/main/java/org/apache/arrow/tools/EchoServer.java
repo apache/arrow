@@ -18,22 +18,18 @@
 package org.apache.arrow.tools;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+
+import com.google.common.base.Preconditions;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);
@@ -57,30 +53,28 @@ public class EchoServer {
 
     public void run() throws IOException {
       BufferAllocator  allocator = new RootAllocator(Long.MAX_VALUE);
-      List<ArrowRecordBatch> batches = new ArrayList<ArrowRecordBatch>();
-      try (
-        InputStream in = socket.getInputStream();
-        OutputStream out = socket.getOutputStream();
-        ArrowStreamReader reader = new ArrowStreamReader(in, allocator);
-      ) {
-        // Read the entire input stream.
-        reader.init();
-        while (true) {
-          ArrowRecordBatch batch = reader.nextRecordBatch();
-          if (batch == null) break;
-          batches.add(batch);
-        }
-        LOGGER.info(String.format("Received %d batches", batches.size()));
-
-        // Write it back
-        try (ArrowStreamWriter writer = new ArrowStreamWriter(out, reader.getSchema())) {
-          for (ArrowRecordBatch batch: batches) {
-            writer.writeRecordBatch(batch);
+      // Read the entire input stream and write it back
+      try (ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
+        VectorSchemaRoot root = reader.getVectorSchemaRoot();
+        // load the first batch before instantiating the writer so that we have any dictionaries
+        reader.loadNextBatch();
+        try (ArrowStreamWriter writer = new ArrowStreamWriter(root, reader, socket.getOutputStream())) {
+          writer.start();
+          int echoed = 0;
+          while (true) {
+            int rowCount = reader.getVectorSchemaRoot().getRowCount();
+            if (rowCount == 0) {
+              break;
+            } else {
+              writer.writeBatch();
+              echoed += rowCount;
+              reader.loadNextBatch();
+            }
           }
           writer.end();
           Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
+          LOGGER.info(String.format("Echoed %d records", echoed));
         }
-        LOGGER.info("Done writing stream back.");
       }
     }
 

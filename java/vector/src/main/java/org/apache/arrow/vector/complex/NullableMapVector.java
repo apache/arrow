@@ -34,6 +34,7 @@ import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -48,14 +49,16 @@ public class NullableMapVector extends MapVector implements FieldVector {
   protected final BitVector bits;
 
   private final List<BufferBacked> innerVectors;
+  private final DictionaryEncoding dictionary;
 
   private final Accessor accessor;
   private final Mutator mutator;
 
-  public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public NullableMapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     super(name, checkNotNull(allocator), callBack);
     this.bits = new BitVector("$bits$", allocator);
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
+    this.dictionary = dictionary;
     this.accessor = new Accessor();
     this.mutator = new Mutator();
   }
@@ -83,7 +86,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, callBack), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, dictionary, callBack), false);
   }
 
   @Override
@@ -93,7 +96,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, callBack), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, dictionary, callBack), false);
   }
 
   protected class NullableMapTransferPair extends MapTransferPair {

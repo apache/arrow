@@ -23,18 +23,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.file.ArrowBlock;
-import org.apache.arrow.vector.file.ArrowFooter;
-import org.apache.arrow.vector.file.ArrowReader;
-import org.apache.arrow.vector.file.ArrowWriter;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
+import org.apache.arrow.vector.file.ArrowFileReader;
+import org.apache.arrow.vector.file.ArrowFileWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -86,35 +80,27 @@ public class FileRoundtrip {
       File inFile = validateFile("input", inFileName);
       File outFile = validateFile("output", outFileName);
       BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE); // TODO: close
-      try(
-          FileInputStream fileInputStream = new FileInputStream(inFile);
-          ArrowReader arrowReader = new ArrowReader(fileInputStream.getChannel(), allocator);) {
+      try (FileInputStream fileInputStream = new FileInputStream(inFile);
+           ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
 
-        ArrowFooter footer = arrowReader.readFooter();
-        Schema schema = footer.getSchema();
+        VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+        Schema schema = root.getSchema();
         LOGGER.debug("Input file size: " + inFile.length());
         LOGGER.debug("Found schema: " + schema);
 
-        try (
-            FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-            ArrowWriter arrowWriter = new ArrowWriter(fileOutputStream.getChannel(), schema);
-            ) {
-
-          // initialize vectors
-
-          List<ArrowBlock> recordBatches = footer.getRecordBatches();
-          for (ArrowBlock rbBlock : recordBatches) {
-            try (ArrowRecordBatch inRecordBatch = arrowReader.readRecordBatch(rbBlock);
-                VectorSchemaRoot root = new VectorSchemaRoot(schema, allocator);) {
-
-              VectorLoader vectorLoader = new VectorLoader(root);
-              vectorLoader.load(inRecordBatch);
-
-              VectorUnloader vectorUnloader = new VectorUnloader(root);
-              ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-              arrowWriter.writeRecordBatch(recordBatch);
+        try (FileOutputStream fileOutputStream = new FileOutputStream(outFile);
+             ArrowFileWriter arrowWriter = new ArrowFileWriter(root, arrowReader, fileOutputStream.getChannel())) {
+          arrowWriter.start();
+          while (true) {
+            arrowReader.loadNextBatch();
+            int loaded = root.getRowCount();
+            if (loaded == 0) {
+              break;
+            } else {
+              arrowWriter.writeBatch();
             }
           }
+          arrowWriter.end();
         }
         LOGGER.debug("Output file size: " + outFile.length());
       }

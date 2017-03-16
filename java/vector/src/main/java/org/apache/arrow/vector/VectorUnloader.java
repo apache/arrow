@@ -20,42 +20,27 @@ package org.apache.arrow.vector;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.ArrowVectorType;
-import org.apache.arrow.vector.types.pojo.Schema;
-
-import io.netty.buffer.ArrowBuf;
 
 public class VectorUnloader {
 
-  private final Schema schema;
-  private final int valueCount;
-  private final List<FieldVector> vectors;
-
-  public VectorUnloader(Schema schema, int valueCount, List<FieldVector> vectors) {
-    super();
-    this.schema = schema;
-    this.valueCount = valueCount;
-    this.vectors = vectors;
-  }
+  private final VectorSchemaRoot root;
 
   public VectorUnloader(VectorSchemaRoot root) {
-    this(root.getSchema(), root.getRowCount(), root.getFieldVectors());
-  }
-
-  public Schema getSchema() {
-    return schema;
+    this.root = root;
   }
 
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
-    for (FieldVector vector : vectors) {
+    for (FieldVector vector : root.getFieldVectors()) {
       appendNodes(vector, nodes, buffers);
     }
-    return new ArrowRecordBatch(valueCount, nodes, buffers);
+    return new ArrowRecordBatch(root.getRowCount(), nodes, buffers);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {

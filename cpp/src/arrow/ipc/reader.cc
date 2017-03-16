@@ -78,6 +78,12 @@ class StreamReader::StreamReaderImpl {
 
     int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
 
+    if (message_length == 0) {
+      // Optional 0 EOS control message
+      *message = nullptr;
+      return Status::OK();
+    }
+
     RETURN_NOT_OK(stream_->Read(message_length, &buffer));
     if (buffer->size() != message_length) {
       return Status::IOError("Unexpected end of stream trying to read message");

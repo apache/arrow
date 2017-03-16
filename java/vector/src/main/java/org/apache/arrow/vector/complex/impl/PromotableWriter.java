@@ -125,7 +125,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         // ???
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(type).getVector();
+      ValueVector v = listVector.addOrGetVector(type, null).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
@@ -150,7 +150,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
-      unionVector = parentContainer.addOrGet(name, MinorType.UNION, UnionVector.class);
+      // TODO allow dictionaries in complex types
+      unionVector = parentContainer.addOrGet(name, MinorType.UNION, UnionVector.class, null);
       unionVector.allocateNew();
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
