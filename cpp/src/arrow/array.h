@@ -322,8 +322,8 @@ class ARROW_EXPORT BinaryArray : public Array {
     // Account for base offset
     i += offset_;
 
-    const int32_t pos = raw_value_offsets_[i + offset_];
-    *out_length = raw_value_offsets_[i + offset_ + 1] - pos;
+    const int32_t pos = raw_value_offsets_[i];
+    *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
   }
 
