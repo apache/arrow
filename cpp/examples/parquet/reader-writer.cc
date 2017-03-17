@@ -110,9 +110,14 @@ int main(int argc, char** argv) {
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
 
+    // Add writer properties
+    parquet::WriterProperties::Builder builder;
+    builder.compression(parquet::Compression::SNAPPY);
+    std::shared_ptr<parquet::WriterProperties> props = builder.build();
+
     // Create a ParquetFileWriter instance
     std::shared_ptr<parquet::ParquetFileWriter> file_writer =
-        parquet::ParquetFileWriter::Open(out_file, schema);
+        parquet::ParquetFileWriter::Open(out_file, schema, props);
 
     // Append a RowGroup with a specific number of rows.
     parquet::RowGroupWriter* rg_writer =
@@ -225,6 +230,7 @@ int main(int argc, char** argv) {
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
         parquet::ParquetFileReader::OpenFile(PARQUET_FILENAME, false);
+
     // Get the File MetaData
     std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
 
