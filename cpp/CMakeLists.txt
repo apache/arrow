@@ -29,6 +29,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 include(CMakeParseArguments)
 include(ExternalProject)
 
+set(ARROW_SO_VERSION "0")
+set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
+
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
