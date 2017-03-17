@@ -182,7 +182,7 @@ inline void TypedRowGroupStatistics<FLBAType>::Copy(
     const FLBA& src, FLBA* dst, PoolBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   uint32_t len = descr_->type_length();
-  PARQUET_THROW_NOT_OK(buffer->Resize(len));
+  PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
   std::memcpy(buffer->mutable_data(), src.ptr, len);
   *dst = FLBA(buffer->data());
 }
@@ -191,7 +191,7 @@ template <>
 inline void TypedRowGroupStatistics<ByteArrayType>::Copy(
     const ByteArray& src, ByteArray* dst, PoolBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
-  PARQUET_THROW_NOT_OK(buffer->Resize(src.len));
+  PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
   std::memcpy(buffer->mutable_data(), src.ptr, src.len);
   *dst = ByteArray(src.len, buffer->data());
 }

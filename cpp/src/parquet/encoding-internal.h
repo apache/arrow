@@ -379,7 +379,7 @@ inline void DictionaryDecoder<ByteArrayType>::SetDict(
   for (int i = 0; i < num_dictionary_values; ++i) {
     total_size += dictionary_[i].len;
   }
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size));
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
   int offset = 0;
 
   uint8_t* bytes_data = byte_array_data_->mutable_data();
@@ -399,7 +399,7 @@ inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) 
   int fixed_len = descr_->type_length();
   int total_size = num_dictionary_values * fixed_len;
 
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size));
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   int offset = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
@@ -495,7 +495,7 @@ class DictEncoder : public Encoder<DType> {
         AllocateBuffer(this->allocator_, EstimatedDataEncodedSize());
     int result_size = WriteIndices(buffer->mutable_data(), EstimatedDataEncodedSize());
     ClearIndices();
-    PARQUET_THROW_NOT_OK(buffer->Resize(result_size));
+    PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
   };
 
@@ -771,7 +771,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
     if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
     if (!decoder_.GetVlqInt(&values_current_block_)) { ParquetException::EofException(); }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
-    PARQUET_THROW_NOT_OK(delta_bit_widths_->Resize(num_mini_blocks_));
+    PARQUET_THROW_NOT_OK(delta_bit_widths_->Resize(num_mini_blocks_, false));
 
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
 

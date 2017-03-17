@@ -191,7 +191,9 @@ class PageWriter {
 
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
-  virtual std::shared_ptr<Buffer> Compress(const std::shared_ptr<Buffer>& buffer) = 0;
+  virtual bool has_compressor() = 0;
+
+  virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
 };
 
 }  // namespace parquet

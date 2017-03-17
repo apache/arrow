@@ -97,7 +97,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (decompressor_ != NULL) {
       // Grow the uncompressed buffer if we need to.
       if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-        PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len));
+        PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
       }
       decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
           decompression_buffer_->mutable_data());
