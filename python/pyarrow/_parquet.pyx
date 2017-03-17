@@ -23,7 +23,7 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_io cimport (ReadableFileInterface, OutputStream,
+from pyarrow.includes.libarrow_io cimport (RandomAccessFile, OutputStream,
                                            FileOutputStream)
 cimport pyarrow.includes.pyarrow as pyarrow
 
@@ -354,7 +354,7 @@ cdef class ParquetReader:
 
     def open(self, object source, FileMetaData metadata=None):
         cdef:
-            shared_ptr[ReadableFileInterface] rd_handle
+            shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
             ReaderProperties properties = default_reader_properties()
             c_string path

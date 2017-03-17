@@ -37,7 +37,7 @@ class Status;
 namespace io {
 
 class OutputStream;
-class ReadableFileInterface;
+class RandomAccessFile;
 
 }  // namespace io
 
@@ -54,7 +54,7 @@ class ARROW_EXPORT TableReader {
   TableReader();
   ~TableReader();
 
-  Status Open(const std::shared_ptr<io::ReadableFileInterface>& source);
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& source);
 
   static Status OpenFile(const std::string& abspath, std::unique_ptr<TableReader>* out);
 

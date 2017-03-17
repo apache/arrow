@@ -64,7 +64,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 };
 
 // Operating system file
-class ARROW_EXPORT ReadableFile : public ReadableFileInterface {
+class ARROW_EXPORT ReadableFile : public RandomAccessFile {
  public:
   ~ReadableFile();
 
@@ -115,7 +115,7 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   Status Seek(int64_t position) override;
 
-  // Required by ReadableFileInterface, copies memory into out. Not thread-safe
+  // Required by RandomAccessFile, copies memory into out. Not thread-safe
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
 
   // Zero copy read. Not thread-safe

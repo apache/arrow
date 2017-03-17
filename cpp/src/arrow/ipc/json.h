@@ -31,7 +31,7 @@ namespace arrow {
 namespace io {
 
 class OutputStream;
-class ReadableFileInterface;
+class RandomAccessFile;
 
 }  // namespace io
 

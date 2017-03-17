@@ -37,7 +37,7 @@ class Status;
 namespace io {
 
 class InputStream;
-class ReadableFileInterface;
+class RandomAccessFile;
 
 }  // namespace io
 
@@ -72,7 +72,7 @@ class ARROW_EXPORT FileReader {
   // can be any amount of data preceding the Arrow-formatted data, because we
   // need only locate the end of the Arrow file stream to discover the metadata
   // and then proceed to read the data into memory.
-  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+  static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
       std::shared_ptr<FileReader>* reader);
 
   // If the file is embedded within some larger file or memory region, you can
@@ -82,7 +82,7 @@ class ARROW_EXPORT FileReader {
   //
   // @param file: the data source
   // @param footer_offset: the position of the end of the Arrow "file"
-  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+  static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
       int64_t footer_offset, std::shared_ptr<FileReader>* reader);
 
   /// The schema includes any dictionaries

@@ -41,7 +41,7 @@ class Status;
 namespace io {
 
 class OutputStream;
-class ReadableFileInterface;
+class RandomAccessFile;
 
 }  // namespace io
 
@@ -219,7 +219,7 @@ class ARROW_EXPORT Message {
 /// \param[out] message the message read
 /// \return Status success or failure
 Status ReadMessage(int64_t offset, int32_t metadata_length,
-    io::ReadableFileInterface* file, std::shared_ptr<Message>* message);
+    io::RandomAccessFile* file, std::shared_ptr<Message>* message);
 
 }  // namespace ipc
 }  // namespace arrow

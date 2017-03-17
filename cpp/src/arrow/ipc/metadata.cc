@@ -359,7 +359,7 @@ const RecordBatchMetadata& DictionaryBatchMetadata::record_batch() const {
 // Conveniences
 
 Status ReadMessage(int64_t offset, int32_t metadata_length,
-    io::ReadableFileInterface* file, std::shared_ptr<Message>* message) {
+    io::RandomAccessFile* file, std::shared_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
 

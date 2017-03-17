@@ -308,7 +308,7 @@ class FileReader::FileReaderImpl {
   }
 
   Status Open(
-      const std::shared_ptr<io::ReadableFileInterface>& file, int64_t footer_offset) {
+      const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
     file_ = file;
     footer_offset_ = footer_offset;
     RETURN_NOT_OK(ReadFooter());
@@ -318,7 +318,7 @@ class FileReader::FileReaderImpl {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:
-  std::shared_ptr<io::ReadableFileInterface> file_;
+  std::shared_ptr<io::RandomAccessFile> file_;
 
   // The location where the Arrow file layout ends. May be the end of the file
   // or some other location if embedded in a larger file.
@@ -342,14 +342,14 @@ FileReader::FileReader() {
 
 FileReader::~FileReader() {}
 
-Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+Status FileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
     std::shared_ptr<FileReader>* reader) {
   int64_t footer_offset;
   RETURN_NOT_OK(file->GetSize(&footer_offset));
   return Open(file, footer_offset, reader);
 }
 
-Status FileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+Status FileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
     int64_t footer_offset, std::shared_ptr<FileReader>* reader) {
   *reader = std::shared_ptr<FileReader>(new FileReader());
   return (*reader)->impl_->Open(file, footer_offset);

@@ -39,7 +39,7 @@ class Status;
 
 namespace io {
 
-class ReadableFileInterface;
+class RandomAccessFile;
 class OutputStream;
 
 }  // namespace io
@@ -87,15 +87,15 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 // "Read" path; does not copy data if the input supports zero copy reads
 
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
-    const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
+    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
     std::shared_ptr<RecordBatch>* out);
 
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
-    io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out);
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 Status ReadDictionary(const DictionaryBatchMetadata& metadata,
-    const DictionaryTypeMap& dictionary_types, io::ReadableFileInterface* file,
+    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
     std::shared_ptr<Array>* out);
 
 }  // namespace ipc

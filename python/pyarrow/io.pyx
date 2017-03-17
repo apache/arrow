@@ -81,9 +81,9 @@ cdef class NativeFile:
                     check_status(self.wr_file.get().Close())
         self.is_open = False
 
-    cdef read_handle(self, shared_ptr[ReadableFileInterface]* file):
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
         self._assert_readable()
-        file[0] = <shared_ptr[ReadableFileInterface]> self.rd_file
+        file[0] = <shared_ptr[RandomAccessFile]> self.rd_file
 
     cdef write_handle(self, shared_ptr[OutputStream]* file):
         self._assert_writeable()
@@ -361,7 +361,7 @@ cdef class MemoryMappedFile(NativeFile):
         check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
 
         self.wr_file = <shared_ptr[OutputStream]> handle
-        self.rd_file = <shared_ptr[ReadableFileInterface]> handle
+        self.rd_file = <shared_ptr[RandomAccessFile]> handle
         self.is_open = True
 
 
@@ -398,7 +398,7 @@ cdef class OSFile(NativeFile):
             check_status(ReadableFile.Open(path, pool, &handle))
 
         self.is_readable = 1
-        self.rd_file = <shared_ptr[ReadableFileInterface]> handle
+        self.rd_file = <shared_ptr[RandomAccessFile]> handle
 
     cdef _open_writeable(self, c_string path):
         cdef shared_ptr[FileOutputStream] handle
@@ -536,7 +536,7 @@ cdef Buffer wrap_buffer(const shared_ptr[CBuffer]& buf):
     return result
 
 
-cdef get_reader(object source, shared_ptr[ReadableFileInterface]* reader):
+cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
     if isinstance(source, six.string_types):
@@ -815,7 +815,7 @@ cdef class _HdfsClient:
                 check_status(self.client.get()
                              .OpenReadable(c_path, &rd_handle))
 
-            out.rd_file = <shared_ptr[ReadableFileInterface]> rd_handle
+            out.rd_file = <shared_ptr[RandomAccessFile]> rd_handle
             out.is_readable = True
             out.is_writeable = 0
 
@@ -924,7 +924,7 @@ cdef class _StreamReader:
 
     def _open(self, source):
         cdef:
-            shared_ptr[ReadableFileInterface] reader
+            shared_ptr[RandomAccessFile] reader
             shared_ptr[InputStream] in_stream
 
         get_reader(source, &reader)
@@ -996,7 +996,7 @@ cdef class _FileReader:
         pass
 
     def _open(self, source, footer_offset=None):
-        cdef shared_ptr[ReadableFileInterface] reader
+        cdef shared_ptr[RandomAccessFile] reader
         get_reader(source, &reader)
 
         cdef int64_t offset = 0

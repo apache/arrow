@@ -159,7 +159,7 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   DISALLOW_COPY_AND_ASSIGN(HdfsClient);
 };
 
-class ARROW_EXPORT HdfsReadableFile : public ReadableFileInterface {
+class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
   ~HdfsReadableFile();
 

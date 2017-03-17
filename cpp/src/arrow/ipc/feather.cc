@@ -218,7 +218,7 @@ class TableReader::TableReaderImpl {
  public:
   TableReaderImpl() {}
 
-  Status Open(const std::shared_ptr<io::ReadableFileInterface>& source) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& source) {
     source_ = source;
 
     int magic_size = static_cast<int>(strlen(kFeatherMagicBytes));
@@ -386,7 +386,7 @@ class TableReader::TableReaderImpl {
   }
 
  private:
-  std::shared_ptr<io::ReadableFileInterface> source_;
+  std::shared_ptr<io::RandomAccessFile> source_;
   std::unique_ptr<TableMetadata> metadata_;
 
   std::shared_ptr<Schema> schema_;
@@ -401,7 +401,7 @@ TableReader::TableReader() {
 
 TableReader::~TableReader() {}
 
-Status TableReader::Open(const std::shared_ptr<io::ReadableFileInterface>& source) {
+Status TableReader::Open(const std::shared_ptr<io::RandomAccessFile>& source) {
   return impl_->Open(source);
 }
 

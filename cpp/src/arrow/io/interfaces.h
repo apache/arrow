@@ -97,7 +97,7 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
   InputStream() {}
 };
 
-class ARROW_EXPORT ReadableFileInterface : public InputStream, public Seekable {
+class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
  public:
   virtual Status GetSize(int64_t* size) = 0;
 
@@ -118,7 +118,7 @@ class ARROW_EXPORT ReadableFileInterface : public InputStream, public Seekable {
  protected:
   std::mutex lock_;
 
-  ReadableFileInterface();
+  RandomAccessFile();
 };
 
 class ARROW_EXPORT WriteableFileInterface : public OutputStream, public Seekable {
@@ -129,11 +129,13 @@ class ARROW_EXPORT WriteableFileInterface : public OutputStream, public Seekable
   WriteableFileInterface() { set_mode(FileMode::READ); }
 };
 
-class ARROW_EXPORT ReadWriteFileInterface : public ReadableFileInterface,
+class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile,
                                             public WriteableFileInterface {
  protected:
-  ReadWriteFileInterface() { ReadableFileInterface::set_mode(FileMode::READWRITE); }
+  ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
+
+using ReadableFileInterface = RandomAccessFile;
 
 }  // namespace io
 }  // namespace arrow

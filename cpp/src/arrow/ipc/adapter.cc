@@ -523,7 +523,7 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
 
 class IpcComponentSource : public ArrayComponentSource {
  public:
-  IpcComponentSource(const RecordBatchMetadata& metadata, io::ReadableFileInterface* file)
+  IpcComponentSource(const RecordBatchMetadata& metadata, io::RandomAccessFile* file)
       : metadata_(metadata), file_(file) {}
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
@@ -547,14 +547,14 @@ class IpcComponentSource : public ArrayComponentSource {
 
  private:
   const RecordBatchMetadata& metadata_;
-  io::ReadableFileInterface* file_;
+  io::RandomAccessFile* file_;
 };
 
 class RecordBatchReader {
  public:
   RecordBatchReader(const RecordBatchMetadata& metadata,
       const std::shared_ptr<Schema>& schema, int max_recursion_depth,
-      io::ReadableFileInterface* file)
+      io::RandomAccessFile* file)
       : metadata_(metadata),
         schema_(schema),
         max_recursion_depth_(max_recursion_depth),
@@ -582,24 +582,24 @@ class RecordBatchReader {
   const RecordBatchMetadata& metadata_;
   std::shared_ptr<Schema> schema_;
   int max_recursion_depth_;
-  io::ReadableFileInterface* file_;
+  io::RandomAccessFile* file_;
 };
 
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
-    const std::shared_ptr<Schema>& schema, io::ReadableFileInterface* file,
+    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
     std::shared_ptr<RecordBatch>* out) {
   return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
 }
 
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
-    io::ReadableFileInterface* file, std::shared_ptr<RecordBatch>* out) {
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   RecordBatchReader reader(metadata, schema, max_recursion_depth, file);
   return reader.Read(out);
 }
 
 Status ReadDictionary(const DictionaryBatchMetadata& metadata,
-    const DictionaryTypeMap& dictionary_types, io::ReadableFileInterface* file,
+    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
     std::shared_ptr<Array>* out) {
   int64_t id = metadata.id();
   auto it = dictionary_types.find(id);

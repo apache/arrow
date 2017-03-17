@@ -20,7 +20,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CTable, CMemoryPool)
-from pyarrow.includes.libarrow_io cimport ReadableFileInterface, OutputStream
+from pyarrow.includes.libarrow_io cimport RandomAccessFile, OutputStream
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -173,7 +173,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ParquetFileReader:
         @staticmethod
         unique_ptr[ParquetFileReader] Open(
-            const shared_ptr[ReadableFileInterface]& file,
+            const shared_ptr[RandomAccessFile]& file,
             const ReaderProperties& props,
             const shared_ptr[CFileMetaData]& metadata)
 
@@ -203,7 +203,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
-    CStatus OpenFile(const shared_ptr[ReadableFileInterface]& file,
+    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
                      CMemoryPool* allocator,
                      const ReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata,

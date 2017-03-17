@@ -23,7 +23,7 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CArray, CColumn, CSchema, CStatus
-from pyarrow.includes.libarrow_io cimport ReadableFileInterface, OutputStream
+from pyarrow.includes.libarrow_io cimport RandomAccessFile, OutputStream
 
 from libcpp.string cimport string
 from libcpp cimport bool as c_bool
@@ -53,7 +53,7 @@ cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
         CStatus Finalize()
 
     cdef cppclass TableReader:
-        TableReader(const shared_ptr[ReadableFileInterface]& source)
+        TableReader(const shared_ptr[RandomAccessFile]& source)
 
         @staticmethod
         CStatus OpenFile(const string& abspath, unique_ptr[TableReader]* out)

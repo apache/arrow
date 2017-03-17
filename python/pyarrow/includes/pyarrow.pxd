@@ -60,7 +60,7 @@ cdef extern from "pyarrow/common.h" namespace "arrow::py" nogil:
 
 
 cdef extern from "pyarrow/io.h" namespace "arrow::py" nogil:
-    cdef cppclass PyReadableFile(arrow_io.ReadableFileInterface):
+    cdef cppclass PyReadableFile(arrow_io.RandomAccessFile):
         PyReadableFile(object fo)
 
     cdef cppclass PyOutputStream(arrow_io.OutputStream):
