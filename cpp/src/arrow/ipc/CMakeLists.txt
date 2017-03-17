@@ -163,7 +163,7 @@ configure_file(arrow-ipc.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 
 set(UTIL_LINK_LIBS
