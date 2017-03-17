@@ -98,7 +98,7 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
   public ArrowBuf[] getBuffers(boolean clear) {
     ArrowBuf[] out;
     if (getBufferSize() == 0) {
-      out = new ArrowBuf[0];
+      out = new ArrowBuf[]{allocator.getEmpty()};
     } else {
       out = new ArrowBuf[]{data};
       data.readerIndex(0);
