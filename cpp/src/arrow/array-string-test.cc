@@ -176,7 +176,7 @@ TEST_F(TestStringArray, TestSliceGetString) {
   ASSERT_OK(builder.Finish(&array));
   auto s = array->Slice(1, 10);
   auto arr = std::dynamic_pointer_cast<StringArray>(s);
-  ASSERT_TRUE(arr->GetString(0) == "b");
+  ASSERT_EQ(arr->GetString(0), "b");
 }
 
 // ----------------------------------------------------------------------
