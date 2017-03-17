@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport CMemoryPool
+from pyarrow.includes.libarrow cimport CMemoryPool, CLoggingMemoryPool
 
 
 cdef class MemoryPool:
@@ -23,5 +23,8 @@ cdef class MemoryPool:
         CMemoryPool* pool
 
     cdef init(self, CMemoryPool* pool)
+
+cdef class LoggingMemoryPool(MemoryPool):
+    cdef init(self, CLoggingMemoryPool* pool)
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)

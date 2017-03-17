@@ -19,7 +19,7 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from pyarrow.includes.libarrow cimport CMemoryPool
+from pyarrow.includes.libarrow cimport CMemoryPool, CLoggingMemoryPool
 from pyarrow.includes.pyarrow cimport set_default_memory_pool, get_memory_pool
 
 cdef class MemoryPool:
@@ -34,6 +34,10 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
         return get_memory_pool()
     else:
         return memory_pool.pool
+
+cdef class LoggingMemoryPool(MemoryPool):
+    cdef init(self, CLoggingMemoryPool* pool):
+        MemoryPool.init(pool)
 
 def default_pool():
     cdef: 
