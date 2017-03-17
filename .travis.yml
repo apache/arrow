@@ -16,6 +16,9 @@ addons:
     - libboost-filesystem-dev
     - libboost-system-dev
     - libjemalloc-dev
+    - gtk-doc-tools
+    - autoconf-archive
+    - libgirepository1.0-dev
 
 matrix:
   fast_finish: true
@@ -30,9 +33,11 @@ matrix:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
   - compiler: clang
     osx_image: xcode6.4
     os: osx
