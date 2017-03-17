@@ -21,18 +21,18 @@ fi
 
 gem install gobject-introspection
 
-ARROW_GLIB_DIR=$TRAVIS_BUILD_DIR/glib
+ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 
-pushd $ARROW_GLIB_DIR
+pushd $ARROW_C_GLIB_DIR
 
-: ${ARROW_GLIB_INSTALL=$TRAVIS_BUILD_DIR/glib-install}
+: ${ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install}
 
 ./autogen.sh
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
-./configure --prefix=${ARROW_GLIB_INSTALL} --enable-gtk-doc
+./configure --prefix=${ARROW_C_GLIB_INSTALL} --enable-gtk-doc
 
 make -j4
 make install
