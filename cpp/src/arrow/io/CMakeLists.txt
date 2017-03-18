@@ -56,19 +56,13 @@ else()
   )
 endif()
 
-if (ARROW_BOOST_USE_SHARED)
-  set(ARROW_IO_SHARED_PRIVATE_LINK_LIBS
-    boost_system_shared
-    boost_filesystem_shared)
-else()
-  set(ARROW_IO_SHARED_PRIVATE_LINK_LIBS
-    boost_system_static
-    boost_filesystem_static)
-endif()
+set(ARROW_IO_SHARED_PRIVATE_LINK_LIBS
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY})
 
 set(ARROW_IO_STATIC_PRIVATE_LINK_LIBS
-  boost_system_static
-  boost_filesystem_static)
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY})
 
 set(ARROW_IO_TEST_LINK_LIBS
   arrow_io_static)
