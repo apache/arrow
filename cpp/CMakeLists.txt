@@ -30,6 +30,9 @@ include(CMakeParseArguments)
 include(ExternalProject)
 include(GNUInstallDirs)
 
+set(ARROW_SO_VERSION "0")
+set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
+
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
