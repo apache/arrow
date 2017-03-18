@@ -21,18 +21,18 @@
 
 #include <arrow/io/interfaces.h>
 
-#include <arrow-glib/io-readable-file.h>
+#include <arrow-glib/io-random-access-file.h>
 
 /**
- * GArrowIOReadableFileInterface:
+ * GArrowIORandomAccessFileInterface:
  *
- * It wraps `arrow::io::ReadableFileInterface`.
+ * It wraps `arrow::io::RandomAccessFile`.
  */
-struct _GArrowIOReadableFileInterface
+struct _GArrowIORandomAccessFileInterface
 {
   GTypeInterface parent_iface;
 
-  std::shared_ptr<arrow::io::ReadableFileInterface> (*get_raw)(GArrowIOReadableFile *file);
+  std::shared_ptr<arrow::io::RandomAccessFile> (*get_raw)(GArrowIORandomAccessFile *file);
 };
 
-std::shared_ptr<arrow::io::ReadableFileInterface> garrow_io_readable_file_get_raw(GArrowIOReadableFile *readable_file);
+std::shared_ptr<arrow::io::RandomAccessFile> garrow_io_random_access_file_get_raw(GArrowIORandomAccessFile *random_access_file);

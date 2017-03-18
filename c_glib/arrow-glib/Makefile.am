@@ -242,8 +242,8 @@ libarrow_io_glib_la_headers =			\
 	io-input-stream.h			\
 	io-memory-mapped-file.h			\
 	io-output-stream.h			\
+	io-random-access-file.h			\
 	io-readable.h				\
-	io-readable-file.h			\
 	io-writeable.h				\
 	io-writeable-file.h
 
@@ -261,8 +261,8 @@ libarrow_io_glib_la_sources =			\
 	io-input-stream.cpp			\
 	io-memory-mapped-file.cpp		\
 	io-output-stream.cpp			\
+	io-random-access-file.cpp		\
 	io-readable.cpp				\
-	io-readable-file.cpp			\
 	io-writeable.cpp			\
 	io-writeable-file.cpp			\
 	$(libarrow_io_glib_la_headers)		\
@@ -276,8 +276,8 @@ libarrow_io_glib_la_cpp_headers =		\
 	io-input-stream.hpp			\
 	io-memory-mapped-file.hpp		\
 	io-output-stream.hpp			\
+	io-random-access-file.hpp		\
 	io-readable.hpp				\
-	io-readable-file.hpp			\
 	io-writeable.hpp			\
 	io-writeable-file.hpp
 

@@ -121,7 +121,7 @@
       <title>Input</title>
       <xi:include href="xml/io-readable.xml"/>
       <xi:include href="xml/io-input-stream.xml"/>
-      <xi:include href="xml/io-readable-file.xml"/>
+      <xi:include href="xml/io-random-access-file.xml"/>
     </chapter>
     <chapter id="io-output">
       <title>Output</title>

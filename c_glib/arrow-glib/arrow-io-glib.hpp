@@ -25,6 +25,6 @@
 #include <arrow-glib/io-input-stream.hpp>
 #include <arrow-glib/io-memory-mapped-file.hpp>
 #include <arrow-glib/io-output-stream.hpp>
+#include <arrow-glib/io-random-access-file.hpp>
 #include <arrow-glib/io-readable.hpp>
-#include <arrow-glib/io-readable-file.hpp>
 #include <arrow-glib/io-writeable.hpp>
