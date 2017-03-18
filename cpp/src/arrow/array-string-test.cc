@@ -165,6 +165,20 @@ TEST_F(TestStringArray, CompareNullByteSlots) {
       equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
 }
 
+TEST_F(TestStringArray, TestSliceGetString) {
+  StringBuilder builder(default_memory_pool());
+
+  builder.Append("a");
+  builder.Append("b");
+  builder.Append("c");
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+  auto s = array->Slice(1, 10);
+  auto arr = std::dynamic_pointer_cast<StringArray>(s);
+  ASSERT_EQ(arr->GetString(0), "b");
+}
+
 // ----------------------------------------------------------------------
 // String builder tests
 
