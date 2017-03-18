@@ -27,7 +27,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
-#include <arrow-glib/io-readable-file.hpp>
+#include <arrow-glib/io-random-access-file.hpp>
 
 #include <arrow-glib/ipc-file-reader.hpp>
 #include <arrow-glib/ipc-metadata-version.hpp>
@@ -139,12 +139,12 @@ garrow_ipc_file_reader_class_init(GArrowIPCFileReaderClass *klass)
  *   #GArrowIPCFileReader or %NULL on error.
  */
 GArrowIPCFileReader *
-garrow_ipc_file_reader_open(GArrowIOReadableFile *file,
+garrow_ipc_file_reader_open(GArrowIORandomAccessFile *file,
                             GError **error)
 {
   std::shared_ptr<arrow::ipc::FileReader> arrow_file_reader;
   auto status =
-    arrow::ipc::FileReader::Open(garrow_io_readable_file_get_raw(file),
+    arrow::ipc::FileReader::Open(garrow_io_random_access_file_get_raw(file),
                                  &arrow_file_reader);
   if (status.ok()) {
     return garrow_ipc_file_reader_new_raw(&arrow_file_reader);

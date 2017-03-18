@@ -22,7 +22,7 @@
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 
-#include <arrow-glib/io-readable-file.h>
+#include <arrow-glib/io-random-access-file.h>
 
 #include <arrow-glib/ipc-metadata-version.h>
 
@@ -70,7 +70,7 @@ struct _GArrowIPCFileReaderClass
 
 GType garrow_ipc_file_reader_get_type(void) G_GNUC_CONST;
 
-GArrowIPCFileReader *garrow_ipc_file_reader_open(GArrowIOReadableFile *file,
+GArrowIPCFileReader *garrow_ipc_file_reader_open(GArrowIORandomAccessFile *file,
                                                  GError **error);
 
 GArrowSchema *garrow_ipc_file_reader_get_schema(GArrowIPCFileReader *file_reader);

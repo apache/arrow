@@ -29,7 +29,7 @@
 #include <arrow-glib/io-input-stream.hpp>
 #include <arrow-glib/io-memory-mapped-file.hpp>
 #include <arrow-glib/io-readable.hpp>
-#include <arrow-glib/io-readable-file.hpp>
+#include <arrow-glib/io-random-access-file.hpp>
 #include <arrow-glib/io-writeable.hpp>
 #include <arrow-glib/io-writeable-file.hpp>
 
@@ -97,8 +97,8 @@ garrow_io_input_stream_interface_init(GArrowIOInputStreamInterface *iface)
   iface->get_raw = garrow_io_memory_mapped_file_get_raw_input_stream_interface;
 }
 
-static std::shared_ptr<arrow::io::ReadableFileInterface>
-garrow_io_memory_mapped_file_get_raw_readable_file_interface(GArrowIOReadableFile *file)
+static std::shared_ptr<arrow::io::RandomAccessFile>
+garrow_io_memory_mapped_file_get_raw_random_access_file_interface(GArrowIORandomAccessFile *file)
 {
   auto memory_mapped_file = GARROW_IO_MEMORY_MAPPED_FILE(file);
   auto arrow_memory_mapped_file =
@@ -107,9 +107,9 @@ garrow_io_memory_mapped_file_get_raw_readable_file_interface(GArrowIOReadableFil
 }
 
 static void
-garrow_io_readable_file_interface_init(GArrowIOReadableFileInterface *iface)
+garrow_io_random_access_file_interface_init(GArrowIORandomAccessFileInterface *iface)
 {
-  iface->get_raw = garrow_io_memory_mapped_file_get_raw_readable_file_interface;
+  iface->get_raw = garrow_io_memory_mapped_file_get_raw_random_access_file_interface;
 }
 
 static std::shared_ptr<arrow::io::Writeable>
@@ -152,8 +152,8 @@ G_DEFINE_TYPE_WITH_CODE(GArrowIOMemoryMappedFile,
                                               garrow_io_readable_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_IO_TYPE_INPUT_STREAM,
                                               garrow_io_input_stream_interface_init)
-                        G_IMPLEMENT_INTERFACE(GARROW_IO_TYPE_READABLE_FILE,
-                                              garrow_io_readable_file_interface_init)
+                        G_IMPLEMENT_INTERFACE(GARROW_IO_TYPE_RANDOM_ACCESS_FILE,
+                                              garrow_io_random_access_file_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_IO_TYPE_WRITEABLE,
                                               garrow_io_writeable_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_IO_TYPE_WRITEABLE_FILE,
