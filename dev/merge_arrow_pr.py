@@ -253,7 +253,7 @@ def resolve_jira(title, merge_branches, comment):
     if cur_status == "Resolved" or cur_status == "Closed":
         fail("JIRA issue %s already has status '%s'" % (jira_id, cur_status))
     print("=== JIRA %s ===" % jira_id)
-    print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%sf\n"
+    print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
     resolve = [x for x in asf_jira.transitions(jira_id)
