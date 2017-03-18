@@ -34,7 +34,7 @@ install(FILES
   type_fwd.h
   type_traits.h
   test-util.h
-  DESTINATION include/arrow)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
 
 # pkg-config support
 configure_file(arrow.pc.in
@@ -42,7 +42,7 @@ configure_file(arrow.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 #######################################
 # Unit tests

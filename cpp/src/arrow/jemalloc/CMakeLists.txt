@@ -112,4 +112,4 @@ configure_file(arrow-jemalloc.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-jemalloc.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")

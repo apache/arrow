@@ -123,4 +123,4 @@ configure_file(arrow-io.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-io.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
