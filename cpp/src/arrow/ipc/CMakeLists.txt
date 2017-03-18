@@ -90,8 +90,8 @@ if (ARROW_BUILD_TESTS)
       arrow_static
       gflags
       gtest
-      boost_filesystem_static
-      boost_system_static
+      ${BOOST_FILESYSTEM_LIBRARY}
+      ${BOOST_SYSTEM_LIBRARY}
       dl)
     set_target_properties(json-integration-test
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
@@ -103,8 +103,8 @@ if (ARROW_BUILD_TESTS)
       gflags
       gtest
       pthread
-      boost_filesystem_static
-      boost_system_static
+      ${BOOST_FILESYSTEM_LIBRARY}
+      ${BOOST_SYSTEM_LIBRARY}
       dl)
   endif()
 endif()
@@ -170,16 +170,9 @@ set(UTIL_LINK_LIBS
   arrow_ipc_static
   arrow_io_static
   arrow_static
-  boost_filesystem_static
-  boost_system_static
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_SYSTEM_LIBRARY}
   dl)
-
-if (NOT APPLE)
-  set(UTIL_LINK_LIBS
-    ${UTIL_LINK_LIBS}
-    boost_filesystem_static
-    boost_system_static)
-endif()
 
 if (ARROW_BUILD_UTILITIES)
   add_executable(file-to-stream file-to-stream.cc)
