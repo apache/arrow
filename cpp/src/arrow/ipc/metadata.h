@@ -218,8 +218,8 @@ class ARROW_EXPORT Message {
 /// \param[in] file the seekable file interface to read from
 /// \param[out] message the message read
 /// \return Status success or failure
-Status ReadMessage(int64_t offset, int32_t metadata_length,
-    io::RandomAccessFile* file, std::shared_ptr<Message>* message);
+Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
+    std::shared_ptr<Message>* message);
 
 }  // namespace ipc
 }  // namespace arrow

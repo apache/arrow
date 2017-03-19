@@ -303,6 +303,22 @@ table RecordBatch {
 }
 
 /// ----------------------------------------------------------------------
+/// EXPERIMENTAL: A RecordBatch type that supports data with more than 2^31 - 1
+/// elements. Arrow implementations do not need to implement this type to be
+/// compliant
+
+struct LargeFieldNode {
+  length: int;
+  null_count: int;
+}
+
+table LargeRecordBatch {
+  length: long;
+  nodes: [LargeFieldNode];
+  buffers: [Buffer];
+}
+
+/// ----------------------------------------------------------------------
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.

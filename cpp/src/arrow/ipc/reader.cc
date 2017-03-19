@@ -26,15 +26,124 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/adapter.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/schema.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace ipc {
+
+// ----------------------------------------------------------------------
+// Record batch read path
+
+class IpcComponentSource : public ArrayComponentSource {
+ public:
+  IpcComponentSource(const RecordBatchMetadata& metadata, io::RandomAccessFile* file)
+      : metadata_(metadata), file_(file) {}
+
+  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
+    BufferMetadata buffer_meta = metadata_.buffer(buffer_index);
+    if (buffer_meta.length == 0) {
+      *out = nullptr;
+      return Status::OK();
+    } else {
+      return file_->ReadAt(buffer_meta.offset, buffer_meta.length, out);
+    }
+  }
+
+  Status GetFieldMetadata(int field_index, FieldMetadata* metadata) override {
+    // pop off a field
+    if (field_index >= metadata_.num_fields()) {
+      return Status::Invalid("Ran out of field metadata, likely malformed");
+    }
+    *metadata = metadata_.field(field_index);
+    return Status::OK();
+  }
+
+ private:
+  const RecordBatchMetadata& metadata_;
+  io::RandomAccessFile* file_;
+};
+
+class RecordBatchReader {
+ public:
+  RecordBatchReader(const RecordBatchMetadata& metadata,
+      const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+      io::RandomAccessFile* file)
+      : metadata_(metadata),
+        schema_(schema),
+        max_recursion_depth_(max_recursion_depth),
+        file_(file) {}
+
+  Status Read(std::shared_ptr<RecordBatch>* out) {
+    std::vector<std::shared_ptr<Array>> arrays(schema_->num_fields());
+
+    IpcComponentSource source(metadata_, file_);
+    ArrayLoaderContext context;
+    context.source = &source;
+    context.field_index = 0;
+    context.buffer_index = 0;
+    context.max_recursion_depth = max_recursion_depth_;
+
+    for (int i = 0; i < schema_->num_fields(); ++i) {
+      RETURN_NOT_OK(LoadArray(schema_->field(i)->type, &context, &arrays[i]));
+    }
+
+    *out = std::make_shared<RecordBatch>(schema_, metadata_.length(), arrays);
+    return Status::OK();
+  }
+
+ private:
+  const RecordBatchMetadata& metadata_;
+  std::shared_ptr<Schema> schema_;
+  int max_recursion_depth_;
+  io::RandomAccessFile* file_;
+};
+
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
+    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
+    std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
+}
+
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
+    const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+  RecordBatchReader reader(metadata, schema, max_recursion_depth, file);
+  return reader.Read(out);
+}
+
+Status ReadDictionary(const DictionaryBatchMetadata& metadata,
+    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
+    std::shared_ptr<Array>* out) {
+  int64_t id = metadata.id();
+  auto it = dictionary_types.find(id);
+  if (it == dictionary_types.end()) {
+    std::stringstream ss;
+    ss << "Do not have type metadata for dictionary with id: " << id;
+    return Status::KeyError(ss.str());
+  }
+
+  std::vector<std::shared_ptr<Field>> fields = {it->second};
+
+  // We need a schema for the record batch
+  auto dummy_schema = std::make_shared<Schema>(fields);
+
+  // The dictionary is embedded in a record batch with a single column
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(ReadRecordBatch(metadata.record_batch(), dummy_schema, file, &batch));
+
+  if (batch->num_columns() != 1) {
+    return Status::Invalid("Dictionary record batch must only contain one field");
+  }
+
+  *out = batch->column(0);
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
 // StreamReader implementation
@@ -307,8 +416,7 @@ class FileReader::FileReaderImpl {
     return schema_metadata_->GetSchema(*dictionary_memo_, &schema_);
   }
 
-  Status Open(
-      const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
     file_ = file;
     footer_offset_ = footer_offset;
     RETURN_NOT_OK(ReadFooter());

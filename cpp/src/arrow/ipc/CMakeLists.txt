@@ -29,7 +29,6 @@ set(ARROW_IPC_TEST_LINK_LIBS
   arrow_io_static)
 
 set(ARROW_IPC_SRCS
-  adapter.cc
   feather.cc
   json.cc
   json-internal.cc
@@ -64,12 +63,8 @@ ADD_ARROW_TEST(feather-test)
 ARROW_TEST_LINK_LIBRARIES(feather-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
-ADD_ARROW_TEST(ipc-adapter-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-adapter-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
-ADD_ARROW_TEST(ipc-file-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-file-test
+ADD_ARROW_TEST(ipc-read-write-test)
+ARROW_TEST_LINK_LIBRARIES(ipc-read-write-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
 ADD_ARROW_TEST(ipc-metadata-test)
@@ -148,7 +143,6 @@ add_dependencies(arrow_ipc_objlib metadata_fbs)
 
 # Headers: top level
 install(FILES
-  adapter.h
   api.h
   feather.h
   json.h

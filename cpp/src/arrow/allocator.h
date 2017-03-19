@@ -18,11 +18,11 @@
 #ifndef ARROW_ALLOCATOR_H
 #define ARROW_ALLOCATOR_H
 
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include <cstddef>
 #include <memory>
 #include <utility>
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
 
 namespace arrow {
 
