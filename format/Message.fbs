@@ -81,16 +81,21 @@ table Decimal {
   scale: int;
 }
 
+/// Date is a 64-bit type representing milliseconds since the UNIX epoch
 table Date {
 }
 
 enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
 
+/// Time type. The physical storage type depends on the unit
+/// - SECOND and MILLISECOND: 32 bits
+/// - MICROSECOND and NANOSECOND: 64 bits
 table Time {
   unit: TimeUnit;
+  bitWidth: int;
 }
 
-/// time from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
+/// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
 table Timestamp {
   unit: TimeUnit;
 
