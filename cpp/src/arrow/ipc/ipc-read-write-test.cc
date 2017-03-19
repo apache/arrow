@@ -125,15 +125,15 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  Status RoundTripHelper(const RecordBatch& batch, int memory_map_size,
-      std::shared_ptr<RecordBatch>* batch_result) {
-    std::string path = "test-write-row-batch";
-    io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
-
+  Status DoStandardRoundTrip(
+      const RecordBatch& batch, std::shared_ptr<RecordBatch>* batch_result) {
     int32_t metadata_length;
     int64_t body_length;
 
     const int64_t buffer_offset = 0;
+
+    RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
+    RETURN_NOT_OK(mmap_->Seek(0));
 
     RETURN_NOT_OK(WriteRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
@@ -151,20 +151,33 @@ class IpcTestFixture : public io::MemoryMapFixture {
     return ReadRecordBatch(*metadata, batch.schema(), &buffer_reader, batch_result);
   }
 
-  void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
-    std::shared_ptr<RecordBatch> batch_result;
+  Status DoLargeRoundTrip(
+      const RecordBatch& batch, std::shared_ptr<RecordBatch>* result) {
+    int32_t metadata_length;
+    int64_t body_length;
 
-    ASSERT_OK(RoundTripHelper(batch, 1 << 16, &batch_result));
-    EXPECT_EQ(batch.num_rows(), batch_result->num_rows());
+    const int64_t buffer_offset = 0;
 
-    ASSERT_TRUE(batch.schema()->Equals(batch_result->schema()));
-    ASSERT_EQ(batch.num_columns(), batch_result->num_columns())
-        << batch.schema()->ToString()
-        << " result: " << batch_result->schema()->ToString();
+    RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
+    RETURN_NOT_OK(mmap_->Seek(0));
 
-    for (int i = 0; i < batch.num_columns(); ++i) {
-      const auto& left = *batch.column(i);
-      const auto& right = *batch_result->column(i);
+    RETURN_NOT_OK(WriteLargeRecordBatch(
+        batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
+
+    return ReadLargeRecordBatch(batch.schema(), 0, mmap_.get(), result);
+  }
+
+  void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
+    EXPECT_EQ(expected.num_rows(), result.num_rows());
+
+    ASSERT_TRUE(expected.schema()->Equals(result.schema()));
+    ASSERT_EQ(expected.num_columns(), result.num_columns())
+        << expected.schema()->ToString()
+        << " result: " << result.schema()->ToString();
+
+    for (int i = 0; i < expected.num_columns(); ++i) {
+      const auto& left = *expected.column(i);
+      const auto& right = *result.column(i);
       if (!left.Equals(right)) {
         std::stringstream pp_result;
         std::stringstream pp_expected;
@@ -176,6 +189,18 @@ class IpcTestFixture : public io::MemoryMapFixture {
                << "\nGot: " << pp_result.str();
       }
     }
+  }
+
+  void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
+    std::string path = "test-write-row-batch";
+    ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, path, &mmap_));
+
+    std::shared_ptr<RecordBatch> result;
+    ASSERT_OK(DoStandardRoundTrip(batch, &result));
+    CheckReadResult(*result, batch);
+
+    // ASSERT_OK(DoLargeRoundTrip(batch, &result));
+    // CheckReadResult(*result, batch);
   }
 
   void CheckRoundtrip(const std::shared_ptr<Array>& array, int64_t buffer_size) {
@@ -203,8 +228,6 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
  public:
   void SetUp() { pool_ = default_memory_pool(); }
   void TearDown() { io::MemoryMapFixture::TearDown(); }
-  using IpcTestFixture::RoundTripHelper;
-  using IpcTestFixture::CheckRoundtrip;
 };
 
 TEST_P(TestIpcRoundTrip, RoundTrip) {

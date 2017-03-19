@@ -125,8 +125,8 @@ class ARROW_EXPORT FileReader {
 
 /// EXPERIMENTAL: Read length-prefixed LargeRecordBatch metadata (64-bit array
 /// lengths) at offset and reconstruct RecordBatch
-Status ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
-    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
+Status ARROW_EXPORT ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema,
+    int64_t offset, io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 }  // namespace ipc
 }  // namespace arrow

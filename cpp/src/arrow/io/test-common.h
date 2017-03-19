@@ -41,6 +41,24 @@
 namespace arrow {
 namespace io {
 
+static inline Status ZeroMemoryMap(MemoryMappedFile* file) {
+  constexpr int64_t kBufferSize = 512;
+  static constexpr uint8_t kZeroBytes[kBufferSize] = {0};
+
+  RETURN_NOT_OK(file->Seek(0));
+  int64_t position = 0;
+  int64_t file_size;
+  RETURN_NOT_OK(file->GetSize(&file_size));
+
+  int64_t chunksize;
+  while (position < file_size) {
+    chunksize = std::min(kBufferSize, file_size - position);
+    RETURN_NOT_OK(file->Write(kZeroBytes, chunksize));
+    position += chunksize;
+  }
+  return Status::OK();
+}
+
 class MemoryMapFixture {
  public:
   void TearDown() {
