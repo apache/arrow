@@ -17,8 +17,10 @@
 
 #include "arrow/ipc/writer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <vector>
 
