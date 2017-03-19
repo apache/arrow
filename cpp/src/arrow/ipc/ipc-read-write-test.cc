@@ -57,6 +57,66 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 
+class TestSchemaMetadata : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void CheckRoundtrip(const Schema& schema, DictionaryMemo* memo) {
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK(WriteSchemaMessage(schema, memo, &buffer));
+
+    std::shared_ptr<Message> message;
+    ASSERT_OK(Message::Open(buffer, 0, &message));
+
+    ASSERT_EQ(Message::SCHEMA, message->type());
+
+    auto schema_msg = std::make_shared<SchemaMetadata>(message);
+    ASSERT_EQ(schema.num_fields(), schema_msg->num_fields());
+
+    DictionaryMemo empty_memo;
+
+    std::shared_ptr<Schema> schema2;
+    ASSERT_OK(schema_msg->GetSchema(empty_memo, &schema2));
+
+    AssertSchemaEqual(schema, *schema2);
+  }
+};
+
+const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
+
+TEST_F(TestSchemaMetadata, PrimitiveFields) {
+  auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
+  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>(), false);
+  auto f2 = std::make_shared<Field>("f2", std::make_shared<Int32Type>());
+  auto f3 = std::make_shared<Field>("f3", std::make_shared<Int64Type>());
+  auto f4 = std::make_shared<Field>("f4", std::make_shared<UInt8Type>());
+  auto f5 = std::make_shared<Field>("f5", std::make_shared<UInt16Type>());
+  auto f6 = std::make_shared<Field>("f6", std::make_shared<UInt32Type>());
+  auto f7 = std::make_shared<Field>("f7", std::make_shared<UInt64Type>());
+  auto f8 = std::make_shared<Field>("f8", std::make_shared<FloatType>());
+  auto f9 = std::make_shared<Field>("f9", std::make_shared<DoubleType>(), false);
+  auto f10 = std::make_shared<Field>("f10", std::make_shared<BooleanType>());
+
+  Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
+  DictionaryMemo memo;
+
+  CheckRoundtrip(schema, &memo);
+}
+
+TEST_F(TestSchemaMetadata, NestedFields) {
+  auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
+  auto f0 = std::make_shared<Field>("f0", type);
+
+  std::shared_ptr<StructType> type2(new StructType({std::make_shared<Field>("k1", INT32),
+      std::make_shared<Field>("k2", INT32), std::make_shared<Field>("k3", INT32)}));
+  auto f1 = std::make_shared<Field>("f1", type2);
+
+  Schema schema({f0, f1});
+  DictionaryMemo memo;
+
+  CheckRoundtrip(schema, &memo);
+}
+
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \

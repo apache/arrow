@@ -626,11 +626,12 @@ Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out) {
   FBB fbb;
-  LargeRecordBatchOffset record_batch;
+  LargeRecordBatchOffset large_batch;
   RETURN_NOT_OK(
-      MakeLargeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
-  return WriteMessage(
-      fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(), body_length, out);
+      MakeLargeRecordBatch(fbb, length, body_length, nodes, buffers, &large_batch));
+
+  fbb.Finish(large_batch);
+  return WriteFlatbufferBuilder(fbb, out);
 }
 
 Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
@@ -795,7 +796,18 @@ int64_t Message::body_length() const {
 // ----------------------------------------------------------------------
 // SchemaMetadata
 
-class SchemaMetadata::SchemaMetadataImpl {
+class MessageHolder {
+ public:
+  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
+  void set_buffer(const std::shared_ptr<Buffer>& buffer) { buffer_ = buffer; }
+
+ protected:
+  // Possible parents, owns the flatbuffer data
+  std::shared_ptr<Message> message_;
+  std::shared_ptr<Buffer> buffer_;
+};
+
+class SchemaMetadata::SchemaMetadataImpl : public MessageHolder {
  public:
   explicit SchemaMetadataImpl(const void* schema)
       : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
@@ -833,15 +845,19 @@ class SchemaMetadata::SchemaMetadataImpl {
   const flatbuf::Schema* schema_;
 };
 
-SchemaMetadata::SchemaMetadata(
-    const std::shared_ptr<Message>& message, const void* flatbuf) {
-  message_ = message;
-  impl_.reset(new SchemaMetadataImpl(flatbuf));
+SchemaMetadata::SchemaMetadata(const std::shared_ptr<Message>& message)
+    : SchemaMetadata(message->impl_->header()) {
+  impl_->set_message(message);
 }
 
-SchemaMetadata::SchemaMetadata(const std::shared_ptr<Message>& message) {
-  message_ = message;
-  impl_.reset(new SchemaMetadataImpl(message->impl_->header()));
+SchemaMetadata::SchemaMetadata(const void* header) {
+  impl_.reset(new SchemaMetadataImpl(header));
+}
+
+SchemaMetadata::SchemaMetadata(const std::shared_ptr<Buffer>& buffer, int64_t offset)
+    : SchemaMetadata(buffer->data() + offset) {
+  // Preserve ownership
+  impl_->set_buffer(buffer);
 }
 
 SchemaMetadata::~SchemaMetadata() {}
@@ -868,7 +884,7 @@ Status SchemaMetadata::GetSchema(
 // ----------------------------------------------------------------------
 // RecordBatchMetadata
 
-class RecordBatchMetadata::RecordBatchMetadataImpl {
+class RecordBatchMetadata::RecordBatchMetadataImpl : public MessageHolder {
  public:
   explicit RecordBatchMetadataImpl(const void* batch)
       : batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
@@ -886,22 +902,14 @@ class RecordBatchMetadata::RecordBatchMetadataImpl {
 
   int num_fields() const { return batch_->nodes()->size(); }
 
-  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
-
-  void set_buffer(const std::shared_ptr<Buffer>& buffer) { buffer_ = buffer; }
-
  private:
   const flatbuf::RecordBatch* batch_;
   const flatbuffers::Vector<const flatbuf::FieldNode*>* nodes_;
   const flatbuffers::Vector<const flatbuf::Buffer*>* buffers_;
-
-  // Possible parents, owns the flatbuffer data
-  std::shared_ptr<Message> message_;
-  std::shared_ptr<Buffer> buffer_;
 };
 
-RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message) {
-  impl_.reset(new RecordBatchMetadataImpl(message->impl_->header()));
+RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message)
+    : RecordBatchMetadata(message->impl_->header()) {
   impl_->set_message(message);
 }
 

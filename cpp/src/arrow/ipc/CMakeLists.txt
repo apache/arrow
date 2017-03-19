@@ -66,10 +66,6 @@ ADD_ARROW_TEST(ipc-read-write-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-read-write-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
-ADD_ARROW_TEST(ipc-metadata-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-metadata-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
 ADD_ARROW_TEST(ipc-json-test)
 ARROW_TEST_LINK_LIBRARIES(ipc-json-test
   ${ARROW_IPC_TEST_LINK_LIBS})

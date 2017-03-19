@@ -73,52 +73,37 @@ class IpcComponentSource : public ArrayComponentSource {
   io::RandomAccessFile* file_;
 };
 
-class RecordBatchReader {
- public:
-  RecordBatchReader(const RecordBatchMetadata& metadata,
-      const std::shared_ptr<Schema>& schema, int max_recursion_depth,
-      io::RandomAccessFile* file)
-      : metadata_(metadata),
-        schema_(schema),
-        max_recursion_depth_(max_recursion_depth),
-        file_(file) {}
-
-  Status Read(std::shared_ptr<RecordBatch>* out) {
-    std::vector<std::shared_ptr<Array>> arrays(schema_->num_fields());
-
-    IpcComponentSource source(metadata_, file_);
-    ArrayLoaderContext context;
-    context.source = &source;
-    context.field_index = 0;
-    context.buffer_index = 0;
-    context.max_recursion_depth = max_recursion_depth_;
-
-    for (int i = 0; i < schema_->num_fields(); ++i) {
-      RETURN_NOT_OK(LoadArray(schema_->field(i)->type, &context, &arrays[i]));
-    }
-
-    *out = std::make_shared<RecordBatch>(schema_, metadata_.length(), arrays);
-    return Status::OK();
-  }
-
- private:
-  const RecordBatchMetadata& metadata_;
-  std::shared_ptr<Schema> schema_;
-  int max_recursion_depth_;
-  io::RandomAccessFile* file_;
-};
-
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
     std::shared_ptr<RecordBatch>* out) {
   return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
 }
 
+static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
+    int64_t num_rows, int max_recursion_depth, ArrayComponentSource* source,
+    std::shared_ptr<RecordBatch>* out) {
+  std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
+
+  ArrayLoaderContext context;
+  context.source = source;
+  context.field_index = 0;
+  context.buffer_index = 0;
+  context.max_recursion_depth = max_recursion_depth;
+
+  for (int i = 0; i < schema->num_fields(); ++i) {
+    RETURN_NOT_OK(LoadArray(schema->field(i)->type, &context, &arrays[i]));
+  }
+
+  *out = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+  return Status::OK();
+}
+
 Status ReadRecordBatch(const RecordBatchMetadata& metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
-  RecordBatchReader reader(metadata, schema, max_recursion_depth, file);
-  return reader.Read(out);
+  IpcComponentSource source(metadata, file);
+  return LoadRecordBatchFromSource(
+      schema, metadata.length(), max_recursion_depth, &source, out);
 }
 
 Status ReadDictionary(const DictionaryBatchMetadata& metadata,
@@ -341,7 +326,7 @@ class FileReader::FileReaderImpl {
 
     // TODO(wesm): Verify the footer
     footer_ = flatbuf::GetFooter(footer_buffer_->data());
-    schema_metadata_.reset(new SchemaMetadata(nullptr, footer_->schema()));
+    schema_metadata_.reset(new SchemaMetadata(footer_->schema()));
 
     return Status::OK();
   }
@@ -481,6 +466,61 @@ MetadataVersion::type FileReader::version() const {
 
 Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   return impl_->GetRecordBatch(i, batch);
+}
+
+// ----------------------------------------------------------------------
+// Read LargeRecordBatch
+
+class LargeRecordBatchSource : public ArrayComponentSource {
+ public:
+  LargeRecordBatchSource(
+      const flatbuf::LargeRecordBatch* metadata, io::RandomAccessFile* file)
+      : metadata_(metadata), file_(file) {}
+
+  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
+    if (buffer_index >= static_cast<int>(metadata_->buffers()->size())) {
+      return Status::Invalid("Ran out of buffer metadata, likely malformed");
+    }
+    const flatbuf::Buffer* buffer = metadata_->buffers()->Get(buffer_index);
+
+    if (buffer->length() == 0) {
+      *out = nullptr;
+      return Status::OK();
+    } else {
+      return file_->ReadAt(buffer->offset(), buffer->length(), out);
+    }
+  }
+
+  Status GetFieldMetadata(int field_index, FieldMetadata* metadata) override {
+    // pop off a field
+    if (field_index >= static_cast<int>(metadata_->nodes()->size())) {
+      return Status::Invalid("Ran out of field metadata, likely malformed");
+    }
+    const flatbuf::LargeFieldNode* node = metadata_->nodes()->Get(field_index);
+
+    metadata->length = node->length();
+    metadata->null_count = node->null_count();
+    metadata->offset = 0;
+    return Status::OK();
+  }
+
+ private:
+  const flatbuf::LargeRecordBatch* metadata_;
+  io::RandomAccessFile* file_;
+};
+
+Status ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(file->ReadAt(offset, sizeof(int32_t), &buffer));
+  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
+
+  RETURN_NOT_OK(file->ReadAt(offset + sizeof(int32_t), flatbuffer_size, &buffer));
+
+  auto metadata = flatbuffers::GetRoot<flatbuf::LargeRecordBatch>(buffer->data());
+  LargeRecordBatchSource source(metadata, file);
+  return LoadRecordBatchFromSource(
+      schema, metadata->length(), kMaxNestingDepth, &source, out);
 }
 
 }  // namespace ipc

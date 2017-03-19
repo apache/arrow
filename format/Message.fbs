@@ -308,8 +308,8 @@ table RecordBatch {
 /// compliant
 
 struct LargeFieldNode {
-  length: int;
-  null_count: int;
+  length: long;
+  null_count: long;
 }
 
 table LargeRecordBatch {

@@ -107,10 +107,9 @@ class Message;
 // Container for serialized Schema metadata contained in an IPC message
 class ARROW_EXPORT SchemaMetadata {
  public:
+  explicit SchemaMetadata(const void* header);
   explicit SchemaMetadata(const std::shared_ptr<Message>& message);
-
-  // Accepts an opaque flatbuffer pointer
-  SchemaMetadata(const std::shared_ptr<Message>& message, const void* schema);
+  SchemaMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
 
   ~SchemaMetadata();
 
@@ -127,9 +126,6 @@ class ARROW_EXPORT SchemaMetadata {
       const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const;
 
  private:
-  // Parent, owns the flatbuffer data
-  std::shared_ptr<Message> message_;
-
   class SchemaMetadataImpl;
   std::unique_ptr<SchemaMetadataImpl> impl_;
 
@@ -145,8 +141,6 @@ struct ARROW_EXPORT BufferMetadata {
 // Container for serialized record batch metadata contained in an IPC message
 class ARROW_EXPORT RecordBatchMetadata {
  public:
-  // Instantiate from opaque pointer. Memory ownership must be preserved
-  // elsewhere (e.g. in a dictionary batch)
   explicit RecordBatchMetadata(const void* header);
   explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
   RecordBatchMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);

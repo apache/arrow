@@ -55,14 +55,19 @@ class RecordBatchWriter : public ArrayVisitor {
 
   virtual ~RecordBatchWriter() = default;
 
+  virtual Status CheckArrayMetadata(const Array& arr) {
+    if (arr.length() > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
+    }
+    return Status::OK();
+  }
+
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    if (arr.length() > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
-    }
+    RETURN_NOT_OK(CheckArrayMetadata(arr));
 
     // push back all common elements
     field_nodes_.emplace_back(arr.length(), arr.null_count(), 0);
@@ -465,17 +470,6 @@ class RecordBatchWriter : public ArrayVisitor {
   int64_t buffer_start_offset_;
 };
 
-class LargeRecordBatchWriter : public RecordBatchWriter {
- public:
-  using RecordBatchWriter::RecordBatchWriter;
-
-  Status WriteMetadataMessage(
-      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
-    return WriteLargeRecordBatchMessage(
-        num_rows, body_length, field_nodes_, buffer_meta_, out);
-  }
-};
-
 class DictionaryWriter : public RecordBatchWriter {
  public:
   using RecordBatchWriter::RecordBatchWriter;
@@ -735,6 +729,32 @@ Status FileWriter::WriteRecordBatch(const RecordBatch& batch) {
 
 Status FileWriter::Close() {
   return impl_->Close();
+}
+
+// ----------------------------------------------------------------------
+// Write record batches with 64-bit size metadata
+
+class LargeRecordBatchWriter : public RecordBatchWriter {
+ public:
+  using RecordBatchWriter::RecordBatchWriter;
+
+  Status CheckArrayMetadata(const Array& arr) override {
+    // No < INT32_MAX length check
+    return Status::OK();
+  }
+
+  Status WriteMetadataMessage(
+      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
+    return WriteLargeRecordBatchMessage(
+        num_rows, body_length, field_nodes_, buffer_meta_, out);
+  }
+};
+
+Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
+    MemoryPool* pool, int max_recursion_depth) {
+  LargeRecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth);
+  return writer.Write(batch, dst, metadata_length, body_length);
 }
 
 }  // namespace ipc
