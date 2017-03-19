@@ -235,6 +235,10 @@ Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
 
+Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out);
+
 Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);

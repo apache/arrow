@@ -42,6 +42,7 @@ namespace ipc {
 using FBB = flatbuffers::FlatBufferBuilder;
 using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
 using FieldOffset = flatbuffers::Offset<flatbuf::Field>;
+using LargeRecordBatchOffset = flatbuffers::Offset<flatbuf::LargeRecordBatch>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
@@ -480,8 +481,6 @@ static Status FieldFromFlatbufferDictionary(
   return Status::OK();
 }
 
-// Implement MessageBuilder
-
 // will return the endianness of the system we are running on
 // based the NUMPY_API function. See NOTICE.txt
 flatbuf::Endianness endianness() {
@@ -507,123 +506,142 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   return Status::OK();
 }
 
-class MessageBuilder {
- public:
-  Status SetSchema(const Schema& schema, DictionaryMemo* dictionary_memo) {
-    flatbuffers::Offset<flatbuf::Schema> fb_schema;
-    RETURN_NOT_OK(SchemaToFlatbuffer(fbb_, schema, dictionary_memo, &fb_schema));
-
-    header_type_ = flatbuf::MessageHeader_Schema;
-    header_ = fb_schema.Union();
-    body_length_ = 0;
-    return Status::OK();
-  }
-
-  Status MakeRecordBatch(int32_t length, int64_t body_length,
-      const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-      RecordBatchOffset* offset) {
-    std::vector<flatbuf::FieldNode> fb_nodes;
-    std::vector<flatbuf::Buffer> fb_buffers;
-    fb_nodes.reserve(nodes.size());
-    fb_buffers.reserve(buffers.size());
-
-    for (size_t i = 0; i < nodes.size(); ++i) {
-      const FieldMetadata& node = nodes[i];
-      if (node.offset != 0) {
-        return Status::Invalid("Field metadata for IPC must have offset 0");
-      }
-      fb_nodes.emplace_back(node.length, node.null_count);
-    }
-
-    for (size_t i = 0; i < buffers.size(); ++i) {
-      const BufferMetadata& buffer = buffers[i];
-      fb_buffers.emplace_back(buffer.page, buffer.offset, buffer.length);
-    }
-    *offset = flatbuf::CreateRecordBatch(fbb_, length,
-        fbb_.CreateVectorOfStructs(fb_nodes), fbb_.CreateVectorOfStructs(fb_buffers));
-    return Status::OK();
-  }
-
-  Status SetRecordBatch(int32_t length, int64_t body_length,
-      const std::vector<FieldMetadata>& nodes,
-      const std::vector<BufferMetadata>& buffers) {
-    header_type_ = flatbuf::MessageHeader_RecordBatch;
-
-    RecordBatchOffset batch_offset;
-    RETURN_NOT_OK(MakeRecordBatch(length, body_length, nodes, buffers, &batch_offset));
-    header_ = batch_offset.Union();
-    body_length_ = body_length;
-
-    return Status::OK();
-  }
-
-  Status SetDictionary(int64_t id, int32_t length, int64_t body_length,
-      const std::vector<FieldMetadata>& nodes,
-      const std::vector<BufferMetadata>& buffers) {
-    header_type_ = flatbuf::MessageHeader_DictionaryBatch;
-
-    RecordBatchOffset record_batch;
-    RETURN_NOT_OK(MakeRecordBatch(length, body_length, nodes, buffers, &record_batch));
-    header_ = flatbuf::CreateDictionaryBatch(fbb_, id, record_batch).Union();
-    body_length_ = body_length;
-    return Status::OK();
-  }
-
-  Status Finish();
-
-  Status GetBuffer(std::shared_ptr<Buffer>* out);
-
- private:
-  flatbuf::MessageHeader header_type_;
-  flatbuffers::Offset<void> header_;
-  int64_t body_length_;
-  flatbuffers::FlatBufferBuilder fbb_;
-};
-
-Status WriteSchemaMessage(
-    const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out) {
-  MessageBuilder message;
-  RETURN_NOT_OK(message.SetSchema(schema, dictionary_memo));
-  RETURN_NOT_OK(message.Finish());
-  return message.GetBuffer(out);
-}
-
-Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out) {
-  MessageBuilder builder;
-  RETURN_NOT_OK(builder.SetRecordBatch(length, body_length, nodes, buffers));
-  RETURN_NOT_OK(builder.Finish());
-  return builder.GetBuffer(out);
-}
-
-Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out) {
-  MessageBuilder builder;
-  RETURN_NOT_OK(builder.SetDictionary(id, length, body_length, nodes, buffers));
-  RETURN_NOT_OK(builder.Finish());
-  return builder.GetBuffer(out);
-}
-
-Status MessageBuilder::Finish() {
-  auto message =
-      flatbuf::CreateMessage(fbb_, kMetadataVersion, header_type_, header_, body_length_);
-  fbb_.Finish(message);
-  return Status::OK();
-}
-
-Status MessageBuilder::GetBuffer(std::shared_ptr<Buffer>* out) {
-  int32_t size = fbb_.GetSize();
+static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
+  int32_t size = fbb.GetSize();
 
   auto result = std::make_shared<PoolBuffer>();
   RETURN_NOT_OK(result->Resize(size));
 
   uint8_t* dst = result->mutable_data();
-  memcpy(dst, fbb_.GetBufferPointer(), size);
-
+  memcpy(dst, fbb.GetBufferPointer(), size);
   *out = result;
   return Status::OK();
+}
+
+static Status WriteMessage(FBB& fbb, flatbuf::MessageHeader header_type,
+    flatbuffers::Offset<void> header, int64_t body_length, std::shared_ptr<Buffer>* out) {
+  auto message =
+      flatbuf::CreateMessage(fbb, kMetadataVersion, header_type, header, body_length);
+  fbb.Finish(message);
+  return WriteFlatbufferBuilder(fbb, out);
+}
+
+Status WriteSchemaMessage(
+    const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
+  return WriteMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
+}
+
+using FieldNodeVector =
+    flatbuffers::Offset<flatbuffers::Vector<const flatbuf::FieldNode*>>;
+using LargeFieldNodeVector =
+    flatbuffers::Offset<flatbuffers::Vector<const flatbuf::LargeFieldNode*>>;
+using BufferVector = flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Buffer*>>;
+
+static Status WriteFieldNodes(
+    FBB& fbb, const std::vector<FieldMetadata>& nodes, FieldNodeVector* out) {
+  std::vector<flatbuf::FieldNode> fb_nodes;
+  fb_nodes.reserve(nodes.size());
+
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    const FieldMetadata& node = nodes[i];
+    if (node.offset != 0) {
+      return Status::Invalid("Field metadata for IPC must have offset 0");
+    }
+    fb_nodes.emplace_back(
+        static_cast<int32_t>(node.length), static_cast<int32_t>(node.null_count));
+  }
+  *out = fbb.CreateVectorOfStructs(fb_nodes);
+  return Status::OK();
+}
+
+static Status WriteLargeFieldNodes(
+    FBB& fbb, const std::vector<FieldMetadata>& nodes, LargeFieldNodeVector* out) {
+  std::vector<flatbuf::LargeFieldNode> fb_nodes;
+  fb_nodes.reserve(nodes.size());
+
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    const FieldMetadata& node = nodes[i];
+    if (node.offset != 0) {
+      return Status::Invalid("Field metadata for IPC must have offset 0");
+    }
+    fb_nodes.emplace_back(node.length, node.null_count);
+  }
+  *out = fbb.CreateVectorOfStructs(fb_nodes);
+  return Status::OK();
+}
+
+static Status WriteBuffers(
+    FBB& fbb, const std::vector<BufferMetadata>& buffers, BufferVector* out) {
+  std::vector<flatbuf::Buffer> fb_buffers;
+  fb_buffers.reserve(buffers.size());
+
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    const BufferMetadata& buffer = buffers[i];
+    fb_buffers.emplace_back(buffer.page, buffer.offset, buffer.length);
+  }
+  *out = fbb.CreateVectorOfStructs(fb_buffers);
+  return Status::OK();
+}
+
+static Status MakeRecordBatch(FBB& fbb, int32_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    RecordBatchOffset* offset) {
+  FieldNodeVector fb_nodes;
+  BufferVector fb_buffers;
+
+  RETURN_NOT_OK(WriteFieldNodes(fbb, nodes, &fb_nodes));
+  RETURN_NOT_OK(WriteBuffers(fbb, buffers, &fb_buffers));
+
+  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers);
+  return Status::OK();
+}
+
+static Status MakeLargeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    LargeRecordBatchOffset* offset) {
+  LargeFieldNodeVector fb_nodes;
+  BufferVector fb_buffers;
+
+  RETURN_NOT_OK(WriteLargeFieldNodes(fbb, nodes, &fb_nodes));
+  RETURN_NOT_OK(WriteBuffers(fbb, buffers, &fb_buffers));
+
+  *offset = flatbuf::CreateLargeRecordBatch(fbb, length, fb_nodes, fb_buffers);
+  return Status::OK();
+}
+
+Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  RecordBatchOffset record_batch;
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  return WriteMessage(
+      fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(), body_length, out);
+}
+
+Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  LargeRecordBatchOffset record_batch;
+  RETURN_NOT_OK(
+      MakeLargeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  return WriteMessage(
+      fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(), body_length, out);
+}
+
+Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  RecordBatchOffset record_batch;
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
+  return WriteMessage(
+      fbb, flatbuf::MessageHeader_DictionaryBatch, dictionary_batch, body_length, out);
 }
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>

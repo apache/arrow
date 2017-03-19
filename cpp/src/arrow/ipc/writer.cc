@@ -136,12 +136,12 @@ class RecordBatchWriter : public ArrayVisitor {
 
   // Override this for writing dictionary metadata
   virtual Status WriteMetadataMessage(
-      int32_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) {
+      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) {
     return WriteRecordBatchMessage(
-        num_rows, body_length, field_nodes_, buffer_meta_, out);
+        static_cast<int32_t>(num_rows), body_length, field_nodes_, buffer_meta_, out);
   }
 
-  Status WriteMetadata(int32_t num_rows, int64_t body_length, io::OutputStream* dst,
+  Status WriteMetadata(int64_t num_rows, int64_t body_length, io::OutputStream* dst,
       int32_t* metadata_length) {
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out
@@ -190,8 +190,7 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(dst->Tell(&start_position));
 #endif
 
-    RETURN_NOT_OK(WriteMetadata(
-        static_cast<int32_t>(batch.num_rows()), *body_length, dst, metadata_length));
+    RETURN_NOT_OK(WriteMetadata(batch.num_rows(), *body_length, dst, metadata_length));
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
@@ -466,14 +465,25 @@ class RecordBatchWriter : public ArrayVisitor {
   int64_t buffer_start_offset_;
 };
 
+class LargeRecordBatchWriter : public RecordBatchWriter {
+ public:
+  using RecordBatchWriter::RecordBatchWriter;
+
+  Status WriteMetadataMessage(
+      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
+    return WriteLargeRecordBatchMessage(
+        num_rows, body_length, field_nodes_, buffer_meta_, out);
+  }
+};
+
 class DictionaryWriter : public RecordBatchWriter {
  public:
   using RecordBatchWriter::RecordBatchWriter;
 
   Status WriteMetadataMessage(
-      int32_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
-    return WriteDictionaryMessage(
-        dictionary_id_, num_rows, body_length, field_nodes_, buffer_meta_, out);
+      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
+    return WriteDictionaryMessage(dictionary_id_, static_cast<int32_t>(num_rows),
+        body_length, field_nodes_, buffer_meta_, out);
   }
 
   Status Write(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
