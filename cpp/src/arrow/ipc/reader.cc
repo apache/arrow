@@ -26,7 +26,8 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/File_generated.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
 #include "arrow/schema.h"
@@ -35,6 +36,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+namespace flatbuf = org::apache::arrow::flatbuf;
+
 namespace ipc {
 
 // ----------------------------------------------------------------------

@@ -221,6 +221,28 @@ class ARROW_EXPORT Message {
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
     std::shared_ptr<Message>* message);
 
+// Serialize arrow::Schema as a Flatbuffer
+//
+// \param[in] schema a Schema instance
+// \param[inout] dictionary_memo class for tracking dictionaries and assigning
+// dictionary ids
+// \param[out] out the serialized arrow::Buffer
+// \return Status outcome
+Status WriteSchemaMessage(
+    const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
+
+Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out);
+
+Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out);
+
+Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
+    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
+    io::OutputStream* out);
+
 }  // namespace ipc
 }  // namespace arrow
 

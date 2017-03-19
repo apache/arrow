@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 
 #include "arrow/io/memory.h"
-#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/schema.h"

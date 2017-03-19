@@ -222,6 +222,7 @@ struct ARROW_EXPORT Field {
 
   std::string ToString() const;
 };
+
 typedef std::shared_ptr<Field> FieldPtr;
 
 struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {

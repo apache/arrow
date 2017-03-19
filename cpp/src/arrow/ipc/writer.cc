@@ -26,10 +26,9 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
+#include "arrow/loader.h"
 #include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"
@@ -39,9 +38,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-namespace flatbuf = org::apache::arrow::flatbuf;
-
 namespace ipc {
 
 // ----------------------------------------------------------------------
@@ -69,8 +65,8 @@ class RecordBatchWriter : public ArrayVisitor {
     }
 
     // push back all common elements
-    field_nodes_.push_back(flatbuf::FieldNode(
-        static_cast<int32_t>(arr.length()), static_cast<int32_t>(arr.null_count())));
+    field_nodes_.emplace_back(arr.length(), arr.null_count(), 0);
+
     if (arr.null_count() > 0) {
       std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
 
@@ -104,6 +100,10 @@ class RecordBatchWriter : public ArrayVisitor {
     // reference. May be 0 or some other position in an address space
     int64_t offset = buffer_start_offset_;
 
+    buffer_meta_.reserve(buffers_.size());
+
+    const int32_t kNoPageId = -1;
+
     // Construct the buffer metadata for the record batch header
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
@@ -124,7 +124,7 @@ class RecordBatchWriter : public ArrayVisitor {
       // are using from any OS-level shared memory. The thought is that systems
       // may (in the future) associate integer page id's with physical memory
       // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back(flatbuf::Buffer(-1, offset, size + padding));
+      buffer_meta_.push_back({kNoPageId, offset, size + padding});
       offset += size + padding;
     }
 
@@ -458,8 +458,8 @@ class RecordBatchWriter : public ArrayVisitor {
   // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
   MemoryPool* pool_;
 
-  std::vector<flatbuf::FieldNode> field_nodes_;
-  std::vector<flatbuf::Buffer> buffer_meta_;
+  std::vector<FieldMetadata> field_nodes_;
+  std::vector<BufferMetadata> buffer_meta_;
   std::vector<std::shared_ptr<Buffer>> buffers_;
 
   int64_t max_recursion_depth_;
@@ -674,38 +674,6 @@ Status StreamWriter::Close() {
 
 // ----------------------------------------------------------------------
 // File writer implementation
-
-static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
-FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
-  std::vector<flatbuf::Block> fb_blocks;
-
-  for (const FileBlock& block : blocks) {
-    fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
-  }
-
-  return fbb.CreateVectorOfStructs(fb_blocks);
-}
-
-Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
-    io::OutputStream* out) {
-  FBB fbb;
-
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-
-  auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
-  auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
-
-  auto footer = flatbuf::CreateFooter(
-      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
-
-  fbb.Finish(footer);
-
-  int32_t size = fbb.GetSize();
-
-  return out->Write(fbb.GetBufferPointer(), size);
-}
 
 class FileWriter::FileWriterImpl : public StreamWriter::StreamWriterImpl {
  public:

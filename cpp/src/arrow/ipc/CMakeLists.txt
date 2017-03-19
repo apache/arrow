@@ -33,7 +33,6 @@ set(ARROW_IPC_SRCS
   json.cc
   json-internal.cc
   metadata.cc
-  metadata-internal.cc
   reader.cc
   writer.cc
 )
