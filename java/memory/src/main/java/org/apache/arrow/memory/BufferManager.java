@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.memory;
 
 import io.netty.buffer.ArrowBuf;
@@ -24,7 +25,7 @@ import io.netty.buffer.ArrowBuf;
  * re-allocation the old buffer will be freed. Managing a list of these buffers
  * prevents some parts of the system from needing to define a correct location
  * to place the final call to free them.
- *
+ * <p>
  * The current uses of these types of buffers are within the pluggable components of Drill.
  * In UDFs, memory management should not be a concern. We provide access to re-allocatable
  * ArrowBufs to give UDF writers general purpose buffers we can account for. To prevent the need
@@ -38,12 +39,9 @@ public interface BufferManager extends AutoCloseable {
   /**
    * Replace an old buffer with a new version at least of the provided size. Does not copy data.
    *
-   * @param old
-   *          Old Buffer that the user is no longer going to use.
-   * @param newSize
-   *          Size of new replacement buffer.
-   * @return
-   *          A new version of the buffer.
+   * @param old     Old Buffer that the user is no longer going to use.
+   * @param newSize Size of new replacement buffer.
+   * @return A new version of the buffer.
    */
   public ArrowBuf replace(ArrowBuf old, int newSize);
 
@@ -57,8 +55,7 @@ public interface BufferManager extends AutoCloseable {
   /**
    * Get a managed buffer of at least a certain size.
    *
-   * @param size
-   *          The desired size
+   * @param size The desired size
    * @return A buffer
    */
   public ArrowBuf getManagedBuffer(int size);

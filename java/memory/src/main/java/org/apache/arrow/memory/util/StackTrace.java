@@ -6,15 +6,16 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.util;
 
 import java.util.Arrays;
@@ -23,6 +24,7 @@ import java.util.Arrays;
  * Convenient way of obtaining and manipulating stack traces for debugging.
  */
 public class StackTrace {
+
   private final StackTraceElement[] stackTraceElements;
 
   /**
@@ -36,10 +38,9 @@ public class StackTrace {
 
   /**
    * Write the stack trace to a StringBuilder.
-   * @param sb
-   *          where to write it
-   * @param indent
-   *          how many double spaces to indent each line
+   *
+   * @param sb     where to write it
+   * @param indent how many double spaces to indent each line
    */
   public void writeToBuilder(final StringBuilder sb, final int indent) {
     // create the indentation string
@@ -47,7 +48,7 @@ public class StackTrace {
     Arrays.fill(indentation, ' ');
 
     // write the stack trace in standard Java format
-    for(StackTraceElement ste : stackTraceElements) {
+    for (StackTraceElement ste : stackTraceElements) {
       sb.append(indentation)
           .append("at ")
           .append(ste.getClassName())

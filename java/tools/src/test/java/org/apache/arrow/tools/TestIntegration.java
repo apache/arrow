@@ -16,22 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.arrow.tools;
-
-import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Map;
 
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
@@ -54,12 +40,75 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Map;
+
+import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 public class TestIntegration {
 
   @Rule
   public TemporaryFolder testFolder = new TemporaryFolder();
 
   private BufferAllocator allocator;
+  private ObjectMapper om = new ObjectMapper();
+
+  {
+    DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
+    prettyPrinter.indentArraysWith(NopIndenter.instance);
+    om.setDefaultPrettyPrinter(prettyPrinter);
+    om.enable(SerializationFeature.INDENT_OUTPUT);
+    om.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+  }
+
+  static void writeInputFloat(File testInFile, BufferAllocator allocator, double... f) throws
+      FileNotFoundException, IOException {
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
+            Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter rootWriter = writer.rootAsMap();
+      Float8Writer floatWriter = rootWriter.float8("float");
+      for (int i = 0; i < f.length; i++) {
+        floatWriter.setPosition(i);
+        floatWriter.writeFloat8(f[i]);
+      }
+      writer.setValueCount(f.length);
+      write(parent.getChild("root"), testInFile);
+    }
+  }
+
+  static void writeInput2(File testInFile, BufferAllocator allocator) throws
+      FileNotFoundException, IOException {
+    int count = ArrowFileTestFixtures.COUNT;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
+            Integer.MAX_VALUE);
+        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+      writeData(count, parent);
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter rootWriter = writer.rootAsMap();
+      IntWriter intWriter = rootWriter.integer("int");
+      BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
+      intWriter.setPosition(5);
+      intWriter.writeInt(999);
+      bigIntWriter.setPosition(4);
+      bigIntWriter.writeBigInt(777L);
+      writer.setValueCount(count);
+      write(parent.getChild("root"), testInFile);
+    }
+  }
 
   @Before
   public void init() {
@@ -85,18 +134,21 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert it to json
-    String[] args1 = { "-arrow", testInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {"-arrow", testInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
     integration.run(args1);
 
     // convert back to arrow
-    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
     integration.run(args2);
 
     // check it is the same
     validateOutput(testOutFile, allocator);
 
     // validate arrow against json
-    String[] args3 = { "-arrow", testInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {"-arrow", testInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
     integration.run(args3);
   }
 
@@ -111,11 +163,13 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert to arrow
-    String[] args1 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args1 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
     integration.run(args1);
 
     // convert back to json
-    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testRoundTripJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testRoundTripJSONFile
+        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
     integration.run(args2);
 
     BufferedReader orig = readNormalized(testJSONFile);
@@ -139,11 +193,13 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert to arrow
-    String[] args1 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args1 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
     integration.run(args1);
 
     // convert back to json
-    String[] args2 = { "-arrow", testOutFile.getAbsolutePath(), "-json",  testRoundTripJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testRoundTripJSONFile
+        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
     integration.run(args2);
 
     BufferedReader orig = readNormalized(testJSONFile);
@@ -156,21 +212,11 @@ public class TestIntegration {
     }
   }
 
-  private ObjectMapper om = new ObjectMapper();
-  {
-    DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
-    prettyPrinter.indentArraysWith(NopIndenter.instance);
-    om.setDefaultPrettyPrinter(prettyPrinter);
-    om.enable(SerializationFeature.INDENT_OUTPUT);
-    om.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
-  }
-
   private BufferedReader readNormalized(File f) throws IOException {
-    Map<?,?> tree = om.readValue(f, Map.class);
+    Map<?, ?> tree = om.readValue(f, Map.class);
     String normalized = om.writeValueAsString(tree);
     return new BufferedReader(new StringReader(normalized));
   }
-
 
   /**
    * the test should not be sensitive to small variations in float representation
@@ -190,11 +236,13 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert the "valid" file to json
-    String[] args1 = { "-arrow", testValidInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {"-arrow", testValidInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
     integration.run(args1);
 
     // compare the "invalid" file to the "valid" json
-    String[] args3 = { "-arrow", testInvalidInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {"-arrow", testInvalidInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
     // this should fail
     integration.run(args3);
   }
@@ -214,11 +262,13 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert the "valid" file to json
-    String[] args1 = { "-arrow", testValidInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {"-arrow", testValidInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
     integration.run(args1);
 
     // compare the "invalid" file to the "valid" json
-    String[] args3 = { "-arrow", testInvalidInFile.getAbsolutePath(), "-json",  testJSONFile.getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {"-arrow", testInvalidInFile.getAbsolutePath(), "-json", testJSONFile
+        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
     // this should fail
     try {
       integration.run(args3);
@@ -228,40 +278,5 @@ public class TestIntegration {
       assertTrue(e.getMessage(), e.getMessage().contains("999"));
     }
 
-  }
-
-  static void writeInputFloat(File testInFile, BufferAllocator allocator, double... f) throws FileNotFoundException, IOException {
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
-      Float8Writer floatWriter = rootWriter.float8("float");
-      for (int i = 0; i < f.length; i++) {
-        floatWriter.setPosition(i);
-        floatWriter.writeFloat8(f[i]);
-      }
-      writer.setValueCount(f.length);
-      write(parent.getChild("root"), testInFile);
-    }
-  }
-
-  static void writeInput2(File testInFile, BufferAllocator allocator) throws FileNotFoundException, IOException {
-    int count = ArrowFileTestFixtures.COUNT;
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
-      writeData(count, parent);
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
-      IntWriter intWriter = rootWriter.integer("int");
-      BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
-      intWriter.setPosition(5);
-      intWriter.writeInt(999);
-      bigIntWriter.setPosition(4);
-      bigIntWriter.writeBigInt(777L);
-      writer.setValueCount(count);
-      write(parent.getChild("root"), testInFile);
-    }
   }
 }

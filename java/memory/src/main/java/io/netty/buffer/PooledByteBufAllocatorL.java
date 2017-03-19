@@ -6,42 +6,44 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.netty.buffer;
 
-import static org.apache.arrow.memory.util.AssertionUtil.ASSERT_ENABLED;
+import io.netty.util.internal.StringUtil;
+
+import org.apache.arrow.memory.OutOfMemoryException;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.OutOfMemoryException;
-
-import io.netty.util.internal.StringUtil;
+import static org.apache.arrow.memory.util.AssertionUtil.ASSERT_ENABLED;
 
 /**
- * The base allocator that we use for all of Arrow's memory management. Returns UnsafeDirectLittleEndian buffers.
+ * The base allocator that we use for all of Arrow's memory management. Returns
+ * UnsafeDirectLittleEndian buffers.
  */
 public class PooledByteBufAllocatorL {
-  private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("arrow.allocator");
+
+  private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("arrow" +
+      ".allocator");
 
   private static final int MEMORY_LOGGER_FREQUENCY_SECONDS = 60;
-
+  public final UnsafeDirectLittleEndian empty;
   private final AtomicLong hugeBufferSize = new AtomicLong(0);
   private final AtomicLong hugeBufferCount = new AtomicLong(0);
   private final AtomicLong normalBufferSize = new AtomicLong(0);
   private final AtomicLong normalBufferCount = new AtomicLong(0);
-
   private final InnerAllocator allocator;
-  public final UnsafeDirectLittleEndian empty;
 
   public PooledByteBufAllocatorL() {
     allocator = new InnerAllocator();
@@ -78,6 +80,7 @@ public class PooledByteBufAllocatorL {
   }
 
   private static class AccountedUnsafeDirectLittleEndian extends UnsafeDirectLittleEndian {
+
     private final long initialCapacity;
     private final AtomicLong count;
     private final AtomicLong size;
@@ -89,7 +92,8 @@ public class PooledByteBufAllocatorL {
       this.size = size;
     }
 
-    private AccountedUnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong count, AtomicLong size) {
+    private AccountedUnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong count,
+                                              AtomicLong size) {
       super(buf);
       this.initialCapacity = buf.capacity();
       this.count = count;
@@ -119,6 +123,7 @@ public class PooledByteBufAllocatorL {
   }
 
   private class InnerAllocator extends PooledByteBufAllocator {
+
     private final PoolArena<ByteBuffer>[] directArenas;
     private final MemoryStatusThread statusThread;
     private final int chunkSize;
@@ -131,7 +136,8 @@ public class PooledByteBufAllocatorL {
         f.setAccessible(true);
         this.directArenas = (PoolArena<ByteBuffer>[]) f.get(this);
       } catch (Exception e) {
-        throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
+        throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve " +
+            "direct arenas field.", e);
       }
 
       this.chunkSize = directArenas[0].chunkSize;
@@ -158,7 +164,8 @@ public class PooledByteBufAllocatorL {
           hugeBufferCount.incrementAndGet();
 
           // logger.debug("Allocating huge buffer of size {}", initialCapacity, new Exception());
-          return new AccountedUnsafeDirectLittleEndian(new LargeBuffer(buf), hugeBufferCount, hugeBufferSize);
+          return new AccountedUnsafeDirectLittleEndian(new LargeBuffer(buf), hugeBufferCount,
+              hugeBufferSize);
         } else {
           // within chunk, use arena.
           ByteBuf buf = directArena.allocate(cache, initialCapacity, maxCapacity);
@@ -173,7 +180,8 @@ public class PooledByteBufAllocatorL {
           normalBufferSize.addAndGet(buf.capacity());
           normalBufferCount.incrementAndGet();
 
-          return new AccountedUnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf, normalBufferCount, normalBufferSize);
+          return new AccountedUnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf,
+              normalBufferCount, normalBufferSize);
         }
 
       } else {
@@ -183,7 +191,8 @@ public class PooledByteBufAllocatorL {
 
     private UnsupportedOperationException fail() {
       return new UnsupportedOperationException(
-          "Arrow requires that the JVM used supports access sun.misc.Unsafe.  This platform didn't provide that functionality.");
+          "Arrow requires that the JVM used supports access sun.misc.Unsafe.  This platform " +
+              "didn't provide that functionality.");
     }
 
     @Override
@@ -203,32 +212,13 @@ public class PooledByteBufAllocatorL {
 
     private void validate(int initialCapacity, int maxCapacity) {
       if (initialCapacity < 0) {
-        throw new IllegalArgumentException("initialCapacity: " + initialCapacity + " (expectd: 0+)");
+        throw new IllegalArgumentException("initialCapacity: " + initialCapacity + " (expectd: " +
+            "0+)");
       }
       if (initialCapacity > maxCapacity) {
         throw new IllegalArgumentException(String.format(
             "initialCapacity: %d (expected: not greater than maxCapacity(%d)",
             initialCapacity, maxCapacity));
-      }
-    }
-
-    private class MemoryStatusThread extends Thread {
-
-      public MemoryStatusThread() {
-        super("allocation.logger");
-        this.setDaemon(true);
-      }
-
-      @Override
-      public void run() {
-        while (true) {
-          memoryLogger.trace("Memory Usage: \n{}", PooledByteBufAllocatorL.this.toString());
-          try {
-            Thread.sleep(MEMORY_LOGGER_FREQUENCY_SECONDS * 1000);
-          } catch (InterruptedException e) {
-            return;
-          }
-        }
       }
     }
 
@@ -254,6 +244,26 @@ public class PooledByteBufAllocatorL {
       buf.append(normalBufferSize.get());
       buf.append(" bytes.");
       return buf.toString();
+    }
+
+    private class MemoryStatusThread extends Thread {
+
+      public MemoryStatusThread() {
+        super("allocation.logger");
+        this.setDaemon(true);
+      }
+
+      @Override
+      public void run() {
+        while (true) {
+          memoryLogger.trace("Memory Usage: \n{}", PooledByteBufAllocatorL.this.toString());
+          try {
+            Thread.sleep(MEMORY_LOGGER_FREQUENCY_SECONDS * 1000);
+          } catch (InterruptedException e) {
+            return;
+          }
+        }
+      }
     }
 
 

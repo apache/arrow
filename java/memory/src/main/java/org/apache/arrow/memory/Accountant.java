@@ -6,30 +6,33 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
+
+import com.google.common.base.Preconditions;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.google.common.base.Preconditions;
-
 /**
- * Provides a concurrent way to manage account for memory usage without locking. Used as basis for Allocators. All
+ * Provides a concurrent way to manage account for memory usage without locking. Used as basis
+ * for Allocators. All
  * operations are threadsafe (except for close).
  */
 @ThreadSafe
 class Accountant implements AutoCloseable {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Accountant.class);
+  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Accountant
+  // .class);
 
   /**
    * The parent allocator
@@ -37,7 +40,8 @@ class Accountant implements AutoCloseable {
   protected final Accountant parent;
 
   /**
-   * The amount of memory reserved for this allocator. Releases below this amount of memory will not be returned to the
+   * The amount of memory reserved for this allocator. Releases below this amount of memory will
+   * not be returned to the
    * parent Accountant until this Accountant is closed.
    */
   protected final long reservation;
@@ -45,7 +49,8 @@ class Accountant implements AutoCloseable {
   private final AtomicLong peakAllocation = new AtomicLong();
 
   /**
-   * Maximum local memory that can be held. This can be externally updated. Changing it won't cause past memory to
+   * Maximum local memory that can be held. This can be externally updated. Changing it won't
+   * cause past memory to
    * change but will change responses to future allocation efforts
    */
   private final AtomicLong allocationLimit = new AtomicLong();
@@ -56,11 +61,14 @@ class Accountant implements AutoCloseable {
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
   public Accountant(Accountant parent, long reservation, long maxAllocation) {
-    Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
-    Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be non-negative.");
+    Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be " +
+        "non-negative.");
+    Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be " +
+        "non-negative.");
     Preconditions.checkArgument(reservation <= maxAllocation,
         "The initial reservation size must be <= the maximum allocation.");
-    Preconditions.checkArgument(reservation == 0 || parent != null, "The root accountant can't reserve memory.");
+    Preconditions.checkArgument(reservation == 0 || parent != null, "The root accountant can't " +
+        "reserve memory.");
 
     this.parent = parent;
     this.reservation = reservation;
@@ -72,19 +80,20 @@ class Accountant implements AutoCloseable {
       if (!outcome.isOk()) {
         throw new OutOfMemoryException(String.format(
             "Failure trying to allocate initial reservation for Allocator. "
-                + "Attempted to allocate %d bytes and received an outcome of %s.", reservation, outcome.name()));
+                + "Attempted to allocate %d bytes and received an outcome of %s.", reservation,
+            outcome.name()));
       }
     }
   }
 
   /**
-   * Attempt to allocate the requested amount of memory. Either completely succeeds or completely fails. Constructs a a
+   * Attempt to allocate the requested amount of memory. Either completely succeeds or completely
+   * fails. Constructs a a
    * log of delta
-   *
+   * <p>
    * If it fails, no changes are made to accounting.
    *
-   * @param size
-   *          The amount of memory to reserve in bytes.
+   * @param size The amount of memory to reserve in bytes.
    * @return True if the allocation was successful, false if the allocation failed.
    */
   AllocationOutcome allocateBytes(long size) {
@@ -116,8 +125,7 @@ class Accountant implements AutoCloseable {
   /**
    * Increase the accounting. Returns whether the allocation fit within limits.
    *
-   * @param size
-   *          to increase
+   * @param size to increase
    * @return Whether the allocation fit within limits.
    */
   boolean forceAllocate(long size) {
@@ -126,24 +134,29 @@ class Accountant implements AutoCloseable {
   }
 
   /**
-   * Internal method for allocation. This takes a forced approach to allocation to ensure that we manage reservation
-   * boundary issues consistently. Allocation is always done through the entire tree. The two options that we influence
-   * are whether the allocation should be forced and whether or not the peak memory allocation should be updated. If at
-   * some point during allocation escalation we determine that the allocation is no longer possible, we will continue to
-   * do a complete and consistent allocation but we will stop updating the peak allocation. We do this because we know
-   * that we will be directly unwinding this allocation (and thus never actually making the allocation). If force
-   * allocation is passed, then we continue to update the peak limits since we now know that this allocation will occur
+   * Internal method for allocation. This takes a forced approach to allocation to ensure that we
+   * manage reservation
+   * boundary issues consistently. Allocation is always done through the entire tree. The two
+   * options that we influence
+   * are whether the allocation should be forced and whether or not the peak memory allocation
+   * should be updated. If at
+   * some point during allocation escalation we determine that the allocation is no longer
+   * possible, we will continue to
+   * do a complete and consistent allocation but we will stop updating the peak allocation. We do
+   * this because we know
+   * that we will be directly unwinding this allocation (and thus never actually making the
+   * allocation). If force
+   * allocation is passed, then we continue to update the peak limits since we now know that this
+   * allocation will occur
    * despite our moving past one or more limits.
    *
-   * @param size
-   *          The size of the allocation.
-   * @param incomingUpdatePeak
-   *          Whether we should update the local peak for this allocation.
-   * @param forceAllocation
-   *          Whether we should force the allocation.
+   * @param size               The size of the allocation.
+   * @param incomingUpdatePeak Whether we should update the local peak for this allocation.
+   * @param forceAllocation    Whether we should force the allocation.
    * @return The outcome of the allocation.
    */
-  private AllocationOutcome allocate(final long size, final boolean incomingUpdatePeak, final boolean forceAllocation) {
+  private AllocationOutcome allocate(final long size, final boolean incomingUpdatePeak, final
+  boolean forceAllocation) {
     final long newLocal = locallyHeldMemory.addAndGet(size);
     final long beyondReservation = newLocal - reservation;
     final boolean beyondLimit = newLocal > allocationLimit.get();
@@ -173,23 +186,13 @@ class Accountant implements AutoCloseable {
     Preconditions.checkArgument(newSize >= 0, "Accounted size went negative.");
 
     final long originalSize = newSize + size;
-    if(originalSize > reservation && parent != null){
+    if (originalSize > reservation && parent != null) {
       // we deallocated memory that we should release to our parent.
       final long possibleAmountToReleaseToParent = originalSize - reservation;
       final long actualToReleaseToParent = Math.min(size, possibleAmountToReleaseToParent);
       parent.releaseBytes(actualToReleaseToParent);
     }
 
-  }
-
-  /**
-   * Set the maximum amount of memory that can be allocated in the this Accountant before failing an allocation.
-   *
-   * @param newLimit
-   *          The limit in bytes.
-   */
-  public void setLimit(long newLimit) {
-    allocationLimit.set(newLimit);
   }
 
   public boolean isOverLimit() {
@@ -216,7 +219,18 @@ class Accountant implements AutoCloseable {
   }
 
   /**
-   * Return the current amount of allocated memory that this Accountant is managing accounting for. Note this does not
+   * Set the maximum amount of memory that can be allocated in the this Accountant before failing
+   * an allocation.
+   *
+   * @param newLimit The limit in bytes.
+   */
+  public void setLimit(long newLimit) {
+    allocationLimit.set(newLimit);
+  }
+
+  /**
+   * Return the current amount of allocated memory that this Accountant is managing accounting
+   * for. Note this does not
    * include reservation memory that hasn't been allocated.
    *
    * @return Currently allocate memory in bytes.

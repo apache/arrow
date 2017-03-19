@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,21 +18,30 @@
 
 package io.netty.buffer;
 
+import io.netty.util.internal.PlatformDependent;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
- * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to abstract away the
+ * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs
+ * to abstract away the
  * Netty classes and underlying Netty memory management.
  */
 public class UnsafeDirectLittleEndian extends WrappedByteBuf {
+
+  public static final boolean ASSERT_ENABLED;
   private static final boolean NATIVE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
+
+  static {
+    boolean isAssertEnabled = false;
+    assert isAssertEnabled = true;
+    ASSERT_ENABLED = isAssertEnabled;
+  }
 
   public final long id = ID_GENERATOR.incrementAndGet();
   private final AbstractByteBuf wrapped;
@@ -60,21 +69,22 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
   }
-    private long addr(int index) {
-        return memoryAddress + index;
-    }
 
-    @Override
-    public long getLong(int index) {
+  private long addr(int index) {
+    return memoryAddress + index;
+  }
+
+  @Override
+  public long getLong(int index) {
 //        wrapped.checkIndex(index, 8);
-        long v = PlatformDependent.getLong(addr(index));
-        return v;
-    }
+    long v = PlatformDependent.getLong(addr(index));
+    return v;
+  }
 
-    @Override
-    public float getFloat(int index) {
-        return Float.intBitsToFloat(getInt(index));
-    }
+  @Override
+  public float getFloat(int index) {
+    return Float.intBitsToFloat(getInt(index));
+  }
 
   @Override
   public ByteBuf slice() {
@@ -257,14 +267,6 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   @Override
   public int hashCode() {
     return System.identityHashCode(this);
-  }
-
-  public static final boolean ASSERT_ENABLED;
-
-  static {
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    ASSERT_ENABLED = isAssertEnabled;
   }
 
 }
