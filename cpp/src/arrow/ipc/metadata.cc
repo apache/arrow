@@ -629,9 +629,8 @@ Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
   LargeRecordBatchOffset large_batch;
   RETURN_NOT_OK(
       MakeLargeRecordBatch(fbb, length, body_length, nodes, buffers, &large_batch));
-
-  fbb.Finish(large_batch);
-  return WriteFlatbufferBuilder(fbb, out);
+  return WriteMessage(fbb, flatbuf::MessageHeader_LargeRecordBatch, large_batch.Union(),
+      body_length, out);
 }
 
 Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,

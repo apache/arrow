@@ -163,7 +163,6 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     RETURN_NOT_OK(WriteLargeRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
-
     return ReadLargeRecordBatch(batch.schema(), 0, mmap_.get(), result);
   }
 
@@ -172,8 +171,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     ASSERT_TRUE(expected.schema()->Equals(result.schema()));
     ASSERT_EQ(expected.num_columns(), result.num_columns())
-        << expected.schema()->ToString()
-        << " result: " << result.schema()->ToString();
+        << expected.schema()->ToString() << " result: " << result.schema()->ToString();
 
     for (int i = 0; i < expected.num_columns(); ++i) {
       const auto& left = *expected.column(i);
@@ -199,8 +197,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_OK(DoStandardRoundTrip(batch, &result));
     CheckReadResult(*result, batch);
 
-    // ASSERT_OK(DoLargeRoundTrip(batch, &result));
-    // CheckReadResult(*result, batch);
+    ASSERT_OK(DoLargeRoundTrip(batch, &result));
+    CheckReadResult(*result, batch);
   }
 
   void CheckRoundtrip(const std::shared_ptr<Array>& array, int64_t buffer_size) {

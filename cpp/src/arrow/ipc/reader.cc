@@ -512,15 +512,24 @@ class LargeRecordBatchSource : public ArrayComponentSource {
 Status ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, sizeof(int32_t), &buffer));
+  RETURN_NOT_OK(file->Seek(offset));
+
+  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
   int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
-  RETURN_NOT_OK(file->ReadAt(offset + sizeof(int32_t), flatbuffer_size, &buffer));
+  RETURN_NOT_OK(file->Read(flatbuffer_size, &buffer));
+  auto message = flatbuf::GetMessage(buffer->data());
+  auto batch = reinterpret_cast<const flatbuf::LargeRecordBatch*>(message->header());
 
-  auto metadata = flatbuffers::GetRoot<flatbuf::LargeRecordBatch>(buffer->data());
-  LargeRecordBatchSource source(metadata, file);
+  // TODO(ARROW-388): The buffer offsets start at 0, so we must construct a
+  // RandomAccessFile according to that frame of reference
+  std::shared_ptr<Buffer> buffer_payload;
+  RETURN_NOT_OK(file->Read(message->bodyLength(), &buffer_payload));
+  io::BufferReader buffer_reader(buffer_payload);
+
+  LargeRecordBatchSource source(batch, &buffer_reader);
   return LoadRecordBatchFromSource(
-      schema, metadata->length(), kMaxNestingDepth, &source, out);
+      schema, batch->length(), kMaxNestingDepth, &source, out);
 }
 
 }  // namespace ipc

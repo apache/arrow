@@ -103,7 +103,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  const int length = 1000;
+  const int length = 10;
 
   // Make the schema
   auto f0 = field("f0", int32());
