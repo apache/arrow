@@ -125,14 +125,14 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  Status DoStandardRoundTrip(
-      const RecordBatch& batch, std::shared_ptr<RecordBatch>* batch_result) {
+  Status DoStandardRoundTrip(const RecordBatch& batch, bool zero_data,
+      std::shared_ptr<RecordBatch>* batch_result) {
     int32_t metadata_length;
     int64_t body_length;
 
     const int64_t buffer_offset = 0;
 
-    RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
+    if (zero_data) { RETURN_NOT_OK(ZeroMemoryMap(mmap_.get())); }
     RETURN_NOT_OK(mmap_->Seek(0));
 
     RETURN_NOT_OK(WriteRecordBatch(
@@ -152,13 +152,13 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   Status DoLargeRoundTrip(
-      const RecordBatch& batch, std::shared_ptr<RecordBatch>* result) {
+      const RecordBatch& batch, bool zero_data, std::shared_ptr<RecordBatch>* result) {
     int32_t metadata_length;
     int64_t body_length;
 
     const int64_t buffer_offset = 0;
 
-    RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
+    if (zero_data) { RETURN_NOT_OK(ZeroMemoryMap(mmap_.get())); }
     RETURN_NOT_OK(mmap_->Seek(0));
 
     RETURN_NOT_OK(WriteLargeRecordBatch(
@@ -194,10 +194,10 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, path, &mmap_));
 
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(DoStandardRoundTrip(batch, &result));
+    ASSERT_OK(DoStandardRoundTrip(batch, true, &result));
     CheckReadResult(*result, batch);
 
-    ASSERT_OK(DoLargeRoundTrip(batch, &result));
+    ASSERT_OK(DoLargeRoundTrip(batch, true, &result));
     CheckReadResult(*result, batch);
   }
 
@@ -537,6 +537,37 @@ TEST_P(TestStreamFormat, RoundTrip) {
 INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+
+TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
+  const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+
+  BooleanBuilder builder(default_memory_pool());
+  ASSERT_OK(builder.Reserve(length));
+  ASSERT_OK(builder.Advance(length));
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  auto f0 = arrow::field("f0", array->type());
+  std::vector<std::shared_ptr<Field>> fields = {f0};
+  auto schema = std::make_shared<Schema>(fields);
+
+  RecordBatch batch(schema, 0, {array});
+
+  std::string path = "test-write-large-record_batch";
+
+  // 512 MB
+  constexpr int64_t kBufferSize = 1 << 29;
+
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  std::shared_ptr<RecordBatch> result;
+  ASSERT_OK(DoLargeRoundTrip(batch, false, &result));
+  CheckReadResult(*result, batch);
+
+  // Fails if we try to write this with the normal code path
+  ASSERT_RAISES(Invalid, DoStandardRoundTrip(batch, false, &result));
+}
 
 void CheckBatchDictionaries(const RecordBatch& batch) {
   // Check that dictionaries that should be the same are the same

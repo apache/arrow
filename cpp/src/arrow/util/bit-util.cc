@@ -112,7 +112,21 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
     int64_t right_offset, int64_t bit_length) {
-  // TODO(wesm): Make this faster using word-wise comparisons
+  if (left_offset % 8 == 0 && right_offset % 8 == 0) {
+    // byte aligned, can use memcmp
+    bool bytes_equal = std::memcmp(left + left_offset / 8, right + right_offset / 8,
+                           bit_length / 8) == 0;
+    if (!bytes_equal) { return false; }
+    for (int64_t i = (bit_length / 8) * 8; i < bit_length; ++i) {
+      if (BitUtil::GetBit(left, left_offset + i) !=
+          BitUtil::GetBit(right, right_offset + i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Unaligned slow case
   for (int64_t i = 0; i < bit_length; ++i) {
     if (BitUtil::GetBit(left, left_offset + i) !=
         BitUtil::GetBit(right, right_offset + i)) {
