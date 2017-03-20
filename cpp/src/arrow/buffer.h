@@ -170,9 +170,13 @@ class ARROW_EXPORT BufferBuilder {
     // Resize(0) is a no-op
     if (elements == 0) { return Status::OK(); }
     if (capacity_ == 0) { buffer_ = std::make_shared<PoolBuffer>(pool_); }
+    int64_t old_capacity = capacity_;
     RETURN_NOT_OK(buffer_->Resize(elements));
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
+    if (capacity_ > old_capacity) {
+      memset(data_ + old_capacity, 0, capacity_ - old_capacity);
+    }
     return Status::OK();
   }
 
