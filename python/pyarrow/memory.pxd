@@ -25,6 +25,6 @@ cdef class MemoryPool:
     cdef init(self, CMemoryPool* pool)
 
 cdef class LoggingMemoryPool(MemoryPool):
-    cdef init(self, CLoggingMemoryPool* pool)
+    pass
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)

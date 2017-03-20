@@ -36,8 +36,7 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
         return memory_pool.pool
 
 cdef class LoggingMemoryPool(MemoryPool):
-    cdef init(self, CLoggingMemoryPool* pool):
-        MemoryPool.init(pool)
+    pass
 
 def default_pool():
     cdef: 
