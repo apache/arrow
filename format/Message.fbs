@@ -308,6 +308,22 @@ table RecordBatch {
 }
 
 /// ----------------------------------------------------------------------
+/// EXPERIMENTAL: A RecordBatch type that supports data with more than 2^31 - 1
+/// elements. Arrow implementations do not need to implement this type to be
+/// compliant
+
+struct LargeFieldNode {
+  length: long;
+  null_count: long;
+}
+
+table LargeRecordBatch {
+  length: long;
+  nodes: [LargeFieldNode];
+  buffers: [Buffer];
+}
+
+/// ----------------------------------------------------------------------
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
@@ -324,8 +340,12 @@ table DictionaryBatch {
 
 /// This union enables us to easily send different message types without
 /// redundant storage, and in the future we can easily add new message types.
+///
+/// Arrow implementations do not need to implement all of the message types,
+/// which may include experimental metadata types. For maximum compatibility,
+/// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch
+  Schema, DictionaryBatch, RecordBatch, LargeRecordBatch
 }
 
 table Message {

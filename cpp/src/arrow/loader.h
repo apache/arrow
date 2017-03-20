@@ -41,9 +41,34 @@ struct DataType;
 constexpr int kMaxNestingDepth = 64;
 
 struct ARROW_EXPORT FieldMetadata {
+  FieldMetadata() {}
+  FieldMetadata(int64_t length, int64_t null_count, int64_t offset)
+      : length(length), null_count(null_count), offset(offset) {}
+
+  FieldMetadata(const FieldMetadata& other) {
+    this->length = other.length;
+    this->null_count = other.null_count;
+    this->offset = other.offset;
+  }
+
   int64_t length;
   int64_t null_count;
   int64_t offset;
+};
+
+struct ARROW_EXPORT BufferMetadata {
+  BufferMetadata() {}
+  BufferMetadata(int32_t page, int64_t offset, int64_t length)
+      : page(page), offset(offset), length(length) {}
+
+  /// The shared memory page id where to find this. Set to -1 if unused
+  int32_t page;
+
+  /// The relative offset into the memory page to the starting byte of the buffer
+  int64_t offset;
+
+  /// Absolute length in bytes of the buffer
+  int64_t length;
 };
 
 /// Implement this to create new types of Arrow data loaders

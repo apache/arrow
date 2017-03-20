@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 

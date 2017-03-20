@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gtest/gtest.h"
+
 #include "arrow/allocator.h"
 #include "arrow/test-util.h"
 

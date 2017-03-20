@@ -18,7 +18,6 @@
 #ifndef ARROW_IPC_API_H
 #define ARROW_IPC_API_H
 
-#include "arrow/ipc/adapter.h"
 #include "arrow/ipc/feather.h"
 #include "arrow/ipc/json.h"
 #include "arrow/ipc/metadata.h"

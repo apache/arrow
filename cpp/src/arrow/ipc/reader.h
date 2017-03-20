@@ -43,6 +43,20 @@ class RandomAccessFile;
 
 namespace ipc {
 
+// Generic read functionsh; does not copy data if the input supports zero copy reads
+
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
+    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
+    std::shared_ptr<RecordBatch>* out);
+
+Status ReadRecordBatch(const RecordBatchMetadata& metadata,
+    const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
+
+Status ReadDictionary(const DictionaryBatchMetadata& metadata,
+    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
+    std::shared_ptr<Array>* out);
+
 class ARROW_EXPORT StreamReader {
  public:
   ~StreamReader();
@@ -105,6 +119,14 @@ class ARROW_EXPORT FileReader {
   class ARROW_NO_EXPORT FileReaderImpl;
   std::unique_ptr<FileReaderImpl> impl_;
 };
+
+// ----------------------------------------------------------------------
+//
+
+/// EXPERIMENTAL: Read length-prefixed LargeRecordBatch metadata (64-bit array
+/// lengths) at offset and reconstruct RecordBatch
+Status ARROW_EXPORT ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema,
+    int64_t offset, io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 }  // namespace ipc
 }  // namespace arrow
