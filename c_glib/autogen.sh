@@ -25,6 +25,8 @@ ruby \
     ../java/pom.xml > \
     version
 
+cp ../LICENSE.txt ./
+
 mkdir -p m4
 
 gtkdocize --copy --docdir doc/reference
