@@ -216,6 +216,25 @@ cdef class ListValue(ArrayValue):
         return result
 
 
+cdef class DictionaryValue(ArrayValue):
+    def as_py(self):
+        return self.getvalue(self.index)
+
+    def getvalue(self, int64_t i):
+        cdef CDictionaryArray* darr = <CDictionaryArray*>(self.sp_array.get())
+        cdef shared_ptr[CArray] indices = <shared_ptr[CArray]>darr.indices()
+
+        cdef DataType itype = DataType()
+        itype.init(<shared_ptr[CDataType]>indices.get().type().get())
+        py_idx = box_scalar(itype, indices, i).as_py()
+        cdef int64_t idx = py_idx
+
+        cdef shared_ptr[CArray] dvals = <shared_ptr[CArray]>(darr.dictionary())
+        cdef DataType dtype = DataType()
+        dtype.init(<shared_ptr[CDataType]>dvals.get().type().get())
+        return box_scalar(dtype, dvals, idx).as_py()
+
+
 cdef dict _scalar_classes = {
     Type_BOOL: BooleanValue,
     Type_UINT8: Int8Value,
@@ -233,6 +252,7 @@ cdef dict _scalar_classes = {
     Type_LIST: ListValue,
     Type_BINARY: BinaryValue,
     Type_STRING: StringValue,
+    Type_DICTIONARY: DictionaryValue,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
