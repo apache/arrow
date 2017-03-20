@@ -109,10 +109,10 @@ public class Types {
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
   private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
   private static final Field TIME_FIELD = new Field("", true, new Time(TimeUnit.MILLISECOND, 32), null);
-  private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND), null);
-  private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND), null);
-  private static final Field TIMESTAMPMICRO_FIELD = new Field("", true, new Timestamp(TimeUnit.MICROSECOND), null);
-  private static final Field TIMESTAMPNANO_FIELD = new Field("", true, new Timestamp(TimeUnit.NANOSECOND), null);
+  private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND, "UTC"), null);
+  private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null);
+  private static final Field TIMESTAMPMICRO_FIELD = new Field("", true, new Timestamp(TimeUnit.MICROSECOND, "UTC"), null);
+  private static final Field TIMESTAMPNANO_FIELD = new Field("", true, new Timestamp(TimeUnit.NANOSECOND, "UTC"), null);
   private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
   private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
   private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.SINGLE), null);
@@ -252,7 +252,7 @@ public class Types {
       }
     },
     // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND)) {
+    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, "UTC")) {
       @Override
       public Field getField() {
         return TIMESTAMPSEC_FIELD;
@@ -269,7 +269,7 @@ public class Types {
       }
     },
     // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND)) {
+    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, "UTC")) {
       @Override
       public Field getField() {
         return TIMESTAMPMILLI_FIELD;
@@ -286,7 +286,7 @@ public class Types {
       }
     },
     // time in microsecond from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND)) {
+    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, "UTC")) {
       @Override
       public Field getField() {
         return TIMESTAMPMICRO_FIELD;
@@ -303,7 +303,7 @@ public class Types {
       }
     },
     // time in nanosecond from the Unix epoch, 00:00:00.000000000 on 1 January 1970, UTC.
-    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND)) {
+    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, "UTC")) {
       @Override
       public Field getField() {
         return TIMESTAMPNANO_FIELD;
