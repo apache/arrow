@@ -23,4 +23,10 @@ SUBDIRS =					\
 	example
 
 EXTRA_DIST =					\
+	README.md				\
+	LICENSE.txt				\
 	version
+
+doc_DATA =					\
+	README.md				\
+	LICENSE.txt
