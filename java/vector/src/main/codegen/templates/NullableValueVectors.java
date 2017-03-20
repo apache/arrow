@@ -84,43 +84,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     values = new ${valuesName}(valuesField, allocator);
     mutator = new Mutator();
     accessor = new Accessor();
-  <#if minor.class == "TinyInt" ||
-        minor.class == "SmallInt" ||
-        minor.class == "Int" ||
-        minor.class == "BigInt">
-    field = new Field(name, true, new Int(${type.width} * 8, true), dictionary, null);
-  <#elseif minor.class == "UInt1" ||
-        minor.class == "UInt2" ||
-        minor.class == "UInt4" ||
-        minor.class == "UInt8">
-    field = new Field(name, true, new Int(${type.width} * 8, false), dictionary, null);
-  <#elseif minor.class == "Date">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Date(), dictionary, null);
-  <#elseif minor.class == "Time">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Time(), dictionary, null);
-  <#elseif minor.class == "Float4">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE), dictionary, null);
-  <#elseif minor.class == "Float8">
-    field = new Field(name, true, new FloatingPoint(org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE), dictionary, null);
-  <#elseif minor.class == "TimeStampSec">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND), dictionary, null);
-  <#elseif minor.class == "TimeStampMilli">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND), dictionary, null);
-  <#elseif minor.class == "TimeStampMicro">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND), dictionary, null);
-  <#elseif minor.class == "TimeStampNano">
-    field = new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND), dictionary, null);
-  <#elseif minor.class == "IntervalDay">
-    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.DAY_TIME), dictionary, null);
-  <#elseif minor.class == "IntervalYear">
-    field = new Field(name, true, new Interval(org.apache.arrow.vector.types.IntervalUnit.YEAR_MONTH), dictionary, null);
-  <#elseif minor.class == "VarChar">
-    field = new Field(name, true, new Utf8(), dictionary, null);
-  <#elseif minor.class == "VarBinary">
-    field = new Field(name, true, new Binary(), dictionary, null);
-  <#elseif minor.class == "Bit">
-    field = new Field(name, true, new Bool(), dictionary, null);
-  </#if>
+    ArrowType type = Types.MinorType.${minor.class?upper_case}.getType();
+    field = new Field(name, true, type, dictionary, null);
     innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
         bits,
         <#if type.major = "VarLen">

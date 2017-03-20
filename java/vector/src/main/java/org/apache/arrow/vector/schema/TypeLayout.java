@@ -164,7 +164,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Time type) {
-        return newFixedWidthTypeLayout(dataVector(64));
+        return newFixedWidthTypeLayout(dataVector(type.getBitWidth()));
       }
 
       @Override

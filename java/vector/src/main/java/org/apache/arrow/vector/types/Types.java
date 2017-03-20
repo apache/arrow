@@ -108,7 +108,7 @@ public class Types {
   private static final Field UINT4_FIELD = new Field("", true, new Int(32, false), null);
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
   private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
-  private static final Field TIME_FIELD = new Field("", true, Time.INSTANCE, null);
+  private static final Field TIME_FIELD = new Field("", true, new Time(TimeUnit.MILLISECOND, 32), null);
   private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND), null);
   private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND), null);
   private static final Field TIMESTAMPMICRO_FIELD = new Field("", true, new Timestamp(TimeUnit.MICROSECOND), null);
@@ -235,7 +235,7 @@ public class Types {
         return new DateWriterImpl((NullableDateVector) vector);
       }
     },
-    TIME(Time.INSTANCE) {
+    TIME(new Time(TimeUnit.MILLISECOND, 32)) {
       @Override
       public Field getField() {
         return TIME_FIELD;
@@ -639,6 +639,9 @@ public class Types {
       }
 
       @Override public MinorType visit(Time type) {
+        if (type.getUnit() != TimeUnit.MILLISECOND || type.getBitWidth() != 32) {
+          throw new IllegalArgumentException("Only milliseconds on 32 bits supported for now: " + type);
+        }
         return MinorType.TIME;
       }
 

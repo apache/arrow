@@ -58,7 +58,7 @@
     },
     {
       name: "Time",
-      fields: []
+      fields: [{name: "unit", type: short, valueType: TimeUnit}, {name: "bitWidth", type: int}]
     },
     {
       name: "Timestamp",
