@@ -30,8 +30,6 @@
 #include "parquet/util/bit-util.h"
 
 #include "arrow/api.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 
 using arrow::Array;
 using arrow::BooleanArray;

@@ -27,7 +27,6 @@
 #include "parquet/arrow/writer.h"
 
 #include "arrow/api.h"
-#include "arrow/io/memory.h"
 #include "arrow/test-util.h"
 
 using arrow::Array;

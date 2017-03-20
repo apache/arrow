@@ -26,7 +26,6 @@
 #include "parquet/arrow/schema.h"
 
 #include "arrow/api.h"
-#include "arrow/type_traits.h"
 
 using arrow::Array;
 using arrow::BinaryArray;

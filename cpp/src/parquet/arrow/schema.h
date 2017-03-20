@@ -21,9 +21,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/schema.h"
-#include "arrow/type.h"
-#include "arrow/util/visibility.h"
+#include "arrow/api.h"
 
 #include "parquet/api/schema.h"
 #include "parquet/api/writer.h"
