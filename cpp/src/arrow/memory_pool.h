@@ -89,6 +89,24 @@ class ARROW_EXPORT DefaultMemoryPool : public MemoryPool {
   std::atomic<int64_t> max_memory_;
 };
 
+class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
+ public:
+  explicit LoggingMemoryPool(MemoryPool* pool);
+  virtual ~LoggingMemoryPool() = default;
+
+  Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+
+  void Free(uint8_t* buffer, int64_t size) override;
+
+  int64_t bytes_allocated() const override;
+
+  int64_t max_memory() const override;
+
+ private:
+  MemoryPool* pool_;
+};
+
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
 }  // namespace arrow

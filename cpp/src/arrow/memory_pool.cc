@@ -22,6 +22,7 @@
 #include <mutex>
 #include <sstream>
 #include <stdlib.h>
+#include <iostream>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -134,4 +135,35 @@ MemoryPool* default_memory_pool() {
   return &default_memory_pool_;
 }
 
+LoggingMemoryPool::LoggingMemoryPool(MemoryPool* pool) : pool_(pool) {}
+
+Status LoggingMemoryPool::Allocate(int64_t size, uint8_t** out) {
+  Status s = pool_->Allocate(size, out);
+  std::cout << "Allocate: size = " << size << " - out = " << *out << std::endl;
+  return s;
+}
+
+Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  Status s = pool_->Reallocate(old_size, new_size, ptr);
+  std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
+            << " - ptr = " << *ptr << std::endl;
+  return s;
+}
+
+void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size) {
+  pool_->Free(buffer, size);
+  std::cout << "Free: buffer = " << buffer << " - size = " << size << std::endl;
+}
+
+int64_t LoggingMemoryPool::bytes_allocated() const {
+  int64_t nb_bytes = pool_->bytes_allocated();
+  std::cout << "bytes_allocated: " << nb_bytes << std::endl;
+  return nb_bytes;
+}
+
+int64_t LoggingMemoryPool::max_memory() const {
+  int64_t mem = pool_->max_memory();
+  std::cout << "max_memory: " << mem << std::endl;
+  return mem;
+}
 }  // namespace arrow

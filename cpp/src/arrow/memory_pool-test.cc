@@ -78,4 +78,21 @@ TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
 
 #endif  // ARROW_VALGRIND
 
+TEST(LoggingMemoryPool, Logging) {
+  DefaultMemoryPool pool;
+  LoggingMemoryPool lp(&pool);
+
+  ASSERT_EQ(0, lp.max_memory());
+
+  uint8_t* data;
+  ASSERT_OK(pool.Allocate(100, &data));
+
+  uint8_t* data2;
+  ASSERT_OK(pool.Allocate(100, &data2));
+
+  pool.Free(data, 100);
+  pool.Free(data2, 100);
+
+  ASSERT_EQ(200, pool.max_memory());
+}
 }  // namespace arrow
