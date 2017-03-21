@@ -16,13 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.arrow.tools;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+package org.apache.arrow.tools;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -38,17 +33,17 @@ import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+
 public class FileRoundtrip {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileRoundtrip.class);
-
-  public static void main(String[] args) {
-    System.exit(new FileRoundtrip(System.out, System.err).run(args));
-  }
-
   private final Options options;
   private final PrintStream out;
   private final PrintStream err;
-
   FileRoundtrip(PrintStream out, PrintStream err) {
     this.out = out;
     this.err = err;
@@ -56,6 +51,10 @@ public class FileRoundtrip {
     this.options.addOption("i", "in", true, "input file");
     this.options.addOption("o", "out", true, "output file");
 
+  }
+
+  public static void main(String[] args) {
+    System.exit(new FileRoundtrip(System.out, System.err).run(args));
   }
 
   private File validateFile(String type, String fileName) {
@@ -81,7 +80,8 @@ public class FileRoundtrip {
       File outFile = validateFile("output", outFileName);
       BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE); // TODO: close
       try (FileInputStream fileInputStream = new FileInputStream(inFile);
-           ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
+           ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
+               allocator)) {
 
         VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
         Schema schema = root.getSchema();
@@ -89,7 +89,8 @@ public class FileRoundtrip {
         LOGGER.debug("Found schema: " + schema);
 
         try (FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-             ArrowFileWriter arrowWriter = new ArrowFileWriter(root, arrowReader, fileOutputStream.getChannel())) {
+             ArrowFileWriter arrowWriter = new ArrowFileWriter(root, arrowReader,
+                 fileOutputStream.getChannel())) {
           arrowWriter.start();
           while (true) {
             arrowReader.loadNextBatch();

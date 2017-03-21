@@ -16,13 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.arrow.tools;
-
-import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
-import static org.junit.Assert.assertEquals;
-
-import java.io.File;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -31,6 +26,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+
+import java.io.File;
+
+import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
+import static org.junit.Assert.assertEquals;
 
 public class TestFileRoundtrip {
 
@@ -56,7 +57,7 @@ public class TestFileRoundtrip {
 
     writeInput(testInFile, allocator);
 
-    String[] args = { "-i", testInFile.getAbsolutePath(), "-o",  testOutFile.getAbsolutePath()};
+    String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
     int result = new FileRoundtrip(System.out, System.err).run(args);
     assertEquals(0, result);
 

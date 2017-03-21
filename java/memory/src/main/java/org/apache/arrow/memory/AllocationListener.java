@@ -15,15 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
 /**
  * An allocation listener being notified for allocation/deallocation
- *
+ * <p>
  * It is expected to be called from multiple threads and as such,
  * provider should take care of making the implementation thread-safe
  */
 public interface AllocationListener {
+
   public static final AllocationListener NOOP = new AllocationListener() {
     @Override
     public void onAllocation(long size) {

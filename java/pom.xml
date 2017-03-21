@@ -35,6 +35,7 @@
     <forkCount>2</forkCount>
     <jackson.version>2.7.1</jackson.version>
     <hadoop.version>2.7.1</hadoop.version>
+    <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
   </properties>
 
   <scm>
@@ -269,6 +270,47 @@
           </gitDescribe>
         </configuration>
       </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>2.17</version>
+          <dependencies>
+            <dependency>
+              <groupId>com.puppycrawl.tools</groupId>
+              <artifactId>checkstyle</artifactId>
+              <version>6.15</version>
+            </dependency>
+            <dependency>
+              <groupId>com.google.guava</groupId>
+              <artifactId>guava</artifactId>
+              <version>${dep.guava.version}</version>
+            </dependency>
+          </dependencies>
+          <executions>
+            <execution>
+              <id>validate</id>
+              <phase>validate</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <configLocation>google_checks.xml</configLocation>
+            <encoding>UTF-8</encoding>
+            <consoleOutput>true</consoleOutput>
+            <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+            <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+            <violationSeverity>warning</violationSeverity>
+            <format>xml</format>
+            <format>html</format>
+            <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+            <linkXRef>false</linkXRef>
+          </configuration>
+        </plugin>
+
+
     </plugins>
     <pluginManagement>
 
@@ -374,6 +416,19 @@
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
                     <versionRange>[0.10,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <versionRange>[0,)</versionRange>
                     <goals>
                       <goal>check</goal>
                     </goals>

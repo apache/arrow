@@ -6,28 +6,17 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
-
-import static org.apache.arrow.memory.BaseAllocator.indent;
-
-import java.util.IdentityHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.util.AutoCloseableLock;
-import org.apache.arrow.memory.util.HistoricalLog;
 
 import com.google.common.base.Preconditions;
 
@@ -35,24 +24,44 @@ import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
+import org.apache.arrow.memory.BaseAllocator.Verbosity;
+import org.apache.arrow.memory.util.AutoCloseableLock;
+import org.apache.arrow.memory.util.HistoricalLog;
+
+import java.util.IdentityHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import static org.apache.arrow.memory.BaseAllocator.indent;
+
 /**
- * Manages the relationship between one or more allocators and a particular UDLE. Ensures that one allocator owns the
- * memory that multiple allocators may be referencing. Manages a BufferLedger between each of its associated allocators.
- * This class is also responsible for managing when memory is allocated and returned to the Netty-based
+ * Manages the relationship between one or more allocators and a particular UDLE. Ensures that
+ * one allocator owns the
+ * memory that multiple allocators may be referencing. Manages a BufferLedger between each of its
+ * associated allocators.
+ * This class is also responsible for managing when memory is allocated and returned to the
+ * Netty-based
  * PooledByteBufAllocatorL.
- *
- * The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's package which need access
+ * <p>
+ * The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
+ * package which need access
  * to these objects or methods.
- *
- * Threading: AllocationManager manages thread-safety internally. Operations within the context of a single BufferLedger
- * are lockless in nature and can be leveraged by multiple threads. Operations that cross the context of two ledgers
- * will acquire a lock on the AllocationManager instance. Important note, there is one AllocationManager per
- * UnsafeDirectLittleEndian buffer allocation. As such, there will be thousands of these in a typical query. The
+ * <p>
+ * Threading: AllocationManager manages thread-safety internally. Operations within the context
+ * of a single BufferLedger
+ * are lockless in nature and can be leveraged by multiple threads. Operations that cross the
+ * context of two ledgers
+ * will acquire a lock on the AllocationManager instance. Important note, there is one
+ * AllocationManager per
+ * UnsafeDirectLittleEndian buffer allocation. As such, there will be thousands of these in a
+ * typical query. The
  * contention of acquiring a lock on AllocationManager should be very low.
- *
  */
 public class AllocationManager {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AllocationManager.class);
+  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger
+  // (AllocationManager.class);
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
@@ -81,17 +90,19 @@ public class AllocationManager {
     this.root = accountingAllocator.root;
     this.underlying = INNER_ALLOCATOR.allocate(size);
 
-    // we do a no retain association since our creator will want to retrieve the newly created ledger and will create a
+    // we do a no retain association since our creator will want to retrieve the newly created
+    // ledger and will create a
     // reference count at that point
     this.owningLedger = associate(accountingAllocator, false);
     this.size = underlying.capacity();
   }
 
   /**
-   * Associate the existing underlying buffer with a new allocator. This will increase the reference count to the
+   * Associate the existing underlying buffer with a new allocator. This will increase the
+   * reference count to the
    * provided ledger by 1.
-   * @param allocator
-   *          The target allocator to associate this buffer with.
+   *
+   * @param allocator The target allocator to associate this buffer with.
    * @return The Ledger (new or existing) that associates the underlying buffer to this new ledger.
    */
   BufferLedger associate(final BaseAllocator allocator) {
@@ -118,7 +129,8 @@ public class AllocationManager {
 
     }
     try (AutoCloseableLock write = writeLock.open()) {
-      // we have to recheck existing ledger since a second reader => writer could be competing with us.
+      // we have to recheck existing ledger since a second reader => writer could be competing
+      // with us.
 
       final BufferLedger existingLedger = map.get(allocator);
       if (existingLedger != null) {
@@ -141,7 +153,8 @@ public class AllocationManager {
 
 
   /**
-   * The way that a particular BufferLedger communicates back to the AllocationManager that it now longer needs to hold
+   * The way that a particular BufferLedger communicates back to the AllocationManager that it
+   * now longer needs to hold
    * a reference to particular piece of memory.
    */
   private class ReleaseListener {
@@ -169,16 +182,19 @@ public class AllocationManager {
           amDestructionTime = System.nanoTime();
           owningLedger = null;
         } else {
-          // we need to change the owning allocator. we've been removed so we'll get whatever is top of list
+          // we need to change the owning allocator. we've been removed so we'll get whatever is
+          // top of list
           BufferLedger newLedger = map.values().iterator().next();
 
-          // we'll forcefully transfer the ownership and not worry about whether we exceeded the limit
+          // we'll forcefully transfer the ownership and not worry about whether we exceeded the
+          // limit
           // since this consumer can't do anything with this.
           oldLedger.transferBalance(newLedger);
         }
       } else {
         if (map.isEmpty()) {
-          throw new IllegalStateException("The final removal of a ledger should be connected to the owning ledger.");
+          throw new IllegalStateException("The final removal of a ledger should be connected to " +
+              "the owning ledger.");
         }
       }
 
@@ -187,25 +203,30 @@ public class AllocationManager {
   }
 
   /**
-   * The reference manager that binds an allocator manager to a particular BaseAllocator. Also responsible for creating
+   * The reference manager that binds an allocator manager to a particular BaseAllocator. Also
+   * responsible for creating
    * a set of ArrowBufs that share a common fate and set of reference counts.
-   * As with AllocationManager, the only reason this is public is due to ArrowBuf being in io.netty.buffer package.
+   * As with AllocationManager, the only reason this is public is due to ArrowBuf being in io
+   * .netty.buffer package.
    */
   public class BufferLedger {
 
     private final IdentityHashMap<ArrowBuf, Object> buffers =
         BaseAllocator.DEBUG ? new IdentityHashMap<ArrowBuf, Object>() : null;
 
-    private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet(); // unique ID assigned to each ledger
-    private final AtomicInteger bufRefCnt = new AtomicInteger(0); // start at zero so we can manage request for retain
-                                                                  // correctly
+    private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet(); // unique ID assigned to
+    // each ledger
+    private final AtomicInteger bufRefCnt = new AtomicInteger(0); // start at zero so we can
+    // manage request for retain
+    // correctly
     private final long lCreationTime = System.nanoTime();
-    private volatile long lDestructionTime = 0;
     private final BaseAllocator allocator;
     private final ReleaseListener listener;
-    private final HistoricalLog historicalLog = BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
-        "BufferLedger[%d]", 1)
+    private final HistoricalLog historicalLog = BaseAllocator.DEBUG ? new HistoricalLog
+        (BaseAllocator.DEBUG_LOG_LENGTH,
+            "BufferLedger[%d]", 1)
         : null;
+    private volatile long lDestructionTime = 0;
 
     private BufferLedger(BaseAllocator allocator, ReleaseListener listener) {
       this.allocator = allocator;
@@ -213,10 +234,11 @@ public class AllocationManager {
     }
 
     /**
-     * Transfer any balance the current ledger has to the target ledger. In the case that the current ledger holds no
+     * Transfer any balance the current ledger has to the target ledger. In the case that the
+     * current ledger holds no
      * memory, no transfer is made to the new ledger.
-     * @param target
-     *          The ledger to transfer ownership account to.
+     *
+     * @param target The ledger to transfer ownership account to.
      * @return Whether transfer fit within target ledgers limits.
      */
     public boolean transferBalance(final BufferLedger target) {
@@ -231,7 +253,8 @@ public class AllocationManager {
         return true;
       }
 
-      // since two balance transfers out from the allocator manager could cause incorrect accounting, we need to ensure
+      // since two balance transfers out from the allocator manager could cause incorrect
+      // accounting, we need to ensure
       // that this won't happen by synchronizing on the allocator manager instance.
       try (AutoCloseableLock write = writeLock.open()) {
         if (owningLedger != this) {
@@ -253,12 +276,10 @@ public class AllocationManager {
 
     /**
      * Print the current ledger state to a the provided StringBuilder.
-     * @param sb
-     *          The StringBuilder to populate.
-     * @param indent
-     *          The level of indentation to position the data.
-     * @param verbosity
-     *          The level of verbosity to print.
+     *
+     * @param sb        The StringBuilder to populate.
+     * @param indent    The level of indentation to position the data.
+     * @param verbosity The level of verbosity to print.
      */
     public void print(StringBuilder sb, int indent, Verbosity verbosity) {
       indent(sb, indent)
@@ -304,7 +325,8 @@ public class AllocationManager {
     }
 
     /**
-     * Decrement the ledger's reference count. If the ledger is decremented to zero, this ledger should release its
+     * Decrement the ledger's reference count. If the ledger is decremented to zero, this ledger
+     * should release its
      * ownership back to the AllocationManager
      */
     public int decrement(int decrement) {
@@ -323,15 +345,19 @@ public class AllocationManager {
     }
 
     /**
-     * Returns the ledger associated with a particular BufferAllocator. If the BufferAllocator doesn't currently have a
-     * ledger associated with this AllocationManager, a new one is created. This is placed on BufferLedger rather than
-     * AllocationManager directly because ArrowBufs don't have access to AllocationManager and they are the ones
-     * responsible for exposing the ability to associate multiple allocators with a particular piece of underlying
-     * memory. Note that this will increment the reference count of this ledger by one to ensure the ledger isn't
+     * Returns the ledger associated with a particular BufferAllocator. If the BufferAllocator
+     * doesn't currently have a
+     * ledger associated with this AllocationManager, a new one is created. This is placed on
+     * BufferLedger rather than
+     * AllocationManager directly because ArrowBufs don't have access to AllocationManager and
+     * they are the ones
+     * responsible for exposing the ability to associate multiple allocators with a particular
+     * piece of underlying
+     * memory. Note that this will increment the reference count of this ledger by one to ensure
+     * the ledger isn't
      * destroyed before use.
      *
-     * @param allocator
-     *          A BufferAllocator.
+     * @param allocator A BufferAllocator.
      * @return The ledger associated with the BufferAllocator.
      */
     public BufferLedger getLedgerForAllocator(BufferAllocator allocator) {
@@ -339,13 +365,14 @@ public class AllocationManager {
     }
 
     /**
-     * Create a new ArrowBuf associated with this AllocationManager and memory. Does not impact reference count.
+     * Create a new ArrowBuf associated with this AllocationManager and memory. Does not impact
+     * reference count.
      * Typically used for slicing.
-     * @param offset
-     *          The offset in bytes to start this new ArrowBuf.
-     * @param length
-     *          The length in bytes that this ArrowBuf will provide access to.
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
+     *
+     * @param offset The offset in bytes to start this new ArrowBuf.
+     * @param length The length in bytes that this ArrowBuf will provide access to.
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
+     * BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length) {
       allocator.assertOpen();
@@ -354,13 +381,13 @@ public class AllocationManager {
 
     /**
      * Create a new ArrowBuf associated with this AllocationManager and memory.
-     * @param offset
-     *          The offset in bytes to start this new ArrowBuf.
-     * @param length
-     *          The length in bytes that this ArrowBuf will provide access to.
-     * @param manager
-     *          An optional BufferManager argument that can be used to manage expansion of this ArrowBuf
-     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this BufferLedger
+     *
+     * @param offset  The offset in bytes to start this new ArrowBuf.
+     * @param length  The length in bytes that this ArrowBuf will provide access to.
+     * @param manager An optional BufferManager argument that can be used to manage expansion of
+     *                this ArrowBuf
+     * @return A new ArrowBuf that shares references with all ArrowBufs associated with this
+     * BufferLedger
      */
     public ArrowBuf newArrowBuf(int offset, int length, BufferManager manager) {
       allocator.assertOpen();
@@ -377,7 +404,8 @@ public class AllocationManager {
 
       if (BaseAllocator.DEBUG) {
         historicalLog.recordEvent(
-            "ArrowBuf(BufferLedger, BufferAllocator[%s], UnsafeDirectLittleEndian[identityHashCode == "
+            "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
+                "UnsafeDirectLittleEndian[identityHashCode == "
                 + "%d](%s)) => ledger hc == %d",
             allocator.name, System.identityHashCode(buf), buf.toString(),
             System.identityHashCode(this));
@@ -401,7 +429,8 @@ public class AllocationManager {
     }
 
     /**
-     * How much memory is accounted for by this ledger. This is either getSize() if this is the owning ledger for the
+     * How much memory is accounted for by this ledger. This is either getSize() if this is the
+     * owning ledger for the
      * memory or zero in the case that this is not the owning ledger associated with this memory.
      *
      * @return Amount of accounted(owned) memory associated with this ledger.

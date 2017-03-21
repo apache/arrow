@@ -6,28 +6,17 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.tools;
-
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 
@@ -56,6 +45,18 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class EchoServerTest {
 
@@ -94,8 +95,8 @@ public class EchoServerTest {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
     try (Socket socket = new Socket("localhost", serverPort);
-        ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
-        ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
+         ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
+         ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
       writer.start();
       for (int i = 0; i < batches; i++) {
         vector.allocateNew(16);
@@ -111,7 +112,8 @@ public class EchoServerTest {
 
       assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 
-      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
+      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot()
+          .getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
         reader.loadNextBatch();
         assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
@@ -131,7 +133,8 @@ public class EchoServerTest {
   public void basicTest() throws InterruptedException, IOException {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
-    Field field = new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList());
+    Field field = new Field("testField", true, new ArrowType.Int(8, true), Collections
+        .<Field>emptyList());
     NullableTinyIntVector vector = new NullableTinyIntVector("testField", alloc, null);
     Schema schema = new Schema(asList(field));
 
@@ -150,7 +153,8 @@ public class EchoServerTest {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          NullableIntVector writeVector = new NullableIntVector("varchar", allocator, writeEncoding);
-         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dict", allocator, null)) {
+         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dict",
+             allocator, null)) {
       writeVector.allocateNewSafe();
       NullableIntVector.Mutator mutator = writeVector.getMutator();
       mutator.set(0, 0);
@@ -171,10 +175,12 @@ public class EchoServerTest {
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary(writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary
+          (writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket.getOutputStream());
+           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket
+               .getOutputStream());
            ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
         writer.start();
         writer.writeBatch();
@@ -202,7 +208,8 @@ public class EchoServerTest {
 
         Dictionary dictionary = reader.lookup(1L);
         Assert.assertNotNull(dictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
+        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary
+            .getVector()).getAccessor();
         Assert.assertEquals(3, dictionaryAccessor.getValueCount());
         Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
         Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
@@ -215,7 +222,8 @@ public class EchoServerTest {
   public void testNestedDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(2L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dictionary", allocator, null);
+         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dictionary",
+             allocator, null);
          ListVector writeVector = new ListVector("list", allocator, null, null)) {
 
       // data being written:
@@ -245,10 +253,12 @@ public class EchoServerTest {
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 3);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary(writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider = new MapDictionaryProvider(new Dictionary
+          (writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket.getOutputStream());
+           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket
+               .getOutputStream());
            ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
         writer.start();
         writer.writeBatch();
@@ -262,7 +272,8 @@ public class EchoServerTest {
         Assert.assertNotNull(readVector);
 
         Assert.assertNull(readVector.getField().getDictionary());
-        DictionaryEncoding readEncoding = readVector.getField().getChildren().get(0).getDictionary();
+        DictionaryEncoding readEncoding = readVector.getField().getChildren().get(0)
+            .getDictionary();
         Assert.assertNotNull(readEncoding);
         Assert.assertEquals(2L, readEncoding.getId());
 
@@ -281,7 +292,8 @@ public class EchoServerTest {
 
         Dictionary readDictionary = reader.lookup(2L);
         Assert.assertNotNull(readDictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) readDictionary.getVector()).getAccessor();
+        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector)
+            readDictionary.getVector()).getAccessor();
         Assert.assertEquals(2, dictionaryAccessor.getValueCount());
         Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
         Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));

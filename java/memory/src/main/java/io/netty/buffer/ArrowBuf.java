@@ -6,16 +6,30 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.netty.buffer;
+
+import com.google.common.base.Preconditions;
+
+import io.netty.util.internal.PlatformDependent;
+
+import org.apache.arrow.memory.AllocationManager.BufferLedger;
+import org.apache.arrow.memory.ArrowByteBufAllocator;
+import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BaseAllocator.Verbosity;
+import org.apache.arrow.memory.BoundsChecking;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BufferManager;
+import org.apache.arrow.memory.util.HistoricalLog;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,24 +42,12 @@ import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
-import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.BufferManager;
-import org.apache.arrow.memory.util.HistoricalLog;
-
-import com.google.common.base.Preconditions;
-
-import io.netty.util.internal.PlatformDependent;
-
 public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
+
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
 
   private static final AtomicLong idGenerator = new AtomicLong(0);
-
+  private static final int LOG_BYTES_PER_ROW = 10;
   private final long id = idGenerator.incrementAndGet();
   private final AtomicInteger refCnt;
   private final UnsafeDirectLittleEndian udle;
@@ -55,9 +57,9 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   private final BufferManager bufManager;
   private final ArrowByteBufAllocator alloc;
   private final boolean isEmpty;
-  private volatile int length;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
       new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
+  private volatile int length;
 
   public ArrowBuf(
       final AtomicInteger refCnt,
@@ -85,6 +87,17 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   }
 
+  public static String bufferState(final ByteBuf buf) {
+    final int cap = buf.capacity();
+    final int mcap = buf.maxCapacity();
+    final int ri = buf.readerIndex();
+    final int rb = buf.readableBytes();
+    final int wi = buf.writerIndex();
+    final int wb = buf.writableBytes();
+    return String.format("cap/max: %d/%d, ri: %d, rb: %d, wi: %d, wb: %d",
+        cap, mcap, ri, rb, wi, wb);
+  }
+
   public ArrowBuf reallocIfNeeded(final int size) {
     Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
 
@@ -95,7 +108,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     if (bufManager != null) {
       return bufManager.replace(this, size);
     } else {
-      throw new UnsupportedOperationException("Realloc is only available in the context of an operator's UDFs");
+      throw new UnsupportedOperationException("Realloc is only available in the context of an " +
+          "operator's UDFs");
     }
   }
 
@@ -128,14 +142,13 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   /**
    * Allows a function to determine whether not reading a particular string of bytes is valid.
-   *
-   * Will throw an exception if the memory is not readable for some reason. Only doesn't something in the case that
+   * <p>
+   * Will throw an exception if the memory is not readable for some reason. Only doesn't
+   * something in the case that
    * AssertionUtil.BOUNDS_CHECKING_ENABLED is true.
    *
-   * @param start
-   *          The starting position of the bytes to be read.
-   * @param end
-   *          The exclusive endpoint of the bytes to be read.
+   * @param start The starting position of the bytes to be read.
+   * @param end   The exclusive endpoint of the bytes to be read.
    */
   public void checkBytes(int start, int end) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
@@ -156,17 +169,21 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of memory ownership and
-   * accounting. This has no impact on the reference counting for the current ArrowBuf except in the situation where the
+   * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of
+   * memory ownership and
+   * accounting. This has no impact on the reference counting for the current ArrowBuf except in
+   * the situation where the
    * passed in Allocator is the same as the current buffer.
-   *
-   * This operation has no impact on the reference count of this ArrowBuf. The newly created ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being associated with the new
-   * allocator) or the current value of the reference count + 1 for the other AllocationManager/BufferLedger combination
+   * <p>
+   * This operation has no impact on the reference count of this ArrowBuf. The newly created
+   * ArrowBuf with either have a
+   * reference count of 1 (in the case that this is the first time this memory is being
+   * associated with the new
+   * allocator) or the current value of the reference count + 1 for the other
+   * AllocationManager/BufferLedger combination
    * in the case that the provided allocator already had an association to this underlying memory.
    *
-   * @param target
-   *          The target allocator to create an association with.
+   * @param target The target allocator to create an association with.
    * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
    */
   public ArrowBuf retain(BufferAllocator target) {
@@ -186,28 +203,39 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Transfer the memory accounting ownership of this ArrowBuf to another allocator. This will generate a new ArrowBuf
-   * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is connected to the
-   * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to the taret allocator. If
-   * this ArrowBuf does not currently own the memory underlying it (and is only associated with it), this does not
+   * Transfer the memory accounting ownership of this ArrowBuf to another allocator. This will
+   * generate a new ArrowBuf
+   * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is
+   * connected to the
+   * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to
+   * the taret allocator. If
+   * this ArrowBuf does not currently own the memory underlying it (and is only associated with
+   * it), this does not
    * transfer any ownership to the newly created ArrowBuf.
-   *
-   * This operation has no impact on the reference count of this ArrowBuf. The newly created ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being associated with the new
-   * allocator) or the current value of the reference count for the other AllocationManager/BufferLedger combination in
+   * <p>
+   * This operation has no impact on the reference count of this ArrowBuf. The newly created
+   * ArrowBuf with either have a
+   * reference count of 1 (in the case that this is the first time this memory is being
+   * associated with the new
+   * allocator) or the current value of the reference count for the other
+   * AllocationManager/BufferLedger combination in
    * the case that the provided allocator already had an association to this underlying memory.
-   *
-   * Transfers will always succeed, even if that puts the other allocator into an overlimit situation. This is possible
-   * due to the fact that the original owning allocator may have allocated this memory out of a local reservation
-   * whereas the target allocator may need to allocate new memory from a parent or RootAllocator. This operation is done
-   * in a mostly-lockless but consistent manner. As such, the overlimit==true situation could occur slightly prematurely
-   * to an actual overlimit==true condition. This is simply conservative behavior which means we may return overlimit
+   * <p>
+   * Transfers will always succeed, even if that puts the other allocator into an overlimit
+   * situation. This is possible
+   * due to the fact that the original owning allocator may have allocated this memory out of a
+   * local reservation
+   * whereas the target allocator may need to allocate new memory from a parent or RootAllocator.
+   * This operation is done
+   * in a mostly-lockless but consistent manner. As such, the overlimit==true situation could
+   * occur slightly prematurely
+   * to an actual overlimit==true condition. This is simply conservative behavior which means we
+   * may return overlimit
    * slightly sooner than is necessary.
    *
-   * @param target
-   *          The allocator to transfer ownership to.
-   * @return A new transfer result with the impact of the transfer (whether it was overlimit) as well as the newly
-   *         created ArrowBuf.
+   * @param target The allocator to transfer ownership to.
+   * @return A new transfer result with the impact of the transfer (whether it was overlimit) as
+   * well as the newly created ArrowBuf.
    */
   public TransferResult transferOwnership(BufferAllocator target) {
 
@@ -221,28 +249,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     newBuf.writerIndex(this.writerIndex);
     final boolean allocationFit = this.ledger.transferBalance(otherLedger);
     return new TransferResult(allocationFit, newBuf);
-  }
-
-  /**
-   * The outcome of a Transfer.
-   */
-  public class TransferResult {
-
-    /**
-     * Whether this transfer fit within the target allocator's capacity.
-     */
-    public final boolean allocationFit;
-
-    /**
-     * The newly created buffer associated with the target allocator.
-     */
-    public final ArrowBuf buffer;
-
-    private TransferResult(boolean allocationFit, ArrowBuf buffer) {
-      this.allocationFit = allocationFit;
-      this.buffer = buffer;
-    }
-
   }
 
   @Override
@@ -261,7 +267,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     if (decrement < 1) {
-      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer Info: %s",
+      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer" +
+              " Info: %s",
           decrement, toVerboseString()));
     }
 
@@ -273,7 +280,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
     if (refCnt < 0) {
       throw new IllegalStateException(
-          String.format("ArrowBuf[%d] refCnt has gone negative. Buffer Info: %s", id, toVerboseString()));
+          String.format("ArrowBuf[%d] refCnt has gone negative. Buffer Info: %s", id,
+              toVerboseString()));
     }
 
     return refCnt == 0;
@@ -299,7 +307,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       return this;
     }
 
-    throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
+    throw new UnsupportedOperationException("Buffers don't support resizing that increases the " +
+        "size.");
   }
 
   @Override
@@ -354,17 +363,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return slice(readerIndex(), readableBytes());
   }
 
-  public static String bufferState(final ByteBuf buf) {
-    final int cap = buf.capacity();
-    final int mcap = buf.maxCapacity();
-    final int ri = buf.readerIndex();
-    final int rb = buf.readableBytes();
-    final int wi = buf.writerIndex();
-    final int wb = buf.writableBytes();
-    return String.format("cap/max: %d/%d, ri: %d, rb: %d, wi: %d, wb: %d",
-        cap, mcap, ri, rb, wi, wb);
-  }
-
   @Override
   public ArrowBuf slice(int index, int length) {
 
@@ -373,7 +371,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     /*
-     * Re the behavior of reference counting, see http://netty.io/wiki/reference-counted-objects.html#wiki-h3-5, which
+     * Re the behavior of reference counting, see http://netty.io/wiki/reference-counted-objects
+     * .html#wiki-h3-5, which
      * explains that derived buffers share their reference count with their parent
      */
     final ArrowBuf newBuf = ledger.newArrowBuf(offset + index, length);
@@ -408,12 +407,12 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[] { nioBuffer() };
+    return new ByteBuffer[]{nioBuffer()};
   }
 
   @Override
   public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[] { nioBuffer(index, length) };
+    return new ByteBuffer[]{nioBuffer(index, length)};
   }
 
   @Override
@@ -443,7 +442,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
+    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset +
+        capacity());
   }
 
   @Override
@@ -738,7 +738,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
     if (src.isDirect()) {
       checkIndex(index, length);
-      PlatformDependent.copyMemory(PlatformDependent.directBufferAddress(src) + srcIndex, this.memoryAddress() + index,
+      PlatformDependent.copyMemory(PlatformDependent.directBufferAddress(src) + srcIndex, this
+              .memoryAddress() + index,
           length);
     } else {
       if (srcIndex == 0 && src.capacity() == length) {
@@ -788,7 +789,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not shared, connected to larger
+   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not
+   * shared, connected to larger
    * underlying buffer of allocated memory)
    *
    * @return Size in bytes.
@@ -798,7 +800,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Return that is Accounted for by this buffer (and its potentially shared siblings within the context of the
+   * Return that is Accounted for by this buffer (and its potentially shared siblings within the
+   * context of the
    * associated allocator).
    *
    * @return Size in bytes.
@@ -807,15 +810,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return ledger.getAccountedSize();
   }
 
-  private final static int LOG_BYTES_PER_ROW = 10;
-
   /**
    * Return the buffer's byte contents in the form of a hex dump.
    *
-   * @param start
-   *          the starting byte index
-   * @param length
-   *          how many bytes to log
+   * @param start  the starting byte index
+   * @param length how many bytes to log
    * @return A hex dump in a String.
    */
   public String toHexString(final int start, final int length) {
@@ -876,6 +875,28 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ArrowBuf writerIndex(int writerIndex) {
     super.writerIndex(writerIndex);
     return this;
+  }
+
+  /**
+   * The outcome of a Transfer.
+   */
+  public class TransferResult {
+
+    /**
+     * Whether this transfer fit within the target allocator's capacity.
+     */
+    public final boolean allocationFit;
+
+    /**
+     * The newly created buffer associated with the target allocator.
+     */
+    public final ArrowBuf buffer;
+
+    private TransferResult(boolean allocationFit, ArrowBuf buffer) {
+      this.allocationFit = allocationFit;
+      this.buffer = buffer;
+    }
+
   }
 
 
