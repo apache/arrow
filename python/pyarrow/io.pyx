@@ -446,7 +446,9 @@ cdef class Buffer:
         raise NotImplementedError
 
     def to_pybytes(self):
-        return bytes(self)
+        return cp.PyBytes_FromStringAndSize(
+            <const char*>self.buffer.get().data(),
+            self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
 
