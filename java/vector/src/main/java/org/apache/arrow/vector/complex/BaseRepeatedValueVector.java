@@ -27,8 +27,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
@@ -154,10 +153,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return vector == DEFAULT_DATA_VECTOR ? 0:1;
   }
 
-  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType, DictionaryEncoding dictionary) {
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
     if (vector instanceof ZeroVector) {
-      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, dictionary, callBack);
+      vector = fieldType.createNewSingleVector(DATA_VECTOR_NAME, allocator, callBack);
       // returned vector must have the same field
       created = true;
       if (callBack != null) {
@@ -165,9 +164,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       }
     }
 
-    if (vector.getField().getType().getTypeID() != minorType.getType().getTypeID()) {
+    if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
       final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          minorType.getType().getTypeID(), vector.getField().getType().getTypeID());
+          fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
 

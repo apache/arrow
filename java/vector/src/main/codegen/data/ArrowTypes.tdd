@@ -14,59 +14,73 @@
   types: [
     {
       name: "Null",
-      fields: []
+      fields: [],
+      complex: false
     },
     {
       name: "Struct_",
-      fields: []
+      fields: [],
+      complex: true
     },
     {
       name: "List",
-      fields: []
+      fields: [],
+      complex: true
     },
     {
       name: "Union",
-      fields: [{name: "mode", type: short, valueType: UnionMode}, {name: "typeIds", type: "int[]"}]
+      fields: [{name: "mode", type: short, valueType: UnionMode}, {name: "typeIds", type: "int[]"}],
+      complex: true
     },
     {
       name: "Int",
-      fields: [{name: "bitWidth", type: int}, {name: "isSigned", type: boolean}]
+      fields: [{name: "bitWidth", type: int}, {name: "isSigned", type: boolean}],
+      complex: false
     },
     {
       name: "FloatingPoint",
-      fields: [{name: precision, type: short, valueType: FloatingPointPrecision}]
+      fields: [{name: precision, type: short, valueType: FloatingPointPrecision}],
+      complex: false
     },
     {
       name: "Utf8",
-      fields: []
+      fields: [],
+      complex: false
     },
     {
       name: "Binary",
-      fields: []
+      fields: [],
+      complex: false
     },
     {
       name: "Bool",
-      fields: []
+      fields: [],
+      complex: false
     },
     {
       name: "Decimal",
-      fields: [{name: "precision", type: int}, {name: "scale", type: int}]
+      fields: [{name: "precision", type: int}, {name: "scale", type: int}],
+      complex: false
     },
     {
       name: "Date",
       fields: [{name: "unit", type: short, valueType: DateUnit}]
+      complex: false
     },
     {
       name: "Time",
-      fields: [{name: "unit", type: short, valueType: TimeUnit}, {name: "bitWidth", type: int}]
+      fields: [{name: "unit", type: short, valueType: TimeUnit}, {name: "bitWidth", type: int}],
+      complex: false
     },
     {
       name: "Timestamp",
       fields: [{name: "unit", type: short, valueType: TimeUnit}, {name: "timezone", type: String}]
+      complex: false
     },
     {
       name: "Interval",
-      fields: [{name: "unit", type: short, valueType: IntervalUnit}]
+      fields: [{name: "unit", type: short, valueType: IntervalUnit}],
+      complex: false
     }
   ]
 }

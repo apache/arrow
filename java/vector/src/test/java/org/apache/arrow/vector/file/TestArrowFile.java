@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector.file;
 
+import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -28,8 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
@@ -40,25 +40,27 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.stream.MessageSerializerTest;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
 
 public class TestArrowFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestArrowFile.class);
@@ -380,8 +382,8 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         NullableVarCharVector vector = new NullableVarCharVector("varchar", originalVectorAllocator, null);
-         NullableVarCharVector dictionaryVector = new NullableVarCharVector("dict", originalVectorAllocator, null)) {
+         NullableVarCharVector vector = newNullableVarCharVector("varchar", originalVectorAllocator);
+         NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", originalVectorAllocator)) {
       vector.allocateNewSafe();
       NullableVarCharVector.Mutator mutator = vector.getMutator();
       mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
@@ -483,7 +485,7 @@ public class TestArrowFile extends BaseFileTest {
     // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
 
     // write
-    try (NullableVarCharVector dictionaryVector = new NullableVarCharVector("dictionary", allocator, null);
+    try (NullableVarCharVector dictionaryVector = newNullableVarCharVector("dictionary", allocator);
          ListVector listVector = new ListVector("list", allocator, null, null)) {
 
       Dictionary dictionary = new Dictionary(dictionaryVector, encoding);
@@ -495,7 +497,7 @@ public class TestArrowFile extends BaseFileTest {
       dictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
       dictionaryVector.getMutator().setValueCount(2);
 
-      listVector.addOrGetVector(MinorType.INT, encoding);
+      listVector.addOrGetVector(new FieldType(true, new Int(32, true), encoding));
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       listWriter.startList();
@@ -511,7 +513,7 @@ public class TestArrowFile extends BaseFileTest {
       listWriter.setValueCount(3);
 
       List<Field> fields = ImmutableList.of(listVector.getField());
-      List<FieldVector> vectors = ImmutableList.of((FieldVector) listVector);
+      List<FieldVector> vectors = ImmutableList.<FieldVector>of(listVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 3);
 
       try (

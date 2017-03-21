@@ -32,7 +32,6 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -165,7 +164,7 @@ public class MapVector extends AbstractMapVector {
         // (This is similar to what happens in ScanBatch where the children cannot be added till they are
         // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
         // include the hashCode of the children but is based only on MaterializedField$key.
-        final FieldVector newVector = to.addOrGet(child, vector.getMinorType(), vector.getClass(), vector.getField().getDictionary());
+        final FieldVector newVector = to.addOrGet(child, vector.getField().getFieldType(), vector.getClass());
         if (allocate && to.size() != preSize) {
           newVector.allocateNew();
         }
@@ -318,8 +317,7 @@ public class MapVector extends AbstractMapVector {
 
   public void initializeChildrenFromFields(List<Field> children) {
     for (Field field : children) {
-      MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-      FieldVector vector = (FieldVector)this.add(field.getName(), minorType, field.getDictionary());
+      FieldVector vector = (FieldVector)this.add(field.getName(), field.getFieldType());
       vector.initializeChildrenFromFields(field.getChildren());
     }
   }

@@ -27,7 +27,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
@@ -53,7 +52,7 @@ public class TestPromotableWriter {
   public void testPromoteToUnion() throws Exception {
 
     try (final MapVector container = new MapVector(EMPTY_SCHEMA_PATH, allocator, null);
-         final NullableMapVector v = container.addOrGet("test", MinorType.MAP, NullableMapVector.class, null);
+         final NullableMapVector v = container.addOrGetMap("test");
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
       container.allocateNew();

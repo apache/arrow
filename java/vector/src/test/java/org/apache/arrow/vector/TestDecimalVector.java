@@ -17,16 +17,16 @@
  */
 package org.apache.arrow.vector;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
-import org.apache.arrow.vector.util.DecimalUtility;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static org.junit.Assert.assertEquals;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.DecimalUtility;
+import org.junit.Test;
 
 public class TestDecimalVector {
 
@@ -44,7 +44,7 @@ public class TestDecimalVector {
   @Test
   public void test() {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    NullableDecimalVector decimalVector = new NullableDecimalVector("decimal", allocator, null, 10, scale);
+    NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);
     decimalVector.allocateNew();
     BigDecimal[] values = new BigDecimal[intValues.length];
     for (int i = 0; i < intValues.length; i++) {

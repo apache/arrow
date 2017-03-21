@@ -18,7 +18,19 @@
 
 package org.apache.arrow.tools;
 
-import com.google.common.collect.ImmutableList;
+import static java.util.Arrays.asList;
+import static org.apache.arrow.vector.types.Types.MinorType.TINYINT;
+import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -39,6 +51,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
@@ -46,17 +59,7 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import com.google.common.collect.ImmutableList;
 
 public class EchoServerTest {
 
@@ -133,9 +136,12 @@ public class EchoServerTest {
   public void basicTest() throws InterruptedException, IOException {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
-    Field field = new Field("testField", true, new ArrowType.Int(8, true), Collections
-        .<Field>emptyList());
-    NullableTinyIntVector vector = new NullableTinyIntVector("testField", alloc, null);
+    Field field = new Field(
+        "testField", true,
+        new ArrowType.Int(8, true),
+        Collections.<Field>emptyList());
+    NullableTinyIntVector vector =
+        new NullableTinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
     Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.
@@ -152,9 +158,16 @@ public class EchoServerTest {
   public void testFlatDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableIntVector writeVector = new NullableIntVector("varchar", allocator, writeEncoding);
-         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dict",
-             allocator, null)) {
+        NullableIntVector writeVector =
+            new NullableIntVector(
+                "varchar",
+                new FieldType(true, MinorType.INT.getType(), writeEncoding),
+                allocator);
+        NullableVarCharVector writeDictionaryVector =
+            new NullableVarCharVector(
+                "dict",
+                FieldType.nullable(VARCHAR.getType()),
+                allocator)) {
       writeVector.allocateNewSafe();
       NullableIntVector.Mutator mutator = writeVector.getMutator();
       mutator.set(0, 0);
@@ -222,8 +235,8 @@ public class EchoServerTest {
   public void testNestedDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(2L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableVarCharVector writeDictionaryVector = new NullableVarCharVector("dictionary",
-             allocator, null);
+         NullableVarCharVector writeDictionaryVector =
+             new NullableVarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
          ListVector writeVector = new ListVector("list", allocator, null, null)) {
 
       // data being written:
@@ -234,7 +247,7 @@ public class EchoServerTest {
       writeDictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
       writeDictionaryVector.getMutator().setValueCount(2);
 
-      writeVector.addOrGetVector(MinorType.INT, writeEncoding);
+      writeVector.addOrGetVector(new FieldType(true, MinorType.INT.getType(), writeEncoding));
       writeVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(writeVector);
       listWriter.startList();

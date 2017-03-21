@@ -64,7 +64,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         list(child.getName());
         break;
       case UNION:
-        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), MinorType.UNION, UnionVector.class, null), getNullableMapWriterFactory());
+        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), FieldType.nullable(MinorType.UNION.getType()), UnionVector.class), getNullableMapWriterFactory());
         fields.put(handleCase(child.getName()), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
@@ -113,7 +113,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      NullableMapVector vector = container.addOrGet(name, MinorType.MAP, NullableMapVector.class, null);
+      NullableMapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableMapVector.class);
       writer = new PromotableWriter(vector, container, getNullableMapWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
@@ -157,7 +157,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     int vectorCount = container.size();
     if(writer == null) {
-      writer = new PromotableWriter(container.addOrGet(name, MinorType.LIST, ListVector.class, null), container, getNullableMapWriterFactory());
+      writer = new PromotableWriter(container.addOrGet(name, FieldType.nullable(MinorType.LIST.getType()), ListVector.class), container, getNullableMapWriterFactory());
       if (container.size() > vectorCount) {
         writer.allocate();
       }
@@ -222,7 +222,9 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
-      ${vectName}Vector v = container.addOrGet(name, MinorType.${upperName}, ${vectName}Vector.class, null<#if minor.class == "Decimal"> , new int[] {precision, scale}</#if>);
+      ${vectName}Vector v = container.addOrGet(name, 
+          FieldType.nullable(<#if minor.class == "Decimal">new Decimal(precision, scale)<#else>MinorType.${upperName}.getType()</#if>),
+          ${vectName}Vector.class);
       writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;
       if (currentVector == null || currentVector != vector) {

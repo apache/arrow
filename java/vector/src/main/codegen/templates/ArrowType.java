@@ -50,13 +50,35 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public abstract class ArrowType {
 
+  public static abstract class PrimitiveType extends ArrowType {
+
+    private PrimitiveType() {
+    }
+
+    @Override
+    public boolean isComplex() {
+      return false;
+    }
+  }
+
+  public static abstract class ComplexType extends ArrowType {
+
+    private ComplexType() {
+    }
+
+    @Override
+    public boolean isComplex() {
+      return true;
+    }
+  }
+
   public static enum ArrowTypeID {
     <#list arrowTypes.types as type>
     <#assign name = type.name>
     ${name?remove_ending("_")}(Type.${name}),
     </#list>
     NONE(Type.NONE);
-  
+
     private final byte flatbufType;
 
     public byte getFlatbufID() {
@@ -70,6 +92,8 @@ public abstract class ArrowType {
 
   @JsonIgnore
   public abstract ArrowTypeID getTypeID();
+  @JsonIgnore
+  public abstract boolean isComplex();
   public abstract int getType(FlatBufferBuilder builder);
   public abstract <T> T accept(ArrowTypeVisitor<T> visitor);
 
@@ -87,21 +111,56 @@ public abstract class ArrowType {
   </#list>
   }
 
+  /**
+   * to visit the Complex ArrowTypes and bundle Primitive ones in one case
+   */
+  public static abstract class ComplexTypeVisitor<T> implements ArrowTypeVisitor<T> {
+
+    public T visit(PrimitiveType type) {
+      throw new UnsupportedOperationException("Unexpected Primitive type: " + type);
+    }
+
+  <#list arrowTypes.types as type>
+    <#if !type.complex>
+    public final T visit(${type.name?remove_ending("_")} type) {
+      return visit((PrimitiveType) type);
+    }
+    </#if>
+  </#list>
+  }
+
+  /**
+   * to visit the Primitive ArrowTypes and bundle Complex ones under one case
+   */
+  public static abstract class PrimitiveTypeVisitor<T> implements ArrowTypeVisitor<T> {
+
+    public T visit(ComplexType type) {
+      throw new UnsupportedOperationException("Unexpected Complex type: " + type);
+    }
+
+  <#list arrowTypes.types as type>
+    <#if type.complex>
+    public final T visit(${type.name?remove_ending("_")} type) {
+      return visit((ComplexType) type);
+    }
+    </#if>
+  </#list>
+  }
+
   <#list arrowTypes.types as type>
   <#assign name = type.name?remove_ending("_")>
   <#assign fields = type.fields>
-  public static class ${name} extends ArrowType {
+  public static class ${name} extends <#if type.complex>ComplexType<#else>PrimitiveType</#if> {
     public static final ArrowTypeID TYPE_TYPE = ArrowTypeID.${name};
     <#if type.fields?size == 0>
     public static final ${name} INSTANCE = new ${name}();
-    </#if>
+    <#else>
 
     <#list fields as field>
     <#assign fieldType = field.valueType!field.type>
     ${fieldType} ${field.name};
     </#list>
 
-    <#if type.fields?size != 0>
     @JsonCreator
     public ${type.name}(
     <#list type.fields as field>
@@ -113,6 +172,13 @@ public abstract class ArrowType {
       this.${field.name} = ${field.name};
       </#list>
     }
+
+    <#list fields as field>
+    <#assign fieldType = field.valueType!field.type>
+    public ${fieldType} get${field.name?cap_first}() {
+      return ${field.name};
+    }
+    </#list>
     </#if>
 
     @Override
@@ -142,13 +208,6 @@ public abstract class ArrowType {
       </#list>
       return org.apache.arrow.flatbuf.${type.name}.end${type.name}(builder);
     }
-
-    <#list fields as field>
-    <#assign fieldType = field.valueType!field.type>
-    public ${fieldType} get${field.name?cap_first}() {
-      return ${field.name};
-    }
-    </#list>
 
     public String toString() {
       return "${name}"

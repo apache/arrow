@@ -22,7 +22,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
 import com.google.common.base.Preconditions;
@@ -150,7 +149,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
     case INIT:
       // TODO allow dictionaries in complex types
-      NullableMapVector map = container.addOrGet(name, MinorType.MAP, NullableMapVector.class, null);
+      NullableMapVector map = container.addOrGetMap(name);
       mapRoot = nullableMapWriterFactory.build(map);
       mapRoot.setPosition(idx());
       mode = Mode.MAP;
@@ -182,7 +181,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     case INIT:
       int vectorCount = container.size();
       // TODO allow dictionaries in complex types
-      ListVector listVector = container.addOrGet(name, MinorType.LIST, ListVector.class, null);
+      ListVector listVector = container.addOrGetList(name);
       if (container.size() > vectorCount) {
         listVector.allocateNew();
       }
