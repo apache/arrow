@@ -84,7 +84,7 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
   std::unique_ptr<PythonFile> file_;
 };
 
-// A zero-copy reader backed by a PyBytes object
+// A zero-copy reader backed by a PyBuffer object
 class ARROW_EXPORT PyBytesReader : public io::BufferReader {
  public:
   explicit PyBytesReader(PyObject* obj);

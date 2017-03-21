@@ -118,10 +118,10 @@ class ARROW_EXPORT NumPyBuffer : public Buffer {
   PyArrayObject* arr_;
 };
 
-class ARROW_EXPORT PyBytesBuffer : public Buffer {
+class ARROW_EXPORT PyBuffer : public Buffer {
  public:
-  PyBytesBuffer(PyObject* obj);
-  ~PyBytesBuffer();
+  PyBuffer(PyObject* obj);
+  ~PyBuffer();
 
  private:
   PyObject* obj_;

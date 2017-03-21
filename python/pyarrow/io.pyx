@@ -446,9 +446,7 @@ cdef class Buffer:
         raise NotImplementedError
 
     def to_pybytes(self):
-        return cp.PyBytes_FromStringAndSize(
-            <const char*>self.buffer.get().data(),
-            self.buffer.get().size())
+        return bytes(self)
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
 
@@ -505,12 +503,14 @@ cdef class BufferReader(NativeFile):
 
         if isinstance(obj, Buffer):
             self.buffer = obj
-        elif isinstance(obj, bytes):
-            buf.reset(new pyarrow.PyBytesBuffer(obj))
-            self.buffer = wrap_buffer(buf)
         else:
-            raise ValueError('Unable to convert value to buffer: {0}'
-                             .format(type(obj)))
+            try:
+                view = memoryview(obj)
+            except TypeError:
+                raise ValueError('Unable to convert value to buffer: {0}'
+                                .format(type(obj)))
+            buf.reset(new pyarrow.PyBuffer(obj))
+            self.buffer = wrap_buffer(buf)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = 1
@@ -526,7 +526,7 @@ def buffer_from_bytes(object obj):
     if not isinstance(obj, bytes):
         raise ValueError('Must pass bytes object')
 
-    buf.reset(new pyarrow.PyBytesBuffer(obj))
+    buf.reset(new pyarrow.PyBuffer(obj))
     return wrap_buffer(buf)
 
 
