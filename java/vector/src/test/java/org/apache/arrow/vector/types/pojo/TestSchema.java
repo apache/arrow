@@ -71,7 +71,7 @@ public class TestSchema {
         field("i", new ArrowType.Bool()),
         field("j", new ArrowType.Decimal(5, 5)),
         field("k", new ArrowType.Date()),
-        field("l", new ArrowType.Time()),
+        field("l", new ArrowType.Time(TimeUnit.MILLISECOND, 32)),
         field("m", new ArrowType.Timestamp(TimeUnit.MILLISECOND)),
         field("n", new ArrowType.Interval(IntervalUnit.DAY_TIME))
         ));
