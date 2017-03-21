@@ -286,6 +286,11 @@
               <artifactId>guava</artifactId>
               <version>${dep.guava.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>1.7.5</version>
+            </dependency>
           </dependencies>
           <executions>
             <execution>
