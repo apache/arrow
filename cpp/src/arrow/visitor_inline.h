@@ -31,7 +31,7 @@ namespace arrow {
     return visitor->Visit(static_cast<const TYPE_CLASS&>(type));
 
 template <typename VISITOR>
-Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
+inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.type) {
     TYPE_VISIT_INLINE(NullType);
     TYPE_VISIT_INLINE(BooleanType);
