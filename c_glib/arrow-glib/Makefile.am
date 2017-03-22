@@ -232,7 +232,8 @@ libarrow_io_glib_la_CXXFLAGS =			\
 
 libarrow_io_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_IO_LIBS)
+	$(ARROW_IO_LIBS)			\
+	libarrow-glib.la
 
 libarrow_io_glib_la_headers =			\
 	arrow-io-glib.h				\
@@ -329,7 +330,9 @@ libarrow_ipc_glib_la_CXXFLAGS =			\
 
 libarrow_ipc_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_IPC_LIBS)
+	$(ARROW_IPC_LIBS)			\
+	libarrow-glib.la			\
+	libarrow-io-glib.la
 
 libarrow_ipc_glib_la_headers =			\
 	arrow-ipc-glib.h			\
@@ -448,9 +451,7 @@ ArrowIO_1_0_gir_INCLUDES =			\
 	GObject-2.0
 ArrowIO_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
-ArrowIO_1_0_gir_LIBS =				\
-	libarrow-io-glib.la			\
-	libarrow-glib.la
+ArrowIO_1_0_gir_LIBS = libarrow-io-glib.la
 ArrowIO_1_0_gir_FILES = $(libarrow_io_glib_la_sources)
 ArrowIO_1_0_gir_SCANNERFLAGS =				\
 	--include-uninstalled=$(builddir)/Arrow-1.0.gir	\
@@ -469,10 +470,7 @@ ArrowIPC_1_0_gir_INCLUDES =			\
 	GObject-2.0
 ArrowIPC_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
-ArrowIPC_1_0_gir_LIBS =				\
-	libarrow-ipc-glib.la			\
-	libarrow-io-glib.la			\
-	libarrow-glib.la
+ArrowIPC_1_0_gir_LIBS = libarrow-ipc-glib.la
 ArrowIPC_1_0_gir_FILES = $(libarrow_ipc_glib_la_sources)
 ArrowIPC_1_0_gir_SCANNERFLAGS =					\
 	--include-uninstalled=$(builddir)/Arrow-1.0.gir		\
