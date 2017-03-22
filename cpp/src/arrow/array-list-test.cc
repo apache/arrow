@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/status.h"
+#include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 
