@@ -379,8 +379,15 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
 
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${AUG_LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+
+    if(MSVC)
+        # Mark the ”.lib” location as part of a Windows DLL
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
+    else()
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    endif()
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   elseif(ARG_STATIC_LIB)
     add_library(${LIB_NAME} STATIC IMPORTED)
@@ -397,8 +404,15 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${AUG_LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+
+    if(MSVC)
+        # Mark the ”.lib” location as part of a Windows DLL
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
+    else()
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    endif()
     message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
@@ -418,6 +432,15 @@ set(Boost_USE_MULTITHREADED ON)
 if (ARROW_BOOST_USE_SHARED)
   # Find shared Boost libraries.
   set(Boost_USE_STATIC_LIBS OFF)
+
+  if(MSVC)
+    # disable autolinking in boost
+    add_definitions(-DBOOST_ALL_NO_LIB)
+
+    # force all boost libraries to dynamic link
+    add_definitions(-DBOOST_ALL_DYN_LINK)
+  endif()
+
   find_package(Boost COMPONENTS system filesystem REQUIRED)
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
