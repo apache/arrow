@@ -45,26 +45,26 @@ class OutputStream;
 
 namespace ipc {
 
-// Write the RecordBatch (collection of equal-length Arrow arrays) to the
-// output stream in a contiguous block. The record batch metadata is written as
-// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
-// prefixed by its size, followed by each of the memory buffers in the batch
-// written end to end (with appropriate alignment and padding):
-//
-// <int32: metadata size> <uint8*: metadata> <buffers>
-//
-// Finally, the absolute offsets (relative to the start of the output stream)
-// to the end of the body and end of the metadata / data header (suffixed by
-// the header size) is returned in out-variables
-//
-// @param(in) buffer_start_offset: the start offset to use in the buffer metadata,
-// default should be 0
-//
-// @param(out) metadata_length: the size of the length-prefixed flatbuffer
-// including padding to a 64-byte boundary
-//
-// @param(out) body_length: the size of the contiguous buffer block plus
-// padding bytes
+/// Write the RecordBatch (collection of equal-length Arrow arrays) to the
+/// output stream in a contiguous block. The record batch metadata is written as
+/// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
+/// prefixed by its size, followed by each of the memory buffers in the batch
+/// written end to end (with appropriate alignment and padding):
+///
+/// <int32: metadata size> <uint8*: metadata> <buffers>
+///
+/// Finally, the absolute offsets (relative to the start of the output stream)
+/// to the end of the body and end of the metadata / data header (suffixed by
+/// the header size) is returned in out-variables
+///
+/// @param(in) buffer_start_offset the start offset to use in the buffer metadata,
+/// default should be 0
+/// @param(in) allow_64bit permit field lengths exceeding INT32_MAX. May not be
+/// readable by other Arrow implementations
+/// @param(out) metadata_length: the size of the length-prefixed flatbuffer
+/// including padding to a 64-byte boundary
+/// @param(out) body_length: the size of the contiguous buffer block plus
+/// padding bytes
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
