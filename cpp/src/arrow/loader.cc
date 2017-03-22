@@ -228,7 +228,7 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadArray(type.index_type(), context_, &indices));
     result_ = std::make_shared<DictionaryArray>(type_, indices);
     return Status::OK();
-  };
+  }
 
   std::shared_ptr<Array> result() const { return result_; }
 
