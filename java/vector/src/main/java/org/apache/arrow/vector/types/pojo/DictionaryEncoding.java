@@ -18,6 +18,8 @@
  ******************************************************************************/
 package org.apache.arrow.vector.types.pojo;
 
+import java.util.Objects;
+
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class DictionaryEncoding {
@@ -47,5 +49,21 @@ public class DictionaryEncoding {
   @Override
   public String toString() {
     return "DictionaryEncoding[id=" + id + ",ordered=" + ordered + ",indexType=" + indexType + "]";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    DictionaryEncoding that = (DictionaryEncoding) o;
+    return id == that.id && ordered == that.ordered && Objects.equals(indexType, that.indexType);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, ordered, indexType);
   }
 }
