@@ -67,7 +67,8 @@ namespace ipc {
 // padding bytes
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth);
+    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
+    bool allow_64bit = false);
 
 // Write Array as a DictionaryBatch message
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
@@ -116,13 +117,11 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
   std::unique_ptr<FileWriterImpl> impl_;
 };
 
-// ----------------------------------------------------------------------
-
-/// EXPERIMENTAL: Write record batch using LargeRecordBatch IPC metadata. This
-/// data may not be readable by all Arrow implementations
+/// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
+/// may not be readable by all Arrow implementations
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth);
+    MemoryPool* pool);
 
 }  // namespace ipc
 }  // namespace arrow

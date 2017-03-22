@@ -163,7 +163,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     RETURN_NOT_OK(WriteLargeRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
-    return ReadLargeRecordBatch(batch.schema(), 0, mmap_.get(), result);
+    return ReadRecordBatch(batch.schema(), 0, mmap_.get(), result);
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {

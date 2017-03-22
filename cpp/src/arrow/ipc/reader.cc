@@ -468,48 +468,7 @@ Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   return impl_->GetRecordBatch(i, batch);
 }
 
-// ----------------------------------------------------------------------
-// Read LargeRecordBatch
-
-class LargeRecordBatchSource : public ArrayComponentSource {
- public:
-  LargeRecordBatchSource(
-      const flatbuf::LargeRecordBatch* metadata, io::RandomAccessFile* file)
-      : metadata_(metadata), file_(file) {}
-
-  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
-    if (buffer_index >= static_cast<int>(metadata_->buffers()->size())) {
-      return Status::Invalid("Ran out of buffer metadata, likely malformed");
-    }
-    const flatbuf::Buffer* buffer = metadata_->buffers()->Get(buffer_index);
-
-    if (buffer->length() == 0) {
-      *out = nullptr;
-      return Status::OK();
-    } else {
-      return file_->ReadAt(buffer->offset(), buffer->length(), out);
-    }
-  }
-
-  Status GetFieldMetadata(int field_index, FieldMetadata* metadata) override {
-    // pop off a field
-    if (field_index >= static_cast<int>(metadata_->nodes()->size())) {
-      return Status::Invalid("Ran out of field metadata, likely malformed");
-    }
-    const flatbuf::LargeFieldNode* node = metadata_->nodes()->Get(field_index);
-
-    metadata->length = node->length();
-    metadata->null_count = node->null_count();
-    metadata->offset = 0;
-    return Status::OK();
-  }
-
- private:
-  const flatbuf::LargeRecordBatch* metadata_;
-  io::RandomAccessFile* file_;
-};
-
-Status ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->Seek(offset));
@@ -517,19 +476,19 @@ Status ReadLargeRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offse
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
   int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
 
+  std::shared_ptr<Message> message;
   RETURN_NOT_OK(file->Read(flatbuffer_size, &buffer));
-  auto message = flatbuf::GetMessage(buffer->data());
-  auto batch = reinterpret_cast<const flatbuf::LargeRecordBatch*>(message->header());
+  RETURN_NOT_OK(Message::Open(buffer, 0, &message));
+
+  RecordBatchMetadata metadata(message);
 
   // TODO(ARROW-388): The buffer offsets start at 0, so we must construct a
   // RandomAccessFile according to that frame of reference
   std::shared_ptr<Buffer> buffer_payload;
-  RETURN_NOT_OK(file->Read(message->bodyLength(), &buffer_payload));
+  RETURN_NOT_OK(file->Read(message->body_length(), &buffer_payload));
   io::BufferReader buffer_reader(buffer_payload);
 
-  LargeRecordBatchSource source(batch, &buffer_reader);
-  return LoadRecordBatchFromSource(
-      schema, batch->length(), kMaxNestingDepth, &source, out);
+  return ReadRecordBatch(metadata, schema, kMaxNestingDepth, &buffer_reader, out);
 }
 
 }  // namespace ipc

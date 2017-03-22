@@ -150,7 +150,7 @@ class ARROW_EXPORT RecordBatchMetadata {
   FieldMetadata field(int i) const;
   BufferMetadata buffer(int i) const;
 
-  int32_t length() const;
+  int64_t length() const;
   int num_buffers() const;
   int num_fields() const;
 
@@ -226,10 +226,6 @@ Status WriteSchemaMessage(
     const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
 
 Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out);
-
-Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
 

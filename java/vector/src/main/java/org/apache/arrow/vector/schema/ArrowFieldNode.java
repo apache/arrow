@@ -34,7 +34,7 @@ public class ArrowFieldNode implements FBSerializable {
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return FieldNode.createFieldNode(builder, length, nullCount);
+    return FieldNode.createFieldNode(builder, (long)length, (long)nullCount);
   }
 
   public int getNullCount() {
