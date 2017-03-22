@@ -104,7 +104,7 @@ ARROW_BENCHMARK_LINK_LIBRARIES(jemalloc-builder-benchmark
 # Headers: top level
 install(FILES
   memory_pool.h
-  DESTINATION include/arrow/jemalloc)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/jemalloc")
 
 # pkg-config support
 configure_file(arrow-jemalloc.pc.in

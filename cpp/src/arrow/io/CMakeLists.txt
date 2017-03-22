@@ -109,7 +109,7 @@ install(FILES
   hdfs.h
   interfaces.h
   memory.h
-  DESTINATION include/arrow/io)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/io")
 
 # pkg-config support
 configure_file(arrow-io.pc.in
