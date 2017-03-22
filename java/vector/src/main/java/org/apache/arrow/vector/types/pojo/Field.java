@@ -24,14 +24,6 @@ import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 import java.util.List;
 import java.util.Objects;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.schema.TypeLayout;
@@ -39,6 +31,14 @@ import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
 
 public class Field {
   private final String name;
@@ -177,18 +177,21 @@ public class Field {
   }
 
   @Override
+  public int hashCode() {
+    return Objects.hash(name, nullable, type, dictionary, children);
+  }
+
+  @Override
   public boolean equals(Object obj) {
     if (!(obj instanceof Field)) {
       return false;
     }
     Field that = (Field) obj;
     return Objects.equals(this.name, that.name) &&
-            Objects.equals(this.nullable, that.nullable) &&
-            Objects.equals(this.type, that.type) &&
+           Objects.equals(this.nullable, that.nullable) &&
+           Objects.equals(this.type, that.type) &&
            Objects.equals(this.dictionary, that.dictionary) &&
-            (Objects.equals(this.children, that.children) ||
-                    (this.children == null || this.children.size() == 0) &&
-                    (that.children == null || that.children.size() == 0));
+           Objects.equals(this.children, that.children);
   }
 
   @Override
