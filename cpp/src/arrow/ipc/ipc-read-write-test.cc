@@ -117,10 +117,10 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   CheckRoundtrip(schema, &memo);
 }
 
-#define BATCH_CASES()                                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
-      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
-      &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDate, &MakeTimestamps, &MakeTimes, \
+#define BATCH_CASES()                                                                    \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
+      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,    \
+      &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes, \
       &MakeFWBinary);
 
 class IpcTestFixture : public io::MemoryMapFixture {

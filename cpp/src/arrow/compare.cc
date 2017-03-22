@@ -169,10 +169,12 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DateArray& left) override { return CompareValues<DateArray>(left); }
-
   Status Visit(const Date32Array& left) override {
     return CompareValues<Date32Array>(left);
+  }
+
+  Status Visit(const Date64Array& left) override {
+    return CompareValues<Date64Array>(left);
   }
 
   Status Visit(const TimeArray& left) override { return CompareValues<TimeArray>(left); }
@@ -409,9 +411,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const DoubleArray& left) override { return ComparePrimitive(left); }
 
-  Status Visit(const DateArray& left) override { return ComparePrimitive(left); }
-
   Status Visit(const Date32Array& left) override { return ComparePrimitive(left); }
+
+  Status Visit(const Date64Array& left) override { return ComparePrimitive(left); }
 
   Status Visit(const TimeArray& left) override { return ComparePrimitive(left); }
 

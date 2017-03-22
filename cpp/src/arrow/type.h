@@ -71,11 +71,11 @@ struct Type {
     // Fixed-width binary. Each value occupies the same number of bytes
     FIXED_WIDTH_BINARY,
 
-    // int64_t milliseconds since the UNIX epoch
-    DATE,
-
     // int32_t days since the UNIX epoch
     DATE32,
+
+    // int64_t milliseconds since the UNIX epoch
+    DATE64,
 
     // Exact timestamp encoded with int64 since UNIX epoch
     // Default unit millisecond
@@ -139,7 +139,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const StringType& type);
   virtual Status Visit(const BinaryType& type);
   virtual Status Visit(const FixedWidthBinaryType& type);
-  virtual Status Visit(const DateType& type);
+  virtual Status Visit(const Date64Type& type);
   virtual Status Visit(const Date32Type& type);
   virtual Status Visit(const TimeType& type);
   virtual Status Visit(const TimestampType& type);
@@ -245,7 +245,7 @@ struct ARROW_EXPORT CTypeImpl : public PrimitiveCType {
   std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
-struct ARROW_EXPORT NullType : public DataType {
+struct ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::NA;
 
   NullType() : DataType(Type::NA) {}
@@ -263,7 +263,7 @@ struct IntegerTypeImpl : public CTypeImpl<DERIVED, TYPE_ID, C_TYPE>, public Inte
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
-struct ARROW_EXPORT BooleanType : public FixedWidthType {
+struct ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BOOL;
 
   BooleanType() : FixedWidthType(Type::BOOL) {}
@@ -455,23 +455,8 @@ struct ARROW_EXPORT UnionType : public DataType {
 // ----------------------------------------------------------------------
 // Date and time types
 
-/// Date as int64_t milliseconds since UNIX epoch
-struct ARROW_EXPORT DateType : public FixedWidthType {
-  static constexpr Type::type type_id = Type::DATE;
-
-  using c_type = int64_t;
-
-  DateType() : FixedWidthType(Type::DATE) {}
-
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
-
-  Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override;
-  static std::string name() { return "date"; }
-};
-
 /// Date as int32_t days since UNIX epoch
-struct ARROW_EXPORT Date32Type : public FixedWidthType {
+struct ARROW_EXPORT Date32Type : public FixedWidthType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::DATE32;
 
   using c_type = int32_t;
@@ -482,6 +467,21 @@ struct ARROW_EXPORT Date32Type : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+};
+
+/// Date as int64_t milliseconds since UNIX epoch
+struct ARROW_EXPORT Date64Type : public FixedWidthType, public NoExtraMeta {
+  static constexpr Type::type type_id = Type::DATE64;
+
+  using c_type = int64_t;
+
+  Date64Type() : FixedWidthType(Type::DATE64) {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+  static std::string name() { return "date"; }
 };
 
 enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
@@ -666,8 +666,8 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
     case Type::DOUBLE:
-    case Type::DATE:
     case Type::DATE32:
+    case Type::DATE64:
     case Type::TIMESTAMP:
     case Type::TIME:
     case Type::INTERVAL:

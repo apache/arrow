@@ -228,8 +228,9 @@ cdef set PRIMITIVE_TYPES = set([
     la.Type_UINT16, la.Type_INT16,
     la.Type_UINT32, la.Type_INT32,
     la.Type_UINT64, la.Type_INT64,
-    la.Type_TIMESTAMP, la.Type_DATE,
-    la.Type_FLOAT, la.Type_DOUBLE])
+    la.Type_TIMESTAMP, la.Type_DATE32,
+    la.Type_DATE64, la.Type_FLOAT,
+    la.Type_DOUBLE])
 
 
 def null():
@@ -319,8 +320,12 @@ def timestamp(unit_str, tz=None):
     return out
 
 
-def date():
-    return primitive_type(la.Type_DATE)
+def date32():
+    return primitive_type(la.Type_DATE32)
+
+
+def date64():
+    return primitive_type(la.Type_DATE64)
 
 
 def float_():

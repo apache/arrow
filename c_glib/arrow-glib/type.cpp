@@ -66,8 +66,10 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_STRING;
   case arrow::Type::type::BINARY:
     return GARROW_TYPE_BINARY;
-  case arrow::Type::type::DATE:
-    return GARROW_TYPE_DATE;
+  case arrow::Type::type::DATE32:
+    return GARROW_TYPE_DATE32;
+  case arrow::Type::type::DATE64:
+    return GARROW_TYPE_DATE64;
   case arrow::Type::type::TIMESTAMP:
     return GARROW_TYPE_TIMESTAMP;
   case arrow::Type::type::TIME:

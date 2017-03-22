@@ -82,7 +82,7 @@ class ScalarVisitor {
       // TODO(wesm): tighter type later
       return int64();
     } else if (date_count_) {
-      return date();
+      return date64();
     } else if (timestamp_count_) {
       return timestamp(TimeUnit::MICRO);
     } else if (bool_count_) {
@@ -291,7 +291,7 @@ class Int64Converter : public TypedConverter<Int64Builder> {
   }
 };
 
-class DateConverter : public TypedConverter<DateBuilder> {
+class DateConverter : public TypedConverter<Date64Builder> {
  public:
   Status AppendData(PyObject* seq) override {
     Py_ssize_t size = PySequence_Size(seq);
@@ -457,7 +457,7 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<BoolConverter>();
     case Type::INT64:
       return std::make_shared<Int64Converter>();
-    case Type::DATE:
+    case Type::DATE64:
       return std::make_shared<DateConverter>();
     case Type::TIMESTAMP:
       return std::make_shared<TimestampConverter>();

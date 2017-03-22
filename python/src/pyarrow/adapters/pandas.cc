@@ -379,7 +379,7 @@ Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-  DateBuilder date_builder(pool_);
+  Date64Builder date_builder(pool_);
   RETURN_NOT_OK(date_builder.Resize(length_));
 
   Status s;
@@ -477,7 +477,7 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
         return ConvertObjectStrings(out);
       case Type::BOOL:
         return ConvertBooleans(out);
-      case Type::DATE:
+      case Type::DATE64:
         return ConvertDates(out);
       case Type::LIST: {
         const auto& list_field = static_cast<const ListType&>(*type_);
@@ -725,7 +725,7 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out)
           break;
       }
     } else {
-      // datatype->type == Type::DATE
+      // datatype->type == Type::DATE64
       date_dtype->meta.base = NPY_FR_D;
     }
   }
@@ -1245,8 +1245,8 @@ class DatetimeBlock : public PandasBlock {
 
     const ChunkedArray& data = *col.get()->data();
 
-    if (type == Type::DATE) {
-      // DateType is millisecond timestamp stored as int64_t
+    if (type == Type::DATE64) {
+      // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
       ConvertDatetimeNanos<int64_t, 1000000L>(data, out_buffer);
     } else if (type == Type::TIMESTAMP) {
@@ -1490,7 +1490,7 @@ class DataFrameBlockCreator {
         case Type::BINARY:
           output_type = PandasBlock::OBJECT;
           break;
-        case Type::DATE:
+        case Type::DATE64:
           output_type = PandasBlock::DATETIME;
           break;
         case Type::TIMESTAMP: {
@@ -1752,7 +1752,7 @@ class ArrowDeserializer {
       CONVERT_CASE(DOUBLE);
       CONVERT_CASE(BINARY);
       CONVERT_CASE(STRING);
-      CONVERT_CASE(DATE);
+      CONVERT_CASE(DATE64);
       CONVERT_CASE(TIMESTAMP);
       CONVERT_CASE(DICTIONARY);
       CONVERT_CASE(LIST);
@@ -1771,7 +1771,7 @@ class ArrowDeserializer {
 
   template <int TYPE>
   inline typename std::enable_if<
-      (TYPE != Type::DATE) & arrow_traits<TYPE>::is_numeric_nullable, Status>::type
+      (TYPE != Type::DATE64) & arrow_traits<TYPE>::is_numeric_nullable, Status>::type
   ConvertValues() {
     typedef typename arrow_traits<TYPE>::T T;
     int npy_type = arrow_traits<TYPE>::npy_type;
@@ -1788,7 +1788,7 @@ class ArrowDeserializer {
   }
 
   template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DATE, Status>::type ConvertValues() {
+  inline typename std::enable_if<TYPE == Type::DATE64, Status>::type ConvertValues() {
     typedef typename arrow_traits<TYPE>::T T;
 
     RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));

@@ -171,9 +171,9 @@ class ArrayPrinter : public ArrayVisitor {
 
   Status Visit(const FixedWidthBinaryArray& array) override { return WriteArray(array); }
 
-  Status Visit(const DateArray& array) override { return WriteArray(array); }
-
   Status Visit(const Date32Array& array) override { return WriteArray(array); }
+
+  Status Visit(const Date64Array& array) override { return WriteArray(array); }
 
   Status Visit(const TimeArray& array) override { return WriteArray(array); }
 

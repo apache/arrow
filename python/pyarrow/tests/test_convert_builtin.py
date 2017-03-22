@@ -97,7 +97,7 @@ class TestConvertList(unittest.TestCase):
                 datetime.date(2040, 2, 26)]
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 4
-        assert arr.type == pyarrow.date()
+        assert arr.type == pyarrow.date64()
         assert arr.null_count == 1
         assert arr[0].as_py() == datetime.date(2000, 1, 1)
         assert arr[1].as_py() is None

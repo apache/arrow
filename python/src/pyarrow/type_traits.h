@@ -180,7 +180,7 @@ struct arrow_traits<Type::TIMESTAMP> {
 };
 
 template <>
-struct arrow_traits<Type::DATE> {
+struct arrow_traits<Type::DATE64> {
   static constexpr int npy_type = NPY_DATETIME;
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = kPandasTimestampNull;

@@ -463,33 +463,22 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDate(std::shared_ptr<RecordBatch>* out) {
-  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
-  auto f1 = field("f1", date());
-  std::shared_ptr<Schema> schema(new Schema({f1}));
-
-  std::vector<int64_t> date_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
-
-  std::shared_ptr<Array> date_array;
-  ArrayFromVector<DateType, int64_t>(is_valid, date_values, &date_array);
-
-  std::vector<std::shared_ptr<Array>> arrays = {date_array};
-  *out = std::make_shared<RecordBatch>(schema, date_array->length(), arrays);
-  return Status::OK();
-}
-
-Status MakeDate32(std::shared_ptr<RecordBatch>* out) {
+Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
-  std::shared_ptr<Schema> schema(new Schema({f0}));
+  auto f1 = field("f1", date64());
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   std::vector<int32_t> date32_values = {0, 1, 2, 3, 4, 5, 6};
-
   std::shared_ptr<Array> date32_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
-  std::vector<std::shared_ptr<Array>> arrays = {date32_array};
+  std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
+      1489272000000, 1489272000000, 1489273000000};
+  std::shared_ptr<Array> date64_array;
+  ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
+
+  std::vector<std::shared_ptr<Array>> arrays = {date32_array, date64_array};
   *out = std::make_shared<RecordBatch>(schema, date32_array->length(), arrays);
   return Status::OK();
 }
