@@ -107,7 +107,7 @@ public class Types {
   private static final Field UINT2_FIELD = new Field("", true, new Int(16, false), null);
   private static final Field UINT4_FIELD = new Field("", true, new Int(32, false), null);
   private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
-  private static final Field DATE_FIELD = new Field("", true, Date.INSTANCE, null);
+  private static final Field DATE_FIELD = new Field("", true, new Date(DateUnit.MILLISECOND), null);
   private static final Field TIME_FIELD = new Field("", true, new Time(TimeUnit.MILLISECOND, 32), null);
   private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND, "UTC"), null);
   private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null);
@@ -219,7 +219,7 @@ public class Types {
         return new BigIntWriterImpl((NullableBigIntVector) vector);
       }
     },
-    DATE(Date.INSTANCE) {
+    DATE(new Date(DateUnit.MILLISECOND)) {
       @Override
       public Field getField() {
         return DATE_FIELD;
