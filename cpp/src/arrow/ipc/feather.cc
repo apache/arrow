@@ -287,7 +287,7 @@ class TableReader::TableReaderImpl {
         } else {
           tz = "";
         }
-        *out = std::make_shared<TimestampType>(tz, unit);
+        *out = timestamp(unit, tz);
       } break;
       case fbs::TypeMetadata_DateMetadata:
         *out = date32();

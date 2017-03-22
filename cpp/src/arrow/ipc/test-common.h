@@ -497,7 +497,7 @@ Status MakeDate32(std::shared_ptr<RecordBatch>* out) {
 Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", timestamp(TimeUnit::MILLI));
-  auto f1 = field("f1", timestamp(TimeUnit::NANO));
+  auto f1 = field("f1", timestamp(TimeUnit::NANO, "America/New_York"));
   auto f2 = field("f2", timestamp(TimeUnit::SECOND));
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 

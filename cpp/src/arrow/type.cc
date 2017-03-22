@@ -244,8 +244,8 @@ std::shared_ptr<DataType> timestamp(TimeUnit unit) {
   return std::make_shared<TimestampType>(unit);
 }
 
-std::shared_ptr<DataType> timestamp(const std::string& timezone, TimeUnit unit) {
-  return std::make_shared<TimestampType>(timezone, unit);
+std::shared_ptr<DataType> timestamp(TimeUnit unit, const std::string& timezone) {
+  return std::make_shared<TimestampType>(unit, timezone);
 }
 
 std::shared_ptr<DataType> time(TimeUnit unit) {

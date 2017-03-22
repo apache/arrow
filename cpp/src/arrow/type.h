@@ -532,7 +532,7 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
   explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
       : FixedWidthType(Type::TIMESTAMP), unit(unit) {}
 
-  explicit TimestampType(const std::string& timezone, TimeUnit unit = TimeUnit::MILLI)
+  explicit TimestampType(TimeUnit unit, const std::string& timezone)
       : FixedWidthType(Type::TIMESTAMP), unit(unit), timezone(timezone) {}
 
   TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
@@ -603,7 +603,7 @@ std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& val
 
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit unit);
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(
-    const std::string& timezone, TimeUnit unit);
+    TimeUnit unit, const std::string& timezone);
 std::shared_ptr<DataType> ARROW_EXPORT time(TimeUnit unit);
 
 std::shared_ptr<DataType> ARROW_EXPORT struct_(

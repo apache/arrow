@@ -46,6 +46,7 @@ using LargeRecordBatchOffset = flatbuffers::Offset<flatbuf::LargeRecordBatch>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
+using FBString = flatbuffers::Offset<flatbuffers::String>;
 
 static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V2;
 
@@ -250,7 +251,12 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Timestamp: {
       auto ts_type = static_cast<const flatbuf::Timestamp*>(type_data);
-      *out = timestamp(FromFlatbufferUnit(ts_type->unit()));
+      TimeUnit unit = FromFlatbufferUnit(ts_type->unit());
+      if (ts_type->timezone() != 0 && ts_type->timezone()->Length() > 0) {
+        *out = timestamp(unit, ts_type->timezone()->str());
+      } else {
+        *out = timestamp(unit);
+      }
       return Status::OK();
     }
     case flatbuf::Type_Interval:
@@ -364,7 +370,13 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::TIMESTAMP: {
       const auto& ts_type = static_cast<const TimestampType&>(*type);
       *out_type = flatbuf::Type_Timestamp;
-      *offset = flatbuf::CreateTimestamp(fbb, ToFlatbufferUnit(ts_type.unit)).Union();
+
+      flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit);
+      FBString fb_timezone = 0;
+      if (ts_type.timezone.size() > 0) {
+        fb_timezone = fbb.CreateString(ts_type.timezone);
+      }
+      *offset = flatbuf::CreateTimestamp(fbb, fb_unit, fb_timezone).Union();
     } break;
     case Type::LIST:
       *out_type = flatbuf::Type_List;

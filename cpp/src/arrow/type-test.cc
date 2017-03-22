@@ -209,7 +209,7 @@ TEST(TestTimestampType, Equals) {
 
 TEST(TestTimestampType, ToString) {
   auto t1 = timestamp(TimeUnit::MILLI);
-  auto t2 = timestamp("US/Eastern", TimeUnit::NANO);
+  auto t2 = timestamp(TimeUnit::NANO, "US/Eastern");
   auto t3 = timestamp(TimeUnit::SECOND);
   auto t4 = timestamp(TimeUnit::MICRO);
 

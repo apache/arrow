@@ -355,7 +355,7 @@ TEST_F(TestTableWriter, TimeTypes) {
   auto f0 = field("f0", date32());
   auto f1 = field("f1", time(TimeUnit::MILLI));
   auto f2 = field("f2", timestamp(TimeUnit::NANO));
-  auto f3 = field("f3", timestamp("US/Los_Angeles", TimeUnit::SECOND));
+  auto f3 = field("f3", timestamp(TimeUnit::SECOND, "US/Los_Angeles"));
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));
 
   std::vector<int64_t> values_vec = {0, 1, 2, 3, 4, 5, 6};
