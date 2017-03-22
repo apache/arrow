@@ -24,6 +24,7 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
@@ -105,6 +106,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   TransferPair getTransferPair(BufferAllocator allocator);
 
   TransferPair getTransferPair(String ref, BufferAllocator allocator);
+
+  TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack);
 
   /**
    * Returns a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to transfer underlying

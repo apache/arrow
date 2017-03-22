@@ -29,6 +29,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 import com.google.common.base.Preconditions;
@@ -44,15 +45,17 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   protected final UInt4Vector offsets;
   protected FieldVector vector;
+  protected final CallBack callBack;
 
-  protected BaseRepeatedValueVector(String name, BufferAllocator allocator) {
-    this(name, allocator, DEFAULT_DATA_VECTOR);
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, DEFAULT_DATA_VECTOR, callBack);
   }
 
-  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector) {
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
     super(name, allocator);
     this.offsets = new UInt4Vector(OFFSETS_VECTOR_NAME, allocator);
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
+    this.callBack = callBack;
   }
 
   @Override
@@ -154,9 +157,12 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType, DictionaryEncoding dictionary) {
     boolean created = false;
     if (vector instanceof ZeroVector) {
-      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, dictionary, null);
+      vector = minorType.getNewVector(DATA_VECTOR_NAME, allocator, dictionary, callBack);
       // returned vector must have the same field
       created = true;
+      if (callBack != null) {
+        callBack.doWork();
+      }
     }
 
     if (vector.getField().getType().getTypeID() != minorType.getType().getTypeID()) {

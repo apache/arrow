@@ -29,8 +29,10 @@ import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
@@ -49,7 +51,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
+import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Assert;
@@ -65,7 +71,38 @@ public class TestComplexWriter {
 
   @Test
   public void simpleNestedTypes() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = populateMapVector(null);
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    for (int i = 0; i < COUNT; i++) {
+      rootReader.setPosition(i);
+      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
+      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+    }
+
+    parent.close();
+  }
+
+  @Test
+  public void transferPairSchemaChange() {
+    SchemaChangeCallBack callBack1 = new SchemaChangeCallBack();
+    SchemaChangeCallBack callBack2 = new SchemaChangeCallBack();
+    MapVector parent = populateMapVector(callBack1);
+
+    TransferPair tp = parent.getTransferPair("newVector", allocator, callBack2);
+
+    ComplexWriter writer = new ComplexWriterImpl("newWriter", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("newInt");
+    intWriter.writeInt(1);
+    writer.setValueCount(1);
+
+    assertTrue(callBack1.getSchemaChangedAndReset());
+    // The second vector should not have registered a schema change
+    assertFalse(callBack1.getSchemaChangedAndReset());
+  }
+
+  private MapVector populateMapVector(CallBack callBack) {
+    MapVector parent = new MapVector("parent", allocator, callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -77,14 +114,7 @@ public class TestComplexWriter {
       rootWriter.end();
     }
     writer.setValueCount(COUNT);
-    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
-    for (int i = 0; i < COUNT; i++) {
-      rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
-    }
-
-    parent.close();
+    return parent;
   }
 
   @Test
@@ -645,5 +675,43 @@ public class TestComplexWriter {
     Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
     long nanoLong = nanoReader.readLong();
     Assert.assertEquals(expectedNanos, nanoLong);
+  }
+
+  @Test
+  public void complexCopierWithList() {
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    ListWriter listWriter = rootWriter.list("list");
+    MapWriter innerMapWriter = listWriter.map();
+    IntWriter outerIntWriter = listWriter.integer();
+    rootWriter.start();
+    listWriter.startList();
+    outerIntWriter.writeInt(1);
+    outerIntWriter.writeInt(2);
+    innerMapWriter.start();
+    IntWriter intWriter = innerMapWriter.integer("a");
+    intWriter.writeInt(1);
+    innerMapWriter.end();
+    innerMapWriter.start();
+    intWriter = innerMapWriter.integer("a");
+    intWriter.writeInt(2);
+    innerMapWriter.end();
+    listWriter.endList();
+    rootWriter.end();
+    writer.setValueCount(1);
+
+    NullableMapVector mapVector = (NullableMapVector) parent.getChild("root");
+    TransferPair tp = mapVector.getTransferPair(allocator);
+    tp.splitAndTransfer(0, 1);
+    MapVector toMapVector = (MapVector) tp.getTo();
+    JsonStringHashMap<?,?> toMapValue = (JsonStringHashMap<?,?>) toMapVector.getAccessor().getObject(0);
+    JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
+    assertEquals(1, object.get(0));
+    assertEquals(2, object.get(1));
+    JsonStringHashMap<?,?> innerMap = (JsonStringHashMap<?,?>) object.get(2);
+    assertEquals(1, innerMap.get("a"));
+    innerMap = (JsonStringHashMap<?,?>) object.get(3);
+    assertEquals(2, innerMap.get("a"));
   }
 }

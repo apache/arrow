@@ -236,12 +236,17 @@ public class UnionVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new TransferImpl(name, allocator);
+    return getTransferPair(name, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
+    return getTransferPair(ref, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(ref, allocator, callBack);
   }
 
   @Override
@@ -276,8 +281,8 @@ public class UnionVector implements FieldVector {
     private final TransferPair typeVectorTransferPair;
     private final UnionVector to;
 
-    public TransferImpl(String name, BufferAllocator allocator) {
-      to = new UnionVector(name, allocator, null);
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      to = new UnionVector(name, allocator, callBack);
       internalMapVectorTransferPair = internalMap.makeTransferPair(to.internalMap);
       typeVectorTransferPair = typeVector.makeTransferPair(to.typeVector);
     }

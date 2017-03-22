@@ -24,10 +24,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -52,6 +48,11 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
+
 public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   final UInt4Vector offsets;
@@ -59,17 +60,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   private final List<BufferBacked> innerVectors;
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
-  private UnionListWriter writer;
   private UnionListReader reader;
   private CallBack callBack;
   private final DictionaryEncoding dictionary;
 
   public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
-    super(name, allocator);
+    super(name, allocator, callBack);
     this.bits = new BitVector("$bits$", allocator);
     this.offsets = getOffsetVector();
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, offsets));
-    this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
     this.dictionary = dictionary;
     this.callBack = callBack;
@@ -86,6 +85,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     if (!addOrGetVector.isCreated()) {
       throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
     }
+
+    addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
   }
 
   @Override
@@ -111,7 +112,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   public UnionListWriter getWriter() {
-    return writer;
+    return new UnionListWriter(this);
   }
 
   @Override
@@ -139,7 +140,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
+    return getTransferPair(ref, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(ref, allocator, callBack);
   }
 
   @Override
@@ -152,8 +158,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     ListVector to;
     TransferPair pairs[] = new TransferPair[3];
 
-    public TransferImpl(String name, BufferAllocator allocator) {
-      this(new ListVector(name, allocator, dictionary, null));
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      this(new ListVector(name, allocator, dictionary, callBack));
     }
 
     public TransferImpl(ListVector to) {
@@ -172,6 +178,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
       for (TransferPair pair : pairs) {
         pair.transfer();
       }
+      to.lastSet = lastSet;
     }
 
     @Override
@@ -282,9 +289,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector(name, allocator, null);
+    UnionVector vector = new UnionVector(name, allocator, callBack);
     replaceDataVector(vector);
     reader = new UnionListReader(this);
+    if (callBack != null) {
+      callBack.doWork();
+    }
     return vector;
   }
 
