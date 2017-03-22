@@ -28,7 +28,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
 include(ExternalProject)
-include(GNUInstallDirs)
+
+if(CMAKE_MAJOR_VERSION LESS 3)
+  set(CMAKE_INSTALL_INCLUDEDIR "include")
+  set(CMAKE_INSTALL_LIBDIR "lib")
+else()
+  include(GNUInstallDirs)
+endif()
 
 set(ARROW_SO_VERSION "0")
 set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
