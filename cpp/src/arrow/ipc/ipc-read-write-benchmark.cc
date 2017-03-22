@@ -117,8 +117,18 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-BENCHMARK(BM_WriteRecordBatch)->RangeMultiplier(2)->Range(1, 1 << 14)->MinTime(0.5);
+BENCHMARK(BM_WriteRecordBatch)
+    ->RangeMultiplier(4)
+    ->Range(1, 1 << 13)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond)
+    ->UseRealTime();
 
-BENCHMARK(BM_ReadRecordBatch)->RangeMultiplier(2)->Range(1, 1 << 14)->MinTime(0.5);
+BENCHMARK(BM_ReadRecordBatch)
+    ->RangeMultiplier(4)
+    ->Range(1, 1 << 13)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond)
+    ->UseRealTime();
 
 }  // namespace arrow
