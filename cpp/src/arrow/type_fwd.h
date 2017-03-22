@@ -18,6 +18,8 @@
 #ifndef ARROW_TYPE_FWD_H
 #define ARROW_TYPE_FWD_H
 
+#include <memory>
+
 #include "arrow/util/visibility.h"
 
 namespace arrow {

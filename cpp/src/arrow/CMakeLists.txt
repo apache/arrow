@@ -34,6 +34,7 @@ install(FILES
   type_fwd.h
   type_traits.h
   test-util.h
+  visitor.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow")
 
 # pkg-config support

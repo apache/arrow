@@ -28,6 +28,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 
@@ -466,41 +467,6 @@ Status UnionArray::Accept(ArrayVisitor* visitor) const {
 
 Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
   return visitor->Visit(*this);
-}
-
-#define ARRAY_VISITOR_DEFAULT(ARRAY_CLASS)                   \
-  Status ArrayVisitor::Visit(const ARRAY_CLASS& array) {     \
-    return Status::NotImplemented(array.type()->ToString()); \
-  }
-
-ARRAY_VISITOR_DEFAULT(NullArray);
-ARRAY_VISITOR_DEFAULT(BooleanArray);
-ARRAY_VISITOR_DEFAULT(Int8Array);
-ARRAY_VISITOR_DEFAULT(Int16Array);
-ARRAY_VISITOR_DEFAULT(Int32Array);
-ARRAY_VISITOR_DEFAULT(Int64Array);
-ARRAY_VISITOR_DEFAULT(UInt8Array);
-ARRAY_VISITOR_DEFAULT(UInt16Array);
-ARRAY_VISITOR_DEFAULT(UInt32Array);
-ARRAY_VISITOR_DEFAULT(UInt64Array);
-ARRAY_VISITOR_DEFAULT(HalfFloatArray);
-ARRAY_VISITOR_DEFAULT(FloatArray);
-ARRAY_VISITOR_DEFAULT(DoubleArray);
-ARRAY_VISITOR_DEFAULT(BinaryArray);
-ARRAY_VISITOR_DEFAULT(StringArray);
-ARRAY_VISITOR_DEFAULT(FixedWidthBinaryArray);
-ARRAY_VISITOR_DEFAULT(Date32Array);
-ARRAY_VISITOR_DEFAULT(Date64Array);
-ARRAY_VISITOR_DEFAULT(TimeArray);
-ARRAY_VISITOR_DEFAULT(TimestampArray);
-ARRAY_VISITOR_DEFAULT(IntervalArray);
-ARRAY_VISITOR_DEFAULT(ListArray);
-ARRAY_VISITOR_DEFAULT(StructArray);
-ARRAY_VISITOR_DEFAULT(UnionArray);
-ARRAY_VISITOR_DEFAULT(DictionaryArray);
-
-Status ArrayVisitor::Visit(const DecimalArray& array) {
-  return Status::NotImplemented("decimal");
 }
 
 // ----------------------------------------------------------------------

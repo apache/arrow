@@ -31,44 +31,13 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 
 class MemoryPool;
 class MutableBuffer;
 class Status;
-
-class ARROW_EXPORT ArrayVisitor {
- public:
-  virtual ~ArrayVisitor() = default;
-
-  virtual Status Visit(const NullArray& array);
-  virtual Status Visit(const BooleanArray& array);
-  virtual Status Visit(const Int8Array& array);
-  virtual Status Visit(const Int16Array& array);
-  virtual Status Visit(const Int32Array& array);
-  virtual Status Visit(const Int64Array& array);
-  virtual Status Visit(const UInt8Array& array);
-  virtual Status Visit(const UInt16Array& array);
-  virtual Status Visit(const UInt32Array& array);
-  virtual Status Visit(const UInt64Array& array);
-  virtual Status Visit(const HalfFloatArray& array);
-  virtual Status Visit(const FloatArray& array);
-  virtual Status Visit(const DoubleArray& array);
-  virtual Status Visit(const StringArray& array);
-  virtual Status Visit(const BinaryArray& array);
-  virtual Status Visit(const FixedWidthBinaryArray& array);
-  virtual Status Visit(const Date32Array& array);
-  virtual Status Visit(const Date64Array& array);
-  virtual Status Visit(const TimeArray& array);
-  virtual Status Visit(const TimestampArray& array);
-  virtual Status Visit(const IntervalArray& array);
-  virtual Status Visit(const DecimalArray& array);
-  virtual Status Visit(const ListArray& array);
-  virtual Status Visit(const StructArray& array);
-  virtual Status Visit(const UnionArray& array);
-  virtual Status Visit(const DictionaryArray& type);
-};
 
 /// Immutable data array with some logical type and some length.
 ///
