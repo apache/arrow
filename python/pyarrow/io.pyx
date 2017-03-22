@@ -505,12 +505,17 @@ cdef class BufferReader(NativeFile):
 
         if isinstance(obj, Buffer):
             self.buffer = obj
-        elif isinstance(obj, bytes):
-            buf.reset(new pyarrow.PyBytesBuffer(obj))
-            self.buffer = wrap_buffer(buf)
         else:
-            raise ValueError('Unable to convert value to buffer: {0}'
-                             .format(type(obj)))
+            try:
+                view = memoryview(obj)
+            except TypeError:
+                raise ValueError('Unable to convert value to Buffer: {0}'
+                                .format(type(obj)))
+            if view.ndim != 1 or view.itemsize != 1:
+                raise ValueError('Value must be one-dimensional and byte-sized to convert to Buffer: {0}'
+                                .format(type(obj)))
+            buf.reset(new pyarrow.PyBytesBuffer(view.obj))
+            self.buffer = wrap_buffer(buf)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = 1
