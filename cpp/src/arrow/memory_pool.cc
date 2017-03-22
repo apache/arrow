@@ -19,10 +19,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <iostream>
 #include <mutex>
 #include <sstream>
 #include <stdlib.h>
-#include <iostream>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

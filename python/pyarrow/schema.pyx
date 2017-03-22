@@ -314,7 +314,7 @@ def timestamp(unit_str, tz=None):
             tz = tz.zone
 
         c_timezone = tobytes(tz)
-        out.init(la.timestamp(c_timezone, unit))
+        out.init(la.timestamp(unit, c_timezone))
 
     return out
 

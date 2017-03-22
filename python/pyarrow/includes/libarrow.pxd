@@ -99,14 +99,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] dictionary()
 
     shared_ptr[CDataType] timestamp(TimeUnit unit)
-    shared_ptr[CDataType] timestamp(const c_string& timezone, TimeUnit unit)
+    shared_ptr[CDataType] timestamp(TimeUnit unit, const c_string& timezone)
 
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
 
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
-        
+
     cdef cppclass CBuffer" arrow::Buffer":
         uint8_t* data()
         int64_t size()
