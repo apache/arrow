@@ -96,15 +96,17 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
 }
 
 TEST(TestJsonSchemaWriter, FlatTypes) {
+  // TODO
+  // field("f14", date32())
   std::vector<std::shared_ptr<Field>> fields = {field("f0", int8()),
       field("f1", int16(), false), field("f2", int32()), field("f3", int64(), false),
       field("f4", uint8()), field("f5", uint16()), field("f6", uint32()),
       field("f7", uint64()), field("f8", float32()), field("f9", float64()),
       field("f10", utf8()), field("f11", binary()), field("f12", list(int32())),
       field("f13", struct_({field("s1", int32()), field("s2", utf8())})),
-      field("f14", date()), field("f15", timestamp(TimeUnit::NANO)),
-      field("f16", time(TimeUnit::MICRO)),
-      field("f17", union_({field("u1", int8()), field("u2", time(TimeUnit::MILLI))},
+      field("f15", date64()), field("f16", timestamp(TimeUnit::NANO)),
+      field("f17", time(TimeUnit::MICRO)),
+      field("f18", union_({field("u1", int8()), field("u2", time(TimeUnit::MILLI))},
                        {0, 1}, UnionMode::DENSE))};
 
   Schema schema(fields);

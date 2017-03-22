@@ -238,8 +238,8 @@ template class PrimitiveBuilder<Int8Type>;
 template class PrimitiveBuilder<Int16Type>;
 template class PrimitiveBuilder<Int32Type>;
 template class PrimitiveBuilder<Int64Type>;
-template class PrimitiveBuilder<DateType>;
 template class PrimitiveBuilder<Date32Type>;
+template class PrimitiveBuilder<Date64Type>;
 template class PrimitiveBuilder<TimestampType>;
 template class PrimitiveBuilder<TimeType>;
 template class PrimitiveBuilder<HalfFloatType>;
@@ -531,7 +531,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(INT32, Int32Builder);
     BUILDER_CASE(UINT64, UInt64Builder);
     BUILDER_CASE(INT64, Int64Builder);
-    BUILDER_CASE(DATE, DateBuilder);
+    BUILDER_CASE(DATE32, Date32Builder);
+    BUILDER_CASE(DATE64, Date64Builder);
     case Type::TIMESTAMP:
       out->reset(new TimestampBuilder(pool, type));
       return Status::OK();

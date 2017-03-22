@@ -110,12 +110,12 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
-std::string DateType::ToString() const {
-  return std::string("date");
+std::string Date64Type::ToString() const {
+  return std::string("date64[ms]");
 }
 
 std::string Date32Type::ToString() const {
-  return std::string("date32");
+  return std::string("date32[day]");
 }
 
 std::string TimeType::ToString() const {
@@ -205,7 +205,7 @@ ACCEPT_VISITOR(ListType);
 ACCEPT_VISITOR(StructType);
 ACCEPT_VISITOR(DecimalType);
 ACCEPT_VISITOR(UnionType);
-ACCEPT_VISITOR(DateType);
+ACCEPT_VISITOR(Date64Type);
 ACCEPT_VISITOR(Date32Type);
 ACCEPT_VISITOR(TimeType);
 ACCEPT_VISITOR(TimestampType);
@@ -233,7 +233,7 @@ TYPE_FACTORY(float32, FloatType);
 TYPE_FACTORY(float64, DoubleType);
 TYPE_FACTORY(utf8, StringType);
 TYPE_FACTORY(binary, BinaryType);
-TYPE_FACTORY(date, DateType);
+TYPE_FACTORY(date64, Date64Type);
 TYPE_FACTORY(date32, Date32Type);
 
 std::shared_ptr<DataType> fixed_width_binary(int32_t byte_width) {
@@ -355,7 +355,7 @@ TYPE_VISITOR_DEFAULT(DoubleType);
 TYPE_VISITOR_DEFAULT(StringType);
 TYPE_VISITOR_DEFAULT(BinaryType);
 TYPE_VISITOR_DEFAULT(FixedWidthBinaryType);
-TYPE_VISITOR_DEFAULT(DateType);
+TYPE_VISITOR_DEFAULT(Date64Type);
 TYPE_VISITOR_DEFAULT(Date32Type);
 TYPE_VISITOR_DEFAULT(TimeType);
 TYPE_VISITOR_DEFAULT(TimestampType);

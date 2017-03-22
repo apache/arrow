@@ -336,8 +336,8 @@ class RecordBatchWriter : public ArrayVisitor {
   VISIT_FIXED_WIDTH(HalfFloatArray);
   VISIT_FIXED_WIDTH(FloatArray);
   VISIT_FIXED_WIDTH(DoubleArray);
-  VISIT_FIXED_WIDTH(DateArray);
   VISIT_FIXED_WIDTH(Date32Array);
+  VISIT_FIXED_WIDTH(Date64Array);
   VISIT_FIXED_WIDTH(TimeArray);
   VISIT_FIXED_WIDTH(TimestampArray);
 

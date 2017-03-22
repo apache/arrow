@@ -372,7 +372,11 @@ cdef class UInt64Array(IntegerArray):
     pass
 
 
-cdef class DateArray(NumericArray):
+cdef class Date32Array(NumericArray):
+    pass
+
+
+cdef class Date64Array(NumericArray):
     pass
 
 
@@ -459,7 +463,8 @@ cdef dict _array_classes = {
     Type_INT16: Int16Array,
     Type_INT32: Int32Array,
     Type_INT64: Int64Array,
-    Type_DATE: DateArray,
+    Type_DATE32: Date32Array,
+    Type_DATE64: Date64Array,
     Type_FLOAT: FloatArray,
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,

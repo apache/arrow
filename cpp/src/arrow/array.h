@@ -58,8 +58,8 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const StringArray& array);
   virtual Status Visit(const BinaryArray& array);
   virtual Status Visit(const FixedWidthBinaryArray& array);
-  virtual Status Visit(const DateArray& array);
   virtual Status Visit(const Date32Array& array);
+  virtual Status Visit(const Date64Array& array);
   virtual Status Visit(const TimeArray& array);
   virtual Status Visit(const TimestampArray& array);
   virtual Status Visit(const IntervalArray& array);
@@ -559,8 +559,8 @@ extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
 extern template class ARROW_EXPORT NumericArray<FloatType>;
 extern template class ARROW_EXPORT NumericArray<DoubleType>;
 extern template class ARROW_EXPORT NumericArray<TimestampType>;
-extern template class ARROW_EXPORT NumericArray<DateType>;
 extern template class ARROW_EXPORT NumericArray<Date32Type>;
+extern template class ARROW_EXPORT NumericArray<Date64Type>;
 extern template class ARROW_EXPORT NumericArray<TimeType>;
 
 #if defined(__GNUC__) && !defined(__clang__)

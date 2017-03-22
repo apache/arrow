@@ -39,7 +39,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(INT32, int32);
       GET_PRIMITIVE_TYPE(UINT64, uint64);
       GET_PRIMITIVE_TYPE(INT64, int64);
-      GET_PRIMITIVE_TYPE(DATE, date);
+      GET_PRIMITIVE_TYPE(DATE32, date32);
+      GET_PRIMITIVE_TYPE(DATE64, date64);
       GET_PRIMITIVE_TYPE(BOOL, boolean);
       GET_PRIMITIVE_TYPE(FLOAT, float32);
       GET_PRIMITIVE_TYPE(DOUBLE, float64);

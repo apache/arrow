@@ -133,10 +133,7 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<
-      std::is_base_of<NoExtraMeta, T>::value || std::is_base_of<BooleanType, T>::value ||
-          std::is_base_of<DateType, T>::value || std::is_base_of<NullType, T>::value,
-      void>::type
+  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value, void>::type
   WriteTypeMetadata(const T& type) {}
 
   template <typename T>
@@ -303,7 +300,10 @@ class JsonSchemaWriter : public TypeVisitor {
 
   Status Visit(const BinaryType& type) override { return WriteVarBytes("binary", type); }
 
-  Status Visit(const DateType& type) override { return WritePrimitive("date", type); }
+  // TODO
+  Status Visit(const Date32Type& type) override { return WritePrimitive("date", type); }
+
+  Status Visit(const Date64Type& type) override { return WritePrimitive("date", type); }
 
   Status Visit(const TimeType& type) override { return WritePrimitive("time", type); }
 
@@ -733,7 +733,8 @@ class JsonSchemaReader {
     } else if (type_name == "null") {
       *type = null();
     } else if (type_name == "date") {
-      *type = date();
+      // TODO
+      *type = date64();
     } else if (type_name == "time") {
       return GetTimeLike<TimeType>(json_type, type);
     } else if (type_name == "timestamp") {
@@ -1059,7 +1060,8 @@ class JsonArrayReader {
       TYPE_CASE(DoubleType);
       TYPE_CASE(StringType);
       TYPE_CASE(BinaryType);
-      NOT_IMPLEMENTED_CASE(DATE);
+      NOT_IMPLEMENTED_CASE(DATE32);
+      NOT_IMPLEMENTED_CASE(DATE64);
       NOT_IMPLEMENTED_CASE(TIMESTAMP);
       NOT_IMPLEMENTED_CASE(TIME);
       NOT_IMPLEMENTED_CASE(INTERVAL);

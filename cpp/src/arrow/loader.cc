@@ -146,8 +146,8 @@ class ArrayLoader : public TypeVisitor {
   VISIT_PRIMITIVE(HalfFloatType);
   VISIT_PRIMITIVE(FloatType);
   VISIT_PRIMITIVE(DoubleType);
-  VISIT_PRIMITIVE(DateType);
   VISIT_PRIMITIVE(Date32Type);
+  VISIT_PRIMITIVE(Date64Type);
   VISIT_PRIMITIVE(TimeType);
   VISIT_PRIMITIVE(TimestampType);
 

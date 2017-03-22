@@ -241,9 +241,15 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type_Decimal:
       return Status::NotImplemented("Decimal");
-    case flatbuf::Type_Date:
-      *out = date();
+    case flatbuf::Type_Date: {
+      auto date_type = static_cast<const flatbuf::Date*>(type_data);
+      if (date_type->unit() == flatbuf::DateUnit_DAY) {
+        *out = date32();
+      } else {
+        *out = date64();
+      }
       return Status::OK();
+    }
     case flatbuf::Type_Time: {
       auto time_type = static_cast<const flatbuf::Time*>(type_data);
       *out = time(FromFlatbufferUnit(time_type->unit()));
@@ -358,9 +364,13 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_Utf8;
       *offset = flatbuf::CreateUtf8(fbb).Union();
       break;
-    case Type::DATE:
+    case Type::DATE32:
       *out_type = flatbuf::Type_Date;
-      *offset = flatbuf::CreateDate(fbb).Union();
+      *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_DAY).Union();
+      break;
+    case Type::DATE64:
+      *out_type = flatbuf::Type_Date;
+      *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_MILLISECOND).Union();
       break;
     case Type::TIME: {
       const auto& time_type = static_cast<const TimeType&>(*type);

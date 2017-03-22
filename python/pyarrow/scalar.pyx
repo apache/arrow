@@ -124,11 +124,18 @@ cdef class UInt64Value(ArrayValue):
         return ap.Value(self.index)
 
 
-cdef class DateValue(ArrayValue):
+cdef class Date32Value(ArrayValue):
 
     def as_py(self):
-        cdef CDateArray* ap = <CDateArray*> self.sp_array.get()
-        return datetime.datetime.utcfromtimestamp(ap.Value(self.index) / 1000).date()
+        raise NotImplementedError
+
+
+cdef class Date64Value(ArrayValue):
+
+    def as_py(self):
+        cdef CDate64Array* ap = <CDate64Array*> self.sp_array.get()
+        return datetime.datetime.utcfromtimestamp(
+            ap.Value(self.index) / 1000).date()
 
 
 cdef class TimestampValue(ArrayValue):
@@ -147,7 +154,8 @@ cdef class TimestampValue(ArrayValue):
             return datetime.datetime.utcfromtimestamp(float(val) / 1000000)
         else:
             # TimeUnit_NANO
-            raise NotImplementedError("Cannot convert nanosecond timestamps to datetime.datetime")
+            raise NotImplementedError("Cannot convert nanosecond timestamps "
+                                      "to datetime.datetime")
 
 
 cdef class FloatValue(ArrayValue):
@@ -226,7 +234,8 @@ cdef dict _scalar_classes = {
     Type_INT16: Int16Value,
     Type_INT32: Int32Value,
     Type_INT64: Int64Value,
-    Type_DATE: DateValue,
+    Type_DATE32: Date32Value,
+    Type_DATE64: Date64Value,
     Type_TIMESTAMP: TimestampValue,
     Type_FLOAT: FloatValue,
     Type_DOUBLE: DoubleValue,
