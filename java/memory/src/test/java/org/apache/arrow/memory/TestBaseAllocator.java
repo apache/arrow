@@ -381,7 +381,7 @@ public class TestBaseAllocator {
         assertEquals((byte) i, slice1.getByte(i));
       }
 
-      final ArrowBuf slice2 = (ArrowBuf) arrowBuf.slice(25, 25);
+      final ArrowBuf slice2 = arrowBuf.slice(25, 25);
       assertEquals(0, slice2.readerIndex());
       assertEquals(25, slice2.readableBytes());
       for(int i = 25; i < 50; ++i) {
