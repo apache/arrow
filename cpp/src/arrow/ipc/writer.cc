@@ -48,28 +48,25 @@ namespace ipc {
 class RecordBatchWriter : public ArrayVisitor {
  public:
   RecordBatchWriter(
-      MemoryPool* pool, int64_t buffer_start_offset, int max_recursion_depth)
+      MemoryPool* pool, int64_t buffer_start_offset, int max_recursion_depth,
+      bool allow_64bit)
       : pool_(pool),
         max_recursion_depth_(max_recursion_depth),
-        buffer_start_offset_(buffer_start_offset) {
+        buffer_start_offset_(buffer_start_offset),
+        allow_64bit_(allow_64bit) {
     DCHECK_GT(max_recursion_depth, 0);
   }
 
   virtual ~RecordBatchWriter() = default;
-
-  virtual Status CheckArrayMetadata(const Array& arr) {
-    if (arr.length() > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
-    }
-    return Status::OK();
-  }
 
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    RETURN_NOT_OK(CheckArrayMetadata(arr));
+    if (!allow_64bit_ && arr.length() > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
+    }
 
     // push back all common elements
     field_nodes_.emplace_back(arr.length(), arr.null_count(), 0);
@@ -470,6 +467,7 @@ class RecordBatchWriter : public ArrayVisitor {
 
   int64_t max_recursion_depth_;
   int64_t buffer_start_offset_;
+  bool allow_64bit_;
 };
 
 class DictionaryWriter : public RecordBatchWriter {
@@ -502,20 +500,21 @@ class DictionaryWriter : public RecordBatchWriter {
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth) {
-  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth);
+    MemoryPool* pool, int max_recursion_depth, bool allow_64bit) {
+  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth,
+      allow_64bit);
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length, MemoryPool* pool) {
-  DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth);
+  DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth, false);
   return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter writer(default_memory_pool(), 0, kMaxNestingDepth);
+  RecordBatchWriter writer(default_memory_pool(), 0, kMaxNestingDepth, true);
   RETURN_NOT_OK(writer.GetTotalSize(batch, size));
   return Status::OK();
 }
@@ -733,30 +732,11 @@ Status FileWriter::Close() {
   return impl_->Close();
 }
 
-// ----------------------------------------------------------------------
-// Write record batches with 64-bit size metadata
-
-class LargeRecordBatchWriter : public RecordBatchWriter {
- public:
-  using RecordBatchWriter::RecordBatchWriter;
-
-  Status CheckArrayMetadata(const Array& arr) override {
-    // No < INT32_MAX length check
-    return Status::OK();
-  }
-
-  Status WriteMetadataMessage(
-      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
-    return WriteLargeRecordBatchMessage(
-        num_rows, body_length, field_nodes_, buffer_meta_, out);
-  }
-};
-
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth) {
-  LargeRecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth);
-  return writer.Write(batch, dst, metadata_length, body_length);
+    MemoryPool* pool) {
+  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
+      pool, kMaxNestingDepth, true);
 }
 
 }  // namespace ipc

@@ -290,12 +290,12 @@ struct Buffer {
 struct FieldNode {
   /// The number of value slots in the Arrow array at this level of a nested
   /// tree
-  length: int;
+  length: long;
 
   /// The number of observed nulls. Fields with null_count == 0 may choose not
   /// to write their physical validity bitmap out as a materialized buffer,
   /// instead setting the length of the bitmap buffer to 0.
-  null_count: int;
+  null_count: long;
 }
 
 /// A data header describing the shared memory layout of a "record" or "row"
@@ -304,7 +304,7 @@ struct FieldNode {
 table RecordBatch {
   /// number of records / rows. The arrays in the batch should all have this
   /// length
-  length: int;
+  length: long;
 
   /// Nodes correspond to the pre-ordered flattened logical schema
   nodes: [FieldNode];
@@ -315,22 +315,6 @@ table RecordBatch {
   /// example, most primitive arrays will have 2 buffers, 1 for the validity
   /// bitmap and 1 for the values. For struct arrays, there will only be a
   /// single buffer for the validity (nulls) bitmap
-  buffers: [Buffer];
-}
-
-/// ----------------------------------------------------------------------
-/// EXPERIMENTAL: A RecordBatch type that supports data with more than 2^31 - 1
-/// elements. Arrow implementations do not need to implement this type to be
-/// compliant
-
-struct LargeFieldNode {
-  length: long;
-  null_count: long;
-}
-
-table LargeRecordBatch {
-  length: long;
-  nodes: [LargeFieldNode];
   buffers: [Buffer];
 }
 
@@ -356,7 +340,7 @@ table DictionaryBatch {
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch, LargeRecordBatch
+  Schema, DictionaryBatch, RecordBatch
 }
 
 table Message {

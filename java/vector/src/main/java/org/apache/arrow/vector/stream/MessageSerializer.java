@@ -207,7 +207,7 @@ public class MessageSerializer {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     for (int i = 0; i < nodesLength; ++i) {
       FieldNode node = recordBatchFB.nodes(i);
-      nodes.add(new ArrowFieldNode(node.length(), node.nullCount()));
+      nodes.add(new ArrowFieldNode((int)node.length(), (int)node.nullCount()));
     }
     List<ArrowBuf> buffers = new ArrayList<>();
     for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
@@ -216,7 +216,7 @@ public class MessageSerializer {
       buffers.add(vectorBuffer);
     }
     ArrowRecordBatch arrowRecordBatch =
-        new ArrowRecordBatch(recordBatchFB.length(), nodes, buffers);
+        new ArrowRecordBatch((int)recordBatchFB.length(), nodes, buffers);
     body.release();
     return arrowRecordBatch;
   }

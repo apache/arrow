@@ -42,7 +42,6 @@ namespace ipc {
 using FBB = flatbuffers::FlatBufferBuilder;
 using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
 using FieldOffset = flatbuffers::Offset<flatbuf::Field>;
-using LargeRecordBatchOffset = flatbuffers::Offset<flatbuf::LargeRecordBatch>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
@@ -558,30 +557,11 @@ Status WriteSchemaMessage(
 
 using FieldNodeVector =
     flatbuffers::Offset<flatbuffers::Vector<const flatbuf::FieldNode*>>;
-using LargeFieldNodeVector =
-    flatbuffers::Offset<flatbuffers::Vector<const flatbuf::LargeFieldNode*>>;
 using BufferVector = flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Buffer*>>;
 
 static Status WriteFieldNodes(
     FBB& fbb, const std::vector<FieldMetadata>& nodes, FieldNodeVector* out) {
   std::vector<flatbuf::FieldNode> fb_nodes;
-  fb_nodes.reserve(nodes.size());
-
-  for (size_t i = 0; i < nodes.size(); ++i) {
-    const FieldMetadata& node = nodes[i];
-    if (node.offset != 0) {
-      return Status::Invalid("Field metadata for IPC must have offset 0");
-    }
-    fb_nodes.emplace_back(
-        static_cast<int32_t>(node.length), static_cast<int32_t>(node.null_count));
-  }
-  *out = fbb.CreateVectorOfStructs(fb_nodes);
-  return Status::OK();
-}
-
-static Status WriteLargeFieldNodes(
-    FBB& fbb, const std::vector<FieldMetadata>& nodes, LargeFieldNodeVector* out) {
-  std::vector<flatbuf::LargeFieldNode> fb_nodes;
   fb_nodes.reserve(nodes.size());
 
   for (size_t i = 0; i < nodes.size(); ++i) {
@@ -621,19 +601,6 @@ static Status MakeRecordBatch(FBB& fbb, int32_t length, int64_t body_length,
   return Status::OK();
 }
 
-static Status MakeLargeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    LargeRecordBatchOffset* offset) {
-  LargeFieldNodeVector fb_nodes;
-  BufferVector fb_buffers;
-
-  RETURN_NOT_OK(WriteLargeFieldNodes(fbb, nodes, &fb_nodes));
-  RETURN_NOT_OK(WriteBuffers(fbb, buffers, &fb_buffers));
-
-  *offset = flatbuf::CreateLargeRecordBatch(fbb, length, fb_nodes, fb_buffers);
-  return Status::OK();
-}
-
 Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out) {
@@ -642,17 +609,6 @@ Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   return WriteMessage(
       fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(), body_length, out);
-}
-
-Status WriteLargeRecordBatchMessage(int64_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out) {
-  FBB fbb;
-  LargeRecordBatchOffset large_batch;
-  RETURN_NOT_OK(
-      MakeLargeRecordBatch(fbb, length, body_length, nodes, buffers, &large_batch));
-  return WriteMessage(fbb, flatbuf::MessageHeader_LargeRecordBatch, large_batch.Union(),
-      body_length, out);
 }
 
 Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
@@ -917,7 +873,7 @@ class RecordBatchMetadata::RecordBatchMetadataImpl : public MessageHolder {
 
   const flatbuf::Buffer* buffer(int i) const { return buffers_->Get(i); }
 
-  int32_t length() const { return batch_->length(); }
+  int64_t length() const { return batch_->length(); }
 
   int num_buffers() const { return batch_->buffers()->size(); }
 
@@ -969,7 +925,7 @@ BufferMetadata RecordBatchMetadata::buffer(int i) const {
   return result;
 }
 
-int32_t RecordBatchMetadata::length() const {
+int64_t RecordBatchMetadata::length() const {
   return impl_->length();
 }
 
