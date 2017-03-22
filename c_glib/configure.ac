@@ -18,7 +18,10 @@
 AC_PREREQ(2.65)
 
 m4_define([arrow_glib_version], m4_include(version))
-AC_INIT([arrow-glib], arrow_glib_version, [kou@clear-code.com])
+AC_INIT([arrow-glib],
+        arrow_glib_version,
+        [https://issues.apache.org/jira/browse/ARROW],
+        [apache-arrow-glib])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
 
