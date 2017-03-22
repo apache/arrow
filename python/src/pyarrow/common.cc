@@ -52,22 +52,19 @@ PyBuffer::PyBuffer(PyObject* obj)
       PyBytes_GET_SIZE(obj)),
       obj_(obj) {
     if (PyObject_CheckBuffer(obj)) {
-        this->obj_ = PyMemoryView_FromObject(obj);
+        obj_ = PyMemoryView_FromObject(obj);
         Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
-        this->data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
-        this->size_ = buffer->len;
-        this->capacity_ = buffer->len;
-        this->is_mutable_ = false;
-    } else {
-        Py_INCREF(obj_);
-    }
+        data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
+        size_ = buffer->len;
+        capacity_ = buffer->len;
+        is_mutable_ = false;
+    } 
+    Py_INCREF(obj_);
 }
 
 PyBuffer::~PyBuffer() {
-  if (!PyMemoryView_Check(this->obj_)) {
     PyAcquireGIL lock;
     Py_DECREF(obj_);
-  }
 }
 
 }  // namespace py
