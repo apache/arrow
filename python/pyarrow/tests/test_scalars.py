@@ -105,10 +105,11 @@ class TestScalars(unittest.TestCase):
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']
-        vals = pd.Series(colors * 4)
-        dct = pd.Series(colors)
-        ind = vals.apply(pd.Index(dct).get_loc)
+        values = pd.Series(colors * 4)
 
-        v = A.DictionaryArray.from_arrays(ind, dct)
-        for i, c in enumerate(colors):
-            assert v[i] == c
+        categorical = pd.Categorical(values, categories=colors)
+
+        v = A.DictionaryArray.from_arrays(categorical.codes,
+                                          categorical.categories)
+        for i, c in enumerate(values):
+            assert v[i].as_py() == c
