@@ -58,7 +58,7 @@ to build Arrow GLib. You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```text
-% sudo apt install -y -V gtk-doc-tools libgirepository1.0-dev
+% sudo apt install -y -V gtk-doc-tools autoconf-archive libgirepository1.0-dev
 ```
 
 On CentOS 7 or later:
