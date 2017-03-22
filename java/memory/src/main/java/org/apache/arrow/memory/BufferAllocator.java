@@ -106,6 +106,14 @@ public interface BufferAllocator extends AutoCloseable {
   public long getPeakMemoryAllocation();
 
   /**
+   * Returns the amount of memory that can probably be allocated at this moment
+   * without exceeding this or any parents allocation maximum.
+   *
+   * @return Headroom in bytes
+   */
+  public long getHeadroom();
+
+  /**
    * Create an allocation reservation. A reservation is a way of building up
    * a request for a buffer whose size is not known in advance. See
    * {@see AllocationReservation}.
