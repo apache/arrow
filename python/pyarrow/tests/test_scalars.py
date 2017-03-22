@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pandas as pd
+
 from pyarrow.compat import unittest, u, unicode_type
 import pyarrow as A
 
@@ -100,3 +102,14 @@ class TestScalars(unittest.TestCase):
 
         v = arr[3]
         assert len(v) == 0
+
+    def test_dictionary(self):
+        colors = ['red', 'green', 'blue']
+        values = pd.Series(colors * 4)
+
+        categorical = pd.Categorical(values, categories=colors)
+
+        v = A.DictionaryArray.from_arrays(categorical.codes,
+                                          categorical.categories)
+        for i, c in enumerate(values):
+            assert v[i].as_py() == c

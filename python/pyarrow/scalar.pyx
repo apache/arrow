@@ -241,7 +241,7 @@ cdef dict _scalar_classes = {
     Type_DOUBLE: DoubleValue,
     Type_LIST: ListValue,
     Type_BINARY: BinaryValue,
-    Type_STRING: StringValue,
+    Type_STRING: StringValue
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,

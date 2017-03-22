@@ -406,6 +406,31 @@ cdef class BinaryArray(Array):
 
 cdef class DictionaryArray(Array):
 
+    cdef getitem(self, int64_t i):
+        cdef Array dictionary = self.dictionary
+        cdef int64_t index = self.indices[i].as_py()
+        return scalar.box_scalar(dictionary.type, dictionary.sp_array, index)
+
+    property dictionary:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
+
+            if self._dictionary is None:
+                self._dictionary = box_array(darr.dictionary())
+
+            return self._dictionary
+
+    property indices:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
+
+            if self._indices is None:
+                self._indices = box_array(darr.indices())
+
+            return self._indices
+
     @staticmethod
     def from_arrays(indices, dictionary, mask=None,
                     MemoryPool memory_pool=None):

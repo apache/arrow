@@ -109,7 +109,9 @@ cdef class BinaryArray(Array):
 
 
 cdef class DictionaryArray(Array):
-    pass
+    cdef:
+        object _indices, _dictionary
+
 
 
 cdef wrap_array_output(PyObject* output)
