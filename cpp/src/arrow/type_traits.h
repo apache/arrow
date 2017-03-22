@@ -119,15 +119,15 @@ struct TypeTraits<Int64Type> {
 };
 
 template <>
-struct TypeTraits<DateType> {
-  using ArrayType = DateArray;
-  using BuilderType = DateBuilder;
+struct TypeTraits<Date64Type> {
+  using ArrayType = Date64Array;
+  using BuilderType = Date64Builder;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return date(); }
+  static inline std::shared_ptr<DataType> type_singleton() { return date64(); }
 };
 
 template <>

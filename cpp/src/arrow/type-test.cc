@@ -173,6 +173,14 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
+TEST(TestDateTypes, ToString) {
+  auto t1 = date32();
+  auto t2 = date64();
+
+  ASSERT_EQ("date32[day]", t1->ToString());
+  ASSERT_EQ("date64[ms]", t2->ToString());
+}
+
 TEST(TestTimeType, Equals) {
   TimeType t1;
   TimeType t2;
