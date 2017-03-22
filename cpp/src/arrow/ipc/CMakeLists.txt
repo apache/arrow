@@ -144,7 +144,7 @@ install(FILES
   metadata.h
   reader.h
   writer.h
-  DESTINATION include/arrow/ipc)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")
 
 # pkg-config support
 configure_file(arrow-ipc.pc.in
