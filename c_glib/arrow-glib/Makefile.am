@@ -403,7 +403,8 @@ stamp-ipc-enums.c: $(libarrow_ipc_glib_la_headers) ipc-enums.c.template
 	     $(libarrow_ipc_glib_la_headers)) > ipc-enums.c
 	touch $@
 
-pkginclude_HEADERS =					\
+arrow_glib_includedir = $(includedir)/arrow-glib
+arrow_glib_include_HEADERS =				\
 	$(libarrow_glib_la_headers)			\
 	$(libarrow_glib_la_cpp_headers)			\
 	$(libarrow_glib_la_generated_headers)		\
