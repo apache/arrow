@@ -76,7 +76,8 @@ On macOS with [Homebrew](https://brew.sh/):
 Now, you can build Arrow GLib:
 
 ```text
-% cd glib
+% cd c_glib
+% ./autogen.sh
 % ./configure --enable-gtk-doc
 % make
 % sudo make install

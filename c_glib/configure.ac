@@ -28,6 +28,8 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.13 foreign])
 AM_SILENT_RULES([yes])
 
+m4_include(macros/ax_cxx_compile_stdcxx_11.m4)
+
 AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([ext], [mandatory])
