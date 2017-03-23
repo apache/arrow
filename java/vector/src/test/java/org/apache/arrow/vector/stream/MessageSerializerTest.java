@@ -37,6 +37,7 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
@@ -70,6 +71,20 @@ public class MessageSerializerTest {
         new ReadChannel(Channels.newChannel(in)));
     assertEquals(schema, deserialized);
     assertEquals(1, deserialized.getFields().size());
+  }
+
+  @Test
+  public void testSchemaDictionaryMessageSerialization() throws IOException {
+    DictionaryEncoding dictionary = new DictionaryEncoding(9L, false, new ArrowType.Int(8, true));
+    Field field = new Field("test", true, ArrowType.Utf8.INSTANCE, dictionary, null);
+    Schema schema = new Schema(Collections.singletonList(field));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    long size = MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);
+    assertEquals(size, out.toByteArray().length);
+
+    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+    Schema deserialized = MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)));
+    assertEquals(schema, deserialized);
   }
 
   @Test

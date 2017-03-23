@@ -121,10 +121,11 @@ public class Field {
     int typeOffset = type.getType(builder);
     int dictionaryOffset = -1;
     if (dictionary != null) {
-      // TODO encode dictionary type - currently type is only signed 32 bit int (default null)
+      int dictionaryType = dictionary.getIndexType().getType(builder);
       org.apache.arrow.flatbuf.DictionaryEncoding.startDictionaryEncoding(builder);
       org.apache.arrow.flatbuf.DictionaryEncoding.addId(builder, dictionary.getId());
       org.apache.arrow.flatbuf.DictionaryEncoding.addIsOrdered(builder, dictionary.isOrdered());
+      org.apache.arrow.flatbuf.DictionaryEncoding.addIndexType(builder, dictionaryType);
       dictionaryOffset = org.apache.arrow.flatbuf.DictionaryEncoding.endDictionaryEncoding(builder);
     }
     int[] childrenData = new int[children.size()];
