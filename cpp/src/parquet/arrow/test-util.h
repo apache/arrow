@@ -34,7 +34,7 @@ template <typename ArrowType>
 using is_arrow_int = std::is_integral<typename ArrowType::c_type>;
 
 template <typename ArrowType>
-using is_arrow_date = std::is_same<ArrowType, ::arrow::DateType>;
+using is_arrow_date = std::is_same<ArrowType, ::arrow::Date64Type>;
 
 template <typename ArrowType>
 using is_arrow_string = std::is_same<ArrowType, ::arrow::StringType>;

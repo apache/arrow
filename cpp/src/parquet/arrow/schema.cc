@@ -108,7 +108,7 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
       *out = ::arrow::uint32();
       break;
     case LogicalType::DATE:
-      *out = ::arrow::date();
+      *out = ::arrow::date64();
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -378,7 +378,11 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::BINARY:
       type = ParquetType::BYTE_ARRAY;
       break;
-    case ArrowType::DATE:
+    case ArrowType::DATE32:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::DATE;
+      break;
+    case ArrowType::DATE64:
       type = ParquetType::INT32;
       logical_type = LogicalType::DATE;
       break;

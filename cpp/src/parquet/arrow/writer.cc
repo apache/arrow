@@ -80,7 +80,7 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   PRIMITIVE_VISIT(Double)
   PRIMITIVE_VISIT(String)
   PRIMITIVE_VISIT(Binary)
-  PRIMITIVE_VISIT(Date)
+  PRIMITIVE_VISIT(Date64)
   PRIMITIVE_VISIT(Time)
   PRIMITIVE_VISIT(Timestamp)
   PRIMITIVE_VISIT(Interval)
@@ -332,7 +332,7 @@ Status FileWriter::Impl::WriteNonNullableBatch(TypedColumnWriter<ParquetType>* w
 }
 
 template <>
-Status FileWriter::Impl::WriteNonNullableBatch<Int32Type, ::arrow::DateType>(
+Status FileWriter::Impl::WriteNonNullableBatch<Int32Type, ::arrow::Date64Type>(
     TypedColumnWriter<Int32Type>* writer, int64_t num_values, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels, const int64_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(int32_t)));
@@ -384,7 +384,7 @@ Status FileWriter::Impl::WriteNullableBatch(TypedColumnWriter<ParquetType>* writ
 }
 
 template <>
-Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::DateType>(
+Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Date64Type>(
     TypedColumnWriter<Int32Type>* writer, int64_t num_values, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
     int64_t valid_bits_offset, const int64_t* data_ptr) {
@@ -555,7 +555,7 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
       WRITE_BATCH_CASE(INT16, Int16Type, Int32Type)
       WRITE_BATCH_CASE(UINT16, UInt16Type, Int32Type)
       WRITE_BATCH_CASE(INT32, Int32Type, Int32Type)
-      WRITE_BATCH_CASE(DATE, DateType, Int32Type)
+      WRITE_BATCH_CASE(DATE64, Date64Type, Int32Type)
       WRITE_BATCH_CASE(INT64, Int64Type, Int64Type)
       WRITE_BATCH_CASE(TIMESTAMP, TimestampType, Int64Type)
       WRITE_BATCH_CASE(UINT64, UInt64Type, Int64Type)

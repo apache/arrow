@@ -148,13 +148,13 @@ struct test_traits<::arrow::TimestampType> {
 const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
 
 template <>
-struct test_traits<::arrow::DateType> {
+struct test_traits<::arrow::Date64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
   static constexpr LogicalType::type logical_enum = LogicalType::DATE;
   static int64_t const value;
 };
 
-const int64_t test_traits<::arrow::DateType>::value(14688000000000);
+const int64_t test_traits<::arrow::Date64Type>::value(14688000000000);
 
 template <>
 struct test_traits<::arrow::FloatType> {
@@ -317,7 +317,7 @@ class TestParquetIO : public ::testing::Test {
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
     ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type,
-    ::arrow::Int64Type, ::arrow::TimestampType, ::arrow::DateType, ::arrow::FloatType,
+    ::arrow::Int64Type, ::arrow::TimestampType, ::arrow::Date64Type, ::arrow::FloatType,
     ::arrow::DoubleType, ::arrow::StringType, ::arrow::BinaryType>
     TestTypes;
 

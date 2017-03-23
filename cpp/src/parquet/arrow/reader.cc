@@ -369,7 +369,7 @@ Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96Typ
 }
 
 template <>
-Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::DateType, Int32Type>(
+Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::Date64Type, Int32Type>(
     TypedColumnReader<Int32Type>* reader, int64_t values_to_read, int64_t* levels_read) {
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
   auto values = reinterpret_cast<int32_t*>(values_buffer_.mutable_data());
@@ -480,7 +480,7 @@ Status ColumnReader::Impl::ReadNullableBatch<::arrow::TimestampType, Int96Type>(
 }
 
 template <>
-Status ColumnReader::Impl::ReadNullableBatch<::arrow::DateType, Int32Type>(
+Status ColumnReader::Impl::ReadNullableBatch<::arrow::Date64Type, Int32Type>(
     TypedColumnReader<Int32Type>* reader, int16_t* def_levels, int16_t* rep_levels,
     int64_t values_to_read, int64_t* levels_read, int64_t* values_read) {
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
@@ -883,7 +883,7 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     TYPED_BATCH_CASE(INT16, ::arrow::Int16Type, Int32Type)
     TYPED_BATCH_CASE(UINT32, ::arrow::UInt32Type, Int32Type)
     TYPED_BATCH_CASE(INT32, ::arrow::Int32Type, Int32Type)
-    TYPED_BATCH_CASE(DATE, ::arrow::DateType, Int32Type)
+    TYPED_BATCH_CASE(DATE64, ::arrow::Date64Type, Int32Type)
     TYPED_BATCH_CASE(UINT64, ::arrow::UInt64Type, Int64Type)
     TYPED_BATCH_CASE(INT64, ::arrow::Int64Type, Int64Type)
     TYPED_BATCH_CASE(FLOAT, ::arrow::FloatType, FloatType)
