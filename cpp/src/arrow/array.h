@@ -527,10 +527,11 @@ extern template class ARROW_EXPORT NumericArray<UInt64Type>;
 extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
 extern template class ARROW_EXPORT NumericArray<FloatType>;
 extern template class ARROW_EXPORT NumericArray<DoubleType>;
-extern template class ARROW_EXPORT NumericArray<TimestampType>;
 extern template class ARROW_EXPORT NumericArray<Date32Type>;
 extern template class ARROW_EXPORT NumericArray<Date64Type>;
-extern template class ARROW_EXPORT NumericArray<TimeType>;
+extern template class ARROW_EXPORT NumericArray<Time32Type>;
+extern template class ARROW_EXPORT NumericArray<Time64Type>;
+extern template class ARROW_EXPORT NumericArray<TimestampType>;
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop

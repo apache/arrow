@@ -119,11 +119,33 @@ std::string Date32Type::ToString() const {
   return std::string("date32[day]");
 }
 
-std::string TimeType::ToString() const {
+// ----------------------------------------------------------------------
+// Time types
+
+Time32Type::Time32Type(TimeUnit unit) : FixedWidthType(Type::TIME32), unit(unit) {
+  DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
+      << "Must be seconds or milliseconds";
+}
+
+std::string Time32Type::ToString() const {
   std::stringstream ss;
-  ss << "time[" << this->unit << "]";
+  ss << "time32[" << this->unit << "]";
   return ss.str();
 }
+
+Time64Type::Time64Type(TimeUnit unit) : FixedWidthType(Type::TIME64), unit(unit) {
+  DCHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
+      << "Must be microseconds or nanoseconds";
+}
+
+std::string Time64Type::ToString() const {
+  std::stringstream ss;
+  ss << "time64[" << this->unit << "]";
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
+// Timestamp types
 
 std::string TimestampType::ToString() const {
   std::stringstream ss;
@@ -138,7 +160,7 @@ std::string TimestampType::ToString() const {
 
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
     const std::vector<uint8_t>& type_codes, UnionMode mode)
-    : DataType(Type::UNION), mode(mode), type_codes(type_codes) {
+    : NestedType(Type::UNION), mode(mode), type_codes(type_codes) {
   children_ = fields;
 }
 
@@ -206,9 +228,10 @@ ACCEPT_VISITOR(ListType);
 ACCEPT_VISITOR(StructType);
 ACCEPT_VISITOR(DecimalType);
 ACCEPT_VISITOR(UnionType);
-ACCEPT_VISITOR(Date64Type);
 ACCEPT_VISITOR(Date32Type);
-ACCEPT_VISITOR(TimeType);
+ACCEPT_VISITOR(Date64Type);
+ACCEPT_VISITOR(Time32Type);
+ACCEPT_VISITOR(Time64Type);
 ACCEPT_VISITOR(TimestampType);
 ACCEPT_VISITOR(IntervalType);
 ACCEPT_VISITOR(DictionaryType);
@@ -249,8 +272,12 @@ std::shared_ptr<DataType> timestamp(TimeUnit unit, const std::string& timezone) 
   return std::make_shared<TimestampType>(unit, timezone);
 }
 
-std::shared_ptr<DataType> time(TimeUnit unit) {
-  return std::make_shared<TimeType>(unit);
+std::shared_ptr<DataType> time32(TimeUnit unit) {
+  return std::make_shared<Time32Type>(unit);
+}
+
+std::shared_ptr<DataType> time64(TimeUnit unit) {
+  return std::make_shared<Time64Type>(unit);
 }
 
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {

@@ -240,8 +240,9 @@ template class PrimitiveBuilder<Int32Type>;
 template class PrimitiveBuilder<Int64Type>;
 template class PrimitiveBuilder<Date32Type>;
 template class PrimitiveBuilder<Date64Type>;
+template class PrimitiveBuilder<Time32Type>;
+template class PrimitiveBuilder<Time64Type>;
 template class PrimitiveBuilder<TimestampType>;
-template class PrimitiveBuilder<TimeType>;
 template class PrimitiveBuilder<HalfFloatType>;
 template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
@@ -511,9 +512,9 @@ std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
 // ----------------------------------------------------------------------
 // Helper functions
 
-#define BUILDER_CASE(ENUM, BuilderType) \
-  case Type::ENUM:                      \
-    out->reset(new BuilderType(pool));  \
+#define BUILDER_CASE(ENUM, BuilderType)      \
+  case Type::ENUM:                           \
+    out->reset(new BuilderType(pool, type)); \
     return Status::OK();
 
 // Initially looked at doing this with vtables, but shared pointers makes it
@@ -533,17 +534,14 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(INT64, Int64Builder);
     BUILDER_CASE(DATE32, Date32Builder);
     BUILDER_CASE(DATE64, Date64Builder);
-    case Type::TIMESTAMP:
-      out->reset(new TimestampBuilder(pool, type));
-      return Status::OK();
-    case Type::TIME:
-      out->reset(new TimeBuilder(pool, type));
-      return Status::OK();
-      BUILDER_CASE(BOOL, BooleanBuilder);
-      BUILDER_CASE(FLOAT, FloatBuilder);
-      BUILDER_CASE(DOUBLE, DoubleBuilder);
-      BUILDER_CASE(STRING, StringBuilder);
-      BUILDER_CASE(BINARY, BinaryBuilder);
+    BUILDER_CASE(TIME32, Time32Builder);
+    BUILDER_CASE(TIME64, Time64Builder);
+    BUILDER_CASE(TIMESTAMP, TimestampBuilder);
+    BUILDER_CASE(BOOL, BooleanBuilder);
+    BUILDER_CASE(FLOAT, FloatBuilder);
+    BUILDER_CASE(DOUBLE, DoubleBuilder);
+    BUILDER_CASE(STRING, StringBuilder);
+    BUILDER_CASE(BINARY, BinaryBuilder);
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =

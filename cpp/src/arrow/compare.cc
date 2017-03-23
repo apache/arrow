@@ -29,6 +29,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -177,7 +178,13 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return CompareValues<Date64Array>(left);
   }
 
-  Status Visit(const TimeArray& left) override { return CompareValues<TimeArray>(left); }
+  Status Visit(const Time32Array& left) override {
+    return CompareValues<Time32Array>(left);
+  }
+
+  Status Visit(const Time64Array& left) override {
+    return CompareValues<Time64Array>(left);
+  }
 
   Status Visit(const TimestampArray& left) override {
     return CompareValues<TimestampArray>(left);
@@ -415,7 +422,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const Date64Array& left) override { return ComparePrimitive(left); }
 
-  Status Visit(const TimeArray& left) override { return ComparePrimitive(left); }
+  Status Visit(const Time32Array& left) override { return ComparePrimitive(left); }
+
+  Status Visit(const Time64Array& left) override { return ComparePrimitive(left); }
 
   Status Visit(const TimestampArray& left) override { return ComparePrimitive(left); }
 
@@ -628,7 +637,7 @@ Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal)
 // ----------------------------------------------------------------------
 // Implement TypeEquals
 
-class TypeEqualsVisitor : public TypeVisitor {
+class TypeEqualsVisitor {
  public:
   explicit TypeEqualsVisitor(const DataType& right) : right_(right), result_(false) {}
 
@@ -648,29 +657,44 @@ class TypeEqualsVisitor : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const TimeType& left) override {
-    const auto& right = static_cast<const TimeType&>(right_);
+  template <typename T>
+  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
+                              std::is_base_of<PrimitiveCType, T>::value,
+      Status>::type
+  Visit(const T& type) {
+    result_ = true;
+    return Status::OK();
+  }
+
+  Status Visit(const Time32Type& left) {
+    const auto& right = static_cast<const Time32Type&>(right_);
     result_ = left.unit == right.unit;
     return Status::OK();
   }
 
-  Status Visit(const TimestampType& left) override {
+  Status Visit(const Time64Type& left) {
+    const auto& right = static_cast<const Time64Type&>(right_);
+    result_ = left.unit == right.unit;
+    return Status::OK();
+  }
+
+  Status Visit(const TimestampType& left) {
     const auto& right = static_cast<const TimestampType&>(right_);
     result_ = left.unit == right.unit && left.timezone == right.timezone;
     return Status::OK();
   }
 
-  Status Visit(const FixedWidthBinaryType& left) override {
+  Status Visit(const FixedWidthBinaryType& left) {
     const auto& right = static_cast<const FixedWidthBinaryType&>(right_);
     result_ = left.byte_width() == right.byte_width();
     return Status::OK();
   }
 
-  Status Visit(const ListType& left) override { return VisitChildren(left); }
+  Status Visit(const ListType& left) { return VisitChildren(left); }
 
-  Status Visit(const StructType& left) override { return VisitChildren(left); }
+  Status Visit(const StructType& left) { return VisitChildren(left); }
 
-  Status Visit(const UnionType& left) override {
+  Status Visit(const UnionType& left) {
     const auto& right = static_cast<const UnionType&>(right_);
 
     if (left.mode != right.mode || left.type_codes.size() != right.type_codes.size()) {
@@ -691,7 +715,7 @@ class TypeEqualsVisitor : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DictionaryType& left) override {
+  Status Visit(const DictionaryType& left) {
     const auto& right = static_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
               left.dictionary()->Equals(right.dictionary());
@@ -713,18 +737,8 @@ Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) 
     *are_equal = false;
   } else {
     TypeEqualsVisitor visitor(right);
-    Status s = left.Accept(&visitor);
-
-    // We do not implement any type visitors where there is no additional
-    // metadata to compare.
-    if (s.IsNotImplemented()) {
-      // Not implemented means there is no additional metadata to compare
-      *are_equal = true;
-    } else if (!s.ok()) {
-      return s;
-    } else {
-      *are_equal = visitor.result();
-    }
+    RETURN_NOT_OK(VisitTypeInline(left, &visitor));
+    *are_equal = visitor.result();
   }
   return Status::OK();
 }

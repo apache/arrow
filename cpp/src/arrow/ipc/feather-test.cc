@@ -353,7 +353,7 @@ TEST_F(TestTableWriter, CategoryRoundtrip) {
 TEST_F(TestTableWriter, TimeTypes) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
-  auto f1 = field("f1", time(TimeUnit::MILLI));
+  auto f1 = field("f1", time32(TimeUnit::MILLI));
   auto f2 = field("f2", timestamp(TimeUnit::NANO));
   auto f3 = field("f3", timestamp(TimeUnit::SECOND, "US/Los_Angeles"));
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));

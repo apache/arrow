@@ -82,8 +82,13 @@ struct Type {
     // Default unit millisecond
     TIMESTAMP,
 
-    // Exact time encoded with int64, default unit millisecond
-    TIME,
+    // Time as signed 32-bit integer, representing either seconds or
+    // milliseconds since midnight
+    TIME32,
+
+    // Time as signed 64-bit integer, representing either microseconds or
+    // nanoseconds since midnight
+    TIME64,
 
     // YEAR_MONTH or DAY_TIME interval in SQL style
     INTERVAL,
@@ -166,6 +171,10 @@ struct ARROW_EXPORT IntegerMeta {
 struct ARROW_EXPORT FloatingPointMeta {
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
+};
+
+struct ARROW_EXPORT NestedType : public DataType {
+  using DataType::DataType;
 };
 
 struct NoExtraMeta {};
@@ -298,14 +307,14 @@ struct ARROW_EXPORT DoubleType : public CTypeImpl<DoubleType, Type::DOUBLE, doub
   static std::string name() { return "double"; }
 };
 
-struct ARROW_EXPORT ListType : public DataType, public NoExtraMeta {
+struct ARROW_EXPORT ListType : public NestedType {
   static constexpr Type::type type_id = Type::LIST;
 
   // List can contain any other logical value type
   explicit ListType(const std::shared_ptr<DataType>& value_type)
       : ListType(std::make_shared<Field>("item", value_type)) {}
 
-  explicit ListType(const std::shared_ptr<Field>& value_field) : DataType(Type::LIST) {
+  explicit ListType(const std::shared_ptr<Field>& value_field) : NestedType(Type::LIST) {
     children_ = {value_field};
   }
 
@@ -369,11 +378,11 @@ struct ARROW_EXPORT StringType : public BinaryType {
   static std::string name() { return "utf8"; }
 };
 
-struct ARROW_EXPORT StructType : public DataType, public NoExtraMeta {
+struct ARROW_EXPORT StructType : public NestedType {
   static constexpr Type::type type_id = Type::STRUCT;
 
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
-      : DataType(Type::STRUCT) {
+      : NestedType(Type::STRUCT) {
     children_ = fields;
   }
 
@@ -401,7 +410,7 @@ struct ARROW_EXPORT DecimalType : public DataType {
 
 enum class UnionMode : char { SPARSE, DENSE };
 
-struct ARROW_EXPORT UnionType : public DataType {
+struct ARROW_EXPORT UnionType : public NestedType {
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
@@ -473,8 +482,24 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
   return os;
 }
 
-struct ARROW_EXPORT TimeType : public FixedWidthType {
-  static constexpr Type::type type_id = Type::TIME;
+struct ARROW_EXPORT Time32Type : public FixedWidthType {
+  static constexpr Type::type type_id = Type::TIME32;
+  using Unit = TimeUnit;
+  using c_type = int32_t;
+
+  TimeUnit unit;
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
+
+  explicit Time32Type(TimeUnit unit = TimeUnit::MILLI);
+  Time32Type(const Time32Type& other) : Time32Type(other.unit) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+};
+
+struct ARROW_EXPORT Time64Type : public FixedWidthType {
+  static constexpr Type::type type_id = Type::TIME64;
   using Unit = TimeUnit;
   using c_type = int64_t;
 
@@ -482,9 +507,8 @@ struct ARROW_EXPORT TimeType : public FixedWidthType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
-  explicit TimeType(TimeUnit unit = TimeUnit::MILLI)
-      : FixedWidthType(Type::TIME), unit(unit) {}
-  TimeType(const TimeType& other) : TimeType(other.unit) {}
+  explicit Time64Type(TimeUnit unit = TimeUnit::MILLI);
+  Time64Type(const Time64Type& other) : Time64Type(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -573,7 +597,12 @@ std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& val
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit unit);
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(
     TimeUnit unit, const std::string& timezone);
-std::shared_ptr<DataType> ARROW_EXPORT time(TimeUnit unit);
+
+/// Unit can be either SECOND or MILLI
+std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit unit);
+
+/// Unit can be either MICRO or NANO
+std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit unit);
 
 std::shared_ptr<DataType> ARROW_EXPORT struct_(
     const std::vector<std::shared_ptr<Field>>& fields);
@@ -637,8 +666,9 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::DOUBLE:
     case Type::DATE32:
     case Type::DATE64:
+    case Type::TIME32:
+    case Type::TIME64:
     case Type::TIMESTAMP:
-    case Type::TIME:
     case Type::INTERVAL:
       return true;
     default:

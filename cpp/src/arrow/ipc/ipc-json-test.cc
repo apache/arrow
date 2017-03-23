@@ -52,7 +52,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
   std::shared_ptr<Schema> out;
   ASSERT_OK(ReadJsonSchema(d, &out));
 
-  ASSERT_TRUE(schema.Equals(out));
+  if (!schema.Equals(out)) {
+    FAIL() << "In schema: " << schema.ToString() << "\nOut schema: " << out->ToString();
+  }
 }
 
 void TestArrayRoundTrip(const Array& array) {
@@ -105,8 +107,8 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f10", utf8()), field("f11", binary()), field("f12", list(int32())),
       field("f13", struct_({field("s1", int32()), field("s2", utf8())})),
       field("f15", date64()), field("f16", timestamp(TimeUnit::NANO)),
-      field("f17", time(TimeUnit::MICRO)),
-      field("f18", union_({field("u1", int8()), field("u2", time(TimeUnit::MILLI))},
+      field("f17", time64(TimeUnit::MICRO)),
+      field("f18", union_({field("u1", int8()), field("u2", time32(TimeUnit::MILLI))},
                        {0, 1}, UnionMode::DENSE))};
 
   Schema schema(fields);
