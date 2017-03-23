@@ -38,9 +38,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_FLOAT" arrow::Type::FLOAT"
         Type_DOUBLE" arrow::Type::DOUBLE"
 
-        Type_TIMESTAMP" arrow::Type::TIMESTAMP"
         Type_DATE32" arrow::Type::DATE32"
         Type_DATE64" arrow::Type::DATE64"
+        Type_TIMESTAMP" arrow::Type::TIMESTAMP"
+        Type_TIME32" arrow::Type::TIME32"
+        Type_TIME64" arrow::Type::TIME64"
         Type_BINARY" arrow::Type::BINARY"
         Type_STRING" arrow::Type::STRING"
 
@@ -85,11 +87,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] indices()
         shared_ptr[CArray] dictionary()
 
+    cdef cppclass CDate32Type" arrow::Date32Type"(CFixedWidthType):
+        pass
+
+    cdef cppclass CDate64Type" arrow::Date64Type"(CFixedWidthType):
+        pass
+
     cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
         TimeUnit unit
         c_string timezone
 
-    cdef cppclass CTimeType" arrow::TimeType"(CFixedWidthType):
+    cdef cppclass CTime32Type" arrow::Time32Type"(CFixedWidthType):
+        TimeUnit unit
+
+    cdef cppclass CTime64Type" arrow::Time64Type"(CFixedWidthType):
         TimeUnit unit
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
