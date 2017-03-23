@@ -933,8 +933,8 @@ cdef class _StreamReader:
         with nogil:
             check_status(CStreamReader.Open(in_stream, &self.reader))
 
-        schema = Schema()
-        schema.init_schema(self.reader.get().schema())
+        self.schema = Schema()
+        self.schema.init_schema(self.reader.get().schema())
 
     def get_next_batch(self):
         """
