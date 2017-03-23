@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.util.List;
 
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
@@ -152,7 +151,7 @@ public class TestSchema {
     assertEquals(schema.hashCode(), actual.hashCode());
   }
 
-  private void validateFieldsHashcode(List<Field> schemaFields, List<Field> actualFields) {
+  private void validateFieldsHashcode(java.util.List<Field> schemaFields, java.util.List<Field> actualFields) {
     assertEquals(schemaFields.size(), actualFields.size());
     if (schemaFields.size() == 0) {
       return;
