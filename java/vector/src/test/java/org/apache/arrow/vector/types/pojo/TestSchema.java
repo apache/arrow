@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
@@ -125,6 +126,27 @@ public class TestSchema {
     Schema actual = Schema.fromJSON(json);
     assertEquals(schema.toJson(), actual.toJson());
     assertEquals(schema, actual);
+    validateFieldsHashcode(schema.getFields(), actual.getFields());
+    assertEquals(schema.hashCode(), actual.hashCode());
+  }
+
+  private void validateFieldsHashcode(List<Field> schemaFields, List<Field> actualFields) {
+    assertEquals(schemaFields.size(), actualFields.size());
+    if (schemaFields.size() == 0) {
+      return;
+    }
+    for (int i = 0; i < schemaFields.size(); i++) {
+      Field schemaField = schemaFields.get(i);
+      Field actualField = actualFields.get(i);
+      validateFieldsHashcode(schemaField.getChildren(), actualField.getChildren());
+      validateHashCode(schemaField.getType(), actualField.getType());
+      validateHashCode(schemaField, actualField);
+    }
+  }
+
+  private void validateHashCode(Object o1, Object o2) {
+    assertEquals(o1, o2);
+    assertEquals(o1 + " == " + o2, o1.hashCode(), o2.hashCode());
   }
 
   private void contains(Schema schema, String... s) throws IOException {

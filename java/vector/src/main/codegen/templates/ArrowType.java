@@ -164,7 +164,7 @@ public abstract class ArrowType {
 
     @Override
     public int hashCode() {
-      return Objects.hash(<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+      return java.util.Arrays.deepHashCode(new Object[] {<#list type.fields as field>${field.name}<#if field_has_next>, </#if></#list>});
     }
 
     @Override
