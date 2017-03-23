@@ -16,6 +16,7 @@
 // under the License.
 
 include "Schema.fbs";
+include "Tensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
 
@@ -82,7 +83,7 @@ table DictionaryBatch {
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch
+  Schema, DictionaryBatch, RecordBatch, Tensor
 }
 
 table Message {
