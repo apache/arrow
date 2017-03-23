@@ -28,6 +28,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -35,7 +36,7 @@ class Array;
 struct DataType;
 class Status;
 
-class ArrayLoader : public TypeVisitor {
+class ArrayLoader {
  public:
   ArrayLoader(const std::shared_ptr<DataType>& type, ArrayLoaderContext* context)
       : type_(type), context_(context) {}
@@ -45,8 +46,7 @@ class ArrayLoader : public TypeVisitor {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    // Load the array
-    RETURN_NOT_OK(type_->Accept(this));
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
 
     *out = std::move(result_);
     return Status::OK();
@@ -92,8 +92,10 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  template <typename CONTAINER>
+  template <typename TYPE>
   Status LoadBinary() {
+    using CONTAINER = typename TypeTraits<TYPE>::ArrayType;
+
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, offsets, values;
 
@@ -131,33 +133,24 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-#define VISIT_PRIMITIVE(TYPE) \
-  Status Visit(const TYPE& type) override { return LoadPrimitive<TYPE>(); }
+  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
 
-  VISIT_PRIMITIVE(BooleanType);
-  VISIT_PRIMITIVE(Int8Type);
-  VISIT_PRIMITIVE(Int16Type);
-  VISIT_PRIMITIVE(Int32Type);
-  VISIT_PRIMITIVE(Int64Type);
-  VISIT_PRIMITIVE(UInt8Type);
-  VISIT_PRIMITIVE(UInt16Type);
-  VISIT_PRIMITIVE(UInt32Type);
-  VISIT_PRIMITIVE(UInt64Type);
-  VISIT_PRIMITIVE(HalfFloatType);
-  VISIT_PRIMITIVE(FloatType);
-  VISIT_PRIMITIVE(DoubleType);
-  VISIT_PRIMITIVE(Date32Type);
-  VISIT_PRIMITIVE(Date64Type);
-  VISIT_PRIMITIVE(TimeType);
-  VISIT_PRIMITIVE(TimestampType);
+  template <typename T>
+  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
+                              !std::is_base_of<FixedWidthBinaryType, T>::value &&
+                              !std::is_base_of<DictionaryType, T>::value,
+      Status>::type
+  Visit(const T& type) {
+    return LoadPrimitive<T>();
+  }
 
-#undef VISIT_PRIMITIVE
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
+      const T& type) {
+    return LoadBinary<T>();
+  }
 
-  Status Visit(const StringType& type) override { return LoadBinary<StringArray>(); }
-
-  Status Visit(const BinaryType& type) override { return LoadBinary<BinaryArray>(); }
-
-  Status Visit(const FixedWidthBinaryType& type) override {
+  Status Visit(const FixedWidthBinaryType& type) {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, data;
 
@@ -169,7 +162,7 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) override {
+  Status Visit(const ListType& type) {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, offsets;
 
@@ -196,7 +189,7 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const StructType& type) override {
+  Status Visit(const StructType& type) {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
@@ -209,7 +202,7 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) override {
+  Status Visit(const UnionType& type) {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, type_ids, offsets;
 
@@ -230,12 +223,12 @@ class ArrayLoader : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DictionaryType& type) override {
+  Status Visit(const DictionaryType& type) {
     std::shared_ptr<Array> indices;
     RETURN_NOT_OK(LoadArray(type.index_type(), context_, &indices));
     result_ = std::make_shared<DictionaryArray>(type_, indices);
     return Status::OK();
-  };
+  }
 
   std::shared_ptr<Array> result() const { return result_; }
 

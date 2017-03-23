@@ -26,6 +26,7 @@
 #include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 

@@ -47,9 +47,8 @@ namespace ipc {
 
 class RecordBatchWriter : public ArrayVisitor {
  public:
-  RecordBatchWriter(
-      MemoryPool* pool, int64_t buffer_start_offset, int max_recursion_depth,
-      bool allow_64bit)
+  RecordBatchWriter(MemoryPool* pool, int64_t buffer_start_offset,
+      int max_recursion_depth, bool allow_64bit)
       : pool_(pool),
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset),
@@ -501,8 +500,7 @@ class DictionaryWriter : public RecordBatchWriter {
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth, bool allow_64bit) {
-  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth,
-      allow_64bit);
+  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth, allow_64bit);
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 

@@ -845,6 +845,7 @@ set(ARROW_SRCS
   src/arrow/status.cc
   src/arrow/table.cc
   src/arrow/type.cc
+  src/arrow/visitor.cc
 
   src/arrow/util/bit-util.cc
 )

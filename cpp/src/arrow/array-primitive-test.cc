@@ -26,6 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/status.h"
+#include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

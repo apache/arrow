@@ -32,5 +32,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/visitor.h"
 
 #endif  // ARROW_API_H

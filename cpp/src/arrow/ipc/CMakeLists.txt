@@ -170,3 +170,7 @@ if (ARROW_BUILD_UTILITIES)
   add_executable(stream-to-file stream-to-file.cc)
   target_link_libraries(stream-to-file ${UTIL_LINK_LIBS})
 endif()
+
+ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
+ARROW_TEST_LINK_LIBRARIES(ipc-read-write-benchmark
+  ${ARROW_IPC_TEST_LINK_LIBS})

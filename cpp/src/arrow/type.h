@@ -28,6 +28,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 
@@ -117,38 +118,6 @@ class BufferDescr {
  private:
   BufferType type_;
   int bit_width_;
-};
-
-class ARROW_EXPORT TypeVisitor {
- public:
-  virtual ~TypeVisitor() = default;
-
-  virtual Status Visit(const NullType& type);
-  virtual Status Visit(const BooleanType& type);
-  virtual Status Visit(const Int8Type& type);
-  virtual Status Visit(const Int16Type& type);
-  virtual Status Visit(const Int32Type& type);
-  virtual Status Visit(const Int64Type& type);
-  virtual Status Visit(const UInt8Type& type);
-  virtual Status Visit(const UInt16Type& type);
-  virtual Status Visit(const UInt32Type& type);
-  virtual Status Visit(const UInt64Type& type);
-  virtual Status Visit(const HalfFloatType& type);
-  virtual Status Visit(const FloatType& type);
-  virtual Status Visit(const DoubleType& type);
-  virtual Status Visit(const StringType& type);
-  virtual Status Visit(const BinaryType& type);
-  virtual Status Visit(const FixedWidthBinaryType& type);
-  virtual Status Visit(const Date64Type& type);
-  virtual Status Visit(const Date32Type& type);
-  virtual Status Visit(const TimeType& type);
-  virtual Status Visit(const TimestampType& type);
-  virtual Status Visit(const IntervalType& type);
-  virtual Status Visit(const DecimalType& type);
-  virtual Status Visit(const ListType& type);
-  virtual Status Visit(const StructType& type);
-  virtual Status Visit(const UnionType& type);
-  virtual Status Visit(const DictionaryType& type);
 };
 
 struct ARROW_EXPORT DataType {

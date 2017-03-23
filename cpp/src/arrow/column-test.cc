@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/schema.h"
+#include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 
