@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-include "Message.fbs";
+include "Schema.fbs";
 
 namespace org.apache.arrow.flatbuf;
 
