@@ -36,10 +36,8 @@ class ArrayPrinter {
   ArrayPrinter(const Array& array, int indent, std::ostream* sink)
       : array_(array), indent_(indent), sink_(sink) {}
 
-  Status Print() { return VisitArrayInline(array_, this); }
-
   template <typename T>
-  typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
+  inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
@@ -53,7 +51,7 @@ class ArrayPrinter {
   }
 
   template <typename T>
-  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
+  inline typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
@@ -68,7 +66,7 @@ class ArrayPrinter {
 
   // String (Utf8)
   template <typename T>
-  typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
@@ -84,7 +82,7 @@ class ArrayPrinter {
 
   // Binary
   template <typename T>
-  typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
@@ -99,8 +97,9 @@ class ArrayPrinter {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
-  WriteDataValues(const T& array) {
+  inline
+      typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
+      WriteDataValues(const T& array) {
     int32_t width = array.byte_width();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
@@ -114,7 +113,7 @@ class ArrayPrinter {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
@@ -133,14 +132,6 @@ class ArrayPrinter {
   void OpenArray();
   void CloseArray();
 
-  template <typename T>
-  Status WriteArray(const T& array) {
-    OpenArray();
-    WriteDataValues(array);
-    CloseArray();
-    return Status::OK();
-  }
-
   Status Visit(const NullArray& array) { return Status::OK(); }
 
   template <typename T>
@@ -149,26 +140,17 @@ class ArrayPrinter {
                               std::is_base_of<BinaryArray, T>::value,
       Status>::type
   Visit(const T& array) {
-    return WriteArray(array);
+    OpenArray();
+    WriteDataValues(array);
+    CloseArray();
+    return Status::OK();
   }
 
   Status Visit(const IntervalArray& array) { return Status::NotImplemented("interval"); }
 
   Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
-  Status WriteValidityBitmap(const Array& array) {
-    Newline();
-    Write("-- is_valid: ");
-
-    if (array.null_count() > 0) {
-      BooleanArray is_valid(
-          array.length(), array.null_bitmap(), nullptr, 0, array.offset());
-      return PrettyPrint(is_valid, indent_ + 2, sink_);
-    } else {
-      Write("all not null");
-      return Status::OK();
-    }
-  }
+  Status WriteValidityBitmap(const Array& array);
 
   Status Visit(const ListArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
@@ -243,12 +225,28 @@ class ArrayPrinter {
     return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
+  Status Print() { return VisitArrayInline(array_, this); }
+
  private:
   const Array& array_;
   int indent_;
 
   std::ostream* sink_;
 };
+
+Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
+  Newline();
+  Write("-- is_valid: ");
+
+  if (array.null_count() > 0) {
+    BooleanArray is_valid(
+        array.length(), array.null_bitmap(), nullptr, 0, array.offset());
+    return PrettyPrint(is_valid, indent_ + 2, sink_);
+  } else {
+    Write("all not null");
+    return Status::OK();
+  }
+}
 
 void ArrayPrinter::OpenArray() {
   (*sink_) << "[";
