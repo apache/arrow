@@ -18,11 +18,11 @@
 
 package org.apache.arrow.memory;
 
-import com.google.common.base.Preconditions;
-
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.concurrent.ThreadSafe;
+
+import com.google.common.base.Preconditions;
 
 /**
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis
@@ -202,6 +202,7 @@ class Accountant implements AutoCloseable {
   /**
    * Close this Accountant. This will release any reservation bytes back to a parent Accountant.
    */
+  @Override
   public void close() {
     // return memory reservation to parent allocator.
     if (parent != null) {
@@ -246,6 +247,15 @@ class Accountant implements AutoCloseable {
    */
   public long getPeakMemoryAllocation() {
     return peakAllocation.get();
+  }
+
+  public long getHeadroom(){
+    long localHeadroom = allocationLimit.get() - locallyHeldMemory.get();
+    if(parent == null){
+      return localHeadroom;
+    }
+
+    return Math.min(localHeadroom, parent.getHeadroom());
   }
 
   /**

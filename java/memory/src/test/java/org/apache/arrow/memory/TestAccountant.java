@@ -19,7 +19,6 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
 
-import org.apache.arrow.memory.Accountant;
 import org.apache.arrow.memory.Accountant.AllocationOutcome;
 import org.junit.Assert;
 import org.junit.Test;
@@ -36,6 +35,7 @@ public class TestAccountant {
     final Accountant parent = new Accountant(null, 0, Long.MAX_VALUE);
     ensureAccurateReservations(parent);
     assertEquals(0, parent.getAllocatedMemory());
+    assertEquals(parent.getLimit() - parent.getAllocatedMemory(), parent.getHeadroom());
   }
 
   @Test
@@ -71,6 +71,7 @@ public class TestAccountant {
     }
 
     assertEquals(0, parent.getAllocatedMemory());
+    assertEquals(parent.getLimit() - parent.getAllocatedMemory(), parent.getHeadroom());
   }
 
   private void ensureAccurateReservations(Accountant outsideParent) {
@@ -121,6 +122,9 @@ public class TestAccountant {
     // went beyond reservation, now in parent accountant
     assertEquals(3, parent.getAllocatedMemory());
 
+    assertEquals(7, child.getHeadroom());
+    assertEquals(7, parent.getHeadroom());
+
     {
       AllocationOutcome first = child.allocateBytes(7);
       assertEquals(AllocationOutcome.SUCCESS, first);
@@ -135,9 +139,11 @@ public class TestAccountant {
     child.releaseBytes(9);
 
     assertEquals(1, child.getAllocatedMemory());
+    assertEquals(8, child.getHeadroom());
 
     // back to reservation size
     assertEquals(2, parent.getAllocatedMemory());
+    assertEquals(8, parent.getHeadroom());
 
     AllocationOutcome first = child.allocateBytes(10);
     assertEquals(AllocationOutcome.FAILED_PARENT, first);
@@ -152,11 +158,14 @@ public class TestAccountant {
     // at new limit
     assertEquals(child.getAllocatedMemory(), 11);
     assertEquals(parent.getAllocatedMemory(), 11);
-
+    assertEquals(-1, child.getHeadroom());
+    assertEquals(-1, parent.getHeadroom());
 
     child.releaseBytes(11);
     assertEquals(child.getAllocatedMemory(), 0);
     assertEquals(parent.getAllocatedMemory(), 2);
+    assertEquals(8, child.getHeadroom());
+    assertEquals(8, parent.getHeadroom());
 
     child.close();
     parent.close();
