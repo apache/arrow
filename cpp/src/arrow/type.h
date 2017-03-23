@@ -152,6 +152,9 @@ struct ARROW_EXPORT DataType {
   virtual std::string ToString() const = 0;
 
   virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
 typedef std::shared_ptr<DataType> TypePtr;
@@ -492,7 +495,6 @@ struct ARROW_EXPORT Time32Type : public FixedWidthType {
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
   explicit Time32Type(TimeUnit unit = TimeUnit::MILLI);
-  Time32Type(const Time32Type& other) : Time32Type(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -508,7 +510,6 @@ struct ARROW_EXPORT Time64Type : public FixedWidthType {
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
   explicit Time64Type(TimeUnit unit = TimeUnit::MILLI);
-  Time64Type(const Time64Type& other) : Time64Type(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -527,8 +528,6 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
 
   explicit TimestampType(TimeUnit unit, const std::string& timezone)
       : FixedWidthType(Type::TIMESTAMP), unit(unit), timezone(timezone) {}
-
-  TimestampType(const TimestampType& other) : TimestampType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -550,8 +549,6 @@ struct ARROW_EXPORT IntervalType : public FixedWidthType {
 
   explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
       : FixedWidthType(Type::INTERVAL), unit(unit) {}
-
-  IntervalType(const IntervalType& other) : IntervalType(other.unit) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
