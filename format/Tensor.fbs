@@ -32,7 +32,7 @@ table TensorDim {
   name: string;
 }
 
-enum TensorOrder : short {
+enum TensorOrder : byte {
   /// Higher dimensions vary first when traversing data in byte-contiguous
   /// order, aka "C order"
   ROW_MAJOR,
