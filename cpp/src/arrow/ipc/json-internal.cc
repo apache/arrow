@@ -762,7 +762,6 @@ class JsonSchemaReader {
       // TODO
       *type = date64();
     } else if (type_name == "time") {
-      // TODO: 32-bit vs 64-bit time
       return GetTime(json_type, type);
     } else if (type_name == "timestamp") {
       return GetTimestamp(json_type, type);
