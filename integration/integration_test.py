@@ -34,10 +34,12 @@ ARROW_HOME = os.path.abspath(__file__).rsplit("/", 2)[0]
 # Control for flakiness
 np.random.seed(12345)
 
+
 def load_version_from_pom():
     import xml.etree.ElementTree as ET
     tree = ET.parse(os.path.join(ARROW_HOME, 'java', 'pom.xml'))
-    version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
+    tag_pattern = '{http://maven.apache.org/POM/4.0.0}version'
+    version_tag = list(tree.getroot().findall(tag_pattern))[0]
     return version_tag.text
 
 
@@ -596,32 +598,32 @@ class IntegrationRunner(object):
     def run(self):
         for producer, consumer in itertools.product(self.testers,
                                                     self.testers):
-            if producer is consumer:
-                continue
+            self._compare_implementations(producer, consumer)
 
-            print('-- {0} producing, {1} consuming'.format(producer.name,
-                                                           consumer.name))
+    def _compare_implementations(self, producer, consumer):
+        print('-- {0} producing, {1} consuming'.format(producer.name,
+                                                       consumer.name))
 
-            for json_path in self.json_files:
-                print('Testing file {0}'.format(json_path))
+        for json_path in self.json_files:
+            print('Testing file {0}'.format(json_path))
 
-                # Make the random access file
-                print('-- Creating binary inputs')
-                producer_file_path = os.path.join(self.temp_dir, guid())
-                producer.json_to_file(json_path, producer_file_path)
+            # Make the random access file
+            print('-- Creating binary inputs')
+            producer_file_path = os.path.join(self.temp_dir, guid())
+            producer.json_to_file(json_path, producer_file_path)
 
-                # Validate the file
-                print('-- Validating file')
-                consumer.validate(json_path, producer_file_path)
+            # Validate the file
+            print('-- Validating file')
+            consumer.validate(json_path, producer_file_path)
 
-                print('-- Validating stream')
-                producer_stream_path = os.path.join(self.temp_dir, guid())
-                consumer_file_path = os.path.join(self.temp_dir, guid())
-                producer.file_to_stream(producer_file_path,
-                                        producer_stream_path)
-                consumer.stream_to_file(producer_stream_path,
-                                        consumer_file_path)
-                consumer.validate(json_path, consumer_file_path)
+            print('-- Validating stream')
+            producer_stream_path = os.path.join(self.temp_dir, guid())
+            consumer_file_path = os.path.join(self.temp_dir, guid())
+            producer.file_to_stream(producer_file_path,
+                                    producer_stream_path)
+            consumer.stream_to_file(producer_stream_path,
+                                    consumer_file_path)
+            consumer.validate(json_path, consumer_file_path)
 
 
 class Tester(object):
