@@ -151,7 +151,7 @@ def test_buffer_bytearray():
     buf = io.build_arrow_buffer(val)
     assert isinstance(buf, io.Buffer)
 
-    result = bytes(buf)
+    result = bytearray(buf)
 
     assert result == val
 
