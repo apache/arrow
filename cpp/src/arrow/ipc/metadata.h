@@ -138,44 +138,6 @@ struct ARROW_EXPORT BufferMetadata {
   int64_t length;
 };
 
-// Container for serialized record batch metadata contained in an IPC message
-class ARROW_EXPORT RecordBatchMetadata {
- public:
-  explicit RecordBatchMetadata(const void* header);
-  explicit RecordBatchMetadata(const std::shared_ptr<Message>& message);
-  RecordBatchMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
-
-  ~RecordBatchMetadata();
-
-  FieldMetadata field(int i) const;
-  BufferMetadata buffer(int i) const;
-
-  int64_t length() const;
-  int num_buffers() const;
-  int num_fields() const;
-
- private:
-  class RecordBatchMetadataImpl;
-  std::unique_ptr<RecordBatchMetadataImpl> impl_;
-
-  DISALLOW_COPY_AND_ASSIGN(RecordBatchMetadata);
-};
-
-class ARROW_EXPORT DictionaryBatchMetadata {
- public:
-  explicit DictionaryBatchMetadata(const std::shared_ptr<Message>& message);
-  ~DictionaryBatchMetadata();
-
-  int64_t id() const;
-  const RecordBatchMetadata& record_batch() const;
-
- private:
-  class DictionaryBatchMetadataImpl;
-  std::unique_ptr<DictionaryBatchMetadataImpl> impl_;
-
-  DISALLOW_COPY_AND_ASSIGN(DictionaryBatchMetadata);
-};
-
 class ARROW_EXPORT Message {
  public:
   enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
@@ -187,11 +149,12 @@ class ARROW_EXPORT Message {
 
   Type type() const;
 
+  const void* header() const;
+
  private:
   Message(const std::shared_ptr<Buffer>& buffer, int64_t offset);
 
   friend class DictionaryBatchMetadata;
-  friend class RecordBatchMetadata;
   friend class SchemaMetadata;
 
   // Hide serialization details from user API

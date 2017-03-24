@@ -121,14 +121,12 @@ BENCHMARK(BM_WriteRecordBatch)
     ->RangeMultiplier(4)
     ->Range(1, 1 << 13)
     ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
     ->UseRealTime();
 
 BENCHMARK(BM_ReadRecordBatch)
     ->RangeMultiplier(4)
     ->Range(1, 1 << 13)
     ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
     ->UseRealTime();
 
 }  // namespace arrow

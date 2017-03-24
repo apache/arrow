@@ -770,6 +770,10 @@ int64_t Message::body_length() const {
   return impl_->body_length();
 }
 
+const void* Message::header() const {
+  return impl_->header();
+}
+
 // ----------------------------------------------------------------------
 // SchemaMetadata
 
@@ -856,125 +860,6 @@ Status SchemaMetadata::GetSchema(
   }
   *out = std::make_shared<Schema>(fields);
   return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// RecordBatchMetadata
-
-class RecordBatchMetadata::RecordBatchMetadataImpl : public MessageHolder {
- public:
-  explicit RecordBatchMetadataImpl(const void* batch)
-      : batch_(static_cast<const flatbuf::RecordBatch*>(batch)) {
-    nodes_ = batch_->nodes();
-    buffers_ = batch_->buffers();
-  }
-
-  const flatbuf::FieldNode* field(int i) const { return nodes_->Get(i); }
-
-  const flatbuf::Buffer* buffer(int i) const { return buffers_->Get(i); }
-
-  int64_t length() const { return batch_->length(); }
-
-  int num_buffers() const { return batch_->buffers()->size(); }
-
-  int num_fields() const { return batch_->nodes()->size(); }
-
- private:
-  const flatbuf::RecordBatch* batch_;
-  const flatbuffers::Vector<const flatbuf::FieldNode*>* nodes_;
-  const flatbuffers::Vector<const flatbuf::Buffer*>* buffers_;
-};
-
-RecordBatchMetadata::RecordBatchMetadata(const std::shared_ptr<Message>& message)
-    : RecordBatchMetadata(message->impl_->header()) {
-  impl_->set_message(message);
-}
-
-RecordBatchMetadata::RecordBatchMetadata(const void* header) {
-  impl_.reset(new RecordBatchMetadataImpl(header));
-}
-
-RecordBatchMetadata::RecordBatchMetadata(
-    const std::shared_ptr<Buffer>& buffer, int64_t offset)
-    : RecordBatchMetadata(buffer->data() + offset) {
-  // Preserve ownership
-  impl_->set_buffer(buffer);
-}
-
-RecordBatchMetadata::~RecordBatchMetadata() {}
-
-// TODO(wesm): Copying the flatbuffer data isn't great, but this will do for
-// now
-FieldMetadata RecordBatchMetadata::field(int i) const {
-  const flatbuf::FieldNode* node = impl_->field(i);
-
-  FieldMetadata result;
-  result.length = node->length();
-  result.null_count = node->null_count();
-  result.offset = 0;
-  return result;
-}
-
-BufferMetadata RecordBatchMetadata::buffer(int i) const {
-  const flatbuf::Buffer* buffer = impl_->buffer(i);
-
-  BufferMetadata result;
-  result.page = buffer->page();
-  result.offset = buffer->offset();
-  result.length = buffer->length();
-  return result;
-}
-
-int64_t RecordBatchMetadata::length() const {
-  return impl_->length();
-}
-
-int RecordBatchMetadata::num_buffers() const {
-  return impl_->num_buffers();
-}
-
-int RecordBatchMetadata::num_fields() const {
-  return impl_->num_fields();
-}
-
-// ----------------------------------------------------------------------
-// DictionaryBatchMetadata
-
-class DictionaryBatchMetadata::DictionaryBatchMetadataImpl {
- public:
-  explicit DictionaryBatchMetadataImpl(const void* dictionary)
-      : metadata_(static_cast<const flatbuf::DictionaryBatch*>(dictionary)) {
-    record_batch_.reset(new RecordBatchMetadata(metadata_->data()));
-  }
-
-  int64_t id() const { return metadata_->id(); }
-  const RecordBatchMetadata& record_batch() const { return *record_batch_; }
-
-  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
-
- private:
-  const flatbuf::DictionaryBatch* metadata_;
-
-  std::unique_ptr<RecordBatchMetadata> record_batch_;
-
-  // Parent, owns the flatbuffer data
-  std::shared_ptr<Message> message_;
-};
-
-DictionaryBatchMetadata::DictionaryBatchMetadata(
-    const std::shared_ptr<Message>& message) {
-  impl_.reset(new DictionaryBatchMetadataImpl(message->impl_->header()));
-  impl_->set_message(message);
-}
-
-DictionaryBatchMetadata::~DictionaryBatchMetadata() {}
-
-int64_t DictionaryBatchMetadata::id() const {
-  return impl_->id();
-}
-
-const RecordBatchMetadata& DictionaryBatchMetadata::record_batch() const {
-  return impl_->record_batch();
 }
 
 // ----------------------------------------------------------------------

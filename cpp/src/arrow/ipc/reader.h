@@ -45,17 +45,15 @@ namespace ipc {
 
 // Generic read functionsh; does not copy data if the input supports zero copy reads
 
-Status ReadRecordBatch(const RecordBatchMetadata& metadata,
-    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
-    std::shared_ptr<RecordBatch>* out);
-
-Status ReadRecordBatch(const RecordBatchMetadata& metadata,
-    const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
-Status ReadDictionary(const DictionaryBatchMetadata& metadata,
-    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
-    std::shared_ptr<Array>* out);
+Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
+    int max_recursion_depth, io::RandomAccessFile* file,
+    std::shared_ptr<RecordBatch>* out);
+
+Status ReadDictionary(const Message& metadata, const DictionaryTypeMap& dictionary_types,
+    io::RandomAccessFile* file, std::shared_ptr<Array>* out);
 
 class ARROW_EXPORT StreamReader {
  public:

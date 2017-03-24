@@ -68,13 +68,6 @@ bool Buffer::Equals(const Buffer& other) const {
                                                             static_cast<size_t>(size_))));
 }
 
-std::shared_ptr<Buffer> SliceBuffer(
-    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
-  DCHECK_LE(offset, buffer->size());
-  DCHECK_LE(length, buffer->size() - offset);
-  return std::make_shared<Buffer>(buffer, offset, length);
-}
-
 std::shared_ptr<Buffer> MutableBuffer::GetImmutableView() {
   return std::make_shared<Buffer>(this->get_shared_ptr(), 0, size());
 }

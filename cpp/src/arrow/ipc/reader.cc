@@ -46,36 +46,41 @@ namespace ipc {
 
 class IpcComponentSource : public ArrayComponentSource {
  public:
-  IpcComponentSource(const RecordBatchMetadata& metadata, io::RandomAccessFile* file)
+  IpcComponentSource(const flatbuf::RecordBatch* metadata, io::RandomAccessFile* file)
       : metadata_(metadata), file_(file) {}
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
-    BufferMetadata buffer_meta = metadata_.buffer(buffer_index);
-    if (buffer_meta.length == 0) {
+    const flatbuf::Buffer* buffer = metadata_->buffers()->Get(buffer_index);
+
+    if (buffer->length() == 0) {
       *out = nullptr;
       return Status::OK();
     } else {
-      return file_->ReadAt(buffer_meta.offset, buffer_meta.length, out);
+      return file_->ReadAt(buffer->offset(), buffer->length(), out);
     }
   }
 
-  Status GetFieldMetadata(int field_index, FieldMetadata* metadata) override {
+  Status GetFieldMetadata(int field_index, FieldMetadata* field) override {
+    auto nodes = metadata_->nodes();
     // pop off a field
-    if (field_index >= metadata_.num_fields()) {
+    if (field_index >= static_cast<int>(nodes->size())) {
       return Status::Invalid("Ran out of field metadata, likely malformed");
     }
-    *metadata = metadata_.field(field_index);
+    const flatbuf::FieldNode* node = nodes->Get(field_index);
+
+    field->length = node->length();
+    field->null_count = node->null_count();
+    field->offset = 0;
     return Status::OK();
   }
 
  private:
-  const RecordBatchMetadata& metadata_;
+  const flatbuf::RecordBatch* metadata_;
   io::RandomAccessFile* file_;
 };
 
-Status ReadRecordBatch(const RecordBatchMetadata& metadata,
-    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
-    std::shared_ptr<RecordBatch>* out) {
+Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
 }
 
@@ -94,22 +99,32 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
     RETURN_NOT_OK(LoadArray(schema->field(i)->type, &context, &arrays[i]));
   }
 
-  *out = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+  *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));
   return Status::OK();
 }
 
-Status ReadRecordBatch(const RecordBatchMetadata& metadata,
+static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
     const std::shared_ptr<Schema>& schema, int max_recursion_depth,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   IpcComponentSource source(metadata, file);
   return LoadRecordBatchFromSource(
-      schema, metadata.length(), max_recursion_depth, &source, out);
+      schema, metadata->length(), max_recursion_depth, &source, out);
 }
 
-Status ReadDictionary(const DictionaryBatchMetadata& metadata,
-    const DictionaryTypeMap& dictionary_types, io::RandomAccessFile* file,
-    std::shared_ptr<Array>* out) {
-  int64_t id = metadata.id();
+Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
+    int max_recursion_depth, io::RandomAccessFile* file,
+    std::shared_ptr<RecordBatch>* out) {
+  DCHECK_EQ(metadata.type(), Message::RECORD_BATCH);
+  auto batch = reinterpret_cast<const flatbuf::RecordBatch*>(metadata.header());
+  return ReadRecordBatch(batch, schema, max_recursion_depth, file, out);
+}
+
+Status ReadDictionary(const Message& metadata, const DictionaryTypeMap& dictionary_types,
+    io::RandomAccessFile* file, int64_t* dictionary_id, std::shared_ptr<Array>* out) {
+  auto dictionary_batch =
+      reinterpret_cast<const flatbuf::DictionaryBatch*>(metadata.header());
+
+  int64_t id = *dictionary_id = dictionary_batch->id();
   auto it = dictionary_types.find(id);
   if (it == dictionary_types.end()) {
     std::stringstream ss;
@@ -124,7 +139,10 @@ Status ReadDictionary(const DictionaryBatchMetadata& metadata,
 
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(ReadRecordBatch(metadata.record_batch(), dummy_schema, file, &batch));
+  auto batch_meta =
+      reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
+  RETURN_NOT_OK(
+      ReadRecordBatch(batch_meta, dummy_schema, kMaxNestingDepth, file, &batch));
 
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
@@ -211,15 +229,14 @@ class StreamReader::StreamReaderImpl {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
 
-    DictionaryBatchMetadata metadata(message);
-
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
     io::BufferReader reader(batch_body);
 
     std::shared_ptr<Array> dictionary;
-    RETURN_NOT_OK(ReadDictionary(metadata, dictionary_types_, &reader, &dictionary));
-    return dictionary_memo_.AddDictionary(metadata.id(), dictionary);
+    int64_t id;
+    RETURN_NOT_OK(ReadDictionary(*message, dictionary_types_, &reader, &id, &dictionary));
+    return dictionary_memo_.AddDictionary(id, dictionary);
   }
 
   Status ReadSchema() {
@@ -249,12 +266,10 @@ class StreamReader::StreamReaderImpl {
       return Status::OK();
     }
 
-    RecordBatchMetadata batch_metadata(message);
-
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
     io::BufferReader reader(batch_body);
-    return ReadRecordBatch(batch_metadata, schema_, &reader, batch);
+    return ReadRecordBatch(*message, schema_, &reader, batch);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -365,7 +380,6 @@ class FileReader::FileReaderImpl {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(
         ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
-    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
     // ARROW-384).
@@ -373,7 +387,7 @@ class FileReader::FileReaderImpl {
     RETURN_NOT_OK(file_->Read(block.body_length, &buffer_block));
     io::BufferReader reader(buffer_block);
 
-    return ReadRecordBatch(*metadata, schema_, &reader, batch);
+    return ReadRecordBatch(*message, schema_, &reader, batch);
   }
 
   Status ReadSchema() {
@@ -386,9 +400,8 @@ class FileReader::FileReaderImpl {
       RETURN_NOT_OK(
           ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
 
-      // TODO(wesm): ARROW-577: This code is duplicated, can be fixed with a more
-      // invasive refactor
-      DictionaryBatchMetadata metadata(message);
+      // TODO(wesm): ARROW-577: This code is a bit duplicated, can be fixed
+      // with a more invasive refactor
 
       // TODO(wesm): ARROW-388 -- the buffer frame of reference is 0 (see
       // ARROW-384).
@@ -397,8 +410,10 @@ class FileReader::FileReaderImpl {
       io::BufferReader reader(buffer_block);
 
       std::shared_ptr<Array> dictionary;
-      RETURN_NOT_OK(ReadDictionary(metadata, dictionary_fields_, &reader, &dictionary));
-      RETURN_NOT_OK(dictionary_memo_->AddDictionary(metadata.id(), dictionary));
+      int64_t dictionary_id;
+      RETURN_NOT_OK(ReadDictionary(
+          *message, dictionary_fields_, &reader, &dictionary_id, &dictionary));
+      RETURN_NOT_OK(dictionary_memo_->AddDictionary(dictionary_id, dictionary));
     }
 
     // Get the schema
@@ -480,15 +495,13 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
   RETURN_NOT_OK(file->Read(flatbuffer_size, &buffer));
   RETURN_NOT_OK(Message::Open(buffer, 0, &message));
 
-  RecordBatchMetadata metadata(message);
-
   // TODO(ARROW-388): The buffer offsets start at 0, so we must construct a
   // RandomAccessFile according to that frame of reference
   std::shared_ptr<Buffer> buffer_payload;
   RETURN_NOT_OK(file->Read(message->body_length(), &buffer_payload));
   io::BufferReader buffer_reader(buffer_payload);
 
-  return ReadRecordBatch(metadata, schema, kMaxNestingDepth, &buffer_reader, out);
+  return ReadRecordBatch(*message, schema, kMaxNestingDepth, &buffer_reader, out);
 }
 
 }  // namespace ipc
