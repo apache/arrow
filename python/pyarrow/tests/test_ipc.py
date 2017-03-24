@@ -104,6 +104,8 @@ class TestStream(MessagingTest, unittest.TestCase):
         file_contents = self._get_source()
         reader = pa.StreamReader(file_contents)
 
+        assert reader.schema.equals(batches[0].schema)
+
         total = 0
         for i, next_batch in enumerate(reader):
             assert next_batch.equals(batches[i])
