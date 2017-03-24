@@ -792,6 +792,7 @@ set(ARROW_SRCS
   src/arrow/schema.cc
   src/arrow/status.cc
   src/arrow/table.cc
+  src/arrow/tensor.cc
   src/arrow/type.cc
   src/arrow/visitor.cc
 

@@ -30,6 +30,7 @@ struct DataType;
 class Array;
 class ArrayBuilder;
 struct Field;
+class Tensor;
 
 class Buffer;
 class MemoryPool;
@@ -78,10 +79,14 @@ class NumericArray;
 template <typename TypeClass>
 class NumericBuilder;
 
-#define _NUMERIC_TYPE_DECL(KLASS)                 \
-  struct KLASS##Type;                             \
-  using KLASS##Array = NumericArray<KLASS##Type>; \
-  using KLASS##Builder = NumericBuilder<KLASS##Type>;
+template <typename TypeClass>
+class NumericTensor;
+
+#define _NUMERIC_TYPE_DECL(KLASS)                     \
+  struct KLASS##Type;                                 \
+  using KLASS##Array = NumericArray<KLASS##Type>;     \
+  using KLASS##Builder = NumericBuilder<KLASS##Type>; \
+  using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8);
 _NUMERIC_TYPE_DECL(Int16);
