@@ -99,6 +99,7 @@ class ARROW_EXPORT Tensor {
   /// These names are optional
   std::vector<std::string> dim_names_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(Tensor);
 };
 
