@@ -48,9 +48,7 @@ MemoryPool* get_memory_pool() {
 // PyBuffer
 
 PyBuffer::PyBuffer(PyObject* obj)
-    : Buffer(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
-      PyBytes_GET_SIZE(obj)),
-      obj_(obj) {
+    : Buffer(nullptr, 0) {
     if (PyObject_CheckBuffer(obj)) {
         obj_ = PyMemoryView_FromObject(obj);
         Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
@@ -58,8 +56,8 @@ PyBuffer::PyBuffer(PyObject* obj)
         size_ = buffer->len;
         capacity_ = buffer->len;
         is_mutable_ = false;
+        Py_INCREF(obj_);
     } 
-    Py_INCREF(obj_);
 }
 
 PyBuffer::~PyBuffer() {
