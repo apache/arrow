@@ -383,6 +383,12 @@ cdef class Date64Array(NumericArray):
 cdef class TimestampArray(NumericArray):
     pass
 
+cdef class Time32Array(NumericArray):
+    pass
+
+
+cdef class Time64Array(NumericArray):
+    pass
 
 cdef class FloatArray(FloatingPointArray):
     pass
@@ -490,12 +496,14 @@ cdef dict _array_classes = {
     Type_INT64: Int64Array,
     Type_DATE32: Date32Array,
     Type_DATE64: Date64Array,
+    Type_TIMESTAMP: TimestampArray,
+    Type_TIME32: Time32Array,
+    Type_TIME64: Time64Array,
     Type_FLOAT: FloatArray,
     Type_DOUBLE: DoubleArray,
     Type_LIST: ListArray,
     Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
-    Type_TIMESTAMP: TimestampArray,
     Type_DICTIONARY: DictionaryArray
 }
 

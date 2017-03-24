@@ -182,26 +182,30 @@ TEST(TestDateTypes, ToString) {
 }
 
 TEST(TestTimeType, Equals) {
-  TimeType t1;
-  TimeType t2;
-  TimeType t3(TimeUnit::NANO);
-  TimeType t4(TimeUnit::NANO);
+  Time32Type t0;
+  Time32Type t1(TimeUnit::SECOND);
+  Time32Type t2(TimeUnit::MILLI);
+  Time64Type t3(TimeUnit::MICRO);
+  Time64Type t4(TimeUnit::NANO);
+  Time64Type t5(TimeUnit::MICRO);
 
-  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_TRUE(t0.Equals(t2));
+  ASSERT_TRUE(t1.Equals(t1));
   ASSERT_FALSE(t1.Equals(t3));
-  ASSERT_TRUE(t3.Equals(t4));
+  ASSERT_FALSE(t3.Equals(t4));
+  ASSERT_TRUE(t3.Equals(t5));
 }
 
 TEST(TestTimeType, ToString) {
-  auto t1 = time(TimeUnit::MILLI);
-  auto t2 = time(TimeUnit::NANO);
-  auto t3 = time(TimeUnit::SECOND);
-  auto t4 = time(TimeUnit::MICRO);
+  auto t1 = time32(TimeUnit::MILLI);
+  auto t2 = time64(TimeUnit::NANO);
+  auto t3 = time32(TimeUnit::SECOND);
+  auto t4 = time64(TimeUnit::MICRO);
 
-  ASSERT_EQ("time[ms]", t1->ToString());
-  ASSERT_EQ("time[ns]", t2->ToString());
-  ASSERT_EQ("time[s]", t3->ToString());
-  ASSERT_EQ("time[us]", t4->ToString());
+  ASSERT_EQ("time32[ms]", t1->ToString());
+  ASSERT_EQ("time64[ns]", t2->ToString());
+  ASSERT_EQ("time32[s]", t3->ToString());
+  ASSERT_EQ("time64[us]", t4->ToString());
 }
 
 TEST(TestTimestampType, Equals) {

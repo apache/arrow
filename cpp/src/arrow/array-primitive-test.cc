@@ -47,9 +47,6 @@ class Array;
                                             \
     ASSERT_EQ(tp.type, Type::ENUM);         \
     ASSERT_EQ(tp.ToString(), string(NAME)); \
-                                            \
-    KLASS tp_copy = tp;                     \
-    ASSERT_EQ(tp_copy.type, Type::ENUM);    \
   }
 
 PRIMITIVE_TEST(Int8Type, INT8, "int8");

@@ -51,11 +51,50 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
     TYPE_VISIT_INLINE(Date32Type);
     TYPE_VISIT_INLINE(Date64Type);
     TYPE_VISIT_INLINE(TimestampType);
-    TYPE_VISIT_INLINE(TimeType);
+    TYPE_VISIT_INLINE(Time32Type);
+    TYPE_VISIT_INLINE(Time64Type);
     TYPE_VISIT_INLINE(ListType);
     TYPE_VISIT_INLINE(StructType);
     TYPE_VISIT_INLINE(UnionType);
     TYPE_VISIT_INLINE(DictionaryType);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Type not implemented");
+}
+
+#define ARRAY_VISIT_INLINE(TYPE_CLASS) \
+  case TYPE_CLASS::type_id:            \
+    return visitor->Visit(             \
+        static_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>(array));
+
+template <typename VISITOR>
+inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
+  switch (array.type_enum()) {
+    ARRAY_VISIT_INLINE(NullType);
+    ARRAY_VISIT_INLINE(BooleanType);
+    ARRAY_VISIT_INLINE(Int8Type);
+    ARRAY_VISIT_INLINE(UInt8Type);
+    ARRAY_VISIT_INLINE(Int16Type);
+    ARRAY_VISIT_INLINE(UInt16Type);
+    ARRAY_VISIT_INLINE(Int32Type);
+    ARRAY_VISIT_INLINE(UInt32Type);
+    ARRAY_VISIT_INLINE(Int64Type);
+    ARRAY_VISIT_INLINE(UInt64Type);
+    ARRAY_VISIT_INLINE(FloatType);
+    ARRAY_VISIT_INLINE(DoubleType);
+    ARRAY_VISIT_INLINE(StringType);
+    ARRAY_VISIT_INLINE(BinaryType);
+    ARRAY_VISIT_INLINE(FixedWidthBinaryType);
+    ARRAY_VISIT_INLINE(Date32Type);
+    ARRAY_VISIT_INLINE(Date64Type);
+    ARRAY_VISIT_INLINE(TimestampType);
+    ARRAY_VISIT_INLINE(Time32Type);
+    ARRAY_VISIT_INLINE(Time64Type);
+    ARRAY_VISIT_INLINE(ListType);
+    ARRAY_VISIT_INLINE(StructType);
+    ARRAY_VISIT_INLINE(UnionType);
+    ARRAY_VISIT_INLINE(DictionaryType);
     default:
       break;
   }

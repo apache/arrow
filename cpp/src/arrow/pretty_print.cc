@@ -27,20 +27,17 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/string.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
-class ArrayPrinter : public ArrayVisitor {
+class ArrayPrinter {
  public:
   ArrayPrinter(const Array& array, int indent, std::ostream* sink)
       : array_(array), indent_(indent), sink_(sink) {}
 
-  Status Print() { return VisitArray(array_); }
-
-  Status VisitArray(const Array& array) { return array.Accept(this); }
-
   template <typename T>
-  typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
+  inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
@@ -54,7 +51,7 @@ class ArrayPrinter : public ArrayVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
+  inline typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_data();
     for (int i = 0; i < array.length(); ++i) {
@@ -69,7 +66,7 @@ class ArrayPrinter : public ArrayVisitor {
 
   // String (Utf8)
   template <typename T>
-  typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
@@ -85,7 +82,7 @@ class ArrayPrinter : public ArrayVisitor {
 
   // Binary
   template <typename T>
-  typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
@@ -100,8 +97,9 @@ class ArrayPrinter : public ArrayVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
-  WriteDataValues(const T& array) {
+  inline
+      typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
+      WriteDataValues(const T& array) {
     int32_t width = array.byte_width();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
@@ -115,7 +113,7 @@ class ArrayPrinter : public ArrayVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
@@ -127,83 +125,34 @@ class ArrayPrinter : public ArrayVisitor {
     }
   }
 
-  void OpenArray() { (*sink_) << "["; }
+  void Write(const char* data);
+  void Write(const std::string& data);
+  void Newline();
+  void Indent();
+  void OpenArray();
+  void CloseArray();
 
-  void CloseArray() { (*sink_) << "]"; }
+  Status Visit(const NullArray& array) { return Status::OK(); }
 
   template <typename T>
-  Status WriteArray(const T& array) {
+  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
+                              std::is_base_of<FixedWidthBinaryArray, T>::value ||
+                              std::is_base_of<BinaryArray, T>::value,
+      Status>::type
+  Visit(const T& array) {
     OpenArray();
     WriteDataValues(array);
     CloseArray();
     return Status::OK();
   }
 
-  Status Visit(const NullArray& array) override { return Status::OK(); }
+  Status Visit(const IntervalArray& array) { return Status::NotImplemented("interval"); }
 
-  Status Visit(const BooleanArray& array) override { return WriteArray(array); }
+  Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
-  Status Visit(const Int8Array& array) override { return WriteArray(array); }
+  Status WriteValidityBitmap(const Array& array);
 
-  Status Visit(const Int16Array& array) override { return WriteArray(array); }
-
-  Status Visit(const Int32Array& array) override { return WriteArray(array); }
-
-  Status Visit(const Int64Array& array) override { return WriteArray(array); }
-
-  Status Visit(const UInt8Array& array) override { return WriteArray(array); }
-
-  Status Visit(const UInt16Array& array) override { return WriteArray(array); }
-
-  Status Visit(const UInt32Array& array) override { return WriteArray(array); }
-
-  Status Visit(const UInt64Array& array) override { return WriteArray(array); }
-
-  Status Visit(const HalfFloatArray& array) override { return WriteArray(array); }
-
-  Status Visit(const FloatArray& array) override { return WriteArray(array); }
-
-  Status Visit(const DoubleArray& array) override { return WriteArray(array); }
-
-  Status Visit(const StringArray& array) override { return WriteArray(array); }
-
-  Status Visit(const BinaryArray& array) override { return WriteArray(array); }
-
-  Status Visit(const FixedWidthBinaryArray& array) override { return WriteArray(array); }
-
-  Status Visit(const Date32Array& array) override { return WriteArray(array); }
-
-  Status Visit(const Date64Array& array) override { return WriteArray(array); }
-
-  Status Visit(const TimeArray& array) override { return WriteArray(array); }
-
-  Status Visit(const TimestampArray& array) override {
-    return Status::NotImplemented("timestamp");
-  }
-
-  Status Visit(const IntervalArray& array) override {
-    return Status::NotImplemented("interval");
-  }
-
-  Status Visit(const DecimalArray& array) override {
-    return Status::NotImplemented("decimal");
-  }
-
-  Status WriteValidityBitmap(const Array& array) {
-    Newline();
-    Write("-- is_valid: ");
-
-    if (array.null_count() > 0) {
-      BooleanArray is_valid(
-          array.length(), array.null_bitmap(), nullptr, 0, array.offset());
-      return PrettyPrint(is_valid, indent_ + 2, sink_);
-    } else {
-      Write("all not null");
-      return Status::OK();
-    }
-  }
-
-  Status Visit(const ListArray& array) override {
+  Status Visit(const ListArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
@@ -239,12 +188,12 @@ class ArrayPrinter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const StructArray& array) override {
+  Status Visit(const StructArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
     return PrintChildren(array.fields(), array.offset(), array.length());
   }
 
-  Status Visit(const UnionArray& array) override {
+  Status Visit(const UnionArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
@@ -264,7 +213,7 @@ class ArrayPrinter : public ArrayVisitor {
     return PrintChildren(array.children(), 0, array.length() + array.offset());
   }
 
-  Status Visit(const DictionaryArray& array) override {
+  Status Visit(const DictionaryArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
@@ -276,20 +225,7 @@ class ArrayPrinter : public ArrayVisitor {
     return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
-  void Write(const char* data) { (*sink_) << data; }
-
-  void Write(const std::string& data) { (*sink_) << data; }
-
-  void Newline() {
-    (*sink_) << "\n";
-    Indent();
-  }
-
-  void Indent() {
-    for (int i = 0; i < indent_; ++i) {
-      (*sink_) << " ";
-    }
-  }
+  Status Print() { return VisitArrayInline(array_, this); }
 
  private:
   const Array& array_;
@@ -297,6 +233,46 @@ class ArrayPrinter : public ArrayVisitor {
 
   std::ostream* sink_;
 };
+
+Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
+  Newline();
+  Write("-- is_valid: ");
+
+  if (array.null_count() > 0) {
+    BooleanArray is_valid(
+        array.length(), array.null_bitmap(), nullptr, 0, array.offset());
+    return PrettyPrint(is_valid, indent_ + 2, sink_);
+  } else {
+    Write("all not null");
+    return Status::OK();
+  }
+}
+
+void ArrayPrinter::OpenArray() {
+  (*sink_) << "[";
+}
+void ArrayPrinter::CloseArray() {
+  (*sink_) << "]";
+}
+
+void ArrayPrinter::Write(const char* data) {
+  (*sink_) << data;
+}
+
+void ArrayPrinter::Write(const std::string& data) {
+  (*sink_) << data;
+}
+
+void ArrayPrinter::Newline() {
+  (*sink_) << "\n";
+  Indent();
+}
+
+void ArrayPrinter::Indent() {
+  for (int i = 0; i < indent_; ++i) {
+    (*sink_) << " ";
+  }
+}
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
   ArrayPrinter printer(arr, indent, sink);

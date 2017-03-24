@@ -133,7 +133,10 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value, void>::type
+  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
+                              std::is_base_of<ListType, T>::value ||
+                              std::is_base_of<StructType, T>::value,
+      void>::type
   WriteTypeMetadata(const T& type) {}
 
   template <typename T>
@@ -167,7 +170,8 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
+  typename std::enable_if<std::is_base_of<Time32Type, T>::value ||
+                              std::is_base_of<Time64Type, T>::value ||
                               std::is_base_of<TimestampType, T>::value,
       void>::type
   WriteTypeMetadata(const T& type) {
@@ -305,7 +309,9 @@ class JsonSchemaWriter : public TypeVisitor {
 
   Status Visit(const Date64Type& type) override { return WritePrimitive("date", type); }
 
-  Status Visit(const TimeType& type) override { return WritePrimitive("time", type); }
+  Status Visit(const Time32Type& type) override { return WritePrimitive("time", type); }
+
+  Status Visit(const Time64Type& type) override { return WritePrimitive("time", type); }
 
   Status Visit(const TimestampType& type) override {
     return WritePrimitive("timestamp", type);
@@ -650,15 +656,35 @@ class JsonSchemaReader {
     return Status::OK();
   }
 
-  template <typename T>
-  Status GetTimeLike(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+    const auto& json_unit = json_type.FindMember("unit");
+    RETURN_NOT_STRING("unit", json_unit, json_type);
+
+    std::string unit_str = json_unit->value.GetString();
+
+    if (unit_str == "SECOND") {
+      *type = time32(TimeUnit::SECOND);
+    } else if (unit_str == "MILLISECOND") {
+      *type = time32(TimeUnit::MILLI);
+    } else if (unit_str == "MICROSECOND") {
+      *type = time64(TimeUnit::MICRO);
+    } else if (unit_str == "NANOSECOND") {
+      *type = time64(TimeUnit::NANO);
+    } else {
+      std::stringstream ss;
+      ss << "Invalid time unit: " << unit_str;
+      return Status::Invalid(ss.str());
+    }
+    return Status::OK();
+  }
+
+  Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
     const auto& json_unit = json_type.FindMember("unit");
     RETURN_NOT_STRING("unit", json_unit, json_type);
 
     std::string unit_str = json_unit->value.GetString();
 
     TimeUnit unit;
-
     if (unit_str == "SECOND") {
       unit = TimeUnit::SECOND;
     } else if (unit_str == "MILLISECOND") {
@@ -673,7 +699,7 @@ class JsonSchemaReader {
       return Status::Invalid(ss.str());
     }
 
-    *type = std::make_shared<T>(unit);
+    *type = timestamp(unit);
 
     return Status::OK();
   }
@@ -736,9 +762,9 @@ class JsonSchemaReader {
       // TODO
       *type = date64();
     } else if (type_name == "time") {
-      return GetTimeLike<TimeType>(json_type, type);
+      return GetTime(json_type, type);
     } else if (type_name == "timestamp") {
-      return GetTimeLike<TimestampType>(json_type, type);
+      return GetTimestamp(json_type, type);
     } else if (type_name == "list") {
       *type = list(children[0]);
     } else if (type_name == "struct") {
@@ -1063,7 +1089,8 @@ class JsonArrayReader {
       NOT_IMPLEMENTED_CASE(DATE32);
       NOT_IMPLEMENTED_CASE(DATE64);
       NOT_IMPLEMENTED_CASE(TIMESTAMP);
-      NOT_IMPLEMENTED_CASE(TIME);
+      NOT_IMPLEMENTED_CASE(TIME32);
+      NOT_IMPLEMENTED_CASE(TIME64);
       NOT_IMPLEMENTED_CASE(INTERVAL);
       TYPE_CASE(ListType);
       TYPE_CASE(StructType);

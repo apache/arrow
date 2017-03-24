@@ -294,7 +294,7 @@ class TableReader::TableReaderImpl {
         break;
       case fbs::TypeMetadata_TimeMetadata: {
         auto meta = static_cast<const fbs::TimeMetadata*>(metadata);
-        *out = std::make_shared<TimeType>(FromFlatbufferEnum(meta->unit()));
+        *out = time32(FromFlatbufferEnum(meta->unit()));
       } break;
       default:
         switch (values->type()) {
@@ -476,7 +476,9 @@ fbs::Type ToFlatbufferType(Type::type type) {
       return fbs::Type_DATE;
     case Type::TIMESTAMP:
       return fbs::Type_TIMESTAMP;
-    case Type::TIME:
+    case Type::TIME32:
+      return fbs::Type_TIME;
+    case Type::TIME64:
       return fbs::Type_TIME;
     case Type::DICTIONARY:
       return fbs::Type_CATEGORY;
@@ -646,11 +648,15 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const TimeArray& values) override {
+  Status Visit(const Time32Array& values) override {
     RETURN_NOT_OK(WritePrimitiveValues(values));
-    auto unit = static_cast<const TimeType&>(*values.type()).unit;
+    auto unit = static_cast<const Time32Type&>(*values.type()).unit;
     current_column_->SetTime(unit);
     return Status::OK();
+  }
+
+  Status Visit(const Time64Array& values) override {
+    return Status::NotImplemented("time64");
   }
 
   Status Append(const std::string& name, const Array& values) {

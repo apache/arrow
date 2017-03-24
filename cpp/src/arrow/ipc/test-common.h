@@ -505,20 +505,24 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
-  auto f0 = field("f0", time(TimeUnit::MILLI));
-  auto f1 = field("f1", time(TimeUnit::NANO));
-  auto f2 = field("f2", time(TimeUnit::SECOND));
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto f0 = field("f0", time32(TimeUnit::MILLI));
+  auto f1 = field("f1", time64(TimeUnit::NANO));
+  auto f2 = field("f2", time32(TimeUnit::SECOND));
+  auto f3 = field("f3", time64(TimeUnit::NANO));
+  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));
 
-  std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
+  std::vector<int32_t> t32_values = {
+      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
+  std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
       1489272000000, 1489272000000, 1489273000000};
 
-  std::shared_ptr<Array> a0, a1, a2;
-  ArrayFromVector<TimeType, int64_t>(f0->type, is_valid, ts_values, &a0);
-  ArrayFromVector<TimeType, int64_t>(f1->type, is_valid, ts_values, &a1);
-  ArrayFromVector<TimeType, int64_t>(f2->type, is_valid, ts_values, &a2);
+  std::shared_ptr<Array> a0, a1, a2, a3;
+  ArrayFromVector<Time32Type, int32_t>(f0->type, is_valid, t32_values, &a0);
+  ArrayFromVector<Time64Type, int64_t>(f1->type, is_valid, t64_values, &a1);
+  ArrayFromVector<Time32Type, int32_t>(f2->type, is_valid, t32_values, &a2);
+  ArrayFromVector<Time64Type, int64_t>(f3->type, is_valid, t64_values, &a3);
 
-  ArrayVector arrays = {a0, a1, a2};
+  ArrayVector arrays = {a0, a1, a2, a3};
   *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
   return Status::OK();
 }

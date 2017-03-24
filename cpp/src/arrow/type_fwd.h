@@ -105,9 +105,13 @@ struct Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
 
-struct TimeType;
-using TimeArray = NumericArray<TimeType>;
-using TimeBuilder = NumericBuilder<TimeType>;
+struct Time32Type;
+using Time32Array = NumericArray<Time32Type>;
+using Time32Builder = NumericBuilder<Time32Type>;
+
+struct Time64Type;
+using Time64Array = NumericArray<Time64Type>;
+using Time64Builder = NumericBuilder<Time64Type>;
 
 struct TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
@@ -134,6 +138,7 @@ std::shared_ptr<DataType> ARROW_EXPORT float32();
 std::shared_ptr<DataType> ARROW_EXPORT float64();
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
 std::shared_ptr<DataType> ARROW_EXPORT binary();
+
 std::shared_ptr<DataType> ARROW_EXPORT date32();
 std::shared_ptr<DataType> ARROW_EXPORT date64();
 

@@ -251,7 +251,16 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Time: {
       auto time_type = static_cast<const flatbuf::Time*>(type_data);
-      *out = time(FromFlatbufferUnit(time_type->unit()));
+      TimeUnit unit = FromFlatbufferUnit(time_type->unit());
+      switch (unit) {
+        case TimeUnit::SECOND:
+        case TimeUnit::MILLI:
+          *out = time32(unit);
+          break;
+        default:
+          *out = time64(unit);
+          break;
+      }
       return Status::OK();
     }
     case flatbuf::Type_Timestamp: {
@@ -371,8 +380,13 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_Date;
       *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_MILLISECOND).Union();
       break;
-    case Type::TIME: {
-      const auto& time_type = static_cast<const TimeType&>(*type);
+    case Type::TIME32: {
+      const auto& time_type = static_cast<const Time32Type&>(*type);
+      *out_type = flatbuf::Type_Time;
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit)).Union();
+    } break;
+    case Type::TIME64: {
+      const auto& time_type = static_cast<const Time64Type&>(*type);
       *out_type = flatbuf::Type_Time;
       *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit)).Union();
     } break;

@@ -29,12 +29,6 @@ TEST(TypesTest, TestDecimalType) {
   ASSERT_EQ(t1.scale, 4);
 
   ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
-
-  // Test copy constructor
-  DecimalType t2 = t1;
-  ASSERT_EQ(t2.type, Type::DECIMAL);
-  ASSERT_EQ(t2.precision, 8);
-  ASSERT_EQ(t2.scale, 4);
 }
 
 }  // namespace arrow

@@ -29,6 +29,12 @@ template <typename T>
 struct TypeTraits {};
 
 template <>
+struct TypeTraits<NullType> {
+  using ArrayType = NullArray;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
 struct TypeTraits<UInt8Type> {
   using ArrayType = UInt8Array;
   using BuilderType = UInt8Builder;
@@ -154,9 +160,20 @@ struct TypeTraits<TimestampType> {
 };
 
 template <>
-struct TypeTraits<TimeType> {
-  using ArrayType = TimeArray;
-  using BuilderType = TimeBuilder;
+struct TypeTraits<Time32Type> {
+  using ArrayType = Time32Array;
+  using BuilderType = Time32Builder;
+
+  static inline int64_t bytes_required(int64_t elements) {
+    return elements * sizeof(int32_t);
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<Time64Type> {
+  using ArrayType = Time64Array;
+  using BuilderType = Time64Builder;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -232,6 +249,32 @@ template <>
 struct TypeTraits<FixedWidthBinaryType> {
   using ArrayType = FixedWidthBinaryArray;
   using BuilderType = FixedWidthBinaryBuilder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<ListType> {
+  using ArrayType = ListArray;
+  using BuilderType = ListBuilder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<StructType> {
+  using ArrayType = StructArray;
+  using BuilderType = StructBuilder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<UnionType> {
+  using ArrayType = UnionArray;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DictionaryType> {
+  using ArrayType = DictionaryArray;
   constexpr static bool is_parameter_free = false;
 };
 
