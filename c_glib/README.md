@@ -42,9 +42,77 @@ gobject-introspection gem based bindings.
 
 ## Install
 
+You can use packages or build by yourself to install Arrow GLib. It's
+recommended that you use packages.
+
+Note that the packages are "unofficial". "Official" packages will be
+released in the future.
+
 ### Package
 
-TODO
+There are supported platforms:
+
+  * Debian GNU/Linux Jessie
+  * Ubuntu 16.04 LTS
+  * Ubuntu 16.10
+  * CentOS 7
+
+You can feedback to https://github.com/kou/arrow-packages about
+packages things.
+
+#### Debian GNU/Linux jessie
+
+You need to add the following apt-lines to
+`/etc/apt/sources.list.d/groonga.list`:
+
+```text
+deb http://packages.groonga.org/debian/ jessie main
+deb-src http://packages.groonga.org/debian/ jessie main
+```
+
+Then you need to run the following command lines:
+
+```text
+% sudo apt update
+% sudo apt install -y --allow-unauthenticated groonga-keyring
+% sudo apt update
+```
+
+Now you can install Arrow GLib packages:
+
+```text
+% sudo apt install -y libarrow-glib-dev
+```
+
+#### Ubuntu 16.04 LTS and Ubuntu 16.10
+
+You need to add an APT repository:
+
+```text
+% sudo apt install -y software-properties-common
+% sudo add-apt-repository -y ppa:groonga/ppa
+% sudo apt update
+```
+
+Now you can install Arrow GLib packages:
+
+```text
+% sudo apt install -y libarrow-glib-dev
+```
+
+#### CentOS 7
+
+You need to add a Yum repository:
+
+```text
+% sudo yum install -y http://packages.groonga.org/centos/groonga-release-1.2.0-1.noarch.rpm
+```
+
+Now you can install Arrow GLib packages:
+
+```text
+% sudo yum install -y --enablerepo=epel arrow-glib-devel
+```
 
 ### Build
 
