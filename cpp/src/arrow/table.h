@@ -43,6 +43,9 @@ class ARROW_EXPORT RecordBatch {
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      std::vector<std::shared_ptr<Array>>&& columns);
+
   bool Equals(const RecordBatch& other) const;
 
   bool ApproxEquals(const RecordBatch& other) const;

@@ -99,7 +99,7 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
     RETURN_NOT_OK(LoadArray(schema->field(i)->type, &context, &arrays[i]));
   }
 
-  *out = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+  *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));
   return Status::OK();
 }
 

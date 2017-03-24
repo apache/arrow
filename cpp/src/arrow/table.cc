@@ -33,6 +33,10 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
     const std::vector<std::shared_ptr<Array>>& columns)
     : schema_(schema), num_rows_(num_rows), columns_(columns) {}
 
+RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+    std::vector<std::shared_ptr<Array>>&& columns)
+    : schema_(schema), num_rows_(num_rows), columns_(std::move(columns)) {}
+
 const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name;
 }
