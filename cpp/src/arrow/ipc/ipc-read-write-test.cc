@@ -140,7 +140,6 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
-    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     // The buffer offsets start at 0, so we must construct a
     // RandomAccessFile according to that frame of reference
@@ -148,7 +147,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
     io::BufferReader buffer_reader(buffer_payload);
 
-    return ReadRecordBatch(*metadata, batch.schema(), &buffer_reader, batch_result);
+    return ReadRecordBatch(*message, batch.schema(), &buffer_reader, batch_result);
   }
 
   Status DoLargeRoundTrip(
@@ -370,7 +369,6 @@ TEST_F(RecursionLimits, ReadLimit) {
 
   std::shared_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
-  auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
   std::shared_ptr<Buffer> payload;
   ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
@@ -378,7 +376,7 @@ TEST_F(RecursionLimits, ReadLimit) {
   io::BufferReader reader(payload);
 
   std::shared_ptr<RecordBatch> result;
-  ASSERT_RAISES(Invalid, ReadRecordBatch(*metadata, schema, &reader, &result));
+  ASSERT_RAISES(Invalid, ReadRecordBatch(*message, schema, &reader, &result));
 }
 
 TEST_F(RecursionLimits, StressLimit) {
@@ -392,7 +390,6 @@ TEST_F(RecursionLimits, StressLimit) {
 
     std::shared_ptr<Message> message;
     ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
-    auto metadata = std::make_shared<RecordBatchMetadata>(message);
 
     std::shared_ptr<Buffer> payload;
     ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
@@ -400,7 +397,7 @@ TEST_F(RecursionLimits, StressLimit) {
     io::BufferReader reader(payload);
 
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(ReadRecordBatch(*metadata, schema, recursion_depth + 1, &reader, &result));
+    ASSERT_OK(ReadRecordBatch(*message, schema, recursion_depth + 1, &reader, &result));
     *it_works = result->Equals(*batch);
   };
 
