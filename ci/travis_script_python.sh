@@ -23,7 +23,6 @@ export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 
 export ARROW_HOME=$ARROW_CPP_INSTALL
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
 pushd $PYTHON_DIR
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
@@ -70,8 +69,6 @@ build_parquet_cpp() {
 
 build_parquet_cpp
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PARQUET_HOME/lib
-
 function build_arrow_libraries() {
   CPP_BUILD_DIR=$1
   CPP_DIR=$TRAVIS_BUILD_DIR/cpp
@@ -93,7 +90,10 @@ function build_arrow_libraries() {
 python_version_tests() {
   PYTHON_VERSION=$1
   CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
-  ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
+
+  export ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
+  export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib
+
   conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
   source activate $CONDA_ENV_DIR
 
