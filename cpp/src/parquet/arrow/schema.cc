@@ -110,6 +110,12 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::DATE:
       *out = ::arrow::date64();
       break;
+    case LogicalType::TIME_MILLIS:
+      *out = ::arrow::time32(::arrow::TimeUnit::MILLI);
+      break;
+    case LogicalType::TIME_MICROS:
+      *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
+      break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
       break;
@@ -395,9 +401,13 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       type = ParquetType::INT64;
       logical_type = LogicalType::TIMESTAMP_MILLIS;
     } break;
-    case ArrowType::TIME:
+    case ArrowType::TIME32:
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MILLIS;
+      break;
+    case ArrowType::TIME64:
+      type = ParquetType::INT64;
+      logical_type = LogicalType::TIME_MICROS;
       break;
     case ArrowType::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type);

@@ -81,7 +81,8 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
   PRIMITIVE_VISIT(String)
   PRIMITIVE_VISIT(Binary)
   PRIMITIVE_VISIT(Date64)
-  PRIMITIVE_VISIT(Time)
+  PRIMITIVE_VISIT(Time32)
+  PRIMITIVE_VISIT(Time64)
   PRIMITIVE_VISIT(Timestamp)
   PRIMITIVE_VISIT(Interval)
 
