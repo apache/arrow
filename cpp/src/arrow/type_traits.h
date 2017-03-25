@@ -278,6 +278,12 @@ struct TypeTraits<DictionaryType> {
   constexpr static bool is_parameter_free = false;
 };
 
+template <>
+struct TypeTraits<DecimalType> {
+  // using ArrayType = DecimalArray;
+  constexpr static bool is_parameter_free = false;
+};
+
 // Not all type classes have a c_type
 template <typename T>
 struct as_void {
