@@ -18,6 +18,7 @@
 #include <Python.h>
 
 #include <cstdint>
+#include <limits>
 
 #include "arrow/python/numpy_interop.h"
 

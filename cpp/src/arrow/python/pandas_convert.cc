@@ -32,6 +32,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/column.h"
@@ -124,7 +125,7 @@ static int64_t ValuesToValidBytes(
 
   // TODO(wesm): striding
   for (int i = 0; i < length; ++i) {
-    valid_bytes[i] = not traits::isnull(values[i]);
+    valid_bytes[i] = !traits::isnull(values[i]);
     if (traits::isnull(values[i])) null_count++;
   }
 
@@ -225,7 +226,7 @@ class PandasConverter : public TypeVisitor {
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
         mask_(nullptr) {
-    if (mo != nullptr and mo != Py_None) { mask_ = reinterpret_cast<PyArrayObject*>(mo); }
+    if (mo != nullptr && mo != Py_None) { mask_ = reinterpret_cast<PyArrayObject*>(mo); }
     length_ = PyArray_SIZE(arr_);
   }
 
@@ -819,6 +820,7 @@ class PandasBlock {
   OwnedRef placement_arr_;
   int64_t* placement_data_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
@@ -1302,7 +1304,7 @@ class DatetimeTZBlock : public DatetimeBlock {
 template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
-  CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
+  explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
 
   Status Allocate() override {
     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
@@ -1430,7 +1432,7 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 // * placement arrays as we go
 class DataFrameBlockCreator {
  public:
-  DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
+  explicit DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());

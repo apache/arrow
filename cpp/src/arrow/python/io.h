@@ -36,7 +36,7 @@ namespace py {
 // calling any methods
 class PythonFile {
  public:
-  PythonFile(PyObject* file);
+  explicit PythonFile(PyObject* file);
   ~PythonFile();
 
   Status Close();
