@@ -72,9 +72,28 @@ build_parquet_cpp
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PARQUET_HOME/lib
 
+function build_arrow_libraries() {
+  CPP_BUILD_DIR=$1
+  CPP_DIR=$TRAVIS_BUILD_DIR/cpp
+
+  mkdir $CPP_BUILD_DIR
+  pushd $CPP_BUILD_DIR
+
+  cmake -DARROW_BUILD_TESTS=off \
+        -DARROW_PYTHON=on \
+        -DCMAKE_INSTALL_PREFIX=$2
+        $CPP_DIR
+
+  make -j4
+  make install
+
+  popd
+}
+
 python_version_tests() {
   PYTHON_VERSION=$1
   CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+  ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
   conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
   source activate $CONDA_ENV_DIR
 
@@ -86,6 +105,9 @@ python_version_tests() {
 
   # Expensive dependencies install from Continuum package repo
   conda install -y pip numpy pandas cython
+
+  # Build C++ libraries
+  build_arrow_libraries arrow-build-$PYTHON_VERSION $ARROW_HOME
 
   # Other stuff pip install
   pip install -r requirements.txt
