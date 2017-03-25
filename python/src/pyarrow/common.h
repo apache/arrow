@@ -118,10 +118,14 @@ class ARROW_EXPORT NumPyBuffer : public Buffer {
   PyArrayObject* arr_;
 };
 
-class ARROW_EXPORT PyBytesBuffer : public Buffer {
+class ARROW_EXPORT PyBuffer : public Buffer {
  public:
-  PyBytesBuffer(PyObject* obj);
-  ~PyBytesBuffer();
+  /// Note that the GIL must be held when calling the PyBuffer constructor.
+  ///
+  /// While memoryview objects support multi-demensional buffers, PyBuffer only supports
+  /// one-dimensional byte buffers.
+  PyBuffer(PyObject* obj);
+  ~PyBuffer();
 
  private:
   PyObject* obj_;

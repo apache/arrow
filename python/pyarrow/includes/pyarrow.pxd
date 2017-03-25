@@ -55,8 +55,8 @@ cdef extern from "pyarrow/api.h" namespace "arrow::py" nogil:
 
 
 cdef extern from "pyarrow/common.h" namespace "arrow::py" nogil:
-    cdef cppclass PyBytesBuffer(CBuffer):
-        PyBytesBuffer(object o)
+    cdef cppclass PyBuffer(CBuffer):
+        PyBuffer(object o)
 
 
 cdef extern from "pyarrow/io.h" namespace "arrow::py" nogil:

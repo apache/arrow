@@ -156,7 +156,7 @@ Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   PyObject* bytes_obj;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
 
-  *out = std::make_shared<PyBytesBuffer>(bytes_obj);
+  *out = std::make_shared<PyBuffer>(bytes_obj);
   Py_DECREF(bytes_obj);
 
   return Status::OK();
@@ -210,10 +210,10 @@ Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
 }
 
 // ----------------------------------------------------------------------
-// A readable file that is backed by a PyBytes
+// A readable file that is backed by a PyBuffer
 
 PyBytesReader::PyBytesReader(PyObject* obj)
-    : io::BufferReader(std::make_shared<PyBytesBuffer>(obj)) {}
+    : io::BufferReader(std::make_shared<PyBuffer>(obj)) {}
 
 PyBytesReader::~PyBytesReader() {}
 

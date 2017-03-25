@@ -82,7 +82,6 @@ def test_bytes_reader():
     # Like a BytesIO, but zero-copy underneath for C++ consumers
     data = b'some sample data'
     f = io.BufferReader(data)
-
     assert f.tell() == 0
 
     assert f.size() == len(data)
@@ -128,7 +127,7 @@ def test_bytes_reader_retains_parent_reference():
 def test_buffer_bytes():
     val = b'some data'
 
-    buf = io.buffer_from_bytes(val)
+    buf = io.build_arrow_buffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = buf.to_pybytes()
@@ -138,10 +137,21 @@ def test_buffer_bytes():
 def test_buffer_memoryview():
     val = b'some data'
 
-    buf = io.buffer_from_bytes(val)
+    buf = io.build_arrow_buffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = memoryview(buf)
+
+    assert result == val
+
+def test_buffer_bytearray():
+    val = bytearray(b'some data')
+
+
+    buf = io.build_arrow_buffer(val)
+    assert isinstance(buf, io.Buffer)
+
+    result = bytearray(buf)
 
     assert result == val
 
@@ -149,7 +159,7 @@ def test_buffer_memoryview():
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
-    buf = io.buffer_from_bytes(val)
+    buf = io.build_arrow_buffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = memoryview(buf)
@@ -192,7 +202,7 @@ def test_buffer_protocol_ref_counting():
     import gc
 
     def make_buffer(bytes_obj):
-        return bytearray(io.buffer_from_bytes(bytes_obj))
+        return bytearray(io.build_arrow_buffer(bytes_obj))
 
     buf = make_buffer(b'foo')
     gc.collect()

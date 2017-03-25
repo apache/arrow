@@ -45,18 +45,24 @@ MemoryPool* get_memory_pool() {
 }
 
 // ----------------------------------------------------------------------
-// PyBytesBuffer
+// PyBuffer
 
-PyBytesBuffer::PyBytesBuffer(PyObject* obj)
-    : Buffer(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)),
-          PyBytes_GET_SIZE(obj)),
-      obj_(obj) {
-  Py_INCREF(obj_);
+PyBuffer::PyBuffer(PyObject* obj)
+    : Buffer(nullptr, 0) {
+    if (PyObject_CheckBuffer(obj)) {
+        obj_ = PyMemoryView_FromObject(obj);
+        Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
+        data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
+        size_ = buffer->len;
+        capacity_ = buffer->len;
+        is_mutable_ = false;
+        Py_INCREF(obj_);
+    } 
 }
 
-PyBytesBuffer::~PyBytesBuffer() {
-  PyAcquireGIL lock;
-  Py_DECREF(obj_);
+PyBuffer::~PyBuffer() {
+    PyAcquireGIL lock;
+    Py_DECREF(obj_);
 }
 
 }  // namespace py
