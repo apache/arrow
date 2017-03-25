@@ -505,38 +505,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices_;
 };
 
-// ----------------------------------------------------------------------
-// extern templates and other details
-
-// gcc and clang disagree about how to handle template visibility when you have
-// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
-// Only instantiate these templates once
-extern template class ARROW_EXPORT NumericArray<Int8Type>;
-extern template class ARROW_EXPORT NumericArray<UInt8Type>;
-extern template class ARROW_EXPORT NumericArray<Int16Type>;
-extern template class ARROW_EXPORT NumericArray<UInt16Type>;
-extern template class ARROW_EXPORT NumericArray<Int32Type>;
-extern template class ARROW_EXPORT NumericArray<UInt32Type>;
-extern template class ARROW_EXPORT NumericArray<Int64Type>;
-extern template class ARROW_EXPORT NumericArray<UInt64Type>;
-extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
-extern template class ARROW_EXPORT NumericArray<FloatType>;
-extern template class ARROW_EXPORT NumericArray<DoubleType>;
-extern template class ARROW_EXPORT NumericArray<Date32Type>;
-extern template class ARROW_EXPORT NumericArray<Date64Type>;
-extern template class ARROW_EXPORT NumericArray<Time32Type>;
-extern template class ARROW_EXPORT NumericArray<Time64Type>;
-extern template class ARROW_EXPORT NumericArray<TimestampType>;
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
 }  // namespace arrow
 
 #endif
