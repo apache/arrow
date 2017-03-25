@@ -14,21 +14,21 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-cdef extern from 'pyarrow/do_import_numpy.h':
+cdef extern from 'arrow/python/do_import_numpy.h':
     pass
 
-cdef extern from 'pyarrow/numpy_interop.h' namespace 'arrow::py':
+cdef extern from 'arrow/python/numpy_interop.h' namespace 'arrow::py':
     int import_numpy()
 
-cdef extern from 'pyarrow/config.h' namespace 'arrow::py':
-    void pyarrow_init()
-    void pyarrow_set_numpy_nan(object o)
+cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
+    void Init()
+    void set_numpy_nan(object o)
 
 import_numpy()
-pyarrow_init()
+Init()
 
 import numpy as np
-pyarrow_set_numpy_nan(np.nan)
+set_numpy_nan(np.nan)
 
 import multiprocessing
 import os

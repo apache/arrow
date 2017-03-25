@@ -50,12 +50,12 @@ set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 # ----------------------------------------------------------------------
 
 set(ARROW_PYTHON_SRCS
+  builtin_convert.cc
   common.cc
   config.cc
   helpers.cc
   io.cc
-  adapters/builtin.cc
-  adapters/pandas.cc
+  pandas_convert.cc
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
@@ -73,21 +73,21 @@ ADD_ARROW_LIB(arrow_python
 
 install(FILES
   api.h
+  builtin_convert.h
   common.h
   config.h
   do_import_numpy.h
-  helper.h
+  helpers.h
   io.h
   numpy_interop.h
+  pandas_convert.h
   type_traits.h
-  adapters/builtin.h
-  adapters/pandas.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
 # set_target_properties(arrow_python_shared PROPERTIES
 #     INSTALL_RPATH "\$ORIGIN")
 
 if (ARROW_BUILD_TESTS)
-  ADD_ARROW_TEST(adapters/pandas-test
+  ADD_ARROW_TEST(pandas-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}")
 endif()

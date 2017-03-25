@@ -24,7 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/python/adapters/pandas.h"
+#include "arrow/python/pandas_convert.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"

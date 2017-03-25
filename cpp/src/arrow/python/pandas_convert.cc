@@ -19,8 +19,8 @@
 
 #include <Python.h>
 
-#include "arrow/python/adapters/pandas.h"
 #include "arrow/python/numpy_interop.h"
+#include "arrow/python/pandas_convert.h"
 
 #include <algorithm>
 #include <atomic>
@@ -36,18 +36,17 @@
 #include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/loader.h"
+#include "arrow/python/builtin_convert.h"
+#include "arrow/python/common.h"
+#include "arrow/python/config.h"
+#include "arrow/python/type_traits.h"
+#include "arrow/python/util/datetime.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
-
-#include "arrow/python/adapters/builtin.h"
-#include "arrow/python/common.h"
-#include "arrow/python/config.h"
-#include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {

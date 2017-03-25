@@ -19,7 +19,7 @@
 #include <datetime.h>
 #include <sstream>
 
-#include "arrow/python/adapters/builtin.h"
+#include "arrow/python/builtin_convert.h"
 
 #include "arrow/api.h"
 #include "arrow/status.h"

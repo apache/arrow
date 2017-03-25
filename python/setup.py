@@ -186,7 +186,7 @@ class build_ext(_build_ext):
             # a bit hacky
             build_lib = saved_cwd
 
-        # Move the built libpyarrow library to the place expected by the Python
+        # Move the libraries to the place expected by the Python
         # build
         shared_library_prefix = 'lib'
         if sys.platform == 'darwin':
@@ -203,15 +203,16 @@ class build_ext(_build_ext):
             pass
 
         def move_lib(lib_name):
-            lib_filename = shared_library_prefix + lib_name + shared_library_suffix
+            lib_filename = (shared_library_prefix + lib_name +
+                            shared_library_suffix)
             shutil.move(pjoin(self.build_type, lib_filename),
                         pjoin(build_lib, 'pyarrow', lib_filename))
 
-        move_lib("pyarrow")
         if self.bundle_arrow_cpp:
             move_lib("arrow")
             move_lib("arrow_io")
             move_lib("arrow_ipc")
+            move_lib("arrow_python")
             if self.with_jemalloc:
                 move_lib("arrow_jemalloc")
             if self.with_parquet:
@@ -227,14 +228,14 @@ class build_ext(_build_ext):
                 if self._failure_permitted(name):
                     print('Cython module {0} failure permitted'.format(name))
                     continue
-                raise RuntimeError('libpyarrow C-extension failed to build:',
+                raise RuntimeError('pyarrow C-extension failed to build:',
                                    os.path.abspath(built_path))
 
             ext_path = pjoin(build_lib, self._get_cmake_ext_path(name))
             if os.path.exists(ext_path):
                 os.remove(ext_path)
             self.mkpath(os.path.dirname(ext_path))
-            print('Moving built libpyarrow C-extension', built_path,
+            print('Moving built C-extension', built_path,
                   'to build path', ext_path)
             shutil.move(self.get_ext_built(name), ext_path)
             self._found_names.append(name)

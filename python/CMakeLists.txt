@@ -72,6 +72,8 @@ endif(CCACHE_FOUND)
 # Compiler flags
 ############################################################
 
+include(BuildUtils)
+include(CompilerInfo)
 include(SetupCxxFlags)
 
 # Add common flags
@@ -83,8 +85,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 # Suppress Cython warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 
-# Determine compiler version
-include(CompilerInfo)
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
