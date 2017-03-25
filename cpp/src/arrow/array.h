@@ -110,7 +110,7 @@ class ARROW_EXPORT Array {
   /// Defaults to always returning Status::OK. This can be an expensive check.
   virtual Status Validate() const;
 
-  virtual Status Accept(ArrayVisitor* visitor) const = 0;
+  Status Accept(ArrayVisitor* visitor) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
@@ -150,8 +150,6 @@ class ARROW_EXPORT NullArray : public Array {
   using TypeClass = NullType;
 
   explicit NullArray(int64_t length);
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 };
@@ -196,8 +194,6 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
     return reinterpret_cast<const value_type*>(raw_data_) + offset_;
   }
 
-  Status Accept(ArrayVisitor* visitor) const override;
-
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
   value_type Value(int64_t i) const { return raw_data()[i]; }
@@ -212,8 +208,6 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -261,8 +255,6 @@ class ARROW_EXPORT ListArray : public Array {
     i += offset_;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -313,8 +305,6 @@ class ARROW_EXPORT BinaryArray : public Array {
 
   Status Validate() const override;
 
-  Status Accept(ArrayVisitor* visitor) const override;
-
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
  protected:
@@ -351,8 +341,6 @@ class ARROW_EXPORT StringArray : public BinaryArray {
 
   Status Validate() const override;
 
-  Status Accept(ArrayVisitor* visitor) const override;
-
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 };
 
@@ -378,8 +366,6 @@ class ARROW_EXPORT FixedWidthBinaryArray : public Array {
   int32_t byte_width() const { return byte_width_; }
 
   const uint8_t* raw_data() const { return raw_data_; }
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -408,8 +394,6 @@ class ARROW_EXPORT StructArray : public Array {
   std::shared_ptr<Array> field(int pos) const;
 
   const std::vector<std::shared_ptr<Array>>& fields() const { return children_; }
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -449,8 +433,6 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> child(int pos) const;
 
   const std::vector<std::shared_ptr<Array>>& children() const { return children_; }
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -495,8 +477,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> dictionary() const;
 
   const DictionaryType* dict_type() { return dict_type_; }
-
-  Status Accept(ArrayVisitor* visitor) const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
