@@ -326,8 +326,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
     add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
 
-    message(STATUS "link libs: ${STATIC_LINK_LIBS}")
-
     if (ARG_STATIC_LINK_LIBS)
       # Customize link libraries
       target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
