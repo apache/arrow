@@ -34,7 +34,7 @@
 
 // This is required to be able to access the NumPy C API properly in C++ files
 // other than this main one
-#define PY_ARRAY_UNIQUE_SYMBOL pyarrow_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL arrow_ARRAY_API
 #ifndef NUMPY_IMPORT_ARRAY
 #define NO_IMPORT_ARRAY
 #endif

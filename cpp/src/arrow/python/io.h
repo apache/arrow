@@ -22,9 +22,9 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/visibility.h"
 
-#include "pyarrow/config.h"
+#include "arrow/python/config.h"
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 namespace arrow {
 

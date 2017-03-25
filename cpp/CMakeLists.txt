@@ -307,6 +307,14 @@ endfunction()
 #
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
+  set(options)
+  set(single_value_args)
+  set(multi_value_args STATIC_LINK_LIBS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
     return()
   endif()
@@ -316,7 +324,15 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     # This test has a corresponding .cc file, set it up as an executable.
     set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
     add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+
+    message(STATUS "link libs: ${STATIC_LINK_LIBS}")
+
+    if (ARG_STATIC_LINK_LIBS)
+      # Customize link libraries
+      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+    else()
+      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    endif()
     add_dependencies(unittest ${TEST_NAME})
   else()
     # No executable, just invoke the test (probably a script) directly.
@@ -336,10 +352,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
   endif()
   set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
-
-  if(ARGN)
-    set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
-  endif()
 endfunction()
 
 # A wrapper for add_dependencies() that is compatible with NO_TESTS.
@@ -802,8 +814,7 @@ if (${CLANG_FORMAT_FOUND})
   add_custom_target(format ${BUILD_SUPPORT_DIR}/run-clang-format.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CLANG_FORMAT_BIN} 1
     `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h |
     sed -e '/_generated/g' |
-    sed -e '/windows_compatibility.h/g'`
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/../python -name \\*.cc -or -name \\*.h`)
+    sed -e '/windows_compatibility.h/g'`)
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
   add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run-clang-format.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CLANG_FORMAT_BIN} 0
@@ -864,8 +875,8 @@ endif()
 include(BuildUtils)
 
 ADD_ARROW_LIB(arrow
-    SOURCES ${ARROW_SRCS}
-    SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
+  SOURCES ${ARROW_SRCS}
+  SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
 )
 
 add_subdirectory(src/arrow)
@@ -878,6 +889,10 @@ endif()
 
 #----------------------------------------------------------------------
 # IPC library
+
+if(ARROW_PYTHON)
+  set(ARROW_IPC on)
+endif()
 
 ## Flatbuffers
 if(ARROW_IPC)

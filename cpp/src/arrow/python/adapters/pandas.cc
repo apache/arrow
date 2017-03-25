@@ -947,7 +947,6 @@ inline Status ConvertListsLike(
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = std::static_pointer_cast<ListArray>(data.chunk(c));
 
-    const uint8_t* data_ptr;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
       if (has_nulls && arr->IsNull(i)) {

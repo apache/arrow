@@ -17,16 +17,16 @@
 
 #include <Python.h>
 
-#include "pyarrow/config.h"
+#include "arrow/python/config.h"
 
 namespace arrow {
 namespace py {
 
-void pyarrow_init() {}
+void Init() {}
 
 PyObject* numpy_nan = nullptr;
 
-void pyarrow_set_numpy_nan(PyObject* obj) {
+void set_numpy_nan(PyObject* obj) {
   Py_INCREF(obj);
   numpy_nan = obj;
 }

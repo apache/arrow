@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include "pyarrow/do_import_numpy.h"
-#include "pyarrow/numpy_interop.h"
+#include "arrow/python/do_import_numpy.h"
+#include "arrow/python/numpy_interop.h"
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

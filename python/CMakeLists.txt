@@ -315,27 +315,6 @@ ADD_THIRDPARTY_LIB(arrow_ipc
   SHARED_LIB ${ARROW_IPC_SHARED_LIB})
 
 ############################################################
-# Linker setup
-############################################################
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow)
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow
-  ${PYARROW_BASE_LIBS})
-
-if(NOT APPLE AND PYARROW_BUILD_TESTS)
-  ADD_THIRDPARTY_LIB(python
-    SHARED_LIB "${PYTHON_LIBRARIES}")
-  list(APPEND PYARROW_MIN_TEST_LIBS python)
-endif()
-
-set(PYARROW_TEST_LINK_LIBS ${PYARROW_MIN_TEST_LIBS})
-
-############################################################
 # "make ctags" target
 ############################################################
 if (UNIX)

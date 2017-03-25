@@ -34,10 +34,10 @@ ARROW_EXPORT
 extern PyObject* numpy_nan;
 
 ARROW_EXPORT
-void pyarrow_init();
+void Init();
 
 ARROW_EXPORT
-void pyarrow_set_numpy_nan(PyObject* obj);
+void set_numpy_nan(PyObject* obj);
 
 }  // namespace py
 }  // namespace arrow

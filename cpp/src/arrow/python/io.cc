@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/io.h"
+#include "arrow/python/io.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -24,7 +24,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 namespace arrow {
 namespace py {
