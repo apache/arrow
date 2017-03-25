@@ -18,8 +18,8 @@
 // Functions for converting between CPython built-in data structures and Arrow
 // data structures
 
-#ifndef PYARROW_ADAPTERS_BUILTIN_H
-#define PYARROW_ADAPTERS_BUILTIN_H
+#ifndef ARROW_PYTHON_ADAPTERS_BUILTIN_H
+#define ARROW_PYTHON_ADAPTERS_BUILTIN_H
 
 #include <Python.h>
 
@@ -29,7 +29,7 @@
 
 #include "arrow/util/visibility.h"
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 namespace arrow {
 
@@ -51,4 +51,4 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_ADAPTERS_BUILTIN_H
+#endif  // ARROW_PYTHON_ADAPTERS_BUILTIN_H

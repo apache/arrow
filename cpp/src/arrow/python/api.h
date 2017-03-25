@@ -15,32 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_CONFIG_H
-#define PYARROW_CONFIG_H
+#ifndef ARROW_PYTHON_API_H
+#define ARROW_PYTHON_API_H
 
-#include <Python.h>
+#include "arrow/python/helpers.h"
 
-#include "arrow/util/visibility.h"
+#include "arrow/python/adapters/builtin.h"
+#include "arrow/python/adapters/pandas.h"
 
-#include "pyarrow/numpy_interop.h"
-
-#if PY_MAJOR_VERSION >= 3
-#define PyString_Check PyUnicode_Check
-#endif
-
-namespace arrow {
-namespace py {
-
-ARROW_EXPORT
-extern PyObject* numpy_nan;
-
-ARROW_EXPORT
-void pyarrow_init();
-
-ARROW_EXPORT
-void pyarrow_set_numpy_nan(PyObject* obj);
-
-}  // namespace py
-}  // namespace arrow
-
-#endif  // PYARROW_CONFIG_H
+#endif  // ARROW_PYTHON_API_H

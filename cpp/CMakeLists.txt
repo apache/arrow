@@ -106,6 +106,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Rely on boost shared libraries where relevant"
     ON)
 
+  option(ARROW_PYTHON
+    "Build the Arrow CPython extensions"
+    OFF)
+
   option(ARROW_SSE3
     "Build Arrow with SSE3"
     ON)
@@ -907,4 +911,15 @@ if(ARROW_IPC)
   endif()
 
   add_subdirectory(src/arrow/ipc)
+endif()
+
+if(ARROW_PYTHON)
+  find_package(PythonLibsNew REQUIRED)
+  find_package(NumPy REQUIRED)
+
+  include_directories(SYSTEM
+    ${NUMPY_INCLUDE_DIRS}
+    ${PYTHON_INCLUDE_DIRS})
+
+  add_subdirectory(src/arrow/python)
 endif()

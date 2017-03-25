@@ -28,7 +28,7 @@
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "pyarrow/adapters/pandas.h"
+#include "arrow/python/adapters/pandas.h"
 
 namespace arrow {
 namespace py {

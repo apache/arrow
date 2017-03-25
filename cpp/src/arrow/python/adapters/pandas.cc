@@ -19,8 +19,8 @@
 
 #include <Python.h>
 
-#include "pyarrow/adapters/pandas.h"
-#include "pyarrow/numpy_interop.h"
+#include "arrow/python/adapters/pandas.h"
+#include "arrow/python/numpy_interop.h"
 
 #include <algorithm>
 #include <atomic>
@@ -43,11 +43,11 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 
-#include "pyarrow/adapters/builtin.h"
-#include "pyarrow/common.h"
-#include "pyarrow/config.h"
-#include "pyarrow/type_traits.h"
-#include "pyarrow/util/datetime.h"
+#include "arrow/python/adapters/builtin.h"
+#include "arrow/python/common.h"
+#include "arrow/python/config.h"
+#include "arrow/python/type_traits.h"
+#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {

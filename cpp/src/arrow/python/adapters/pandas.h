@@ -18,8 +18,8 @@
 // Functions for converting between pandas's NumPy-based data representation
 // and Arrow data structures
 
-#ifndef PYARROW_ADAPTERS_PANDAS_H
-#define PYARROW_ADAPTERS_PANDAS_H
+#ifndef ARROW_PYTHON_ADAPTERS_PANDAS_H
+#define ARROW_PYTHON_ADAPTERS_PANDAS_H
 
 #include <Python.h>
 
@@ -76,4 +76,4 @@ Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_ADAPTERS_PANDAS_H
+#endif  // ARROW_PYTHON_ADAPTERS_PANDAS_H

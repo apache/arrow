@@ -57,7 +57,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the PyArrow jemalloc integration"
     OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
-    "Bundle the Arrow C++ libraries" 
+    "Bundle the Arrow C++ libraries"
     OFF)
 endif()
 
@@ -214,53 +214,6 @@ include_directories(SYSTEM
   ${NUMPY_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   src)
-
-############################################################
-# Testing
-############################################################
-
-# Add a new test case, with or without an executable that should be built.
-#
-# REL_TEST_NAME is the name of the test. It may be a single component
-# (e.g. monotime-test) or contain additional components (e.g.
-# net/net_util-test). Either way, the last component must be a globally
-# unique name.
-#
-# Arguments after the test name will be passed to set_tests_properties().
-function(ADD_PYARROW_TEST REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-    target_link_libraries(${TEST_NAME} ${PYARROW_TEST_LINK_LIBS})
-  else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
-  endif()
-
-  add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${TEST_PATH})
-  if(ARGN)
-    set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
-  endif()
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_PYARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-enable_testing()
 
 ############################################################
 # Dependencies
@@ -429,9 +382,6 @@ if (UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-add_subdirectory(src/pyarrow)
-add_subdirectory(src/pyarrow/util)
-
 set(CYTHON_EXTENSIONS
   array
   config
@@ -442,15 +392,6 @@ set(CYTHON_EXTENSIONS
   scalar
   schema
   table
-)
-
-set(PYARROW_SRCS
-  src/pyarrow/common.cc
-  src/pyarrow/config.cc
-  src/pyarrow/helpers.cc
-  src/pyarrow/io.cc
-  src/pyarrow/adapters/builtin.cc
-  src/pyarrow/adapters/pandas.cc
 )
 
 set(LINK_LIBS
@@ -501,18 +442,6 @@ if (PYARROW_BUILD_JEMALLOC)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     jemalloc)
-endif()
-
-add_library(pyarrow SHARED
-  ${PYARROW_SRCS})
-if (PYARROW_BUNDLE_ARROW_CPP)
-  set_target_properties(pyarrow PROPERTIES
-      INSTALL_RPATH "\$ORIGIN")
-endif()
-target_link_libraries(pyarrow ${LINK_LIBS})
-
-if(APPLE)
-  set_target_properties(pyarrow PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 endif()
 
 ############################################################

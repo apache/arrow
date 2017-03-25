@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 #include <cstdlib>
 #include <mutex>
@@ -57,7 +57,7 @@ PyBuffer::PyBuffer(PyObject* obj)
         capacity_ = buffer->len;
         is_mutable_ = false;
         Py_INCREF(obj_);
-    } 
+    }
 }
 
 PyBuffer::~PyBuffer() {

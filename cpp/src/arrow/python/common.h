@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_COMMON_H
-#define PYARROW_COMMON_H
+#ifndef ARROW_PYTHON_COMMON_H
+#define ARROW_PYTHON_COMMON_H
 
-#include "pyarrow/config.h"
+#include "arrow/python/config.h"
 
 #include "arrow/buffer.h"
 #include "arrow/util/macros.h"
@@ -134,4 +134,4 @@ class ARROW_EXPORT PyBuffer : public Buffer {
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_COMMON_H
+#endif  // ARROW_PYTHON_COMMON_H

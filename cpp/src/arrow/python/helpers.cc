@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/helpers.h"
+#include "arrow/python/helpers.h"
 
 #include <arrow/api.h>
 
