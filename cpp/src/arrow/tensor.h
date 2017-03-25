@@ -104,7 +104,7 @@ class ARROW_EXPORT Tensor {
 };
 
 template <typename T>
-class NumericTensor : public Tensor {
+class ARROW_EXPORT NumericTensor : public Tensor {
  public:
   using value_type = typename T::c_type;
 
@@ -125,6 +125,33 @@ class NumericTensor : public Tensor {
   const value_type* raw_data_;
   value_type* mutable_raw_data_;
 };
+
+// ----------------------------------------------------------------------
+// extern templates and other details
+
+// gcc and clang disagree about how to handle template visibility when you have
+// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
+// Only instantiate these templates once
+extern template class ARROW_EXPORT NumericTensor<Int8Type>;
+extern template class ARROW_EXPORT NumericTensor<UInt8Type>;
+extern template class ARROW_EXPORT NumericTensor<Int16Type>;
+extern template class ARROW_EXPORT NumericTensor<UInt16Type>;
+extern template class ARROW_EXPORT NumericTensor<Int32Type>;
+extern template class ARROW_EXPORT NumericTensor<UInt32Type>;
+extern template class ARROW_EXPORT NumericTensor<Int64Type>;
+extern template class ARROW_EXPORT NumericTensor<UInt64Type>;
+extern template class ARROW_EXPORT NumericTensor<HalfFloatType>;
+extern template class ARROW_EXPORT NumericTensor<FloatType>;
+extern template class ARROW_EXPORT NumericTensor<DoubleType>;
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 }  // namespace arrow
 
