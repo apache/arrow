@@ -18,6 +18,7 @@
 #include "arrow/tensor.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -68,12 +69,9 @@ const std::string& Tensor::dim_name(int i) const {
 }
 
 int64_t Tensor::size() const {
-  if (shape_.size() == 0) { return 0; }
-  int64_t size = 1;
-  for (int64_t dimsize : shape_) {
-    size *= dimsize;
-  }
-  return size;
+  if (shape_.size() == 0) { return 1; }
+  return std::accumulate(
+      shape_.begin(), shape_.end(), 1, std::multiplies<int64_t>());
 }
 
 template <typename T>

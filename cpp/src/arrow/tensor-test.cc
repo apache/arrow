@@ -30,6 +30,20 @@
 
 namespace arrow {
 
+TEST(TestTensor, ZeroDim) {
+  const int64_t values = 1;
+  std::vector<int64_t> shape = {};
+
+  using T = int64_t;
+
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
+
+  Int64Tensor t0(buffer, shape);
+
+  ASSERT_EQ(1, t0.size());
+}
+
 TEST(TestTensor, BasicCtors) {
   const int64_t values = 24;
   std::vector<int64_t> shape = {4, 6};
