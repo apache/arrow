@@ -430,7 +430,7 @@ std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) co
 // Implement Array::Accept as inline visitor
 
 struct AcceptVirtualVisitor {
-  AcceptVirtualVisitor(ArrayVisitor* visitor) : visitor(visitor) {}
+  explicit AcceptVirtualVisitor(ArrayVisitor* visitor) : visitor(visitor) {}
 
   ArrayVisitor* visitor;
   std::shared_ptr<Array> result;
