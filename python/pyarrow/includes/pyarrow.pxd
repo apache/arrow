@@ -25,7 +25,7 @@ from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn,
 cimport pyarrow.includes.libarrow_io as arrow_io
 
 
-cdef extern from "pyarrow/api.h" namespace "arrow::py" nogil:
+cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
@@ -53,13 +53,9 @@ cdef extern from "pyarrow/api.h" namespace "arrow::py" nogil:
     void set_default_memory_pool(CMemoryPool* pool)
     CMemoryPool* get_memory_pool()
 
-
-cdef extern from "pyarrow/common.h" namespace "arrow::py" nogil:
     cdef cppclass PyBuffer(CBuffer):
         PyBuffer(object o)
 
-
-cdef extern from "pyarrow/io.h" namespace "arrow::py" nogil:
     cdef cppclass PyReadableFile(arrow_io.RandomAccessFile):
         PyReadableFile(object fo)
 

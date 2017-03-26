@@ -15,21 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef PYARROW_NUMPY_INTEROP_H
+#define PYARROW_NUMPY_INTEROP_H
+
 #include <Python.h>
 
-#include "pyarrow/config.h"
+#include <numpy/numpyconfig.h>
+
+// Don't use the deprecated Numpy functions
+#ifdef NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#else
+#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
+#define NPY_ARRAY_ALIGNED NPY_ALIGNED
+#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
+#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
+#endif
+
+// This is required to be able to access the NumPy C API properly in C++ files
+// other than this main one
+#define PY_ARRAY_UNIQUE_SYMBOL arrow_ARRAY_API
+#ifndef NUMPY_IMPORT_ARRAY
+#define NO_IMPORT_ARRAY
+#endif
+
+#include <numpy/arrayobject.h>
+#include <numpy/ufuncobject.h>
 
 namespace arrow {
 namespace py {
 
-void pyarrow_init() {}
+inline int import_numpy() {
+#ifdef NUMPY_IMPORT_ARRAY
+  import_array1(-1);
+  import_umath1(-1);
+#endif
 
-PyObject* numpy_nan = nullptr;
-
-void pyarrow_set_numpy_nan(PyObject* obj) {
-  Py_INCREF(obj);
-  numpy_nan = obj;
+  return 0;
 }
 
 }  // namespace py
 }  // namespace arrow
+
+#endif  // PYARROW_NUMPY_INTEROP_H

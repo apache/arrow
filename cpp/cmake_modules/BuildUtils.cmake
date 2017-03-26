@@ -15,6 +15,73 @@
 # specific language governing permissions and limitations
 # under the License.
 
+function(ADD_THIRDPARTY_LIB LIB_NAME)
+  set(options)
+  set(one_value_args SHARED_LIB STATIC_LIB)
+  set(multi_value_args DEPS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
+    if(NOT ARG_STATIC_LIB)
+      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
+    endif()
+
+    SET(AUG_LIB_NAME "${LIB_NAME}_static")
+    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+
+    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
+    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
+
+    if(MSVC)
+        # Mark the ”.lib” location as part of a Windows DLL
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
+    else()
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    endif()
+    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+  elseif(ARG_STATIC_LIB)
+    add_library(${LIB_NAME} STATIC IMPORTED)
+    set_target_properties(${LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    SET(AUG_LIB_NAME "${LIB_NAME}_static")
+    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
+    set_target_properties(${AUG_LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
+    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
+  elseif(ARG_SHARED_LIB)
+    add_library(${LIB_NAME} SHARED IMPORTED)
+    set_target_properties(${LIB_NAME}
+      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
+    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
+
+    if(MSVC)
+        # Mark the ”.lib” location as part of a Windows DLL
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
+    else()
+        set_target_properties(${AUG_LIB_NAME}
+            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
+    endif()
+    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
+  else()
+    message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
+  endif()
+
+  if(ARG_DEPS)
+    set_target_properties(${LIB_NAME}
+      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
+  endif()
+endfunction()
+
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LINK_FLAGS)
@@ -45,9 +112,16 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   if (ARROW_BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+
     if(APPLE)
-      set_target_properties(${LIB_NAME}_shared PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+      # On OS X, you can avoid linking at library load time and instead
+      # expecting that the symbols have been loaded separately. This happens
+      # with libpython* where there can be conflicts between system Python and
+      # the Python from a thirdparty distribution
+      set(ARG_SHARED_LINK_FLAGS
+        "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
     endif()
+
     set_target_properties(${LIB_NAME}_shared
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
@@ -55,6 +129,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       OUTPUT_NAME ${LIB_NAME}
       VERSION "${ARROW_ABI_VERSION}"
       SOVERSION "${ARROW_SO_VERSION}")
+
     target_link_libraries(${LIB_NAME}_shared
       LINK_PUBLIC ${ARG_SHARED_LINK_LIBS}
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
@@ -68,28 +143,28 @@ function(ADD_ARROW_LIB LIB_NAME)
         set_target_properties(${LIB_NAME}_shared PROPERTIES
             INSTALL_RPATH ${_lib_install_rpath})
     endif()
-  
+
     install(TARGETS ${LIB_NAME}_shared
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
-  
+
   if (ARROW_BUILD_STATIC)
       add_library(${LIB_NAME}_static STATIC $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       OUTPUT_NAME ${LIB_NAME})
-  
+
   target_link_libraries(${LIB_NAME}_static
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS}
       LINK_PRIVATE ${ARG_STATIC_PRIVATE_LINK_LIBS})
-  
+
   install(TARGETS ${LIB_NAME}_static
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
-  
+
   if (APPLE)
       set_target_properties(${LIB_NAME}_shared
       PROPERTIES
@@ -98,4 +173,3 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
 endfunction()
-

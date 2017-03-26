@@ -16,21 +16,21 @@
 # under the License.
 
 #######################################
-# pyarrow_test_main
+# arrow/python_test_main
 #######################################
 
 if (PYARROW_BUILD_TESTS)
-  add_library(pyarrow_test_main STATIC
+  add_library(arrow/python_test_main STATIC
 	test_main.cc)
 
   if (APPLE)
-	target_link_libraries(pyarrow_test_main
+	target_link_libraries(arrow/python_test_main
       gtest
       dl)
-	set_target_properties(pyarrow_test_main
+	set_target_properties(arrow/python_test_main
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
   else()
-	target_link_libraries(pyarrow_test_main
+	target_link_libraries(arrow/python_test_main
       gtest
       pthread
       dl

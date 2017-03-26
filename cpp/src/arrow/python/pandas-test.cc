@@ -24,17 +24,17 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/python/pandas_convert.h"
 #include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "pyarrow/adapters/pandas.h"
 
 namespace arrow {
 namespace py {
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
-  StringBuilder builder;
+  StringBuilder builder(default_memory_pool());
   const char value[] = {'\xf1', '\0'};
 
   for (int i = 0; i < 1000; ++i) {

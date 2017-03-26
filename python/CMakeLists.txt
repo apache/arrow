@@ -47,9 +47,6 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  option(PYARROW_BUILD_TESTS
-    "Build the PyArrow C++ googletest unit tests"
-    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
@@ -57,7 +54,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the PyArrow jemalloc integration"
     OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
-    "Bundle the Arrow C++ libraries" 
+    "Bundle the Arrow C++ libraries"
     OFF)
 endif()
 
@@ -75,6 +72,8 @@ endif(CCACHE_FOUND)
 # Compiler flags
 ############################################################
 
+include(BuildUtils)
+include(CompilerInfo)
 include(SetupCxxFlags)
 
 # Add common flags
@@ -86,8 +85,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 # Suppress Cython warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 
-# Determine compiler version
-include(CompilerInfo)
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -216,115 +213,8 @@ include_directories(SYSTEM
   src)
 
 ############################################################
-# Testing
-############################################################
-
-# Add a new test case, with or without an executable that should be built.
-#
-# REL_TEST_NAME is the name of the test. It may be a single component
-# (e.g. monotime-test) or contain additional components (e.g.
-# net/net_util-test). Either way, the last component must be a globally
-# unique name.
-#
-# Arguments after the test name will be passed to set_tests_properties().
-function(ADD_PYARROW_TEST REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-    target_link_libraries(${TEST_NAME} ${PYARROW_TEST_LINK_LIBS})
-  else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
-  endif()
-
-  add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${TEST_PATH})
-  if(ARGN)
-    set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
-  endif()
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_PYARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-enable_testing()
-
-############################################################
 # Dependencies
 ############################################################
-function(ADD_THIRDPARTY_LIB LIB_NAME)
-  set(options)
-  set(one_value_args SHARED_LIB STATIC_LIB)
-  set(multi_value_args DEPS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
-  if(ARG_UNPARSED_ARGUMENTS)
-    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
-  endif()
-
-  if(("${PYARROW_LINK}" STREQUAL "s" AND ARG_STATIC_LIB) OR (NOT ARG_SHARED_LIB))
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-    add_library(${LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message(STATUS "Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
-  else()
-    add_library(${LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    message(STATUS "Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
-  endif()
-
-  if(ARG_DEPS)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
-  endif()
-
-  # Set up an "exported variant" for this thirdparty library (see "Visibility"
-  # above). It's the same as the real target, just with an "_exported" suffix.
-  # We prefer the static archive if it exists (as it's akin to an "internal"
-  # library), but we'll settle for the shared object if we must.
-  #
-  # A shared object exported variant will force any "leaf" library that
-  # transitively depends on it to also depend on it at runtime; this is
-  # desirable for some libraries (e.g. cyrus_sasl).
-  set(LIB_NAME_EXPORTED ${LIB_NAME}_exported)
-  if(ARG_STATIC_LIB)
-    add_library(${LIB_NAME_EXPORTED} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-  else()
-    add_library(${LIB_NAME_EXPORTED} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-  endif()
-  if(ARG_DEPS)
-    set_target_properties(${LIB_NAME_EXPORTED}
-      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
-  endif()
-endfunction()
-
-## GMock
-if (PYARROW_BUILD_TESTS)
-  find_package(GTest REQUIRED)
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-endif()
 
 ## Parquet
 find_package(Parquet)
@@ -352,6 +242,8 @@ if (PYARROW_BUNDLE_ARROW_CPP)
       COPYONLY)
   SET(ARROW_IPC_SHARED_LIB
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/libarrow_ipc${CMAKE_SHARED_LIBRARY_SUFFIX})
+  SET(ARROW_PYTHON_SHARED_LIB
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/libarrow_python${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
 ADD_THIRDPARTY_LIB(arrow
@@ -360,66 +252,8 @@ ADD_THIRDPARTY_LIB(arrow_io
   SHARED_LIB ${ARROW_IO_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_ipc
   SHARED_LIB ${ARROW_IPC_SHARED_LIB})
-
-############################################################
-# Linker setup
-############################################################
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow)
-
-set(PYARROW_MIN_TEST_LIBS
-  pyarrow_test_main
-  pyarrow
-  ${PYARROW_BASE_LIBS})
-
-if(NOT APPLE AND PYARROW_BUILD_TESTS)
-  ADD_THIRDPARTY_LIB(python
-    SHARED_LIB "${PYTHON_LIBRARIES}")
-  list(APPEND PYARROW_MIN_TEST_LIBS python)
-endif()
-
-set(PYARROW_TEST_LINK_LIBS ${PYARROW_MIN_TEST_LIBS})
-
-############################################################
-# "make ctags" target
-############################################################
-if (UNIX)
-  add_custom_target(ctags ctags -R --languages=c++,c --exclude=thirdparty/installed)
-endif (UNIX)
-
-############################################################
-# "make etags" target
-############################################################
-if (UNIX)
-  add_custom_target(tags etags --members --declarations
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src
-   -name \\*.cc -or -name \\*.hh -or -name \\*.cpp -or -name \\*.h -or -name \\*.c -or
-   -name \\*.f`)
-  add_custom_target(etags DEPENDS tags)
-endif (UNIX)
-
-############################################################
-# "make cscope" target
-############################################################
-if (UNIX)
-  add_custom_target(cscope find ${CMAKE_CURRENT_SOURCE_DIR}
-  ( -name \\*.cc -or -name \\*.hh -or -name \\*.cpp -or
-    -name \\*.h -or -name \\*.c -or -name \\*.f )
-  -exec echo \"{}\" \; > cscope.files && cscope -q -b VERBATIM)
-endif (UNIX)
-
-############################################################
-# "make lint" target
-############################################################
-if (UNIX)
-  # Full lint
-  add_custom_target(lint ${BUILD_SUPPORT_DIR}/cpplint.py
-  --verbose=2
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h`)
-endif (UNIX)
+ADD_THIRDPARTY_LIB(arrow_python
+  SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
 
 ############################################################
 # Subdirectories
@@ -428,9 +262,6 @@ endif (UNIX)
 if (UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
-
-add_subdirectory(src/pyarrow)
-add_subdirectory(src/pyarrow/util)
 
 set(CYTHON_EXTENSIONS
   array
@@ -444,19 +275,11 @@ set(CYTHON_EXTENSIONS
   table
 )
 
-set(PYARROW_SRCS
-  src/pyarrow/common.cc
-  src/pyarrow/config.cc
-  src/pyarrow/helpers.cc
-  src/pyarrow/io.cc
-  src/pyarrow/adapters/builtin.cc
-  src/pyarrow/adapters/pandas.cc
-)
-
 set(LINK_LIBS
-  arrow
-  arrow_io
-  arrow_ipc
+  arrow_shared
+  arrow_io_shared
+  arrow_ipc_shared
+  arrow_python_shared
 )
 
 if (PYARROW_BUILD_PARQUET)
@@ -497,22 +320,10 @@ if (PYARROW_BUILD_JEMALLOC)
     SHARED_LIB ${ARROW_JEMALLOC_SHARED_LIB})
   set(LINK_LIBS
     ${LINK_LIBS}
-    arrow_jemalloc)
+    arrow_jemalloc_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     jemalloc)
-endif()
-
-add_library(pyarrow SHARED
-  ${PYARROW_SRCS})
-if (PYARROW_BUNDLE_ARROW_CPP)
-  set_target_properties(pyarrow PROPERTIES
-      INSTALL_RPATH "\$ORIGIN")
-endif()
-target_link_libraries(pyarrow ${LINK_LIBS})
-
-if(APPLE)
-  set_target_properties(pyarrow PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 endif()
 
 ############################################################
@@ -555,5 +366,5 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     set_target_properties(${module_name} PROPERTIES
       INSTALL_RPATH ${module_install_rpath})
-    target_link_libraries(${module_name} pyarrow)
+    target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)

@@ -15,46 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_NUMPY_INTEROP_H
-#define PYARROW_NUMPY_INTEROP_H
+// Functions for converting between CPython built-in data structures and Arrow
+// data structures
+
+#ifndef ARROW_PYTHON_ADAPTERS_BUILTIN_H
+#define ARROW_PYTHON_ADAPTERS_BUILTIN_H
 
 #include <Python.h>
 
-#include <numpy/numpyconfig.h>
+#include <memory>
 
-// Don't use the deprecated Numpy functions
-#ifdef NPY_1_7_API_VERSION
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#else
-#define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
-#define NPY_ARRAY_ALIGNED NPY_ALIGNED
-#define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
-#define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
-#endif
+#include <arrow/type.h>
 
-// This is required to be able to access the NumPy C API properly in C++ files
-// other than this main one
-#define PY_ARRAY_UNIQUE_SYMBOL pyarrow_ARRAY_API
-#ifndef NUMPY_IMPORT_ARRAY
-#define NO_IMPORT_ARRAY
-#endif
+#include "arrow/util/visibility.h"
 
-#include <numpy/arrayobject.h>
-#include <numpy/ufuncobject.h>
+#include "arrow/python/common.h"
 
 namespace arrow {
+
+class Array;
+class Status;
+
 namespace py {
 
-inline int import_numpy() {
-#ifdef NUMPY_IMPORT_ARRAY
-  import_array1(-1);
-  import_umath1(-1);
-#endif
+ARROW_EXPORT arrow::Status InferArrowType(
+    PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
 
-  return 0;
-}
+ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj,
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::ArrayBuilder>& builder);
+
+ARROW_EXPORT
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out);
 
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_NUMPY_INTEROP_H
+#endif  // ARROW_PYTHON_ADAPTERS_BUILTIN_H

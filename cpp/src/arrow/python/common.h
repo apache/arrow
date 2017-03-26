@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_COMMON_H
-#define PYARROW_COMMON_H
+#ifndef ARROW_PYTHON_COMMON_H
+#define ARROW_PYTHON_COMMON_H
 
-#include "pyarrow/config.h"
+#include <string>
+
+#include "arrow/python/config.h"
 
 #include "arrow/buffer.h"
 #include "arrow/util/macros.h"
@@ -47,7 +49,7 @@ class OwnedRef {
  public:
   OwnedRef() : obj_(nullptr) {}
 
-  OwnedRef(PyObject* obj) : obj_(obj) {}
+  explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
   ~OwnedRef() {
     PyAcquireGIL lock;
@@ -71,7 +73,7 @@ struct PyObjectStringify {
   OwnedRef tmp_obj;
   const char* bytes;
 
-  PyObjectStringify(PyObject* obj) {
+  explicit PyObjectStringify(PyObject* obj) {
     PyObject* bytes_obj;
     if (PyUnicode_Check(obj)) {
       bytes_obj = PyUnicode_AsUTF8String(obj);
@@ -103,7 +105,7 @@ ARROW_EXPORT MemoryPool* get_memory_pool();
 
 class ARROW_EXPORT NumPyBuffer : public Buffer {
  public:
-  NumPyBuffer(PyArrayObject* arr) : Buffer(nullptr, 0) {
+  explicit NumPyBuffer(PyArrayObject* arr) : Buffer(nullptr, 0) {
     arr_ = arr;
     Py_INCREF(arr);
 
@@ -124,7 +126,7 @@ class ARROW_EXPORT PyBuffer : public Buffer {
   ///
   /// While memoryview objects support multi-demensional buffers, PyBuffer only supports
   /// one-dimensional byte buffers.
-  PyBuffer(PyObject* obj);
+  explicit PyBuffer(PyObject* obj);
   ~PyBuffer();
 
  private:
@@ -134,4 +136,4 @@ class ARROW_EXPORT PyBuffer : public Buffer {
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_COMMON_H
+#endif  // ARROW_PYTHON_COMMON_H

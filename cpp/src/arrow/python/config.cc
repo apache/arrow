@@ -15,40 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between CPython built-in data structures and Arrow
-// data structures
-
-#ifndef PYARROW_ADAPTERS_BUILTIN_H
-#define PYARROW_ADAPTERS_BUILTIN_H
-
 #include <Python.h>
 
-#include <memory>
-
-#include <arrow/type.h>
-
-#include "arrow/util/visibility.h"
-
-#include "pyarrow/common.h"
+#include "arrow/python/config.h"
 
 namespace arrow {
-
-class Array;
-class Status;
-
 namespace py {
 
-ARROW_EXPORT arrow::Status InferArrowType(
-    PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
+void Init() {}
 
-ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj,
-    const std::shared_ptr<arrow::DataType>& type,
-    const std::shared_ptr<arrow::ArrayBuilder>& builder);
+PyObject* numpy_nan = nullptr;
 
-ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out);
+void set_numpy_nan(PyObject* obj) {
+  Py_INCREF(obj);
+  numpy_nan = obj;
+}
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_ADAPTERS_BUILTIN_H

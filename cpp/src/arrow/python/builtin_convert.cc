@@ -19,13 +19,13 @@
 #include <datetime.h>
 #include <sstream>
 
-#include "pyarrow/adapters/builtin.h"
+#include "arrow/python/builtin_convert.h"
 
 #include "arrow/api.h"
 #include "arrow/status.h"
 
-#include "pyarrow/helpers.h"
-#include "pyarrow/util/datetime.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {

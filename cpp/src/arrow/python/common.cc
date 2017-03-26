@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 #include <cstdlib>
 #include <mutex>
@@ -28,17 +28,17 @@ namespace arrow {
 namespace py {
 
 static std::mutex memory_pool_mutex;
-static MemoryPool* default_pyarrow_pool = nullptr;
+static MemoryPool* default_python_pool = nullptr;
 
 void set_default_memory_pool(MemoryPool* pool) {
   std::lock_guard<std::mutex> guard(memory_pool_mutex);
-  default_pyarrow_pool = pool;
+  default_python_pool = pool;
 }
 
 MemoryPool* get_memory_pool() {
   std::lock_guard<std::mutex> guard(memory_pool_mutex);
-  if (default_pyarrow_pool) {
-    return default_pyarrow_pool;
+  if (default_python_pool) {
+    return default_python_pool;
   } else {
     return default_memory_pool();
   }
@@ -47,22 +47,21 @@ MemoryPool* get_memory_pool() {
 // ----------------------------------------------------------------------
 // PyBuffer
 
-PyBuffer::PyBuffer(PyObject* obj)
-    : Buffer(nullptr, 0) {
-    if (PyObject_CheckBuffer(obj)) {
-        obj_ = PyMemoryView_FromObject(obj);
-        Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
-        data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
-        size_ = buffer->len;
-        capacity_ = buffer->len;
-        is_mutable_ = false;
-        Py_INCREF(obj_);
-    } 
+PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0) {
+  if (PyObject_CheckBuffer(obj)) {
+    obj_ = PyMemoryView_FromObject(obj);
+    Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
+    data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
+    size_ = buffer->len;
+    capacity_ = buffer->len;
+    is_mutable_ = false;
+    Py_INCREF(obj_);
+  }
 }
 
 PyBuffer::~PyBuffer() {
-    PyAcquireGIL lock;
-    Py_DECREF(obj_);
+  PyAcquireGIL lock;
+  Py_DECREF(obj_);
 }
 
 }  // namespace py

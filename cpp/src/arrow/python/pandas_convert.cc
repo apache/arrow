@@ -19,8 +19,8 @@
 
 #include <Python.h>
 
-#include "pyarrow/adapters/pandas.h"
-#include "pyarrow/numpy_interop.h"
+#include "arrow/python/numpy_interop.h"
+#include "arrow/python/pandas_convert.h"
 
 #include <algorithm>
 #include <atomic>
@@ -32,22 +32,22 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/column.h"
 #include "arrow/loader.h"
+#include "arrow/python/builtin_convert.h"
+#include "arrow/python/common.h"
+#include "arrow/python/config.h"
+#include "arrow/python/type_traits.h"
+#include "arrow/python/util/datetime.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
-
-#include "pyarrow/adapters/builtin.h"
-#include "pyarrow/common.h"
-#include "pyarrow/config.h"
-#include "pyarrow/type_traits.h"
-#include "pyarrow/util/datetime.h"
 
 namespace arrow {
 namespace py {
@@ -125,7 +125,7 @@ static int64_t ValuesToValidBytes(
 
   // TODO(wesm): striding
   for (int i = 0; i < length; ++i) {
-    valid_bytes[i] = not traits::isnull(values[i]);
+    valid_bytes[i] = !traits::isnull(values[i]);
     if (traits::isnull(values[i])) null_count++;
   }
 
@@ -226,7 +226,7 @@ class PandasConverter : public TypeVisitor {
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
         mask_(nullptr) {
-    if (mo != nullptr and mo != Py_None) { mask_ = reinterpret_cast<PyArrayObject*>(mo); }
+    if (mo != nullptr && mo != Py_None) { mask_ = reinterpret_cast<PyArrayObject*>(mo); }
     length_ = PyArray_SIZE(arr_);
   }
 
@@ -820,6 +820,7 @@ class PandasBlock {
   OwnedRef placement_arr_;
   int64_t* placement_data_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
@@ -947,7 +948,6 @@ inline Status ConvertListsLike(
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = std::static_pointer_cast<ListArray>(data.chunk(c));
 
-    const uint8_t* data_ptr;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
       if (has_nulls && arr->IsNull(i)) {
@@ -1304,7 +1304,7 @@ class DatetimeTZBlock : public DatetimeBlock {
 template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
-  CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
+  explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
 
   Status Allocate() override {
     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
@@ -1432,7 +1432,7 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 // * placement arrays as we go
 class DataFrameBlockCreator {
  public:
-  DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
+  explicit DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());

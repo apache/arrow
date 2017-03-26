@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/io.h"
+#include "arrow/python/io.h"
 
 #include <cstdint>
 #include <cstdlib>
+#include <string>
 
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
-#include "pyarrow/common.h"
+#include "arrow/python/common.h"
 
 namespace arrow {
 namespace py {
@@ -166,7 +167,7 @@ Status PyReadableFile::GetSize(int64_t* size) {
   PyAcquireGIL lock;
 
   int64_t current_position;
-  ;
+
   ARROW_RETURN_NOT_OK(file_->Tell(&current_position));
 
   ARROW_RETURN_NOT_OK(file_->Seek(0, 2));

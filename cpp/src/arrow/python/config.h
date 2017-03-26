@@ -15,22 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef ARROW_PYTHON_CONFIG_H
+#define ARROW_PYTHON_CONFIG_H
+
 #include <Python.h>
 
-#include <gtest/gtest.h>
+#include "arrow/python/numpy_interop.h"
+#include "arrow/util/visibility.h"
 
-#include "pyarrow/do_import_numpy.h"
-#include "pyarrow/numpy_interop.h"
+#if PY_MAJOR_VERSION >= 3
+#define PyString_Check PyUnicode_Check
+#endif
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
+namespace arrow {
+namespace py {
 
-  Py_Initialize();
-  arrow::py::import_numpy();
+ARROW_EXPORT
+extern PyObject* numpy_nan;
 
-  int ret = RUN_ALL_TESTS();
+ARROW_EXPORT
+void Init();
 
-  Py_Finalize();
+ARROW_EXPORT
+void set_numpy_nan(PyObject* obj);
 
-  return ret;
-}
+}  // namespace py
+}  // namespace arrow
+
+#endif  // ARROW_PYTHON_CONFIG_H

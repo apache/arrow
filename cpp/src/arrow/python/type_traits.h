@@ -18,8 +18,9 @@
 #include <Python.h>
 
 #include <cstdint>
+#include <limits>
 
-#include "pyarrow/numpy_interop.h"
+#include "arrow/python/numpy_interop.h"
 
 #include "arrow/builder.h"
 #include "arrow/type.h"

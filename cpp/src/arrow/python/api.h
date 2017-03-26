@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_API_H
-#define PYARROW_API_H
+#ifndef ARROW_PYTHON_API_H
+#define ARROW_PYTHON_API_H
 
-#include "pyarrow/helpers.h"
+#include "arrow/python/builtin_convert.h"
+#include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/io.h"
+#include "arrow/python/pandas_convert.h"
 
-#include "pyarrow/adapters/builtin.h"
-#include "pyarrow/adapters/pandas.h"
-
-#endif  // PYARROW_API_H
+#endif  // ARROW_PYTHON_API_H

@@ -106,6 +106,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Rely on boost shared libraries where relevant"
     ON)
 
+  option(ARROW_PYTHON
+    "Build the Arrow CPython extensions"
+    OFF)
+
   option(ARROW_SSE3
     "Build Arrow with SSE3"
     ON)
@@ -133,6 +137,7 @@ if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 endif()
 
+include(BuildUtils)
 
 ############################################################
 # Compiler flags
@@ -303,6 +308,14 @@ endfunction()
 #
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
+  set(options)
+  set(single_value_args)
+  set(multi_value_args STATIC_LINK_LIBS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
     return()
   endif()
@@ -312,7 +325,13 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     # This test has a corresponding .cc file, set it up as an executable.
     set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
     add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-    target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+
+    if (ARG_STATIC_LINK_LIBS)
+      # Customize link libraries
+      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
+    else()
+      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    endif()
     add_dependencies(unittest ${TEST_NAME})
   else()
     # No executable, just invoke the test (probably a script) directly.
@@ -332,10 +351,6 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
   endif()
   set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
-
-  if(ARGN)
-    set_tests_properties(${TEST_NAME} PROPERTIES ${ARGN})
-  endif()
 endfunction()
 
 # A wrapper for add_dependencies() that is compatible with NO_TESTS.
@@ -363,72 +378,6 @@ enable_testing()
 ############################################################
 # Dependencies
 ############################################################
-function(ADD_THIRDPARTY_LIB LIB_NAME)
-  set(options)
-  set(one_value_args SHARED_LIB STATIC_LIB)
-  set(multi_value_args DEPS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
-  if(ARG_UNPARSED_ARGUMENTS)
-    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
-  endif()
-
-  if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-
-    SET(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
-
-    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(MSVC)
-        # Mark the ”.lib” location as part of a Windows DLL
-        set_target_properties(${AUG_LIB_NAME}
-            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
-    else()
-        set_target_properties(${AUG_LIB_NAME}
-            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    endif()
-    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
-  elseif(ARG_STATIC_LIB)
-    add_library(${LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    SET(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_STATIC_LIB}")
-    message("Added static library dependency ${LIB_NAME}: ${ARG_STATIC_LIB}")
-  elseif(ARG_SHARED_LIB)
-    add_library(${LIB_NAME} SHARED IMPORTED)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    SET(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(MSVC)
-        # Mark the ”.lib” location as part of a Windows DLL
-        set_target_properties(${AUG_LIB_NAME}
-            PROPERTIES IMPORTED_IMPLIB "${ARG_SHARED_LIB}")
-    else()
-        set_target_properties(${AUG_LIB_NAME}
-            PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
-    endif()
-    message("Added shared library dependency ${LIB_NAME}: ${ARG_SHARED_LIB}")
-  else()
-    message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-  endif()
-
-  if(ARG_DEPS)
-    set_target_properties(${LIB_NAME}
-      PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${ARG_DEPS}")
-  endif()
-endfunction()
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
@@ -798,8 +747,7 @@ if (${CLANG_FORMAT_FOUND})
   add_custom_target(format ${BUILD_SUPPORT_DIR}/run-clang-format.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CLANG_FORMAT_BIN} 1
     `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h |
     sed -e '/_generated/g' |
-    sed -e '/windows_compatibility.h/g'`
-    `find ${CMAKE_CURRENT_SOURCE_DIR}/../python -name \\*.cc -or -name \\*.h`)
+    sed -e '/windows_compatibility.h/g'`)
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
   add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run-clang-format.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CLANG_FORMAT_BIN} 0
@@ -857,11 +805,9 @@ if(NOT APPLE)
   set(ARROW_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
-include(BuildUtils)
-
 ADD_ARROW_LIB(arrow
-    SOURCES ${ARROW_SRCS}
-    SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
+  SOURCES ${ARROW_SRCS}
+  SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
 )
 
 add_subdirectory(src/arrow)
@@ -874,6 +820,10 @@ endif()
 
 #----------------------------------------------------------------------
 # IPC library
+
+if(ARROW_PYTHON)
+  set(ARROW_IPC on)
+endif()
 
 ## Flatbuffers
 if(ARROW_IPC)
@@ -907,4 +857,15 @@ if(ARROW_IPC)
   endif()
 
   add_subdirectory(src/arrow/ipc)
+endif()
+
+if(ARROW_PYTHON)
+  find_package(PythonLibsNew REQUIRED)
+  find_package(NumPy REQUIRED)
+
+  include_directories(SYSTEM
+    ${NUMPY_INCLUDE_DIRS}
+    ${PYTHON_INCLUDE_DIRS})
+
+  add_subdirectory(src/arrow/python)
 endif()
