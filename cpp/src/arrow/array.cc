@@ -29,6 +29,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -103,6 +104,10 @@ bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
   return are_equal;
 }
 
+Status Array::Validate() const {
+  return Status::OK();
+}
+
 // Last two parameters are in-out parameters
 static inline void ConformSliceParams(
     int64_t array_offset, int64_t array_length, int64_t* offset, int64_t* length) {
@@ -115,10 +120,6 @@ static inline void ConformSliceParams(
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
   int64_t slice_length = length_ - offset;
   return Slice(offset, slice_length);
-}
-
-Status Array::Validate() const {
-  return Status::OK();
 }
 
 NullArray::NullArray(int64_t length) : Array(null(), length, nullptr, length) {}
@@ -426,47 +427,22 @@ std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) co
 }
 
 // ----------------------------------------------------------------------
-// Implement ArrayVisitor methods
+// Implement Array::Accept as inline visitor
 
-Status NullArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
+struct AcceptVirtualVisitor {
+  explicit AcceptVirtualVisitor(ArrayVisitor* visitor) : visitor(visitor) {}
 
-Status BooleanArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
+  ArrayVisitor* visitor;
 
-template <typename T>
-Status NumericArray<T>::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
+  template <typename T>
+  Status Visit(const T& array) {
+    return visitor->Visit(array);
+  }
+};
 
-Status BinaryArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status StringArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status FixedWidthBinaryArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status ListArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status StructArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status UnionArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
-}
-
-Status DictionaryArray::Accept(ArrayVisitor* visitor) const {
-  return visitor->Visit(*this);
+Status Array::Accept(ArrayVisitor* visitor) const {
+  AcceptVirtualVisitor inline_visitor(visitor);
+  return VisitArrayInline(*this, visitor);
 }
 
 // ----------------------------------------------------------------------
