@@ -78,7 +78,7 @@ function build_arrow_libraries() {
 
   cmake -DARROW_BUILD_TESTS=off \
         -DARROW_PYTHON=on \
-        -DCMAKE_INSTALL_PREFIX=$2
+        -DCMAKE_INSTALL_PREFIX=$2 \
         $CPP_DIR
 
   make -j4
