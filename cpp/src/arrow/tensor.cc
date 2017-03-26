@@ -45,8 +45,8 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
 
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    std::vector<int64_t> shape, std::vector<int64_t> strides,
-    std::vector<std::string> dim_names)
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+    const std::vector<std::string>& dim_names)
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   DCHECK(is_tensor_supported(type->type));
   if (shape.size() > 0 && strides.size() == 0) {
@@ -55,11 +55,11 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
 }
 
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    std::vector<int64_t> shape, std::vector<int64_t> strides)
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
     : Tensor(type, data, shape, strides, {}) {}
 
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    std::vector<int64_t> shape)
+    const std::vector<int64_t>& shape)
     : Tensor(type, data, shape, {}, {}) {}
 
 const std::string& Tensor::dim_name(int i) const {
@@ -78,8 +78,8 @@ int64_t Tensor::size() const {
 
 template <typename T>
 NumericTensor<T>::NumericTensor(const std::shared_ptr<Buffer>& data,
-    std::vector<int64_t> shape, std::vector<int64_t> strides,
-    std::vector<std::string> dim_names)
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+    const std::vector<std::string>& dim_names)
     : Tensor(TypeTraits<T>::type_singleton(), data, shape, strides, dim_names),
       raw_data_(nullptr),
       mutable_raw_data_(nullptr) {
@@ -94,12 +94,12 @@ NumericTensor<T>::NumericTensor(const std::shared_ptr<Buffer>& data,
 
 template <typename T>
 NumericTensor<T>::NumericTensor(
-    const std::shared_ptr<Buffer>& data, std::vector<int64_t> shape)
+    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape)
     : NumericTensor(data, shape, {}, {}) {}
 
 template <typename T>
 NumericTensor<T>::NumericTensor(const std::shared_ptr<Buffer>& data,
-    std::vector<int64_t> shape, std::vector<int64_t> strides)
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
     : NumericTensor(data, shape, strides, {}) {}
 
 template class NumericTensor<Int8Type>;

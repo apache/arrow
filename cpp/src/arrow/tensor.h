@@ -62,16 +62,16 @@ class ARROW_EXPORT Tensor {
 
   /// Constructor with no dimension names or strides, data assumed to be row-major
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      std::vector<int64_t> shape);
+      const std::vector<int64_t>& shape);
 
   /// Constructor with non-negative strides
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      std::vector<int64_t> shape, std::vector<int64_t> strides);
+      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides);
 
   /// Constructor with strides and dimension names
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      std::vector<int64_t> shape, std::vector<int64_t> strides,
-      std::vector<std::string> dim_names);
+      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+      const std::vector<std::string>& dim_names);
 
   std::shared_ptr<Buffer> data() const { return data_; }
   const std::vector<int64_t>& shape() const { return shape_; }
@@ -108,15 +108,15 @@ class ARROW_EXPORT NumericTensor : public Tensor {
  public:
   using value_type = typename T::c_type;
 
-  NumericTensor(const std::shared_ptr<Buffer>& data, std::vector<int64_t> shape);
-
-  /// Constructor with strides and dimension names
-  NumericTensor(const std::shared_ptr<Buffer>& data, std::vector<int64_t> shape,
-      std::vector<int64_t> strides, std::vector<std::string> dim_names);
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape);
 
   /// Constructor with non-negative strides
-  NumericTensor(const std::shared_ptr<Buffer>& data, std::vector<int64_t> shape,
-      std::vector<int64_t> strides);
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+      const std::vector<int64_t>& strides);
+
+  /// Constructor with strides and dimension names
+  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+      const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names);
 
   const value_type* raw_data() const { return raw_data_; }
   value_type* raw_data() { return mutable_raw_data_; }
