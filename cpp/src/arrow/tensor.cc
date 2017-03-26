@@ -69,7 +69,6 @@ const std::string& Tensor::dim_name(int i) const {
 }
 
 int64_t Tensor::size() const {
-  if (shape_.size() == 0) { return 1; }
   return std::accumulate(
       shape_.begin(), shape_.end(), 1, std::multiplies<int64_t>());
 }
