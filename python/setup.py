@@ -208,8 +208,16 @@ class build_ext(_build_ext):
         def move_lib(lib_name):
             lib_filename = (shared_library_prefix + lib_name +
                             shared_library_suffix)
+            print(lib_filename)
             shutil.move(pjoin(self.build_type, lib_filename),
                         pjoin(build_lib, 'pyarrow', lib_filename))
+            if lib_name.startswith("arrow"):
+                print(lib_filename + '.0.0.0')
+                shutil.move(pjoin(self.build_type, lib_filename + '.0.0.0'),
+                            pjoin(build_lib, 'pyarrow', lib_filename + '.0.0.0'))
+                print(lib_filename + '.0')
+                shutil.move(pjoin(self.build_type, lib_filename + '.0'),
+                            pjoin(build_lib, 'pyarrow', lib_filename + '.0'))
 
         if self.bundle_arrow_cpp:
             move_lib("arrow")
