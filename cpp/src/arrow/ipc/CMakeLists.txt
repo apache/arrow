@@ -173,5 +173,5 @@ if (ARROW_BUILD_UTILITIES)
 endif()
 
 ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
-ARROW_TEST_LINK_LIBRARIES(ipc-read-write-benchmark
+ARROW_BENCHMARK_LINK_LIBRARIES(ipc-read-write-benchmark
   ${ARROW_IPC_TEST_LINK_LIBS})
