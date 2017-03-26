@@ -433,7 +433,6 @@ struct AcceptVirtualVisitor {
   explicit AcceptVirtualVisitor(ArrayVisitor* visitor) : visitor(visitor) {}
 
   ArrayVisitor* visitor;
-  std::shared_ptr<Array> result;
 
   template <typename T>
   Status Visit(const T& array) {
