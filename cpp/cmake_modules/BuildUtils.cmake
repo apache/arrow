@@ -112,9 +112,16 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   if (ARROW_BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+
     if(APPLE)
-      set_target_properties(${LIB_NAME}_shared PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+      # On OS X, you can avoid linking at library load time and instead
+      # expecting that the symbols have been loaded separately. This happens
+      # with libpython* where there can be conflicts between system Python and
+      # the Python from a thirdparty distribution
+      set(ARG_SHARED_LINK_FLAGS
+        "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
     endif()
+
     set_target_properties(${LIB_NAME}_shared
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
@@ -122,6 +129,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       OUTPUT_NAME ${LIB_NAME}
       VERSION "${ARROW_ABI_VERSION}"
       SOVERSION "${ARROW_SO_VERSION}")
+
     target_link_libraries(${LIB_NAME}_shared
       LINK_PUBLIC ${ARG_SHARED_LINK_LIBS}
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
