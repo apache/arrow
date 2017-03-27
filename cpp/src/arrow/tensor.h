@@ -73,12 +73,15 @@ class ARROW_EXPORT Tensor {
       const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
       const std::vector<std::string>& dim_names);
 
+  std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
+
   const std::vector<int64_t>& shape() const { return shape_; }
   const std::vector<int64_t>& strides() const { return strides_; }
 
+  int ndim() const { return static_cast<int>(shape_.size()); }
+
   const std::string& dim_name(int i) const;
-  bool has_dim_names() const { return shape_.size() > 0 && dim_names_.size() > 0; }
 
   /// Total number of value cells in the tensor
   int64_t size() const;
@@ -86,13 +89,17 @@ class ARROW_EXPORT Tensor {
   /// Return true if the underlying data buffer is mutable
   bool is_mutable() const { return data_->is_mutable(); }
 
+  bool is_contiguous() const;
+
+  Type::type type_enum() const { return type_->type; }
+
+  bool Equals(const Tensor& other) const;
+
  protected:
   Tensor() {}
 
   std::shared_ptr<DataType> type_;
-
   std::shared_ptr<Buffer> data_;
-
   std::vector<int64_t> shape_;
   std::vector<int64_t> strides_;
 
@@ -125,6 +132,11 @@ class ARROW_EXPORT NumericTensor : public Tensor {
   const value_type* raw_data_;
   value_type* mutable_raw_data_;
 };
+
+Status ARROW_EXPORT MakeTensor(const std::shared_ptr<DataType>& type,
+    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+    const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names,
+    std::shared_ptr<Tensor>* tensor);
 
 // ----------------------------------------------------------------------
 // extern templates and other details

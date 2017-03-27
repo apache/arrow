@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -36,7 +37,7 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Public method implementations
 
-class RangeEqualsVisitor : public ArrayVisitor {
+class RangeEqualsVisitor {
  public:
   RangeEqualsVisitor(const Array& right, int64_t left_start_idx, int64_t left_end_idx,
       int64_t right_start_idx)
@@ -45,12 +46,6 @@ class RangeEqualsVisitor : public ArrayVisitor {
         left_end_idx_(left_end_idx),
         right_start_idx_(right_start_idx),
         result_(false) {}
-
-  Status Visit(const NullArray& left) override {
-    UNUSED(left);
-    result_ = true;
-    return Status::OK();
-  }
 
   template <typename ArrayType>
   inline Status CompareValues(const ArrayType& left) {
@@ -96,108 +91,6 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return true;
   }
 
-  Status Visit(const BooleanArray& left) override {
-    return CompareValues<BooleanArray>(left);
-  }
-
-  Status Visit(const Int8Array& left) override { return CompareValues<Int8Array>(left); }
-
-  Status Visit(const Int16Array& left) override {
-    return CompareValues<Int16Array>(left);
-  }
-  Status Visit(const Int32Array& left) override {
-    return CompareValues<Int32Array>(left);
-  }
-  Status Visit(const Int64Array& left) override {
-    return CompareValues<Int64Array>(left);
-  }
-  Status Visit(const UInt8Array& left) override {
-    return CompareValues<UInt8Array>(left);
-  }
-  Status Visit(const UInt16Array& left) override {
-    return CompareValues<UInt16Array>(left);
-  }
-  Status Visit(const UInt32Array& left) override {
-    return CompareValues<UInt32Array>(left);
-  }
-  Status Visit(const UInt64Array& left) override {
-    return CompareValues<UInt64Array>(left);
-  }
-  Status Visit(const FloatArray& left) override {
-    return CompareValues<FloatArray>(left);
-  }
-  Status Visit(const DoubleArray& left) override {
-    return CompareValues<DoubleArray>(left);
-  }
-
-  Status Visit(const HalfFloatArray& left) override {
-    return Status::NotImplemented("Half float type");
-  }
-
-  Status Visit(const StringArray& left) override {
-    result_ = CompareBinaryRange(left);
-    return Status::OK();
-  }
-
-  Status Visit(const BinaryArray& left) override {
-    result_ = CompareBinaryRange(left);
-    return Status::OK();
-  }
-
-  Status Visit(const FixedWidthBinaryArray& left) override {
-    const auto& right = static_cast<const FixedWidthBinaryArray&>(right_);
-
-    int32_t width = left.byte_width();
-
-    const uint8_t* left_data = left.raw_data() + left.offset() * width;
-    const uint8_t* right_data = right.raw_data() + right.offset() * width;
-
-    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
-         ++i, ++o_i) {
-      const bool is_null = left.IsNull(i);
-      if (is_null != right.IsNull(o_i)) {
-        result_ = false;
-        return Status::OK();
-      }
-      if (is_null) continue;
-
-      if (std::memcmp(left_data + width * i, right_data + width * o_i, width)) {
-        result_ = false;
-        return Status::OK();
-      }
-    }
-    result_ = true;
-    return Status::OK();
-  }
-
-  Status Visit(const Date32Array& left) override {
-    return CompareValues<Date32Array>(left);
-  }
-
-  Status Visit(const Date64Array& left) override {
-    return CompareValues<Date64Array>(left);
-  }
-
-  Status Visit(const Time32Array& left) override {
-    return CompareValues<Time32Array>(left);
-  }
-
-  Status Visit(const Time64Array& left) override {
-    return CompareValues<Time64Array>(left);
-  }
-
-  Status Visit(const TimestampArray& left) override {
-    return CompareValues<TimestampArray>(left);
-  }
-
-  Status Visit(const IntervalArray& left) override {
-    return CompareValues<IntervalArray>(left);
-  }
-
-  Status Visit(const DecimalArray& left) override {
-    return Status::NotImplemented("Decimal type");
-  }
-
   bool CompareLists(const ListArray& left) {
     const auto& right = static_cast<const ListArray&>(right_);
 
@@ -225,11 +118,6 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return true;
   }
 
-  Status Visit(const ListArray& left) override {
-    result_ = CompareLists(left);
-    return Status::OK();
-  }
-
   bool CompareStructs(const StructArray& left) {
     const auto& right = static_cast<const StructArray&>(right_);
     bool equal_fields = true;
@@ -249,11 +137,6 @@ class RangeEqualsVisitor : public ArrayVisitor {
       }
     }
     return true;
-  }
-
-  Status Visit(const StructArray& left) override {
-    result_ = CompareStructs(left);
-    return Status::OK();
   }
 
   bool CompareUnions(const UnionArray& left) const {
@@ -314,12 +197,73 @@ class RangeEqualsVisitor : public ArrayVisitor {
     return true;
   }
 
-  Status Visit(const UnionArray& left) override {
+  Status Visit(const BinaryArray& left) {
+    result_ = CompareBinaryRange(left);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedWidthBinaryArray& left) {
+    const auto& right = static_cast<const FixedWidthBinaryArray&>(right_);
+
+    int32_t width = left.byte_width();
+
+    const uint8_t* left_data = nullptr;
+    const uint8_t* right_data = nullptr;
+
+    if (left.data()) { left_data = left.raw_data() + left.offset() * width; }
+
+    if (right.data()) { right_data = right.raw_data() + right.offset() * width; }
+
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+         ++i, ++o_i) {
+      const bool is_null = left.IsNull(i);
+      if (is_null != right.IsNull(o_i)) {
+        result_ = false;
+        return Status::OK();
+      }
+      if (is_null) continue;
+
+      if (std::memcmp(left_data + width * i, right_data + width * o_i, width)) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+    result_ = true;
+    return Status::OK();
+  }
+
+  Status Visit(const NullArray& left) {
+    UNUSED(left);
+    result_ = true;
+    return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value, Status>::type Visit(
+      const T& left) {
+    return CompareValues<T>(left);
+  }
+
+  Status Visit(const DecimalArray& left) {
+    return Status::NotImplemented("Decimal type");
+  }
+
+  Status Visit(const ListArray& left) {
+    result_ = CompareLists(left);
+    return Status::OK();
+  }
+
+  Status Visit(const StructArray& left) {
+    result_ = CompareStructs(left);
+    return Status::OK();
+  }
+
+  Status Visit(const UnionArray& left) {
     result_ = CompareUnions(left);
     return Status::OK();
   }
 
-  Status Visit(const DictionaryArray& left) override {
+  Status Visit(const DictionaryArray& left) {
     const auto& right = static_cast<const DictionaryArray&>(right_);
     if (!left.dictionary()->Equals(right.dictionary())) {
       result_ = false;
@@ -346,9 +290,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   explicit ArrayEqualsVisitor(const Array& right)
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
-  Status Visit(const NullArray& left) override { return Status::OK(); }
+  Status Visit(const NullArray& left) { return Status::OK(); }
 
-  Status Visit(const BooleanArray& left) override {
+  Status Visit(const BooleanArray& left) {
     const auto& right = static_cast<const BooleanArray&>(right_);
     if (left.null_count() > 0) {
       const uint8_t* left_data = left.data()->data();
@@ -372,63 +316,38 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   bool IsEqualPrimitive(const PrimitiveArray& left) {
     const auto& right = static_cast<const PrimitiveArray&>(right_);
     const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int value_byte_size = size_meta.bit_width() / 8;
-    DCHECK_GT(value_byte_size, 0);
+    const int byte_width = size_meta.bit_width() / 8;
 
-    const uint8_t* left_data = left.data()->data() + left.offset() * value_byte_size;
-    const uint8_t* right_data = right.data()->data() + right.offset() * value_byte_size;
+    const uint8_t* left_data = nullptr;
+    const uint8_t* right_data = nullptr;
+
+    if (left.data()) { left_data = left.data()->data() + left.offset() * byte_width; }
+
+    if (right.data()) { right_data = right.data()->data() + right.offset() * byte_width; }
 
     if (left.null_count() > 0) {
       for (int64_t i = 0; i < left.length(); ++i) {
-        if (!left.IsNull(i) && memcmp(left_data, right_data, value_byte_size)) {
+        if (!left.IsNull(i) && memcmp(left_data, right_data, byte_width)) {
           return false;
         }
-        left_data += value_byte_size;
-        right_data += value_byte_size;
+        left_data += byte_width;
+        right_data += byte_width;
       }
       return true;
     } else {
       return memcmp(left_data, right_data,
-                 static_cast<size_t>(value_byte_size * left.length())) == 0;
+                 static_cast<size_t>(byte_width * left.length())) == 0;
     }
   }
 
-  Status ComparePrimitive(const PrimitiveArray& left) {
+  template <typename T>
+  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value &&
+                              !std::is_base_of<BooleanArray, T>::value,
+      Status>::type
+  Visit(const T& left) {
     result_ = IsEqualPrimitive(left);
     return Status::OK();
   }
-
-  Status Visit(const Int8Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Int16Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Int32Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Int64Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const UInt8Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const UInt16Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const UInt32Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const UInt64Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const FloatArray& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const DoubleArray& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Date32Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Date64Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Time32Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const Time64Array& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const TimestampArray& left) override { return ComparePrimitive(left); }
-
-  Status Visit(const IntervalArray& left) override { return ComparePrimitive(left); }
 
   template <typename ArrayType>
   bool ValueOffsetsEqual(const ArrayType& left) {
@@ -494,17 +413,12 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     }
   }
 
-  Status Visit(const StringArray& left) override {
+  Status Visit(const BinaryArray& left) {
     result_ = CompareBinary(left);
     return Status::OK();
   }
 
-  Status Visit(const BinaryArray& left) override {
-    result_ = CompareBinary(left);
-    return Status::OK();
-  }
-
-  Status Visit(const ListArray& left) override {
+  Status Visit(const ListArray& left) {
     const auto& right = static_cast<const ListArray&>(right_);
     bool equal_offsets = ValueOffsetsEqual<ListArray>(left);
     if (!equal_offsets) {
@@ -523,7 +437,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DictionaryArray& left) override {
+  Status Visit(const DictionaryArray& left) {
     const auto& right = static_cast<const DictionaryArray&>(right_);
     if (!left.dictionary()->Equals(right.dictionary())) {
       result_ = false;
@@ -531,6 +445,13 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       result_ = left.indices()->Equals(right.indices());
     }
     return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<NestedType, typename T::TypeClass>::value,
+      Status>::type
+  Visit(const T& left) {
+    return RangeEqualsVisitor::Visit(left);
   }
 };
 
@@ -560,14 +481,15 @@ inline bool FloatingApproxEquals(
 class ApproxEqualsVisitor : public ArrayEqualsVisitor {
  public:
   using ArrayEqualsVisitor::ArrayEqualsVisitor;
+  using ArrayEqualsVisitor::Visit;
 
-  Status Visit(const FloatArray& left) override {
+  Status Visit(const FloatArray& left) {
     result_ =
         FloatingApproxEquals<FloatType>(left, static_cast<const FloatArray&>(right_));
     return Status::OK();
   }
 
-  Status Visit(const DoubleArray& left) override {
+  Status Visit(const DoubleArray& left) {
     result_ =
         FloatingApproxEquals<DoubleType>(left, static_cast<const DoubleArray&>(right_));
     return Status::OK();
@@ -586,7 +508,8 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
   return true;
 }
 
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
+template <typename VISITOR>
+inline Status ArrayEqualsImpl(const Array& left, const Array& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
     *are_equal = true;
@@ -595,11 +518,19 @@ Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
   } else if (left.length() == 0) {
     *are_equal = true;
   } else {
-    ArrayEqualsVisitor visitor(right);
-    RETURN_NOT_OK(left.Accept(&visitor));
+    VISITOR visitor(right);
+    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
     *are_equal = visitor.result();
   }
   return Status::OK();
+}
+
+Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
+  return ArrayEqualsImpl<ArrayEqualsVisitor>(left, right, are_equal);
+}
+
+Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
+  return ArrayEqualsImpl<ApproxEqualsVisitor>(left, right, are_equal);
 }
 
 Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
@@ -612,23 +543,56 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
     *are_equal = true;
   } else {
     RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx, right_start_idx);
-    RETURN_NOT_OK(left.Accept(&visitor));
+    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
     *are_equal = visitor.result();
   }
   return Status::OK();
 }
 
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
+// ----------------------------------------------------------------------
+// Implement TensorEquals
+
+class TensorEqualsVisitor {
+ public:
+  explicit TensorEqualsVisitor(const Tensor& right) : right_(right) {}
+
+  template <typename TensorType>
+  Status Visit(const TensorType& left) {
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int byte_width = size_meta.bit_width() / 8;
+    DCHECK_GT(byte_width, 0);
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right_.data()->data();
+
+    result_ =
+        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
+    return Status::OK();
+  }
+
+  bool result() const { return result_; }
+
+ protected:
+  const Tensor& right_;
+  bool result_;
+};
+
+Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
     *are_equal = true;
-  } else if (!BaseDataEquals(left, right)) {
+  } else if (left.type_enum() != right.type_enum()) {
     *are_equal = false;
-  } else if (left.length() == 0) {
+  } else if (left.size() == 0) {
     *are_equal = true;
   } else {
-    ApproxEqualsVisitor visitor(right);
-    RETURN_NOT_OK(left.Accept(&visitor));
+    if (!left.is_contiguous() || !right.is_contiguous()) {
+      return Status::NotImplemented(
+          "Comparison not implemented for non-contiguous tensors");
+    }
+
+    TensorEqualsVisitor visitor(right);
+    RETURN_NOT_OK(VisitTensorInline(left, &visitor));
     *are_equal = visitor.result();
   }
   return Status::OK();

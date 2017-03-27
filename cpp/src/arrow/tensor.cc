@@ -27,14 +27,15 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
-void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
-    std::vector<int64_t>* strides) {
+static void ComputeRowMajorStrides(const FixedWidthType& type,
+    const std::vector<int64_t>& shape, std::vector<int64_t>* strides) {
   int64_t remaining = type.bit_width() / 8;
   for (int64_t dimsize : shape) {
     remaining *= dimsize;
@@ -43,6 +44,15 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
   for (int64_t dimsize : shape) {
     remaining /= dimsize;
     strides->push_back(remaining);
+  }
+}
+
+static void ComputeColumnMajorStrides(const FixedWidthType& type,
+    const std::vector<int64_t>& shape, std::vector<int64_t>* strides) {
+  int64_t total = type.bit_width() / 8;
+  for (int64_t dimsize : shape) {
+    strides->push_back(total);
+    total *= dimsize;
   }
 }
 
@@ -66,12 +76,34 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     : Tensor(type, data, shape, {}, {}) {}
 
 const std::string& Tensor::dim_name(int i) const {
-  DCHECK_LT(i, static_cast<int>(dim_names_.size()));
-  return dim_names_[i];
+  static const std::string kEmpty = "";
+  if (dim_names_.size() == 0) {
+    return kEmpty;
+  } else {
+    DCHECK_LT(i, static_cast<int>(dim_names_.size()));
+    return dim_names_[i];
+  }
 }
 
 int64_t Tensor::size() const {
   return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<int64_t>());
+}
+
+bool Tensor::is_contiguous() const {
+  std::vector<int64_t> c_strides;
+  std::vector<int64_t> f_strides;
+
+  const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
+  ComputeRowMajorStrides(fw_type, shape_, &c_strides);
+  ComputeColumnMajorStrides(fw_type, shape_, &f_strides);
+  return strides_ == c_strides || strides_ == f_strides;
+}
+
+bool Tensor::Equals(const Tensor& other) const {
+  bool are_equal = false;
+  Status error = TensorEquals(*this, other, &are_equal);
+  if (!error.ok()) { DCHECK(false) << "Tensors not comparable: " << error.ToString(); }
+  return are_equal;
 }
 
 template <typename T>
@@ -111,5 +143,32 @@ template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt64Type>;
 template class ARROW_TEMPLATE_EXPORT NumericTensor<HalfFloatType>;
 template class ARROW_TEMPLATE_EXPORT NumericTensor<FloatType>;
 template class ARROW_TEMPLATE_EXPORT NumericTensor<DoubleType>;
+
+#define TENSOR_CASE(TYPE, TENSOR_TYPE)                                        \
+  case Type::TYPE:                                                            \
+    *tensor = std::make_shared<TENSOR_TYPE>(data, shape, strides, dim_names); \
+    break;
+
+Status ARROW_EXPORT MakeTensor(const std::shared_ptr<DataType>& type,
+    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+    const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names,
+    std::shared_ptr<Tensor>* tensor) {
+  switch (type->type) {
+    TENSOR_CASE(INT8, Int8Tensor);
+    TENSOR_CASE(INT16, Int16Tensor);
+    TENSOR_CASE(INT32, Int32Tensor);
+    TENSOR_CASE(INT64, Int64Tensor);
+    TENSOR_CASE(UINT8, UInt8Tensor);
+    TENSOR_CASE(UINT16, UInt16Tensor);
+    TENSOR_CASE(UINT32, UInt32Tensor);
+    TENSOR_CASE(UINT64, UInt64Tensor);
+    TENSOR_CASE(HALF_FLOAT, HalfFloatTensor);
+    TENSOR_CASE(FLOAT, FloatTensor);
+    TENSOR_CASE(DOUBLE, DoubleTensor);
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+  return Status::OK();
+}
 
 }  // namespace arrow

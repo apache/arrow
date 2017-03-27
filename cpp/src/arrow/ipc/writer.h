@@ -17,8 +17,8 @@
 
 // Implement Arrow streaming binary format
 
-#ifndef ARROW_IPC_STREAM_H
-#define ARROW_IPC_STREAM_H
+#ifndef ARROW_IPC_WRITER_H
+#define ARROW_IPC_WRITER_H
 
 #include <cstdint>
 #include <memory>
@@ -36,6 +36,7 @@ class MemoryPool;
 class RecordBatch;
 class Schema;
 class Status;
+class Tensor;
 
 namespace io {
 
@@ -125,7 +126,12 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool);
 
+/// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
+/// <metadata size><metadata><tensor data>
+Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length);
+
 }  // namespace ipc
 }  // namespace arrow
 
-#endif  // ARROW_IPC_STREAM_H
+#endif  // ARROW_IPC_WRITER_H

@@ -38,6 +38,7 @@ template <>
 struct TypeTraits<UInt8Type> {
   using ArrayType = UInt8Array;
   using BuilderType = UInt8Builder;
+  using TensorType = UInt8Tensor;
   static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint8(); }
@@ -47,6 +48,7 @@ template <>
 struct TypeTraits<Int8Type> {
   using ArrayType = Int8Array;
   using BuilderType = Int8Builder;
+  using TensorType = Int8Tensor;
   static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int8(); }
@@ -56,6 +58,7 @@ template <>
 struct TypeTraits<UInt16Type> {
   using ArrayType = UInt16Array;
   using BuilderType = UInt16Builder;
+  using TensorType = UInt16Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint16_t);
@@ -68,6 +71,7 @@ template <>
 struct TypeTraits<Int16Type> {
   using ArrayType = Int16Array;
   using BuilderType = Int16Builder;
+  using TensorType = Int16Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int16_t);
@@ -80,6 +84,7 @@ template <>
 struct TypeTraits<UInt32Type> {
   using ArrayType = UInt32Array;
   using BuilderType = UInt32Builder;
+  using TensorType = UInt32Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint32_t);
@@ -92,6 +97,7 @@ template <>
 struct TypeTraits<Int32Type> {
   using ArrayType = Int32Array;
   using BuilderType = Int32Builder;
+  using TensorType = Int32Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
@@ -104,6 +110,7 @@ template <>
 struct TypeTraits<UInt64Type> {
   using ArrayType = UInt64Array;
   using BuilderType = UInt64Builder;
+  using TensorType = UInt64Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint64_t);
@@ -116,6 +123,7 @@ template <>
 struct TypeTraits<Int64Type> {
   using ArrayType = Int64Array;
   using BuilderType = Int64Builder;
+  using TensorType = Int64Tensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -185,6 +193,7 @@ template <>
 struct TypeTraits<HalfFloatType> {
   using ArrayType = HalfFloatArray;
   using BuilderType = HalfFloatBuilder;
+  using TensorType = HalfFloatTensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint16_t);
@@ -197,6 +206,7 @@ template <>
 struct TypeTraits<FloatType> {
   using ArrayType = FloatArray;
   using BuilderType = FloatBuilder;
+  using TensorType = FloatTensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return static_cast<int64_t>(elements * sizeof(float));
@@ -209,6 +219,7 @@ template <>
 struct TypeTraits<DoubleType> {
   using ArrayType = DoubleArray;
   using BuilderType = DoubleBuilder;
+  using TensorType = DoubleTensor;
 
   static inline int64_t bytes_required(int64_t elements) {
     return static_cast<int64_t>(elements * sizeof(double));

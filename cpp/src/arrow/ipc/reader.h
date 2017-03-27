@@ -17,8 +17,8 @@
 
 // Implement Arrow file layout for IPC/RPC purposes and short-lived storage
 
-#ifndef ARROW_IPC_FILE_H
-#define ARROW_IPC_FILE_H
+#ifndef ARROW_IPC_READER_H
+#define ARROW_IPC_READER_H
 
 #include <cstdint>
 #include <memory>
@@ -33,6 +33,7 @@ class Buffer;
 class RecordBatch;
 class Schema;
 class Status;
+class Tensor;
 
 namespace io {
 
@@ -42,18 +43,6 @@ class RandomAccessFile;
 }  // namespace io
 
 namespace ipc {
-
-// Generic read functionsh; does not copy data if the input supports zero copy reads
-
-Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
-    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
-
-Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
-    int max_recursion_depth, io::RandomAccessFile* file,
-    std::shared_ptr<RecordBatch>* out);
-
-Status ReadDictionary(const Message& metadata, const DictionaryTypeMap& dictionary_types,
-    io::RandomAccessFile* file, std::shared_ptr<Array>* out);
 
 class ARROW_EXPORT StreamReader {
  public:
@@ -118,11 +107,24 @@ class ARROW_EXPORT FileReader {
   std::unique_ptr<FileReaderImpl> impl_;
 };
 
+// Generic read functionsh; does not copy data if the input supports zero copy reads
+Status ARROW_EXPORT ReadRecordBatch(const Message& metadata,
+    const std::shared_ptr<Schema>& schema, io::RandomAccessFile* file,
+    std::shared_ptr<RecordBatch>* out);
+
+Status ARROW_EXPORT ReadRecordBatch(const Message& metadata,
+    const std::shared_ptr<Schema>& schema, int max_recursion_depth,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
+
 /// Read encapsulated message and RecordBatch
 Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
+/// EXPERIMENTAL: Read arrow::Tensor from a contiguous message
+Status ARROW_EXPORT ReadTensor(
+    int64_t offset, io::RandomAccessFile* file, std::shared_ptr<Tensor>* out);
+
 }  // namespace ipc
 }  // namespace arrow
 
-#endif  // ARROW_IPC_FILE_H
+#endif  // ARROW_IPC_READER_H
