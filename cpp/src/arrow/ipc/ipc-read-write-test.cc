@@ -93,8 +93,8 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
   auto f0 = field("f0", type);
 
-  std::shared_ptr<StructType> type2(new StructType({field("k1", INT32),
-      field("k2", INT32), field("k3", INT32)}));
+  std::shared_ptr<StructType> type2(
+      new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
   auto f1 = field("f1", type2);
 
   Schema schema({f0, f1});
@@ -158,20 +158,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_EQ(expected.num_columns(), result.num_columns())
         << expected.schema()->ToString() << " result: " << result.schema()->ToString();
 
-    for (int i = 0; i < expected.num_columns(); ++i) {
-      const auto& left = *expected.column(i);
-      const auto& right = *result.column(i);
-      if (!left.Equals(right)) {
-        std::stringstream pp_result;
-        std::stringstream pp_expected;
-
-        ASSERT_OK(PrettyPrint(left, 0, &pp_expected));
-        ASSERT_OK(PrettyPrint(right, 0, &pp_result));
-
-        FAIL() << "Index: " << i << " Expected: " << pp_expected.str()
-               << "\nGot: " << pp_result.str();
-      }
-    }
+    CompareBatchColumnsDetailed(result, expected);
   }
 
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
@@ -535,7 +522,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {f0};
   auto schema = std::make_shared<Schema>(fields);
 
-  RecordBatch batch(schema, 0, {array});
+  RecordBatch batch(schema, length, {array});
 
   std::string path = "test-write-large-record_batch";
 
@@ -547,6 +534,8 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoLargeRoundTrip(batch, false, &result));
   CheckReadResult(*result, batch);
+
+  ASSERT_EQ(length, result->num_rows());
 
   // Fails if we try to write this with the normal code path
   ASSERT_RAISES(Invalid, DoStandardRoundTrip(batch, false, &result));

@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
@@ -47,7 +48,6 @@ static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
   }
 }
 
-
 static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
   if (!left.schema()->Equals(right.schema())) {
     FAIL() << "Left schema: " << left.schema()->ToString()
@@ -59,6 +59,27 @@ static inline void CompareBatch(const RecordBatch& left, const RecordBatch& righ
   for (int i = 0; i < left.num_columns(); ++i) {
     EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
         << "Idx: " << i << " Name: " << left.column_name(i);
+  }
+}
+
+static inline void CompareArraysDetailed(
+    int index, const Array& result, const Array& expected) {
+  if (!expected.Equals(result)) {
+    std::stringstream pp_result;
+    std::stringstream pp_expected;
+
+    ASSERT_OK(PrettyPrint(expected, 0, &pp_expected));
+    ASSERT_OK(PrettyPrint(result, 0, &pp_result));
+
+    FAIL() << "Index: " << index << " Expected: " << pp_expected.str()
+           << "\nGot: " << pp_result.str();
+  }
+}
+
+static inline void CompareBatchColumnsDetailed(
+    const RecordBatch& result, const RecordBatch& expected) {
+  for (int i = 0; i < expected.num_columns(); ++i) {
+    CompareArraysDetailed(i, *result.column(i), *expected.column(i));
   }
 }
 
@@ -489,7 +510,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
   std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
+      1489272000000, 1489272000000, 1489273000000, 1489274000000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 

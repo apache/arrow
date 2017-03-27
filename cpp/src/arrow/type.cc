@@ -45,8 +45,6 @@ std::string Field::ToString() const {
   return ss.str();
 }
 
-DataType::~DataType() {}
-
 bool DataType::Equals(const DataType& other) const {
   bool are_equal = false;
   Status error = TypeEquals(*this, other, &are_equal);
@@ -63,16 +61,16 @@ std::string BooleanType::ToString() const {
   return name();
 }
 
-FloatingPointMeta::Precision HalfFloatType::precision() const {
-  return FloatingPointMeta::HALF;
+FloatingPoint::Precision HalfFloatType::precision() const {
+  return FloatingPoint::HALF;
 }
 
-FloatingPointMeta::Precision FloatType::precision() const {
-  return FloatingPointMeta::SINGLE;
+FloatingPoint::Precision FloatType::precision() const {
+  return FloatingPoint::SINGLE;
 }
 
-FloatingPointMeta::Precision DoubleType::precision() const {
-  return FloatingPointMeta::DOUBLE;
+FloatingPoint::Precision DoubleType::precision() const {
+  return FloatingPoint::DOUBLE;
 }
 
 std::string StringType::ToString() const {

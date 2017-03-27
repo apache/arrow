@@ -75,7 +75,8 @@ void TestArrayRoundTrip(const Array& array) {
   std::shared_ptr<Array> out;
   ASSERT_OK(ReadJsonArray(default_memory_pool(), d, array.type(), &out));
 
-  ASSERT_TRUE(array.Equals(out)) << array_as_json;
+  // std::cout << array_as_json << std::endl;
+  CompareArraysDetailed(0, *out, array);
 }
 
 template <typename T, typename ValueType>
@@ -351,9 +352,9 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 
-#define BATCH_CASES()                                                                    \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
-      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,    \
+#define BATCH_CASES()                                                                   \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
+      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
       &MakeStruct, &MakeUnion, &MakeDates, &MakeTimestamps, &MakeTimes);
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {

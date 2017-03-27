@@ -132,7 +132,7 @@ struct ARROW_EXPORT DataType {
 
   explicit DataType(Type::type type) : type(type) {}
 
-  virtual ~DataType();
+  virtual ~DataType() = default;
 
   // Return whether the types are equal
   //
@@ -167,11 +167,17 @@ struct ARROW_EXPORT FixedWidthType : public DataType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-struct ARROW_EXPORT IntegerMeta {
+struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {
+  using FixedWidthType::FixedWidthType;
+};
+
+struct ARROW_EXPORT Integer : public PrimitiveCType {
+  using PrimitiveCType::PrimitiveCType;
   virtual bool is_signed() const = 0;
 };
 
-struct ARROW_EXPORT FloatingPointMeta {
+struct ARROW_EXPORT FloatingPoint : public PrimitiveCType {
+  using PrimitiveCType::PrimitiveCType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -206,16 +212,12 @@ struct ARROW_EXPORT Field {
 
 typedef std::shared_ptr<Field> FieldPtr;
 
-struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {
-  using FixedWidthType::FixedWidthType;
-};
-
-template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT CTypeImpl : public PrimitiveCType {
+template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
+struct ARROW_EXPORT CTypeImpl : public BASE {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
-  CTypeImpl() : PrimitiveCType(TYPE_ID) {}
+  CTypeImpl() : BASE(TYPE_ID) {}
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * 8); }
 
@@ -240,7 +242,7 @@ struct ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct IntegerTypeImpl : public CTypeImpl<DERIVED, TYPE_ID, C_TYPE>, public IntegerMeta {
+struct IntegerTypeImpl : public CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -292,20 +294,19 @@ struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, i
 };
 
 struct ARROW_EXPORT HalfFloatType
-    : public CTypeImpl<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
-      public FloatingPointMeta {
+    : public CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
-struct ARROW_EXPORT FloatType : public CTypeImpl<FloatType, Type::FLOAT, float>,
-                                public FloatingPointMeta {
+struct ARROW_EXPORT FloatType
+    : public CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
-struct ARROW_EXPORT DoubleType : public CTypeImpl<DoubleType, Type::DOUBLE, double>,
-                                 public FloatingPointMeta {
+struct ARROW_EXPORT DoubleType
+    : public CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
   Precision precision() const override;
   static std::string name() { return "double"; }
 };

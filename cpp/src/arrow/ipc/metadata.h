@@ -188,11 +188,11 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 Status WriteSchemaMessage(
     const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
 
-Status WriteRecordBatchMessage(int32_t length, int64_t body_length,
+Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
 
-Status WriteDictionaryMessage(int64_t id, int32_t length, int64_t body_length,
+Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
 

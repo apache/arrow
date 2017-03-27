@@ -40,7 +40,6 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/visitor.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -65,13 +64,13 @@ static std::string GetBufferTypeName(BufferType type) {
   return "UNKNOWN";
 }
 
-static std::string GetFloatingPrecisionName(FloatingPointMeta::Precision precision) {
+static std::string GetFloatingPrecisionName(FloatingPoint::Precision precision) {
   switch (precision) {
-    case FloatingPointMeta::HALF:
+    case FloatingPoint::HALF:
       return "HALF";
-    case FloatingPointMeta::SINGLE:
+    case FloatingPoint::SINGLE:
       return "SINGLE";
-    case FloatingPointMeta::DOUBLE:
+    case FloatingPoint::DOUBLE:
       return "DOUBLE";
     default:
       break;
@@ -141,25 +140,19 @@ class JsonSchemaWriter {
       void>::type
   WriteTypeMetadata(const T& type) {}
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<IntegerMeta, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const Integer& type) {
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
     writer_->Key("isSigned");
     writer_->Bool(type.is_signed());
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<FloatingPointMeta, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const FloatingPoint& type) {
     writer_->Key("precision");
     writer_->String(GetFloatingPrecisionName(type.precision()));
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<IntervalType, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const IntervalType& type) {
     writer_->Key("unit");
     switch (type.unit) {
       case IntervalType::Unit::YEAR_MONTH:
@@ -171,18 +164,21 @@ class JsonSchemaWriter {
     }
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<TimestampType, T>::value,
-      void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const TimestampType& type) {
+    writer_->Key("unit");
+    writer_->String(GetTimeUnitName(type.unit));
+    if (type.timezone.size() > 0) {
+      writer_->Key("timezone");
+      writer_->String(type.timezone);
+    }
+  }
+
+  void WriteTypeMetadata(const TimeType& type) {
     writer_->Key("unit");
     writer_->String(GetTimeUnitName(type.unit));
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<DateType, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const DateType& type) {
     writer_->Key("unit");
     switch (type.unit) {
       case DateUnit::DAY:
@@ -194,18 +190,14 @@ class JsonSchemaWriter {
     }
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<DecimalType, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
     writer_->Int(type.precision);
     writer_->Key("scale");
     writer_->Int(type.scale);
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<UnionType, T>::value, void>::type
-  WriteTypeMetadata(const T& type) {
+  void WriteTypeMetadata(const UnionType& type) {
     writer_->Key("mode");
     switch (type.mode) {
       case UnionMode::SPARSE:
@@ -287,29 +279,15 @@ class JsonSchemaWriter {
 
   Status Visit(const BooleanType& type) { return WritePrimitive("bool", type); }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<IntegerMeta, T>::value, Status>::type Visit(
-      const T& type) {
-    return WritePrimitive("int", type);
-  }
+  Status Visit(const Integer& type) { return WritePrimitive("int", type); }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<FloatingPointMeta, T>::value, Status>::type
-  Visit(const T& type) {
+  Status Visit(const FloatingPoint& type) {
     return WritePrimitive("floatingpoint", type);
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<DateType, T>::value, Status>::type Visit(
-      const T& type) {
-    return WritePrimitive("date", type);
-  }
+  Status Visit(const DateType& type) { return WritePrimitive("date", type); }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<TimeType, T>::value, Status>::type Visit(
-      const T& type) {
-    return WritePrimitive("time", type);
-  }
+  Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
 
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
 
@@ -355,7 +333,7 @@ class JsonSchemaWriter {
   RjWriter* writer_;
 };
 
-class JsonArrayWriter : public ArrayVisitor {
+class JsonArrayWriter {
  public:
   JsonArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
       : name_(name), array_(array), writer_(writer) {}
@@ -370,7 +348,7 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->Key("count");
     writer_->Int(static_cast<int32_t>(arr.length()));
 
-    RETURN_NOT_OK(arr.Accept(this));
+    RETURN_NOT_OK(VisitArrayInline(arr, this));
 
     writer_->EndObject();
     return Status::OK();
@@ -419,9 +397,7 @@ class JsonArrayWriter : public ArrayVisitor {
     }
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
-  WriteDataValues(const T& arr) {
+  void WriteDataValues(const BooleanArray& arr) {
     for (int i = 0; i < arr.length(); ++i) {
       writer_->Bool(arr.Value(i));
     }
@@ -466,23 +442,6 @@ class JsonArrayWriter : public ArrayVisitor {
     writer_->EndArray();
   }
 
-  template <typename T>
-  Status WritePrimitive(const T& array) {
-    WriteValidityField(array);
-    WriteDataField(array);
-    SetNoChildren();
-    return Status::OK();
-  }
-
-  template <typename T>
-  Status WriteVarBytes(const T& array) {
-    WriteValidityField(array);
-    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    WriteDataField(array);
-    SetNoChildren();
-    return Status::OK();
-  }
-
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& fields,
       const std::vector<std::shared_ptr<Array>>& arrays) {
     writer_->Key("children");
@@ -494,53 +453,52 @@ class JsonArrayWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullArray& array) override {
+  Status Visit(const NullArray& array) {
     SetNoChildren();
     return Status::OK();
   }
 
-  Status Visit(const BooleanArray& array) override { return WritePrimitive(array); }
+  template <typename T>
+  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value, Status>::type Visit(
+      const T& array) {
+    WriteValidityField(array);
+    WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
 
-  Status Visit(const Int8Array& array) override { return WritePrimitive(array); }
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryArray, T>::value, Status>::type Visit(
+      const T& array) {
+    WriteValidityField(array);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
+    WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
 
-  Status Visit(const Int16Array& array) override { return WritePrimitive(array); }
+  Status Visit(const FixedWidthBinaryArray& array) {
+    return Status::NotImplemented("fixed width binary");
+  }
 
-  Status Visit(const Int32Array& array) override { return WritePrimitive(array); }
+  Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
-  Status Visit(const Int64Array& array) override { return WritePrimitive(array); }
+  Status Visit(const DictionaryArray& array) { return Status::NotImplemented("decimal"); }
 
-  Status Visit(const UInt8Array& array) override { return WritePrimitive(array); }
-
-  Status Visit(const UInt16Array& array) override { return WritePrimitive(array); }
-
-  Status Visit(const UInt32Array& array) override { return WritePrimitive(array); }
-
-  Status Visit(const UInt64Array& array) override { return WritePrimitive(array); }
-
-  Status Visit(const HalfFloatArray& array) override { return WritePrimitive(array); }
-
-  Status Visit(const FloatArray& array) override { return WritePrimitive(array); }
-
-  Status Visit(const DoubleArray& array) override { return WritePrimitive(array); }
-
-  Status Visit(const StringArray& array) override { return WriteVarBytes(array); }
-
-  Status Visit(const BinaryArray& array) override { return WriteVarBytes(array); }
-
-  Status Visit(const ListArray& array) override {
+  Status Visit(const ListArray& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     auto type = static_cast<const ListType*>(array.type().get());
     return WriteChildren(type->children(), {array.values()});
   }
 
-  Status Visit(const StructArray& array) override {
+  Status Visit(const StructArray& array) {
     WriteValidityField(array);
     auto type = static_cast<const StructType*>(array.type().get());
     return WriteChildren(type->children(), array.fields());
   }
 
-  Status Visit(const UnionArray& array) override {
+  Status Visit(const UnionArray& array) {
     WriteValidityField(array);
     auto type = static_cast<const UnionType*>(array.type().get());
 
@@ -671,7 +629,12 @@ static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>*
     return Status::Invalid(ss.str());
   }
 
-  *type = timestamp(unit);
+  const auto& json_tz = json_type.FindMember("timezone");
+  if (json_tz == json_type.MemberEnd()) {
+    *type = timestamp(unit);
+  } else {
+    *type = timestamp(unit, json_tz->value.GetString());
+  }
 
   return Status::OK();
 }
@@ -789,7 +752,7 @@ static Status GetField(const rj::Value& obj, std::shared_ptr<Field>* field) {
 template <typename T>
 inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type
 UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsInt());
+  DCHECK(val.IsInt64());
   return static_cast<typename T::c_type>(val.GetInt64());
 }
 
@@ -840,8 +803,10 @@ class JsonArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
-                              std::is_base_of<BooleanType, T>::value,
+  typename std::enable_if<
+      std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
+          std::is_base_of<TimestampType, T>::value ||
+          std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value,
       Status>::type
   ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
@@ -1070,13 +1035,6 @@ class JsonArrayReader {
   case TYPE::type_id:   \
     return ReadArray<TYPE>(json_array, length, is_valid, type, array);
 
-#define NOT_IMPLEMENTED_CASE(TYPE_ENUM)      \
-  case Type::TYPE_ENUM: {                    \
-    std::stringstream ss;                    \
-    ss << type->ToString();                  \
-    return Status::NotImplemented(ss.str()); \
-  }
-
     switch (type->type) {
       TYPE_CASE(NullType);
       TYPE_CASE(BooleanType);
@@ -1093,16 +1051,14 @@ class JsonArrayReader {
       TYPE_CASE(DoubleType);
       TYPE_CASE(StringType);
       TYPE_CASE(BinaryType);
-      NOT_IMPLEMENTED_CASE(DATE32);
-      NOT_IMPLEMENTED_CASE(DATE64);
-      NOT_IMPLEMENTED_CASE(TIMESTAMP);
-      NOT_IMPLEMENTED_CASE(TIME32);
-      NOT_IMPLEMENTED_CASE(TIME64);
-      NOT_IMPLEMENTED_CASE(INTERVAL);
+      TYPE_CASE(Date32Type);
+      TYPE_CASE(Date64Type);
+      TYPE_CASE(TimestampType);
+      TYPE_CASE(Time32Type);
+      TYPE_CASE(Time64Type);
       TYPE_CASE(ListType);
       TYPE_CASE(StructType);
       TYPE_CASE(UnionType);
-      NOT_IMPLEMENTED_CASE(DICTIONARY);
       default:
         std::stringstream ss;
         ss << type->ToString();
@@ -1110,7 +1066,6 @@ class JsonArrayReader {
     }
 
 #undef TYPE_CASE
-#undef NOT_IMPLEMENTED_CASE
 
     return Status::OK();
   }

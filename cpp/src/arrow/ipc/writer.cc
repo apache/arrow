@@ -141,7 +141,7 @@ class RecordBatchWriter : public ArrayVisitor {
   virtual Status WriteMetadataMessage(
       int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) {
     return WriteRecordBatchMessage(
-        static_cast<int32_t>(num_rows), body_length, field_nodes_, buffer_meta_, out);
+        num_rows, body_length, field_nodes_, buffer_meta_, out);
   }
 
   Status WriteMetadata(int64_t num_rows, int64_t body_length, io::OutputStream* dst,
@@ -476,8 +476,8 @@ class DictionaryWriter : public RecordBatchWriter {
 
   Status WriteMetadataMessage(
       int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
-    return WriteDictionaryMessage(dictionary_id_, static_cast<int32_t>(num_rows),
-        body_length, field_nodes_, buffer_meta_, out);
+    return WriteDictionaryMessage(
+        dictionary_id_, num_rows, body_length, field_nodes_, buffer_meta_, out);
   }
 
   Status Write(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
