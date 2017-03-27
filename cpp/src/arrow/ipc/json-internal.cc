@@ -925,8 +925,8 @@ class JsonArrayReader {
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
       std::string hex_string = val.GetString();
-      DCHECK_EQ(hex_string.size(), byte_width * 2) << "Expected size: " << byte_width * 2
-                                                   << " got: " << hex_string.size();
+      DCHECK_EQ(static_cast<int32_t>(hex_string.size()), byte_width * 2)
+          << "Expected size: " << byte_width * 2 << " got: " << hex_string.size();
       const char* hex_data = hex_string.c_str();
 
       for (int32_t j = 0; j < byte_width; ++j) {
