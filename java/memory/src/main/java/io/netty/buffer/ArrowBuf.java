@@ -796,6 +796,9 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @return Size in bytes.
    */
   public int getPossibleMemoryConsumed() {
+    if (isEmpty) {
+      return 0;
+    }
     return ledger.getSize();
   }
 
@@ -807,6 +810,9 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @return Size in bytes.
    */
   public int getActualMemoryConsumed() {
+    if (isEmpty) {
+      return 0;
+    }
     return ledger.getAccountedSize();
   }
 
