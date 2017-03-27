@@ -110,6 +110,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     buffersIterator.next();
     ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
     offsets.load(offsetsData);
+    if (buffersIterator.length() == 0) {
+      offsets.allocateNew(1);
+      offsets.zeroVector();
+    }
     lastSet = (int) buffersIterator.length() / 4 - 1;
     // this doesn't match arrow spec, but for backward compatibility, doing it in this order to match getBuffers() method
     buffersIterator.next();
