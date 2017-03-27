@@ -22,25 +22,30 @@ other traditional Python scientific computing packages.
 
 This project is layered in two pieces:
 
-* pyarrow, a C++ library for easier interoperability between Arrow C++, NumPy,
-  and pandas
-* Cython extensions and pure Python code under arrow/ which expose Arrow C++
+* arrow_python, a library part of the main Arrow C++ project for Python,
+  pandas, and NumPy interoperability
+* Cython extensions and pure Python code under pyarrow/ which expose Arrow C++
   and pyarrow to pure Python users
 
 #### PyArrow Dependencies:
-These are the various projects that PyArrow depends on.
 
-1. **g++ and gcc Version >= 4.8**
-2. **cmake > 2.8.6**
-3. **boost**
-4. **Arrow-cpp and its dependencies**
+To build pyarrow, first build and install Arrow C++ with the Python component
+enabled using `-DARROW_PYTHON=on`, see
+(https://github.com/apache/arrow/blob/master/cpp/README.md) . These components
+must be installed either in the default system location (e.g. `/usr/local`) or
+in a custom `$ARROW_HOME` location.
 
-The Arrow C++ library must be built with all options enabled and installed with
-``ARROW_HOME`` environment variable set to the installation location. Look at
-(https://github.com/apache/arrow/blob/master/cpp/README.md) for instructions.
+```shell
+mkdir cpp/build
+pushd cpp/build
+cmake -DARROW_PYTHON=on -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
+make -j4
+make install
+```
 
-Ensure PyArrow can locate the Arrow-cpp shared libraries by setting the
-LD_LIBRARY_PATH environment variable.
+If you build with a custom `CMAKE_INSTALL_PREFIX`, during development, you must
+set `ARROW_HOME` as an environment variable and add it to your
+`LD_LIBRARY_PATH` on Linux and OS X:
 
 ```bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_HOME/lib
