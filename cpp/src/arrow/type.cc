@@ -111,6 +111,16 @@ std::string StructType::ToString() const {
   return s.str();
 }
 
+// ----------------------------------------------------------------------
+// Date types
+
+DateType::DateType(Type::type type_id, DateUnit unit)
+    : FixedWidthType(type_id), unit(unit) {}
+
+Date32Type::Date32Type() : DateType(Type::DATE32, DateUnit::DAY) {}
+
+Date64Type::Date64Type() : DateType(Type::DATE64, DateUnit::MILLI) {}
+
 std::string Date64Type::ToString() const {
   return std::string("date64[ms]");
 }
@@ -122,7 +132,10 @@ std::string Date32Type::ToString() const {
 // ----------------------------------------------------------------------
 // Time types
 
-Time32Type::Time32Type(TimeUnit unit) : FixedWidthType(Type::TIME32), unit(unit) {
+TimeType::TimeType(Type::type type_id, TimeUnit unit)
+    : FixedWidthType(type_id), unit(unit) {}
+
+Time32Type::Time32Type(TimeUnit unit) : TimeType(Type::TIME32, unit) {
   DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
       << "Must be seconds or milliseconds";
 }
@@ -133,7 +146,7 @@ std::string Time32Type::ToString() const {
   return ss.str();
 }
 
-Time64Type::Time64Type(TimeUnit unit) : FixedWidthType(Type::TIME64), unit(unit) {
+Time64Type::Time64Type(TimeUnit unit) : TimeType(Type::TIME64, unit) {
   DCHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
       << "Must be microseconds or nanoseconds";
 }

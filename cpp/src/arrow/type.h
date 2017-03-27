@@ -436,13 +436,23 @@ struct ARROW_EXPORT UnionType : public NestedType {
 // ----------------------------------------------------------------------
 // Date and time types
 
+enum class DateUnit : char { DAY = 0, MILLI = 1 };
+
+struct DateType : public FixedWidthType {
+ public:
+  DateUnit unit;
+
+ protected:
+  DateType(Type::type type_id, DateUnit unit);
+};
+
 /// Date as int32_t days since UNIX epoch
-struct ARROW_EXPORT Date32Type : public FixedWidthType, public NoExtraMeta {
+struct ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
 
   using c_type = int32_t;
 
-  Date32Type() : FixedWidthType(Type::DATE32) {}
+  Date32Type();
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
@@ -451,12 +461,12 @@ struct ARROW_EXPORT Date32Type : public FixedWidthType, public NoExtraMeta {
 };
 
 /// Date as int64_t milliseconds since UNIX epoch
-struct ARROW_EXPORT Date64Type : public FixedWidthType, public NoExtraMeta {
+struct ARROW_EXPORT Date64Type : public DateType {
   static constexpr Type::type type_id = Type::DATE64;
 
   using c_type = int64_t;
 
-  Date64Type() : FixedWidthType(Type::DATE64) {}
+  Date64Type();
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
@@ -485,12 +495,17 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
   return os;
 }
 
-struct ARROW_EXPORT Time32Type : public FixedWidthType {
-  static constexpr Type::type type_id = Type::TIME32;
-  using Unit = TimeUnit;
-  using c_type = int32_t;
-
+struct TimeType : public FixedWidthType {
+ public:
   TimeUnit unit;
+
+ protected:
+  TimeType(Type::type type_id, TimeUnit unit);
+};
+
+struct ARROW_EXPORT Time32Type : public TimeType {
+  static constexpr Type::type type_id = Type::TIME32;
+  using c_type = int32_t;
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
@@ -500,12 +515,9 @@ struct ARROW_EXPORT Time32Type : public FixedWidthType {
   std::string ToString() const override;
 };
 
-struct ARROW_EXPORT Time64Type : public FixedWidthType {
+struct ARROW_EXPORT Time64Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME64;
-  using Unit = TimeUnit;
   using c_type = int64_t;
-
-  TimeUnit unit;
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 

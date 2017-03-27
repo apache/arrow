@@ -40,6 +40,8 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
+#include "arrow/visitor.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace ipc {
@@ -93,7 +95,7 @@ static std::string GetTimeUnitName(TimeUnit unit) {
   return "UNKNOWN";
 }
 
-class JsonSchemaWriter : public TypeVisitor {
+class JsonSchemaWriter {
  public:
   explicit JsonSchemaWriter(const Schema& schema, RjWriter* writer)
       : schema_(schema), writer_(writer) {}
@@ -120,7 +122,7 @@ class JsonSchemaWriter : public TypeVisitor {
     writer_->Bool(field.nullable);
 
     // Visit the type
-    RETURN_NOT_OK(field.type->Accept(this));
+    RETURN_NOT_OK(VisitTypeInline(*field.type, this));
     writer_->EndObject();
 
     return Status::OK();
@@ -170,13 +172,26 @@ class JsonSchemaWriter : public TypeVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<Time32Type, T>::value ||
-                              std::is_base_of<Time64Type, T>::value ||
+  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
                               std::is_base_of<TimestampType, T>::value,
       void>::type
   WriteTypeMetadata(const T& type) {
     writer_->Key("unit");
     writer_->String(GetTimeUnitName(type.unit));
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<DateType, T>::value, void>::type
+  WriteTypeMetadata(const T& type) {
+    writer_->Key("unit");
+    switch (type.unit) {
+      case DateUnit::DAY:
+        writer_->String("DAY");
+        break;
+      case DateUnit::MILLI:
+        writer_->String("MILLISECOND");
+        break;
+    }
   }
 
   template <typename T>
@@ -268,78 +283,71 @@ class JsonSchemaWriter : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) override { return WritePrimitive("null", type); }
+  Status Visit(const NullType& type) { return WritePrimitive("null", type); }
 
-  Status Visit(const BooleanType& type) override { return WritePrimitive("bool", type); }
+  Status Visit(const BooleanType& type) { return WritePrimitive("bool", type); }
 
-  Status Visit(const Int8Type& type) override { return WritePrimitive("int", type); }
+  template <typename T>
+  typename std::enable_if<std::is_base_of<IntegerMeta, T>::value, Status>::type Visit(
+      const T& type) {
+    return WritePrimitive("int", type);
+  }
 
-  Status Visit(const Int16Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const Int32Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const Int64Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const UInt8Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const UInt16Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const UInt32Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const UInt64Type& type) override { return WritePrimitive("int", type); }
-
-  Status Visit(const HalfFloatType& type) override {
+  template <typename T>
+  typename std::enable_if<std::is_base_of<FloatingPointMeta, T>::value, Status>::type
+  Visit(const T& type) {
     return WritePrimitive("floatingpoint", type);
   }
 
-  Status Visit(const FloatType& type) override {
-    return WritePrimitive("floatingpoint", type);
+  template <typename T>
+  typename std::enable_if<std::is_base_of<DateType, T>::value, Status>::type Visit(
+      const T& type) {
+    return WritePrimitive("date", type);
   }
 
-  Status Visit(const DoubleType& type) override {
-    return WritePrimitive("floatingpoint", type);
+  template <typename T>
+  typename std::enable_if<std::is_base_of<TimeType, T>::value, Status>::type Visit(
+      const T& type) {
+    return WritePrimitive("time", type);
   }
 
-  Status Visit(const StringType& type) override { return WriteVarBytes("utf8", type); }
+  Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
 
-  Status Visit(const BinaryType& type) override { return WriteVarBytes("binary", type); }
+  Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
 
-  // TODO
-  Status Visit(const Date32Type& type) override { return WritePrimitive("date", type); }
+  Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
 
-  Status Visit(const Date64Type& type) override { return WritePrimitive("date", type); }
+  Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
 
-  Status Visit(const Time32Type& type) override { return WritePrimitive("time", type); }
-
-  Status Visit(const Time64Type& type) override { return WritePrimitive("time", type); }
-
-  Status Visit(const TimestampType& type) override {
-    return WritePrimitive("timestamp", type);
-  }
-
-  Status Visit(const IntervalType& type) override {
-    return WritePrimitive("interval", type);
-  }
-
-  Status Visit(const ListType& type) override {
+  Status Visit(const ListType& type) {
     WriteName("list", type);
     RETURN_NOT_OK(WriteChildren(type.children()));
     WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
-  Status Visit(const StructType& type) override {
+  Status Visit(const StructType& type) {
     WriteName("struct", type);
     WriteChildren(type.children());
     WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) override {
+  Status Visit(const UnionType& type) {
     WriteName("union", type);
     WriteChildren(type.children());
     WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
+  }
+
+  Status Visit(const FixedWidthBinaryType& type) {
+    return Status::NotImplemented("fixed width binary");
+  }
+
+  Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
+
+  Status Visit(const DictionaryType& type) {
+    return Status::NotImplemented("dictionary");
   }
 
  private:
@@ -549,235 +557,234 @@ class JsonArrayWriter : public ArrayVisitor {
   RjWriter* writer_;
 };
 
-class JsonSchemaReader {
- public:
-  explicit JsonSchemaReader(const rj::Value& json_schema) : json_schema_(json_schema) {}
+static Status GetInteger(
+    const rj::Value::ConstObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_bit_width = json_type.FindMember("bitWidth");
+  RETURN_NOT_INT("bitWidth", json_bit_width, json_type);
 
-  Status GetSchema(std::shared_ptr<Schema>* schema) {
-    const auto& obj_schema = json_schema_.GetObject();
+  const auto& json_is_signed = json_type.FindMember("isSigned");
+  RETURN_NOT_BOOL("isSigned", json_is_signed, json_type);
 
-    const auto& json_fields = obj_schema.FindMember("fields");
-    RETURN_NOT_ARRAY("fields", json_fields, obj_schema);
+  bool is_signed = json_is_signed->value.GetBool();
+  int bit_width = json_bit_width->value.GetInt();
 
-    std::vector<std::shared_ptr<Field>> fields;
-    RETURN_NOT_OK(GetFieldsFromArray(json_fields->value, &fields));
-
-    *schema = std::make_shared<Schema>(fields);
-    return Status::OK();
-  }
-
-  Status GetFieldsFromArray(
-      const rj::Value& obj, std::vector<std::shared_ptr<Field>>* fields) {
-    const auto& values = obj.GetArray();
-
-    fields->resize(values.Size());
-    for (rj::SizeType i = 0; i < fields->size(); ++i) {
-      RETURN_NOT_OK(GetField(values[i], &(*fields)[i]));
-    }
-    return Status::OK();
-  }
-
-  Status GetField(const rj::Value& obj, std::shared_ptr<Field>* field) {
-    if (!obj.IsObject()) { return Status::Invalid("Field was not a JSON object"); }
-    const auto& json_field = obj.GetObject();
-
-    const auto& json_name = json_field.FindMember("name");
-    RETURN_NOT_STRING("name", json_name, json_field);
-
-    const auto& json_nullable = json_field.FindMember("nullable");
-    RETURN_NOT_BOOL("nullable", json_nullable, json_field);
-
-    const auto& json_type = json_field.FindMember("type");
-    RETURN_NOT_OBJECT("type", json_type, json_field);
-
-    const auto& json_children = json_field.FindMember("children");
-    RETURN_NOT_ARRAY("children", json_children, json_field);
-
-    std::vector<std::shared_ptr<Field>> children;
-    RETURN_NOT_OK(GetFieldsFromArray(json_children->value, &children));
-
-    std::shared_ptr<DataType> type;
-    RETURN_NOT_OK(GetType(json_type->value.GetObject(), children, &type));
-
-    *field = std::make_shared<Field>(
-        json_name->value.GetString(), type, json_nullable->value.GetBool());
-    return Status::OK();
-  }
-
-  Status GetInteger(
-      const rj::Value::ConstObject& json_type, std::shared_ptr<DataType>* type) {
-    const auto& json_bit_width = json_type.FindMember("bitWidth");
-    RETURN_NOT_INT("bitWidth", json_bit_width, json_type);
-
-    const auto& json_is_signed = json_type.FindMember("isSigned");
-    RETURN_NOT_BOOL("isSigned", json_is_signed, json_type);
-
-    bool is_signed = json_is_signed->value.GetBool();
-    int bit_width = json_bit_width->value.GetInt();
-
-    switch (bit_width) {
-      case 8:
-        *type = is_signed ? int8() : uint8();
-        break;
-      case 16:
-        *type = is_signed ? int16() : uint16();
-        break;
-      case 32:
-        *type = is_signed ? int32() : uint32();
-        break;
-      case 64:
-        *type = is_signed ? int64() : uint64();
-        break;
-      default:
-        std::stringstream ss;
-        ss << "Invalid bit width: " << bit_width;
-        return Status::Invalid(ss.str());
-    }
-    return Status::OK();
-  }
-
-  Status GetFloatingPoint(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-    const auto& json_precision = json_type.FindMember("precision");
-    RETURN_NOT_STRING("precision", json_precision, json_type);
-
-    std::string precision = json_precision->value.GetString();
-
-    if (precision == "DOUBLE") {
-      *type = float64();
-    } else if (precision == "SINGLE") {
-      *type = float32();
-    } else if (precision == "HALF") {
-      *type = float16();
-    } else {
+  switch (bit_width) {
+    case 8:
+      *type = is_signed ? int8() : uint8();
+      break;
+    case 16:
+      *type = is_signed ? int16() : uint16();
+      break;
+    case 32:
+      *type = is_signed ? int32() : uint32();
+      break;
+    case 64:
+      *type = is_signed ? int64() : uint64();
+      break;
+    default:
       std::stringstream ss;
-      ss << "Invalid precision: " << precision;
+      ss << "Invalid bit width: " << bit_width;
       return Status::Invalid(ss.str());
-    }
-    return Status::OK();
+  }
+  return Status::OK();
+}
+
+static Status GetFloatingPoint(
+    const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_precision = json_type.FindMember("precision");
+  RETURN_NOT_STRING("precision", json_precision, json_type);
+
+  std::string precision = json_precision->value.GetString();
+
+  if (precision == "DOUBLE") {
+    *type = float64();
+  } else if (precision == "SINGLE") {
+    *type = float32();
+  } else if (precision == "HALF") {
+    *type = float16();
+  } else {
+    std::stringstream ss;
+    ss << "Invalid precision: " << precision;
+    return Status::Invalid(ss.str());
+  }
+  return Status::OK();
+}
+
+static Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_unit = json_type.FindMember("unit");
+  RETURN_NOT_STRING("unit", json_unit, json_type);
+
+  std::string unit_str = json_unit->value.GetString();
+
+  if (unit_str == "DAY") {
+    *type = date32();
+  } else if (unit_str == "MILLISECOND") {
+    *type = date64();
+  } else {
+    std::stringstream ss;
+    ss << "Invalid date unit: " << unit_str;
+    return Status::Invalid(ss.str());
+  }
+  return Status::OK();
+}
+
+static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_unit = json_type.FindMember("unit");
+  RETURN_NOT_STRING("unit", json_unit, json_type);
+
+  std::string unit_str = json_unit->value.GetString();
+
+  if (unit_str == "SECOND") {
+    *type = time32(TimeUnit::SECOND);
+  } else if (unit_str == "MILLISECOND") {
+    *type = time32(TimeUnit::MILLI);
+  } else if (unit_str == "MICROSECOND") {
+    *type = time64(TimeUnit::MICRO);
+  } else if (unit_str == "NANOSECOND") {
+    *type = time64(TimeUnit::NANO);
+  } else {
+    std::stringstream ss;
+    ss << "Invalid time unit: " << unit_str;
+    return Status::Invalid(ss.str());
+  }
+  return Status::OK();
+}
+
+static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_unit = json_type.FindMember("unit");
+  RETURN_NOT_STRING("unit", json_unit, json_type);
+
+  std::string unit_str = json_unit->value.GetString();
+
+  TimeUnit unit;
+  if (unit_str == "SECOND") {
+    unit = TimeUnit::SECOND;
+  } else if (unit_str == "MILLISECOND") {
+    unit = TimeUnit::MILLI;
+  } else if (unit_str == "MICROSECOND") {
+    unit = TimeUnit::MICRO;
+  } else if (unit_str == "NANOSECOND") {
+    unit = TimeUnit::NANO;
+  } else {
+    std::stringstream ss;
+    ss << "Invalid time unit: " << unit_str;
+    return Status::Invalid(ss.str());
   }
 
-  Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-    const auto& json_unit = json_type.FindMember("unit");
-    RETURN_NOT_STRING("unit", json_unit, json_type);
+  *type = timestamp(unit);
 
-    std::string unit_str = json_unit->value.GetString();
+  return Status::OK();
+}
 
-    if (unit_str == "SECOND") {
-      *type = time32(TimeUnit::SECOND);
-    } else if (unit_str == "MILLISECOND") {
-      *type = time32(TimeUnit::MILLI);
-    } else if (unit_str == "MICROSECOND") {
-      *type = time64(TimeUnit::MICRO);
-    } else if (unit_str == "NANOSECOND") {
-      *type = time64(TimeUnit::NANO);
-    } else {
-      std::stringstream ss;
-      ss << "Invalid time unit: " << unit_str;
-      return Status::Invalid(ss.str());
-    }
-    return Status::OK();
+static Status GetUnion(const RjObject& json_type,
+    const std::vector<std::shared_ptr<Field>>& children,
+    std::shared_ptr<DataType>* type) {
+  const auto& json_mode = json_type.FindMember("mode");
+  RETURN_NOT_STRING("mode", json_mode, json_type);
+
+  std::string mode_str = json_mode->value.GetString();
+  UnionMode mode;
+
+  if (mode_str == "SPARSE") {
+    mode = UnionMode::SPARSE;
+  } else if (mode_str == "DENSE") {
+    mode = UnionMode::DENSE;
+  } else {
+    std::stringstream ss;
+    ss << "Invalid union mode: " << mode_str;
+    return Status::Invalid(ss.str());
   }
 
-  Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-    const auto& json_unit = json_type.FindMember("unit");
-    RETURN_NOT_STRING("unit", json_unit, json_type);
+  const auto& json_type_codes = json_type.FindMember("typeIds");
+  RETURN_NOT_ARRAY("typeIds", json_type_codes, json_type);
 
-    std::string unit_str = json_unit->value.GetString();
-
-    TimeUnit unit;
-    if (unit_str == "SECOND") {
-      unit = TimeUnit::SECOND;
-    } else if (unit_str == "MILLISECOND") {
-      unit = TimeUnit::MILLI;
-    } else if (unit_str == "MICROSECOND") {
-      unit = TimeUnit::MICRO;
-    } else if (unit_str == "NANOSECOND") {
-      unit = TimeUnit::NANO;
-    } else {
-      std::stringstream ss;
-      ss << "Invalid time unit: " << unit_str;
-      return Status::Invalid(ss.str());
-    }
-
-    *type = timestamp(unit);
-
-    return Status::OK();
+  std::vector<uint8_t> type_codes;
+  const auto& id_array = json_type_codes->value.GetArray();
+  for (const rj::Value& val : id_array) {
+    DCHECK(val.IsUint());
+    type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
   }
 
-  Status GetUnion(const RjObject& json_type,
-      const std::vector<std::shared_ptr<Field>>& children,
-      std::shared_ptr<DataType>* type) {
-    const auto& json_mode = json_type.FindMember("mode");
-    RETURN_NOT_STRING("mode", json_mode, json_type);
+  *type = union_(children, type_codes, mode);
 
-    std::string mode_str = json_mode->value.GetString();
-    UnionMode mode;
+  return Status::OK();
+}
 
-    if (mode_str == "SPARSE") {
-      mode = UnionMode::SPARSE;
-    } else if (mode_str == "DENSE") {
-      mode = UnionMode::DENSE;
-    } else {
-      std::stringstream ss;
-      ss << "Invalid union mode: " << mode_str;
-      return Status::Invalid(ss.str());
-    }
+static Status GetType(const RjObject& json_type,
+    const std::vector<std::shared_ptr<Field>>& children,
+    std::shared_ptr<DataType>* type) {
+  const auto& json_type_name = json_type.FindMember("name");
+  RETURN_NOT_STRING("name", json_type_name, json_type);
 
-    const auto& json_type_codes = json_type.FindMember("typeIds");
-    RETURN_NOT_ARRAY("typeIds", json_type_codes, json_type);
+  std::string type_name = json_type_name->value.GetString();
 
-    std::vector<uint8_t> type_codes;
-    const auto& id_array = json_type_codes->value.GetArray();
-    for (const rj::Value& val : id_array) {
-      DCHECK(val.IsUint());
-      type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
-    }
-
-    *type = union_(children, type_codes, mode);
-
-    return Status::OK();
+  if (type_name == "int") {
+    return GetInteger(json_type, type);
+  } else if (type_name == "floatingpoint") {
+    return GetFloatingPoint(json_type, type);
+  } else if (type_name == "bool") {
+    *type = boolean();
+  } else if (type_name == "utf8") {
+    *type = utf8();
+  } else if (type_name == "binary") {
+    *type = binary();
+  } else if (type_name == "null") {
+    *type = null();
+  } else if (type_name == "date") {
+    return GetDate(json_type, type);
+  } else if (type_name == "time") {
+    return GetTime(json_type, type);
+  } else if (type_name == "timestamp") {
+    return GetTimestamp(json_type, type);
+  } else if (type_name == "list") {
+    *type = list(children[0]);
+  } else if (type_name == "struct") {
+    *type = struct_(children);
+  } else {
+    return GetUnion(json_type, children, type);
   }
+  return Status::OK();
+}
 
-  Status GetType(const RjObject& json_type,
-      const std::vector<std::shared_ptr<Field>>& children,
-      std::shared_ptr<DataType>* type) {
-    const auto& json_type_name = json_type.FindMember("name");
-    RETURN_NOT_STRING("name", json_type_name, json_type);
+static Status GetField(const rj::Value& obj, std::shared_ptr<Field>* field);
 
-    std::string type_name = json_type_name->value.GetString();
+static Status GetFieldsFromArray(
+    const rj::Value& obj, std::vector<std::shared_ptr<Field>>* fields) {
+  const auto& values = obj.GetArray();
 
-    if (type_name == "int") {
-      return GetInteger(json_type, type);
-    } else if (type_name == "floatingpoint") {
-      return GetFloatingPoint(json_type, type);
-    } else if (type_name == "bool") {
-      *type = boolean();
-    } else if (type_name == "utf8") {
-      *type = utf8();
-    } else if (type_name == "binary") {
-      *type = binary();
-    } else if (type_name == "null") {
-      *type = null();
-    } else if (type_name == "date") {
-      // TODO
-      *type = date64();
-    } else if (type_name == "time") {
-      return GetTime(json_type, type);
-    } else if (type_name == "timestamp") {
-      return GetTimestamp(json_type, type);
-    } else if (type_name == "list") {
-      *type = list(children[0]);
-    } else if (type_name == "struct") {
-      *type = struct_(children);
-    } else {
-      return GetUnion(json_type, children, type);
-    }
-    return Status::OK();
+  fields->resize(values.Size());
+  for (rj::SizeType i = 0; i < fields->size(); ++i) {
+    RETURN_NOT_OK(GetField(values[i], &(*fields)[i]));
   }
+  return Status::OK();
+}
 
- private:
-  const rj::Value& json_schema_;
-};
+static Status GetField(const rj::Value& obj, std::shared_ptr<Field>* field) {
+  if (!obj.IsObject()) { return Status::Invalid("Field was not a JSON object"); }
+  const auto& json_field = obj.GetObject();
+
+  const auto& json_name = json_field.FindMember("name");
+  RETURN_NOT_STRING("name", json_name, json_field);
+
+  const auto& json_nullable = json_field.FindMember("nullable");
+  RETURN_NOT_BOOL("nullable", json_nullable, json_field);
+
+  const auto& json_type = json_field.FindMember("type");
+  RETURN_NOT_OBJECT("type", json_type, json_field);
+
+  const auto& json_children = json_field.FindMember("children");
+  RETURN_NOT_ARRAY("children", json_children, json_field);
+
+  std::vector<std::shared_ptr<Field>> children;
+  RETURN_NOT_OK(GetFieldsFromArray(json_children->value, &children));
+
+  std::shared_ptr<DataType> type;
+  RETURN_NOT_OK(GetType(json_type->value.GetObject(), children, &type));
+
+  *field = std::make_shared<Field>(
+      json_name->value.GetString(), type, json_nullable->value.GetBool());
+  return Status::OK();
+}
 
 template <typename T>
 inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type
@@ -1118,8 +1125,16 @@ Status WriteJsonSchema(const Schema& schema, RjWriter* json_writer) {
 }
 
 Status ReadJsonSchema(const rj::Value& json_schema, std::shared_ptr<Schema>* schema) {
-  JsonSchemaReader converter(json_schema);
-  return converter.GetSchema(schema);
+  const auto& obj_schema = json_schema.GetObject();
+
+  const auto& json_fields = obj_schema.FindMember("fields");
+  RETURN_NOT_ARRAY("fields", json_fields, obj_schema);
+
+  std::vector<std::shared_ptr<Field>> fields;
+  RETURN_NOT_OK(GetFieldsFromArray(json_fields->value, &fields));
+
+  *schema = std::make_shared<Schema>(fields);
+  return Status::OK();
 }
 
 Status WriteJsonArray(

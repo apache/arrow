@@ -47,6 +47,21 @@ static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
   }
 }
 
+
+static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
+  if (!left.schema()->Equals(right.schema())) {
+    FAIL() << "Left schema: " << left.schema()->ToString()
+           << "\nRight schema: " << right.schema()->ToString();
+  }
+  ASSERT_EQ(left.num_columns(), right.num_columns())
+      << left.schema()->ToString() << " result: " << right.schema()->ToString();
+  EXPECT_EQ(left.num_rows(), right.num_rows());
+  for (int i = 0; i < left.num_columns(); ++i) {
+    EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
+        << "Idx: " << i << " Name: " << left.column_name(i);
+  }
+}
+
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
