@@ -17,6 +17,7 @@
 
 #include "arrow/tensor.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
