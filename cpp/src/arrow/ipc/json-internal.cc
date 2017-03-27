@@ -299,7 +299,7 @@ class JsonSchemaWriter {
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
 
   Status Visit(const FixedWidthBinaryType& type) {
-    return WritePrimitive("fixed_width_binary", type);
+    return WritePrimitive("fixedwidthbinary", type);
   }
 
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
@@ -710,7 +710,7 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
-  } else if (type_name == "fixed_width_binary") {
+  } else if (type_name == "fixedwidthbinary") {
     return GetFixedWidthBinary(json_type, type);
   } else if (type_name == "null") {
     *type = null();

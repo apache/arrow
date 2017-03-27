@@ -306,7 +306,7 @@ class RecordBatchWriter : public ArrayVisitor {
     auto data = array.data();
     int32_t width = array.byte_width();
 
-    if (array.offset() != 0) {
+    if (data && array.offset() != 0) {
       data = SliceBuffer(data, array.offset() * width, width * array.length());
     }
     buffers_.push_back(data);
