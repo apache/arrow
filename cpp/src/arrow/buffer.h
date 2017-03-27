@@ -43,7 +43,7 @@ class Status;
 /// of bytes that where allocated for the buffer in total.
 ///
 /// The following invariant is always true: Size < Capacity
-class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
+class ARROW_EXPORT Buffer {
  public:
   Buffer(const uint8_t* data, int64_t size)
       : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
@@ -57,8 +57,6 @@ class ARROW_EXPORT Buffer : public std::enable_shared_from_this<Buffer> {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
-
-  std::shared_ptr<Buffer> get_shared_ptr() { return shared_from_this(); }
 
   bool is_mutable() const { return is_mutable_; }
 
@@ -110,9 +108,6 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
   }
 
   uint8_t* mutable_data() { return mutable_data_; }
-
-  /// Get a read-only view of this buffer
-  std::shared_ptr<Buffer> GetImmutableView();
 
  protected:
   MutableBuffer() : Buffer(nullptr, 0), mutable_data_(nullptr) {}
