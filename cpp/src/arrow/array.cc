@@ -283,12 +283,9 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 FixedWidthBinaryArray::FixedWidthBinaryArray(const std::shared_ptr<DataType>& type,
     int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
-    : Array(type, length, null_bitmap, null_count, offset),
-      data_(data),
-      raw_data_(nullptr) {
+    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {
   DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
   byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
-  if (data) { raw_data_ = data->data(); }
 }
 
 std::shared_ptr<Array> FixedWidthBinaryArray::Slice(

@@ -347,7 +347,7 @@ class ARROW_EXPORT StringArray : public BinaryArray {
 // ----------------------------------------------------------------------
 // Fixed width binary
 
-class ARROW_EXPORT FixedWidthBinaryArray : public Array {
+class ARROW_EXPORT FixedWidthBinaryArray : public PrimitiveArray {
  public:
   using TypeClass = FixedWidthBinaryType;
 
@@ -360,9 +360,6 @@ class ARROW_EXPORT FixedWidthBinaryArray : public Array {
     return raw_data_ + (i + offset_) * byte_width_;
   }
 
-  /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> data() const { return data_; }
-
   int32_t byte_width() const { return byte_width_; }
 
   const uint8_t* raw_data() const { return raw_data_; }
@@ -371,8 +368,6 @@ class ARROW_EXPORT FixedWidthBinaryArray : public Array {
 
  protected:
   int32_t byte_width_;
-  std::shared_ptr<Buffer> data_;
-  const uint8_t* raw_data_;
 };
 
 // ----------------------------------------------------------------------

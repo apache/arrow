@@ -584,7 +584,7 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> a1, a2;
 
   FixedWidthBinaryBuilder b1(default_memory_pool(), f0->type);
-  FixedWidthBinaryBuilder b2(default_memory_pool(), f0->type);
+  FixedWidthBinaryBuilder b2(default_memory_pool(), f1->type);
 
   std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
   AppendValues(is_valid, values1, &b1);

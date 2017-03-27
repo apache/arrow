@@ -190,6 +190,11 @@ class JsonSchemaWriter {
     }
   }
 
+  void WriteTypeMetadata(const FixedWidthBinaryType& type) {
+    writer_->Key("byteWidth");
+    writer_->Int(type.byte_width());
+  }
+
   void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
     writer_->Int(type.precision);
@@ -293,6 +298,10 @@ class JsonSchemaWriter {
 
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
 
+  Status Visit(const FixedWidthBinaryType& type) {
+    return WritePrimitive("fixed_width_binary", type);
+  }
+
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
 
   Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
@@ -316,10 +325,6 @@ class JsonSchemaWriter {
     WriteChildren(type.children());
     WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
-  }
-
-  Status Visit(const FixedWidthBinaryType& type) {
-    return Status::NotImplemented("fixed width binary");
   }
 
   Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
@@ -394,6 +399,14 @@ class JsonArrayWriter {
       } else {
         writer_->String(HexEncode(buf, length));
       }
+    }
+  }
+
+  void WriteDataValues(const FixedWidthBinaryArray& arr) {
+    int32_t width = arr.byte_width();
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      const char* buf = reinterpret_cast<const char*>(arr.GetValue(i));
+      writer_->String(HexEncode(buf, width));
     }
   }
 
@@ -475,10 +488,6 @@ class JsonArrayWriter {
     WriteDataField(array);
     SetNoChildren();
     return Status::OK();
-  }
-
-  Status Visit(const FixedWidthBinaryArray& array) {
-    return Status::NotImplemented("fixed width binary");
   }
 
   Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
@@ -565,6 +574,16 @@ static Status GetFloatingPoint(
     ss << "Invalid precision: " << precision;
     return Status::Invalid(ss.str());
   }
+  return Status::OK();
+}
+
+static Status GetFixedWidthBinary(
+    const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& json_byte_width = json_type.FindMember("byteWidth");
+  RETURN_NOT_INT("byteWidth", json_byte_width, json_type);
+
+  int32_t byte_width = json_byte_width->value.GetInt();
+  *type = fixed_width_binary(byte_width);
   return Status::OK();
 }
 
@@ -691,6 +710,8 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
+  } else if (type_name == "fixed_width_binary") {
+    return GetFixedWidthBinary(json_type, type);
   } else if (type_name == "null") {
     *type = null();
   } else if (type_name == "date") {
@@ -876,6 +897,47 @@ class JsonArrayReader {
   }
 
   template <typename T>
+  typename std::enable_if<std::is_base_of<FixedWidthBinaryType, T>::value, Status>::type
+  ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+    FixedWidthBinaryBuilder builder(pool_, type);
+
+    const auto& json_data = json_array.FindMember("DATA");
+    RETURN_NOT_ARRAY("DATA", json_data, json_array);
+
+    const auto& json_data_arr = json_data->value.GetArray();
+
+    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
+
+    int32_t byte_width = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+
+    // Allocate space for parsed values
+    std::shared_ptr<MutableBuffer> byte_buffer;
+    RETURN_NOT_OK(AllocateBuffer(pool_, byte_width, &byte_buffer));
+    uint8_t* byte_buffer_data = byte_buffer->mutable_data();
+
+    for (int i = 0; i < length; ++i) {
+      if (!is_valid[i]) {
+        builder.AppendNull();
+        continue;
+      }
+
+      const rj::Value& val = json_data_arr[i];
+      DCHECK(val.IsString());
+      std::string hex_string = val.GetString();
+      DCHECK_EQ(hex_string.size(), byte_width * 2) << "Expected size: " << byte_width * 2
+                                                   << " got: " << hex_string.size();
+      const char* hex_data = hex_string.c_str();
+
+      for (int32_t j = 0; j < byte_width; ++j) {
+        RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
+      }
+      RETURN_NOT_OK(builder.Append(byte_buffer_data));
+    }
+    return builder.Finish(array);
+  }
+
+  template <typename T>
   Status GetIntArray(
       const RjArray& json_array, const int32_t length, std::shared_ptr<Buffer>* out) {
     std::shared_ptr<MutableBuffer> buffer;
@@ -1051,6 +1113,7 @@ class JsonArrayReader {
       TYPE_CASE(DoubleType);
       TYPE_CASE(StringType);
       TYPE_CASE(BinaryType);
+      TYPE_CASE(FixedWidthBinaryType);
       TYPE_CASE(Date32Type);
       TYPE_CASE(Date64Type);
       TYPE_CASE(TimestampType);
