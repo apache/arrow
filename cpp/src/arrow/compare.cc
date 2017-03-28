@@ -666,14 +666,12 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Time32Type& left) {
-    const auto& right = static_cast<const Time32Type&>(right_);
-    result_ = left.unit == right.unit;
-    return Status::OK();
-  }
-
-  Status Visit(const Time64Type& left) {
-    const auto& right = static_cast<const Time64Type&>(right_);
+  template <typename T>
+  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
+                              std::is_base_of<DateType, T>::value,
+      Status>::type
+  Visit(const T& left) {
+    const auto& right = static_cast<const T&>(right_);
     result_ = left.unit == right.unit;
     return Status::OK();
   }

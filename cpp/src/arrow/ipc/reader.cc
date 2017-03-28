@@ -97,6 +97,8 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
 
   for (int i = 0; i < schema->num_fields(); ++i) {
     RETURN_NOT_OK(LoadArray(schema->field(i)->type, &context, &arrays[i]));
+    DCHECK_EQ(num_rows, arrays[i]->length())
+        << "Array length did not match record batch length";
   }
 
   *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));

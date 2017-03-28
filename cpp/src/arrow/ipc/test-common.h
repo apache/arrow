@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
@@ -44,6 +45,41 @@ static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
     ss << "left schema: " << lhs.ToString() << std::endl
        << "right schema: " << rhs.ToString() << std::endl;
     FAIL() << ss.str();
+  }
+}
+
+static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
+  if (!left.schema()->Equals(right.schema())) {
+    FAIL() << "Left schema: " << left.schema()->ToString()
+           << "\nRight schema: " << right.schema()->ToString();
+  }
+  ASSERT_EQ(left.num_columns(), right.num_columns())
+      << left.schema()->ToString() << " result: " << right.schema()->ToString();
+  EXPECT_EQ(left.num_rows(), right.num_rows());
+  for (int i = 0; i < left.num_columns(); ++i) {
+    EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
+        << "Idx: " << i << " Name: " << left.column_name(i);
+  }
+}
+
+static inline void CompareArraysDetailed(
+    int index, const Array& result, const Array& expected) {
+  if (!expected.Equals(result)) {
+    std::stringstream pp_result;
+    std::stringstream pp_expected;
+
+    ASSERT_OK(PrettyPrint(expected, 0, &pp_expected));
+    ASSERT_OK(PrettyPrint(result, 0, &pp_result));
+
+    FAIL() << "Index: " << index << " Expected: " << pp_expected.str()
+           << "\nGot: " << pp_result.str();
+  }
+}
+
+static inline void CompareBatchColumnsDetailed(
+    const RecordBatch& result, const RecordBatch& expected) {
+  for (int i = 0; i < expected.num_columns(); ++i) {
+    CompareArraysDetailed(i, *result.column(i), *expected.column(i));
   }
 }
 
@@ -474,7 +510,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
   std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
+      1489272000000, 1489272000000, 1489273000000, 1489274000000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
@@ -548,7 +584,7 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> a1, a2;
 
   FixedWidthBinaryBuilder b1(default_memory_pool(), f0->type);
-  FixedWidthBinaryBuilder b2(default_memory_pool(), f0->type);
+  FixedWidthBinaryBuilder b2(default_memory_pool(), f1->type);
 
   std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
   AppendValues(is_valid, values1, &b1);

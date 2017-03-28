@@ -132,7 +132,7 @@ struct ARROW_EXPORT DataType {
 
   explicit DataType(Type::type type) : type(type) {}
 
-  virtual ~DataType();
+  virtual ~DataType() = default;
 
   // Return whether the types are equal
   //
@@ -167,11 +167,17 @@ struct ARROW_EXPORT FixedWidthType : public DataType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-struct ARROW_EXPORT IntegerMeta {
+struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {
+  using FixedWidthType::FixedWidthType;
+};
+
+struct ARROW_EXPORT Integer : public PrimitiveCType {
+  using PrimitiveCType::PrimitiveCType;
   virtual bool is_signed() const = 0;
 };
 
-struct ARROW_EXPORT FloatingPointMeta {
+struct ARROW_EXPORT FloatingPoint : public PrimitiveCType {
+  using PrimitiveCType::PrimitiveCType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -206,16 +212,12 @@ struct ARROW_EXPORT Field {
 
 typedef std::shared_ptr<Field> FieldPtr;
 
-struct ARROW_EXPORT PrimitiveCType : public FixedWidthType {
-  using FixedWidthType::FixedWidthType;
-};
-
-template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct ARROW_EXPORT CTypeImpl : public PrimitiveCType {
+template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
+struct ARROW_EXPORT CTypeImpl : public BASE {
   using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
 
-  CTypeImpl() : PrimitiveCType(TYPE_ID) {}
+  CTypeImpl() : BASE(TYPE_ID) {}
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * 8); }
 
@@ -240,7 +242,7 @@ struct ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-struct IntegerTypeImpl : public CTypeImpl<DERIVED, TYPE_ID, C_TYPE>, public IntegerMeta {
+struct IntegerTypeImpl : public CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -292,20 +294,19 @@ struct ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, i
 };
 
 struct ARROW_EXPORT HalfFloatType
-    : public CTypeImpl<HalfFloatType, Type::HALF_FLOAT, uint16_t>,
-      public FloatingPointMeta {
+    : public CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
-struct ARROW_EXPORT FloatType : public CTypeImpl<FloatType, Type::FLOAT, float>,
-                                public FloatingPointMeta {
+struct ARROW_EXPORT FloatType
+    : public CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
-struct ARROW_EXPORT DoubleType : public CTypeImpl<DoubleType, Type::DOUBLE, double>,
-                                 public FloatingPointMeta {
+struct ARROW_EXPORT DoubleType
+    : public CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
   Precision precision() const override;
   static std::string name() { return "double"; }
 };
@@ -436,13 +437,23 @@ struct ARROW_EXPORT UnionType : public NestedType {
 // ----------------------------------------------------------------------
 // Date and time types
 
+enum class DateUnit : char { DAY = 0, MILLI = 1 };
+
+struct DateType : public FixedWidthType {
+ public:
+  DateUnit unit;
+
+ protected:
+  DateType(Type::type type_id, DateUnit unit);
+};
+
 /// Date as int32_t days since UNIX epoch
-struct ARROW_EXPORT Date32Type : public FixedWidthType, public NoExtraMeta {
+struct ARROW_EXPORT Date32Type : public DateType {
   static constexpr Type::type type_id = Type::DATE32;
 
   using c_type = int32_t;
 
-  Date32Type() : FixedWidthType(Type::DATE32) {}
+  Date32Type();
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
@@ -451,12 +462,12 @@ struct ARROW_EXPORT Date32Type : public FixedWidthType, public NoExtraMeta {
 };
 
 /// Date as int64_t milliseconds since UNIX epoch
-struct ARROW_EXPORT Date64Type : public FixedWidthType, public NoExtraMeta {
+struct ARROW_EXPORT Date64Type : public DateType {
   static constexpr Type::type type_id = Type::DATE64;
 
   using c_type = int64_t;
 
-  Date64Type() : FixedWidthType(Type::DATE64) {}
+  Date64Type();
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
@@ -485,12 +496,17 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
   return os;
 }
 
-struct ARROW_EXPORT Time32Type : public FixedWidthType {
-  static constexpr Type::type type_id = Type::TIME32;
-  using Unit = TimeUnit;
-  using c_type = int32_t;
-
+struct TimeType : public FixedWidthType {
+ public:
   TimeUnit unit;
+
+ protected:
+  TimeType(Type::type type_id, TimeUnit unit);
+};
+
+struct ARROW_EXPORT Time32Type : public TimeType {
+  static constexpr Type::type type_id = Type::TIME32;
+  using c_type = int32_t;
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
 
@@ -500,12 +516,9 @@ struct ARROW_EXPORT Time32Type : public FixedWidthType {
   std::string ToString() const override;
 };
 
-struct ARROW_EXPORT Time64Type : public FixedWidthType {
+struct ARROW_EXPORT Time64Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME64;
-  using Unit = TimeUnit;
   using c_type = int64_t;
-
-  TimeUnit unit;
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 

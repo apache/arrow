@@ -75,7 +75,8 @@ void TestArrayRoundTrip(const Array& array) {
   std::shared_ptr<Array> out;
   ASSERT_OK(ReadJsonArray(default_memory_pool(), d, array.type(), &out));
 
-  ASSERT_TRUE(array.Equals(out)) << array_as_json;
+  // std::cout << array_as_json << std::endl;
+  CompareArraysDetailed(0, *out, array);
 }
 
 template <typename T, typename ValueType>
@@ -350,6 +351,46 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ArrayFromVector<DoubleType, double>(bar_valid, bar_values, &bar);
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
+
+#define BATCH_CASES()                                                                   \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
+      &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
+      &MakeStruct, &MakeUnion, &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary);
+
+class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
+ public:
+  void SetUp() {}
+  void TearDown() {}
+};
+
+void CheckRoundtrip(const RecordBatch& batch) {
+  std::unique_ptr<JsonWriter> writer;
+  ASSERT_OK(JsonWriter::Open(batch.schema(), &writer));
+  ASSERT_OK(writer->WriteRecordBatch(batch));
+
+  std::string result;
+  ASSERT_OK(writer->Finish(&result));
+
+  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(result.c_str()),
+      static_cast<int64_t>(result.size()));
+
+  std::unique_ptr<JsonReader> reader;
+  ASSERT_OK(JsonReader::Open(buffer, &reader));
+
+  std::shared_ptr<RecordBatch> result_batch;
+  ASSERT_OK(reader->GetRecordBatch(0, &result_batch));
+
+  CompareBatch(batch, *result_batch);
+}
+
+TEST_P(TestJsonRoundTrip, RoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
+
+  CheckRoundtrip(*batch);
+}
+
+INSTANTIATE_TEST_CASE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
 }  // namespace ipc
 }  // namespace arrow

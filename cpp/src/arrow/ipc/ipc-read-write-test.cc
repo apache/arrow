@@ -41,20 +41,6 @@
 namespace arrow {
 namespace ipc {
 
-void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
-  if (!left.schema()->Equals(right.schema())) {
-    FAIL() << "Left schema: " << left.schema()->ToString()
-           << "\nRight schema: " << right.schema()->ToString();
-  }
-  ASSERT_EQ(left.num_columns(), right.num_columns())
-      << left.schema()->ToString() << " result: " << right.schema()->ToString();
-  EXPECT_EQ(left.num_rows(), right.num_rows());
-  for (int i = 0; i < left.num_columns(); ++i) {
-    EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
-        << "Idx: " << i << " Name: " << left.column_name(i);
-  }
-}
-
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 
 class TestSchemaMetadata : public ::testing::Test {
@@ -85,17 +71,17 @@ class TestSchemaMetadata : public ::testing::Test {
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
-  auto f0 = std::make_shared<Field>("f0", std::make_shared<Int8Type>());
-  auto f1 = std::make_shared<Field>("f1", std::make_shared<Int16Type>(), false);
-  auto f2 = std::make_shared<Field>("f2", std::make_shared<Int32Type>());
-  auto f3 = std::make_shared<Field>("f3", std::make_shared<Int64Type>());
-  auto f4 = std::make_shared<Field>("f4", std::make_shared<UInt8Type>());
-  auto f5 = std::make_shared<Field>("f5", std::make_shared<UInt16Type>());
-  auto f6 = std::make_shared<Field>("f6", std::make_shared<UInt32Type>());
-  auto f7 = std::make_shared<Field>("f7", std::make_shared<UInt64Type>());
-  auto f8 = std::make_shared<Field>("f8", std::make_shared<FloatType>());
-  auto f9 = std::make_shared<Field>("f9", std::make_shared<DoubleType>(), false);
-  auto f10 = std::make_shared<Field>("f10", std::make_shared<BooleanType>());
+  auto f0 = field("f0", std::make_shared<Int8Type>());
+  auto f1 = field("f1", std::make_shared<Int16Type>(), false);
+  auto f2 = field("f2", std::make_shared<Int32Type>());
+  auto f3 = field("f3", std::make_shared<Int64Type>());
+  auto f4 = field("f4", std::make_shared<UInt8Type>());
+  auto f5 = field("f5", std::make_shared<UInt16Type>());
+  auto f6 = field("f6", std::make_shared<UInt32Type>());
+  auto f7 = field("f7", std::make_shared<UInt64Type>());
+  auto f8 = field("f8", std::make_shared<FloatType>());
+  auto f9 = field("f9", std::make_shared<DoubleType>(), false);
+  auto f10 = field("f10", std::make_shared<BooleanType>());
 
   Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
   DictionaryMemo memo;
@@ -105,11 +91,11 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
 
 TEST_F(TestSchemaMetadata, NestedFields) {
   auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
-  auto f0 = std::make_shared<Field>("f0", type);
+  auto f0 = field("f0", type);
 
-  std::shared_ptr<StructType> type2(new StructType({std::make_shared<Field>("k1", INT32),
-      std::make_shared<Field>("k2", INT32), std::make_shared<Field>("k3", INT32)}));
-  auto f1 = std::make_shared<Field>("f1", type2);
+  std::shared_ptr<StructType> type2(
+      new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
+  auto f1 = field("f1", type2);
 
   Schema schema({f0, f1});
   DictionaryMemo memo;
@@ -172,20 +158,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_EQ(expected.num_columns(), result.num_columns())
         << expected.schema()->ToString() << " result: " << result.schema()->ToString();
 
-    for (int i = 0; i < expected.num_columns(); ++i) {
-      const auto& left = *expected.column(i);
-      const auto& right = *result.column(i);
-      if (!left.Equals(right)) {
-        std::stringstream pp_result;
-        std::stringstream pp_expected;
-
-        ASSERT_OK(PrettyPrint(left, 0, &pp_expected));
-        ASSERT_OK(PrettyPrint(right, 0, &pp_result));
-
-        FAIL() << "Index: " << i << " Expected: " << pp_expected.str()
-               << "\nGot: " << pp_result.str();
-      }
-    }
+    CompareBatchColumnsDetailed(result, expected);
   }
 
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
@@ -549,7 +522,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {f0};
   auto schema = std::make_shared<Schema>(fields);
 
-  RecordBatch batch(schema, 0, {array});
+  RecordBatch batch(schema, length, {array});
 
   std::string path = "test-write-large-record_batch";
 
@@ -561,6 +534,8 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoLargeRoundTrip(batch, false, &result));
   CheckReadResult(*result, batch);
+
+  ASSERT_EQ(length, result->num_rows());
 
   // Fails if we try to write this with the normal code path
   ASSERT_RAISES(Invalid, DoStandardRoundTrip(batch, false, &result));
