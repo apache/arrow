@@ -81,6 +81,16 @@ variables
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
 * jemalloc: `JEMALLOC_HOME` (only required for the jemalloc-based memory pool)
 
+### Building Python integration library
+
+The `arrow_python` shared library can be built by passing `-DARROW_PYTHON=on`
+to CMake. This must be installed or in your library load path to be able to
+build pyarrow, the Arrow Python bindings.
+
+The Python library must be built against the same Python version for which you
+are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must also be
+installed.
+
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc
