@@ -445,21 +445,21 @@ Status Array::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // Instantiate templates
 
-template class NumericArray<UInt8Type>;
-template class NumericArray<UInt16Type>;
-template class NumericArray<UInt32Type>;
-template class NumericArray<UInt64Type>;
-template class NumericArray<Int8Type>;
-template class NumericArray<Int16Type>;
-template class NumericArray<Int32Type>;
-template class NumericArray<Int64Type>;
-template class NumericArray<TimestampType>;
-template class NumericArray<Date32Type>;
-template class NumericArray<Date64Type>;
-template class NumericArray<Time32Type>;
-template class NumericArray<Time64Type>;
-template class NumericArray<HalfFloatType>;
-template class NumericArray<FloatType>;
-template class NumericArray<DoubleType>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<UInt8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<UInt16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<UInt32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<UInt64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Int8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Int16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Int32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Int64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<TimestampType>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Date32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Date64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Time32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<Time64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<HalfFloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<FloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericArray<DoubleType>;
 
 }  // namespace arrow

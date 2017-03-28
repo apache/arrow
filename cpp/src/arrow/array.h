@@ -484,22 +484,22 @@ class ARROW_EXPORT DictionaryArray : public Array {
 // extern templates and other details
 
 // Only instantiate these templates once
-EXTERN_TEMPLATE_CLASS NumericArray<Int8Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<UInt8Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Int16Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<UInt16Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Int32Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<UInt32Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Int64Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<UInt64Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<HalfFloatType>;
-EXTERN_TEMPLATE_CLASS NumericArray<FloatType>;
-EXTERN_TEMPLATE_CLASS NumericArray<DoubleType>;
-EXTERN_TEMPLATE_CLASS NumericArray<Date32Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Date64Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Time32Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<Time64Type>;
-EXTERN_TEMPLATE_CLASS NumericArray<TimestampType>;
+ARROW_EXTERN_TEMPLATE NumericArray<Int8Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<UInt8Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Int16Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<UInt16Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Int32Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<UInt32Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Int64Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<UInt64Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<HalfFloatType>;
+ARROW_EXTERN_TEMPLATE NumericArray<FloatType>;
+ARROW_EXTERN_TEMPLATE NumericArray<DoubleType>;
+ARROW_EXTERN_TEMPLATE NumericArray<Date32Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Date64Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Time32Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<Time64Type>;
+ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 
 }  // namespace arrow
 

@@ -130,17 +130,17 @@ class ARROW_EXPORT NumericTensor : public Tensor {
 // extern templates and other details
 
 // Only instantiate these templates once
-EXTERN_TEMPLATE_CLASS NumericTensor<Int8Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<UInt8Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<Int16Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<UInt16Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<Int32Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<UInt32Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<Int64Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<UInt64Type>;
-EXTERN_TEMPLATE_CLASS NumericTensor<HalfFloatType>;
-EXTERN_TEMPLATE_CLASS NumericTensor<FloatType>;
-EXTERN_TEMPLATE_CLASS NumericTensor<DoubleType>;
+ARROW_EXTERN_TEMPLATE NumericTensor<Int8Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<UInt8Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<Int16Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<UInt16Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<Int32Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<UInt32Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<Int64Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<UInt64Type>;
+ARROW_EXTERN_TEMPLATE NumericTensor<HalfFloatType>;
+ARROW_EXTERN_TEMPLATE NumericTensor<FloatType>;
+ARROW_EXTERN_TEMPLATE NumericTensor<DoubleType>;
 
 }  // namespace arrow
 
