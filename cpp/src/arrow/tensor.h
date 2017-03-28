@@ -129,29 +129,18 @@ class ARROW_EXPORT NumericTensor : public Tensor {
 // ----------------------------------------------------------------------
 // extern templates and other details
 
-// gcc and clang disagree about how to handle template visibility when you have
-// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
 // Only instantiate these templates once
-extern template class ARROW_EXPORT NumericTensor<Int8Type>;
-extern template class ARROW_EXPORT NumericTensor<UInt8Type>;
-extern template class ARROW_EXPORT NumericTensor<Int16Type>;
-extern template class ARROW_EXPORT NumericTensor<UInt16Type>;
-extern template class ARROW_EXPORT NumericTensor<Int32Type>;
-extern template class ARROW_EXPORT NumericTensor<UInt32Type>;
-extern template class ARROW_EXPORT NumericTensor<Int64Type>;
-extern template class ARROW_EXPORT NumericTensor<UInt64Type>;
-extern template class ARROW_EXPORT NumericTensor<HalfFloatType>;
-extern template class ARROW_EXPORT NumericTensor<FloatType>;
-extern template class ARROW_EXPORT NumericTensor<DoubleType>;
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+EXTERN_TEMPLATE_CLASS NumericTensor<Int8Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<UInt8Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<Int16Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<UInt16Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<Int32Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<UInt32Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<Int64Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<UInt64Type>;
+EXTERN_TEMPLATE_CLASS NumericTensor<HalfFloatType>;
+EXTERN_TEMPLATE_CLASS NumericTensor<FloatType>;
+EXTERN_TEMPLATE_CLASS NumericTensor<DoubleType>;
 
 }  // namespace arrow
 

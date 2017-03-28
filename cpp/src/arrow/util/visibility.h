@@ -35,4 +35,13 @@
 #endif
 #endif  // Non-Windows
 
+// gcc and clang disagree about how to handle template visibility when you have
+// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
+
+#if defined(__clang__)
+  #define EXTERN_TEMPLATE_CLASS extern template class ARROW_EXPORT
+#else
+  #define EXTERN_TEMPLATE_CLASS extern template class
+#endif
+
 #endif  // ARROW_UTIL_VISIBILITY_H

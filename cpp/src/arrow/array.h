@@ -483,34 +483,23 @@ class ARROW_EXPORT DictionaryArray : public Array {
 // ----------------------------------------------------------------------
 // extern templates and other details
 
-// gcc and clang disagree about how to handle template visibility when you have
-// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
 // Only instantiate these templates once
-extern template class ARROW_EXPORT NumericArray<Int8Type>;
-extern template class ARROW_EXPORT NumericArray<UInt8Type>;
-extern template class ARROW_EXPORT NumericArray<Int16Type>;
-extern template class ARROW_EXPORT NumericArray<UInt16Type>;
-extern template class ARROW_EXPORT NumericArray<Int32Type>;
-extern template class ARROW_EXPORT NumericArray<UInt32Type>;
-extern template class ARROW_EXPORT NumericArray<Int64Type>;
-extern template class ARROW_EXPORT NumericArray<UInt64Type>;
-extern template class ARROW_EXPORT NumericArray<HalfFloatType>;
-extern template class ARROW_EXPORT NumericArray<FloatType>;
-extern template class ARROW_EXPORT NumericArray<DoubleType>;
-extern template class ARROW_EXPORT NumericArray<Date32Type>;
-extern template class ARROW_EXPORT NumericArray<Date64Type>;
-extern template class ARROW_EXPORT NumericArray<Time32Type>;
-extern template class ARROW_EXPORT NumericArray<Time64Type>;
-extern template class ARROW_EXPORT NumericArray<TimestampType>;
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+EXTERN_TEMPLATE_CLASS NumericArray<Int8Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<UInt8Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Int16Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<UInt16Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Int32Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<UInt32Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Int64Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<UInt64Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<HalfFloatType>;
+EXTERN_TEMPLATE_CLASS NumericArray<FloatType>;
+EXTERN_TEMPLATE_CLASS NumericArray<DoubleType>;
+EXTERN_TEMPLATE_CLASS NumericArray<Date32Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Date64Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Time32Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<Time64Type>;
+EXTERN_TEMPLATE_CLASS NumericArray<TimestampType>;
 
 }  // namespace arrow
 
