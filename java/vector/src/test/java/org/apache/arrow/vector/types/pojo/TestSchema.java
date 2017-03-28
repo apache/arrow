@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -60,7 +61,7 @@ public class TestSchema {
         field("b", new Struct(),
             field("c", new Int(16, true)),
             field("d", new Utf8())),
-        field("e", new List(), field(null, new Date())),
+        field("e", new List(), field(null, new Date(DateUnit.MILLISECOND))),
         field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
         field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
@@ -68,7 +69,7 @@ public class TestSchema {
         ));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), i: Interval(DAY_TIME)>",
+        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), i: Interval(DAY_TIME)>",
         schema.toString());
   }
 
@@ -85,7 +86,7 @@ public class TestSchema {
         field("h", new Binary()),
         field("i", new Bool()),
         field("j", new Decimal(5, 5)),
-        field("k", new Date()),
+        field("k", new Date(DateUnit.MILLISECOND)),
         field("l", new Time(TimeUnit.MILLISECOND, 32)),
         field("m", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("n", new Timestamp(TimeUnit.MICROSECOND, null)),

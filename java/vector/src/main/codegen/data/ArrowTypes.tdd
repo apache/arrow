@@ -54,7 +54,7 @@
     },
     {
       name: "Date",
-      fields: []
+      fields: [{name: "unit", type: short, valueType: DateUnit}]
     },
     {
       name: "Time",
