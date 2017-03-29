@@ -100,16 +100,16 @@ NumericTensor<T>::NumericTensor(const std::shared_ptr<Buffer>& data,
     const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
     : NumericTensor(data, shape, strides, {}) {}
 
-template class NumericTensor<Int8Type>;
-template class NumericTensor<UInt8Type>;
-template class NumericTensor<Int16Type>;
-template class NumericTensor<UInt16Type>;
-template class NumericTensor<Int32Type>;
-template class NumericTensor<UInt32Type>;
-template class NumericTensor<Int64Type>;
-template class NumericTensor<UInt64Type>;
-template class NumericTensor<HalfFloatType>;
-template class NumericTensor<FloatType>;
-template class NumericTensor<DoubleType>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt8Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt16Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt32Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<Int64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<UInt64Type>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<HalfFloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<FloatType>;
+template class ARROW_TEMPLATE_EXPORT NumericTensor<DoubleType>;
 
 }  // namespace arrow

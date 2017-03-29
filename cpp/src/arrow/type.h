@@ -439,7 +439,7 @@ struct ARROW_EXPORT UnionType : public NestedType {
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
 
-struct DateType : public FixedWidthType {
+struct ARROW_EXPORT DateType : public FixedWidthType {
  public:
   DateUnit unit;
 
@@ -496,7 +496,7 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
   return os;
 }
 
-struct TimeType : public FixedWidthType {
+struct ARROW_EXPORT TimeType : public FixedWidthType {
  public:
   TimeUnit unit;
 
