@@ -715,6 +715,14 @@ class TypeEqualsVisitor {
         return Status::OK();
       }
     }
+
+    for (int i = 0; i < left.num_children(); ++i) {
+      if (!left.child(i)->Equals(right_.child(i))) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+
     result_ = true;
     return Status::OK();
   }
