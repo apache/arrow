@@ -231,4 +231,23 @@ TEST(TestTimestampType, ToString) {
   ASSERT_EQ("timestamp[us]", t4->ToString());
 }
 
+TEST(TestNestedType, Equals) {
+
+  auto create_nested = [](std::string inner_name, std::string struct_name) -> shared_ptr<Field> {
+    auto f_type = field(inner_name, int32());
+    vector<shared_ptr<Field>> fields = {f_type};
+    auto s_type = std::make_shared<StructType>(fields);
+    return field(struct_name, s_type);
+  };
+
+  auto s0 = create_nested("f0", "s0");
+  auto s0_other = create_nested("f0", "s0");
+  auto s0_bad = create_nested("f1", "s0");
+  auto s1 = create_nested("f1", "s1");
+
+  ASSERT_TRUE(s0->Equals(s0_other));
+  ASSERT_FALSE(s0->Equals(s1));
+  ASSERT_FALSE(s0->Equals(s0_bad));
+}
+
 }  // namespace arrow
