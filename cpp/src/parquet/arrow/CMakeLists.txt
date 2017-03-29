@@ -108,3 +108,11 @@ install(FILES
   schema.h
   writer.h
   DESTINATION include/parquet/arrow)
+
+# pkg-config support
+configure_file(parquet-arrow.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/parquet-arrow.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet-arrow.pc"
+  DESTINATION "lib/pkgconfig/")

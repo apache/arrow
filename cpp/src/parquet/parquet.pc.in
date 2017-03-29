@@ -15,28 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  compression.h
-  encoding.h
-  exception.h
-  schema.h
-  types.h
-  DESTINATION include/parquet)
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
 
-# pkg-config support
-configure_file(parquet.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  DESTINATION "lib/pkgconfig/")
-
-ADD_PARQUET_TEST(compression-test)
-ADD_PARQUET_TEST(encoding-test)
-ADD_PARQUET_TEST(public-api-test)
-ADD_PARQUET_TEST(types-test)
-ADD_PARQUET_TEST(reader-test)
-ADD_PARQUET_TEST(schema-test)
-
-ADD_PARQUET_BENCHMARK(encoding-benchmark)
+Name: Apache Parquet
+Description: Apache Parquet is a columnar storage format.
+Version: @PARQUET_VERSION@
+Libs: -L${libdir} -lparquet
+Cflags: -I${includedir}
