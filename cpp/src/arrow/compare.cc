@@ -650,7 +650,7 @@ class TypeEqualsVisitor {
     for (int i = 0; i < left.num_children(); ++i) {
       if (!left.child(i)->Equals(right_.child(i))) {
         result_ = false;
-        break;
+        return Status::OK();
       }
     }
     result_ = true;
@@ -712,9 +712,17 @@ class TypeEqualsVisitor {
     for (size_t i = 0; i < left_codes.size(); ++i) {
       if (left_codes[i] != right_codes[i]) {
         result_ = false;
-        break;
+        return Status::OK();
       }
     }
+
+    for (int i = 0; i < left.num_children(); ++i) {
+      if (!left.child(i)->Equals(right_.child(i))) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+
     result_ = true;
     return Status::OK();
   }
