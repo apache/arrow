@@ -19,6 +19,9 @@ prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/include
 
+so_version=@ARROW_SO_VERSION@
+abi_version=@ARROW_ABI_VERSION@
+
 Name: Apache Arrow jemalloc-based allocator
 Description: jemalloc allocator for Arrow.
 Version: @ARROW_VERSION@

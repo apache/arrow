@@ -19,6 +19,9 @@ prefix=@CMAKE_INSTALL_PREFIX@
 libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/include
 
+so_version=@ARROW_SO_VERSION@
+abi_version=@ARROW_ABI_VERSION@
+
 Name: Apache Arrow
 Description: Arrow is a set of technologies that enable big-data systems to process and move data fast.
 Version: @ARROW_VERSION@
