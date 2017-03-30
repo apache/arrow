@@ -23,8 +23,9 @@
 #include <sstream>
 
 #include "arrow/array.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -218,7 +219,7 @@ Status Table::FromRecordBatches(const std::string& name,
   const int ncolumns = static_cast<int>(schema->num_fields());
 
   for (int i = 1; i < nbatches; ++i) {
-    if (!batches[i]->schema()->Equals(schema)) {
+    if (!batches[i]->schema()->Equals(*schema)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
          << schema->ToString() << "\nvs\n"
@@ -251,7 +252,7 @@ Status ConcatenateTables(const std::string& output_name,
   const int ncolumns = static_cast<int>(schema->num_fields());
 
   for (int i = 1; i < ntables; ++i) {
-    if (!tables[i]->schema()->Equals(schema)) {
+    if (!tables[i]->schema()->Equals(*schema)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
          << schema->ToString() << "\nvs\n"
@@ -277,8 +278,9 @@ Status ConcatenateTables(const std::string& output_name,
 }
 
 bool Table::Equals(const Table& other) const {
+  if (this == &other) { return true; }
   if (name_ != other.name()) { return false; }
-  if (!schema_->Equals(other.schema())) { return false; }
+  if (!schema_->Equals(*other.schema())) { return false; }
   if (static_cast<int64_t>(columns_.size()) != other.num_columns()) { return false; }
 
   for (int i = 0; i < static_cast<int>(columns_.size()); i++) {
@@ -287,10 +289,10 @@ bool Table::Equals(const Table& other) const {
   return true;
 }
 
-bool Table::Equals(const std::shared_ptr<Table>& other) const {
-  if (this == other.get()) { return true; }
-  if (!other) { return false; }
-  return Equals(*other.get());
+Status Table::RemoveColumn(int i, std::shared_ptr<Table>* out) const {
+  DCHECK_GT(i, 0);
+  DCHECK_LT(i, schema_->num_fields());
+  return Status::OK();
 }
 
 Status Table::ValidateColumns() const {

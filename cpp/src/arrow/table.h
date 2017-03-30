@@ -176,6 +176,10 @@ class ARROW_EXPORT Table {
   // @returns: the i-th column
   std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
+  /// Remove column from the table, producing a new Table (because tables and
+  /// schemas are immutable)
+  Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
+
   // @returns: the number of columns in the table
   int num_columns() const { return static_cast<int>(columns_.size()); }
 
@@ -183,7 +187,6 @@ class ARROW_EXPORT Table {
   int64_t num_rows() const { return num_rows_; }
 
   bool Equals(const Table& other) const;
-  bool Equals(const std::shared_ptr<Table>& other) const;
 
   // After construction, perform any checks to validate the input arguments
   Status ValidateColumns() const;

@@ -27,7 +27,6 @@
 #include "arrow/loader.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

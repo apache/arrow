@@ -26,7 +26,6 @@ install(FILES
   loader.h
   memory_pool.h
   pretty_print.h
-  schema.h
   status.h
   table.h
   type.h

@@ -788,7 +788,6 @@ set(ARROW_SRCS
   src/arrow/loader.cc
   src/arrow/memory_pool.cc
   src/arrow/pretty_print.cc
-  src/arrow/schema.cc
   src/arrow/status.cc
   src/arrow/table.cc
   src/arrow/tensor.cc

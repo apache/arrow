@@ -225,6 +225,48 @@ std::string NullType::ToString() const {
 }
 
 // ----------------------------------------------------------------------
+// Schema implementation
+
+Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) : fields_(fields) {}
+
+bool Schema::Equals(const Schema& other) const {
+  if (this == &other) { return true; }
+
+  if (num_fields() != other.num_fields()) { return false; }
+  for (int i = 0; i < num_fields(); ++i) {
+    if (!field(i)->Equals(*other.field(i).get())) { return false; }
+  }
+  return true;
+}
+
+std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
+  if (fields_.size() > 0 && name_to_index_.size() == 0) {
+    for (size_t i = 0; i < fields_.size(); ++i) {
+      name_to_index_[fields_[i]->name] = static_cast<int>(i);
+    }
+  }
+
+  auto it = name_to_index_.find(name);
+  if (it == name_to_index_.end()) {
+    return nullptr;
+  } else {
+    return fields_[it->second];
+  }
+}
+
+std::string Schema::ToString() const {
+  std::stringstream buffer;
+
+  int i = 0;
+  for (auto field : fields_) {
+    if (i > 0) { buffer << std::endl; }
+    buffer << field->ToString();
+    ++i;
+  }
+  return buffer.str();
+}
+
+// ----------------------------------------------------------------------
 // Visitors and factory functions
 
 #define ACCEPT_VISITOR(TYPE) \

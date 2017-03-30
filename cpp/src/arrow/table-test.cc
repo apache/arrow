@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-common.h"
@@ -247,7 +246,7 @@ TEST_F(TestTable, Metadata) {
   std::string name = "data";
   table_.reset(new Table(name, schema_, columns_));
 
-  ASSERT_TRUE(table_->schema()->Equals(schema_));
+  ASSERT_TRUE(table_->schema()->Equals(*schema_));
 
   auto col = table_->column(0);
   ASSERT_EQ(schema_->field(0)->name, col->name());
@@ -284,23 +283,22 @@ TEST_F(TestTable, Equals) {
   std::string name = "data";
   table_.reset(new Table(name, schema_, columns_));
 
-  ASSERT_TRUE(table_->Equals(table_));
-  ASSERT_FALSE(table_->Equals(nullptr));
+  ASSERT_TRUE(table_->Equals(*table_));
   // Differing name
-  ASSERT_FALSE(table_->Equals(std::make_shared<Table>("other_name", schema_, columns_)));
+  ASSERT_FALSE(table_->Equals(Table("other_name", schema_, columns_)));
   // Differing schema
   auto f0 = std::make_shared<Field>("f3", int32());
   auto f1 = std::make_shared<Field>("f4", uint8());
   auto f2 = std::make_shared<Field>("f5", int16());
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto other_schema = std::make_shared<Schema>(fields);
-  ASSERT_FALSE(table_->Equals(std::make_shared<Table>(name, other_schema, columns_)));
+  ASSERT_FALSE(table_->Equals(Table(name, other_schema, columns_)));
   // Differing columns
   std::vector<std::shared_ptr<Column>> other_columns = {
       std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length, 10)),
       std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length, 10)),
       std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length, 10))};
-  ASSERT_FALSE(table_->Equals(std::make_shared<Table>(name, schema_, other_columns)));
+  ASSERT_FALSE(table_->Equals(Table(name, schema_, other_columns)));
 }
 
 TEST_F(TestTable, FromRecordBatches) {
@@ -313,7 +311,7 @@ TEST_F(TestTable, FromRecordBatches) {
   ASSERT_OK(Table::FromRecordBatches("foo", {batch1}, &result));
 
   expected = std::make_shared<Table>("foo", schema_, columns_);
-  ASSERT_TRUE(result->Equals(expected));
+  ASSERT_TRUE(result->Equals(*expected));
 
   std::vector<std::shared_ptr<Column>> other_columns;
   for (int i = 0; i < schema_->num_fields(); ++i) {
@@ -323,7 +321,7 @@ TEST_F(TestTable, FromRecordBatches) {
 
   ASSERT_OK(Table::FromRecordBatches("foo", {batch1, batch1}, &result));
   expected = std::make_shared<Table>("foo", schema_, other_columns);
-  ASSERT_TRUE(result->Equals(expected));
+  ASSERT_TRUE(result->Equals(*expected));
 
   // Error states
   std::vector<std::shared_ptr<RecordBatch>> empty_batches;
@@ -353,7 +351,7 @@ TEST_F(TestTable, ConcatenateTables) {
 
   ASSERT_OK(ConcatenateTables("bar", {t1, t2}, &result));
   ASSERT_OK(Table::FromRecordBatches("bar", {batch1, batch2}, &expected));
-  ASSERT_TRUE(result->Equals(expected));
+  ASSERT_TRUE(result->Equals(*expected));
 
   // Error states
   std::vector<std::shared_ptr<Table>> empty_tables;

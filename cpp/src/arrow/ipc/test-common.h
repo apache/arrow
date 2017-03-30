@@ -49,7 +49,7 @@ static inline void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
 }
 
 static inline void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
-  if (!left.schema()->Equals(right.schema())) {
+  if (!left.schema()->Equals(*right.schema())) {
     FAIL() << "Left schema: " << left.schema()->ToString()
            << "\nRight schema: " << right.schema()->ToString();
   }

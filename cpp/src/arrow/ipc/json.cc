@@ -26,7 +26,6 @@
 #include "arrow/buffer.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/memory_pool.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
