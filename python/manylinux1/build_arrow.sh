@@ -39,6 +39,7 @@ export PYARROW_BUNDLE_ARROW_CPP=1
 export LDFLAGS="-Wl,--no-as-needed"
 export ARROW_HOME="/arrow-dist"
 export PARQUET_HOME="/usr"
+export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
 
 # Ensure the target directory exists
 mkdir -p /io/dist
