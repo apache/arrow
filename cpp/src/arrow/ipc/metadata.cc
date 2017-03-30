@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"
@@ -29,7 +30,10 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/Tensor_generated.h"
+#include "arrow/ipc/util.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -418,6 +422,46 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+static Status TensorTypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+    flatbuf::Type* out_type, Offset* offset) {
+  switch (type->type) {
+    case Type::UINT8:
+      INT_TO_FB_CASE(8, false);
+    case Type::INT8:
+      INT_TO_FB_CASE(8, true);
+    case Type::UINT16:
+      INT_TO_FB_CASE(16, false);
+    case Type::INT16:
+      INT_TO_FB_CASE(16, true);
+    case Type::UINT32:
+      INT_TO_FB_CASE(32, false);
+    case Type::INT32:
+      INT_TO_FB_CASE(32, true);
+    case Type::UINT64:
+      INT_TO_FB_CASE(64, false);
+    case Type::INT64:
+      INT_TO_FB_CASE(64, true);
+    case Type::HALF_FLOAT:
+      *out_type = flatbuf::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_HALF);
+      break;
+    case Type::FLOAT:
+      *out_type = flatbuf::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_SINGLE);
+      break;
+    case Type::DOUBLE:
+      *out_type = flatbuf::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
+      break;
+    default:
+      *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
+      std::stringstream ss;
+      ss << "Unable to convert type: " << type->ToString() << std::endl;
+      return Status::NotImplemented(ss.str());
+  }
+  return Status::OK();
+}
+
 static DictionaryOffset GetDictionaryEncoding(
     FBB& fbb, const DictionaryType& type, DictionaryMemo* memo) {
   int64_t dictionary_id = memo->GetId(type.dictionary());
@@ -552,7 +596,7 @@ static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
   return Status::OK();
 }
 
-static Status WriteMessage(FBB& fbb, flatbuf::MessageHeader header_type,
+static Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
     flatbuffers::Offset<void> header, int64_t body_length, std::shared_ptr<Buffer>* out) {
   auto message =
       flatbuf::CreateMessage(fbb, kMetadataVersion, header_type, header, body_length);
@@ -565,7 +609,7 @@ Status WriteSchemaMessage(
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-  return WriteMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
 }
 
 using FieldNodeVector =
@@ -620,8 +664,37 @@ Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
-  return WriteMessage(
+  return WriteFBMessage(
       fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(), body_length, out);
+}
+
+Status WriteTensorMessage(
+    const Tensor& tensor, int64_t buffer_start_offset, std::shared_ptr<Buffer>* out) {
+  using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
+  using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
+
+  FBB fbb;
+
+  flatbuf::Type fb_type_type;
+  Offset fb_type;
+  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, tensor.type(), &fb_type_type, &fb_type));
+
+  std::vector<TensorDimOffset> dims;
+  for (int i = 0; i < tensor.ndim(); ++i) {
+    FBString name = fbb.CreateString(tensor.dim_name(i));
+    dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
+  }
+
+  auto fb_shape = fbb.CreateVector(dims);
+  auto fb_strides = fbb.CreateVector(tensor.strides());
+  int64_t body_length = tensor.data()->size();
+  flatbuf::Buffer buffer(-1, buffer_start_offset, body_length);
+
+  TensorOffset fb_tensor =
+      flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
+
+  return WriteFBMessage(
+      fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(), body_length, out);
 }
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
@@ -631,7 +704,7 @@ Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
-  return WriteMessage(
+  return WriteFBMessage(
       fbb, flatbuf::MessageHeader_DictionaryBatch, dictionary_batch, body_length, out);
 }
 
@@ -746,6 +819,8 @@ class Message::MessageImpl {
         return Message::DICTIONARY_BATCH;
       case flatbuf::MessageHeader_RecordBatch:
         return Message::RECORD_BATCH;
+      case flatbuf::MessageHeader_Tensor:
+        return Message::TENSOR;
       default:
         return Message::NONE;
     }
@@ -790,95 +865,78 @@ const void* Message::header() const {
 }
 
 // ----------------------------------------------------------------------
-// SchemaMetadata
 
-class MessageHolder {
- public:
-  void set_message(const std::shared_ptr<Message>& message) { message_ = message; }
-  void set_buffer(const std::shared_ptr<Buffer>& buffer) { buffer_ = buffer; }
-
- protected:
-  // Possible parents, owns the flatbuffer data
-  std::shared_ptr<Message> message_;
-  std::shared_ptr<Buffer> buffer_;
-};
-
-class SchemaMetadata::SchemaMetadataImpl : public MessageHolder {
- public:
-  explicit SchemaMetadataImpl(const void* schema)
-      : schema_(static_cast<const flatbuf::Schema*>(schema)) {}
-
-  const flatbuf::Field* get_field(int i) const { return schema_->fields()->Get(i); }
-
-  int num_fields() const { return schema_->fields()->size(); }
-
-  Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_field) const {
-    const flatbuf::DictionaryEncoding* dict_metadata = field->dictionary();
-    if (dict_metadata == nullptr) {
-      // Field is not dictionary encoded. Visit children
-      auto children = field->children();
-      for (flatbuffers::uoffset_t i = 0; i < children->size(); ++i) {
-        RETURN_NOT_OK(VisitField(children->Get(i), id_to_field));
-      }
-    } else {
-      // Field is dictionary encoded. Construct the data type for the
-      // dictionary (no descendents can be dictionary encoded)
-      std::shared_ptr<Field> dictionary_field;
-      RETURN_NOT_OK(FieldFromFlatbufferDictionary(field, &dictionary_field));
-      (*id_to_field)[dict_metadata->id()] = dictionary_field;
+static Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_field) {
+  const flatbuf::DictionaryEncoding* dict_metadata = field->dictionary();
+  if (dict_metadata == nullptr) {
+    // Field is not dictionary encoded. Visit children
+    auto children = field->children();
+    for (flatbuffers::uoffset_t i = 0; i < children->size(); ++i) {
+      RETURN_NOT_OK(VisitField(children->Get(i), id_to_field));
     }
-    return Status::OK();
+  } else {
+    // Field is dictionary encoded. Construct the data type for the
+    // dictionary (no descendents can be dictionary encoded)
+    std::shared_ptr<Field> dictionary_field;
+    RETURN_NOT_OK(FieldFromFlatbufferDictionary(field, &dictionary_field));
+    (*id_to_field)[dict_metadata->id()] = dictionary_field;
   }
+  return Status::OK();
+}
 
-  Status GetDictionaryTypes(DictionaryTypeMap* id_to_field) const {
-    for (int i = 0; i < num_fields(); ++i) {
-      RETURN_NOT_OK(VisitField(get_field(i), id_to_field));
-    }
-    return Status::OK();
+Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_field) {
+  auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
+  int num_fields = static_cast<int>(schema->fields()->size());
+  for (int i = 0; i < num_fields; ++i) {
+    RETURN_NOT_OK(VisitField(schema->fields()->Get(i), id_to_field));
   }
-
- private:
-  const flatbuf::Schema* schema_;
-};
-
-SchemaMetadata::SchemaMetadata(const std::shared_ptr<Message>& message)
-    : SchemaMetadata(message->impl_->header()) {
-  impl_->set_message(message);
+  return Status::OK();
 }
 
-SchemaMetadata::SchemaMetadata(const void* header) {
-  impl_.reset(new SchemaMetadataImpl(header));
-}
+Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
+    std::shared_ptr<Schema>* out) {
+  auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
+  int num_fields = static_cast<int>(schema->fields()->size());
 
-SchemaMetadata::SchemaMetadata(const std::shared_ptr<Buffer>& buffer, int64_t offset)
-    : SchemaMetadata(buffer->data() + offset) {
-  // Preserve ownership
-  impl_->set_buffer(buffer);
-}
-
-SchemaMetadata::~SchemaMetadata() {}
-
-int SchemaMetadata::num_fields() const {
-  return impl_->num_fields();
-}
-
-Status SchemaMetadata::GetDictionaryTypes(DictionaryTypeMap* id_to_field) const {
-  return impl_->GetDictionaryTypes(id_to_field);
-}
-
-Status SchemaMetadata::GetSchema(
-    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const {
-  std::vector<std::shared_ptr<Field>> fields(num_fields());
-  for (int i = 0; i < this->num_fields(); ++i) {
-    const flatbuf::Field* field = impl_->get_field(i);
+  std::vector<std::shared_ptr<Field>> fields(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    const flatbuf::Field* field = schema->fields()->Get(i);
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
   *out = std::make_shared<Schema>(fields);
   return Status::OK();
 }
 
+Status GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* type,
+    std::vector<int64_t>* shape, std::vector<int64_t>* strides,
+    std::vector<std::string>* dim_names) {
+  auto tensor = static_cast<const flatbuf::Tensor*>(opaque_tensor);
+
+  int ndim = static_cast<int>(tensor->shape()->size());
+
+  for (int i = 0; i < ndim; ++i) {
+    auto dim = tensor->shape()->Get(i);
+
+    shape->push_back(dim->size());
+    auto fb_name = dim->name();
+    if (fb_name == 0) {
+      dim_names->push_back("");
+    } else {
+      dim_names->push_back(fb_name->str());
+    }
+  }
+
+  if (tensor->strides()->size() > 0) {
+    for (int i = 0; i < ndim; ++i) {
+      strides->push_back(tensor->strides()->Get(i));
+    }
+  }
+
+  return TypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
+}
+
 // ----------------------------------------------------------------------
-// Conveniences
+// Read and write messages
 
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
     std::shared_ptr<Message>* message) {
@@ -894,6 +952,62 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
     return Status::Invalid(ss.str());
   }
   return Message::Open(buffer, 4, message);
+}
+
+Status ReadMessage(io::InputStream* file, std::shared_ptr<Message>* message) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
+
+  if (buffer->size() != sizeof(int32_t)) {
+    *message = nullptr;
+    return Status::OK();
+  }
+
+  int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
+
+  if (message_length == 0) {
+    // Optional 0 EOS control message
+    *message = nullptr;
+    return Status::OK();
+  }
+
+  RETURN_NOT_OK(file->Read(message_length, &buffer));
+  if (buffer->size() != message_length) {
+    return Status::IOError("Unexpected end of stream trying to read message");
+  }
+
+  return Message::Open(buffer, 0, message);
+}
+
+Status WriteMessage(
+    const Buffer& message, io::OutputStream* file, int32_t* message_length) {
+  // Need to write 4 bytes (message size), the message, plus padding to
+  // end on an 8-byte offset
+  int64_t start_offset;
+  RETURN_NOT_OK(file->Tell(&start_offset));
+
+  int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
+  const int32_t remainder =
+      (padded_message_length + static_cast<int32_t>(start_offset)) % 8;
+  if (remainder != 0) { padded_message_length += 8 - remainder; }
+
+  // The returned message size includes the length prefix, the flatbuffer,
+  // plus padding
+  *message_length = padded_message_length;
+
+  // Write the flatbuffer size prefix including padding
+  int32_t flatbuffer_size = padded_message_length - 4;
+  RETURN_NOT_OK(
+      file->Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
+
+  // Write the flatbuffer
+  RETURN_NOT_OK(file->Write(message.data(), message.size()));
+
+  // Write any padding
+  int32_t padding = padded_message_length - static_cast<int32_t>(message.size()) - 4;
+  if (padding > 0) { RETURN_NOT_OK(file->Write(kPaddingBytes, padding)); }
+
+  return Status::OK();
 }
 
 }  // namespace ipc

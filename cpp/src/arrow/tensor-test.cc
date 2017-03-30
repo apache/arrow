@@ -61,13 +61,36 @@ TEST(TestTensor, BasicCtors) {
 
   ASSERT_EQ(24, t1.size());
   ASSERT_TRUE(t1.is_mutable());
-  ASSERT_FALSE(t1.has_dim_names());
 
   ASSERT_EQ(strides, t1.strides());
   ASSERT_EQ(strides, t2.strides());
 
   ASSERT_EQ("foo", t3.dim_name(0));
   ASSERT_EQ("bar", t3.dim_name(1));
+  ASSERT_EQ("", t1.dim_name(0));
+  ASSERT_EQ("", t1.dim_name(1));
+}
+
+TEST(TestTensor, IsContiguous) {
+  const int64_t values = 24;
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<int64_t> strides = {48, 8};
+
+  using T = int64_t;
+
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
+
+  std::vector<int64_t> c_strides = {48, 8};
+  std::vector<int64_t> f_strides = {8, 32};
+  std::vector<int64_t> noncontig_strides = {8, 8};
+  Int64Tensor t1(buffer, shape, c_strides);
+  Int64Tensor t2(buffer, shape, f_strides);
+  Int64Tensor t3(buffer, shape, noncontig_strides);
+
+  ASSERT_TRUE(t1.is_contiguous());
+  ASSERT_TRUE(t2.is_contiguous());
+  ASSERT_FALSE(t3.is_contiguous());
 }
 
 }  // namespace arrow

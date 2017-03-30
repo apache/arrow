@@ -25,16 +25,16 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/ipc/util.h"
-
-#include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/test-util.h"
 #include "arrow/util/bit-util.h"
 
@@ -56,13 +56,10 @@ class TestSchemaMetadata : public ::testing::Test {
 
     ASSERT_EQ(Message::SCHEMA, message->type());
 
-    auto schema_msg = std::make_shared<SchemaMetadata>(message);
-    ASSERT_EQ(schema.num_fields(), schema_msg->num_fields());
-
     DictionaryMemo empty_memo;
 
     std::shared_ptr<Schema> schema2;
-    ASSERT_OK(schema_msg->GetSchema(empty_memo, &schema2));
+    ASSERT_OK(GetSchema(message->header(), empty_memo, &schema2));
 
     AssertSchemaEqual(schema, *schema2);
   }
@@ -90,7 +87,7 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
 }
 
 TEST_F(TestSchemaMetadata, NestedFields) {
-  auto type = std::make_shared<ListType>(std::make_shared<Int32Type>());
+  auto type = list(int32());
   auto f0 = field("f0", type);
 
   std::shared_ptr<StructType> type2(
@@ -532,7 +529,6 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 
   // 512 MB
   constexpr int64_t kBufferSize = 1 << 29;
-
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
   std::shared_ptr<RecordBatch> result;
@@ -578,6 +574,48 @@ TEST_F(TestFileFormat, DictionaryRoundTrip) {
   ASSERT_OK(RoundTripHelper({batch}, &out_batches));
 
   CheckBatchDictionaries(*out_batches[0]);
+}
+
+class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+
+  void CheckTensorRoundTrip(const Tensor& tensor) {
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+
+    std::shared_ptr<Tensor> result;
+    ASSERT_OK(ReadTensor(0, mmap_.get(), &result));
+
+    ASSERT_TRUE(tensor.Equals(*result));
+  }
+};
+
+TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
+  std::string path = "test-write-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<int64_t> strides = {48, 8};
+  std::vector<std::string> dim_names = {"foo", "bar"};
+  int64_t size = 24;
+
+  std::vector<int64_t> values;
+  test::randint<int64_t>(size, 0, 100, &values);
+
+  auto data = test::GetBufferFromVector(values);
+
+  Int64Tensor t0(data, shape, strides, dim_names);
+  Int64Tensor tzero(data, {}, {}, {});
+
+  CheckTensorRoundTrip(t0);
+  CheckTensorRoundTrip(tzero);
 }
 
 }  // namespace ipc

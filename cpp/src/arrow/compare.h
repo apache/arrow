@@ -29,9 +29,13 @@ namespace arrow {
 class Array;
 struct DataType;
 class Status;
+class Tensor;
 
 /// Returns true if the arrays are exactly equal
 Status ARROW_EXPORT ArrayEquals(const Array& left, const Array& right, bool* are_equal);
+
+Status ARROW_EXPORT TensorEquals(
+    const Tensor& left, const Tensor& right, bool* are_equal);
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)

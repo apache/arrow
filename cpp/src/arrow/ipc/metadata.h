@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -37,9 +38,11 @@ struct DataType;
 struct Field;
 class Schema;
 class Status;
+class Tensor;
 
 namespace io {
 
+class InputStream;
 class OutputStream;
 class RandomAccessFile;
 
@@ -53,7 +56,7 @@ struct MetadataVersion {
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
 
-struct ARROW_EXPORT FileBlock {
+struct FileBlock {
   FileBlock() {}
   FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
       : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
@@ -104,44 +107,25 @@ class DictionaryMemo {
 
 class Message;
 
-// Container for serialized Schema metadata contained in an IPC message
-class ARROW_EXPORT SchemaMetadata {
- public:
-  explicit SchemaMetadata(const void* header);
-  explicit SchemaMetadata(const std::shared_ptr<Message>& message);
-  SchemaMetadata(const std::shared_ptr<Buffer>& message, int64_t offset);
+// Retrieve a list of all the dictionary ids and types required by the schema for
+// reconstruction. The presumption is that these will be loaded either from
+// the stream or file (or they may already be somewhere else in memory)
+Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_field);
 
-  ~SchemaMetadata();
+// Construct a complete Schema from the message. May be expensive for very
+// large schemas if you are only interested in a few fields
+Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
+    std::shared_ptr<Schema>* out);
 
-  int num_fields() const;
-
-  // Retrieve a list of all the dictionary ids and types required by the schema for
-  // reconstruction. The presumption is that these will be loaded either from
-  // the stream or file (or they may already be somewhere else in memory)
-  Status GetDictionaryTypes(DictionaryTypeMap* id_to_field) const;
-
-  // Construct a complete Schema from the message. May be expensive for very
-  // large schemas if you are only interested in a few fields
-  Status GetSchema(
-      const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out) const;
-
- private:
-  class SchemaMetadataImpl;
-  std::unique_ptr<SchemaMetadataImpl> impl_;
-
-  DISALLOW_COPY_AND_ASSIGN(SchemaMetadata);
-};
-
-struct ARROW_EXPORT BufferMetadata {
-  int32_t page;
-  int64_t offset;
-  int64_t length;
-};
+Status GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* type,
+    std::vector<int64_t>* shape, std::vector<int64_t>* strides,
+    std::vector<std::string>* dim_names);
 
 class ARROW_EXPORT Message {
  public:
+  enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH, TENSOR };
+
   ~Message();
-  enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
 
   static Status Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
       std::shared_ptr<Message>* out);
@@ -154,9 +138,6 @@ class ARROW_EXPORT Message {
 
  private:
   Message(const std::shared_ptr<Buffer>& buffer, int64_t offset);
-
-  friend class DictionaryBatchMetadata;
-  friend class SchemaMetadata;
 
   // Hide serialization details from user API
   class MessageImpl;
@@ -179,6 +160,17 @@ class ARROW_EXPORT Message {
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
     std::shared_ptr<Message>* message);
 
+/// Read length-prefixed message with as-yet unknown length. Returns nullptr if
+/// there are not enough bytes available or the message length is 0 (e.g. EOS
+/// in a stream)
+Status ReadMessage(io::InputStream* stream, std::shared_ptr<Message>* message);
+
+/// Write a serialized message with a length-prefix and padding to an 8-byte offset
+///
+/// <message_size: int32><message: const void*><padding>
+Status WriteMessage(
+    const Buffer& message, io::OutputStream* file, int32_t* message_length);
+
 // Serialize arrow::Schema as a Flatbuffer
 //
 // \param[in] schema a Schema instance
@@ -192,6 +184,9 @@ Status WriteSchemaMessage(
 Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
+
+Status WriteTensorMessage(
+    const Tensor& tensor, int64_t buffer_start_offset, std::shared_ptr<Buffer>* out);
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,

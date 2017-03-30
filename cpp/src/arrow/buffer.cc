@@ -27,11 +27,9 @@
 
 namespace arrow {
 
-Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size) {
-  data_ = parent->data() + offset;
-  size_ = size;
+Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
+    : Buffer(parent->data() + offset, size) {
   parent_ = parent;
-  capacity_ = size;
 }
 
 Buffer::~Buffer() {}

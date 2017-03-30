@@ -22,6 +22,7 @@
 
 #include "arrow/array.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -97,6 +98,31 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
     ARRAY_VISIT_INLINE(StructType);
     ARRAY_VISIT_INLINE(UnionType);
     ARRAY_VISIT_INLINE(DictionaryType);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Type not implemented");
+}
+
+#define TENSOR_VISIT_INLINE(TYPE_CLASS) \
+  case TYPE_CLASS::type_id:             \
+    return visitor->Visit(              \
+        static_cast<const typename TypeTraits<TYPE_CLASS>::TensorType&>(array));
+
+template <typename VISITOR>
+inline Status VisitTensorInline(const Tensor& array, VISITOR* visitor) {
+  switch (array.type_enum()) {
+    TENSOR_VISIT_INLINE(Int8Type);
+    TENSOR_VISIT_INLINE(UInt8Type);
+    TENSOR_VISIT_INLINE(Int16Type);
+    TENSOR_VISIT_INLINE(UInt16Type);
+    TENSOR_VISIT_INLINE(Int32Type);
+    TENSOR_VISIT_INLINE(UInt32Type);
+    TENSOR_VISIT_INLINE(Int64Type);
+    TENSOR_VISIT_INLINE(UInt64Type);
+    TENSOR_VISIT_INLINE(HalfFloatType);
+    TENSOR_VISIT_INLINE(FloatType);
+    TENSOR_VISIT_INLINE(DoubleType);
     default:
       break;
   }

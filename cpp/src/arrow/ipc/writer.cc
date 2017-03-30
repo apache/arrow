@@ -34,6 +34,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
@@ -143,46 +144,6 @@ class RecordBatchWriter : public ArrayVisitor {
         num_rows, body_length, field_nodes_, buffer_meta_, out);
   }
 
-  Status WriteMetadata(int64_t num_rows, int64_t body_length, io::OutputStream* dst,
-      int32_t* metadata_length) {
-    // Now that we have computed the locations of all of the buffers in shared
-    // memory, the data header can be converted to a flatbuffer and written out
-    //
-    // Note: The memory written here is prefixed by the size of the flatbuffer
-    // itself as an int32_t.
-    std::shared_ptr<Buffer> metadata_fb;
-    RETURN_NOT_OK(WriteMetadataMessage(num_rows, body_length, &metadata_fb));
-
-    // Need to write 4 bytes (metadata size), the metadata, plus padding to
-    // end on an 8-byte offset
-    int64_t start_offset;
-    RETURN_NOT_OK(dst->Tell(&start_offset));
-
-    int32_t padded_metadata_length = static_cast<int32_t>(metadata_fb->size()) + 4;
-    const int32_t remainder =
-        (padded_metadata_length + static_cast<int32_t>(start_offset)) % 8;
-    if (remainder != 0) { padded_metadata_length += 8 - remainder; }
-
-    // The returned metadata size includes the length prefix, the flatbuffer,
-    // plus padding
-    *metadata_length = padded_metadata_length;
-
-    // Write the flatbuffer size prefix including padding
-    int32_t flatbuffer_size = padded_metadata_length - 4;
-    RETURN_NOT_OK(
-        dst->Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
-
-    // Write the flatbuffer
-    RETURN_NOT_OK(dst->Write(metadata_fb->data(), metadata_fb->size()));
-
-    // Write any padding
-    int32_t padding =
-        padded_metadata_length - static_cast<int32_t>(metadata_fb->size()) - 4;
-    if (padding > 0) { RETURN_NOT_OK(dst->Write(kPaddingBytes, padding)); }
-
-    return Status::OK();
-  }
-
   Status Write(const RecordBatch& batch, io::OutputStream* dst, int32_t* metadata_length,
       int64_t* body_length) {
     RETURN_NOT_OK(Assemble(batch, body_length));
@@ -192,7 +153,14 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(dst->Tell(&start_position));
 #endif
 
-    RETURN_NOT_OK(WriteMetadata(batch.num_rows(), *body_length, dst, metadata_length));
+    // Now that we have computed the locations of all of the buffers in shared
+    // memory, the data header can be converted to a flatbuffer and written out
+    //
+    // Note: The memory written here is prefixed by the size of the flatbuffer
+    // itself as an int32_t.
+    std::shared_ptr<Buffer> metadata_fb;
+    RETURN_NOT_OK(WriteMetadataMessage(batch.num_rows(), *body_length, &metadata_fb));
+    RETURN_NOT_OK(WriteMessage(*metadata_fb, dst, metadata_length));
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
@@ -504,6 +472,28 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 
+Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
+    MemoryPool* pool) {
+  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
+      pool, kMaxNestingDepth, true);
+}
+
+Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length) {
+  std::shared_ptr<Buffer> metadata;
+  RETURN_NOT_OK(WriteTensorMessage(tensor, 0, &metadata));
+  RETURN_NOT_OK(WriteMessage(*metadata, dst, metadata_length));
+  auto data = tensor.data();
+  if (data) {
+    *body_length = data->size();
+    return dst->Write(data->data(), *body_length);
+  } else {
+    *body_length = 0;
+    return Status::OK();
+  }
+}
+
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length, MemoryPool* pool) {
@@ -734,13 +724,6 @@ Status FileWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) 
 
 Status FileWriter::Close() {
   return impl_->Close();
-}
-
-Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool) {
-  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
-      pool, kMaxNestingDepth, true);
 }
 
 }  // namespace ipc

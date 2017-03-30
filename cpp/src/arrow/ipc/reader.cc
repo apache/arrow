@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -186,28 +187,9 @@ class StreamReader::StreamReaderImpl {
   }
 
   Status ReadNextMessage(Message::Type expected_type, std::shared_ptr<Message>* message) {
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(stream_->Read(sizeof(int32_t), &buffer));
+    RETURN_NOT_OK(ReadMessage(stream_.get(), message));
 
-    if (buffer->size() != sizeof(int32_t)) {
-      *message = nullptr;
-      return Status::OK();
-    }
-
-    int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
-
-    if (message_length == 0) {
-      // Optional 0 EOS control message
-      *message = nullptr;
-      return Status::OK();
-    }
-
-    RETURN_NOT_OK(stream_->Read(message_length, &buffer));
-    if (buffer->size() != message_length) {
-      return Status::IOError("Unexpected end of stream trying to read message");
-    }
-
-    RETURN_NOT_OK(Message::Open(buffer, 0, message));
+    if ((*message) == nullptr) { return Status::OK(); }
 
     if ((*message)->type() != expected_type) {
       std::stringstream ss;
@@ -245,8 +227,7 @@ class StreamReader::StreamReaderImpl {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
 
-    SchemaMetadata schema_meta(message);
-    RETURN_NOT_OK(schema_meta.GetDictionaryTypes(&dictionary_types_));
+    RETURN_NOT_OK(GetDictionaryTypes(message->header(), &dictionary_types_));
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
@@ -255,7 +236,7 @@ class StreamReader::StreamReaderImpl {
       RETURN_NOT_OK(ReadNextDictionary());
     }
 
-    return schema_meta.GetSchema(dictionary_memo_, &schema_);
+    return GetSchema(message->header(), dictionary_memo_, &schema_);
   }
 
   Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
@@ -343,7 +324,6 @@ class FileReader::FileReaderImpl {
 
     // TODO(wesm): Verify the footer
     footer_ = flatbuf::GetFooter(footer_buffer_->data());
-    schema_metadata_.reset(new SchemaMetadata(footer_->schema()));
 
     return Status::OK();
   }
@@ -372,8 +352,6 @@ class FileReader::FileReaderImpl {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
   }
 
-  const SchemaMetadata& schema_metadata() const { return *schema_metadata_; }
-
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
@@ -393,7 +371,7 @@ class FileReader::FileReaderImpl {
   }
 
   Status ReadSchema() {
-    RETURN_NOT_OK(schema_metadata_->GetDictionaryTypes(&dictionary_fields_));
+    RETURN_NOT_OK(GetDictionaryTypes(footer_->schema(), &dictionary_fields_));
 
     // Read all the dictionaries
     for (int i = 0; i < num_dictionaries(); ++i) {
@@ -419,7 +397,7 @@ class FileReader::FileReaderImpl {
     }
 
     // Get the schema
-    return schema_metadata_->GetSchema(*dictionary_memo_, &schema_);
+    return GetSchema(footer_->schema(), *dictionary_memo_, &schema_);
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
@@ -441,7 +419,6 @@ class FileReader::FileReaderImpl {
   // Footer metadata
   std::shared_ptr<Buffer> footer_buffer_;
   const flatbuf::Footer* footer_;
-  std::unique_ptr<SchemaMetadata> schema_metadata_;
 
   DictionaryTypeMap dictionary_fields_;
   std::shared_ptr<DictionaryMemo> dictionary_memo_;
@@ -485,25 +462,45 @@ Status FileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   return impl_->GetRecordBatch(i, batch);
 }
 
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
-    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+static Status ReadContiguousPayload(int64_t offset, io::RandomAccessFile* file,
+    std::shared_ptr<Message>* message, std::shared_ptr<Buffer>* payload) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->Seek(offset));
+  RETURN_NOT_OK(ReadMessage(file, message));
 
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
-  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  std::shared_ptr<Message> message;
-  RETURN_NOT_OK(file->Read(flatbuffer_size, &buffer));
-  RETURN_NOT_OK(Message::Open(buffer, 0, &message));
+  if (*message == nullptr) {
+    return Status::Invalid("Unable to read metadata at offset");
+  }
 
   // TODO(ARROW-388): The buffer offsets start at 0, so we must construct a
   // RandomAccessFile according to that frame of reference
-  std::shared_ptr<Buffer> buffer_payload;
-  RETURN_NOT_OK(file->Read(message->body_length(), &buffer_payload));
-  io::BufferReader buffer_reader(buffer_payload);
+  RETURN_NOT_OK(file->Read((*message)->body_length(), payload));
+  return Status::OK();
+}
 
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
+    io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+  std::shared_ptr<Buffer> payload;
+  std::shared_ptr<Message> message;
+
+  RETURN_NOT_OK(ReadContiguousPayload(offset, file, &message, &payload));
+  io::BufferReader buffer_reader(payload);
   return ReadRecordBatch(*message, schema, kMaxNestingDepth, &buffer_reader, out);
+}
+
+Status ReadTensor(
+    int64_t offset, io::RandomAccessFile* file, std::shared_ptr<Tensor>* out) {
+  std::shared_ptr<Message> message;
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(ReadContiguousPayload(offset, file, &message, &data));
+
+  std::shared_ptr<DataType> type;
+  std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
+  std::vector<std::string> dim_names;
+  RETURN_NOT_OK(
+      GetTensorMetadata(message->header(), &type, &shape, &strides, &dim_names));
+  return MakeTensor(type, data, shape, strides, dim_names, out);
 }
 
 }  // namespace ipc

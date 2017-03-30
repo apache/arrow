@@ -32,16 +32,6 @@ table TensorDim {
   name: string;
 }
 
-enum TensorOrder : byte {
-  /// Higher dimensions vary first when traversing data in byte-contiguous
-  /// order, aka "C order"
-  ROW_MAJOR,
-
-  /// Lower dimensions vary first when traversing data in byte-contiguous
-  /// order, aka "Fortran order"
-  COLUMN_MAJOR
-}
-
 table Tensor {
   /// The type of data contained in a value cell. Currently only fixed-width
   /// value types are supported, no strings or nested types
@@ -50,8 +40,8 @@ table Tensor {
   /// The dimensions of the tensor, optionally named
   shape: [TensorDim];
 
-  /// The memory order of the tensor's data
-  order: TensorOrder;
+  /// Non-negative byte offsets to advance one value cell along each dimension
+  strides: [long];
 
   /// The location and size of the tensor's data
   data: Buffer;
