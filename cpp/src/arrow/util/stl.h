@@ -23,15 +23,16 @@
 namespace arrow {
 
 template <typename T>
-void DeleteVectorElement(
-    const std::vector<T>& values, size_t index, std::vector<T>* out) {
-  out->reserve(values.size() - 1);
+inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
+  std::vector<T> out;
+  out.reserve(values.size() - 1);
   for (size_t i = 0; i < index; ++i) {
-    out->push_back(values[i]);
+    out.push_back(values[i]);
   }
   for (size_t i = index + 1; i < values.size(); ++i) {
-    out->push_back(values[i]);
+    out.push_back(values[i]);
   }
+  return out;
 }
 
 }  // namespace arrow

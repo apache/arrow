@@ -158,7 +158,7 @@ class ARROW_EXPORT Table {
   // same length as num_rows -- you can validate this using
   // Table::ValidateColumns
   Table(const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column>>& columns, int64_t nubm_rows);
+      const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
