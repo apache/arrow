@@ -138,6 +138,28 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
+Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
+  const int length = 1000;
+
+  // Make the schema
+  auto f0 = field("f0", boolean());
+  auto f1 = field("f1", boolean());
+  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+
+  std::vector<uint8_t> values(length);
+  std::vector<uint8_t> valid_bytes(length);
+  test::random_null_bytes(length, 0.5, values.data());
+  test::random_null_bytes(length, 0.1, valid_bytes.data());
+
+  auto data = test::bytes_to_null_buffer(values);
+  auto null_bitmap = test::bytes_to_null_buffer(valid_bytes);
+
+  auto a0 = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
+  auto a1 = std::make_shared<BooleanArray>(length, data, nullptr, 0);
+  out->reset(new RecordBatch(schema, length, {a0, a1}));
+  return Status::OK();
+}
+
 Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int length = 10;
 
