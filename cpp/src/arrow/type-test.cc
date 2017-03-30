@@ -210,6 +210,9 @@ TEST(TestTimeType, Equals) {
   Time64Type t4(TimeUnit::NANO);
   Time64Type t5(TimeUnit::MICRO);
 
+  ASSERT_EQ(32, t0.bit_width());
+  ASSERT_EQ(64, t3.bit_width());
+
   ASSERT_TRUE(t0.Equals(t2));
   ASSERT_TRUE(t1.Equals(t1));
   ASSERT_FALSE(t1.Equals(t3));
