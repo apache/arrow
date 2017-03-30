@@ -31,7 +31,7 @@ namespace arrow {
 
 class Array;
 class Column;
-class DataType;
+struct DataType;
 class MemoryPool;
 class Status;
 class Table;
