@@ -47,7 +47,7 @@ MemoryPool* get_memory_pool() {
 // ----------------------------------------------------------------------
 // PyBuffer
 
-PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0) {
+PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0), obj_(nullptr) {
   if (PyObject_CheckBuffer(obj)) {
     obj_ = PyMemoryView_FromObject(obj);
     Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
@@ -61,7 +61,7 @@ PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0) {
 
 PyBuffer::~PyBuffer() {
   PyAcquireGIL lock;
-  Py_DECREF(obj_);
+  Py_XDECREF(obj_);
 }
 
 }  // namespace py

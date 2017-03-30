@@ -390,7 +390,7 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
       bytes = PyBytes_AS_STRING(bytes_obj);
-      RETURN_NOT_OK(typed_builder_->Append(bytes, length));
+      RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
     }
     return Status::OK();
   }
@@ -422,7 +422,7 @@ class UTF8Converter : public TypedConverter<StringBuilder> {
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
       bytes = PyBytes_AS_STRING(bytes_obj);
-      RETURN_NOT_OK(typed_builder_->Append(bytes, length));
+      RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
     }
     return Status::OK();
   }

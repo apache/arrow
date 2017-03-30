@@ -159,13 +159,13 @@ Status AppendObjectStrings(StringBuilder& string_builder, PyObject** objects,
         PyErr_Clear();
         return Status::TypeError("failed converting unicode to UTF8");
       }
-      const int64_t length = PyBytes_GET_SIZE(obj);
+      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       Status s = string_builder.Append(PyBytes_AS_STRING(obj), length);
       Py_DECREF(obj);
       if (!s.ok()) { return s; }
     } else if (PyBytes_Check(obj)) {
       *have_bytes = true;
-      const int64_t length = PyBytes_GET_SIZE(obj);
+      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
     } else {
       string_builder.AppendNull();
@@ -235,7 +235,7 @@ class PandasConverter : public TypeVisitor {
   }
 
   Status InitNullBitmap() {
-    int null_bytes = BitUtil::BytesForBits(length_);
+    int64_t null_bytes = BitUtil::BytesForBits(length_);
 
     null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
     RETURN_NOT_OK(null_bitmap_->Resize(null_bytes));
@@ -357,7 +357,7 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
 
 template <>
 inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>* data) {
-  int nbytes = BitUtil::BytesForBits(length_);
+  int64_t nbytes = BitUtil::BytesForBits(length_);
   auto buffer = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(buffer->Resize(nbytes));
 
@@ -423,7 +423,7 @@ Status PandasConverter::ConvertBooleans(std::shared_ptr<Array>* out) {
 
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
 
-  int nbytes = BitUtil::BytesForBits(length_);
+  int64_t nbytes = BitUtil::BytesForBits(length_);
   auto data = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(data->Resize(nbytes));
   uint8_t* bitmap = data->mutable_data();

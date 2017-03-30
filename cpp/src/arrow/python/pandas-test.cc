@@ -24,20 +24,26 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/python/pandas_convert.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 
+#include "arrow/python/common.h"
+#include "arrow/python/pandas_convert.h"
+
 namespace arrow {
 namespace py {
+
+TEST(PyBuffer, InvalidInputObject) {
+  PyBuffer buffer(Py_None);
+}
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   StringBuilder builder(default_memory_pool());
   const char value[] = {'\xf1', '\0'};
 
   for (int i = 0; i < 1000; ++i) {
-    builder.Append(value, strlen(value));
+    builder.Append(value, static_cast<int32_t>(strlen(value)));
   }
 
   std::shared_ptr<Array> arr;
