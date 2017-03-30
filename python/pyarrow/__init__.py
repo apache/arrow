@@ -43,7 +43,8 @@ from pyarrow.error import ArrowException
 
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,
-                        Buffer, InMemoryOutputStream, BufferReader)
+                        Buffer, InMemoryOutputStream, BufferReader,
+                        frombuffer)
 
 from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter
 
