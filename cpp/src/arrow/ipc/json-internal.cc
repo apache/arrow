@@ -175,6 +175,8 @@ class JsonSchemaWriter {
   void WriteTypeMetadata(const TimeType& type) {
     writer_->Key("unit");
     writer_->String(GetTimeUnitName(type.unit));
+    writer_->Key("bitWidth");
+    writer_->Int(type.bit_width());
   }
 
   void WriteTypeMetadata(const DateType& type) {
@@ -608,6 +610,9 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
   const auto& json_unit = json_type.FindMember("unit");
   RETURN_NOT_STRING("unit", json_unit, json_type);
 
+  const auto& json_bit_width = json_type.FindMember("bitWidth");
+  RETURN_NOT_INT("bitWidth", json_bit_width, json_type);
+
   std::string unit_str = json_unit->value.GetString();
 
   if (unit_str == "SECOND") {
@@ -623,6 +628,14 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
     ss << "Invalid time unit: " << unit_str;
     return Status::Invalid(ss.str());
   }
+
+  const auto& fw_type = static_cast<const FixedWidthType&>(**type);
+
+  int bit_width = json_bit_width->value.GetInt();
+  if (bit_width != fw_type.bit_width()) {
+    return Status::Invalid("Indicated bit width does not match unit");
+  }
+
   return Status::OK();
 }
 
