@@ -956,7 +956,6 @@ cdef class _StreamReader:
             vector[shared_ptr[CRecordBatch]] batches
             shared_ptr[CRecordBatch] batch
             shared_ptr[CTable] table
-            c_string name = b''
 
         with nogil:
             while True:
@@ -965,7 +964,7 @@ cdef class _StreamReader:
                     break
                 batches.push_back(batch)
 
-            check_status(CTable.FromRecordBatches(name, batches, &table))
+            check_status(CTable.FromRecordBatches(batches, &table))
 
         return table_from_ctable(table)
 
@@ -1033,7 +1032,6 @@ cdef class _FileReader:
         cdef:
             vector[shared_ptr[CRecordBatch]] batches
             shared_ptr[CTable] table
-            c_string name = b''
             int i, nbatches
 
         nbatches = self.num_record_batches
@@ -1042,6 +1040,6 @@ cdef class _FileReader:
         with nogil:
             for i in range(nbatches):
                 check_status(self.reader.get().GetRecordBatch(i, &batches[i]))
-            check_status(CTable.FromRecordBatches(name, batches, &table))
+            check_status(CTable.FromRecordBatches(batches, &table))
 
         return table_from_ctable(table)

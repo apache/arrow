@@ -166,7 +166,7 @@ cdef class Schema:
         cdef Schema _other
         _other = other
 
-        return self.sp_schema.get().Equals(_other.sp_schema)
+        return self.sp_schema.get().Equals(deref(_other.schema))
 
     def field_by_name(self, name):
         """
@@ -200,10 +200,15 @@ cdef class Schema:
 
         return result
 
-    def __repr__(self):
+    def __str__(self):
         return frombytes(self.schema.ToString())
 
+    def __repr__(self):
+        return self.__str__()
+
+
 cdef dict _type_cache = {}
+
 
 cdef DataType primitive_type(Type type):
     if type in _type_cache:
