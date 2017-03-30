@@ -157,3 +157,8 @@ class TestConvertList(unittest.TestCase):
         assert arr.null_count == 1
         assert arr.type == pyarrow.list_(pyarrow.int64())
         assert arr.to_pylist() == data
+
+    def test_mixed_types_fails(self):
+        data = ['a', 1, 2.0]
+        with self.assertRaises(pyarrow.error.ArrowException):
+            pyarrow.from_pylist(data)

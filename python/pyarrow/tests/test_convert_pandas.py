@@ -398,3 +398,8 @@ class TestPandasConversion(unittest.TestCase):
         ]
         for values in arrays:
             self._check_array_roundtrip(values)
+
+    def test_mixed_types_fails(self):
+        data = pd.DataFrame({'a': ['a', 1, 2.0]})
+        with self.assertRaises(A.error.ArrowException):
+            A.Table.from_pandas(data)

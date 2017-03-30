@@ -21,44 +21,39 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/python/builtin_convert.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
-
-#include "arrow/python/common.h"
-#include "arrow/python/pandas_convert.h"
 
 namespace arrow {
 namespace py {
 
-TEST(PyBuffer, InvalidInputObject) {
-  PyBuffer buffer(Py_None);
-}
-
-TEST(PandasConversionTest, TestObjectBlockWriteFails) {
-  StringBuilder builder(default_memory_pool());
-  const char value[] = {'\xf1', '\0'};
-
-  for (int i = 0; i < 1000; ++i) {
-    builder.Append(value, static_cast<int32_t>(strlen(value)));
-  }
-
+TEST(BuiltinConversionTest, TestMixedTypeFails) {
+  PyAcquireGIL lock;
+  MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> arr;
-  ASSERT_OK(builder.Finish(&arr));
 
-  auto f1 = field("f1", utf8());
-  auto f2 = field("f2", utf8());
-  auto f3 = field("f3", utf8());
-  std::vector<std::shared_ptr<Field>> fields = {f1, f2, f3};
-  std::vector<std::shared_ptr<Column>> cols = {std::make_shared<Column>(f1, arr),
-      std::make_shared<Column>(f2, arr), std::make_shared<Column>(f3, arr)};
+  PyObject* list = PyList_New(3);
+  ASSERT_NE(list, nullptr);
 
-  auto schema = std::make_shared<Schema>(fields);
-  auto table = std::make_shared<Table>(schema, cols);
+  PyObject* str = PyUnicode_FromString("abc");
+  ASSERT_NE(str, nullptr);
 
-  PyObject* out;
-  Py_BEGIN_ALLOW_THREADS;
-  ASSERT_RAISES(UnknownError, ConvertTableToPandas(table, 2, &out));
-  Py_END_ALLOW_THREADS;
+  PyObject* integer = PyLong_FromLong(1234L);
+  ASSERT_NE(integer, nullptr);
+
+  PyObject* doub = PyFloat_FromDouble(123.0234);
+  ASSERT_NE(doub, nullptr);
+
+  // This steals a reference to each object, so we don't need to decref them later
+  // just the list
+  ASSERT_EQ(PyList_SetItem(list, 0, str), 0);
+  ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
+  ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
+
+  ASSERT_RAISES(UnknownError, ConvertPySequence(list, pool, &arr));
+
+  Py_DECREF(list);
 }
 
 }  // namespace py
