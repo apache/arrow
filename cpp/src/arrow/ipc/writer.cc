@@ -591,7 +591,7 @@ class StreamWriter::StreamWriterImpl {
     return Status::OK();
   }
 
-  Status WriteRecordBatch(const RecordBatch& batch, FileBlock* block) {
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit, FileBlock* block) {
     RETURN_NOT_OK(CheckStarted());
 
     block->offset = position_;
@@ -599,7 +599,8 @@ class StreamWriter::StreamWriterImpl {
     // Frame of reference in file format is 0, see ARROW-384
     const int64_t buffer_start_offset = 0;
     RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(batch, buffer_start_offset, sink_,
-        &block->metadata_length, &block->body_length, pool_));
+        &block->metadata_length, &block->body_length, pool_, kMaxNestingDepth,
+        allow_64bit));
     RETURN_NOT_OK(UpdatePosition());
 
     DCHECK(position_ % 8 == 0) << "WriteRecordBatch did not perform aligned writes";
@@ -607,10 +608,11 @@ class StreamWriter::StreamWriterImpl {
     return Status::OK();
   }
 
-  Status WriteRecordBatch(const RecordBatch& batch) {
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
     // Push an empty FileBlock. Can be written in the footer later
     record_batches_.emplace_back(0, 0, 0);
-    return WriteRecordBatch(batch, &record_batches_[record_batches_.size() - 1]);
+    return WriteRecordBatch(
+        batch, allow_64bit, &record_batches_[record_batches_.size() - 1]);
   }
 
   // Adds padding bytes if necessary to ensure all memory blocks are written on
@@ -657,8 +659,8 @@ StreamWriter::StreamWriter() {
   impl_.reset(new StreamWriterImpl());
 }
 
-Status StreamWriter::WriteRecordBatch(const RecordBatch& batch) {
-  return impl_->WriteRecordBatch(batch);
+Status StreamWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+  return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
 void StreamWriter::set_memory_pool(MemoryPool* pool) {
@@ -723,8 +725,8 @@ Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& s
   return (*out)->impl_->Open(sink, schema);
 }
 
-Status FileWriter::WriteRecordBatch(const RecordBatch& batch) {
-  return impl_->WriteRecordBatch(batch);
+Status FileWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+  return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
 Status FileWriter::Close() {

@@ -138,17 +138,21 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
   Status DoLargeRoundTrip(
       const RecordBatch& batch, bool zero_data, std::shared_ptr<RecordBatch>* result) {
-    int32_t metadata_length;
-    int64_t body_length;
-
-    const int64_t buffer_offset = 0;
-
     if (zero_data) { RETURN_NOT_OK(ZeroMemoryMap(mmap_.get())); }
     RETURN_NOT_OK(mmap_->Seek(0));
 
-    RETURN_NOT_OK(WriteLargeRecordBatch(
-        batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
-    return ReadRecordBatch(batch.schema(), 0, mmap_.get(), result);
+    std::shared_ptr<FileWriter> file_writer;
+    RETURN_NOT_OK(FileWriter::Open(mmap_.get(), batch.schema(), &file_writer));
+    RETURN_NOT_OK(file_writer->WriteRecordBatch(batch, true));
+    RETURN_NOT_OK(file_writer->Close());
+
+    int64_t offset;
+    RETURN_NOT_OK(mmap_->Tell(&offset));
+
+    std::shared_ptr<FileReader> file_reader;
+    RETURN_NOT_OK(FileReader::Open(mmap_, offset, &file_reader));
+
+    return file_reader->GetRecordBatch(0, result);
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {

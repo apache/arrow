@@ -232,16 +232,16 @@ TEST(TestTimestampType, ToString) {
 }
 
 TEST(TestNestedType, Equals) {
-  auto create_struct =
-      [](std::string inner_name, std::string struct_name) -> shared_ptr<Field> {
+  auto create_struct = [](
+      std::string inner_name, std::string struct_name) -> shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
     vector<shared_ptr<Field>> fields = {f_type};
     auto s_type = std::make_shared<StructType>(fields);
     return field(struct_name, s_type);
   };
 
-  auto create_union =
-      [](std::string inner_name, std::string union_name) -> shared_ptr<Field> {
+  auto create_union = [](
+      std::string inner_name, std::string union_name) -> shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
     vector<shared_ptr<Field>> fields = {f_type};
     vector<uint8_t> codes = {Type::INT32};

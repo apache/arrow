@@ -87,7 +87,7 @@ class ARROW_EXPORT StreamWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<StreamWriter>* out);
 
-  virtual Status WriteRecordBatch(const RecordBatch& batch);
+  virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false);
 
   /// Perform any logic necessary to finish the stream. User is responsible for
   /// closing the actual OutputStream
@@ -108,7 +108,7 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
 
-  Status WriteRecordBatch(const RecordBatch& batch) override;
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
 
  private:
