@@ -126,14 +126,18 @@ cdef class NativeFile:
 
     def write(self, data):
         """
-        Write bytes-like (unicode, encoded to UTF-8) to file
+        Write byte from any object implementing buffer protocol (bytes,
+        bytearray, ndarray, pyarrow.Buffer)
         """
         self._assert_writeable()
 
-        data = tobytes(data)
+        if isinstance(data, six.string_types):
+            data = tobytes(data)
 
-        cdef const uint8_t* buf = <const uint8_t*> cp.PyBytes_AS_STRING(data)
-        cdef int64_t bufsize = len(data)
+        cdef Buffer arrow_buffer = frombuffer(data)
+
+        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
+        cdef int64_t bufsize = len(arrow_buffer)
         with nogil:
             check_status(self.wr_file.get().Write(buf, bufsize))
 
@@ -505,7 +509,7 @@ cdef class BufferReader(NativeFile):
         if isinstance(obj, Buffer):
             self.buffer = obj
         else:
-            self.buffer = build_arrow_buffer(obj)
+            self.buffer = frombuffer(obj)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = 1
@@ -513,7 +517,7 @@ cdef class BufferReader(NativeFile):
         self.is_open = True
 
 
-def build_arrow_buffer(object obj):
+def frombuffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes object
     """

@@ -23,6 +23,7 @@ import pytest
 import numpy as np
 
 from pyarrow.compat import u, guid
+import pyarrow as pa
 import pyarrow.io as io
 
 # ----------------------------------------------------------------------
@@ -127,28 +128,29 @@ def test_bytes_reader_retains_parent_reference():
 def test_buffer_bytes():
     val = b'some data'
 
-    buf = io.build_arrow_buffer(val)
+    buf = pa.frombuffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = buf.to_pybytes()
 
     assert result == val
 
+
 def test_buffer_memoryview():
     val = b'some data'
 
-    buf = io.build_arrow_buffer(val)
+    buf = pa.frombuffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = memoryview(buf)
 
     assert result == val
 
+
 def test_buffer_bytearray():
     val = bytearray(b'some data')
 
-
-    buf = io.build_arrow_buffer(val)
+    buf = pa.frombuffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = bytearray(buf)
@@ -159,7 +161,7 @@ def test_buffer_bytearray():
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
-    buf = io.build_arrow_buffer(val)
+    buf = pa.frombuffer(val)
     assert isinstance(buf, io.Buffer)
 
     result = memoryview(buf)
@@ -198,20 +200,35 @@ def test_inmemory_write_after_closed():
     with pytest.raises(IOError):
         f.write(b'not ok')
 
+
 def test_buffer_protocol_ref_counting():
     import gc
 
     def make_buffer(bytes_obj):
-        return bytearray(io.build_arrow_buffer(bytes_obj))
+        return bytearray(pa.frombuffer(bytes_obj))
 
     buf = make_buffer(b'foo')
     gc.collect()
     assert buf == b'foo'
 
 
+def test_nativefile_write_memoryview():
+    f = io.InMemoryOutputStream()
+    data = b'ok'
+
+    arr = np.frombuffer(data, dtype='S1')
+
+    f.write(arr)
+    f.write(bytearray(data))
+
+    buf = f.get_result()
+
+    assert buf.to_pybytes() == data * 2
+
 
 # ----------------------------------------------------------------------
 # OS files and memory maps
+
 
 @pytest.fixture
 def sample_disk_data(request):
