@@ -24,8 +24,10 @@ from pyarrow.schema cimport DataType
 
 from cpython cimport PyObject
 
+
 cdef extern from "Python.h":
     int PySlice_Check(object)
+
 
 cdef class Array:
     cdef:
@@ -37,6 +39,7 @@ cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
     cdef getitem(self, int64_t i)
+
 
 cdef object box_array(const shared_ptr[CArray]& sp_array)
 
@@ -51,6 +54,7 @@ cdef class NumericArray(Array):
 
 cdef class IntegerArray(NumericArray):
     pass
+
 
 cdef class FloatingPointArray(NumericArray):
     pass
@@ -93,6 +97,10 @@ cdef class FloatArray(FloatingPointArray):
 
 
 cdef class DoubleArray(FloatingPointArray):
+    pass
+
+
+cdef class FixedWidthBinaryArray(Array):
     pass
 
 

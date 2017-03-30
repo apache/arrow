@@ -45,6 +45,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_TIME64" arrow::Type::TIME64"
         Type_BINARY" arrow::Type::BINARY"
         Type_STRING" arrow::Type::STRING"
+        Type_FIXED_WIDTH_BINARY" arrow::Type::FIXED_WIDTH_BINARY"
 
         Type_LIST" arrow::Type::LIST"
         Type_STRUCT" arrow::Type::STRUCT"
@@ -139,6 +140,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
 
+    cdef cppclass CFixedWidthBinaryType" arrow::FixedWidthBinaryType"(CFixedWidthType):
+        CFixedWidthBinaryType(int byte_width)
+        int byte_width()
+
     cdef cppclass CField" arrow::Field":
         c_string name
         shared_ptr[CDataType] type
@@ -202,6 +207,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDoubleArray" arrow::DoubleArray"(CArray):
         double Value(int i)
+
+    cdef cppclass CFixedWidthBinaryArray" arrow::FixedWidthBinaryArray"(CArray):
+        const uint8_t* GetValue(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         const int32_t* raw_value_offsets()

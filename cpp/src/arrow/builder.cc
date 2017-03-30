@@ -542,6 +542,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(DOUBLE, DoubleBuilder);
     BUILDER_CASE(STRING, StringBuilder);
     BUILDER_CASE(BINARY, BinaryBuilder);
+    BUILDER_CASE(FIXED_WIDTH_BINARY, FixedWidthBinaryBuilder);
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =

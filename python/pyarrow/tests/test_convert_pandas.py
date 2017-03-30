@@ -244,6 +244,23 @@ class TestPandasConversion(unittest.TestCase):
         expected = pd.DataFrame({'strings': values2})
         self._check_pandas_roundtrip(df, expected)
 
+    def test_fixed_width_bytes(self):
+        values = [b'foo', None, b'bar', None, None, b'hey']
+        df = pd.DataFrame({'strings': values})
+        schema = A.Schema.from_fields([A.field('strings', A.binary(3))])
+        table = A.Table.from_pandas(df, schema=schema)
+        assert table.schema[0].type == schema[0].type
+        assert table.schema[0].name == schema[0].name
+        result = table.to_pandas()
+        tm.assert_frame_equal(result, df)
+
+    def test_fixed_width_bytes_does_not_accept_varying_lengths(self):
+        values = [b'foo', None, b'ba', None, None, b'hey']
+        df = pd.DataFrame({'strings': values})
+        schema = A.Schema.from_fields([A.field('strings', A.binary(3))])
+        with self.assertRaises(A.error.ArrowException):
+            A.Table.from_pandas(df, schema=schema)
+
     def test_timestamps_notimezone_no_nulls(self):
         df = pd.DataFrame({
             'datetime64': np.array([
