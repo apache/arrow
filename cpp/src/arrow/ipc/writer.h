@@ -82,7 +82,7 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 class ARROW_EXPORT StreamWriter {
  public:
-  virtual ~StreamWriter() = default;
+  virtual ~StreamWriter();
 
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<StreamWriter>* out);
@@ -105,6 +105,8 @@ class ARROW_EXPORT StreamWriter {
 
 class ARROW_EXPORT FileWriter : public StreamWriter {
  public:
+  virtual ~FileWriter();
+
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       std::shared_ptr<FileWriter>* out);
 

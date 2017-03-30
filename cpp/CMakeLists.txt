@@ -500,7 +500,11 @@ if(ARROW_BUILD_TESTS)
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
-    set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    if(MSVC)
+      set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static.lib")
+    else()
+      set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
+    endif()
     set(GFLAGS_VENDORED 1)
     set(GFLAGS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                           -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
@@ -536,6 +540,11 @@ if(ARROW_BUILD_TESTS)
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gflags
     STATIC_LIB ${GFLAGS_STATIC_LIB})
+  if(MSVC)
+    set_target_properties(gflags
+      PROPERTIES
+      IMPORTED_LINK_INTERFACE_LIBRARIES "shlwapi.lib")
+  endif()
 
   if(GFLAGS_VENDORED)
     add_dependencies(gflags gflags_ep)

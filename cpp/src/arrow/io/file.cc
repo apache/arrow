@@ -152,20 +152,30 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 #endif
 }
 
+#if defined(_MSC_VER)
+static inline Status ConvertToUtf16(const std::string& input, std::wstring* result) {
+  if (result == nullptr) { return Status::Invalid("Pointer to result is not valid"); }
+
+  if (input.empty()) {
+    *result = std::wstring();
+    return Status::OK();
+  }
+
+  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
+  *result = utf16_converter.from_bytes(input);
+  return Status::OK();
+}
+#endif
+
 static inline Status FileOpenReadable(const std::string& filename, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
-  // https://msdn.microsoft.com/en-us/library/w64k0ytk.aspx
+  std::wstring wide_filename;
+  RETURN_NOT_OK(ConvertToUtf16(filename, &wide_filename));
 
-  // See GH #209. Here we are assuming that the filename has been encoded in
-  // utf-16le so that unicode filenames can be supported
-  const int nwchars = static_cast<int>(filename.size()) / sizeof(wchar_t);
-  std::vector<wchar_t> wpath(nwchars + 1);
-  memcpy(wpath.data(), filename.data(), filename.size());
-  memcpy(wpath.data() + nwchars, L"\0", sizeof(wchar_t));
-
-  errno_actual = _wsopen_s(fd, wpath.data(), _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
+  errno_actual =
+      _wsopen_s(fd, wide_filename.c_str(), _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
   ret = *fd = open(filename.c_str(), O_RDONLY | O_BINARY);
@@ -181,16 +191,12 @@ static inline Status FileOpenWriteable(
   errno_t errno_actual = 0;
 
 #if defined(_MSC_VER)
-  // https://msdn.microsoft.com/en-us/library/w64k0ytk.aspx
-  // Same story with wchar_t as above
-  const int nwchars = static_cast<int>(filename.size()) / sizeof(wchar_t);
-  std::vector<wchar_t> wpath(nwchars + 1);
-  memcpy(wpath.data(), filename.data(), filename.size());
-  memcpy(wpath.data() + nwchars, L"\0", sizeof(wchar_t));
+  std::wstring wide_filename;
+  RETURN_NOT_OK(ConvertToUtf16(filename, &wide_filename));
 
   int oflag = _O_CREAT | _O_BINARY;
-  int sh_flag = _S_IWRITE;
-  if (!write_only) { sh_flag |= _S_IREAD; }
+  int pmode = _S_IWRITE;
+  if (!write_only) { pmode |= _S_IREAD; }
 
   if (truncate) { oflag |= _O_TRUNC; }
 
@@ -200,7 +206,7 @@ static inline Status FileOpenWriteable(
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, wpath.data(), oflag, _SH_DENYNO, sh_flag);
+  errno_actual = _wsopen_s(fd, wide_filename.c_str(), oflag, _SH_DENYNO, pmode);
   ret = *fd;
 
 #else

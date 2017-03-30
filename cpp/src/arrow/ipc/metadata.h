@@ -140,6 +140,7 @@ struct ARROW_EXPORT BufferMetadata {
 
 class ARROW_EXPORT Message {
  public:
+  ~Message();
   enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH };
 
   static Status Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,

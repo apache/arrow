@@ -23,8 +23,8 @@ environment:
     - GENERATOR: Visual Studio 14 2015 Win64
     # - GENERATOR: Visual Studio 14 2015
   MSVC_DEFAULT_OPTIONS: ON
-  BOOST_ROOT: C:\Libraries\boost_1_59_0
-  BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
+  BOOST_ROOT: C:\Libraries\boost_1_63_0
+  BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
 
 build_script:
  - cd cpp
@@ -32,8 +32,10 @@ build_script:
  - cd build
  # A lot of features are still deactivated as they do not build on Windows
  #  * gbenchmark doesn't build with MSVC
- - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_IPC=OFF -DARROW_HDFS=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_JEMALLOC=OFF ..
- - cmake --build . --config Debug
+ - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_JEMALLOC=OFF -DCMAKE_BUILD_TYPE=Release ..
+ - cmake --build . --config Release
 
 # test_script:
-#  - ctest -VV
+ - ctest -VV
+
+
