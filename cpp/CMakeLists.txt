@@ -645,11 +645,6 @@ if (ARROW_JEMALLOC)
   ADD_THIRDPARTY_LIB(jemalloc
       STATIC_LIB ${JEMALLOC_STATIC_LIB}
       SHARED_LIB ${JEMALLOC_SHARED_LIB})
-
-  if (JEMALLOC_VENDORED)
-    add_dependencies(jemalloc_shared jemalloc_ep)
-    add_dependencies(jemalloc_static jemalloc_ep)
-  endif()
 endif()
 
 ## Google PerfTools
