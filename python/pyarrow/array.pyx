@@ -37,6 +37,7 @@ cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
 from pyarrow.schema cimport (DataType, Field, Schema, DictionaryType,
+                             FixedWidthBinaryType,
                              box_data_type)
 import pyarrow.schema as schema
 
@@ -197,7 +198,11 @@ cdef class Array:
         if type is None:
             check_status(pyarrow.ConvertPySequence(list_obj, pool, &sp_array))
         else:
-            raise NotImplementedError()
+            check_status(
+                pyarrow.ConvertPySequence(
+                    list_obj, pool, &sp_array, type.sp_type
+                )
+            )
 
         return box_array(sp_array)
 
@@ -385,6 +390,7 @@ cdef class Date64Array(NumericArray):
 cdef class TimestampArray(NumericArray):
     pass
 
+
 cdef class Time32Array(NumericArray):
     pass
 
@@ -392,11 +398,16 @@ cdef class Time32Array(NumericArray):
 cdef class Time64Array(NumericArray):
     pass
 
+
 cdef class FloatArray(FloatingPointArray):
     pass
 
 
 cdef class DoubleArray(FloatingPointArray):
+    pass
+
+
+cdef class FixedWidthBinaryArray(Array):
     pass
 
 
@@ -506,7 +517,8 @@ cdef dict _array_classes = {
     Type_LIST: ListArray,
     Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
-    Type_DICTIONARY: DictionaryArray
+    Type_DICTIONARY: DictionaryArray,
+    Type_FIXED_WIDTH_BINARY: FixedWidthBinaryArray,
 }
 
 cdef object box_array(const shared_ptr[CArray]& sp_array):

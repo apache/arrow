@@ -32,8 +32,8 @@
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/type.h"
 #include "arrow/tensor.h"
+#include "arrow/type.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

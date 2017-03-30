@@ -19,6 +19,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CDataType,
                                         CDictionaryType,
                                         CTimestampType,
+                                        CFixedWidthBinaryType,
                                         CField, CSchema)
 
 cdef class DataType:
@@ -37,6 +38,11 @@ cdef class DictionaryType(DataType):
 cdef class TimestampType(DataType):
     cdef:
         const CTimestampType* ts_type
+
+
+cdef class FixedWidthBinaryType(DataType):
+    cdef:
+        const CFixedWidthBinaryType* fixed_width_binary_type
 
 
 cdef class Field:

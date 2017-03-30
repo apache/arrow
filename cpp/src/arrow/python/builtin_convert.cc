@@ -23,6 +23,7 @@
 
 #include "arrow/api.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"
 #include "arrow/python/util/datetime.h"
@@ -200,18 +201,25 @@ class SeqVisitor {
   int nesting_histogram_[MAX_NESTING_LEVELS];
 };
 
-// Non-exhaustive type inference
-Status InferArrowType(PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
-  *size = PySequence_Size(obj);
+Status InferArrowSize(PyObject* obj, int64_t* size) {
+  *size = static_cast<int64_t>(PySequence_Size(obj));
   if (PyErr_Occurred()) {
     // Not a sequence
     PyErr_Clear();
     return Status::TypeError("Object is not a sequence");
   }
+  return Status::OK();
+}
+
+// Non-exhaustive type inference
+Status InferArrowTypeAndSize(
+    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
+  RETURN_NOT_OK(InferArrowSize(obj, size));
 
   // For 0-length sequences, refuse to guess
   if (*size == 0) { *out_type = null(); }
 
+  PyDateTime_IMPORT;
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));
   RETURN_NOT_OK(seq_visitor.Validate());
@@ -253,7 +261,7 @@ class TypedConverter : public SeqConverter {
 class BoolConverter : public TypedConverter<BooleanBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
-    Py_ssize_t size = PySequence_Size(seq);
+    int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
@@ -275,14 +283,14 @@ class Int64Converter : public TypedConverter<Int64Builder> {
  public:
   Status AppendData(PyObject* seq) override {
     int64_t val;
-    Py_ssize_t size = PySequence_Size(seq);
+    int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       if (item.obj() == Py_None) {
         typed_builder_->AppendNull();
       } else {
-        val = PyLong_AsLongLong(item.obj());
+        val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
         RETURN_IF_PYERROR();
         typed_builder_->Append(val);
       }
@@ -294,7 +302,7 @@ class Int64Converter : public TypedConverter<Int64Builder> {
 class DateConverter : public TypedConverter<Date64Builder> {
  public:
   Status AppendData(PyObject* seq) override {
-    Py_ssize_t size = PySequence_Size(seq);
+    int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
@@ -312,7 +320,7 @@ class DateConverter : public TypedConverter<Date64Builder> {
 class TimestampConverter : public TypedConverter<TimestampBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
-    Py_ssize_t size = PySequence_Size(seq);
+    int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
@@ -334,7 +342,8 @@ class TimestampConverter : public TypedConverter<TimestampBuilder> {
         epoch.tm_year = 70;
         epoch.tm_mday = 1;
         // Microseconds since the epoch
-        int64_t val = lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us;
+        int64_t val = static_cast<int64_t>(
+            lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
         typed_builder_->Append(val);
       }
     }
@@ -346,7 +355,7 @@ class DoubleConverter : public TypedConverter<DoubleBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     double val;
-    Py_ssize_t size = PySequence_Size(seq);
+    int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
@@ -369,7 +378,7 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
-    int64_t length;
+    Py_ssize_t length;
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);
@@ -385,12 +394,48 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
       } else if (PyBytes_Check(item)) {
         bytes_obj = item;
       } else {
-        return Status::TypeError("Non-string value encountered");
+        return Status::TypeError(
+            "Value that cannot be converted to bytes was encountered");
       }
       // No error checking
       length = PyBytes_GET_SIZE(bytes_obj);
       bytes = PyBytes_AS_STRING(bytes_obj);
       RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
+    }
+    return Status::OK();
+  }
+};
+
+class FixedWidthBytesConverter : public TypedConverter<FixedWidthBinaryBuilder> {
+ public:
+  Status AppendData(PyObject* seq) override {
+    PyObject* item;
+    PyObject* bytes_obj;
+    OwnedRef tmp;
+    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedWidthBinaryType>(
+        typed_builder_->type())->byte_width();
+    Py_ssize_t size = PySequence_Size(seq);
+    for (int64_t i = 0; i < size; ++i) {
+      item = PySequence_GetItem(seq, i);
+      OwnedRef holder(item);
+
+      if (item == Py_None) {
+        RETURN_NOT_OK(typed_builder_->AppendNull());
+        continue;
+      } else if (PyUnicode_Check(item)) {
+        tmp.reset(PyUnicode_AsUTF8String(item));
+        RETURN_IF_PYERROR();
+        bytes_obj = tmp.obj();
+      } else if (PyBytes_Check(item)) {
+        bytes_obj = item;
+      } else {
+        return Status::TypeError(
+            "Value that cannot be converted to bytes was encountered");
+      }
+      // No error checking
+      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
+      RETURN_NOT_OK(typed_builder_->Append(
+          reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj))));
     }
     return Status::OK();
   }
@@ -403,7 +448,7 @@ class UTF8Converter : public TypedConverter<StringBuilder> {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
-    int64_t length;
+    Py_ssize_t length;
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);
@@ -465,6 +510,8 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:
       return std::make_shared<BytesConverter>();
+    case Type::FIXED_WIDTH_BINARY:
+      return std::make_shared<FixedWidthBytesConverter>();
     case Type::STRING:
       return std::make_shared<UTF8Converter>();
     case Type::LIST:
@@ -472,7 +519,6 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::STRUCT:
     default:
       return nullptr;
-      break;
   }
 }
 
@@ -492,6 +538,7 @@ Status ListConverter::Init(const std::shared_ptr<ArrayBuilder>& builder) {
 
 Status AppendPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
     const std::shared_ptr<ArrayBuilder>& builder) {
+  PyDateTime_IMPORT;
   std::shared_ptr<SeqConverter> converter = GetConverter(type);
   if (converter == nullptr) {
     std::stringstream ss;
@@ -506,9 +553,12 @@ Status AppendPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<DataType> type;
   int64_t size;
-  PyDateTime_IMPORT;
-  RETURN_NOT_OK(InferArrowType(obj, &size, &type));
+  RETURN_NOT_OK(InferArrowTypeAndSize(obj, &size, &type));
+  return ConvertPySequence(obj, pool, out, type, size);
+}
 
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
+    const std::shared_ptr<DataType>& type, int64_t size) {
   // Handle NA / NullType case
   if (type->type == Type::NA) {
     out->reset(new NullArray(size));
@@ -519,8 +569,25 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
   std::shared_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(pool, type, &builder));
   RETURN_NOT_OK(AppendPySequence(obj, type, builder));
-
   return builder->Finish(out);
+}
+
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
+    const std::shared_ptr<DataType>& type) {
+  int64_t size;
+  RETURN_NOT_OK(InferArrowSize(obj, &size));
+  return ConvertPySequence(obj, pool, out, type, size);
+}
+
+Status CheckPythonBytesAreFixedLength(PyObject* obj, Py_ssize_t expected_length) {
+  const Py_ssize_t length = PyBytes_GET_SIZE(obj);
+  if (length != expected_length) {
+    std::stringstream ss;
+    ss << "Found byte string of length " << length << ", expected length is "
+       << expected_length;
+    return Status::TypeError(ss.str());
+  }
+  return Status::OK();
 }
 
 }  // namespace py

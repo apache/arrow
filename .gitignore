@@ -24,3 +24,6 @@
 *.dylib
 .build_cache_dir
 MANIFEST
+
+cpp/.idea/
+python/.eggs/

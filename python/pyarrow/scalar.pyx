@@ -224,6 +224,22 @@ cdef class ListValue(ArrayValue):
         return result
 
 
+cdef class FixedWidthBinaryValue(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CFixedWidthBinaryArray* ap
+            CFixedWidthBinaryType* ap_type
+            int32_t length
+            const char* data
+        ap = <CFixedWidthBinaryArray*> self.sp_array.get()
+        ap_type = <CFixedWidthBinaryType*> ap.type().get()
+        length = ap_type.byte_width()
+        data = <const char*> ap.GetValue(self.index)
+        return cp.PyBytes_FromStringAndSize(data, length)
+
+
+
 cdef dict _scalar_classes = {
     Type_BOOL: BooleanValue,
     Type_UINT8: Int8Value,
@@ -241,7 +257,8 @@ cdef dict _scalar_classes = {
     Type_DOUBLE: DoubleValue,
     Type_LIST: ListValue,
     Type_BINARY: BinaryValue,
-    Type_STRING: StringValue
+    Type_STRING: StringValue,
+    Type_FIXED_WIDTH_BINARY: FixedWidthBinaryValue,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,

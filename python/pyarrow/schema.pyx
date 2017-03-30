@@ -28,6 +28,7 @@ from pyarrow.compat import frombytes, tobytes
 from pyarrow.array cimport Array
 from pyarrow.error cimport check_status
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
+                                        CFixedWidthBinaryType,
                                         TimeUnit_SECOND, TimeUnit_MILLI,
                                         TimeUnit_MICRO, TimeUnit_NANO,
                                         Type, TimeUnit)
@@ -52,7 +53,7 @@ cdef class DataType:
         return frombytes(self.type.ToString())
 
     def __repr__(self):
-        return 'DataType({0})'.format(str(self))
+        return '{0.__class__.__name__}({0})'.format(self)
 
     def __richcmp__(DataType self, DataType other, int op):
         if op == cpython.Py_EQ:
@@ -68,9 +69,6 @@ cdef class DictionaryType(DataType):
     cdef init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
-
-    def __repr__(self):
-        return 'DictionaryType({0})'.format(str(self))
 
 
 cdef class TimestampType(DataType):
@@ -92,8 +90,17 @@ cdef class TimestampType(DataType):
             else:
                 return None
 
-    def __repr__(self):
-        return 'TimestampType({0})'.format(str(self))
+
+cdef class FixedWidthBinaryType(DataType):
+
+    cdef init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.fixed_width_binary_type = <const CFixedWidthBinaryType*> type.get()
+
+    property byte_width:
+
+        def __get__(self):
+            return self.fixed_width_binary_type.byte_width()
 
 
 cdef class Field:
@@ -348,11 +355,24 @@ def string():
     return primitive_type(la.Type_STRING)
 
 
-def binary():
+def binary(int length=-1):
+    """Binary (PyBytes-like) type
+
+    Parameters
+    ----------
+    length : int, optional, default -1
+        If length == -1 then return a variable length binary type. If length is
+        greater than or equal to 0 then return a fixed width binary type of
+        width `length`.
     """
-    Binary (PyBytes-like) type
-    """
-    return primitive_type(la.Type_BINARY)
+    if length == -1:
+        return primitive_type(la.Type_BINARY)
+
+    cdef FixedWidthBinaryType out = FixedWidthBinaryType()
+    cdef shared_ptr[CDataType] fixed_width_binary_type
+    fixed_width_binary_type.reset(new CFixedWidthBinaryType(length))
+    out.init(fixed_width_binary_type)
+    return out
 
 
 def list_(DataType value_type):
@@ -408,6 +428,8 @@ cdef DataType box_data_type(const shared_ptr[CDataType]& type):
         out = DictionaryType()
     elif type.get().type == la.Type_TIMESTAMP:
         out = TimestampType()
+    elif type.get().type == la.Type_FIXED_WIDTH_BINARY:
+        out = FixedWidthBinaryType()
     else:
         out = DataType()
 

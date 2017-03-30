@@ -147,8 +147,8 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
   return Status::OK();
 }
 
-Status AppendObjectStrings(StringBuilder& string_builder, PyObject** objects,
-    int64_t objects_length, bool* have_bytes) {
+Status AppendObjectStrings(int64_t objects_length, StringBuilder* builder,
+    PyObject** objects, bool* have_bytes) {
   PyObject* obj;
 
   for (int64_t i = 0; i < objects_length; ++i) {
@@ -160,15 +160,45 @@ Status AppendObjectStrings(StringBuilder& string_builder, PyObject** objects,
         return Status::TypeError("failed converting unicode to UTF8");
       }
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-      Status s = string_builder.Append(PyBytes_AS_STRING(obj), length);
+      Status s = builder->Append(PyBytes_AS_STRING(obj), length);
       Py_DECREF(obj);
       if (!s.ok()) { return s; }
     } else if (PyBytes_Check(obj)) {
       *have_bytes = true;
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-      RETURN_NOT_OK(string_builder.Append(PyBytes_AS_STRING(obj), length));
+      RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
     } else {
-      string_builder.AppendNull();
+      builder->AppendNull();
+    }
+  }
+
+  return Status::OK();
+}
+
+static Status AppendObjectFixedWidthBytes(int64_t objects_length, int byte_width,
+    FixedWidthBinaryBuilder* builder, PyObject** objects) {
+  PyObject* obj;
+
+  for (int64_t i = 0; i < objects_length; ++i) {
+    obj = objects[i];
+    if (PyUnicode_Check(obj)) {
+      obj = PyUnicode_AsUTF8String(obj);
+      if (obj == NULL) {
+        PyErr_Clear();
+        return Status::TypeError("failed converting unicode to UTF8");
+      }
+
+      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
+      Status s =
+          builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)));
+      Py_DECREF(obj);
+      RETURN_NOT_OK(s);
+    } else if (PyBytes_Check(obj)) {
+      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
+      RETURN_NOT_OK(
+          builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
+    } else {
+      builder->AppendNull();
     }
   }
 
@@ -187,6 +217,13 @@ struct WrapBytes<StringArray> {
 
 template <>
 struct WrapBytes<BinaryArray> {
+  static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
+    return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
+  }
+};
+
+template <>
+struct WrapBytes<FixedWidthBinaryArray> {
   static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
     return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
   }
@@ -226,7 +263,7 @@ class PandasConverter : public TypeVisitor {
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
         mask_(nullptr) {
     if (mo != nullptr && mo != Py_None) { mask_ = reinterpret_cast<PyArrayObject*>(mo); }
-    length_ = PyArray_SIZE(arr_);
+    length_ = static_cast<int64_t>(PyArray_SIZE(arr_));
   }
 
   bool is_strided() const {
@@ -241,7 +278,7 @@ class PandasConverter : public TypeVisitor {
     RETURN_NOT_OK(null_bitmap_->Resize(null_bytes));
 
     null_bitmap_data_ = null_bitmap_->mutable_data();
-    memset(null_bitmap_data_, 0, null_bytes);
+    memset(null_bitmap_data_, 0, static_cast<size_t>(null_bytes));
 
     return Status::OK();
   }
@@ -321,6 +358,8 @@ class PandasConverter : public TypeVisitor {
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
 
   Status ConvertObjectStrings(std::shared_ptr<Array>* out);
+  Status ConvertObjectFixedWidthBytes(
+      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
   Status ConvertBooleans(std::shared_ptr<Array>* out);
   Status ConvertDates(std::shared_ptr<Array>* out);
   Status ConvertLists(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
@@ -402,19 +441,33 @@ Status PandasConverter::ConvertObjectStrings(std::shared_ptr<Array>* out) {
   // and unicode mixed in the object array
 
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-  StringBuilder string_builder(pool_);
-  RETURN_NOT_OK(string_builder.Resize(length_));
+  StringBuilder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
 
   Status s;
   bool have_bytes = false;
-  RETURN_NOT_OK(AppendObjectStrings(string_builder, objects, length_, &have_bytes));
-  RETURN_NOT_OK(string_builder.Finish(out));
+  RETURN_NOT_OK(AppendObjectStrings(length_, &builder, objects, &have_bytes));
+  RETURN_NOT_OK(builder.Finish(out));
 
   if (have_bytes) {
     const auto& arr = static_cast<const StringArray&>(*out->get());
     *out = std::make_shared<BinaryArray>(arr.length(), arr.value_offsets(), arr.data(),
         arr.null_bitmap(), arr.null_count());
   }
+  return Status::OK();
+}
+
+Status PandasConverter::ConvertObjectFixedWidthBytes(
+    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+  PyAcquireGIL lock;
+
+  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  FixedWidthBinaryBuilder builder(pool_, type);
+  RETURN_NOT_OK(builder.Resize(length_));
+  RETURN_NOT_OK(AppendObjectFixedWidthBytes(length_,
+      std::dynamic_pointer_cast<FixedWidthBinaryType>(builder.type())->byte_width(),
+      &builder, objects));
+  RETURN_NOT_OK(builder.Finish(out));
   return Status::OK();
 }
 
@@ -474,6 +527,8 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
     switch (type_->type) {
       case Type::STRING:
         return ConvertObjectStrings(out);
+      case Type::FIXED_WIDTH_BINARY:
+        return ConvertObjectFixedWidthBytes(type_, out);
       case Type::BOOL:
         return ConvertBooleans(out);
       case Type::DATE64:
@@ -543,7 +598,7 @@ inline Status PandasConverter::ConvertTypedLists(
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
-      RETURN_NOT_OK(InferArrowType(objects[i], &size, &inferred_type));
+      RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
       if (inferred_type->type != type->type) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
@@ -577,14 +632,14 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      int64_t size = PyArray_DIM(numpy_array, 0);
+      int64_t size = static_cast<int64_t>(PyArray_DIM(numpy_array, 0));
       auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
-      RETURN_NOT_OK(AppendObjectStrings(*value_builder.get(), data, size, &have_bytes));
+      RETURN_NOT_OK(AppendObjectStrings(size, value_builder.get(), data, &have_bytes));
     } else if (PyList_Check(objects[i])) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
-      RETURN_NOT_OK(InferArrowType(objects[i], &size, &inferred_type));
+      RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
       if (inferred_type->type != Type::STRING) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
@@ -832,7 +887,7 @@ inline void ConvertIntegerWithNulls(const ChunkedArray& data, double* out_values
     // Upcast to double, set NaN as appropriate
 
     for (int i = 0; i < arr->length(); ++i) {
-      *out_values++ = prim_arr->IsNull(i) ? NAN : in_values[i];
+      *out_values++ = prim_arr->IsNull(i) ? NAN : static_cast<double>(in_values[i]);
     }
   }
 }
@@ -910,6 +965,36 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
       } else {
         data_ptr = arr->GetValue(i, &length);
         *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
+        if (*out_values == nullptr) {
+          PyErr_Clear();
+          std::stringstream ss;
+          ss << "Wrapping "
+             << std::string(reinterpret_cast<const char*>(data_ptr), length) << " failed";
+          return Status::UnknownError(ss.str());
+        }
+      }
+      ++out_values;
+    }
+  }
+  return Status::OK();
+}
+
+inline Status ConvertFixedWidthBinary(const ChunkedArray& data, PyObject** out_values) {
+  PyAcquireGIL lock;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto arr = static_cast<FixedWidthBinaryArray*>(data.chunk(c).get());
+
+    const uint8_t* data_ptr;
+    int32_t length =
+        std::dynamic_pointer_cast<FixedWidthBinaryType>(arr->type())->byte_width();
+    const bool has_nulls = data.null_count() > 0;
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      if (has_nulls && arr->IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        data_ptr = arr->GetValue(i);
+        *out_values = WrapBytes<FixedWidthBinaryArray>::Wrap(data_ptr, length);
         if (*out_values == nullptr) {
           PyErr_Clear();
           std::stringstream ss;
@@ -1058,6 +1143,8 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<BinaryArray>(data, out_buffer));
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<StringArray>(data, out_buffer));
+    } else if (type == Type::FIXED_WIDTH_BINARY) {
+      RETURN_NOT_OK(ConvertFixedWidthBinary(data, out_buffer));
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->type) {
@@ -1487,6 +1574,7 @@ class DataFrameBlockCreator {
           break;
         case Type::STRING:
         case Type::BINARY:
+        case Type::FIXED_WIDTH_BINARY:
           output_type = PandasBlock::OBJECT;
           break;
         case Type::DATE64:
@@ -1751,6 +1839,7 @@ class ArrowDeserializer {
       CONVERT_CASE(DOUBLE);
       CONVERT_CASE(BINARY);
       CONVERT_CASE(STRING);
+      CONVERT_CASE(FIXED_WIDTH_BINARY);
       CONVERT_CASE(DATE64);
       CONVERT_CASE(TIMESTAMP);
       CONVERT_CASE(DICTIONARY);
@@ -1845,11 +1934,21 @@ class ArrowDeserializer {
     return ConvertBinaryLike<StringArray>(data_, out_values);
   }
 
+  // Binary strings
   template <int T2>
   inline typename std::enable_if<T2 == Type::BINARY, Status>::type ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertBinaryLike<BinaryArray>(data_, out_values);
+  }
+
+  // Fixed length binary strings
+  template <int TYPE>
+  inline typename std::enable_if<TYPE == Type::FIXED_WIDTH_BINARY, Status>::type
+  ConvertValues() {
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    return ConvertFixedWidthBinary(data_, out_values);
   }
 
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \

@@ -61,6 +61,11 @@ cdef class ListValue(ArrayValue):
 cdef class StringValue(ArrayValue):
     pass
 
+
+cdef class FixedWidthBinaryValue(ArrayValue):
+    pass
+
+
 cdef object box_scalar(DataType type,
                        const shared_ptr[CArray]& sp_array,
                        int64_t index)
