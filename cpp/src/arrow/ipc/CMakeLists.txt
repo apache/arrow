@@ -85,6 +85,15 @@ if (ARROW_BUILD_TESTS)
       dl)
     set_target_properties(json-integration-test
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  elseif (MSVC)
+    target_link_libraries(json-integration-test
+      arrow_ipc_static
+      arrow_io_static
+      arrow_static
+      gflags
+      gtest
+      ${BOOST_FILESYSTEM_LIBRARY}
+      ${BOOST_SYSTEM_LIBRARY})
   else()
     target_link_libraries(json-integration-test
       arrow_ipc_static
@@ -156,14 +165,22 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-
-set(UTIL_LINK_LIBS
-  arrow_ipc_static
-  arrow_io_static
-  arrow_static
-  ${BOOST_FILESYSTEM_LIBRARY}
-  ${BOOST_SYSTEM_LIBRARY}
-  dl)
+if(MSVC)
+  set(UTIL_LINK_LIBS
+    arrow_ipc_static
+    arrow_io_static
+    arrow_static
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY})
+else()
+  set(UTIL_LINK_LIBS
+    arrow_ipc_static
+    arrow_io_static
+    arrow_static
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY}
+    dl)
+endif()
 
 if (ARROW_BUILD_UTILITIES)
   add_executable(file-to-stream file-to-stream.cc)

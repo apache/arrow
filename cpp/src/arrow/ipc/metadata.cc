@@ -767,6 +767,8 @@ Message::Message(const std::shared_ptr<Buffer>& buffer, int64_t offset) {
   impl_.reset(new MessageImpl(buffer, offset));
 }
 
+Message::~Message() {}
+
 Status Message::Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
     std::shared_ptr<Message>* out) {
   // ctor is private

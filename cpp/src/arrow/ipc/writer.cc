@@ -662,6 +662,8 @@ Status StreamWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
+StreamWriter::~StreamWriter() {}
+
 void StreamWriter::set_memory_pool(MemoryPool* pool) {
   impl_->set_memory_pool(pool);
 }
@@ -717,6 +719,8 @@ class FileWriter::FileWriterImpl : public StreamWriter::StreamWriterImpl {
 FileWriter::FileWriter() {
   impl_.reset(new FileWriterImpl());
 }
+
+FileWriter::~FileWriter() {}
 
 Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     std::shared_ptr<FileWriter>* out) {
