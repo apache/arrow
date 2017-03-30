@@ -117,6 +117,28 @@ TEST_F(TestSchema, GetFieldByName) {
   ASSERT_TRUE(result == nullptr);
 }
 
+#define PRIMITIVE_TEST(KLASS, ENUM, NAME)        \
+  TEST(TypesTest, TestPrimitive_##ENUM) {        \
+    KLASS tp;                                    \
+                                                 \
+    ASSERT_EQ(tp.type, Type::ENUM);              \
+    ASSERT_EQ(tp.ToString(), std::string(NAME)); \
+  }
+
+PRIMITIVE_TEST(Int8Type, INT8, "int8");
+PRIMITIVE_TEST(Int16Type, INT16, "int16");
+PRIMITIVE_TEST(Int32Type, INT32, "int32");
+PRIMITIVE_TEST(Int64Type, INT64, "int64");
+PRIMITIVE_TEST(UInt8Type, UINT8, "uint8");
+PRIMITIVE_TEST(UInt16Type, UINT16, "uint16");
+PRIMITIVE_TEST(UInt32Type, UINT32, "uint32");
+PRIMITIVE_TEST(UInt64Type, UINT64, "uint64");
+
+PRIMITIVE_TEST(FloatType, FLOAT, "float");
+PRIMITIVE_TEST(DoubleType, DOUBLE, "double");
+
+PRIMITIVE_TEST(BooleanType, BOOL, "bool");
+
 TEST(TestBinaryType, ToString) {
   BinaryType t1;
   BinaryType e1;
@@ -262,6 +284,29 @@ TEST(TestNestedType, Equals) {
   ASSERT_TRUE(u0->Equals(u0_other));
   ASSERT_FALSE(u0->Equals(u1));
   ASSERT_FALSE(u0->Equals(u0_bad));
+}
+
+TEST(TestStructType, Basics) {
+  auto f0_type = int32();
+  auto f0 = field("f0", f0_type);
+
+  auto f1_type = utf8();
+  auto f1 = field("f1", f1_type);
+
+  auto f2_type = uint8();
+  auto f2 = field("f2", f2_type);
+
+  vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+
+  StructType struct_type(fields);
+
+  ASSERT_TRUE(struct_type.child(0)->Equals(f0));
+  ASSERT_TRUE(struct_type.child(1)->Equals(f1));
+  ASSERT_TRUE(struct_type.child(2)->Equals(f2));
+
+  ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
+
+  // TODO(wesm): out of bounds for field(...)
 }
 
 }  // namespace arrow
