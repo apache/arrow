@@ -66,11 +66,9 @@ struct _GArrowTableClass
 
 GType           garrow_table_get_type      (void) G_GNUC_CONST;
 
-GArrowTable    *garrow_table_new           (const gchar *name,
-                                            GArrowSchema *schema,
+GArrowTable    *garrow_table_new           (GArrowSchema *schema,
                                             GList *columns);
 
-const gchar    *garrow_table_get_name      (GArrowTable *table);
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
 GArrowColumn   *garrow_table_get_column    (GArrowTable *table,
                                             guint i);
