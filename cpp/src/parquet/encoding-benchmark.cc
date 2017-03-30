@@ -38,21 +38,21 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
 }
 
 static void BM_PlainEncodingBoolean(::benchmark::State& state) {
-  std::vector<bool> values(state.range_x(), 64);
+  std::vector<bool> values(state.range(0), 64);
   PlainEncoder<BooleanType> encoder(nullptr);
 
   while (state.KeepRunning()) {
     encoder.Put(values, values.size());
     encoder.FlushValues();
   }
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(bool));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
 }
 
 BENCHMARK(BM_PlainEncodingBoolean)->Range(1024, 65536);
 
 static void BM_PlainDecodingBoolean(::benchmark::State& state) {
-  std::vector<bool> values(state.range_x(), 64);
-  bool* output = new bool[state.range_x()];
+  std::vector<bool> values(state.range(0), 64);
+  bool* output = new bool[state.range(0)];
   PlainEncoder<BooleanType> encoder(nullptr);
   encoder.Put(values, values.size());
   std::shared_ptr<Buffer> buf = encoder.FlushValues();
@@ -63,27 +63,27 @@ static void BM_PlainDecodingBoolean(::benchmark::State& state) {
     decoder.Decode(output, values.size());
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(bool));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
   delete[] output;
 }
 
 BENCHMARK(BM_PlainDecodingBoolean)->Range(1024, 65536);
 
 static void BM_PlainEncodingInt64(::benchmark::State& state) {
-  std::vector<int64_t> values(state.range_x(), 64);
+  std::vector<int64_t> values(state.range(0), 64);
   PlainEncoder<Int64Type> encoder(nullptr);
 
   while (state.KeepRunning()) {
     encoder.Put(values.data(), values.size());
     encoder.FlushValues();
   }
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int64_t));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
 }
 
 BENCHMARK(BM_PlainEncodingInt64)->Range(1024, 65536);
 
 static void BM_PlainDecodingInt64(::benchmark::State& state) {
-  std::vector<int64_t> values(state.range_x(), 64);
+  std::vector<int64_t> values(state.range(0), 64);
   PlainEncoder<Int64Type> encoder(nullptr);
   encoder.Put(values.data(), values.size());
   std::shared_ptr<Buffer> buf = encoder.FlushValues();
@@ -93,7 +93,7 @@ static void BM_PlainDecodingInt64(::benchmark::State& state) {
     decoder.SetData(values.size(), buf->data(), buf->size());
     decoder.Decode(values.data(), values.size());
   }
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int64_t));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
 }
 
 BENCHMARK(BM_PlainDecodingInt64)->Range(1024, 65536);
@@ -133,14 +133,14 @@ static void DecodeDict(
     decoder.Decode(values.data(), num_values);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(T));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
 }
 
 static void BM_DictDecodingInt64_repeats(::benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
-  std::vector<T> values(state.range_x(), 64);
+  std::vector<T> values(state.range(0), 64);
   DecodeDict<Type>(values, state);
 }
 
@@ -150,7 +150,7 @@ static void BM_DictDecodingInt64_literals(::benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
-  std::vector<T> values(state.range_x());
+  std::vector<T> values(state.range(0));
   for (size_t i = 0; i < values.size(); ++i) {
     values[i] = i;
   }

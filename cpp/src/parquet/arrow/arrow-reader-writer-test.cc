@@ -773,7 +773,7 @@ void MakeDoubleTable(int num_columns, int num_rows, std::shared_ptr<Table>* out)
     fields[i] = column->field();
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  *out = std::make_shared<Table>("schema", schema, columns);
+  *out = std::make_shared<Table>(schema, columns);
 }
 
 void DoTableRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
@@ -810,7 +810,7 @@ TEST(TestArrowReadWrite, MultithreadedRead) {
   std::shared_ptr<Table> result;
   DoTableRoundtrip(table, num_threads, {}, &result);
 
-  ASSERT_TRUE(table->Equals(result));
+  ASSERT_TRUE(table->Equals(*result));
 }
 
 TEST(TestArrowReadWrite, ReadColumnSubset) {
@@ -833,7 +833,7 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   }
 
   auto ex_schema = std::make_shared<::arrow::Schema>(ex_fields);
-  auto expected = std::make_shared<Table>("schema", ex_schema, ex_columns);
+  Table expected(ex_schema, ex_columns);
   ASSERT_TRUE(result->Equals(expected));
 }
 

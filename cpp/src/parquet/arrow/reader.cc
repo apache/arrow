@@ -210,7 +210,6 @@ Status FileReader::Impl::ReadTable(
     const std::vector<int>& indices, std::shared_ptr<Table>* table) {
   auto descr = reader_->metadata()->schema();
 
-  const std::string& name = descr->name();
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(FromParquetSchema(descr, indices, &schema));
 
@@ -233,7 +232,7 @@ Status FileReader::Impl::ReadTable(
     RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumnFunc));
   }
 
-  *table = std::make_shared<Table>(name, schema, columns);
+  *table = std::make_shared<Table>(schema, columns);
   return Status::OK();
 }
 

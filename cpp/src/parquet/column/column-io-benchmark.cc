@@ -45,22 +45,22 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
 }
 
 void SetBytesProcessed(::benchmark::State& state, Repetition::type repetition) {
-  int64_t bytes_processed = state.iterations() * state.range_x() * sizeof(int64_t);
+  int64_t bytes_processed = state.iterations() * state.range(0) * sizeof(int64_t);
   if (repetition != Repetition::REQUIRED) {
-    bytes_processed += state.iterations() * state.range_x() * sizeof(int16_t);
+    bytes_processed += state.iterations() * state.range(0) * sizeof(int16_t);
   }
   if (repetition == Repetition::REPEATED) {
-    bytes_processed += state.iterations() * state.range_x() * sizeof(int16_t);
+    bytes_processed += state.iterations() * state.range(0) * sizeof(int16_t);
   }
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
 }
 
 template <Repetition::type repetition>
 static void BM_WriteInt64Column(::benchmark::State& state) {
   format::ColumnChunk thrift_metadata;
-  std::vector<int64_t> values(state.range_x(), 128);
-  std::vector<int16_t> definition_levels(state.range_x(), 1);
-  std::vector<int16_t> repetition_levels(state.range_x(), 0);
+  std::vector<int64_t> values(state.range(0), 128);
+  std::vector<int16_t> definition_levels(state.range(0), 1);
+  std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = default_writer_properties();
   auto metadata = ColumnChunkMetaDataBuilder::Make(
@@ -69,7 +69,7 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
   while (state.KeepRunning()) {
     InMemoryOutputStream stream;
     std::unique_ptr<Int64Writer> writer = BuildWriter(
-        state.range_x(), &stream, metadata.get(), schema.get(), properties.get());
+        state.range(0), &stream, metadata.get(), schema.get(), properties.get());
     writer->WriteBatch(
         values.size(), definition_levels.data(), repetition_levels.data(), values.data());
     writer->Close();
@@ -94,9 +94,9 @@ std::unique_ptr<Int64Reader> BuildReader(
 template <Repetition::type repetition>
 static void BM_ReadInt64Column(::benchmark::State& state) {
   format::ColumnChunk thrift_metadata;
-  std::vector<int64_t> values(state.range_x(), 128);
-  std::vector<int16_t> definition_levels(state.range_x(), 1);
-  std::vector<int16_t> repetition_levels(state.range_x(), 0);
+  std::vector<int64_t> values(state.range(0), 128);
+  std::vector<int16_t> definition_levels(state.range(0), 1);
+  std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = default_writer_properties();
   auto metadata = ColumnChunkMetaDataBuilder::Make(
@@ -104,17 +104,17 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
 
   InMemoryOutputStream stream;
   std::unique_ptr<Int64Writer> writer = BuildWriter(
-      state.range_x(), &stream, metadata.get(), schema.get(), properties.get());
+      state.range(0), &stream, metadata.get(), schema.get(), properties.get());
   writer->WriteBatch(
       values.size(), definition_levels.data(), repetition_levels.data(), values.data());
   writer->Close();
 
   std::shared_ptr<Buffer> src = stream.GetBuffer();
-  std::vector<int64_t> values_out(state.range_y());
-  std::vector<int16_t> definition_levels_out(state.range_y());
-  std::vector<int16_t> repetition_levels_out(state.range_y());
+  std::vector<int64_t> values_out(state.range(1));
+  std::vector<int16_t> definition_levels_out(state.range(1));
+  std::vector<int16_t> repetition_levels_out(state.range(1));
   while (state.KeepRunning()) {
-    std::unique_ptr<Int64Reader> reader = BuildReader(src, state.range_y(), schema.get());
+    std::unique_ptr<Int64Reader> reader = BuildReader(src, state.range(1), schema.get());
     int64_t values_read = 0;
     for (size_t i = 0; i < values.size(); i += values_read) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),

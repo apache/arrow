@@ -272,7 +272,7 @@ std::shared_ptr<::arrow::Table> MakeSimpleTable(
   std::vector<std::shared_ptr<::arrow::Column>> columns({column});
   std::vector<std::shared_ptr<::arrow::Field>> fields({column->field()});
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  return std::make_shared<::arrow::Table>("table", schema, columns);
+  return std::make_shared<::arrow::Table>(schema, columns);
 }
 
 template <typename T>
@@ -300,7 +300,7 @@ void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
 
   std::shared_ptr<Array> expected_array;
   EXPECT_OK(builder.Finish(&expected_array));
-  EXPECT_TRUE(result->Equals(expected_array));
+  EXPECT_TRUE(result->Equals(*expected_array));
 }
 
 }  // namespace arrow

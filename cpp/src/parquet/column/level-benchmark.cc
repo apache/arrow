@@ -25,10 +25,10 @@ namespace parquet {
 namespace benchmark {
 
 static void BM_RleEncoding(::benchmark::State& state) {
-  std::vector<int16_t> levels(state.range_x(), 0);
+  std::vector<int16_t> levels(state.range(0), 0);
   int64_t n = 0;
-  std::generate(levels.begin(), levels.end(),
-      [&state, &n] { return (n++ % state.range_y()) == 0; });
+  std::generate(
+      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
   auto buffer_rle = std::make_shared<PoolBuffer>();
@@ -40,18 +40,18 @@ static void BM_RleEncoding(::benchmark::State& state) {
         buffer_rle->mutable_data(), buffer_rle->size());
     level_encoder.Encode(levels.size(), levels.data());
   }
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
-  state.SetItemsProcessed(state.iterations() * state.range_x());
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 BENCHMARK(BM_RleEncoding)->RangePair(1024, 65536, 1, 16);
 
 static void BM_RleDecoding(::benchmark::State& state) {
   LevelEncoder level_encoder;
-  std::vector<int16_t> levels(state.range_x(), 0);
+  std::vector<int16_t> levels(state.range(0), 0);
   int64_t n = 0;
-  std::generate(levels.begin(), levels.end(),
-      [&state, &n] { return (n++ % state.range_y()) == 0; });
+  std::generate(
+      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
   auto buffer_rle = std::make_shared<PoolBuffer>();
@@ -64,11 +64,11 @@ static void BM_RleDecoding(::benchmark::State& state) {
   while (state.KeepRunning()) {
     LevelDecoder level_decoder;
     level_decoder.SetData(Encoding::RLE, max_level, levels.size(), buffer_rle->data());
-    level_decoder.Decode(state.range_x(), levels.data());
+    level_decoder.Decode(state.range(0), levels.data());
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range_x() * sizeof(int16_t));
-  state.SetItemsProcessed(state.iterations() * state.range_x());
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 BENCHMARK(BM_RleDecoding)->RangePair(1024, 65536, 1, 16);
