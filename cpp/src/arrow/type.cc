@@ -46,6 +46,8 @@ std::string Field::ToString() const {
   return ss.str();
 }
 
+DataType::~DataType() {}
+
 bool DataType::Equals(const DataType& other) const {
   bool are_equal = false;
   Status error = TypeEquals(*this, other, &are_equal);

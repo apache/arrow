@@ -133,7 +133,7 @@ struct ARROW_EXPORT DataType {
 
   explicit DataType(Type::type type) : type(type) {}
 
-  virtual ~DataType() = default;
+  virtual ~DataType();
 
   // Return whether the types are equal
   //

@@ -126,7 +126,6 @@ garrow_table_class_init(GArrowTableClass *klass)
 
 /**
  * garrow_table_new:
- * @name: The name of the table.
  * @schema: The schema of the table.
  * @columns: (element-type GArrowColumn): The columns of the table.
  *
