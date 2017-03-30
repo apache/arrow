@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/column.h"
 #include "arrow/loader.h"
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"

@@ -59,7 +59,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDataType" arrow::DataType":
         Type type
 
-        c_bool Equals(const shared_ptr[CDataType]& other)
         c_bool Equals(const CDataType& other)
 
         c_string ToString()
@@ -71,7 +70,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t null_count()
         Type type_enum()
 
-        c_bool Equals(const shared_ptr[CArray]& arr)
+        c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
         shared_ptr[CArray] Slice(int64_t offset)
@@ -155,7 +154,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
 
-        c_bool Equals(const shared_ptr[CSchema]& other)
+        c_bool Equals(const CSchema& other)
 
         shared_ptr[CField] field(int i)
         shared_ptr[CField] GetFieldByName(c_string& name)
@@ -231,7 +230,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                 const vector[shared_ptr[CArray]]& chunks)
 
         c_bool Equals(const CColumn& other)
-        c_bool Equals(const shared_ptr[CColumn]& other)
 
         int64_t length()
         int64_t null_count()
@@ -258,12 +256,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
     cdef cppclass CTable" arrow::Table":
-        CTable(const c_string& name, const shared_ptr[CSchema]& schema,
+        CTable(const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CColumn]]& columns)
 
         @staticmethod
         CStatus FromRecordBatches(
-            const c_string& name,
             const vector[shared_ptr[CRecordBatch]]& batches,
             shared_ptr[CTable]* table)
 
@@ -271,15 +268,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_rows()
 
         c_bool Equals(const CTable& other)
-        c_bool Equals(const shared_ptr[CTable]& other)
-
-        const c_string& name()
 
         shared_ptr[CSchema] schema()
         shared_ptr[CColumn] column(int i)
 
-    CStatus ConcatenateTables(const c_string& output_name,
-                              const vector[shared_ptr[CTable]]& tables,
+        CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
+
+    CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
 

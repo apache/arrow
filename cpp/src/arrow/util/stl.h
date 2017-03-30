@@ -15,21 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Coarse public API while the library is in development
+#ifndef ARROW_UTIL_STL_H
+#define ARROW_UTIL_STL_H
 
-#ifndef ARROW_API_H
-#define ARROW_API_H
+#include <vector>
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/compare.h"
-#include "arrow/loader.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
-#include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/type.h"
-#include "arrow/visitor.h"
+namespace arrow {
 
-#endif  // ARROW_API_H
+template <typename T>
+inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
+  std::vector<T> out;
+  out.reserve(values.size() - 1);
+  for (size_t i = 0; i < index; ++i) {
+    out.push_back(values[i]);
+  }
+  for (size_t i = index + 1; i < values.size(); ++i) {
+    out.push_back(values[i]);
+  }
+  return out;
+}
+
+}  // namespace arrow
+
+#endif  // ARROW_UTIL_STL_H

@@ -29,8 +29,7 @@ class TestTable < Test::Unit::TestCase
         Arrow::Column.new(fields[0], build_boolean_array([true])),
         Arrow::Column.new(fields[1], build_boolean_array([false])),
       ]
-      table = Arrow::Table.new("memos", schema, columns)
-      assert_equal("memos", table.name)
+      table = Arrow::Table.new(schema, columns)
     end
   end
 
@@ -45,11 +44,7 @@ class TestTable < Test::Unit::TestCase
         Arrow::Column.new(fields[0], build_boolean_array([true])),
         Arrow::Column.new(fields[1], build_boolean_array([false])),
       ]
-      @table = Arrow::Table.new("memos", schema, columns)
-    end
-
-    def test_name
-      assert_equal("memos", @table.name)
+      @table = Arrow::Table.new(schema, columns)
     end
 
     def test_schema

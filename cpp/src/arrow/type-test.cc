@@ -23,7 +23,6 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/schema.h"
 #include "arrow/type.h"
 
 using std::shared_ptr;
@@ -75,11 +74,8 @@ TEST_F(TestSchema, Basics) {
 
   vector<shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
   auto schema3 = std::make_shared<Schema>(fields3);
-  ASSERT_TRUE(schema->Equals(schema2));
-  ASSERT_FALSE(schema->Equals(schema3));
-
-  ASSERT_TRUE(schema->Equals(*schema2.get()));
-  ASSERT_FALSE(schema->Equals(*schema3.get()));
+  ASSERT_TRUE(schema->Equals(*schema2));
+  ASSERT_FALSE(schema->Equals(*schema3));
 }
 
 TEST_F(TestSchema, ToString) {

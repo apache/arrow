@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from cython.operator cimport dereference as deref
+
 import numpy as np
 
 from pyarrow.includes.libarrow cimport *
@@ -216,7 +218,7 @@ cdef class Array:
         return '{0}\n{1}'.format(type_format, values)
 
     def equals(Array self, Array other):
-        return self.ap.Equals(other.sp_array)
+        return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
         if self.sp_array.get():

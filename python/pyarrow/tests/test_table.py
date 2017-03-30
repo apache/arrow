@@ -31,7 +31,7 @@ class TestColumn(unittest.TestCase):
         data = [
             pa.from_pylist([-10, -5, 0, 5, 10])
         ]
-        table = pa.Table.from_arrays(data, names=['a'], name='table_name')
+        table = pa.Table.from_arrays(data, names=['a'])
         column = table.column(0)
         assert column.name == 'a'
         assert column.length() == 5
@@ -43,7 +43,7 @@ class TestColumn(unittest.TestCase):
         data = [
             pa.from_pylist([-10, -5, 0, 5, 10])
         ]
-        table = pa.Table.from_arrays(data, names=['a'], name='table_name')
+        table = pa.Table.from_arrays(data, names=['a'])
         column = table.column(0)
         series = column.to_pandas()
         assert series.name == 'a'
@@ -154,8 +154,7 @@ def test_table_basics():
         pa.from_pylist(range(5)),
         pa.from_pylist([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b'), name='table_name')
-    assert table.name == 'table_name'
+    table = pa.Table.from_arrays(data, names=('a', 'b'))
     assert len(table) == 5
     assert table.num_rows == 5
     assert table.num_columns == 2
@@ -170,6 +169,19 @@ def test_table_basics():
             assert chunk is not None
 
 
+def test_table_remove_column():
+    data = [
+        pa.from_pylist(range(5)),
+        pa.from_pylist([-10, -5, 0, 5, 10]),
+        pa.from_pylist(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    t2 = table.remove_column(0)
+    expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
+    assert t2.equals(expected)
+
+
 def test_concat_tables():
     data = [
         list(range(5)),
@@ -181,18 +193,16 @@ def test_concat_tables():
     ]
 
     t1 = pa.Table.from_arrays([pa.from_pylist(x) for x in data],
-                              names=('a', 'b'), name='table_name')
+                              names=('a', 'b'))
     t2 = pa.Table.from_arrays([pa.from_pylist(x) for x in data2],
-                              names=('a', 'b'), name='table_name')
+                              names=('a', 'b'))
 
-    result = pa.concat_tables([t1, t2], output_name='foo')
-    assert result.name == 'foo'
+    result = pa.concat_tables([t1, t2])
     assert len(result) == 10
 
     expected = pa.Table.from_arrays([pa.from_pylist(x + y)
                                      for x, y in zip(data, data2)],
-                                    names=('a', 'b'),
-                                    name='foo')
+                                    names=('a', 'b'))
 
     assert result.equals(expected)
 
@@ -202,8 +212,7 @@ def test_table_pandas():
         pa.from_pylist(range(5)),
         pa.from_pylist([-10, -5, 0, 5, 10])
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b'),
-                                 name='table_name')
+    table = pa.Table.from_arrays(data, names=('a', 'b'))
 
     # TODO: Use this part once from_pandas is implemented
     # data = {'a': range(5), 'b': [-10, -5, 0, 5, 10]}

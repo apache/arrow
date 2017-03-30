@@ -126,15 +126,13 @@ garrow_table_class_init(GArrowTableClass *klass)
 
 /**
  * garrow_table_new:
- * @name: The name of the table.
  * @schema: The schema of the table.
  * @columns: (element-type GArrowColumn): The columns of the table.
  *
  * Returns: A newly created #GArrowTable.
  */
 GArrowTable *
-garrow_table_new(const gchar *name,
-                 GArrowSchema *schema,
+garrow_table_new(GArrowSchema *schema,
                  GList *columns)
 {
   std::vector<std::shared_ptr<arrow::Column>> arrow_columns;
@@ -144,23 +142,9 @@ garrow_table_new(const gchar *name,
   }
 
   auto arrow_table =
-    std::make_shared<arrow::Table>(name,
-                                   garrow_schema_get_raw(schema),
+    std::make_shared<arrow::Table>(garrow_schema_get_raw(schema),
                                    arrow_columns);
   return garrow_table_new_raw(&arrow_table);
-}
-
-/**
- * garrow_table_get_name:
- * @table: A #GArrowTable.
- *
- * Returns: The name of the table.
- */
-const gchar *
-garrow_table_get_name(GArrowTable *table)
-{
-  const auto arrow_table = garrow_table_get_raw(table);
-  return arrow_table->name().c_str();
 }
 
 /**

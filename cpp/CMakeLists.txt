@@ -784,12 +784,10 @@ set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/buffer.cc
   src/arrow/builder.cc
-  src/arrow/column.cc
   src/arrow/compare.cc
   src/arrow/loader.cc
   src/arrow/memory_pool.cc
   src/arrow/pretty_print.cc
-  src/arrow/schema.cc
   src/arrow/status.cc
   src/arrow/table.cc
   src/arrow/tensor.cc

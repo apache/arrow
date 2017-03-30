@@ -298,7 +298,7 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
 
 
 
-cdef _dataframe_to_arrays(df, name, timestamps_to_ms, Schema schema):
+cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
     cdef:
         list names = []
         list arrays = []
@@ -474,7 +474,7 @@ cdef class RecordBatch:
         -------
         pyarrow.table.RecordBatch
         """
-        names, arrays = _dataframe_to_arrays(df, None, False, schema)
+        names, arrays = _dataframe_to_arrays(df, False, schema)
         return cls.from_arrays(arrays, names)
 
     @staticmethod
@@ -573,6 +573,9 @@ cdef class Table:
     def __cinit__(self):
         self.table = NULL
 
+    def __repr__(self):
+        return 'pyarrow.Table\n{0}'.format(str(self.schema))
+
     cdef init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
         self.table = table.get()
@@ -608,15 +611,13 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(cls, df, name=None, timestamps_to_ms=False, schema=None):
+    def from_pandas(cls, df, timestamps_to_ms=False, schema=None):
         """
         Convert pandas.DataFrame to an Arrow Table
 
         Parameters
         ----------
         df: pandas.DataFrame
-
-        name: str
 
         timestamps_to_ms: bool
             Convert datetime columns to ms resolution. This is needed for
@@ -643,13 +644,13 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays = _dataframe_to_arrays(df, name=name,
+        names, arrays = _dataframe_to_arrays(df,
                                              timestamps_to_ms=timestamps_to_ms,
                                              schema=schema)
-        return cls.from_arrays(arrays, names=names, name=name)
+        return cls.from_arrays(arrays, names=names)
 
     @staticmethod
-    def from_arrays(arrays, names=None, name=None):
+    def from_arrays(arrays, names=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -660,8 +661,6 @@ cdef class Table:
         names: list of str, optional
             Names for the table columns. If Columns passed, will be
             inferred. If Arrays passed, this argument is required
-        name: str, optional
-            name for the Table
 
         Returns
         -------
@@ -669,7 +668,6 @@ cdef class Table:
 
         """
         cdef:
-            c_string c_name
             vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
             shared_ptr[CSchema] schema
@@ -689,16 +687,11 @@ cdef class Table:
             else:
                 raise ValueError(type(arrays[i]))
 
-        if name is None:
-            c_name = ''
-        else:
-            c_name = tobytes(name)
-
-        table.reset(new CTable(c_name, schema, columns))
+        table.reset(new CTable(schema, columns))
         return table_from_ctable(table)
 
     @staticmethod
-    def from_batches(batches, name=None):
+    def from_batches(batches):
         """
         Construct a Table from a list of Arrow RecordBatches
 
@@ -712,16 +705,12 @@ cdef class Table:
             vector[shared_ptr[CRecordBatch]] c_batches
             shared_ptr[CTable] c_table
             RecordBatch batch
-            Table table
-            c_string c_name
-
-        c_name = b'' if name is None else tobytes(name)
 
         for batch in batches:
             c_batches.push_back(batch.sp_batch)
 
         with nogil:
-            check_status(CTable.FromRecordBatches(c_name, c_batches, &c_table))
+            check_status(CTable.FromRecordBatches(c_batches, &c_table))
 
         return table_from_ctable(c_table)
 
@@ -760,18 +749,6 @@ cdef class Table:
             column = self.column(i).to_pylist()
             entries.append((name, column))
         return OrderedDict(entries)
-
-    @property
-    def name(self):
-        """
-        Label of the table
-
-        Returns
-        -------
-        str
-        """
-        self._check_nullptr()
-        return frombytes(self.table.name())
 
     @property
     def schema(self):
@@ -851,8 +828,19 @@ cdef class Table:
         """
         return (self.num_rows, self.num_columns)
 
+    def remove_column(self, int i):
+        """
+        Create new Table with the indicated column removed
+        """
+        cdef shared_ptr[CTable] c_table
 
-def concat_tables(tables, output_name=None):
+        with nogil:
+            check_status(self.table.RemoveColumn(i, &c_table))
+
+        return table_from_ctable(c_table)
+
+
+def concat_tables(tables):
     """
     Perform zero-copy concatenation of pyarrow.Table objects. Raises exception
     if all of the Table schemas are not the same
@@ -867,15 +855,12 @@ def concat_tables(tables, output_name=None):
         vector[shared_ptr[CTable]] c_tables
         shared_ptr[CTable] c_result
         Table table
-        c_string c_name
-
-    c_name = b'' if output_name is None else tobytes(output_name)
 
     for table in tables:
         c_tables.push_back(table.sp_table)
 
     with nogil:
-        check_status(ConcatenateTables(c_name, c_tables, &c_result))
+        check_status(ConcatenateTables(c_tables, &c_result))
 
     return table_from_ctable(c_result)
 

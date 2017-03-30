@@ -25,7 +25,6 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/python/pandas_convert.h"
-#include "arrow/schema.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
@@ -52,7 +51,7 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
       std::make_shared<Column>(f2, arr), std::make_shared<Column>(f3, arr)};
 
   auto schema = std::make_shared<Schema>(fields);
-  auto table = std::make_shared<Table>("", schema, cols);
+  auto table = std::make_shared<Table>(schema, cols);
 
   PyObject* out;
   Py_BEGIN_ALLOW_THREADS;

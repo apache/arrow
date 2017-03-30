@@ -52,7 +52,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   std::shared_ptr<Schema> out;
   ASSERT_OK(ReadJsonSchema(d, &out));
 
-  if (!schema.Equals(out)) {
+  if (!schema.Equals(*out)) {
     FAIL() << "In schema: " << schema.ToString() << "\nOut schema: " << out->ToString();
   }
 }
@@ -263,14 +263,14 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
       reinterpret_cast<const uint8_t*>(result.c_str()), static_cast<int>(result.size()));
 
   ASSERT_OK(JsonReader::Open(buffer, &reader));
-  ASSERT_TRUE(reader->schema()->Equals(*schema.get()));
+  ASSERT_TRUE(reader->schema()->Equals(*schema));
 
   ASSERT_EQ(nbatches, reader->num_record_batches());
 
   for (int i = 0; i < nbatches; ++i) {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(reader->GetRecordBatch(i, &batch));
-    ASSERT_TRUE(batch->Equals(*batches[i].get()));
+    ASSERT_TRUE(batch->Equals(*batches[i]));
   }
 }
 

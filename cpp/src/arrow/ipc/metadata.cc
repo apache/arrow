@@ -29,7 +29,6 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 

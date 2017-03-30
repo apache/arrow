@@ -22,6 +22,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"
@@ -132,7 +133,7 @@ struct ARROW_EXPORT DataType {
 
   explicit DataType(Type::type type) : type(type) {}
 
-  virtual ~DataType() = default;
+  virtual ~DataType();
 
   // Return whether the types are equal
   //
@@ -594,6 +595,36 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<Array> dictionary_;
   bool ordered_;
+};
+
+// ----------------------------------------------------------------------
+// Schema
+
+class ARROW_EXPORT Schema {
+ public:
+  explicit Schema(const std::vector<std::shared_ptr<Field>>& fields);
+
+  // Returns true if all of the schema fields are equal
+  bool Equals(const Schema& other) const;
+
+  // Return the ith schema element. Does not boundscheck
+  std::shared_ptr<Field> field(int i) const { return fields_[i]; }
+
+  // Returns nullptr if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name);
+
+  const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
+
+  // Render a string representation of the schema suitable for debugging
+  std::string ToString() const;
+
+  Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
+
+  int num_fields() const { return static_cast<int>(fields_.size()); }
+
+ private:
+  std::vector<std::shared_ptr<Field>> fields_;
+  std::unordered_map<std::string, int> name_to_index_;
 };
 
 // ----------------------------------------------------------------------

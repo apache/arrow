@@ -33,10 +33,10 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
-#include "arrow/schema.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");
@@ -143,7 +143,7 @@ static Status ValidateArrowVsJson(
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();
 
-  if (!json_schema->Equals(arrow_schema)) {
+  if (!json_schema->Equals(*arrow_schema)) {
     std::stringstream ss;
     ss << "JSON schema: \n"
        << json_schema->ToString() << "\n"
@@ -170,7 +170,7 @@ static Status ValidateArrowVsJson(
     RETURN_NOT_OK(json_reader->GetRecordBatch(i, &json_batch));
     RETURN_NOT_OK(arrow_reader->GetRecordBatch(i, &arrow_batch));
 
-    if (!json_batch->ApproxEquals(*arrow_batch.get())) {
+    if (!json_batch->ApproxEquals(*arrow_batch)) {
       std::stringstream ss;
       ss << "Record batch " << i << " did not match";
 

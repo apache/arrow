@@ -158,7 +158,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
     EXPECT_EQ(expected.num_rows(), result.num_rows());
 
-    ASSERT_TRUE(expected.schema()->Equals(result.schema()));
+    ASSERT_TRUE(expected.schema()->Equals(*result.schema()));
     ASSERT_EQ(expected.num_columns(), result.num_columns())
         << expected.schema()->ToString() << " result: " << result.schema()->ToString();
 
