@@ -784,7 +784,6 @@ set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/buffer.cc
   src/arrow/builder.cc
-  src/arrow/column.cc
   src/arrow/compare.cc
   src/arrow/loader.cc
   src/arrow/memory_pool.cc

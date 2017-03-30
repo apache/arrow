@@ -30,7 +30,6 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/column.h"
 #include "arrow/memory_pool.h"
 #include "arrow/schema.h"
 #include "arrow/status.h"

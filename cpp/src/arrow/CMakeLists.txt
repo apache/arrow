@@ -22,7 +22,6 @@ install(FILES
   array.h
   buffer.h
   builder.h
-  column.h
   compare.h
   loader.h
   memory_pool.h
@@ -59,7 +58,6 @@ ADD_ARROW_TEST(array-string-test)
 ADD_ARROW_TEST(array-struct-test)
 ADD_ARROW_TEST(array-union-test)
 ADD_ARROW_TEST(buffer-test)
-ADD_ARROW_TEST(column-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(status-test)
