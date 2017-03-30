@@ -21,7 +21,6 @@ from distutils.version import LooseVersion
 import itertools
 
 import numpy as np
-import pandas as pd
 
 import sys
 import six
@@ -31,6 +30,17 @@ from six import BytesIO, StringIO, string_types as py_string
 PY26 = sys.version_info[:2] == (2, 6)
 PY2 = sys.version_info[0] == 2
 
+try:
+    import pandas as pd
+    if LooseVersion(pd.__version__) < '0.19.0':
+        pdapi = pd.core.common
+        from pandas.core.dtypes import DatetimeTZDtype
+    else:
+        from pandas.types.dtypes import DatetimeTZDtype
+        pdapi = pd.api.types
+    HAVE_PANDAS = True
+except:
+    HAVE_PANDAS = False
 
 if PY26:
     import unittest2 as unittest
@@ -116,13 +126,6 @@ def encode_file_path(path):
 
     return encoded_path
 
-
-if LooseVersion(pd.__version__) < '0.19.0':
-    pdapi = pd.core.common
-    from pandas.core.dtypes import DatetimeTZDtype
-else:
-    from pandas.types.dtypes import DatetimeTZDtype
-    pdapi = pd.api.types
 
 integer_types = six.integer_types + (np.integer,)
 

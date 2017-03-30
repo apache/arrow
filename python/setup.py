@@ -17,7 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import glob
 import os.path as osp
 import re
 import shutil
@@ -83,16 +82,20 @@ class build_ext(_build_ext):
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-jemalloc', None, 'build the jemalloc extension'),
-                     ('bundle-arrow-cpp', None, 'bundle the Arrow C++ libraries')] +
+                     ('bundle-arrow-cpp', None,
+                      'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
-        self.with_parquet = strtobool(os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_jemalloc = strtobool(os.environ.get('PYARROW_WITH_JEMALLOC', '0'))
-        self.bundle_arrow_cpp = strtobool(os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
+        self.with_parquet = strtobool(
+            os.environ.get('PYARROW_WITH_PARQUET', '0'))
+        self.with_jemalloc = strtobool(
+            os.environ.get('PYARROW_WITH_JEMALLOC', '0'))
+        self.bundle_arrow_cpp = strtobool(
+            os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'array',
@@ -300,8 +303,10 @@ class build_ext(_build_ext):
 if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
     import xml.etree.ElementTree as ET
     tree = ET.parse('../java/pom.xml')
-    version_tag = list(tree.getroot().findall('{http://maven.apache.org/POM/4.0.0}version'))[0]
-    os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace("-SNAPSHOT", "a0")
+    version_tag = list(tree.getroot().findall(
+        '{http://maven.apache.org/POM/4.0.0}version'))[0]
+    os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace(
+        "-SNAPSHOT", "a0")
 
 long_description = """Apache Arrow is a columnar in-memory analytics layer
 designed to accelerate big data. It houses a set of canonical in-memory
@@ -321,7 +326,7 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
-    use_scm_version = {"root": "..", "relative_to": __file__},
+    use_scm_version={"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
     install_requires=['numpy >= 1.9', 'six >= 1.0.0'],
     test_requires=['pytest'],
