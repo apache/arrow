@@ -150,24 +150,21 @@ class ARROW_EXPORT RecordBatch {
 class ARROW_EXPORT Table {
  public:
   // If columns is zero-length, the table's number of rows is zero
-  Table(const std::string& name, const std::shared_ptr<Schema>& schema,
+  Table(const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<Column>>& columns);
 
   // num_rows is a parameter to allow for tables of a particular size not
   // having any materialized columns. Each column should therefore have the
   // same length as num_rows -- you can validate this using
   // Table::ValidateColumns
-  Table(const std::string& name, const std::shared_ptr<Schema>& schema,
+  Table(const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<Column>>& columns, int64_t nubm_rows);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
-  static Status FromRecordBatches(const std::string& name,
+  static Status FromRecordBatches(
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
-
-  // @returns: the table's name, if any (may be length 0)
-  const std::string& name() const { return name_; }
 
   // @returns: the table's schema
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -192,9 +189,6 @@ class ARROW_EXPORT Table {
   Status ValidateColumns() const;
 
  private:
-  // The table's name, optional
-  std::string name_;
-
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<Column>> columns_;
 
@@ -203,7 +197,7 @@ class ARROW_EXPORT Table {
 
 // Construct table from multiple input tables. Return Status::Invalid if
 // schemas are not equal
-Status ARROW_EXPORT ConcatenateTables(const std::string& output_name,
+Status ARROW_EXPORT ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table);
 
 }  // namespace arrow

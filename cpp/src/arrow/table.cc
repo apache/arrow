@@ -26,6 +26,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 
 namespace arrow {
 
@@ -192,9 +193,9 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset, int64_t length) 
 // ----------------------------------------------------------------------
 // Table methods
 
-Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
+Table::Table(const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns)
-    : name_(name), schema_(schema), columns_(columns) {
+    : schema_(schema), columns_(columns) {
   if (columns.size() == 0) {
     num_rows_ = 0;
   } else {
@@ -202,12 +203,11 @@ Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
   }
 }
 
-Table::Table(const std::string& name, const std::shared_ptr<Schema>& schema,
+Table::Table(const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
-    : name_(name), schema_(schema), columns_(columns), num_rows_(num_rows) {}
+    : schema_(schema), columns_(columns), num_rows_(num_rows) {}
 
-Status Table::FromRecordBatches(const std::string& name,
-    const std::vector<std::shared_ptr<RecordBatch>>& batches,
+Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>& batches,
     std::shared_ptr<Table>* table) {
   if (batches.size() == 0) {
     return Status::Invalid("Must pass at least one record batch");
@@ -238,11 +238,11 @@ Status Table::FromRecordBatches(const std::string& name,
     columns[i] = std::make_shared<Column>(schema->field(i), column_arrays);
   }
 
-  *table = std::make_shared<Table>(name, schema, columns);
+  *table = std::make_shared<Table>(schema, columns);
   return Status::OK();
 }
 
-Status ConcatenateTables(const std::string& output_name,
+Status ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table) {
   if (tables.size() == 0) { return Status::Invalid("Must pass at least one table"); }
 
@@ -273,13 +273,12 @@ Status ConcatenateTables(const std::string& output_name,
     }
     columns[i] = std::make_shared<Column>(schema->field(i), column_arrays);
   }
-  *table = std::make_shared<Table>(output_name, schema, columns);
+  *table = std::make_shared<Table>(schema, columns);
   return Status::OK();
 }
 
 bool Table::Equals(const Table& other) const {
   if (this == &other) { return true; }
-  if (name_ != other.name()) { return false; }
   if (!schema_->Equals(*other.schema())) { return false; }
   if (static_cast<int64_t>(columns_.size()) != other.num_columns()) { return false; }
 
@@ -290,8 +289,14 @@ bool Table::Equals(const Table& other) const {
 }
 
 Status Table::RemoveColumn(int i, std::shared_ptr<Table>* out) const {
-  DCHECK_GT(i, 0);
-  DCHECK_LT(i, schema_->num_fields());
+  std::shared_ptr<Schema> new_schema;
+  RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
+
+  std::vector<std::shared_ptr<Column>> new_columns;
+  DeleteVectorElement(columns_, i, &new_columns);
+
+  *out = std::make_shared<Table>(new_schema, new_columns);
+
   return Status::OK();
 }
 

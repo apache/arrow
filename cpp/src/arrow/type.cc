@@ -24,6 +24,7 @@
 #include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 #include "arrow/visitor.h"
 
 namespace arrow {
@@ -252,6 +253,16 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
   } else {
     return fields_[it->second];
   }
+}
+
+Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
+  DCHECK_GE(i, 0);
+  DCHECK_LT(i, this->num_fields());
+
+  std::vector<std::shared_ptr<Field>> new_fields;
+  DeleteVectorElement(fields_, i, &new_fields);
+  *out = std::make_shared<Schema>(new_fields);
+  return Status::OK();
 }
 
 std::string Schema::ToString() const {
