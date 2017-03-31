@@ -63,8 +63,8 @@ if (PARQUET_BUILD_SHARED)
     endif()
 
   install(TARGETS parquet_arrow_shared
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib)
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 if (PARQUET_BUILD_STATIC)
@@ -78,8 +78,8 @@ if (PARQUET_BUILD_STATIC)
       arrow_io_static
       parquet_static)
   install(TARGETS parquet_arrow_static
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib)
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 ADD_PARQUET_TEST(arrow-schema-test)
@@ -107,7 +107,7 @@ install(FILES
   reader.h
   schema.h
   writer.h
-  DESTINATION include/parquet/arrow)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/arrow")
 
 # pkg-config support
 configure_file(parquet-arrow.pc.in
@@ -115,4 +115,4 @@ configure_file(parquet-arrow.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet-arrow.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")

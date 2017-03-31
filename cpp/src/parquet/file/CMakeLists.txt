@@ -19,7 +19,7 @@ install(FILES
   metadata.h
   reader.h
   writer.h
-  DESTINATION include/parquet/file)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/file")
 
 ADD_PARQUET_TEST(file-deserialize-test)
 ADD_PARQUET_TEST(file-metadata-test)

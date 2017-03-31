@@ -21,4 +21,4 @@ install(FILES
   reader.h
   writer.h
   schema.h
-  DESTINATION include/parquet/api)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/api")

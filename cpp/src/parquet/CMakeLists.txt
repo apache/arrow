@@ -22,7 +22,7 @@ install(FILES
   exception.h
   schema.h
   types.h
-  DESTINATION include/parquet)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 # pkg-config support
 configure_file(parquet.pc.in
@@ -30,7 +30,7 @@ configure_file(parquet.pc.in
   @ONLY)
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
-  DESTINATION "lib/pkgconfig/")
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 ADD_PARQUET_TEST(compression-test)
 ADD_PARQUET_TEST(encoding-test)

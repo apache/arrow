@@ -16,8 +16,8 @@
 # under the License.
 
 prefix=@CMAKE_INSTALL_PREFIX@
-libdir=${prefix}/lib
-includedir=${prefix}/include
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
 Name: Apache Parquet Apache Arrow adapter
 Description: Apache Parquet Apache arrow adapter provides Arrow IPC modules for reading and writing Parquet format.

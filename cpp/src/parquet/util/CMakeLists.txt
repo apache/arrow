@@ -31,7 +31,7 @@ install(FILES
   stopwatch.h
   sse-util.h
   visibility.h
-  DESTINATION include/parquet/util)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
 
 if(PARQUET_BUILD_TESTS)
   add_library(parquet_test_main

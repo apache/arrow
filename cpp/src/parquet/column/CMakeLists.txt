@@ -25,7 +25,7 @@ install(FILES
   scanner.h
   writer.h
   statistics.h
-  DESTINATION include/parquet/column)
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/column")
 
 ADD_PARQUET_TEST(column-reader-test)
 ADD_PARQUET_TEST(column-writer-test)
