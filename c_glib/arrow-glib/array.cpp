@@ -24,6 +24,7 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/binary-array.h>
 #include <arrow-glib/boolean-array.h>
+#include <arrow-glib/data-type.hpp>
 #include <arrow-glib/double-array.h>
 #include <arrow-glib/float-array.h>
 #include <arrow-glib/int8-array.h>
@@ -171,6 +172,20 @@ garrow_array_get_n_nulls(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
   return arrow_array->null_count();
+}
+
+/**
+ * garrow_array_get_data_type:
+ * @array: A #GArrowArray.
+ *
+ * Returns: (transfer full): The #GArrowDataType for the array.
+ */
+GArrowDataType *
+garrow_array_get_data_type(GArrowArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_data_type = arrow_array->type();
+  return garrow_data_type_new_raw(&arrow_data_type);
 }
 
 /**
