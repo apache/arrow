@@ -34,6 +34,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
