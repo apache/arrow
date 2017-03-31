@@ -93,6 +93,10 @@ ADD_ARROW_LIB(arrow_jemalloc
   STATIC_PRIVATE_LINK_LIBS ${ARROW_JEMALLOC_STATIC_PRIVATE_LINK_LIBS}
 )
 
+if(JEMALLOC_VENDORED)
+  add_dependencies(arrow_jemalloc_objlib jemalloc_ep)
+endif()
+
 ADD_ARROW_TEST(jemalloc-memory_pool-test)
 ARROW_TEST_LINK_LIBRARIES(jemalloc-memory_pool-test
   ${ARROW_JEMALLOC_TEST_LINK_LIBS})

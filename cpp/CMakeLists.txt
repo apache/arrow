@@ -638,13 +638,15 @@ if (ARROW_JEMALLOC)
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
+        INSTALL_COMMAND ${MAKE} install
         BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}")
     else()
       ExternalProject_Add(jemalloc_ep
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${MAKE})
+        BUILD_COMMAND ${MAKE}
+        INSTALL_COMMAND ${MAKE} install)
     endif()
   else()
     set(JEMALLOC_VENDORED 0)
@@ -654,11 +656,6 @@ if (ARROW_JEMALLOC)
   ADD_THIRDPARTY_LIB(jemalloc
       STATIC_LIB ${JEMALLOC_STATIC_LIB}
       SHARED_LIB ${JEMALLOC_SHARED_LIB})
-
-  if (JEMALLOC_VENDORED)
-    add_dependencies(jemalloc_shared jemalloc_ep)
-    add_dependencies(jemalloc_static jemalloc_ep)
-  endif()
 endif()
 
 ## Google PerfTools
