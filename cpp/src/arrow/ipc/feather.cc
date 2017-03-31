@@ -401,16 +401,10 @@ TableReader::TableReader() {
 
 TableReader::~TableReader() {}
 
-Status TableReader::Open(const std::shared_ptr<io::RandomAccessFile>& source) {
-  return impl_->Open(source);
-}
-
-Status TableReader::OpenFile(
-    const std::string& abspath, std::unique_ptr<TableReader>* out) {
-  std::shared_ptr<io::MemoryMappedFile> file;
-  RETURN_NOT_OK(io::MemoryMappedFile::Open(abspath, io::FileMode::READ, &file));
+Status TableReader::Open(const std::shared_ptr<io::RandomAccessFile>& source,
+    std::unique_ptr<TableReader>* out) {
   out->reset(new TableReader());
-  return (*out)->Open(file);
+  return (*out)->impl_->Open(source);
 }
 
 bool TableReader::HasDescription() const {
@@ -517,9 +511,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     // Footer: metadata length, magic bytes
     RETURN_NOT_OK(
         stream_->Write(reinterpret_cast<const uint8_t*>(&buffer_size), sizeof(uint32_t)));
-    RETURN_NOT_OK(stream_->Write(reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
-        strlen(kFeatherMagicBytes)));
-    return stream_->Close();
+    return stream_->Write(
+        reinterpret_cast<const uint8_t*>(kFeatherMagicBytes), strlen(kFeatherMagicBytes));
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {
@@ -698,14 +691,6 @@ Status TableWriter::Open(
     const std::shared_ptr<io::OutputStream>& stream, std::unique_ptr<TableWriter>* out) {
   out->reset(new TableWriter());
   return (*out)->impl_->Open(stream);
-}
-
-Status TableWriter::OpenFile(
-    const std::string& abspath, std::unique_ptr<TableWriter>* out) {
-  std::shared_ptr<io::FileOutputStream> file;
-  RETURN_NOT_OK(io::FileOutputStream::Open(abspath, &file));
-  out->reset(new TableWriter());
-  return (*out)->impl_->Open(file);
 }
 
 void TableWriter::SetDescription(const std::string& desc) {

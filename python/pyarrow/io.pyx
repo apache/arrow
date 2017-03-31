@@ -32,10 +32,11 @@ from pyarrow.includes.libarrow_ipc cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import frombytes, tobytes, encode_file_path
+from pyarrow.array cimport Array
 from pyarrow.error cimport check_status
 from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 from pyarrow.schema cimport Schema
-from pyarrow.table cimport (RecordBatch, batch_from_cbatch,
+from pyarrow.table cimport (Column, RecordBatch, batch_from_cbatch,
                             table_from_ctable)
 
 cimport cpython as cp
@@ -564,7 +565,9 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
 cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     cdef NativeFile nf
 
-    if not isinstance(source, NativeFile) and hasattr(source, 'write'):
+    if isinstance(source, six.string_types):
+        source = OSFile(source, mode='w')
+    elif not isinstance(source, NativeFile) and hasattr(source, 'write'):
         # Optimistically hope this is file-like
         source = PythonFileInterface(source, mode='w')
 
@@ -1047,3 +1050,97 @@ cdef class _FileReader:
             check_status(CTable.FromRecordBatches(batches, &table))
 
         return table_from_ctable(table)
+
+
+#----------------------------------------------------------------------
+# Implement legacy Feather file format
+
+
+class FeatherError(Exception):
+    pass
+
+
+cdef class FeatherWriter:
+    cdef:
+        unique_ptr[CFeatherWriter] writer
+
+    cdef public:
+        int64_t num_rows
+
+    def __cinit__(self):
+        self.num_rows = -1
+
+    def open(self, object dest):
+        cdef shared_ptr[OutputStream] sink
+        get_writer(dest, &sink)
+
+        with nogil:
+            check_status(CFeatherWriter.Open(sink, &self.writer))
+
+    def close(self):
+        if self.num_rows < 0:
+            self.num_rows = 0
+        self.writer.get().SetNumRows(self.num_rows)
+        check_status(self.writer.get().Finalize())
+
+    def write_array(self, object name, object col, object mask=None):
+        cdef Array arr
+
+        if self.num_rows >= 0:
+            if len(col) != self.num_rows:
+                raise ValueError('prior column had a different number of rows')
+        else:
+            self.num_rows = len(col)
+
+        if isinstance(col, Array):
+            arr = col
+        else:
+            arr = Array.from_pandas(col, mask=mask)
+
+        cdef c_string c_name = tobytes(name)
+
+        with nogil:
+            check_status(
+                self.writer.get().Append(c_name, deref(arr.sp_array)))
+
+
+cdef class FeatherReader:
+    cdef:
+        unique_ptr[CFeatherReader] reader
+
+    def __cinit__(self):
+        pass
+
+    def open(self, source):
+        cdef shared_ptr[RandomAccessFile] reader
+        get_reader(source, &reader)
+
+        with nogil:
+            check_status(CFeatherReader.Open(reader, &self.reader))
+
+    property num_rows:
+
+        def __get__(self):
+            return self.reader.get().num_rows()
+
+    property num_columns:
+
+        def __get__(self):
+            return self.reader.get().num_columns()
+
+    def get_column_name(self, int i):
+        cdef c_string name = self.reader.get().GetColumnName(i)
+        return frombytes(name)
+
+    def get_column(self, int i):
+        if i < 0 or i >= self.num_columns:
+            raise IndexError(i)
+
+        cdef shared_ptr[CColumn] sp_column
+        with nogil:
+            check_status(self.reader.get()
+                         .GetColumn(i, &sp_column))
+
+        cdef Column col = Column()
+        col.init(sp_column)
+        return col

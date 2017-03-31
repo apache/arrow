@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CSchema, CRecordBatch)
+from pyarrow.includes.libarrow cimport (CArray, CColumn, CSchema, CRecordBatch)
 from pyarrow.includes.libarrow_io cimport (InputStream, OutputStream,
                                            RandomAccessFile)
 
@@ -63,3 +63,32 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int num_record_batches()
 
         CStatus GetRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+
+cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
+
+    cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
+        @staticmethod
+        CStatus Open(const shared_ptr[OutputStream]& stream,
+                     unique_ptr[CFeatherWriter]* out)
+
+        void SetDescription(const c_string& desc)
+        void SetNumRows(int64_t num_rows)
+
+        CStatus Append(const c_string& name, const CArray& values)
+        CStatus Finalize()
+
+    cdef cppclass CFeatherReader" arrow::ipc::feather::TableReader":
+        @staticmethod
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+                     unique_ptr[CFeatherReader]* out)
+
+        c_string GetDescription()
+        c_bool HasDescription()
+
+        int64_t num_rows()
+        int64_t num_columns()
+
+        shared_ptr[CSchema] schema()
+
+        CStatus GetColumn(int i, shared_ptr[CColumn]* out)
+        c_string GetColumnName(int i)
