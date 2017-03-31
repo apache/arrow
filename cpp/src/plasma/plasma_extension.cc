@@ -266,7 +266,7 @@ PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
                                    (uint64_t) timeout);
   Py_END_ALLOW_THREADS;
 
-  int num_to_return = MIN(num_return_objects, num_returns);
+  int num_to_return = std::min(num_return_objects, num_returns);
   PyObject *ready_ids = PyList_New(num_to_return);
   PyObject *waiting_ids = PySet_New(object_id_list);
   int num_returned = 0;

@@ -4,6 +4,8 @@
 #include <Win32_Interop/win32_types.h>
 #endif
 
+#include <algorithm>
+
 #include <assert.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -435,7 +437,7 @@ void plasma_release(PlasmaConnection *conn, ObjectID obj_id) {
    * pending release calls, and there are at least some pending release calls in
    * the release_history list, then release some objects. */
   while ((conn->in_use_object_bytes >
-              MIN(L3_CACHE_SIZE_BYTES, conn->store_capacity / 100) ||
+              std::min(L3_CACHE_SIZE_BYTES, conn->store_capacity / 100) ||
           conn->release_history_length > conn->config.release_delay) &&
          conn->release_history_length > 0) {
     DCHECK(conn->release_history != NULL);

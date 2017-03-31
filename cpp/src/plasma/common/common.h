@@ -20,14 +20,6 @@ extern "C" {
 }
 #endif
 
-/** The duration between heartbeats. These are sent by the plasma manager and
- *  local scheduler. */
-#define HEARTBEAT_TIMEOUT_MILLISECONDS 100
-/** If a component has not sent a heartbeat in the last NUM_HEARTBEATS_TIMEOUT
- *  heartbeat intervals, the global scheduler or monitor process will report it
- *  as dead to the db_client table. */
-#define NUM_HEARTBEATS_TIMEOUT 100
-
 /** Definitions for Ray logging levels. */
 #define RAY_COMMON_DEBUG 0
 #define RAY_COMMON_INFO 1
@@ -183,20 +175,6 @@ bool ObjectID_equal(ObjectID first_id, ObjectID second_id);
  * @return True if the object ID is equal to nil.
  */
 bool ObjectID_is_nil(ObjectID id);
-
-typedef UniqueID DBClientID;
-
-/**
- * Compare two db client IDs.
- *
- * @param first_id The first db client ID to compare.
- * @param second_id The first db client ID to compare.
- * @return True if the db client IDs are the same and false otherwise.
- */
-bool DBClientID_equal(DBClientID first_id, DBClientID second_id);
-
-#define MAX(x, y) ((x) >= (y) ? (x) : (y))
-#define MIN(x, y) ((x) <= (y) ? (x) : (y))
 
 /** Definitions for computing hash digests. */
 #define DIGEST_SIZE SHA256_BLOCK_SIZE
