@@ -637,14 +637,16 @@ if (ARROW_JEMALLOC)
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${MAKE}
-        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}")
+        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
+        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
+        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
     else()
       ExternalProject_Add(jemalloc_ep
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${MAKE})
+        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
+        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
     endif()
   else()
     set(JEMALLOC_VENDORED 0)
