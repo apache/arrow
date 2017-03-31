@@ -294,13 +294,15 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const BooleanArray& left) {
     const auto& right = static_cast<const BooleanArray&>(right_);
+
     if (left.null_count() > 0) {
       const uint8_t* left_data = left.data()->data();
       const uint8_t* right_data = right.data()->data();
 
       for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) &&
-            BitUtil::GetBit(left_data, i) != BitUtil::GetBit(right_data, i)) {
+            BitUtil::GetBit(left_data, i + left.offset()) !=
+                BitUtil::GetBit(right_data, i + right.offset())) {
           result_ = false;
           return Status::OK();
         }

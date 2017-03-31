@@ -281,7 +281,12 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const BooleanArray& array) override {
-    buffers_.push_back(array.data());
+    std::shared_ptr<Buffer> bits = array.data();
+    if (array.offset() != 0) {
+      RETURN_NOT_OK(
+          CopyBitmap(pool_, bits->data(), array.offset(), array.length(), &bits));
+    }
+    buffers_.push_back(bits);
     return Status::OK();
   }
 

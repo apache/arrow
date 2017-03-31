@@ -104,7 +104,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch,  \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,    \
       &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes, \
-      &MakeFWBinary);
+      &MakeFWBinary, &MakeBooleanBatch);
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
