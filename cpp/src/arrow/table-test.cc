@@ -127,8 +127,8 @@ TEST_F(TestColumn, BasicAPI) {
   arrays.push_back(MakePrimitive<Int32Array>(100, 10));
   arrays.push_back(MakePrimitive<Int32Array>(100, 20));
 
-  auto field = std::make_shared<Field>("c0", int32());
-  column_.reset(new Column(field, arrays));
+  auto f0 = field("c0", int32());
+  column_.reset(new Column(f0, arrays));
 
   ASSERT_EQ("c0", column_->name());
   ASSERT_TRUE(column_->type()->Equals(int32()));
@@ -137,7 +137,7 @@ TEST_F(TestColumn, BasicAPI) {
   ASSERT_EQ(3, column_->data()->num_chunks());
 
   // nullptr array should not break
-  column_.reset(new Column(field, std::shared_ptr<Array>(nullptr)));
+  column_.reset(new Column(f0, std::shared_ptr<Array>(nullptr)));
   ASSERT_NE(column_.get(), nullptr);
 }
 
@@ -146,13 +146,13 @@ TEST_F(TestColumn, ChunksInhomogeneous) {
   arrays.push_back(MakePrimitive<Int32Array>(100));
   arrays.push_back(MakePrimitive<Int32Array>(100, 10));
 
-  auto field = std::make_shared<Field>("c0", int32());
-  column_.reset(new Column(field, arrays));
+  auto f0 = field("c0", int32());
+  column_.reset(new Column(f0, arrays));
 
   ASSERT_OK(column_->ValidateData());
 
   arrays.push_back(MakePrimitive<Int16Array>(100, 10));
-  column_.reset(new Column(field, arrays));
+  column_.reset(new Column(f0, arrays));
   ASSERT_RAISES(Invalid, column_->ValidateData());
 }
 
@@ -164,8 +164,8 @@ TEST_F(TestColumn, Equals) {
   arrays_one_.push_back(array);
   arrays_another_.push_back(array);
 
-  one_field_ = std::make_shared<Field>("column", int32());
-  another_field_ = std::make_shared<Field>("column", int32());
+  one_field_ = field("column", int32());
+  another_field_ = field("column", int32());
 
   Construct();
   ASSERT_TRUE(one_col_->Equals(one_col_));
@@ -174,13 +174,13 @@ TEST_F(TestColumn, Equals) {
   ASSERT_TRUE(one_col_->Equals(*another_col_.get()));
 
   // Field is different
-  another_field_ = std::make_shared<Field>("two", int32());
+  another_field_ = field("two", int32());
   Construct();
   ASSERT_FALSE(one_col_->Equals(another_col_));
   ASSERT_FALSE(one_col_->Equals(*another_col_.get()));
 
   // ChunkedArray is different
-  another_field_ = std::make_shared<Field>("column", int32());
+  another_field_ = field("column", int32());
   arrays_another_.push_back(array);
   Construct();
   ASSERT_FALSE(one_col_->Equals(another_col_));
@@ -190,9 +190,9 @@ TEST_F(TestColumn, Equals) {
 class TestTable : public TestBase {
  public:
   void MakeExample1(int length) {
-    auto f0 = std::make_shared<Field>("f0", int32());
-    auto f1 = std::make_shared<Field>("f1", uint8());
-    auto f2 = std::make_shared<Field>("f2", int16());
+    auto f0 = field("f0", int32());
+    auto f1 = field("f1", uint8());
+    auto f2 = field("f2", int16());
 
     vector<shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
@@ -279,9 +279,9 @@ TEST_F(TestTable, Equals) {
 
   ASSERT_TRUE(table_->Equals(*table_));
   // Differing schema
-  auto f0 = std::make_shared<Field>("f3", int32());
-  auto f1 = std::make_shared<Field>("f4", uint8());
-  auto f2 = std::make_shared<Field>("f5", int16());
+  auto f0 = field("f3", int32());
+  auto f1 = field("f4", uint8());
+  auto f2 = field("f5", int16());
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto other_schema = std::make_shared<Schema>(fields);
   ASSERT_FALSE(table_->Equals(Table(other_schema, columns_)));
@@ -389,9 +389,9 @@ class TestRecordBatch : public TestBase {};
 TEST_F(TestRecordBatch, Equals) {
   const int length = 10;
 
-  auto f0 = std::make_shared<Field>("f0", int32());
-  auto f1 = std::make_shared<Field>("f1", uint8());
-  auto f2 = std::make_shared<Field>("f2", int16());
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = std::make_shared<Schema>(fields);
@@ -401,21 +401,51 @@ TEST_F(TestRecordBatch, Equals) {
   auto a2 = MakePrimitive<Int16Array>(length);
 
   RecordBatch b1(schema, length, {a0, a1, a2});
-  RecordBatch b2(schema, 5, {a0, a1, a2});
   RecordBatch b3(schema, length, {a0, a1});
   RecordBatch b4(schema, length, {a0, a1, a1});
 
   ASSERT_TRUE(b1.Equals(b1));
-  ASSERT_FALSE(b1.Equals(b2));
   ASSERT_FALSE(b1.Equals(b3));
   ASSERT_FALSE(b1.Equals(b4));
 }
 
+#ifdef NDEBUG
+// In debug builds, RecordBatch ctor aborts if you construct an invalid one
+
+TEST_F(TestRecordBatch, Validate) {
+  const int length = 10;
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+
+  auto schema = std::shared_ptr<Schema>(new Schema({f0, f1, f2}));
+
+  auto a0 = MakePrimitive<Int32Array>(length);
+  auto a1 = MakePrimitive<UInt8Array>(length);
+  auto a2 = MakePrimitive<Int16Array>(length);
+  auto a3 = MakePrimitive<Int16Array>(5);
+
+  RecordBatch b1(schema, length, {a0, a1, a2});
+
+  ASSERT_OK(b1.Validate());
+
+  // Length mismatch
+  RecordBatch b2(schema, length, {a0, a1, a3});
+  ASSERT_RAISES(Invalid, b2.Validate());
+
+  // Type mismatch
+  RecordBatch b3(schema, length, {a0, a1, a0});
+  ASSERT_RAISES(Invalid, b3.Validate());
+}
+
+#endif
+
 TEST_F(TestRecordBatch, Slice) {
   const int length = 10;
 
-  auto f0 = std::make_shared<Field>("f0", int32());
-  auto f1 = std::make_shared<Field>("f1", uint8());
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
 
   vector<shared_ptr<Field>> fields = {f0, f1};
   auto schema = std::make_shared<Schema>(fields);

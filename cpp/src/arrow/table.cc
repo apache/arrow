@@ -139,6 +139,11 @@ Status Column::ValidateData() {
 // ----------------------------------------------------------------------
 // RecordBatch methods
 
+void AssertBatchValid(const RecordBatch& batch) {
+  Status s = batch.Validate();
+  if (!s.ok()) { DCHECK(false) << s.ToString(); }
+}
+
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
     const std::vector<std::shared_ptr<Array>>& columns)
     : schema_(schema), num_rows_(num_rows), columns_(columns) {}
@@ -188,6 +193,26 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset, int64_t length) 
 
   int64_t num_rows = std::min(num_rows_ - offset, length);
   return std::make_shared<RecordBatch>(schema_, num_rows, arrays);
+}
+
+Status RecordBatch::Validate() const {
+  for (int i = 0; i < num_columns(); ++i) {
+    const Array& arr = *columns_[i];
+    if (arr.length() != num_rows_) {
+      std::stringstream ss;
+      ss << "Number of rows in column " << i << " did not match batch: " << arr.length()
+         << " vs " << num_rows_;
+      return Status::Invalid(ss.str());
+    }
+    const auto& schema_type = *schema_->field(i)->type;
+    if (!arr.type()->Equals(schema_type)) {
+      std::stringstream ss;
+      ss << "Column " << i << " type not match schema: " << arr.type()->ToString()
+         << " vs " << schema_type.ToString();
+      return Status::Invalid(ss.str());
+    }
+  }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

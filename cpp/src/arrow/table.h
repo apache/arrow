@@ -140,6 +140,10 @@ class ARROW_EXPORT RecordBatch {
   std::shared_ptr<RecordBatch> Slice(int64_t offset);
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length);
 
+  /// Returns error status is there is something wrong with the record batch
+  /// contents, like a schema/array mismatch or inconsistent lengths
+  Status Validate() const;
+
  private:
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
