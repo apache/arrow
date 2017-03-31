@@ -30,6 +30,25 @@ class TestTable < Test::Unit::TestCase
         Arrow::Column.new(fields[1], build_boolean_array([false])),
       ]
       table = Arrow::Table.new(schema, columns)
+
+      data = table.n_columns.times.collect do |i|
+        column = table.get_column(i)
+        values = []
+        column.data.chunks.each do |chunk|
+          chunk.length.times do |j|
+            values << chunk.get_value(j)
+          end
+        end
+        [
+          column.name,
+          values,
+        ]
+      end
+      assert_equal([
+                     ["visible", [true]],
+                     ["valid", [false]],
+                   ],
+                   data)
     end
   end
 
