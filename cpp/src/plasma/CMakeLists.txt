@@ -111,6 +111,5 @@ function(define_test test_name library)
   target_compile_options(${test_name} PUBLIC "-DPLASMA_TEST -DLOCAL_SCHEDULER_TEST -DCOMMON_TEST -DRAY_COMMON_LOG_LEVEL=4 -DRAY_TIMEOUT=50")
 endfunction()
 
-# define_test(client_tests plasma_lib)
-# define_test(manager_tests plasma_lib plasma_manager.cc)
-# define_test(serialization_tests plasma_lib)
+define_test(client_tests plasma_lib)
+define_test(serialization_tests plasma_lib)
