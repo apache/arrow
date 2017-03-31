@@ -40,6 +40,25 @@ $RAT $1 \
   -e __init__.pxd \
   -e __init__.py \
   -e requirements.txt \
+  -e version \
+  -e "*.m4" \
+  -e configure \
+  -e config.sub \
+  -e config.h.in \
+  -e compile \
+  -e missing \
+  -e install-sh \
+  -e config.guess \
+  -e depcomp \
+  -e ltmain.sh \
+  -e arrow-glib.types \
+  -e arrow-glib-sections.txt \
+  -e arrow-glib-overrides.txt \
+  -e gtk-doc.make \
+  -e "*.html" \
+  -e "*.css" \
+  -e "*.png" \
+  -e "*.devhelp2" \
   > rat.txt
 cat rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
