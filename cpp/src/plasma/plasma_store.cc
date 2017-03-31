@@ -34,6 +34,7 @@
 #include "plasma_protocol.h"
 #include "plasma_store.h"
 #include "plasma.h"
+#include "arrow/util/logging.h"
 
 extern "C" {
 #include "fling.h"
@@ -207,7 +208,7 @@ int create_object(Client *client_context,
                   int64_t data_size,
                   int64_t metadata_size,
                   PlasmaObject *result) {
-  LOG_DEBUG("creating object"); /* TODO(pcm): add ObjectID here */
+  ARROW_LOG(INFO) << "creating object"; /* TODO(pcm): add ObjectID here */
   PlasmaStoreState *plasma_state = client_context->plasma_state;
   object_table_entry *entry;
   /* TODO(swang): Return these error to the client instead of exiting. */
@@ -365,7 +366,7 @@ void return_from_get(PlasmaStoreState *store_state, GetRequest *get_req) {
          * plasma store event loop which should never happen. */
         while (error_code < 0) {
           if (errno == EMSGSIZE) {
-            LOG_WARN("Failed to send file descriptor, retrying.");
+            ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
             error_code = send_fd(get_req->client->sock,
                                  get_req->objects[i].handle.store_fd);
             continue;
@@ -426,7 +427,7 @@ void update_object_get_requests(PlasmaStoreState *store_state,
       /* Check a few things just to be sure there aren't bugs. */
       DCHECK(num_updated > 0);
       if (num_updated > 1) {
-        LOG_WARN("A get request contained a duplicated object ID.");
+        ARROW_LOG(WARNING) << "A get request contained a duplicated object ID.";
       }
 
       /* If this get request is done, reply to the client. */
@@ -567,7 +568,7 @@ int contains_object(Client *client_context, ObjectID object_id) {
 void seal_object(Client *client_context,
                  ObjectID object_id,
                  unsigned char digest[]) {
-  LOG_DEBUG("sealing object");  // TODO(pcm): add ObjectID here
+  ARROW_LOG(INFO) << "sealing object";  // TODO(pcm): add ObjectID here
   PlasmaStoreState *plasma_state = client_context->plasma_state;
   object_table_entry *entry;
   HASH_FIND(handle, plasma_state->plasma_store_info->objects, &object_id,
@@ -588,17 +589,17 @@ void seal_object(Client *client_context,
 /* Delete an object that has been created in the hash table. This should only
  * be called on objects that are returned by the eviction policy to evict. */
 void delete_object(PlasmaStoreState *plasma_state, ObjectID object_id) {
-  LOG_DEBUG("deleting object");
+  ARROW_LOG(INFO) << "deleting object";
   object_table_entry *entry;
   HASH_FIND(handle, plasma_state->plasma_store_info->objects, &object_id,
             sizeof(object_id), entry);
   /* TODO(rkn): This should probably not fail, but should instead throw an
    * error. Maybe we should also support deleting objects that have been created
    * but not sealed. */
-  CHECKM(entry != NULL, "To delete an object it must be in the object table.");
-  CHECKM(entry->state == PLASMA_SEALED,
+  CHECK_MSG(entry != NULL, "To delete an object it must be in the object table.");
+  CHECK_MSG(entry->state == PLASMA_SEALED,
          "To delete an object it must have been sealed.");
-  CHECKM(utarray_len(entry->clients) == 0,
+  CHECK_MSG(utarray_len(entry->clients) == 0,
          "To delete an object, there must be no clients currently using it.");
   uint8_t *pointer = entry->pointer;
   HASH_DELETE(handle, plasma_state->plasma_store_info->objects, entry);
@@ -666,9 +667,9 @@ void send_notifications(event_loop *loop,
       CHECK(nbytes == sizeof(int64_t) + size);
     } else if (nbytes == -1 &&
                (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
-      LOG_DEBUG(
+      ARROW_LOG(INFO) <<
           "The socket's send buffer is full, so we are caching this "
-          "notification and will send it later.");
+          "notification and will send it later.";
       /* Add a callback to the event loop to send queued notifications whenever
        * there is room in the socket's send buffer. Callbacks can be added
        * more than once here and will be overwritten. The callback is removed
@@ -677,7 +678,7 @@ void send_notifications(event_loop *loop,
                           send_notifications, plasma_state);
       break;
     } else {
-      LOG_WARN("Failed to send notification to client on fd %d", client_sock);
+      ARROW_LOG(WARNING) << "Failed to send notification to client on fd " << client_sock;
       if (errno == EPIPE) {
         closed = true;
         break;
@@ -707,14 +708,14 @@ void send_notifications(event_loop *loop,
 
 /* Subscribe to notifications about sealed objects. */
 void subscribe_to_updates(Client *client_context, int conn) {
-  LOG_DEBUG("subscribing to updates");
+  ARROW_LOG(INFO) << "subscribing to updates";
   PlasmaStoreState *plasma_state = client_context->plasma_state;
   /* TODO(rkn): The store could block here if the client doesn't send a file
    * descriptor. */
   int fd = recv_fd(conn);
   if (fd < 0) {
     /* This may mean that the client died before sending the file descriptor. */
-    LOG_WARN("Failed to receive file descriptor from client on fd %d.", conn);
+    ARROW_LOG(WARNING) << "Failed to receive file descriptor from client on fd " << conn;
     return;
   }
 
@@ -828,7 +829,7 @@ void process_message(event_loop *loop,
         client_sock);
   } break;
   case DISCONNECT_CLIENT: {
-    LOG_INFO("Disconnecting client on fd %d", client_sock);
+    ARROW_LOG(INFO) << "Disconnecting client on fd " << client_sock;
     event_loop_remove_file(loop, client_sock);
     /* If this client was using any objects, remove it from the appropriate
      * lists. */
@@ -863,7 +864,7 @@ void new_client_connection(event_loop *loop,
   /* Add a callback to handle events on this socket. */
   event_loop_add_file(loop, new_socket, EVENT_LOOP_READ, process_message,
                       client_context);
-  LOG_DEBUG("new connection with fd %d", new_socket);
+  ARROW_LOG(INFO) << "new connection with fd " << new_socket;
 }
 
 /* Report "success" to valgrind. */
@@ -903,8 +904,7 @@ int main(int argc, char *argv[]) {
       char extra;
       int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
       CHECK(scanned == 1);
-      LOG_INFO("Allowing the Plasma store to use up to %.2fGB of memory.",
-               ((double) system_memory) / 1000000000);
+      ARROW_LOG(INFO) << "Allowing the Plasma store to use up to " << ((double) system_memory) / 1000000000 << "GB of memory";
       break;
     }
     default:
@@ -912,10 +912,10 @@ int main(int argc, char *argv[]) {
     }
   }
   if (!socket_name) {
-    LOG_FATAL("please specify socket for incoming connections with -s switch");
+    ARROW_LOG(FATAL) << "please specify socket for incoming connections with -s switch";
   }
   if (system_memory == -1) {
-    LOG_FATAL("please specify the amount of system memory with -m switch");
+    ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
   }
 #ifdef __linux__
   /* On Linux, check that the amount of memory available in /dev/shm is large
@@ -928,15 +928,14 @@ int main(int argc, char *argv[]) {
   int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
   close(shm_fd);
   if (system_memory > shm_mem_avail) {
-    LOG_FATAL(
+    ARROW_LOG(FATAL) <<
         "System memory request exceeds memory available in /dev/shm. The "
-        "request is for %" PRId64 " bytes, and the amount available is %" PRId64
+        "request is for " << system_memory << " bytes, and the amount available is " << shm_mem_avail <<
         " bytes. You may be able to free up space by deleting files in "
         "/dev/shm. If you are inside a Docker container, you may need to pass "
-        "an argument with the flag '--shm-size' to 'docker run'.",
-        system_memory, shm_mem_avail);
+        "an argument with the flag '--shm-size' to 'docker run'.";
   }
 #endif
-  LOG_DEBUG("starting server listening on %s", socket_name);
+  ARROW_LOG(INFO) << "starting server listening on " << socket_name;
   start_server(socket_name, system_memory);
 }

@@ -30,11 +30,11 @@ void event_loop_add_file(event_loop *loop,
   /* If it cannot be added, increase the size of the event loop. */
   if (err == AE_ERR && errno == ERANGE) {
     err = aeResizeSetSize(loop, 3 * aeGetSetSize(loop) / 2);
-    CHECK(err == AE_OK);
+    DCHECK(err == AE_OK);
     err = aeCreateFileEvent(loop, fd, events, handler, context);
   }
   /* In any case, test if there were errors. */
-  CHECK(err == AE_OK);
+  DCHECK(err == AE_OK);
 }
 
 void event_loop_remove_file(event_loop *loop, int fd) {

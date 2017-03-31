@@ -170,15 +170,14 @@ bool EvictionState_require_space(EvictionState *eviction_state,
     /* Try to free up at least as much space as we need right now but ideally
      * up to 20% of the total capacity. */
     int64_t space_to_free = std::max(size, plasma_store_info->memory_capacity / 5);
-    LOG_DEBUG("not enough space to create this object, so evicting objects");
+    ARROW_LOG(INFO) << "not enough space to create this object, so evicting objects";
     /* Choose some objects to evict, and update the return pointers. */
     num_bytes_evicted = EvictionState_choose_objects_to_evict(
         eviction_state, plasma_store_info, space_to_free, num_objects_to_evict,
         objects_to_evict);
-    LOG_INFO(
+    ARROW_LOG(INFO) <<
         "There is not enough space to create this object, so evicting "
-        "%" PRId64 " objects to free up %" PRId64 " bytes.",
-        *num_objects_to_evict, num_bytes_evicted);
+        << *num_objects_to_evict << " objects to free up " << num_bytes_evicted << " bytes.";
   } else {
     num_bytes_evicted = 0;
     *num_objects_to_evict = 0;

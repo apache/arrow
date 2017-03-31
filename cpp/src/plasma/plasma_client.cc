@@ -156,7 +156,7 @@ uint8_t *lookup_or_mmap(PlasmaConnection *conn,
     uint8_t *result = (uint8_t *) mmap(NULL, map_size, PROT_READ | PROT_WRITE,
                                        MAP_SHARED, fd, 0);
     if (result == MAP_FAILED) {
-      LOG_FATAL("mmap failed");
+      ARROW_LOG(FATAL) << "mmap failed";
     }
     close(fd);
     entry = (client_mmap_table_entry *) malloc(sizeof(client_mmap_table_entry));
@@ -223,9 +223,8 @@ int plasma_create(PlasmaConnection *conn,
                   uint8_t *metadata,
                   int64_t metadata_size,
                   uint8_t **data) {
-  LOG_DEBUG("called plasma_create on conn %d with size %" PRId64
-            " and metadata size %" PRId64,
-            conn->store_conn, data_size, metadata_size);
+  ARROW_LOG(INFO) << "called plasma_create on conn " << conn->store_conn
+                   << " with size " << data_size << " and metadata size " << metadata_size;
   CHECK(plasma_send_CreateRequest(conn->store_conn, conn->builder, obj_id,
                                   data_size, metadata_size) >= 0);
   uint8_t *reply_data =
@@ -236,7 +235,7 @@ int plasma_create(PlasmaConnection *conn,
   plasma_read_CreateReply(reply_data, &id, &object, &error);
   free(reply_data);
   if (error != PlasmaError_OK) {
-    LOG_DEBUG("returned from plasma_create with error %d", error);
+    ARROW_LOG(WARNING) << "returned from plasma_create with error " << error;
     CHECK(error == PlasmaError_OutOfMemory ||
           error == PlasmaError_ObjectExists);
     return error;
@@ -244,7 +243,9 @@ int plasma_create(PlasmaConnection *conn,
   /* If the CreateReply included an error, then the store will not send a file
    * descriptor. */
   int fd = recv_fd(conn->store_conn);
-  CHECKM(fd >= 0, "recv not successful");
+  if (fd < 0) {
+    ARROW_LOG(FATAL) << "recv not successful";
+  }
   CHECK(object.data_size == data_size);
   CHECK(object.metadata_size == metadata_size);
   /* The metadata should come right after the data. */
@@ -292,8 +293,9 @@ void plasma_get(PlasmaConnection *conn,
       PlasmaObject *object;
       /* NOTE: If the object is still unsealed, we will deadlock, since we must
        * have been the one who created it. */
-      CHECKM(object_entry->is_sealed,
-             "Plasma client called get on an unsealed object that it created");
+      if (!object_entry->is_sealed) {
+        ARROW_LOG(FATAL) << "Plasma client called get on an unsealed object that it created";
+      }
       object = &object_entry->object;
       object_buffers[i].data =
           lookup_mmapped_file(conn, object->handle.store_fd);
@@ -563,10 +565,12 @@ void plasma_seal(PlasmaConnection *conn, ObjectID object_id) {
   object_in_use_entry *object_entry;
   HASH_FIND(hh, conn->objects_in_use, &object_id, sizeof(object_id),
             object_entry);
-  CHECKM(object_entry != NULL,
-         "Plasma client called seal an object without a reference to it");
-  CHECKM(!object_entry->is_sealed,
-         "Plasma client called seal an already sealed object");
+  if (object_entry == NULL) {
+    ARROW_LOG(FATAL) << "Plasma client called seal an object without a reference to it";
+  }
+  if (object_entry->is_sealed) {
+    ARROW_LOG(FATAL) << "Plasma client called seal an already sealed object";
+  }
   object_entry->is_sealed = true;
   /* Send the seal request to Plasma. */
   static unsigned char digest[DIGEST_SIZE];
@@ -670,8 +674,9 @@ void plasma_disconnect(PlasmaConnection *conn) {
     }
   }
   /* Check that we've successfully released everything. */
-  CHECKM(conn->in_use_object_bytes == 0, "conn->in_use_object_bytes = %" PRId64,
-         conn->in_use_object_bytes);
+  if (conn->in_use_object_bytes != 0) {
+    ARROW_LOG(FATAL) << "conn->in_use_object_bytes = " << conn->in_use_object_bytes;
+  }
   free_protocol_builder(conn->builder);
   close(conn->store_conn);
   if (conn->manager_conn >= 0) {
@@ -762,7 +767,7 @@ int plasma_wait(PlasmaConnection *conn,
       }
       break;
     default:
-      LOG_FATAL("This code should be unreachable.");
+      ARROW_LOG(FATAL) << "This code should be unreachable.";
     }
   }
   return num_objects_ready;

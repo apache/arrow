@@ -12,13 +12,12 @@ bool warn_if_sigpipe(int status, int client_sock) {
     return false;
   }
   if (errno == EPIPE || errno == EBADF || errno == ECONNRESET) {
-    LOG_WARN(
+    ARROW_LOG(WARNING) <<
         "Received SIGPIPE or BAD FILE DESCRIPTOR when sending a message to "
-        "client on fd %d. The client on the other end may have hung up.",
-        client_sock);
+        "client on fd " << client_sock << ". The client on the other end may have hung up.";
     return true;
   }
-  LOG_FATAL("Failed to write message to client on fd %d.", client_sock);
+  ARROW_LOG(FATAL) << "Failed to write message to client on fd " << client_sock;
 }
 
 /**

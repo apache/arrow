@@ -21,10 +21,12 @@ UniqueID globally_unique_id(void) {
   int fd;
   int const flags = 0 /* for Windows compatibility */;
   if ((fd = open("/dev/urandom", O_RDONLY, flags)) == -1) {
-    LOG_ERROR("Could not generate random number");
+    ARROW_LOG(ERROR) << "Could not generate random number";
   }
   UniqueID result;
-  CHECK(read_bytes(fd, &result.id[0], UNIQUE_ID_SIZE) >= 0);
+  if(read_bytes(fd, &result.id[0], UNIQUE_ID_SIZE) < 0) {
+    ARROW_LOG(FATAL) << "read_bytes failed";
+  }
   close(fd);
   return result;
 }
@@ -38,7 +40,7 @@ bool ObjectID_is_nil(ObjectID id) {
 }
 
 char *ObjectID_to_string(ObjectID obj_id, char *id_string, int id_length) {
-  CHECK(id_length >= ID_STRING_SIZE);
+  DCHECK(id_length >= ID_STRING_SIZE);
   static const char hex[] = "0123456789abcdef";
   char *buf = id_string;
 

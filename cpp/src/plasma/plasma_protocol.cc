@@ -42,8 +42,9 @@ uint8_t *plasma_receive(int sock, int64_t message_type) {
   int64_t length;
   uint8_t *reply_data;
   read_message(sock, &type, &length, &reply_data);
-  CHECKM(type == message_type, "type = %" PRId64 ", message_type = %" PRId64,
-         type, message_type);
+  if (type != message_type) {
+    ARROW_LOG(FATAL) << "type = " << type << ", message_type = " << message_type;
+  }
   return reply_data;
 }
 

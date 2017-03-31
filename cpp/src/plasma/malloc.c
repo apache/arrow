@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "common.h"
+// #include "common.h"
 #include "uthash.h"
 
 void *fake_mmap(size_t);
@@ -84,11 +84,11 @@ int create_buffer(int64_t size) {
     return -1;
   }
   if (unlink(file_name) != 0) {
-    LOG_ERROR("unlink error");
+    printf("unlink error\n");
     return -1;
   }
   if (ftruncate(fd, (off_t) size) != 0) {
-    LOG_ERROR("ftruncate error");
+    printf("ftruncate error\n");
     return -1;
   }
 #endif
@@ -102,7 +102,10 @@ void *fake_mmap(size_t size) {
   size += sizeof(size_t);
 
   int fd = create_buffer(size);
-  CHECKM(fd >= 0, "Failed to create buffer during mmap");
+  if (fd < 0) {
+    printf("Failed to create buffer during mmap\n");
+    exit(-1);
+  }
   void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (pointer == MAP_FAILED) {
     return pointer;
@@ -120,12 +123,10 @@ void *fake_mmap(size_t size) {
 
   /* We lie to dlmalloc about where mapped memory actually lives. */
   pointer = pointer_advance(pointer, sizeof(size_t));
-  LOG_DEBUG("%p = fake_mmap(%lu)", pointer, size);
   return pointer;
 }
 
 int fake_munmap(void *addr, size_t size) {
-  LOG_DEBUG("fake_munmap(%p, %lu)", addr, size);
   addr = pointer_retreat(addr, sizeof(size_t));
   size += sizeof(size_t);
 
