@@ -654,13 +654,8 @@ if (ARROW_JEMALLOC)
 
   include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(jemalloc
-      STATIC_LIB ${JEMALLOC_STATIC_LIB}
-      SHARED_LIB ${JEMALLOC_SHARED_LIB})
-
-  if (JEMALLOC_VENDORED)
-    add_dependencies(jemalloc_shared jemalloc_ep)
-    add_dependencies(jemalloc_static jemalloc_ep)
-  endif()
+    STATIC_LIB ${JEMALLOC_STATIC_LIB}
+    SHARED_LIB ${JEMALLOC_SHARED_LIB})
 endif()
 
 ## Google PerfTools

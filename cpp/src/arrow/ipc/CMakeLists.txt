@@ -26,7 +26,8 @@ set(ARROW_IPC_SHARED_LINK_LIBS
 
 set(ARROW_IPC_TEST_LINK_LIBS
   arrow_ipc_static
-  arrow_io_static)
+  arrow_io_static
+  arrow_static)
 
 set(ARROW_IPC_SRCS
   feather.cc
@@ -44,19 +45,21 @@ if(NOT APPLE)
   set(ARROW_IPC_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-ADD_ARROW_LIB(arrow_ipc
-    SOURCES ${ARROW_IPC_SRCS}
-    SHARED_LINK_FLAGS ${ARROW_IPC_LINK_FLAGS}
-    SHARED_LINK_LIBS ${ARROW_IPC_SHARED_LINK_LIBS}
-    STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
-)
-
 if(RAPIDJSON_VENDORED)
-  add_dependencies(arrow_ipc_objlib rapidjson_ep)
+  set(IPC_DEPENDENCIES ${IPC_DEPENDENCIES} rapidjson_ep)
 endif()
+
 if(FLATBUFFERS_VENDORED)
-  add_dependencies(arrow_ipc_objlib flatbuffers_ep)
+  set(IPC_DEPENDENCIES ${IPC_DEPENDENCIES} flatbuffers_ep)
 endif()
+
+ADD_ARROW_LIB(arrow_ipc
+  SOURCES ${ARROW_IPC_SRCS}
+  DEPENDENCIES ${IPC_DEPENDENCIES}
+  SHARED_LINK_FLAGS ${ARROW_IPC_LINK_FLAGS}
+  SHARED_LINK_LIBS ${ARROW_IPC_SHARED_LINK_LIBS}
+  STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
+)
 
 ADD_ARROW_TEST(feather-test)
 ARROW_TEST_LINK_LIBRARIES(feather-test
@@ -71,40 +74,27 @@ ARROW_TEST_LINK_LIBRARIES(ipc-json-test
   ${ARROW_IPC_TEST_LINK_LIBS})
 
 ADD_ARROW_TEST(json-integration-test)
+ARROW_TEST_LINK_LIBRARIES(json-integration-test
+  ${ARROW_IPC_TEST_LINK_LIBS})
 
 if (ARROW_BUILD_TESTS)
-  if (APPLE)
-    target_link_libraries(json-integration-test
-      arrow_ipc_static
-      arrow_io_static
-      arrow_static
-      gflags
-      gtest
-      ${BOOST_FILESYSTEM_LIBRARY}
-      ${BOOST_SYSTEM_LIBRARY}
-      dl)
-    set_target_properties(json-integration-test
-      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  elseif (MSVC)
-    target_link_libraries(json-integration-test
-      arrow_ipc_static
-      arrow_io_static
-      arrow_static
-      gflags
-      gtest
-      ${BOOST_FILESYSTEM_LIBRARY}
-      ${BOOST_SYSTEM_LIBRARY})
-  else()
-    target_link_libraries(json-integration-test
-      arrow_ipc_static
-      arrow_io_static
-      arrow_static
-      gflags
-      gtest
-      pthread
-      ${BOOST_FILESYSTEM_LIBRARY}
-      ${BOOST_SYSTEM_LIBRARY}
-      dl)
+  target_link_libraries(json-integration-test
+    gflags
+    gtest
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY})
+
+  if (UNIX)
+    if (APPLE)
+      target_link_libraries(json-integration-test
+        ${CMAKE_DL_LIBS})
+      set_target_properties(json-integration-test
+        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    else()
+      target_link_libraries(json-integration-test
+        pthread
+        ${CMAKE_DL_LIBS})
+    endif()
   endif()
 endif()
 

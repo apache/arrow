@@ -48,11 +48,11 @@ if (MSVC)
 else()
   set(ARROW_IO_STATIC_LINK_LIBS
     arrow_static
-    dl
+    ${CMAKE_DL_LIBS}
   )
   set(ARROW_IO_SHARED_LINK_LIBS
     arrow_shared
-    dl
+    ${CMAKE_DL_LIBS}
   )
 endif()
 
