@@ -31,7 +31,12 @@
 #  CLANG_TIDY_FOUND, Whether clang format was found
 
 find_program(CLANG_TIDY_BIN
-  NAMES clang-format-4.0 clang-format-3.9 clang-tidy-3.8 clang-tidy-3.7 clang-tidy-3.6  clang-tidy
+  NAMES clang-tidy-4.0
+  clang-tidy-3.9
+  clang-tidy-3.8
+  clang-tidy-3.7
+  clang-tidy-3.6
+  clang-tidy
   PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
         NO_DEFAULT_PATH
 )
