@@ -438,51 +438,51 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
 // ----------------------------------------------------------------------
 // Fixed width binary
 
-FixedWidthBinaryBuilder::FixedWidthBinaryBuilder(
+FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(
     MemoryPool* pool, const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool, type), byte_builder_(pool) {
-  DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
-  byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+  DCHECK(type->type == Type::FIXED_SIZE_BINARY);
+  byte_width_ = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 }
 
-Status FixedWidthBinaryBuilder::Append(const uint8_t* value) {
+Status FixedSizeBinaryBuilder::Append(const uint8_t* value) {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(true);
   return byte_builder_.Append(value, byte_width_);
 }
 
-Status FixedWidthBinaryBuilder::Append(
+Status FixedSizeBinaryBuilder::Append(
     const uint8_t* data, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
 }
 
-Status FixedWidthBinaryBuilder::Append(const std::string& value) {
+Status FixedSizeBinaryBuilder::Append(const std::string& value) {
   return Append(reinterpret_cast<const uint8_t*>(value.c_str()));
 }
 
-Status FixedWidthBinaryBuilder::AppendNull() {
+Status FixedSizeBinaryBuilder::AppendNull() {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(false);
   return byte_builder_.Advance(byte_width_);
 }
 
-Status FixedWidthBinaryBuilder::Init(int64_t elements) {
+Status FixedSizeBinaryBuilder::Init(int64_t elements) {
   DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   return byte_builder_.Resize(elements * byte_width_);
 }
 
-Status FixedWidthBinaryBuilder::Resize(int64_t capacity) {
+Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }
 
-Status FixedWidthBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
+Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> data = byte_builder_.Finish();
-  *out = std::make_shared<FixedWidthBinaryArray>(
+  *out = std::make_shared<FixedSizeBinaryArray>(
       type_, length_, data, null_bitmap_, null_count_);
   return Status::OK();
 }
@@ -542,7 +542,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(DOUBLE, DoubleBuilder);
     BUILDER_CASE(STRING, StringBuilder);
     BUILDER_CASE(BINARY, BinaryBuilder);
-    BUILDER_CASE(FIXED_WIDTH_BINARY, FixedWidthBinaryBuilder);
+    BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
     case Type::LIST: {
       std::shared_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =

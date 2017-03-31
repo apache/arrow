@@ -92,7 +92,7 @@ class TestConvertList(unittest.TestCase):
         assert arr.type == pyarrow.binary()
         assert arr.to_pylist() == [b'foo', u1, None]
 
-    def test_fixed_width_bytes(self):
+    def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb', b'2346']
         arr = pyarrow.from_pylist(data, type=pyarrow.binary(4))
         assert len(arr) == 4
@@ -100,7 +100,7 @@ class TestConvertList(unittest.TestCase):
         assert arr.type == pyarrow.binary(4)
         assert arr.to_pylist() == data
 
-    def test_fixed_width_bytes_does_not_accept_varying_lengths(self):
+    def test_fixed_size_bytes_does_not_accept_varying_lengths(self):
         data = [b'foo', None, b'barb', b'2346']
         with self.assertRaises(pyarrow.error.ArrowException):
             pyarrow.from_pylist(data, type=pyarrow.binary(4))

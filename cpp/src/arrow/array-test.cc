@@ -1080,19 +1080,19 @@ TEST_F(TestBinaryArray, LengthZeroCtor) {
 }
 
 // ----------------------------------------------------------------------
-// FixedWidthBinary tests
+// FixedSizeBinary tests
 
 class TestFWBinaryArray : public ::testing::Test {
  public:
   void SetUp() {}
 
   void InitBuilder(int byte_width) {
-    auto type = fixed_width_binary(byte_width);
-    builder_.reset(new FixedWidthBinaryBuilder(default_memory_pool(), type));
+    auto type = fixed_size_binary(byte_width);
+    builder_.reset(new FixedSizeBinaryBuilder(default_memory_pool(), type));
   }
 
  protected:
-  std::unique_ptr<FixedWidthBinaryBuilder> builder_;
+  std::unique_ptr<FixedSizeBinaryBuilder> builder_;
 };
 
 TEST_F(TestFWBinaryArray, Builder) {
@@ -1114,7 +1114,7 @@ TEST_F(TestFWBinaryArray, Builder) {
   auto CheckResult = [this, &length, &is_valid, &raw_data, &byte_width](
       const Array& result) {
     // Verify output
-    const auto& fw_result = static_cast<const FixedWidthBinaryArray&>(result);
+    const auto& fw_result = static_cast<const FixedSizeBinaryArray&>(result);
 
     ASSERT_EQ(length, result.length());
 
@@ -1169,9 +1169,9 @@ TEST_F(TestFWBinaryArray, Builder) {
 TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   // Check that we don't compare data in null slots
 
-  auto type = fixed_width_binary(4);
-  FixedWidthBinaryBuilder builder1(default_memory_pool(), type);
-  FixedWidthBinaryBuilder builder2(default_memory_pool(), type);
+  auto type = fixed_size_binary(4);
+  FixedSizeBinaryBuilder builder1(default_memory_pool(), type);
+  FixedSizeBinaryBuilder builder2(default_memory_pool(), type);
 
   ASSERT_OK(builder1.Append("foo1"));
   ASSERT_OK(builder1.AppendNull());
@@ -1183,19 +1183,19 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   ASSERT_OK(builder1.Finish(&array1));
   ASSERT_OK(builder2.Finish(&array2));
 
-  const auto& a1 = static_cast<const FixedWidthBinaryArray&>(*array1);
-  const auto& a2 = static_cast<const FixedWidthBinaryArray&>(*array2);
+  const auto& a1 = static_cast<const FixedSizeBinaryArray&>(*array1);
+  const auto& a2 = static_cast<const FixedSizeBinaryArray&>(*array2);
 
-  FixedWidthBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
-  FixedWidthBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
 
   ASSERT_TRUE(equal1.Equals(equal2));
   ASSERT_TRUE(equal1.RangeEquals(equal2, 0, 2, 0));
 }
 
 TEST_F(TestFWBinaryArray, ZeroSize) {
-  auto type = fixed_width_binary(0);
-  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+  auto type = fixed_size_binary(0);
+  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
 
   ASSERT_OK(builder.Append(nullptr));
   ASSERT_OK(builder.Append(nullptr));
@@ -1207,7 +1207,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
 
-  const auto& fw_array = static_cast<const FixedWidthBinaryArray&>(*array);
+  const auto& fw_array = static_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
   ASSERT_TRUE(fw_array.data() == nullptr);
@@ -1218,8 +1218,8 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
 }
 
 TEST_F(TestFWBinaryArray, Slice) {
-  auto type = fixed_width_binary(4);
-  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+  auto type = fixed_size_binary(4);
+  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
 
   vector<string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
   vector<uint8_t> is_null = {0, 1, 0, 0, 0};

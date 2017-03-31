@@ -28,7 +28,7 @@ from pyarrow.compat import frombytes, tobytes
 from pyarrow.array cimport Array
 from pyarrow.error cimport check_status
 from pyarrow.includes.libarrow cimport (CDataType, CStructType, CListType,
-                                        CFixedWidthBinaryType,
+                                        CFixedSizeBinaryType,
                                         TimeUnit_SECOND, TimeUnit_MILLI,
                                         TimeUnit_MICRO, TimeUnit_NANO,
                                         Type, TimeUnit)
@@ -91,16 +91,16 @@ cdef class TimestampType(DataType):
                 return None
 
 
-cdef class FixedWidthBinaryType(DataType):
+cdef class FixedSizeBinaryType(DataType):
 
     cdef init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
-        self.fixed_width_binary_type = <const CFixedWidthBinaryType*> type.get()
+        self.fixed_size_binary_type = <const CFixedSizeBinaryType*> type.get()
 
     property byte_width:
 
         def __get__(self):
-            return self.fixed_width_binary_type.byte_width()
+            return self.fixed_size_binary_type.byte_width()
 
 
 cdef class Field:
@@ -362,16 +362,16 @@ def binary(int length=-1):
     ----------
     length : int, optional, default -1
         If length == -1 then return a variable length binary type. If length is
-        greater than or equal to 0 then return a fixed width binary type of
+        greater than or equal to 0 then return a fixed size binary type of
         width `length`.
     """
     if length == -1:
         return primitive_type(la.Type_BINARY)
 
-    cdef FixedWidthBinaryType out = FixedWidthBinaryType()
-    cdef shared_ptr[CDataType] fixed_width_binary_type
-    fixed_width_binary_type.reset(new CFixedWidthBinaryType(length))
-    out.init(fixed_width_binary_type)
+    cdef FixedSizeBinaryType out = FixedSizeBinaryType()
+    cdef shared_ptr[CDataType] fixed_size_binary_type
+    fixed_size_binary_type.reset(new CFixedSizeBinaryType(length))
+    out.init(fixed_size_binary_type)
     return out
 
 
@@ -428,8 +428,8 @@ cdef DataType box_data_type(const shared_ptr[CDataType]& type):
         out = DictionaryType()
     elif type.get().type == la.Type_TIMESTAMP:
         out = TimestampType()
-    elif type.get().type == la.Type_FIXED_WIDTH_BINARY:
-        out = FixedWidthBinaryType()
+    elif type.get().type == la.Type_FIXED_SIZE_BINARY:
+        out = FixedSizeBinaryType()
     else:
         out = DataType()
 

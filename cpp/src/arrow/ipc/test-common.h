@@ -599,14 +599,14 @@ void AppendValues(const std::vector<bool>& is_valid, const std::vector<T>& value
 
 Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false};
-  auto f0 = field("f0", fixed_width_binary(4));
-  auto f1 = field("f1", fixed_width_binary(0));
+  auto f0 = field("f0", fixed_size_binary(4));
+  auto f1 = field("f1", fixed_size_binary(0));
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
   std::shared_ptr<Array> a1, a2;
 
-  FixedWidthBinaryBuilder b1(default_memory_pool(), f0->type);
-  FixedWidthBinaryBuilder b2(default_memory_pool(), f1->type);
+  FixedSizeBinaryBuilder b1(default_memory_pool(), f0->type);
+  FixedSizeBinaryBuilder b2(default_memory_pool(), f1->type);
 
   std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
   AppendValues(is_valid, values1, &b1);

@@ -257,9 +257,9 @@ struct TypeTraits<BinaryType> {
 };
 
 template <>
-struct TypeTraits<FixedWidthBinaryType> {
-  using ArrayType = FixedWidthBinaryArray;
-  using BuilderType = FixedWidthBinaryBuilder;
+struct TypeTraits<FixedSizeBinaryType> {
+  using ArrayType = FixedSizeBinaryArray;
+  using BuilderType = FixedSizeBinaryBuilder;
   constexpr static bool is_parameter_free = false;
 };
 

@@ -100,7 +100,7 @@ cdef class DoubleArray(FloatingPointArray):
     pass
 
 
-cdef class FixedWidthBinaryArray(Array):
+cdef class FixedSizeBinaryArray(Array):
     pass
 
 

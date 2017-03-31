@@ -139,7 +139,7 @@ class ArrayLoader {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
-                              !std::is_base_of<FixedWidthBinaryType, T>::value &&
+                              !std::is_base_of<FixedSizeBinaryType, T>::value &&
                               !std::is_base_of<DictionaryType, T>::value,
       Status>::type
   Visit(const T& type) {
@@ -152,14 +152,14 @@ class ArrayLoader {
     return LoadBinary<T>();
   }
 
-  Status Visit(const FixedWidthBinaryType& type) {
+  Status Visit(const FixedSizeBinaryType& type) {
     FieldMetadata field_meta;
     std::shared_ptr<Buffer> null_bitmap, data;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
 
-    result_ = std::make_shared<FixedWidthBinaryArray>(
+    result_ = std::make_shared<FixedSizeBinaryArray>(
         type_, field_meta.length, data, null_bitmap, field_meta.null_count);
     return Status::OK();
   }

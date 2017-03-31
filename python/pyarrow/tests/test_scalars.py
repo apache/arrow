@@ -87,12 +87,12 @@ class TestScalars(unittest.TestCase):
         assert v == b'bar'
         assert isinstance(v, bytes)
 
-    def test_fixed_width_bytes(self):
+    def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb']
         arr = A.from_pylist(data, type=A.binary(4))
 
         v = arr[0]
-        assert isinstance(v, A.FixedWidthBinaryValue)
+        assert isinstance(v, A.FixedSizeBinaryValue)
         assert v.as_py() == b'foof'
 
         assert arr[1] is A.NA

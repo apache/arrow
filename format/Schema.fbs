@@ -67,7 +67,7 @@ table Utf8 {
 table Binary {
 }
 
-table FixedWidthBinary {
+table FixedSizeBinary {
   /// Number of bytes per value
   byteWidth: int;
 }
@@ -156,7 +156,7 @@ union Type {
   List,
   Struct_,
   Union,
-  FixedWidthBinary
+  FixedSizeBinary
 }
 
 /// ----------------------------------------------------------------------

@@ -97,9 +97,8 @@ class ArrayPrinter {
   }
 
   template <typename T>
-  inline
-      typename std::enable_if<std::is_same<FixedWidthBinaryArray, T>::value, void>::type
-      WriteDataValues(const T& array) {
+  inline typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, void>::type
+  WriteDataValues(const T& array) {
     int32_t width = array.byte_width();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
@@ -136,7 +135,7 @@ class ArrayPrinter {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
-                              std::is_base_of<FixedWidthBinaryArray, T>::value ||
+                              std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value,
       Status>::type
   Visit(const T& array) {

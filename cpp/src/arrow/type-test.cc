@@ -155,16 +155,16 @@ TEST(TestStringType, ToString) {
   ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
-TEST(TestFixedWidthBinaryType, ToString) {
-  auto t = fixed_width_binary(10);
-  ASSERT_EQ(t->type, Type::FIXED_WIDTH_BINARY);
-  ASSERT_EQ("fixed_width_binary[10]", t->ToString());
+TEST(TestFixedSizeBinaryType, ToString) {
+  auto t = fixed_size_binary(10);
+  ASSERT_EQ(t->type, Type::FIXED_SIZE_BINARY);
+  ASSERT_EQ("fixed_size_binary[10]", t->ToString());
 }
 
-TEST(TestFixedWidthBinaryType, Equals) {
-  auto t1 = fixed_width_binary(10);
-  auto t2 = fixed_width_binary(10);
-  auto t3 = fixed_width_binary(3);
+TEST(TestFixedSizeBinaryType, Equals) {
+  auto t1 = fixed_size_binary(10);
+  auto t2 = fixed_size_binary(10);
+  auto t3 = fixed_size_binary(3);
 
   ASSERT_TRUE(t1->Equals(t1));
   ASSERT_TRUE(t1->Equals(t2));

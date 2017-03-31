@@ -406,13 +406,13 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
   }
 };
 
-class FixedWidthBytesConverter : public TypedConverter<FixedWidthBinaryBuilder> {
+class FixedWidthBytesConverter : public TypedConverter<FixedSizeBinaryBuilder> {
  public:
   Status AppendData(PyObject* seq) override {
     PyObject* item;
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedWidthBinaryType>(
+    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
         typed_builder_->type())->byte_width();
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
@@ -510,7 +510,7 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:
       return std::make_shared<BytesConverter>();
-    case Type::FIXED_WIDTH_BINARY:
+    case Type::FIXED_SIZE_BINARY:
       return std::make_shared<FixedWidthBytesConverter>();
     case Type::STRING:
       return std::make_shared<UTF8Converter>();

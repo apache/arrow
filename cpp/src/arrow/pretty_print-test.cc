@@ -78,14 +78,14 @@ TEST_F(TestPrettyPrint, BinaryType) {
   CheckPrimitive<BinaryType, std::string>(0, is_valid, values, ex);
 }
 
-TEST_F(TestPrettyPrint, FixedWidthBinaryType) {
+TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   std::vector<bool> is_valid = {true, true, false, true, false};
   std::vector<std::string> values = {"foo", "bar", "baz"};
   static const char* ex = R"expected([666F6F, 626172, 62617A])expected";
 
   std::shared_ptr<Array> array;
-  auto type = fixed_width_binary(3);
-  FixedWidthBinaryBuilder builder(default_memory_pool(), type);
+  auto type = fixed_size_binary(3);
+  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
 
   builder.Append(values[0]);
   builder.Append(values[1]);

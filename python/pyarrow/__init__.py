@@ -55,7 +55,7 @@ from pyarrow.scalar import (ArrayValue, Scalar, NA, NAType,
                             Int8Value, Int16Value, Int32Value, Int64Value,
                             UInt8Value, UInt16Value, UInt32Value, UInt64Value,
                             FloatValue, DoubleValue, ListValue,
-                            BinaryValue, StringValue, FixedWidthBinaryValue)
+                            BinaryValue, StringValue, FixedSizeBinaryValue)
 
 import pyarrow.schema as _schema
 
@@ -65,7 +65,7 @@ from pyarrow.schema import (null, bool_,
                             timestamp, date32, date64,
                             float_, double, binary, string,
                             list_, struct, dictionary, field,
-                            DataType, FixedWidthBinaryType,
+                            DataType, FixedSizeBinaryType,
                             Field, Schema, schema)
 
 

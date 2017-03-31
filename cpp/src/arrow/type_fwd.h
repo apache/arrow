@@ -51,9 +51,9 @@ struct BinaryType;
 class BinaryArray;
 class BinaryBuilder;
 
-class FixedWidthBinaryType;
-class FixedWidthBinaryArray;
-class FixedWidthBinaryBuilder;
+class FixedSizeBinaryType;
+class FixedSizeBinaryArray;
+class FixedSizeBinaryBuilder;
 
 struct StringType;
 class StringArray;

@@ -244,7 +244,7 @@ class TestPandasConversion(unittest.TestCase):
         expected = pd.DataFrame({'strings': values2})
         self._check_pandas_roundtrip(df, expected)
 
-    def test_fixed_width_bytes(self):
+    def test_fixed_size_bytes(self):
         values = [b'foo', None, b'bar', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = A.Schema.from_fields([A.field('strings', A.binary(3))])
@@ -254,7 +254,7 @@ class TestPandasConversion(unittest.TestCase):
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
 
-    def test_fixed_width_bytes_does_not_accept_varying_lengths(self):
+    def test_fixed_size_bytes_does_not_accept_varying_lengths(self):
         values = [b'foo', None, b'ba', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = A.Schema.from_fields([A.field('strings', A.binary(3))])

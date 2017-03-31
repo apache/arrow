@@ -43,7 +43,7 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const DoubleArray& array);
   virtual Status Visit(const StringArray& array);
   virtual Status Visit(const BinaryArray& array);
-  virtual Status Visit(const FixedWidthBinaryArray& array);
+  virtual Status Visit(const FixedSizeBinaryArray& array);
   virtual Status Visit(const Date32Array& array);
   virtual Status Visit(const Date64Array& array);
   virtual Status Visit(const Time32Array& array);
@@ -76,7 +76,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const DoubleType& type);
   virtual Status Visit(const StringType& type);
   virtual Status Visit(const BinaryType& type);
-  virtual Status Visit(const FixedWidthBinaryType& type);
+  virtual Status Visit(const FixedSizeBinaryType& type);
   virtual Status Visit(const Date64Type& type);
   virtual Status Visit(const Date32Type& type);
   virtual Status Visit(const Time32Type& type);

@@ -189,7 +189,7 @@ class JsonSchemaWriter {
     }
   }
 
-  void WriteTypeMetadata(const FixedWidthBinaryType& type) {
+  void WriteTypeMetadata(const FixedSizeBinaryType& type) {
     writer_->Key("byteWidth");
     writer_->Int(type.byte_width());
   }
@@ -297,8 +297,8 @@ class JsonSchemaWriter {
 
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
 
-  Status Visit(const FixedWidthBinaryType& type) {
-    return WritePrimitive("fixedwidthbinary", type);
+  Status Visit(const FixedSizeBinaryType& type) {
+    return WritePrimitive("fixedsizebinary", type);
   }
 
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
@@ -401,7 +401,7 @@ class JsonArrayWriter {
     }
   }
 
-  void WriteDataValues(const FixedWidthBinaryArray& arr) {
+  void WriteDataValues(const FixedSizeBinaryArray& arr) {
     int32_t width = arr.byte_width();
     for (int64_t i = 0; i < arr.length(); ++i) {
       const char* buf = reinterpret_cast<const char*>(arr.GetValue(i));
@@ -576,13 +576,13 @@ static Status GetFloatingPoint(
   return Status::OK();
 }
 
-static Status GetFixedWidthBinary(
+static Status GetFixedSizeBinary(
     const RjObject& json_type, std::shared_ptr<DataType>* type) {
   const auto& json_byte_width = json_type.FindMember("byteWidth");
   RETURN_NOT_INT("byteWidth", json_byte_width, json_type);
 
   int32_t byte_width = json_byte_width->value.GetInt();
-  *type = fixed_width_binary(byte_width);
+  *type = fixed_size_binary(byte_width);
   return Status::OK();
 }
 
@@ -709,8 +709,8 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
-  } else if (type_name == "fixedwidthbinary") {
-    return GetFixedWidthBinary(json_type, type);
+  } else if (type_name == "fixedsizebinary") {
+    return GetFixedSizeBinary(json_type, type);
   } else if (type_name == "null") {
     *type = null();
   } else if (type_name == "date") {
@@ -896,10 +896,10 @@ class JsonArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<FixedWidthBinaryType, T>::value, Status>::type
+  typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, Status>::type
   ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    FixedWidthBinaryBuilder builder(pool_, type);
+    FixedSizeBinaryBuilder builder(pool_, type);
 
     const auto& json_data = json_array.FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, json_array);
@@ -908,7 +908,7 @@ class JsonArrayReader {
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
 
-    int32_t byte_width = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+    int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
     // Allocate space for parsed values
     std::shared_ptr<MutableBuffer> byte_buffer;
@@ -1112,7 +1112,7 @@ class JsonArrayReader {
       TYPE_CASE(DoubleType);
       TYPE_CASE(StringType);
       TYPE_CASE(BinaryType);
-      TYPE_CASE(FixedWidthBinaryType);
+      TYPE_CASE(FixedSizeBinaryType);
       TYPE_CASE(Date32Type);
       TYPE_CASE(Date64Type);
       TYPE_CASE(TimestampType);

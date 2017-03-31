@@ -269,7 +269,7 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const FixedWidthBinaryArray& array) override {
+  Status Visit(const FixedSizeBinaryArray& array) override {
     auto data = array.data();
     int32_t width = array.byte_width();
 

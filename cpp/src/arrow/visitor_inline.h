@@ -48,7 +48,7 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
     TYPE_VISIT_INLINE(DoubleType);
     TYPE_VISIT_INLINE(StringType);
     TYPE_VISIT_INLINE(BinaryType);
-    TYPE_VISIT_INLINE(FixedWidthBinaryType);
+    TYPE_VISIT_INLINE(FixedSizeBinaryType);
     TYPE_VISIT_INLINE(Date32Type);
     TYPE_VISIT_INLINE(Date64Type);
     TYPE_VISIT_INLINE(TimestampType);
@@ -87,7 +87,7 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
     ARRAY_VISIT_INLINE(DoubleType);
     ARRAY_VISIT_INLINE(StringType);
     ARRAY_VISIT_INLINE(BinaryType);
-    ARRAY_VISIT_INLINE(FixedWidthBinaryType);
+    ARRAY_VISIT_INLINE(FixedSizeBinaryType);
     ARRAY_VISIT_INLINE(Date32Type);
     ARRAY_VISIT_INLINE(Date64Type);
     ARRAY_VISIT_INLINE(TimestampType);

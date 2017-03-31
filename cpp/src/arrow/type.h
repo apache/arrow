@@ -70,8 +70,8 @@ struct Type {
     // Variable-length bytes (no guarantee of UTF8-ness)
     BINARY,
 
-    // Fixed-width binary. Each value occupies the same number of bytes
-    FIXED_WIDTH_BINARY,
+    // Fixed-size binary. Each value occupies the same number of bytes
+    FIXED_SIZE_BINARY,
 
     // int32_t days since the UNIX epoch
     DATE32,
@@ -353,12 +353,12 @@ struct ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 };
 
 // BinaryType type is represents lists of 1-byte values.
-class ARROW_EXPORT FixedWidthBinaryType : public FixedWidthType {
+class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
  public:
-  static constexpr Type::type type_id = Type::FIXED_WIDTH_BINARY;
+  static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
 
-  explicit FixedWidthBinaryType(int32_t byte_width)
-      : FixedWidthType(Type::FIXED_WIDTH_BINARY), byte_width_(byte_width) {}
+  explicit FixedSizeBinaryType(int32_t byte_width)
+      : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -630,7 +630,7 @@ class ARROW_EXPORT Schema {
 // ----------------------------------------------------------------------
 // Factory functions
 
-std::shared_ptr<DataType> ARROW_EXPORT fixed_width_binary(int32_t byte_width);
+std::shared_ptr<DataType> ARROW_EXPORT fixed_size_binary(int32_t byte_width);
 
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);

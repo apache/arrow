@@ -62,7 +62,7 @@ cdef class StringValue(ArrayValue):
     pass
 
 
-cdef class FixedWidthBinaryValue(ArrayValue):
+cdef class FixedSizeBinaryValue(ArrayValue):
     pass
 
 
