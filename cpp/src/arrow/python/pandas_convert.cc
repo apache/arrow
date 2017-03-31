@@ -46,6 +46,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -419,14 +420,37 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
 
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
   PyObject* type = PyObject_Type(obj);
-  RETURN_IF_PYERROR();
+
+  if (type == nullptr) {
+    DCHECK_NE(PyErr_Occurred(), nullptr)
+        << "Call to PyObject_Type(...) returned NULL but PyErr_Occurred() was NULL";
+    RETURN_IF_PYERROR();
+  }
 
   PyObject* type_name = PyObject_GetAttrString(type, "__name__");
-  if (PyErr_Occurred()) { Py_DECREF(type); }
-  RETURN_IF_PYERROR();
 
-  Py_ssize_t size;
-  const char* bytes = PyUnicode_AsUTF8AndSize(type_name, &size);
+  if (type_name == nullptr) {
+    Py_DECREF(type);
+    DCHECK_NE(PyErr_Occurred(), nullptr) << "Call to PyObject_GetAttrString(...) "
+                                            "returned NULL but PyErr_Occurred() was NULL";
+    RETURN_IF_PYERROR();
+  }
+
+  PyObject* bytes_obj = PyUnicode_AsUTF8String(type_name);
+
+  if (bytes_obj == nullptr) {
+    Py_DECREF(type_name);
+    Py_DECREF(type);
+    DCHECK_NE(PyErr_Occurred(), nullptr) << "Call to PyObject_AsUTF8String(...) returned "
+                                            "NULL but PyErr_Occurred() was NULL";
+    RETURN_IF_PYERROR();
+  }
+
+  Py_ssize_t size = PyBytes_GET_SIZE(bytes_obj);
+  const char* bytes = PyBytes_AS_STRING(bytes_obj);
+
+  DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
+
   std::string cpp_type_name(bytes, size);
 
   std::stringstream ss;
@@ -434,6 +458,7 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
      << expected_type_name << " object";
   auto s = Status::TypeError(ss.str());
 
+  Py_DECREF(bytes_obj);
   Py_DECREF(type_name);
   Py_DECREF(type);
   return s;
