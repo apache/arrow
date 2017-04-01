@@ -42,7 +42,9 @@ if (PARQUET_BUILD_SHARED)
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       LINK_FLAGS "${SHARED_LINK_FLAGS}"
-      OUTPUT_NAME "parquet_arrow")
+      OUTPUT_NAME "parquet_arrow"
+      VERSION "${PARQUET_ABI_VERSION}"
+      SOVERSION "${PARQUET_SO_VERSION}")
     target_link_libraries(parquet_arrow_shared
       arrow
       arrow_io
