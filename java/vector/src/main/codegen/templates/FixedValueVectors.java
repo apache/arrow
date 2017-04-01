@@ -19,6 +19,7 @@
 import org.apache.arrow.vector.util.DecimalUtility;
 
 import java.lang.Override;
+import java.util.concurrent.TimeUnit;
 
 <@pp.dropOutputFile />
 <#list vv.types as type>
@@ -482,7 +483,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     </#if>
 
-    <#if minor.class == "Date">
+    <#if minor.class == "DateDay">
+    @Override
+    public ${friendlyType} getObject(int index) {
+        org.joda.time.DateTime date = new org.joda.time.DateTime(0, org.joda.time.DateTimeZone.UTC)
+                .plusDays(get(index));
+        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+        return date;
+    }
+
+    <#elseif minor.class == "DateMilli">
     @Override
     public ${friendlyType} getObject(int index) {
         org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
@@ -554,13 +564,43 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
              append(months).append(monthString));
     }
 
-    <#elseif minor.class == "Time">
+    <#elseif minor.class == "TimeSec">
     @Override
     public DateTime getObject(int index) {
 
-        org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+        org.joda.time.DateTime time = new org.joda.time.DateTime(
+                java.util.concurrent.TimeUnit.MILLISECONDS.convert(get(index), java.util.concurrent.TimeUnit.SECONDS), org.joda.time.DateTimeZone.UTC);
         time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
         return time;
+    }
+
+    <#elseif minor.class == "TimeMilli">
+    @Override
+    public DateTime getObject(int index) {
+
+      org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return time;
+    }
+
+    <#elseif minor.class == "TimeMicro">
+    @Override
+    public DateTime getObject(int index) {
+
+      org.joda.time.DateTime time = new org.joda.time.DateTime(
+              java.util.concurrent.TimeUnit.MILLISECONDS.convert(get(index), java.util.concurrent.TimeUnit.MICROSECONDS), org.joda.time.DateTimeZone.UTC);
+      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return time;
+    }
+
+    <#elseif minor.class == "TimeNano">
+    @Override
+    public DateTime getObject(int index) {
+
+      org.joda.time.DateTime time = new org.joda.time.DateTime(
+              java.util.concurrent.TimeUnit.MILLISECONDS.convert(get(index), java.util.concurrent.TimeUnit.NANOSECONDS), org.joda.time.DateTimeZone.UTC);
+      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return time;
     }
 
     <#elseif minor.class == "Decimal9" || minor.class == "Decimal18">
