@@ -230,9 +230,9 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
-    case flatbuf::Type_FixedWidthBinary: {
-      auto fw_binary = static_cast<const flatbuf::FixedWidthBinary*>(type_data);
-      *out = fixed_width_binary(fw_binary->byteWidth());
+    case flatbuf::Type_FixedSizeBinary: {
+      auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
+      *out = fixed_size_binary(fw_binary->byteWidth());
       return Status::OK();
     }
     case flatbuf::Type_Utf8:
@@ -362,10 +362,10 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *out_type = flatbuf::Type_FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
       break;
-    case Type::FIXED_WIDTH_BINARY: {
-      const auto& fw_type = static_cast<const FixedWidthBinaryType&>(*type);
-      *out_type = flatbuf::Type_FixedWidthBinary;
-      *offset = flatbuf::CreateFixedWidthBinary(fbb, fw_type.byte_width()).Union();
+    case Type::FIXED_SIZE_BINARY: {
+      const auto& fw_type = static_cast<const FixedSizeBinaryType&>(*type);
+      *out_type = flatbuf::Type_FixedSizeBinary;
+      *offset = flatbuf::CreateFixedSizeBinary(fbb, fw_type.byte_width()).Union();
     } break;
     case Type::BINARY:
       *out_type = flatbuf::Type_Binary;

@@ -179,7 +179,7 @@ Status AppendObjectStrings(int64_t objects_length, StringBuilder* builder,
 }
 
 static Status AppendObjectFixedWidthBytes(int64_t objects_length, int byte_width,
-    FixedWidthBinaryBuilder* builder, PyObject** objects) {
+    FixedSizeBinaryBuilder* builder, PyObject** objects) {
   PyObject* obj;
 
   for (int64_t i = 0; i < objects_length; ++i) {
@@ -228,7 +228,7 @@ struct WrapBytes<BinaryArray> {
 };
 
 template <>
-struct WrapBytes<FixedWidthBinaryArray> {
+struct WrapBytes<FixedSizeBinaryArray> {
   static inline PyObject* Wrap(const uint8_t* data, int64_t length) {
     return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), length);
   }
@@ -495,10 +495,10 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
   PyAcquireGIL lock;
 
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-  FixedWidthBinaryBuilder builder(pool_, type);
+  FixedSizeBinaryBuilder builder(pool_, type);
   RETURN_NOT_OK(builder.Resize(length_));
   RETURN_NOT_OK(AppendObjectFixedWidthBytes(length_,
-      std::dynamic_pointer_cast<FixedWidthBinaryType>(builder.type())->byte_width(),
+      std::dynamic_pointer_cast<FixedSizeBinaryType>(builder.type())->byte_width(),
       &builder, objects));
   RETURN_NOT_OK(builder.Finish(out));
   return Status::OK();
@@ -564,7 +564,7 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
     switch (type_->type) {
       case Type::STRING:
         return ConvertObjectStrings(out);
-      case Type::FIXED_WIDTH_BINARY:
+      case Type::FIXED_SIZE_BINARY:
         return ConvertObjectFixedWidthBytes(type_, out);
       case Type::BOOL:
         return ConvertBooleans(out);
@@ -1017,14 +1017,14 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
   return Status::OK();
 }
 
-inline Status ConvertFixedWidthBinary(const ChunkedArray& data, PyObject** out_values) {
+inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = static_cast<FixedWidthBinaryArray*>(data.chunk(c).get());
+    auto arr = static_cast<FixedSizeBinaryArray*>(data.chunk(c).get());
 
     const uint8_t* data_ptr;
     int32_t length =
-        std::dynamic_pointer_cast<FixedWidthBinaryType>(arr->type())->byte_width();
+        std::dynamic_pointer_cast<FixedSizeBinaryType>(arr->type())->byte_width();
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
       if (has_nulls && arr->IsNull(i)) {
@@ -1032,7 +1032,7 @@ inline Status ConvertFixedWidthBinary(const ChunkedArray& data, PyObject** out_v
         *out_values = Py_None;
       } else {
         data_ptr = arr->GetValue(i);
-        *out_values = WrapBytes<FixedWidthBinaryArray>::Wrap(data_ptr, length);
+        *out_values = WrapBytes<FixedSizeBinaryArray>::Wrap(data_ptr, length);
         if (*out_values == nullptr) {
           PyErr_Clear();
           std::stringstream ss;
@@ -1181,8 +1181,8 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<BinaryArray>(data, out_buffer));
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<StringArray>(data, out_buffer));
-    } else if (type == Type::FIXED_WIDTH_BINARY) {
-      RETURN_NOT_OK(ConvertFixedWidthBinary(data, out_buffer));
+    } else if (type == Type::FIXED_SIZE_BINARY) {
+      RETURN_NOT_OK(ConvertFixedSizeBinary(data, out_buffer));
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->type) {
@@ -1612,7 +1612,7 @@ class DataFrameBlockCreator {
           break;
         case Type::STRING:
         case Type::BINARY:
-        case Type::FIXED_WIDTH_BINARY:
+        case Type::FIXED_SIZE_BINARY:
           output_type = PandasBlock::OBJECT;
           break;
         case Type::DATE64:
@@ -1877,7 +1877,7 @@ class ArrowDeserializer {
       CONVERT_CASE(DOUBLE);
       CONVERT_CASE(BINARY);
       CONVERT_CASE(STRING);
-      CONVERT_CASE(FIXED_WIDTH_BINARY);
+      CONVERT_CASE(FIXED_SIZE_BINARY);
       CONVERT_CASE(DATE64);
       CONVERT_CASE(TIMESTAMP);
       CONVERT_CASE(DICTIONARY);
@@ -1982,11 +1982,11 @@ class ArrowDeserializer {
 
   // Fixed length binary strings
   template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::FIXED_WIDTH_BINARY, Status>::type
+  inline typename std::enable_if<TYPE == Type::FIXED_SIZE_BINARY, Status>::type
   ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertFixedWidthBinary(data_, out_values);
+    return ConvertFixedSizeBinary(data_, out_values);
   }
 
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \

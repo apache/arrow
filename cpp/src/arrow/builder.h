@@ -390,11 +390,11 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 };
 
 // ----------------------------------------------------------------------
-// FixedWidthBinaryBuilder
+// FixedSizeBinaryBuilder
 
-class ARROW_EXPORT FixedWidthBinaryBuilder : public ArrayBuilder {
+class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
-  FixedWidthBinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
+  FixedSizeBinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   Status Append(const uint8_t* value);
   Status Append(

@@ -37,7 +37,7 @@ cimport pyarrow.scalar as scalar
 from pyarrow.scalar import NA
 
 from pyarrow.schema cimport (DataType, Field, Schema, DictionaryType,
-                             FixedWidthBinaryType,
+                             FixedSizeBinaryType,
                              box_data_type)
 import pyarrow.schema as schema
 
@@ -407,7 +407,7 @@ cdef class DoubleArray(FloatingPointArray):
     pass
 
 
-cdef class FixedWidthBinaryArray(Array):
+cdef class FixedSizeBinaryArray(Array):
     pass
 
 
@@ -518,7 +518,7 @@ cdef dict _array_classes = {
     Type_BINARY: BinaryArray,
     Type_STRING: StringArray,
     Type_DICTIONARY: DictionaryArray,
-    Type_FIXED_WIDTH_BINARY: FixedWidthBinaryArray,
+    Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
 }
 
 cdef object box_array(const shared_ptr[CArray]& sp_array):

@@ -202,8 +202,8 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const FixedWidthBinaryArray& left) {
-    const auto& right = static_cast<const FixedWidthBinaryArray&>(right_);
+  Status Visit(const FixedSizeBinaryArray& left) {
+    const auto& right = static_cast<const FixedSizeBinaryArray&>(right_);
 
     int32_t width = left.byte_width();
 
@@ -648,8 +648,8 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const FixedWidthBinaryType& left) {
-    const auto& right = static_cast<const FixedWidthBinaryType&>(right_);
+  Status Visit(const FixedSizeBinaryType& left) {
+    const auto& right = static_cast<const FixedSizeBinaryType&>(right_);
     result_ = left.byte_width() == right.byte_width();
     return Status::OK();
   }

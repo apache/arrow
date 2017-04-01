@@ -347,11 +347,11 @@ class ARROW_EXPORT StringArray : public BinaryArray {
 // ----------------------------------------------------------------------
 // Fixed width binary
 
-class ARROW_EXPORT FixedWidthBinaryArray : public PrimitiveArray {
+class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
  public:
-  using TypeClass = FixedWidthBinaryType;
+  using TypeClass = FixedSizeBinaryType;
 
-  FixedWidthBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
+  FixedSizeBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
       const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);

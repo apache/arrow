@@ -280,18 +280,17 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 // ----------------------------------------------------------------------
 // Fixed width binary
 
-FixedWidthBinaryArray::FixedWidthBinaryArray(const std::shared_ptr<DataType>& type,
+FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type,
     int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
     : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {
-  DCHECK(type->type == Type::FIXED_WIDTH_BINARY);
-  byte_width_ = static_cast<const FixedWidthBinaryType&>(*type).byte_width();
+  DCHECK(type->type == Type::FIXED_SIZE_BINARY);
+  byte_width_ = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 }
 
-std::shared_ptr<Array> FixedWidthBinaryArray::Slice(
-    int64_t offset, int64_t length) const {
+std::shared_ptr<Array> FixedSizeBinaryArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
-  return std::make_shared<FixedWidthBinaryArray>(
+  return std::make_shared<FixedSizeBinaryArray>(
       type_, length, data_, null_bitmap_, kUnknownNullCount, offset);
 }
 
