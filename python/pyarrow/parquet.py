@@ -187,7 +187,7 @@ def write_table(table, sink, chunk_size=None, version='1.0',
     ----------
     table : pyarrow.Table
     sink: string or pyarrow.io.NativeFile
-    chunk_size : int
+    chunk_size : int, default None
         The maximum number of rows in each Parquet RowGroup. As a default,
         we will write a single RowGroup per file.
     version : {"1.0", "2.0"}, default "1.0"

@@ -366,6 +366,23 @@ def test_multithreaded_read():
 
 
 @parquet
+def test_min_chunksize():
+    data = pd.DataFrame([np.arange(4)], columns=['A', 'B', 'C', 'D'])
+    table = pa.Table.from_pandas(data.reset_index())
+
+    buf = io.BytesIO()
+    pq.write_table(table, buf, chunk_size=-1)
+
+    buf.seek(0)
+    result = pq.read_table(buf)
+
+    assert result.equals(table)
+
+    with pytest.raises(ValueError):
+        pq.write_table(table, buf, chunk_size=0)
+
+
+@parquet
 def test_pass_separate_metadata():
     # ARROW-471
     df = alltypes_sample(size=10000)

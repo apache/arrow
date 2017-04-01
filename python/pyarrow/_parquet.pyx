@@ -538,10 +538,13 @@ cdef class ParquetWriter:
     def write_table(self, Table table, row_group_size=None):
         cdef CTable* ctable = table.table
 
-        if row_group_size is None:
+        if row_group_size is None or row_group_size == -1:
             row_group_size = ctable.num_rows()
+        elif row_group_size == 0:
+            raise ValueError('Row group size cannot be 0')
 
         cdef int c_row_group_size = row_group_size
+
         with nogil:
             check_status(WriteTable(deref(ctable), self.allocator,
                                     self.sink, c_row_group_size,
