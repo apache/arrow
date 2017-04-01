@@ -188,20 +188,6 @@ uint8_t *read_message_async(event_loop *loop, int sock);
 int64_t read_buffer(int fd, int64_t *type, UT_array *buffer);
 
 /**
- * Write a null-terminated string to a file descriptor.
- */
-void write_log_message(int fd, const char *message);
-
-void write_formatted_log_message(int fd, const char *format, ...);
-
-/**
- * Reads a null-terminated string from the file descriptor that has been
- * written by write_log_message. Allocates and returns a pointer to the string.
- * NOTE: Caller must free the memory!
- */
-char *read_log_message(int fd);
-
-/**
  * Read a sequence of bytes from a file descriptor into a buffer. This will
  * block until one of the following happens: (1) there is an error (2) end of
  * file, or (3) all length bytes have been written.

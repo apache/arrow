@@ -10,7 +10,6 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
-#include <utstring.h>
 #include <netdb.h>
 
 #include "common.h"
@@ -381,31 +380,4 @@ disconnected:
   /* Handle the case in which the socket is closed. */
   *type = DISCONNECT_CLIENT;
   return 0;
-}
-
-void write_log_message(int fd, const char *message) {
-  /* Account for the \0 at the end of the string. */
-  write_message(fd, LOG_MESSAGE, strlen(message) + 1, (uint8_t *) message);
-}
-
-char *read_log_message(int fd) {
-  uint8_t *bytes;
-  int64_t type;
-  int64_t length;
-  read_message(fd, &type, &length, &bytes);
-  DCHECK(type == LOG_MESSAGE);
-  return (char *) bytes;
-}
-
-void write_formatted_log_message(int socket_fd, const char *format, ...) {
-  UT_string *cmd;
-  va_list ap;
-
-  utstring_new(cmd);
-  va_start(ap, format);
-  utstring_printf_va(cmd, format, ap);
-  va_end(ap);
-
-  write_log_message(socket_fd, utstring_body(cmd));
-  utstring_free(cmd);
 }

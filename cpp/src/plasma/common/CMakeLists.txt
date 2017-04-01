@@ -24,4 +24,3 @@ function(define_test test_name library)
 endfunction()
 
 define_test(common_tests "")
-define_test(io_tests "")
