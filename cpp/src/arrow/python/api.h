@@ -22,6 +22,7 @@
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/io.h"
+#include "arrow/python/numpy_convert.h"
 #include "arrow/python/pandas_convert.h"
 
 #endif  // ARROW_PYTHON_API_H

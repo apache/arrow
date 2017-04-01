@@ -35,6 +35,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_UINT64" arrow::Type::UINT64"
         Type_INT64" arrow::Type::INT64"
 
+        Type_HALF_FLOAT" arrow::Type::HALF_FLOAT"
         Type_FLOAT" arrow::Type::FLOAT"
         Type_DOUBLE" arrow::Type::DOUBLE"
 

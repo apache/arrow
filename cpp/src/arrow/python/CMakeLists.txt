@@ -88,6 +88,7 @@ install(FILES
   do_import_numpy.h
   helpers.h
   io.h
+  numpy_convert.h
   numpy_interop.h
   pandas_convert.h
   type_traits.h

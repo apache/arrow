@@ -70,7 +70,7 @@ class TestConvertList(unittest.TestCase):
         arr = pyarrow.from_pylist(data)
         assert len(arr) == 6
         assert arr.null_count == 3
-        assert arr.type == pyarrow.double()
+        assert arr.type == pyarrow.float64()
         assert arr.to_pylist() == data
 
     def test_unicode(self):

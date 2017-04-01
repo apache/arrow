@@ -166,7 +166,7 @@ cdef class Array:
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
             if type is None:
-                check_status(pyarrow.NumPyDtypeToArray(values.dtype, &c_type))
+                check_status(pyarrow.NumPyDtypeToArrow(values.dtype, &c_type))
             else:
                 c_type = type.sp_type
 
@@ -324,14 +324,28 @@ cdef class Tensor:
         self.type = box_data_type(self.tp.type())
 
     def __repr__(self):
-        return object.__repr__(self)
+        return """<pyarrow.Tensor>
+type: {0}
+shape: {1}
+strides: {2}""".format(self.type, self.shape, self.strides)
 
     @staticmethod
     def from_numpy(obj):
-        pass
+        cdef shared_ptr[CTensor] ctensor
+        check_status(pyarrow.NdarrayToTensor(default_memory_pool(),
+                                             obj, &ctensor))
+        return box_tensor(ctensor)
 
     def to_numpy(self):
-        pass
+        """
+        Convert arrow::Tensor to numpy.ndarray with zero copy
+        """
+        cdef:
+            PyObject* out
+
+        check_status(pyarrow.TensorToNdarray(deref(self.tp), <PyObject*> self,
+                                             &out))
+        return PyObject_to_object(out)
 
     property is_mutable:
 
@@ -356,25 +370,19 @@ cdef class Tensor:
     property shape:
 
         def __get__(self):
-            cdef:
-                const vector[int64_t]& c_shape = self.tp.shape()
-                size_t i
-
+            cdef size_t i
             py_shape = []
-            for i in range(c_shape.size()):
-                py_shape.append(c_shape[i])
+            for i in range(self.tp.shape().size()):
+                py_shape.append(self.tp.shape()[i])
             return py_shape
 
     property strides:
 
         def __get__(self):
-            cdef:
-                const vector[int64_t]& c_strides = self.tp.strides()
-                size_t i
-
+            cdef size_t i
             py_strides = []
-            for i in range(c_strides.size()):
-                py_strides.append(c_strides[i])
+            for i in range(self.tp.strides().size()):
+                py_strides.append(self.tp.strides()[i])
             return py_strides
 
 
@@ -596,6 +604,15 @@ cdef object box_array(const shared_ptr[CArray]& sp_array):
     cdef Array arr = _array_classes[data_type.type]()
     arr.init(sp_array)
     return arr
+
+
+cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor):
+    if sp_tensor.get() == NULL:
+        raise ValueError('Tensor was NULL')
+
+    cdef Tensor tensor = Tensor()
+    tensor.init(sp_tensor)
+    return tensor
 
 
 cdef object get_series_values(object obj):

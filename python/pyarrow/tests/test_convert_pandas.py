@@ -22,7 +22,6 @@ import datetime
 import unittest
 
 import numpy as np
-import numpy.testing as npt
 
 import pandas as pd
 import pandas.util.testing as tm
@@ -79,7 +78,7 @@ class TestPandasConversion(unittest.TestCase):
     def _check_array_roundtrip(self, values, expected=None,
                                timestamps_to_ms=False, type=None):
         arr = A.Array.from_numpy(values, timestamps_to_ms=timestamps_to_ms,
-                                  type=type)
+                                 type=type)
         result = arr.to_pandas()
 
         assert arr.null_count == pd.isnull(values).sum()
@@ -90,7 +89,7 @@ class TestPandasConversion(unittest.TestCase):
     def test_float_no_nulls(self):
         data = {}
         fields = []
-        dtypes = [('f4', A.float_()), ('f8', A.double())]
+        dtypes = [('f4', A.float32()), ('f8', A.float64())]
         num_values = 100
 
         for numpy_dtype, arrow_dtype in dtypes:
@@ -106,7 +105,7 @@ class TestPandasConversion(unittest.TestCase):
         num_values = 100
 
         null_mask = np.random.randint(0, 10, size=num_values) < 3
-        dtypes = [('f4', A.float_()), ('f8', A.double())]
+        dtypes = [('f4', A.float32()), ('f8', A.float64())]
         names = ['f4', 'f8']
         expected_cols = []
 

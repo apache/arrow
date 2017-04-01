@@ -53,7 +53,7 @@ int cast_npy_type_compat(int type_num);
 bool is_contiguous(PyObject* array);
 
 ARROW_EXPORT
-Status NumPyDtypeToArray(PyObject* dtype, std::shared_ptr<DataType>* out);
+Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
 Status GetNumPyType(const DataType& type, int* type_num);

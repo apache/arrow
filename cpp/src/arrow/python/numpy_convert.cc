@@ -61,11 +61,15 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
   arr_ = ao;
   Py_INCREF(ao);
 
-  if (!PyArray_Check(ao)) {
+  if (PyArray_Check(ao)) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
     data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(ndarray));
     size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
     capacity_ = size_;
+
+    if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) {
+      is_mutable_ = true;
+    }
   }
 }
 
@@ -98,6 +102,7 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
 #if (NPY_UINT64 != NPY_ULONGLONG)
     TO_ARROW_CASE(ULONGLONG);
 #endif
+    TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
     default: {
@@ -246,9 +251,7 @@ Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
 
   int array_flags = 0;
   if (tensor.is_row_major()) { array_flags |= NPY_ARRAY_C_CONTIGUOUS; }
-
   if (tensor.is_column_major()) { array_flags |= NPY_ARRAY_F_CONTIGUOUS; }
-
   if (tensor.is_mutable()) { array_flags |= NPY_ARRAY_WRITEABLE; }
 
   PyObject* result = PyArray_NewFromDescr(&PyArray_Type, dtype, tensor.ndim(),
