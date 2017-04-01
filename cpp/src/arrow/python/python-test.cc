@@ -26,9 +26,9 @@
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 
+#include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/pandas_convert.h"
-#include "arrow/python/builtin_convert.h"
 
 namespace arrow {
 namespace py {

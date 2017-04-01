@@ -452,6 +452,6 @@ cdef Schema box_schema(const shared_ptr[CSchema]& type):
 def type_from_numpy_dtype(object dtype):
     cdef shared_ptr[CDataType] c_type
     with nogil:
-        check_status(pyarrow.PandasDtypeToArrow(dtype, &c_type))
+        check_status(pyarrow.NumPyDtypeToArray(dtype, &c_type))
 
     return box_data_type(c_type)

@@ -16,7 +16,7 @@
 # under the License.
 
 from pyarrow.includes.common cimport shared_ptr, int64_t
-from pyarrow.includes.libarrow cimport CArray
+from pyarrow.includes.libarrow cimport CArray, CTensor
 
 from pyarrow.scalar import NA
 
@@ -39,6 +39,17 @@ cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array)
     cdef getitem(self, int64_t i)
+
+
+cdef class Tensor:
+    cdef:
+        shared_ptr[CTensor] sp_tensor
+        CTensor* tp
+
+    cdef readonly:
+        DataType type
+
+    cdef init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
 cdef object box_array(const shared_ptr[CArray]& sp_array)

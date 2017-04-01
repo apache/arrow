@@ -28,6 +28,7 @@ install(FILES
   pretty_print.h
   status.h
   table.h
+  tensor.h
   type.h
   type_fwd.h
   type_traits.h

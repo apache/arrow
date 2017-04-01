@@ -34,7 +34,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                               shared_ptr[CArray]* out,
                               const shared_ptr[CDataType]& type)
 
-    CStatus PandasDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+    CStatus NumPyDtypeToArray(object dtype, shared_ptr[CDataType]* type)
 
     CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
                           const shared_ptr[CDataType]& type,

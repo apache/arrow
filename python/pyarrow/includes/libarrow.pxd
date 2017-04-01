@@ -282,6 +282,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
 
+    cdef cppclass CTensor" arrow::Tensor":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+
+        const vector[int64_t]& shape()
+        const vector[int64_t]& strides()
+        int64_t size()
+
+        int ndim()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        c_bool is_contiguous()
+        Type type_enum()
+        c_bool Equals(const CTensor& other)
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
