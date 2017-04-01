@@ -272,8 +272,7 @@ class TestTableWriter : public ::testing::Test {
     ASSERT_OK(stream_->Finish(&output_));
 
     std::shared_ptr<io::BufferReader> buffer(new io::BufferReader(output_));
-    reader_.reset(new TableReader());
-    ASSERT_OK(reader_->Open(buffer));
+    ASSERT_OK(TableReader::Open(buffer, &reader_));
   }
 
   void CheckBatch(const RecordBatch& batch) {

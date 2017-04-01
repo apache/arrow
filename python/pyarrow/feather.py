@@ -20,9 +20,9 @@ from distutils.version import LooseVersion
 import pandas as pd
 
 from pyarrow.compat import pdapi
-from pyarrow._feather import FeatherError  # noqa
+from pyarrow.io import FeatherError  # noqa
 from pyarrow.table import Table
-import pyarrow._feather as ext
+import pyarrow.io as ext
 
 
 if LooseVersion(pd.__version__) < '0.17.0':
@@ -54,12 +54,12 @@ class FeatherReader(ext.FeatherReader):
         return table.to_pandas()
 
 
-def write_feather(df, path):
+def write_feather(df, dest):
     '''
     Write a pandas.DataFrame to Feather format
     '''
     writer = ext.FeatherWriter()
-    writer.open(path)
+    writer.open(dest)
 
     if isinstance(df, pd.SparseDataFrame):
         df = df.to_dense()
@@ -95,13 +95,13 @@ def write_feather(df, path):
     writer.close()
 
 
-def read_feather(path, columns=None):
+def read_feather(source, columns=None):
     """
     Read a pandas.DataFrame from Feather format
 
     Parameters
     ----------
-    path : string, path to read from
+    source : string file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
@@ -110,5 +110,5 @@ def read_feather(path, columns=None):
     -------
     df : pandas.DataFrame
     """
-    reader = FeatherReader(path)
+    reader = FeatherReader(source)
     return reader.read(columns=columns)

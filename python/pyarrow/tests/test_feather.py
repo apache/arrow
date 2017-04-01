@@ -27,7 +27,7 @@ import pyarrow as pa
 from pyarrow.compat import guid
 from pyarrow.feather import (read_feather, write_feather,
                              FeatherReader)
-from pyarrow._feather import FeatherWriter
+from pyarrow.io import FeatherWriter
 
 
 def random_path():
@@ -346,6 +346,21 @@ class TestFeatherReader(unittest.TestCase):
 
         df = pd.DataFrame({'ints': values[0: num_values//2]})
         self._check_pandas_roundtrip(df, path=path)
+
+    def test_filelike_objects(self):
+        from io import BytesIO
+
+        buf = BytesIO()
+
+        # the copy makes it non-strided
+        df = pd.DataFrame(np.arange(12).reshape(4, 3),
+                          columns=['a', 'b', 'c']).copy()
+        write_feather(df, buf)
+
+        buf.seek(0)
+
+        result = read_feather(buf)
+        assert_frame_equal(result, df)
 
     def test_sparse_dataframe(self):
         # GH #221

@@ -104,7 +104,6 @@ class build_ext(_build_ext):
         'io',
         'jemalloc',
         'memory',
-        '_feather',
         '_parquet',
         'scalar',
         'schema',
