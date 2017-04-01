@@ -28,33 +28,5 @@
 namespace arrow {
 namespace py {
 
-TEST(BuiltinConversionTest, TestMixedTypeFails) {
-  PyAcquireGIL lock;
-  MemoryPool* pool = default_memory_pool();
-  std::shared_ptr<Array> arr;
-
-  PyObject* list = PyList_New(3);
-  ASSERT_NE(list, nullptr);
-
-  PyObject* str = PyUnicode_FromString("abc");
-  ASSERT_NE(str, nullptr);
-
-  PyObject* integer = PyLong_FromLong(1234L);
-  ASSERT_NE(integer, nullptr);
-
-  PyObject* doub = PyFloat_FromDouble(123.0234);
-  ASSERT_NE(doub, nullptr);
-
-  // This steals a reference to each object, so we don't need to decref them later
-  // just the list
-  ASSERT_EQ(PyList_SetItem(list, 0, str), 0);
-  ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
-  ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
-
-  ASSERT_RAISES(UnknownError, ConvertPySequence(list, pool, &arr));
-
-  Py_DECREF(list);
-}
-
 }  // namespace py
 }  // namespace arrow
