@@ -67,9 +67,7 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
     size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
     capacity_ = size_;
 
-    if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) {
-      is_mutable_ = true;
-    }
+    if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) { is_mutable_ = true; }
   }
 }
 

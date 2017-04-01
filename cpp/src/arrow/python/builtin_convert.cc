@@ -412,9 +412,8 @@ class FixedWidthBytesConverter : public TypedConverter<FixedSizeBinaryBuilder> {
     PyObject* item;
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
-            ->byte_width();
+    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
+        typed_builder_->type())->byte_width();
     Py_ssize_t size = PySequence_Size(seq);
     for (int64_t i = 0; i < size; ++i) {
       item = PySequence_GetItem(seq, i);

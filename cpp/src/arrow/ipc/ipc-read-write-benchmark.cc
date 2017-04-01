@@ -80,7 +80,7 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
     int32_t metadata_length;
     int64_t body_length;
     if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-             default_memory_pool())
+            default_memory_pool())
              .ok()) {
       state.SkipWithError("Failed to write!");
     }
@@ -101,7 +101,7 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
   int32_t metadata_length;
   int64_t body_length;
   if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-           default_memory_pool())
+          default_memory_pool())
            .ok()) {
     state.SkipWithError("Failed to write!");
   }
