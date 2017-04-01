@@ -741,8 +741,11 @@ if (UNIX)
     ENDIF()
   ENDFOREACH(item ${LINT_FILES})
 
+  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
+
   # Full lint
-  add_custom_target(lint ${BUILD_SUPPORT_DIR}/cpplint.py
+  add_custom_target(lint ${CPPLINT_BIN}
   --verbose=2
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
