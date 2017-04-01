@@ -371,12 +371,15 @@ def test_min_chunksize():
     table = pa.Table.from_pandas(data.reset_index())
 
     buf = io.BytesIO()
-    pq.write_table(table, buf, chunk_size=0)
+    pq.write_table(table, buf, chunk_size=-1)
 
     buf.seek(0)
     result = pq.read_table(buf)
 
     assert result.equals(table)
+
+    with pytest.raises(ValueError):
+        pq.write_table(table, buf, chunk_size=0)
 
 
 @parquet

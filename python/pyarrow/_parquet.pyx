@@ -468,9 +468,6 @@ cdef ParquetCompression compression_from_name(object name):
         return ParquetCompression_UNCOMPRESSED
 
 
-cdef int MIN_ROW_GROUP_SIZE = 1000
-
-
 cdef class ParquetWriter:
     cdef:
         shared_ptr[WriterProperties] properties
@@ -541,10 +538,10 @@ cdef class ParquetWriter:
     def write_table(self, Table table, row_group_size=None):
         cdef CTable* ctable = table.table
 
-        if row_group_size is None:
+        if row_group_size is None or row_group_size == -1:
             row_group_size = ctable.num_rows()
         elif row_group_size == 0:
-            row_group_size = MIN_ROW_GROUP_SIZE
+            raise ValueError('Row group size cannot be 0')
 
         cdef int c_row_group_size = row_group_size
 
