@@ -88,6 +88,6 @@ install(FILES
 #     INSTALL_RPATH "\$ORIGIN")
 
 if (ARROW_BUILD_TESTS)
-  ADD_ARROW_TEST(pandas-test
+  ADD_ARROW_TEST(python-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}")
 endif()

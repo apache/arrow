@@ -17,19 +17,18 @@
 
 #include "gtest/gtest.h"
 
-#include <cstdint>
 #include <memory>
-#include <string>
-#include <vector>
+
+#include <Python.h>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
-#include "arrow/type.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/pandas_convert.h"
+#include "arrow/python/builtin_convert.h"
 
 namespace arrow {
 namespace py {
@@ -63,6 +62,34 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   Py_BEGIN_ALLOW_THREADS;
   ASSERT_RAISES(UnknownError, ConvertTableToPandas(table, 2, &out));
   Py_END_ALLOW_THREADS;
+}
+
+TEST(BuiltinConversionTest, TestMixedTypeFails) {
+  PyAcquireGIL lock;
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> arr;
+
+  OwnedRef list_ref(PyList_New(3));
+  PyObject* list = list_ref.obj();
+
+  ASSERT_NE(list, nullptr);
+
+  PyObject* str = PyUnicode_FromString("abc");
+  ASSERT_NE(str, nullptr);
+
+  PyObject* integer = PyLong_FromLong(1234L);
+  ASSERT_NE(integer, nullptr);
+
+  PyObject* doub = PyFloat_FromDouble(123.0234);
+  ASSERT_NE(doub, nullptr);
+
+  // This steals a reference to each object, so we don't need to decref them later
+  // just the list
+  ASSERT_EQ(PyList_SetItem(list, 0, str), 0);
+  ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
+  ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
+
+  ASSERT_RAISES(UnknownError, ConvertPySequence(list, pool, &arr));
 }
 
 }  // namespace py

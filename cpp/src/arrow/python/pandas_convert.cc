@@ -46,6 +46,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -167,8 +168,10 @@ Status AppendObjectStrings(int64_t objects_length, StringBuilder* builder,
       *have_bytes = true;
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
+    } else if (PyObject_is_null(obj)) {
+      RETURN_NOT_OK(builder->AppendNull());
     } else {
-      builder->AppendNull();
+      return InvalidConversion(obj, "string or bytes");
     }
   }
 
@@ -197,8 +200,10 @@ static Status AppendObjectFixedWidthBytes(int64_t objects_length, int byte_width
       RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
       RETURN_NOT_OK(
           builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
+    } else if (PyObject_is_null(obj)) {
+      RETURN_NOT_OK(builder->AppendNull());
     } else {
-      builder->AppendNull();
+      return InvalidConversion(obj, "string or bytes");
     }
   }
 
@@ -413,6 +418,32 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
   return Status::OK();
 }
 
+Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
+  OwnedRef type(PyObject_Type(obj));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(type.obj(), nullptr);
+
+  OwnedRef type_name(PyObject_GetAttrString(type.obj(), "__name__"));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(type_name.obj(), nullptr);
+
+  OwnedRef bytes_obj(PyUnicode_AsUTF8String(type_name.obj()));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(bytes_obj.obj(), nullptr);
+
+  Py_ssize_t size = PyBytes_GET_SIZE(bytes_obj.obj());
+  const char* bytes = PyBytes_AS_STRING(bytes_obj.obj());
+
+  DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
+
+  std::string cpp_type_name(bytes, size);
+
+  std::stringstream ss;
+  ss << "Python object of type " << cpp_type_name << " is not None and is not a "
+     << expected_type_name << " object";
+  return Status::TypeError(ss.str());
+}
+
 Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
@@ -427,8 +458,10 @@ Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
     if (PyDate_CheckExact(obj)) {
       PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       date_builder.Append(PyDate_to_ms(pydate));
-    } else {
+    } else if (PyObject_is_null(obj)) {
       date_builder.AppendNull();
+    } else {
+      return InvalidConversion(obj, "date");
     }
   }
   return date_builder.Finish(out);
@@ -483,14 +516,18 @@ Status PandasConverter::ConvertBooleans(std::shared_ptr<Array>* out) {
   memset(bitmap, 0, nbytes);
 
   int64_t null_count = 0;
+  PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
-    if (objects[i] == Py_True) {
+    obj = objects[i];
+    if (obj == Py_True) {
       BitUtil::SetBit(bitmap, i);
       BitUtil::SetBit(null_bitmap_data_, i);
-    } else if (objects[i] != Py_False) {
+    } else if (obj == Py_False) {
+      BitUtil::SetBit(null_bitmap_data_, i);
+    } else if (PyObject_is_null(obj)) {
       ++null_count;
     } else {
-      BitUtil::SetBit(null_bitmap_data_, i);
+      return InvalidConversion(obj, "bool");
     }
   }
 
@@ -551,7 +588,8 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
       } else if (PyDate_CheckExact(objects[i])) {
         return ConvertDates(out);
       } else {
-        return Status::TypeError("unhandled python type");
+        return InvalidConversion(
+            const_cast<PyObject*>(objects[i]), "string, bool, or date");
       }
     }
   }
