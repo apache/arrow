@@ -419,35 +419,20 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
 }
 
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
-  PyObject* type = PyObject_Type(obj);
+  OwnedRef type(PyObject_Type(obj));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(type.obj(), nullptr);
 
-  if (type == nullptr) {
-    DCHECK_NE(PyErr_Occurred(), nullptr)
-        << "Call to PyObject_Type(...) returned NULL but PyErr_Occurred() was NULL";
-    RETURN_IF_PYERROR();
-  }
+  OwnedRef type_name(PyObject_GetAttrString(type.obj(), "__name__"));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(type_name.obj(), nullptr);
 
-  PyObject* type_name = PyObject_GetAttrString(type, "__name__");
+  OwnedRef bytes_obj(PyUnicode_AsUTF8String(type_name.obj()));
+  RETURN_IF_PYERROR();
+  DCHECK_NE(bytes_obj.obj(), nullptr);
 
-  if (type_name == nullptr) {
-    Py_DECREF(type);
-    DCHECK_NE(PyErr_Occurred(), nullptr) << "Call to PyObject_GetAttrString(...) "
-                                            "returned NULL but PyErr_Occurred() was NULL";
-    RETURN_IF_PYERROR();
-  }
-
-  PyObject* bytes_obj = PyUnicode_AsUTF8String(type_name);
-
-  if (bytes_obj == nullptr) {
-    Py_DECREF(type_name);
-    Py_DECREF(type);
-    DCHECK_NE(PyErr_Occurred(), nullptr) << "Call to PyObject_AsUTF8String(...) returned "
-                                            "NULL but PyErr_Occurred() was NULL";
-    RETURN_IF_PYERROR();
-  }
-
-  Py_ssize_t size = PyBytes_GET_SIZE(bytes_obj);
-  const char* bytes = PyBytes_AS_STRING(bytes_obj);
+  Py_ssize_t size = PyBytes_GET_SIZE(bytes_obj.obj());
+  const char* bytes = PyBytes_AS_STRING(bytes_obj.obj());
 
   DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
 
@@ -456,12 +441,7 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
   std::stringstream ss;
   ss << "Python object of type " << cpp_type_name << " is not None and is not a "
      << expected_type_name << " object";
-  auto s = Status::TypeError(ss.str());
-
-  Py_DECREF(bytes_obj);
-  Py_DECREF(type_name);
-  Py_DECREF(type);
-  return s;
+  return Status::TypeError(ss.str());
 }
 
 Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
