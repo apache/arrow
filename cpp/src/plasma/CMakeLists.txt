@@ -49,7 +49,6 @@ include_directories("${CMAKE_CURRENT_LIST_DIR}/common/thirdparty")
 add_library(plasma SHARED
   plasma.cc
   plasma_extension.cc
-  common/common_extension.cc
   plasma_protocol.cc
   plasma_client.cc
   thirdparty/xxhash.c

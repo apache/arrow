@@ -12,4 +12,14 @@ static int PyObjectToPlasmaConnection(PyObject *object,
   }
 }
 
+int PyStringToUniqueID(PyObject *object, ObjectID *object_id) {
+  if (PyBytes_Check(object)) {
+    memcpy(&object_id->id[0], PyBytes_AsString(object), UNIQUE_ID_SIZE);
+    return 1;
+  } else {
+    PyErr_SetString(PyExc_TypeError, "must be a 20 character string");
+    return 0;
+  }
+}
+
 #endif /* PLASMA_EXTENSION_H */
