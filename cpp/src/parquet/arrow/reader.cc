@@ -48,8 +48,8 @@ using ParquetReader = parquet::ParquetFileReader;
 namespace parquet {
 namespace arrow {
 
-constexpr int64_t kJulianToUnixEpochDays = 2440588L;
-constexpr int64_t kNanosecondsInADay = 86400L * 1000L * 1000L * 1000L;
+constexpr int64_t kJulianToUnixEpochDays = 2440588LL;
+constexpr int64_t kNanosecondsInADay = 86400LL * 1000LL * 1000LL * 1000LL;
 
 static inline int64_t impala_timestamp_to_nanoseconds(const Int96& impala_timestamp) {
   int64_t days_since_epoch = impala_timestamp.value[2] - kJulianToUnixEpochDays;
