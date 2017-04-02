@@ -85,26 +85,18 @@ endfunction()
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
   add_library(${LIB_NAME}_objlib OBJECT
-      ${ARG_SOURCES}
+    ${ARG_SOURCES}
   )
-  if (ARG_STATIC_LINK_LIBS)
-    add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_LINK_LIBS})
-  endif()
-  if (ARG_STATIC_PRIVATE_LINK_LIBS)
-    add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_PRIVATE_LINK_LIBS})
-  endif()
-  if (ARG_SHARED_LINK_LIBS)
-    add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_LINK_LIBS})
-  endif()
-  if(ARG_SHARED_PRIVATE_LINK_LIBS)
-    add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_PRIVATE_LINK_LIBS})
+
+  if (ARG_DEPENDENCIES)
+    add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
   endif()
 
   # Necessary to make static linking into other shared libraries work properly
