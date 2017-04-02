@@ -18,8 +18,8 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn,
-                                        CTable, CDataType, CStatus, Type,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CDataType,
+                                        CTable, CTensor, CStatus, Type,
                                         CMemoryPool, TimeUnit)
 
 cimport pyarrow.includes.libarrow_io as arrow_io
@@ -34,7 +34,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                               shared_ptr[CArray]* out,
                               const shared_ptr[CDataType]& type)
 
-    CStatus PandasDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+    CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 
     CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
                           const shared_ptr[CDataType]& type,
@@ -43,6 +43,12 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus PandasObjectsToArrow(CMemoryPool* pool, object ao, object mo,
                                  const shared_ptr[CDataType]& type,
                                  shared_ptr[CArray]* out)
+
+    CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
+                            shared_ptr[CTensor]* out);
+
+    CStatus TensorToNdarray(const CTensor& tensor, PyObject* base,
+                            PyObject** out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
                                  PyObject* py_ref, PyObject** out)

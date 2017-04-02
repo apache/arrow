@@ -103,23 +103,6 @@ struct PyObjectStringify {
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);
 ARROW_EXPORT MemoryPool* get_memory_pool();
 
-class ARROW_EXPORT NumPyBuffer : public Buffer {
- public:
-  explicit NumPyBuffer(PyArrayObject* arr) : Buffer(nullptr, 0) {
-    arr_ = arr;
-    Py_INCREF(arr);
-
-    data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
-    size_ = PyArray_SIZE(arr_) * PyArray_DESCR(arr_)->elsize;
-    capacity_ = size_;
-  }
-
-  virtual ~NumPyBuffer() { Py_XDECREF(arr_); }
-
- private:
-  PyArrayObject* arr_;
-};
-
 class ARROW_EXPORT PyBuffer : public Buffer {
  public:
   /// Note that the GIL must be held when calling the PyBuffer constructor.

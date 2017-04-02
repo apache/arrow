@@ -62,9 +62,6 @@ Status ConvertTableToPandas(
     const std::shared_ptr<Table>& table, int nthreads, PyObject** out);
 
 ARROW_EXPORT
-Status PandasDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
-
-ARROW_EXPORT
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
 

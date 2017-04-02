@@ -37,7 +37,7 @@ def dataframe_with_arrays():
               ('i4', pa.int32()), ('i8', pa.int64()),
               ('u1', pa.uint8()), ('u2', pa.uint16()),
               ('u4', pa.uint32()), ('u8', pa.uint64()),
-              ('f4', pa.float_()), ('f8', pa.double())]
+              ('f4', pa.float32()), ('f8', pa.float64())]
 
     arrays = OrderedDict()
     fields = []
@@ -77,6 +77,7 @@ def dataframe_with_arrays():
 
     return df, schema
 
+
 def dataframe_with_lists():
     """
     Dataframe with list columns of every possible primtive type.
@@ -97,7 +98,7 @@ def dataframe_with_lists():
         None,
         [0]
     ]
-    fields.append(pa.field('double', pa.list_(pa.double())))
+    fields.append(pa.field('double', pa.list_(pa.float64())))
     arrays['double'] = [
         [0., 1., 2., 3., 4., 5., 6., 7., 8., 9.],
         [0., 1., 2., 3., 4.],

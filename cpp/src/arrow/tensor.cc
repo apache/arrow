@@ -90,13 +90,21 @@ int64_t Tensor::size() const {
 }
 
 bool Tensor::is_contiguous() const {
-  std::vector<int64_t> c_strides;
-  std::vector<int64_t> f_strides;
+  return is_row_major() || is_column_major();
+}
 
+bool Tensor::is_row_major() const {
+  std::vector<int64_t> c_strides;
   const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
   ComputeRowMajorStrides(fw_type, shape_, &c_strides);
+  return strides_ == c_strides;
+}
+
+bool Tensor::is_column_major() const {
+  std::vector<int64_t> f_strides;
+  const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
   ComputeColumnMajorStrides(fw_type, shape_, &f_strides);
-  return strides_ == c_strides || strides_ == f_strides;
+  return strides_ == f_strides;
 }
 
 bool Tensor::Equals(const Tensor& other) const {

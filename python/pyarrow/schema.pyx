@@ -241,7 +241,9 @@ cdef set PRIMITIVE_TYPES = set([
     la.Type_UINT32, la.Type_INT32,
     la.Type_UINT64, la.Type_INT64,
     la.Type_TIMESTAMP, la.Type_DATE32,
-    la.Type_DATE64, la.Type_FLOAT,
+    la.Type_DATE64,
+    la.Type_HALF_FLOAT,
+    la.Type_FLOAT,
     la.Type_DOUBLE])
 
 
@@ -340,11 +342,15 @@ def date64():
     return primitive_type(la.Type_DATE64)
 
 
-def float_():
+def float16():
+    return primitive_type(la.Type_HALF_FLOAT)
+
+
+def float32():
     return primitive_type(la.Type_FLOAT)
 
 
-def double():
+def float64():
     return primitive_type(la.Type_DOUBLE)
 
 
@@ -452,6 +458,6 @@ cdef Schema box_schema(const shared_ptr[CSchema]& type):
 def type_from_numpy_dtype(object dtype):
     cdef shared_ptr[CDataType] c_type
     with nogil:
-        check_status(pyarrow.PandasDtypeToArrow(dtype, &c_type))
+        check_status(pyarrow.NumPyDtypeToArrow(dtype, &c_type))
 
     return box_data_type(c_type)

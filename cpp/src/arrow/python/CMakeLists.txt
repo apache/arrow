@@ -55,6 +55,7 @@ set(ARROW_PYTHON_SRCS
   config.cc
   helpers.cc
   io.cc
+  numpy_convert.cc
   pandas_convert.cc
 )
 
@@ -71,6 +72,14 @@ ADD_ARROW_LIB(arrow_python
   STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
 )
 
+if ("${COMPILER_FAMILY}" STREQUAL "clang")
+  # Clang, be quiet. Python C API has lots of macros
+  set_property(SOURCE ${ARROW_PYTHON_SRCS}
+    APPEND_STRING
+    PROPERTY
+    COMPILE_FLAGS -Wno-parentheses-equality)
+endif()
+
 install(FILES
   api.h
   builtin_convert.h
@@ -79,6 +88,7 @@ install(FILES
   do_import_numpy.h
   helpers.h
   io.h
+  numpy_convert.h
   numpy_interop.h
   pandas_convert.h
   type_traits.h

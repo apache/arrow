@@ -33,11 +33,15 @@ def test_different_memory_pool():
     gc.collect()
     bytes_before_default = pyarrow.total_allocated_bytes()
     bytes_before_jemalloc = pyarrow.jemalloc.default_pool().bytes_allocated()
-    array = pyarrow.from_pylist([1, None, 3, None],
-                        memory_pool=pyarrow.jemalloc.default_pool())
+
+    # it works
+    array = pyarrow.from_pylist([1, None, 3, None],  # noqa
+                                memory_pool=pyarrow.jemalloc.default_pool())
     gc.collect()
     assert pyarrow.total_allocated_bytes() == bytes_before_default
-    assert pyarrow.jemalloc.default_pool().bytes_allocated() > bytes_before_jemalloc
+    assert (pyarrow.jemalloc.default_pool().bytes_allocated() >
+            bytes_before_jemalloc)
+
 
 @jemalloc
 def test_default_memory_pool():
@@ -47,10 +51,13 @@ def test_default_memory_pool():
 
     old_memory_pool = pyarrow.memory.default_pool()
     pyarrow.memory.set_default_pool(pyarrow.jemalloc.default_pool())
-    array = pyarrow.from_pylist([1, None, 3, None])
+
+    array = pyarrow.from_pylist([1, None, 3, None])  # noqa
+
     pyarrow.memory.set_default_pool(old_memory_pool)
     gc.collect()
 
     assert pyarrow.total_allocated_bytes() == bytes_before_default
-    assert pyarrow.jemalloc.default_pool().bytes_allocated() > bytes_before_jemalloc
 
+    assert (pyarrow.jemalloc.default_pool().bytes_allocated() >
+            bytes_before_jemalloc)

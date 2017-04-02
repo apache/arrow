@@ -89,7 +89,14 @@ class ARROW_EXPORT Tensor {
   /// Return true if the underlying data buffer is mutable
   bool is_mutable() const { return data_->is_mutable(); }
 
+  /// Either row major or column major
   bool is_contiguous() const;
+
+  /// AKA "C order"
+  bool is_row_major() const;
+
+  /// AKA "Fortran order"
+  bool is_column_major() const;
 
   Type::type type_enum() const { return type_->type; }
 

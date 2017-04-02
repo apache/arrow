@@ -28,8 +28,7 @@ except DistributionNotFound:
 import pyarrow.config
 from pyarrow.config import cpu_count, set_cpu_count
 
-from pyarrow.array import (Array,
-                           from_pandas_series, from_pylist,
+from pyarrow.array import (Array, Tensor, from_pylist,
                            NumericArray, IntegerArray, FloatingPointArray,
                            BooleanArray,
                            Int8Array, UInt8Array,
@@ -63,7 +62,8 @@ from pyarrow.schema import (null, bool_,
                             int8, int16, int32, int64,
                             uint8, uint16, uint32, uint64,
                             timestamp, date32, date64,
-                            float_, double, binary, string,
+                            float16, float32, float64,
+                            binary, string,
                             list_, struct, dictionary, field,
                             DataType, FixedSizeBinaryType,
                             Field, Schema, schema)

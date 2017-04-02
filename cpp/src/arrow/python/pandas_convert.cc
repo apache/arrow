@@ -36,11 +36,6 @@
 
 #include "arrow/array.h"
 #include "arrow/loader.h"
-#include "arrow/python/builtin_convert.h"
-#include "arrow/python/common.h"
-#include "arrow/python/config.h"
-#include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
@@ -49,23 +44,18 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
+#include "arrow/python/builtin_convert.h"
+#include "arrow/python/common.h"
+#include "arrow/python/config.h"
+#include "arrow/python/numpy_convert.h"
+#include "arrow/python/type_traits.h"
+#include "arrow/python/util/datetime.h"
+
 namespace arrow {
 namespace py {
 
 // ----------------------------------------------------------------------
 // Utility code
-
-int cast_npy_type_compat(int type_num) {
-// Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
-// U/LONGLONG to U/INT64 so things work properly.
-
-#if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
-  if (type_num == NPY_LONGLONG) { type_num = NPY_INT64; }
-  if (type_num == NPY_ULONGLONG) { type_num = NPY_UINT64; }
-#endif
-
-  return type_num;
-}
 
 static inline bool PyObject_is_null(const PyObject* obj) {
   return obj == Py_None || obj == numpy_nan;
@@ -395,7 +385,7 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
     return Status::NotImplemented("NumPy type casts not yet implemented");
   }
 
-  *data = std::make_shared<NumPyBuffer>(arr_);
+  *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   return Status::OK();
 }
 
@@ -728,68 +718,6 @@ Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
   PandasConverter converter(pool, ao, mo, type);
   return converter.ConvertObjects(out);
-}
-
-Status PandasDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
-  PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
-
-  int type_num = cast_npy_type_compat(descr->type_num);
-
-#define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
-  case NPY_##NPY_NAME:                        \
-    *out = FACTORY();                         \
-    break;
-
-  switch (type_num) {
-    TO_ARROW_TYPE_CASE(BOOL, boolean);
-    TO_ARROW_TYPE_CASE(INT8, int8);
-    TO_ARROW_TYPE_CASE(INT16, int16);
-    TO_ARROW_TYPE_CASE(INT32, int32);
-    TO_ARROW_TYPE_CASE(INT64, int64);
-#if (NPY_INT64 != NPY_LONGLONG)
-    TO_ARROW_TYPE_CASE(LONGLONG, int64);
-#endif
-    TO_ARROW_TYPE_CASE(UINT8, uint8);
-    TO_ARROW_TYPE_CASE(UINT16, uint16);
-    TO_ARROW_TYPE_CASE(UINT32, uint32);
-    TO_ARROW_TYPE_CASE(UINT64, uint64);
-#if (NPY_UINT64 != NPY_ULONGLONG)
-    TO_ARROW_CASE(ULONGLONG);
-#endif
-    TO_ARROW_TYPE_CASE(FLOAT32, float32);
-    TO_ARROW_TYPE_CASE(FLOAT64, float64);
-    case NPY_DATETIME: {
-      auto date_dtype =
-          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-      TimeUnit unit;
-      switch (date_dtype->meta.base) {
-        case NPY_FR_s:
-          unit = TimeUnit::SECOND;
-          break;
-        case NPY_FR_ms:
-          unit = TimeUnit::MILLI;
-          break;
-        case NPY_FR_us:
-          unit = TimeUnit::MICRO;
-          break;
-        case NPY_FR_ns:
-          unit = TimeUnit::NANO;
-          break;
-        default:
-          return Status::NotImplemented("Unsupported datetime64 time unit");
-      }
-      *out = timestamp(unit);
-    } break;
-    default: {
-      std::stringstream ss;
-      ss << "Unsupported numpy type " << descr->type_num << std::endl;
-      return Status::NotImplemented(ss.str());
-    }
-  }
-
-#undef TO_ARROW_TYPE_CASE
-
-  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

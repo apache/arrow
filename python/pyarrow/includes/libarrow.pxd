@@ -35,6 +35,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_UINT64" arrow::Type::UINT64"
         Type_INT64" arrow::Type::INT64"
 
+        Type_HALF_FLOAT" arrow::Type::HALF_FLOAT"
         Type_FLOAT" arrow::Type::FLOAT"
         Type_DOUBLE" arrow::Type::DOUBLE"
 
@@ -281,6 +282,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CColumn] column(int i)
 
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
+
+    cdef cppclass CTensor" arrow::Tensor":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+
+        const vector[int64_t]& shape()
+        const vector[int64_t]& strides()
+        int64_t size()
+
+        int ndim()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        c_bool is_contiguous()
+        Type type_enum()
+        c_bool Equals(const CTensor& other)
 
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
