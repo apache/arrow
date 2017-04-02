@@ -47,6 +47,7 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
+#include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
 #include "arrow/python/util/datetime.h"
@@ -70,15 +71,16 @@ static inline bool PyObject_is_string(const PyObject* obj) {
 }
 
 template <int TYPE>
-static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap) {
+static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   typedef npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
   int64_t null_count = 0;
-  const T* values = reinterpret_cast<const T*>(data);
+
+  Ndarray1DIndexer<T> values(arr);
 
   // TODO(wesm): striding
-  for (int i = 0; i < length; ++i) {
+  for (int i = 0; i < values.size(); ++i) {
     if (traits::isnull(values[i])) {
       ++null_count;
     } else {
@@ -92,8 +94,8 @@ static int64_t ValuesToBitmap(const void* data, int64_t length, uint8_t* bitmap)
 // Returns null count
 static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
-  const uint8_t* mask_values = static_cast<const uint8_t*>(PyArray_DATA(mask));
-  // TODO(wesm): strided null mask
+
+  Ndarray1DIndexer<uint8_t> mask_values(mask);
   for (int i = 0; i < length; ++i) {
     if (mask_values[i]) {
       ++null_count;
@@ -138,11 +140,13 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
   return Status::OK();
 }
 
-Status AppendObjectStrings(int64_t objects_length, StringBuilder* builder,
-    PyObject** objects, bool* have_bytes) {
+static Status AppendObjectStrings(
+    PyArrayObject* arr, StringBuilder* builder, bool* have_bytes) {
   PyObject* obj;
 
-  for (int64_t i = 0; i < objects_length; ++i) {
+  Ndarray1DIndexer<PyObject*> objects(arr);
+
+  for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
     if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -168,11 +172,13 @@ Status AppendObjectStrings(int64_t objects_length, StringBuilder* builder,
   return Status::OK();
 }
 
-static Status AppendObjectFixedWidthBytes(int64_t objects_length, int byte_width,
-    FixedSizeBinaryBuilder* builder, PyObject** objects) {
+static Status AppendObjectFixedWidthBytes(
+    PyArrayObject* arr, int byte_width, FixedSizeBinaryBuilder* builder) {
   PyObject* obj;
 
-  for (int64_t i = 0; i < objects_length; ++i) {
+  Ndarray1DIndexer<PyObject*> objects(arr);
+
+  for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
     if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -299,8 +305,7 @@ class PandasConverter : public TypeVisitor {
     } else if (traits::supports_nulls) {
       // TODO(wesm): this presumes the NumPy C type and arrow C type are the
       // same
-      null_count = ValuesToBitmap<traits::npy_type>(
-          PyArray_DATA(arr_), length_, null_bitmap_data_);
+      null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
     }
 
     std::vector<FieldMetadata> fields(1);
@@ -333,8 +338,6 @@ class PandasConverter : public TypeVisitor {
     if (PyArray_NDIM(arr_) != 1) {
       return Status::Invalid("only handle 1-dimensional arrays");
     }
-    // TODO(wesm): strided arrays
-    if (is_strided()) { return Status::Invalid("no support for strided data yet"); }
 
     if (type_ == nullptr) { return Status::Invalid("Must pass data type"); }
 
@@ -374,9 +377,31 @@ class PandasConverter : public TypeVisitor {
   uint8_t* null_bitmap_data_;
 };
 
+template <typename T>
+void CopyStrided(T* input_data, int64_t length, int64_t stride, T* output_data) {
+  // Passing input_data as non-const is a concession to PyObject*
+  int64_t j = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    output_data[i] = input_data[j];
+    j += stride;
+  }
+}
+
+template <>
+void CopyStrided<PyObject*>(
+    PyObject** input_data, int64_t length, int64_t stride, PyObject** output_data) {
+  int64_t j = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    output_data[i] = input_data[j];
+    if (output_data[i] != nullptr) { Py_INCREF(output_data[i]); }
+    j += stride;
+  }
+}
+
 template <typename ArrowType>
 inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   using traits = arrow_traits<ArrowType::type_id>;
+  using T = typename traits::T;
 
   // Handle LONGLONG->INT64 and other fun things
   int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
@@ -385,7 +410,20 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
     return Status::NotImplemented("NumPy type casts not yet implemented");
   }
 
-  *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
+  if (is_strided()) {
+    // Strided, must copy into new contiguous memory
+    const int64_t stride = PyArray_STRIDES(arr_)[0];
+    const int64_t stride_elements = stride / sizeof(T);
+
+    auto new_buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(new_buffer->Resize(sizeof(T) * length_));
+    CopyStrided(reinterpret_cast<T*>(PyArray_DATA(arr_)), length_, stride_elements,
+        reinterpret_cast<T*>(new_buffer->mutable_data()));
+    *data = new_buffer;
+  } else {
+    // Can zero-copy
+    *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
+  }
   return Status::OK();
 }
 
@@ -395,7 +433,7 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
   auto buffer = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(buffer->Resize(nbytes));
 
-  const uint8_t* values = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<uint8_t> values(arr_);
 
   uint8_t* bitmap = buffer->mutable_data();
 
@@ -437,9 +475,14 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
 Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+
   Date64Builder date_builder(pool_);
   RETURN_NOT_OK(date_builder.Resize(length_));
+
+  /// We have to run this in this compilation unit, since we cannot use the
+  /// datetime API otherwise
+  PyDateTime_IMPORT;
 
   Status s;
   PyObject* obj;
@@ -463,13 +506,12 @@ Status PandasConverter::ConvertObjectStrings(std::shared_ptr<Array>* out) {
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   StringBuilder builder(pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   Status s;
   bool have_bytes = false;
-  RETURN_NOT_OK(AppendObjectStrings(length_, &builder, objects, &have_bytes));
+  RETURN_NOT_OK(AppendObjectStrings(arr_, &builder, &have_bytes));
   RETURN_NOT_OK(builder.Finish(out));
 
   if (have_bytes) {
@@ -484,12 +526,13 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+
+  int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+
   FixedSizeBinaryBuilder builder(pool_, type);
   RETURN_NOT_OK(builder.Resize(length_));
-  RETURN_NOT_OK(AppendObjectFixedWidthBytes(length_,
-      std::dynamic_pointer_cast<FixedSizeBinaryType>(builder.type())->byte_width(),
-      &builder, objects));
+  RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, byte_width, &builder));
   RETURN_NOT_OK(builder.Finish(out));
   return Status::OK();
 }
@@ -497,7 +540,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
 Status PandasConverter::ConvertBooleans(std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<PyObject*> objects(arr_);
 
   int64_t nbytes = BitUtil::BytesForBits(length_);
   auto data = std::make_shared<PoolBuffer>(pool_);
@@ -543,10 +586,11 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
     return Status::NotImplemented("mask not supported in object conversions yet");
   }
 
-  const PyObject** objects;
+  Ndarray1DIndexer<PyObject*> objects;
+
   {
     PyAcquireGIL lock;
-    objects = reinterpret_cast<const PyObject**>(PyArray_DATA(arr_));
+    objects.Init(arr_);
     PyDateTime_IMPORT;
   }
 
@@ -595,6 +639,10 @@ inline Status PandasConverter::ConvertTypedLists(
   typedef typename traits::BuilderClass BuilderT;
 
   PyAcquireGIL lock;
+
+  if (is_strided()) {
+    return Status::NotImplemented("strided arrays not implemented for lists");
+  }
 
   auto value_builder = std::make_shared<BuilderT>(pool_, type);
   ListBuilder list_builder(pool_, value_builder);
@@ -647,6 +695,10 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
 
+  if (is_strided()) {
+    return Status::NotImplemented("strided arrays not implemented for lists");
+  }
+
   auto value_builder = std::make_shared<StringBuilder>(pool_);
   ListBuilder list_builder(pool_, value_builder);
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
@@ -660,9 +712,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      int64_t size = static_cast<int64_t>(PyArray_DIM(numpy_array, 0));
-      auto data = reinterpret_cast<PyObject**>(PyArray_DATA(numpy_array));
-      RETURN_NOT_OK(AppendObjectStrings(size, value_builder.get(), data, &have_bytes));
+      RETURN_NOT_OK(AppendObjectStrings(numpy_array, value_builder.get(), &have_bytes));
     } else if (PyList_Check(objects[i])) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;

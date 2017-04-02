@@ -46,7 +46,7 @@ class Status;
 class ARROW_EXPORT Buffer {
  public:
   Buffer(const uint8_t* data, int64_t size)
-    : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
+      : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
   virtual ~Buffer();
 
   /// An offset into data that is owned by another buffer, but we want to be
@@ -57,7 +57,7 @@ class ARROW_EXPORT Buffer {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
-    : Buffer(parent->data() + offset, size) {
+      : Buffer(parent->data() + offset, size) {
     parent_ = parent;
   }
 
@@ -112,8 +112,7 @@ std::shared_ptr<Buffer> ARROW_EXPORT SliceMutableBuffer(
 /// A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
-  MutableBuffer(uint8_t* data, int64_t size)
-    : Buffer(data, size) {
+  MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
     mutable_data_ = data;
     is_mutable_ = true;
   }
