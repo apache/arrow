@@ -60,7 +60,8 @@ GType          garrow_array_get_type    (void) G_GNUC_CONST;
 gint64         garrow_array_get_length  (GArrowArray *array);
 gint64         garrow_array_get_offset  (GArrowArray *array);
 gint64         garrow_array_get_n_nulls (GArrowArray *array);
-GArrowDataType *garrow_array_get_data_type(GArrowArray *array);
+GArrowDataType *garrow_array_get_value_data_type(GArrowArray *array);
+GArrowType     garrow_array_get_value_type(GArrowArray *array);
 GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 offset,
                                          gint64 length);
