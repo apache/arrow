@@ -46,7 +46,7 @@ class Status;
 class ARROW_EXPORT Buffer {
  public:
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
+    : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
   virtual ~Buffer();
 
   /// An offset into data that is owned by another buffer, but we want to be
@@ -56,7 +56,10 @@ class ARROW_EXPORT Buffer {
   /// This method makes no assertions about alignment or padding of the buffer but
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
-  Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
+  Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
+    : Buffer(parent->data() + offset, size) {
+    parent_ = parent;
+  }
 
   bool is_mutable() const { return is_mutable_; }
 
@@ -74,6 +77,7 @@ class ARROW_EXPORT Buffer {
 
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
+  uint8_t* mutable_data() { return mutable_data_; }
 
   int64_t size() const { return size_; }
 
@@ -82,6 +86,7 @@ class ARROW_EXPORT Buffer {
  protected:
   bool is_mutable_;
   const uint8_t* data_;
+  uint8_t* mutable_data_;
   int64_t size_;
   int64_t capacity_;
 
@@ -99,20 +104,24 @@ static inline std::shared_ptr<Buffer> SliceBuffer(
   return std::make_shared<Buffer>(buffer, offset, length);
 }
 
+/// Construct a mutable buffer slice. If the parent buffer is not mutable, this
+/// will abort in debug builds
+std::shared_ptr<Buffer> ARROW_EXPORT SliceMutableBuffer(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length);
+
 /// A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
-  MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
-    is_mutable_ = true;
+  MutableBuffer(uint8_t* data, int64_t size)
+    : Buffer(data, size) {
     mutable_data_ = data;
+    is_mutable_ = true;
   }
 
-  uint8_t* mutable_data() { return mutable_data_; }
+  MutableBuffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
 
  protected:
-  MutableBuffer() : Buffer(nullptr, 0), mutable_data_(nullptr) {}
-
-  uint8_t* mutable_data_;
+  MutableBuffer() : Buffer(nullptr, 0) {}
 };
 
 class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
