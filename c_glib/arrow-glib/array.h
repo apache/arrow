@@ -57,6 +57,8 @@ struct _GArrowArrayClass
 
 GType          garrow_array_get_type    (void) G_GNUC_CONST;
 
+gboolean       garrow_array_is_null     (GArrowArray *array,
+                                         gint64 i);
 gint64         garrow_array_get_length  (GArrowArray *array);
 gint64         garrow_array_get_offset  (GArrowArray *array);
 gint64         garrow_array_get_n_nulls (GArrowArray *array);

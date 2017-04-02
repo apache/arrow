@@ -16,6 +16,15 @@
 # under the License.
 
 class TestArray < Test::Unit::TestCase
+  def test_is_null
+    builder = Arrow::BooleanArrayBuilder.new
+    builder.append_null
+    builder.append(true)
+    array = builder.finish
+    assert_equal([true, false],
+                 array.length.times.collect {|i| array.null?(i)})
+  end
+
   def test_length
     builder = Arrow::BooleanArrayBuilder.new
     builder.append(true)
