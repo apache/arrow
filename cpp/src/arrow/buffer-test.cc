@@ -168,4 +168,21 @@ TEST_F(TestBuffer, SliceBuffer) {
   ASSERT_EQ(2, buf.use_count());
 }
 
+TEST_F(TestBuffer, SliceMutableBuffer) {
+  std::string data_str = "some data to slice";
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), 50, &buffer));
+
+  memcpy(buffer->mutable_data(), data, data_str.size());
+
+  std::shared_ptr<Buffer> slice = SliceMutableBuffer(buffer, 5, 10);
+  ASSERT_TRUE(slice->is_mutable());
+  ASSERT_EQ(10, slice->size());
+
+  Buffer expected(data + 5, 10);
+  ASSERT_TRUE(slice->Equals(expected));
+}
+
 }  // namespace arrow

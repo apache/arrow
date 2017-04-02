@@ -27,11 +27,6 @@
 
 namespace arrow {
 
-Buffer::Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
-    : Buffer(parent->data() + offset, size) {
-  parent_ = parent;
-}
-
 Buffer::~Buffer() {}
 
 Status Buffer::Copy(
@@ -114,6 +109,18 @@ Status PoolBuffer::Resize(int64_t new_size, bool shrink_to_fit) {
   }
   size_ = new_size;
   return Status::OK();
+}
+
+std::shared_ptr<Buffer> SliceMutableBuffer(
+    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
+  return std::make_shared<MutableBuffer>(buffer, offset, length);
+}
+
+MutableBuffer::MutableBuffer(
+    const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
+    : MutableBuffer(parent->mutable_data() + offset, size) {
+  DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
+  parent_ = parent;
 }
 
 Status AllocateBuffer(
