@@ -148,12 +148,10 @@ if(CMAKE_HOST_WIN32)
         set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
     endif()
 elseif(APPLE)
-     # Seems to require "-undefined dynamic_lookup" instead of linking
-     # against the .dylib, otherwise it crashes. This flag is added
-     # below
-    set(PYTHON_LIBRARY "")
-    #set(PYTHON_LIBRARY
-    #    "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+  # In Python C extensions on OS X, the flag "-undefined dynamic_lookup" can
+  # avoid certain kinds of dynamic linking issues with portable binaries, so
+  # you should avoid targeting libpython at link time if at all possible
+  set(PYTHON_LIBRARY "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
 else()
     if(${PYTHON_SIZEOF_VOID_P} MATCHES 8)
         set(_PYTHON_LIBS_SEARCH "${PYTHON_PREFIX}/lib64" "${PYTHON_PREFIX}/lib" "${PYTHON_LIBRARY_PATH}")
