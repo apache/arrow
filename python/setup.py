@@ -17,18 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import glob
+import os
 import os.path as osp
 import re
 import shutil
+import sys
+
 from Cython.Distutils import build_ext as _build_ext
 import Cython
 
-import sys
 
 import pkg_resources
 from setuptools import setup, Extension
-
-import os
 
 from os.path import join as pjoin
 
@@ -207,8 +208,19 @@ class build_ext(_build_ext):
         def move_lib(lib_name):
             lib_filename = (shared_library_prefix + lib_name +
                             shared_library_suffix)
+            # Also copy libraries with ABI/SO version suffix
+            libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
+            # Longest suffix library should be copied, all others symlinked
+            libs.sort(key=lambda s: -len(s))
+            print(libs, libs[0])
+            lib_filename = os.path.basename(libs[0])
             shutil.move(pjoin(self.build_type, lib_filename),
                         pjoin(build_lib, 'pyarrow', lib_filename))
+            for lib in libs[1:]:
+                filename = os.path.basename(lib)
+                link_name = pjoin(build_lib, 'pyarrow', filename)
+                if not os.path.exists(link_name):
+                    os.symlink(lib_filename, link_name)
 
         if self.bundle_arrow_cpp:
             move_lib("arrow")

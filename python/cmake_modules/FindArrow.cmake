@@ -23,6 +23,8 @@
 #  ARROW_SHARED_LIB, path to libarrow's shared library
 #  ARROW_FOUND, whether arrow has been found
 
+include(FindPkgConfig)
+
 set(ARROW_SEARCH_HEADER_PATHS
   $ENV{ARROW_HOME}/include
 )
@@ -31,16 +33,27 @@ set(ARROW_SEARCH_LIB_PATH
   $ENV{ARROW_HOME}/lib
 )
 
-find_path(ARROW_INCLUDE_DIR arrow/array.h PATHS
-  ${ARROW_SEARCH_HEADER_PATHS}
-  # make sure we don't accidentally pick up a different version
-  NO_DEFAULT_PATH
-)
+pkg_check_modules(ARROW arrow)
+if (ARROW_FOUND)
+  pkg_get_variable(ARROW_ABI_VERSION arrow abi_version)
+  message(STATUS "Arrow ABI version: ${ARROW_ABI_VERSION}")
+  pkg_get_variable(ARROW_SO_VERSION arrow so_version)
+  message(STATUS "Arrow SO version: ${ARROW_SO_VERSION}")
+  set(ARROW_INCLUDE_DIR ${ARROW_INCLUDE_DIRS})
+  set(ARROW_LIBS ${ARROW_LIBRARY_DIRS})
+else()
+  find_path(ARROW_INCLUDE_DIR arrow/array.h PATHS
+    ${ARROW_SEARCH_HEADER_PATHS}
+    # make sure we don't accidentally pick up a different version
+    NO_DEFAULT_PATH
+  )
 
-find_library(ARROW_LIB_PATH NAMES arrow
-  PATHS
-  ${ARROW_SEARCH_LIB_PATH}
-  NO_DEFAULT_PATH)
+  find_library(ARROW_LIB_PATH NAMES arrow
+    PATHS
+    ${ARROW_SEARCH_LIB_PATH}
+    NO_DEFAULT_PATH)
+  get_filename_component(ARROW_LIBS ${ARROW_LIB_PATH} DIRECTORY)
+endif()
 
 find_library(ARROW_IO_LIB_PATH NAMES arrow_io
   PATHS
@@ -62,7 +75,7 @@ find_library(ARROW_PYTHON_LIB_PATH NAMES arrow_python
   ${ARROW_SEARCH_LIB_PATH}
   NO_DEFAULT_PATH)
 
-if (ARROW_INCLUDE_DIR AND ARROW_LIB_PATH)
+if (ARROW_INCLUDE_DIR AND ARROW_LIBS)
   set(ARROW_FOUND TRUE)
   set(ARROW_LIB_NAME libarrow)
   set(ARROW_IO_LIB_NAME libarrow_io)
@@ -70,7 +83,6 @@ if (ARROW_INCLUDE_DIR AND ARROW_LIB_PATH)
   set(ARROW_JEMALLOC_LIB_NAME libarrow_jemalloc)
   set(ARROW_PYTHON_LIB_NAME libarrow_python)
 
-  set(ARROW_LIBS ${ARROW_SEARCH_LIB_PATH})
   set(ARROW_STATIC_LIB ${ARROW_SEARCH_LIB_PATH}/${ARROW_LIB_NAME}.a)
   set(ARROW_SHARED_LIB ${ARROW_LIBS}/${ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 

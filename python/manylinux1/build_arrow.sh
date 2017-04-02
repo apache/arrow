@@ -39,6 +39,7 @@ export PYARROW_BUNDLE_ARROW_CPP=1
 export LDFLAGS="-Wl,--no-as-needed"
 export ARROW_HOME="/arrow-dist"
 export PARQUET_HOME="/usr"
+export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
 
 # Ensure the target directory exists
 mkdir -p /io/dist
@@ -52,6 +53,15 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Installing build dependencies ==="
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.24"
+    $PIPI_IO "pandas==0.19.2"
+
+    echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
+    ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}
+    mkdir -p "${ARROW_BUILD_DIR}"
+    pushd "${ARROW_BUILD_DIR}"
+    PATH="$(cpython_path $PYTHON)/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} ..
+    make -j5 install
+    popd
 
     # Clear output directory
     rm -rf dist/
