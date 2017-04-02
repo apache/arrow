@@ -136,6 +136,20 @@ garrow_array_class_init(GArrowArrayClass *klass)
 }
 
 /**
+ * garrow_array_is_null:
+ * @array: A #GArrowArray.
+ * @i: The index of the target value.
+ *
+ * Returns: Whether the i-th value is null or not.
+ */
+gboolean
+garrow_array_is_null(GArrowArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  return arrow_array->IsNull(i);
+}
+
+/**
  * garrow_array_get_length:
  * @array: A #GArrowArray.
  *
