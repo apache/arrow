@@ -339,7 +339,9 @@ cdef class MemoryMappedFile(NativeFile):
         object path
 
     def __cinit__(self):
-        self.is_readable = self.is_writeable = 0
+        self.is_open = False
+        self.is_readable = 0
+        self.is_writeable = 0
 
     @staticmethod
     def create(path, size):
