@@ -38,7 +38,7 @@ class Ndarray1DIndexer {
 
   Ndarray1DIndexer() : arr_(nullptr), data_(nullptr) {}
 
-  Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() { Init(arr); }
+  explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() { Init(arr); }
 
   void Init(PyArrayObject* arr) {
     arr_ = arr;
