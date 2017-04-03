@@ -270,4 +270,5 @@ public class NullableMapVector extends MapVector implements FieldVector {
   public Mutator getMutator() {
     return mutator;
   }
+
 }

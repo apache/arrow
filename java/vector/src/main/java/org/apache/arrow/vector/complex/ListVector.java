@@ -40,10 +40,10 @@ import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
@@ -80,8 +80,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
       throw new IllegalArgumentException("Lists have only one child. Found: " + children);
     }
     Field field = children.get(0);
-    MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(minorType, field.getDictionary());
+    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
     if (!addOrGetVector.isCreated()) {
       throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
     }
@@ -164,11 +163,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
 
     public TransferImpl(ListVector to) {
       this.to = to;
-      to.addOrGetVector(vector.getMinorType(), vector.getField().getDictionary());
+      to.addOrGetVector(vector.getField().getFieldType());
       pairs[0] = offsets.makeTransferPair(to.offsets);
       pairs[1] = bits.makeTransferPair(to.bits);
       if (to.getDataVector() instanceof ZeroVector) {
-        to.addOrGetVector(vector.getMinorType(), vector.getField().getDictionary());
+        to.addOrGetVector(vector.getField().getFieldType());
       }
       pairs[2] = getDataVector().makeTransferPair(to.getDataVector());
     }
@@ -241,8 +240,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     return success;
   }
 
-  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(MinorType minorType, DictionaryEncoding dictionary) {
-    AddOrGetResult<T> result = super.addOrGetVector(minorType, dictionary);
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
+    AddOrGetResult<T> result = super.addOrGetVector(fieldType);
     reader = new UnionListReader(this);
     return result;
   }

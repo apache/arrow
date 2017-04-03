@@ -22,7 +22,9 @@ import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.ArrowType.List;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
 /**
@@ -85,12 +87,24 @@ public abstract class AbstractContainerVector implements ValueVector {
   // return the number of child vectors
   public abstract int size();
 
-  // add a new vector with the input MajorType or return the existing vector if we already added one with the same type
-  public abstract <T extends FieldVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, DictionaryEncoding dictionary, int... precisionScale);
+  // add a new vector with the input FieldType or return the existing vector if we already added one with the same name
+  public abstract <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz);
 
   // return the child vector with the input name
   public abstract <T extends FieldVector> T getChild(String name, Class<T> clazz);
 
   // return the child vector's ordinal in the composite container
   public abstract VectorWithOrdinal getChildVectorWithOrdinal(String name);
+
+  public NullableMapVector addOrGetMap(String name) {
+    return addOrGet(name, FieldType.nullable(new Struct()), NullableMapVector.class);
+  }
+
+  public ListVector addOrGetList(String name) {
+    return addOrGet(name, FieldType.nullable(new List()), ListVector.class);
+  }
+
+  public UnionVector addOrGetUnion(String name) {
+    return addOrGet(name, FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
+  }
 }

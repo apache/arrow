@@ -64,28 +64,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   <#if minor.class == "Decimal">
   private final int precision;
   private final int scale;
+  </#if>
 
-  public ${className}(String name, BufferAllocator allocator, DictionaryEncoding dictionary, int precision, int scale) {
+  public ${className}(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator);
-    values = new ${valuesName}(valuesField, allocator, precision, scale);
-    this.precision = precision;
-    this.scale = scale;
-    mutator = new Mutator();
-    accessor = new Accessor();
-    field = new Field(name, true, new Decimal(precision, scale), dictionary, null);
-    innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
-        bits,
-        values
-    ));
-  }
-  <#else>
-  public ${className}(String name, BufferAllocator allocator, DictionaryEncoding dictionary) {
-    super(name, allocator);
-    values = new ${valuesName}(valuesField, allocator);
-    mutator = new Mutator();
-    accessor = new Accessor();
-    ArrowType type = Types.MinorType.${minor.class?upper_case}.getType();
-    field = new Field(name, true, type, dictionary, null);
+    <#if minor.class == "Decimal">
+    Decimal decimal = (Decimal)fieldType.getType();
+    this.precision = decimal.getPrecision();
+    this.scale = decimal.getScale();
+    this.values = new ${valuesName}(valuesField, allocator, precision, scale);
+    <#else>
+    this.values = new ${valuesName}(valuesField, allocator);
+    </#if>
+    this.mutator = new Mutator();
+    this.accessor = new Accessor();
+    this.field = new Field(name, fieldType, null);
     innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(
         bits,
         <#if type.major = "VarLen">
@@ -94,7 +87,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         values
     ));
   }
-  </#if>
 
   @Override
   public BitVector getValidityVector() {
@@ -341,12 +333,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private class TransferImpl implements TransferPair {
     ${className} to;
 
-    public TransferImpl(String name, BufferAllocator allocator){
-      <#if minor.class == "Decimal">
-      to = new ${className}(name, allocator, field.getDictionary(), precision, scale);
-      <#else>
-      to = new ${className}(name, allocator, field.getDictionary());
-      </#if>
+    public TransferImpl(String ref, BufferAllocator allocator){
+      to = new ${className}(ref, field.getFieldType(), allocator);
     }
 
     public TransferImpl(${className} to){

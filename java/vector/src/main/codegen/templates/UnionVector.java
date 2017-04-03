@@ -119,10 +119,22 @@ public class UnionVector implements FieldVector {
      return this.innerVectors;
   }
 
+  private String fieldName(MinorType type) {
+    return type.name().toLowerCase();
+  }
+
+  private FieldType fieldType(MinorType type) {
+    return new FieldType(true, type.getType(), null);
+  }
+
+  private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
+    return internalMap.addOrGet(fieldName(minorType), fieldType(minorType), c);
+  }
+
   public NullableMapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MinorType.MAP, NullableMapVector.class, null);
+      mapVector = addOrGet(MinorType.MAP, NullableMapVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
         if (callBack != null) {
@@ -144,7 +156,7 @@ public class UnionVector implements FieldVector {
   public Nullable${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = internalMap.addOrGet("${lowerCaseName}", MinorType.${name?upper_case}, Nullable${name}Vector.class, null);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, Nullable${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -162,7 +174,7 @@ public class UnionVector implements FieldVector {
   public ListVector getList() {
     if (listVector == null) {
       int vectorCount = internalMap.size();
-      listVector = internalMap.addOrGet("list", MinorType.LIST, ListVector.class, null);
+      listVector = addOrGet(MinorType.LIST, ListVector.class);
       if (internalMap.size() > vectorCount) {
         listVector.allocateNew();
         if (callBack != null) {
@@ -267,7 +279,7 @@ public class UnionVector implements FieldVector {
   public FieldVector addVector(FieldVector v) {
     String name = v.getMinorType().name().toLowerCase();
     Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final FieldVector newVector = internalMap.addOrGet(name, v.getMinorType(), v.getClass(), v.getField().getDictionary());
+    final FieldVector newVector = internalMap.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
     internalMap.putChild(name, newVector);
     if (callBack != null) {

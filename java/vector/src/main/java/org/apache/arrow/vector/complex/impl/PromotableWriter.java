@@ -27,6 +27,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -125,7 +126,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         // ???
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(type, null).getVector();
+      ValueVector v = listVector.addOrGetVector(FieldType.nullable(type.getType())).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
@@ -151,7 +152,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     tp.transfer();
     if (parentContainer != null) {
       // TODO allow dictionaries in complex types
-      unionVector = parentContainer.addOrGet(name, MinorType.UNION, UnionVector.class, null);
+      unionVector = parentContainer.addOrGetUnion(name);
       unionVector.allocateNew();
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();

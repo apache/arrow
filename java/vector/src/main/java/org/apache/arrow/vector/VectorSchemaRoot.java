@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -60,9 +58,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   public static VectorSchemaRoot create(Schema schema, BufferAllocator allocator) {
     List<FieldVector> fieldVectors = new ArrayList<>();
     for (Field field : schema.getFields()) {
-      MinorType minorType = Types.getMinorTypeForArrowType(field.getType());
-      FieldVector vector = minorType.getNewVector(field.getName(), allocator, field.getDictionary(), null);
-      vector.initializeChildrenFromFields(field.getChildren());
+      FieldVector vector = field.createVector(allocator);
       fieldVectors.add(vector);
     }
     if (fieldVectors.size() != schema.getFields().size()) {

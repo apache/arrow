@@ -17,18 +17,18 @@
  */
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+import static org.junit.Assert.assertEquals;
+
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.Dictionary;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.nio.charset.StandardCharsets;
-
-import static org.junit.Assert.assertEquals;
 
 public class TestDictionaryVector {
 
@@ -51,8 +51,8 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeStrings() {
     // Create a new value vector
-    try (final NullableVarCharVector vector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector("foo", allocator, null, null);
-         final NullableVarCharVector dictionaryVector = (NullableVarCharVector) MinorType.VARCHAR.getNewVector("dict", allocator, null, null)) {
+    try (final NullableVarCharVector vector = newNullableVarCharVector("foo", allocator);
+         final NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", allocator);) {
       final NullableVarCharVector.Mutator m = vector.getMutator();
       vector.allocateNew(512, 5);
 

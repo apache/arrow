@@ -24,11 +24,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,13 +35,10 @@ import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableIntVector;
-import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.TestUtils;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -78,8 +72,8 @@ public class TestArrowReaderWriter {
   @Test
   public void test() throws IOException {
     Schema schema = new Schema(asList(new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
-    MinorType minorType = Types.getMinorTypeForArrowType(schema.getFields().get(0).getType());
-    FieldVector vector = minorType.getNewVector("testField", allocator, null,null);
+    ArrowType type = schema.getFields().get(0).getType();
+    FieldVector vector = TestUtils.newVector(FieldVector.class, "testField", type, allocator);
     vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());
 
     byte[] validity = new byte[] { (byte) 255, 0};

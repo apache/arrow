@@ -25,8 +25,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
 
@@ -102,8 +101,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    *   </li>
    * </ul>
    *
-   * @param name the name of the field
-   * @param minorType the minorType for the vector
+   * @param childName the name of the field
+   * @param fieldType the type for the vector
    * @param clazz class of expected vector type
    * @param <T> class type of expected vector type
    * @throws java.lang.IllegalStateException raised if there is a hard schema change
@@ -111,8 +110,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    */
   @Override
-  public <T extends FieldVector> T addOrGet(String name, MinorType minorType, Class<T> clazz, DictionaryEncoding dictionary, int... precisionScale) {
-    final ValueVector existing = getChild(name);
+  public <T extends FieldVector> T addOrGet(String childName, FieldType fieldType, Class<T> clazz) {
+    final ValueVector existing = getChild(childName);
     boolean create = false;
     if (existing == null) {
       create = true;
@@ -123,9 +122,9 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       create = true;
     }
     if (create) {
-      final T vector = clazz.cast(minorType.getNewVector(name, allocator, dictionary, callBack, precisionScale));
-      putChild(name, vector);
-      if (callBack!=null) {
+      final T vector = clazz.cast(fieldType.createNewSingleVector(childName, allocator, callBack));
+      putChild(childName, vector);
+      if (callBack != null) {
         callBack.doWork();
       }
       return vector;
@@ -163,14 +162,14 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     return typeify(v, clazz);
   }
 
-  protected ValueVector add(String name, MinorType minorType, DictionaryEncoding dictionary, int... precisionScale) {
-    final ValueVector existing = getChild(name);
+  protected ValueVector add(String childName, FieldType fieldType) {
+    final ValueVector existing = getChild(childName);
     if (existing != null) {
-      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), minorType));
+      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ", existing.getClass().getSimpleName(), fieldType));
     }
-    FieldVector vector = minorType.getNewVector(name, allocator, dictionary, callBack, precisionScale);
-    putChild(name, vector);
-    if (callBack!=null) {
+    FieldVector vector = fieldType.createNewSingleVector(childName, allocator, callBack);
+    putChild(childName, vector);
+    if (callBack != null) {
       callBack.doWork();
     }
     return vector;

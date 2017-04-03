@@ -92,45 +92,15 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
 public class Types {
 
-  private static final Field NULL_FIELD = new Field("", true, Null.INSTANCE, null);
-  private static final Field TINYINT_FIELD = new Field("", true, new Int(8, true), null);
-  private static final Field SMALLINT_FIELD = new Field("", true, new Int(16, true), null);
-  private static final Field INT_FIELD = new Field("", true, new Int(32, true), null);
-  private static final Field BIGINT_FIELD = new Field("", true, new Int(64, true), null);
-  private static final Field UINT1_FIELD = new Field("", true, new Int(8, false), null);
-  private static final Field UINT2_FIELD = new Field("", true, new Int(16, false), null);
-  private static final Field UINT4_FIELD = new Field("", true, new Int(32, false), null);
-  private static final Field UINT8_FIELD = new Field("", true, new Int(64, false), null);
-  private static final Field DATE_FIELD = new Field("", true, new Date(DateUnit.MILLISECOND), null);
-  private static final Field TIME_FIELD = new Field("", true, new Time(TimeUnit.MILLISECOND, 32), null);
-  private static final Field TIMESTAMPSEC_FIELD = new Field("", true, new Timestamp(TimeUnit.SECOND, "UTC"), null);
-  private static final Field TIMESTAMPMILLI_FIELD = new Field("", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null);
-  private static final Field TIMESTAMPMICRO_FIELD = new Field("", true, new Timestamp(TimeUnit.MICROSECOND, "UTC"), null);
-  private static final Field TIMESTAMPNANO_FIELD = new Field("", true, new Timestamp(TimeUnit.NANOSECOND, "UTC"), null);
-  private static final Field INTERVALDAY_FIELD = new Field("", true, new Interval(IntervalUnit.DAY_TIME), null);
-  private static final Field INTERVALYEAR_FIELD = new Field("", true, new Interval(IntervalUnit.YEAR_MONTH), null);
-  private static final Field FLOAT4_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.SINGLE), null);
-  private static final Field FLOAT8_FIELD = new Field("", true, new FloatingPoint(FloatingPointPrecision.DOUBLE), null);
-  private static final Field VARCHAR_FIELD = new Field("", true, Utf8.INSTANCE, null);
-  private static final Field VARBINARY_FIELD = new Field("", true, Binary.INSTANCE, null);
-  private static final Field BIT_FIELD = new Field("", true, Bool.INSTANCE, null);
-
-
   public enum MinorType {
     NULL(Null.INSTANCE) {
       @Override
-      public Field getField() {
-        return NULL_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return ZeroVector.INSTANCE;
       }
 
@@ -141,13 +111,8 @@ public class Types {
     },
     MAP(Struct.INSTANCE) {
       @Override
-      public Field getField() {
-        throw new UnsupportedOperationException("Cannot get simple field for Map type");
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-         return new NullableMapVector(name, allocator, dictionary, callBack);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableMapVector(name, allocator, fieldType.getDictionary(), schemaChangeCallback);
       }
 
       @Override
@@ -157,13 +122,8 @@ public class Types {
     },
     TINYINT(new Int(8, true)) {
       @Override
-      public Field getField() {
-        return TINYINT_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTinyIntVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTinyIntVector(name, fieldType, allocator);
       }
 
       @Override
@@ -173,13 +133,8 @@ public class Types {
     },
     SMALLINT(new Int(16, true)) {
       @Override
-      public Field getField() {
-        return SMALLINT_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableSmallIntVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableSmallIntVector(name, fieldType, allocator);
       }
 
       @Override
@@ -189,13 +144,8 @@ public class Types {
     },
     INT(new Int(32, true)) {
       @Override
-      public Field getField() {
-        return INT_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableIntVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableIntVector(name, fieldType, allocator);
       }
 
       @Override
@@ -205,13 +155,8 @@ public class Types {
     },
     BIGINT(new Int(64, true)) {
       @Override
-      public Field getField() {
-        return BIGINT_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableBigIntVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableBigIntVector(name, fieldType, allocator);
       }
 
       @Override
@@ -221,13 +166,8 @@ public class Types {
     },
     DATE(new Date(DateUnit.MILLISECOND)) {
       @Override
-      public Field getField() {
-        return DATE_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableDateVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableDateVector(name, fieldType, allocator);
       }
 
       @Override
@@ -237,13 +177,8 @@ public class Types {
     },
     TIME(new Time(TimeUnit.MILLISECOND, 32)) {
       @Override
-      public Field getField() {
-        return TIME_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTimeVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeVector(name, fieldType, allocator);
       }
 
       @Override
@@ -254,13 +189,8 @@ public class Types {
     // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
     TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, "UTC")) {
       @Override
-      public Field getField() {
-        return TIMESTAMPSEC_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTimeStampSecVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeStampSecVector(name, fieldType, allocator);
       }
 
       @Override
@@ -271,13 +201,8 @@ public class Types {
     // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
     TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, "UTC")) {
       @Override
-      public Field getField() {
-        return TIMESTAMPMILLI_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTimeStampMilliVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeStampMilliVector(name, fieldType, allocator);
       }
 
       @Override
@@ -288,13 +213,8 @@ public class Types {
     // time in microsecond from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
     TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, "UTC")) {
       @Override
-      public Field getField() {
-        return TIMESTAMPMICRO_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTimeStampMicroVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeStampMicroVector(name, fieldType, allocator);
       }
 
       @Override
@@ -305,13 +225,8 @@ public class Types {
     // time in nanosecond from the Unix epoch, 00:00:00.000000000 on 1 January 1970, UTC.
     TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, "UTC")) {
       @Override
-      public Field getField() {
-        return TIMESTAMPNANO_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableTimeStampNanoVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeStampNanoVector(name, fieldType, allocator);
       }
 
       @Override
@@ -321,13 +236,8 @@ public class Types {
     },
     INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
       @Override
-      public Field getField() {
-        return INTERVALDAY_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableIntervalDayVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableIntervalDayVector(name, fieldType, allocator);
       }
 
       @Override
@@ -337,13 +247,8 @@ public class Types {
     },
     INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
       @Override
-      public Field getField() {
-        return INTERVALYEAR_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableIntervalDayVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableIntervalYearVector(name, fieldType, allocator);
       }
 
       @Override
@@ -354,13 +259,8 @@ public class Types {
     //  4 byte ieee 754
     FLOAT4(new FloatingPoint(SINGLE)) {
       @Override
-      public Field getField() {
-        return FLOAT4_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableFloat4Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableFloat4Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -371,13 +271,8 @@ public class Types {
     //  8 byte ieee 754
     FLOAT8(new FloatingPoint(DOUBLE)) {
       @Override
-      public Field getField() {
-        return FLOAT8_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableFloat8Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableFloat8Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -387,13 +282,8 @@ public class Types {
     },
     BIT(Bool.INSTANCE) {
       @Override
-      public Field getField() {
-        return BIT_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableBitVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableBitVector(name, fieldType, allocator);
       }
 
       @Override
@@ -403,13 +293,8 @@ public class Types {
     },
     VARCHAR(Utf8.INSTANCE) {
       @Override
-      public Field getField() {
-        return VARCHAR_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableVarCharVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableVarCharVector(name, fieldType, allocator);
       }
 
       @Override
@@ -419,13 +304,8 @@ public class Types {
     },
     VARBINARY(Binary.INSTANCE) {
       @Override
-      public Field getField() {
-        return VARBINARY_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableVarBinaryVector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableVarBinaryVector(name, fieldType, allocator);
       }
 
       @Override
@@ -438,14 +318,10 @@ public class Types {
       public ArrowType getType() {
         throw new UnsupportedOperationException("Cannot get simple type for Decimal type");
       }
-      @Override
-      public Field getField() {
-        throw new UnsupportedOperationException("Cannot get simple field for Decimal type");
-      }
 
       @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableDecimalVector(name, allocator, dictionary, precisionScale[0], precisionScale[1]);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableDecimalVector(name, fieldType, allocator);
       }
 
       @Override
@@ -455,13 +331,8 @@ public class Types {
     },
     UINT1(new Int(8, false)) {
       @Override
-      public Field getField() {
-        return UINT1_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableUInt1Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableUInt1Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -471,13 +342,8 @@ public class Types {
     },
     UINT2(new Int(16, false)) {
       @Override
-      public Field getField() {
-        return UINT2_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableUInt2Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableUInt2Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -487,13 +353,8 @@ public class Types {
     },
     UINT4(new Int(32, false)) {
       @Override
-      public Field getField() {
-        return UINT4_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableUInt4Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableUInt4Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -503,13 +364,8 @@ public class Types {
     },
     UINT8(new Int(64, false)) {
       @Override
-      public Field getField() {
-        return UINT8_FIELD;
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new NullableUInt8Vector(name, allocator, dictionary);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableUInt8Vector(name, fieldType, allocator);
       }
 
       @Override
@@ -519,13 +375,8 @@ public class Types {
     },
     LIST(List.INSTANCE) {
       @Override
-      public Field getField() {
-        throw new UnsupportedOperationException("Cannot get simple field for List type");
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        return new ListVector(name, allocator, dictionary, callBack);
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new ListVector(name, allocator, fieldType.getDictionary(), schemaChangeCallback);
       }
 
       @Override
@@ -535,16 +386,11 @@ public class Types {
     },
     UNION(new Union(Sparse, null)) {
       @Override
-      public Field getField() {
-        throw new UnsupportedOperationException("Cannot get simple field for Union type");
-      }
-
-      @Override
-      public FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale) {
-        if (dictionary != null) {
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        if (fieldType.getDictionary() != null) {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex types");
         }
-        return new UnionVector(name, allocator, callBack);
+        return new UnionVector(name, allocator, schemaChangeCallback);
       }
 
       @Override
@@ -563,9 +409,7 @@ public class Types {
       return type;
     }
 
-    public abstract Field getField();
-
-    public abstract FieldVector getNewVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack, int... precisionScale);
+    public abstract FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback);
 
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }
