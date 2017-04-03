@@ -66,9 +66,9 @@ namespace ipc {
 /// including padding to a 64-byte boundary
 /// @param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
-Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
+Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
     bool allow_64bit = false);
 
 // Write Array as a DictionaryBatch message

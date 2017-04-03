@@ -114,12 +114,12 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 
 // Construct a complete Schema from the message. May be expensive for very
 // large schemas if you are only interested in a few fields
-Status ARROW_EXPORT GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
-    std::shared_ptr<Schema>* out);
+Status ARROW_EXPORT GetSchema(const void* opaque_schema,
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out);
 
-Status ARROW_EXPORT GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* type,
-    std::vector<int64_t>* shape, std::vector<int64_t>* strides,
-    std::vector<std::string>* dim_names);
+Status ARROW_EXPORT GetTensorMetadata(const void* opaque_tensor,
+    std::shared_ptr<DataType>* type, std::vector<int64_t>* shape,
+    std::vector<int64_t>* strides, std::vector<std::string>* dim_names);
 
 class ARROW_EXPORT Message {
  public:
@@ -157,13 +157,14 @@ class ARROW_EXPORT Message {
 /// \param[in] file the seekable file interface to read from
 /// \param[out] message the message read
 /// \return Status success or failure
-Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-    std::shared_ptr<Message>* message);
+Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length,
+    io::RandomAccessFile* file, std::shared_ptr<Message>* message);
 
 /// Read length-prefixed message with as-yet unknown length. Returns nullptr if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
-Status ARROW_EXPORT ReadMessage(io::InputStream* stream, std::shared_ptr<Message>* message);
+Status ARROW_EXPORT ReadMessage(
+    io::InputStream* stream, std::shared_ptr<Message>* message);
 
 /// Write a serialized message with a length-prefix and padding to an 8-byte offset
 ///
