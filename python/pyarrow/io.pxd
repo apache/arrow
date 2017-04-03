@@ -19,8 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_io cimport (RandomAccessFile,
-                                           OutputStream)
+
 
 cdef class Buffer:
     cdef:
@@ -29,6 +28,7 @@ cdef class Buffer:
         Py_ssize_t strides[1]
 
     cdef init(self, const shared_ptr[CBuffer]& buffer)
+
 
 cdef class NativeFile:
     cdef:

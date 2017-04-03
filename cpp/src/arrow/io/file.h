@@ -106,6 +106,10 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
   ~MemoryMappedFile();
 
+  /// Create new file with indicated size, return in read/write mode
+  static Status Create(
+      const std::string& path, int64_t size, std::shared_ptr<MemoryMappedFile>* out);
+
   static Status Open(const std::string& path, FileMode::type mode,
       std::shared_ptr<MemoryMappedFile>* out);
 

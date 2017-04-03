@@ -604,6 +604,19 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 MemoryMappedFile::MemoryMappedFile() {}
 MemoryMappedFile::~MemoryMappedFile() {}
 
+Status MemoryMappedFile::Create(
+    const std::string& path, int64_t size, std::shared_ptr<MemoryMappedFile>* out) {
+  std::shared_ptr<FileOutputStream> file;
+  RETURN_NOT_OK(FileOutputStream::Open(path, &file));
+#ifdef _MSC_VER
+  _chsize_s(file->file_descriptor(), static_cast<size_t>(size));
+#else
+  ftruncate(file->file_descriptor(), static_cast<size_t>(size));
+#endif
+  RETURN_NOT_OK(file->Close());
+  return MemoryMappedFile::Open(path, FileMode::READWRITE, out);
+}
+
 Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
     std::shared_ptr<MemoryMappedFile>* out) {
   std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());

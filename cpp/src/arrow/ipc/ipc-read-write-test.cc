@@ -106,6 +106,8 @@ TEST_F(TestSchemaMetadata, NestedFields) {
       &MakeStruct, &MakeUnion, &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes, \
       &MakeFWBinary, &MakeBooleanBatch);
 
+static int g_file_number = 0;
+
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
   Status DoStandardRoundTrip(const RecordBatch& batch, bool zero_data,
@@ -163,8 +165,9 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
-    std::string path = "test-write-row-batch";
-    ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, path, &mmap_));
+    std::stringstream ss;
+    ss << "test-write-row-batch-" << g_file_number++;
+    ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str(), &mmap_));
 
     std::shared_ptr<RecordBatch> result;
     ASSERT_OK(DoStandardRoundTrip(batch, true, &result));
@@ -303,9 +306,10 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::vector<std::shared_ptr<Array>> arrays = {array};
     *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
 
-    std::string path = "test-write-past-max-recursion";
+    std::stringstream ss;
+    ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+    RETURN_NOT_OK(io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str(), &mmap_));
 
     if (override_level) {
       return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,

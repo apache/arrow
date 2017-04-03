@@ -20,9 +20,9 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CDataType,
                                         CTable, CTensor, CStatus, Type,
-                                        CMemoryPool, TimeUnit)
-
-cimport pyarrow.includes.libarrow_io as arrow_io
+                                        CMemoryPool, TimeUnit,
+                                        RandomAccessFile, OutputStream,
+                                        CBufferReader)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
@@ -65,11 +65,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyBuffer(CBuffer):
         PyBuffer(object o)
 
-    cdef cppclass PyReadableFile(arrow_io.RandomAccessFile):
+    cdef cppclass PyReadableFile(RandomAccessFile):
         PyReadableFile(object fo)
 
-    cdef cppclass PyOutputStream(arrow_io.OutputStream):
+    cdef cppclass PyOutputStream(OutputStream):
         PyOutputStream(object fo)
 
-    cdef cppclass PyBytesReader(arrow_io.CBufferReader):
+    cdef cppclass PyBytesReader(CBufferReader):
         PyBytesReader(object fo)

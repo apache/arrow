@@ -38,7 +38,7 @@ set(ARROW_IPC_SRCS
   writer.cc
 )
 
-if(NOT APPLE)
+if(NOT MSVC AND NOT APPLE)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.

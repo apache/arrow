@@ -66,9 +66,9 @@ namespace ipc {
 /// including padding to a 64-byte boundary
 /// @param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
-Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
+Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
     bool allow_64bit = false);
 
 // Write Array as a DictionaryBatch message
@@ -79,7 +79,7 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
+Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 class ARROW_EXPORT StreamWriter {
  public:
@@ -122,14 +122,14 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
 
 /// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
 /// may not be readable by all Arrow implementations
-Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool);
+Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool);
 
 /// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 /// <metadata size><metadata><tensor data>
-Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length);
+Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
+    int32_t* metadata_length, int64_t* body_length);
 
 }  // namespace ipc
 }  // namespace arrow

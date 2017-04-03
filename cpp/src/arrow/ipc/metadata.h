@@ -72,7 +72,7 @@ using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
 using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
 // Memoization data structure for handling shared dictionaries
-class DictionaryMemo {
+class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
 
@@ -114,12 +114,12 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 
 // Construct a complete Schema from the message. May be expensive for very
 // large schemas if you are only interested in a few fields
-Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
-    std::shared_ptr<Schema>* out);
+Status ARROW_EXPORT GetSchema(const void* opaque_schema,
+    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out);
 
-Status GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* type,
-    std::vector<int64_t>* shape, std::vector<int64_t>* strides,
-    std::vector<std::string>* dim_names);
+Status ARROW_EXPORT GetTensorMetadata(const void* opaque_tensor,
+    std::shared_ptr<DataType>* type, std::vector<int64_t>* shape,
+    std::vector<int64_t>* strides, std::vector<std::string>* dim_names);
 
 class ARROW_EXPORT Message {
  public:
@@ -157,18 +157,19 @@ class ARROW_EXPORT Message {
 /// \param[in] file the seekable file interface to read from
 /// \param[out] message the message read
 /// \return Status success or failure
-Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-    std::shared_ptr<Message>* message);
+Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length,
+    io::RandomAccessFile* file, std::shared_ptr<Message>* message);
 
 /// Read length-prefixed message with as-yet unknown length. Returns nullptr if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
-Status ReadMessage(io::InputStream* stream, std::shared_ptr<Message>* message);
+Status ARROW_EXPORT ReadMessage(
+    io::InputStream* stream, std::shared_ptr<Message>* message);
 
 /// Write a serialized message with a length-prefix and padding to an 8-byte offset
 ///
 /// <message_size: int32><message: const void*><padding>
-Status WriteMessage(
+Status ARROW_EXPORT WriteMessage(
     const Buffer& message, io::OutputStream* file, int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
@@ -178,14 +179,14 @@ Status WriteMessage(
 // dictionary ids
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome
-Status WriteSchemaMessage(
+Status ARROW_EXPORT WriteSchemaMessage(
     const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
 
-Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
+Status ARROW_EXPORT WriteRecordBatchMessage(int64_t length, int64_t body_length,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     std::shared_ptr<Buffer>* out);
 
-Status WriteTensorMessage(
+Status ARROW_EXPORT WriteTensorMessage(
     const Tensor& tensor, int64_t buffer_start_offset, std::shared_ptr<Buffer>* out);
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,

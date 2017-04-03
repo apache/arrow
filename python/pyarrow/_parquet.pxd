@@ -19,8 +19,8 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
-                                        CTable, CMemoryPool)
-from pyarrow.includes.libarrow_io cimport RandomAccessFile, OutputStream
+                                        CTable, CMemoryPool,
+                                        RandomAccessFile, OutputStream)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:

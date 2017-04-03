@@ -27,12 +27,10 @@ from cython.operator cimport dereference as deref
 from libc.stdlib cimport malloc, free
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_io cimport *
-from pyarrow.includes.libarrow_ipc cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.compat import frombytes, tobytes, encode_file_path
-from pyarrow.array cimport Array
+from pyarrow.array cimport Array, Tensor, box_tensor
 from pyarrow.error cimport check_status
 from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 from pyarrow.schema cimport Schema
@@ -340,15 +338,38 @@ cdef class MemoryMappedFile(NativeFile):
     cdef:
         object path
 
-    def __cinit__(self, path, mode='r'):
+    def __cinit__(self):
+        self.is_open = False
+        self.is_readable = 0
+        self.is_writeable = 0
+
+    @staticmethod
+    def create(path, size):
+        cdef:
+            shared_ptr[CMemoryMappedFile] handle
+            c_string c_path = encode_file_path(path)
+            int64_t c_size = size
+
+        with nogil:
+            check_status(CMemoryMappedFile.Create(c_path, c_size, &handle))
+
+        cdef MemoryMappedFile result = MemoryMappedFile()
+        result.path = path
+        result.is_readable = 1
+        result.is_writeable = 1
+        result.wr_file = <shared_ptr[OutputStream]> handle
+        result.rd_file = <shared_ptr[RandomAccessFile]> handle
+        result.is_open = True
+
+        return result
+
+    def open(self, path, mode='r'):
         self.path = path
 
         cdef:
             FileMode c_mode
             shared_ptr[CMemoryMappedFile] handle
             c_string c_path = encode_file_path(path)
-
-        self.is_readable = self.is_writeable = 0
 
         if mode in ('r', 'rb'):
             c_mode = FileMode_READ
@@ -368,6 +389,41 @@ cdef class MemoryMappedFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
         self.is_open = True
+
+
+def memory_map(path, mode='r'):
+    """
+    Open memory map at file path. Size of the memory map cannot change
+
+    Parameters
+    ----------
+    path : string
+    mode : {'r', 'w'}, default 'r'
+
+    Returns
+    -------
+    mmap : MemoryMappedFile
+    """
+    cdef MemoryMappedFile mmap = MemoryMappedFile()
+    mmap.open(path, mode)
+    return mmap
+
+
+def create_memory_map(path, size):
+    """
+    Create memory map at indicated path of the given size, return open
+    writeable file object
+
+    Parameters
+    ----------
+    path : string
+    size : int
+
+    Returns
+    -------
+    mmap : MemoryMappedFile
+    """
+    return MemoryMappedFile.create(path, size)
 
 
 cdef class OSFile(NativeFile):
@@ -542,7 +598,7 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
     if isinstance(source, six.string_types):
-        source = MemoryMappedFile(source, mode='r')
+        source = memory_map(source, mode='r')
     elif isinstance(source, Buffer):
         source = BufferReader(source)
     elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
@@ -1144,3 +1200,57 @@ cdef class FeatherReader:
         cdef Column col = Column()
         col.init(sp_column)
         return col
+
+
+def write_tensor(Tensor tensor, NativeFile dest):
+    """
+    Write pyarrow.Tensor to pyarrow.NativeFile object its current position
+
+    Parameters
+    ----------
+    tensor : pyarrow.Tensor
+    dest : pyarrow.NativeFile
+
+    Returns
+    -------
+    bytes_written : int
+        Total number of bytes written to the file
+    """
+    cdef:
+        int32_t metadata_length
+        int64_t body_length
+
+    dest._assert_writeable()
+
+    with nogil:
+        check_status(
+            WriteTensor(deref(tensor.tp), dest.wr_file.get(),
+                        &metadata_length, &body_length))
+
+    return metadata_length + body_length
+
+
+def read_tensor(NativeFile source):
+    """
+    Read pyarrow.Tensor from pyarrow.NativeFile object from current
+    position. If the file source supports zero copy (e.g. a memory map), then
+    this operation does not allocate any memory
+
+    Parameters
+    ----------
+    source : pyarrow.NativeFile
+
+    Returns
+    -------
+    tensor : Tensor
+    """
+    cdef:
+        shared_ptr[CTensor] sp_tensor
+
+    source._assert_writeable()
+
+    cdef int64_t offset = source.tell()
+    with nogil:
+        check_status(ReadTensor(offset, source.rd_file.get(), &sp_tensor))
+
+    return box_tensor(sp_tensor)

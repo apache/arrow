@@ -347,6 +347,12 @@ strides: {2}""".format(self.type, self.shape, self.strides)
                                              &out))
         return PyObject_to_object(out)
 
+    def equals(self, Tensor other):
+        """
+        Return true if the tensors contains exactly equal data
+        """
+        return self.tp.Equals(deref(other.tp))
+
     property is_mutable:
 
         def __get__(self):

@@ -67,23 +67,17 @@ class MemoryMapFixture {
     }
   }
 
-  void CreateFile(const std::string path, int64_t size) {
-    FILE* file = fopen(path.c_str(), "w");
-    if (file != nullptr) {
-      tmp_files_.push_back(path);
-#ifdef _MSC_VER
-      _chsize(fileno(file), static_cast<size_t>(size));
-#else
-      ftruncate(fileno(file), static_cast<size_t>(size));
-#endif
-      fclose(file);
-    }
+  void CreateFile(const std::string& path, int64_t size) {
+    std::shared_ptr<MemoryMappedFile> file;
+    ASSERT_OK(MemoryMappedFile::Create(path, size, &file));
+    tmp_files_.push_back(path);
   }
 
   Status InitMemoryMap(
       int64_t size, const std::string& path, std::shared_ptr<MemoryMappedFile>* mmap) {
-    CreateFile(path, size);
-    return MemoryMappedFile::Open(path, FileMode::READWRITE, mmap);
+    RETURN_NOT_OK(MemoryMappedFile::Create(path, size, mmap));
+    tmp_files_.push_back(path);
+    return Status::OK();
   }
 
  private:
