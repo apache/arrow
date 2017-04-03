@@ -249,6 +249,22 @@ class TestFeatherReader(unittest.TestCase):
         df = pd.DataFrame({'bools': arr})
         self._check_pandas_roundtrip(df, null_counts=[1 * repeats])
 
+    def test_delete_partial_file_on_error(self):
+        # strings will fail
+        df = pd.DataFrame(
+            {
+                'numbers': range(5),
+                'strings': [b'foo', None, u'bar', 'qux', np.nan]},
+            columns=['numbers', 'strings'])
+
+        path = random_path()
+        try:
+            write_feather(df, path)
+        except:
+            pass
+
+        assert not os.path.exists(path)
+
     def test_strings(self):
         repeats = 1000
 
