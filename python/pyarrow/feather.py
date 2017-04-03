@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import six
 from distutils.version import LooseVersion
+import os
+
+import six
 import pandas as pd
 
 from pyarrow.compat import pdapi
@@ -54,45 +56,66 @@ class FeatherReader(ext.FeatherReader):
         return table.to_pandas()
 
 
+class FeatherWriter(object):
+
+    def __init__(self, dest):
+        self.dest = dest
+        self.writer = ext.FeatherWriter()
+        self.writer.open(dest)
+
+    def write(self, df):
+        if isinstance(df, pd.SparseDataFrame):
+            df = df.to_dense()
+
+        if not df.columns.is_unique:
+            raise ValueError("cannot serialize duplicate column names")
+
+        # TODO(wesm): pipeline conversion to Arrow memory layout
+        for i, name in enumerate(df.columns):
+            col = df.iloc[:, i]
+
+            if pdapi.is_object_dtype(col):
+                inferred_type = pd.lib.infer_dtype(col)
+                msg = ("cannot serialize column {n} "
+                       "named {name} with dtype {dtype}".format(
+                           n=i, name=name, dtype=inferred_type))
+
+                if inferred_type in ['mixed']:
+
+                    # allow columns with nulls + an inferable type
+                    inferred_type = pd.lib.infer_dtype(col[col.notnull()])
+                    if inferred_type in ['mixed']:
+                        raise ValueError(msg)
+
+                elif inferred_type not in ['unicode', 'string']:
+                    raise ValueError(msg)
+
+            if not isinstance(name, six.string_types):
+                name = str(name)
+
+            self.writer.write_array(name, col)
+
+        self.writer.close()
+
+
 def write_feather(df, dest):
     '''
     Write a pandas.DataFrame to Feather format
     '''
-    writer = ext.FeatherWriter()
-    writer.open(dest)
-
-    if isinstance(df, pd.SparseDataFrame):
-        df = df.to_dense()
-
-    if not df.columns.is_unique:
-        raise ValueError("cannot serialize duplicate column names")
-
-    # TODO(wesm): pipeline conversion to Arrow memory layout
-    for i, name in enumerate(df.columns):
-        col = df.iloc[:, i]
-
-        if pdapi.is_object_dtype(col):
-            inferred_type = pd.lib.infer_dtype(col)
-            msg = ("cannot serialize column {n} "
-                   "named {name} with dtype {dtype}".format(
-                       n=i, name=name, dtype=inferred_type))
-
-            if inferred_type in ['mixed']:
-
-                # allow columns with nulls + an inferable type
-                inferred_type = pd.lib.infer_dtype(col[col.notnull()])
-                if inferred_type in ['mixed']:
-                    raise ValueError(msg)
-
-            elif inferred_type not in ['unicode', 'string']:
-                raise ValueError(msg)
-
-        if not isinstance(name, six.string_types):
-            name = str(name)
-
-        writer.write_array(name, col)
-
-    writer.close()
+    writer = FeatherWriter(dest)
+    try:
+        writer.write(df)
+    except:
+        # Try to make sure the resource is closed
+        import gc
+        writer = None
+        gc.collect()
+        if isinstance(dest, six.string_types):
+            try:
+                os.remove(dest)
+            except os.error:
+                pass
+        raise
 
 
 def read_feather(source, columns=None):
