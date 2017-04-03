@@ -141,14 +141,23 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
 }
 
 static Status AppendObjectStrings(
-    PyArrayObject* arr, StringBuilder* builder, bool* have_bytes) {
+    PyArrayObject* arr, PyArrayObject* mask, StringBuilder* builder, bool* have_bytes) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask != nullptr) {
+    mask_values.Init(mask);
+    have_mask = true;
+  }
 
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if (PyUnicode_Check(obj)) {
+    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+      RETURN_NOT_OK(builder->AppendNull());
+    } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
         PyErr_Clear();
@@ -162,8 +171,6 @@ static Status AppendObjectStrings(
       *have_bytes = true;
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
-    } else if (PyObject_is_null(obj)) {
-      RETURN_NOT_OK(builder->AppendNull());
     } else {
       return InvalidConversion(obj, "string or bytes");
     }
@@ -172,15 +179,24 @@ static Status AppendObjectStrings(
   return Status::OK();
 }
 
-static Status AppendObjectFixedWidthBytes(
-    PyArrayObject* arr, int byte_width, FixedSizeBinaryBuilder* builder) {
+static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mask,
+    int byte_width, FixedSizeBinaryBuilder* builder) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask != nullptr) {
+    mask_values.Init(mask);
+    have_mask = true;
+  }
 
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if (PyUnicode_Check(obj)) {
+    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+      RETURN_NOT_OK(builder->AppendNull());
+    } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
         PyErr_Clear();
@@ -196,8 +212,6 @@ static Status AppendObjectFixedWidthBytes(
       RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
       RETURN_NOT_OK(
           builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
-    } else if (PyObject_is_null(obj)) {
-      RETURN_NOT_OK(builder->AppendNull());
     } else {
       return InvalidConversion(obj, "string or bytes");
     }
@@ -334,7 +348,7 @@ class PandasConverter : public TypeVisitor {
 
 #undef VISIT_NATIVE
 
-  Status Convert(std::shared_ptr<Array>* out) {
+  Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {
       return Status::Invalid("only handle 1-dimensional arrays");
     }
@@ -344,24 +358,23 @@ class PandasConverter : public TypeVisitor {
     // Visit the type to perform conversion
     RETURN_NOT_OK(type_->Accept(this));
 
-    *out = out_;
     return Status::OK();
   }
+
+  std::shared_ptr<Array> result() const { return out_; }
 
   // ----------------------------------------------------------------------
   // Conversion logic for various object dtype arrays
 
   template <int ITEM_TYPE, typename ArrowType>
-  Status ConvertTypedLists(
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+  Status ConvertTypedLists(const std::shared_ptr<DataType>& type);
 
-  Status ConvertObjectStrings(std::shared_ptr<Array>* out);
-  Status ConvertObjectFixedWidthBytes(
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
-  Status ConvertBooleans(std::shared_ptr<Array>* out);
-  Status ConvertDates(std::shared_ptr<Array>* out);
-  Status ConvertLists(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
-  Status ConvertObjects(std::shared_ptr<Array>* out);
+  Status ConvertObjectStrings();
+  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
+  Status ConvertBooleans();
+  Status ConvertDates();
+  Status ConvertLists(const std::shared_ptr<DataType>& type);
+  Status ConvertObjects();
 
  protected:
   MemoryPool* pool_;
@@ -472,10 +485,14 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
   return Status::TypeError(ss.str());
 }
 
-Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
+Status PandasConverter::ConvertDates() {
   PyAcquireGIL lock;
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
+
+  if (mask_ != nullptr) {
+    return Status::NotImplemented("mask not supported in object conversions yet");
+  }
 
   Date64Builder date_builder(pool_);
   RETURN_NOT_OK(date_builder.Resize(length_));
@@ -497,10 +514,10 @@ Status PandasConverter::ConvertDates(std::shared_ptr<Array>* out) {
       return InvalidConversion(obj, "date");
     }
   }
-  return date_builder.Finish(out);
+  return date_builder.Finish(&out_);
 }
 
-Status PandasConverter::ConvertObjectStrings(std::shared_ptr<Array>* out) {
+Status PandasConverter::ConvertObjectStrings() {
   PyAcquireGIL lock;
 
   // The output type at this point is inconclusive because there may be bytes
@@ -511,36 +528,43 @@ Status PandasConverter::ConvertObjectStrings(std::shared_ptr<Array>* out) {
 
   Status s;
   bool have_bytes = false;
-  RETURN_NOT_OK(AppendObjectStrings(arr_, &builder, &have_bytes));
-  RETURN_NOT_OK(builder.Finish(out));
+  RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, &builder, &have_bytes));
+  RETURN_NOT_OK(builder.Finish(&out_));
 
   if (have_bytes) {
-    const auto& arr = static_cast<const StringArray&>(*out->get());
-    *out = std::make_shared<BinaryArray>(arr.length(), arr.value_offsets(), arr.data(),
+    const auto& arr = static_cast<const StringArray&>(*out_);
+    out_ = std::make_shared<BinaryArray>(arr.length(), arr.value_offsets(), arr.data(),
         arr.null_bitmap(), arr.null_count());
   }
   return Status::OK();
 }
 
 Status PandasConverter::ConvertObjectFixedWidthBytes(
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+    const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
 
-  int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+  int32_t value_size = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   FixedSizeBinaryBuilder builder(pool_, type);
   RETURN_NOT_OK(builder.Resize(length_));
-  RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, byte_width, &builder));
-  RETURN_NOT_OK(builder.Finish(out));
+  RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, value_size, &builder));
+  RETURN_NOT_OK(builder.Finish(&out_));
   return Status::OK();
 }
 
-Status PandasConverter::ConvertBooleans(std::shared_ptr<Array>* out) {
+Status PandasConverter::ConvertBooleans() {
   PyAcquireGIL lock;
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
 
   int64_t nbytes = BitUtil::BytesForBits(length_);
   auto data = std::make_shared<PoolBuffer>(pool_);
@@ -552,24 +576,24 @@ Status PandasConverter::ConvertBooleans(std::shared_ptr<Array>* out) {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if (obj == Py_True) {
+    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+      ++null_count;
+    } else if (obj == Py_True) {
       BitUtil::SetBit(bitmap, i);
       BitUtil::SetBit(null_bitmap_data_, i);
     } else if (obj == Py_False) {
       BitUtil::SetBit(null_bitmap_data_, i);
-    } else if (PyObject_is_null(obj)) {
-      ++null_count;
     } else {
       return InvalidConversion(obj, "bool");
     }
   }
 
-  *out = std::make_shared<BooleanArray>(length_, data, null_bitmap_, null_count);
+  out_ = std::make_shared<BooleanArray>(length_, data, null_bitmap_, null_count);
 
   return Status::OK();
 }
 
-Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
+Status PandasConverter::ConvertObjects() {
   // Python object arrays are annoying, since we could have one of:
   //
   // * Strings
@@ -580,11 +604,6 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
   // do some type inference and conversion
 
   RETURN_NOT_OK(InitNullBitmap());
-
-  // TODO: mask not supported here
-  if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
-  }
 
   Ndarray1DIndexer<PyObject*> objects;
 
@@ -597,16 +616,16 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
   if (type_) {
     switch (type_->type) {
       case Type::STRING:
-        return ConvertObjectStrings(out);
+        return ConvertObjectStrings();
       case Type::FIXED_SIZE_BINARY:
-        return ConvertObjectFixedWidthBytes(type_, out);
+        return ConvertObjectFixedWidthBytes(type_);
       case Type::BOOL:
-        return ConvertBooleans(out);
+        return ConvertBooleans();
       case Type::DATE64:
-        return ConvertDates(out);
+        return ConvertDates();
       case Type::LIST: {
         const auto& list_field = static_cast<const ListType&>(*type_);
-        return ConvertLists(list_field.value_field()->type, out);
+        return ConvertLists(list_field.value_field()->type);
       }
       default:
         return Status::TypeError("No known conversion to Arrow type");
@@ -616,11 +635,11 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
       if (PyObject_is_null(objects[i])) {
         continue;
       } else if (PyObject_is_string(objects[i])) {
-        return ConvertObjectStrings(out);
+        return ConvertObjectStrings();
       } else if (PyBool_Check(objects[i])) {
-        return ConvertBooleans(out);
+        return ConvertBooleans();
       } else if (PyDate_CheckExact(objects[i])) {
-        return ConvertDates(out);
+        return ConvertDates();
       } else {
         return InvalidConversion(
             const_cast<PyObject*>(objects[i]), "string, bool, or date");
@@ -632,13 +651,17 @@ Status PandasConverter::ConvertObjects(std::shared_ptr<Array>* out) {
 }
 
 template <int ITEM_TYPE, typename ArrowType>
-inline Status PandasConverter::ConvertTypedLists(
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type) {
   typedef npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
 
   PyAcquireGIL lock;
+
+  // TODO: mask not supported here
+  if (mask_ != nullptr) {
+    return Status::NotImplemented("mask not supported in object conversions yet");
+  }
 
   if (is_strided()) {
     return Status::NotImplemented("strided arrays not implemented for lists");
@@ -685,15 +708,20 @@ inline Status PandasConverter::ConvertTypedLists(
       return Status::TypeError("Unsupported Python type for list items");
     }
   }
-  return list_builder.Finish(out);
+  return list_builder.Finish(&out_);
 }
 
 template <>
 inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+    const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
+
+  // TODO: mask not supported here
+  if (mask_ != nullptr) {
+    return Status::NotImplemented("mask not supported in object conversions yet");
+  }
 
   if (is_strided()) {
     return Status::NotImplemented("strided arrays not implemented for lists");
@@ -712,7 +740,8 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      RETURN_NOT_OK(AppendObjectStrings(numpy_array, value_builder.get(), &have_bytes));
+      RETURN_NOT_OK(
+          AppendObjectStrings(numpy_array, nullptr, value_builder.get(), &have_bytes));
     } else if (PyList_Check(objects[i])) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
@@ -728,16 +757,15 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       return Status::TypeError("Unsupported Python type for list items");
     }
   }
-  return list_builder.Finish(out);
+  return list_builder.Finish(&out_);
 }
 
-#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                  \
-  case Type::TYPE: {                                            \
-    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type, out); \
+#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)             \
+  case Type::TYPE: {                                       \
+    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type); \
   }
 
-Status PandasConverter::ConvertLists(
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
   switch (type->type) {
     LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
     LIST_CASE(INT8, NPY_INT8, Int8Type)
@@ -761,13 +789,17 @@ Status PandasConverter::ConvertLists(
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
   PandasConverter converter(pool, ao, mo, type);
-  return converter.Convert(out);
+  RETURN_NOT_OK(converter.Convert());
+  *out = converter.result();
+  return Status::OK();
 }
 
 Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
   PandasConverter converter(pool, ao, mo, type);
-  return converter.ConvertObjects(out);
+  RETURN_NOT_OK(converter.ConvertObjects());
+  *out = converter.result();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

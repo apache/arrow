@@ -424,8 +424,13 @@ class TestPandasConversion(unittest.TestCase):
         for type_name in numeric_dtypes:
             cases.append(random_numbers.astype(type_name))
 
+        # strings
         cases.append(np.array([tm.rands(10) for i in range(N * K)],
                               dtype=object)
+                     .reshape(N, K).copy())
+
+        # booleans
+        cases.append(np.array([True, False, True] * N, dtype=object)
                      .reshape(N, K).copy())
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
