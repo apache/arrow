@@ -66,7 +66,7 @@ namespace ipc {
 /// including padding to a 64-byte boundary
 /// @param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
-Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
     bool allow_64bit = false);
@@ -79,7 +79,7 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
+Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 class ARROW_EXPORT StreamWriter {
  public:

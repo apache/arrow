@@ -306,9 +306,10 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::vector<std::shared_ptr<Array>> arrays = {array};
     *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
 
-    std::string path = "test-write-past-max-recursion";
+    std::stringstream ss;
+    ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    io::MemoryMapFixture::InitMemoryMap(memory_map_size, path, &mmap_);
+    RETURN_NOT_OK(io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str(), &mmap_));
 
     if (override_level) {
       return WriteRecordBatch(**batch, 0, mmap_.get(), metadata_length, body_length,

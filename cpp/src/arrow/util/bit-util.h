@@ -52,7 +52,7 @@ static inline int64_t Ceil2Bytes(int64_t size) {
 }
 
 static inline bool GetBit(const uint8_t* bits, int64_t i) {
-  return static_cast<bool>(bits[i / 8] & kBitmask[i % 8]);
+  return (bits[i / 8] & kBitmask[i % 8]) != 0;
 }
 
 static inline bool BitNotSet(const uint8_t* bits, int64_t i) {
@@ -68,9 +68,13 @@ static inline void SetBit(uint8_t* bits, int64_t i) {
 }
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
-  // See https://graphics.stanford.edu/~seander/bithacks.html
+  // TODO: speed up. See https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
-  bits[i / 8] ^= static_cast<uint8_t>(-bit_is_set ^ bits[i / 8]) & kBitmask[i % 8];
+  if (bit_is_set) {
+    SetBit(bits, i);
+  } else {
+    ClearBit(bits, i);
+  }
 }
 
 static inline int64_t NextPower2(int64_t n) {

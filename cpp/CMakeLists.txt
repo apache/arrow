@@ -806,7 +806,7 @@ set(ARROW_SRCS
   src/arrow/util/bit-util.cc
 )
 
-if(NOT APPLE)
+if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.

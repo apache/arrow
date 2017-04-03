@@ -41,11 +41,11 @@ typedef std::vector<flatbuffers::Offset<fbs::Column>> ColumnVector;
 typedef flatbuffers::FlatBufferBuilder FBB;
 typedef flatbuffers::Offset<flatbuffers::String> FBString;
 
-struct ColumnType {
+struct ARROW_EXPORT ColumnType {
   enum type { PRIMITIVE, CATEGORY, TIMESTAMP, DATE, TIME };
 };
 
-struct ArrayMetadata {
+struct ARROW_EXPORT ArrayMetadata {
   ArrayMetadata() {}
 
   ArrayMetadata(fbs::Type type, int64_t offset, int64_t length, int64_t null_count,
@@ -69,12 +69,12 @@ struct ArrayMetadata {
   int64_t total_bytes;
 };
 
-struct CategoryMetadata {
+struct ARROW_EXPORT CategoryMetadata {
   ArrayMetadata levels;
   bool ordered;
 };
 
-struct TimestampMetadata {
+struct ARROW_EXPORT TimestampMetadata {
   TimeUnit unit;
 
   // A timezone name known to the Olson timezone database. For display purposes
@@ -82,7 +82,7 @@ struct TimestampMetadata {
   std::string timezone;
 };
 
-struct TimeMetadata {
+struct ARROW_EXPORT TimeMetadata {
   TimeUnit unit;
 };
 
@@ -91,7 +91,7 @@ static constexpr const int kFeatherDefaultAlignment = 8;
 
 class ColumnBuilder;
 
-class TableBuilder {
+class ARROW_EXPORT TableBuilder {
  public:
   explicit TableBuilder(int64_t num_rows);
   ~TableBuilder() = default;
@@ -116,7 +116,7 @@ class TableBuilder {
   int64_t num_rows_;
 };
 
-class TableMetadata {
+class ARROW_EXPORT TableMetadata {
  public:
   TableMetadata() {}
   ~TableMetadata() = default;
@@ -186,7 +186,7 @@ static inline void FromFlatbuffer(const fbs::PrimitiveArray* values, ArrayMetada
   out->total_bytes = values->total_bytes();
 }
 
-class ColumnBuilder {
+class ARROW_EXPORT ColumnBuilder {
  public:
   ColumnBuilder(TableBuilder* parent, const std::string& name);
   ~ColumnBuilder() = default;

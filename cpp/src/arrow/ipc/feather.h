@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
