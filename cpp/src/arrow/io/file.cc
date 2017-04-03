@@ -609,7 +609,7 @@ Status MemoryMappedFile::Create(
   std::shared_ptr<FileOutputStream> file;
   RETURN_NOT_OK(FileOutputStream::Open(path, &file));
 #ifdef _MSC_VER
-  _chsize(file->file_descriptor(), static_cast<size_t>(size));
+  _chsize_s(file->file_descriptor(), static_cast<size_t>(size));
 #else
   ftruncate(file->file_descriptor(), static_cast<size_t>(size));
 #endif

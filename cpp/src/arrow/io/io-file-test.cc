@@ -393,10 +393,8 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
   const int reps = 5;
 
   std::string path = "ipc-write-read-test";
-  CreateFile(path, reps * buffer_size);
-
   std::shared_ptr<MemoryMappedFile> result;
-  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &result));
+  ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &result));
 
   int64_t position = 0;
   std::shared_ptr<Buffer> out_buffer;
@@ -419,10 +417,8 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   const int reps = 5;
 
   std::string path = "ipc-read-only-test";
-  CreateFile(path, reps * buffer_size);
-
   std::shared_ptr<MemoryMappedFile> rwmmap;
-  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &rwmmap));
+  ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &rwmmap));
 
   int64_t position = 0;
   for (int i = 0; i < reps; ++i) {

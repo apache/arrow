@@ -67,7 +67,7 @@ class MemoryMapFixture {
     }
   }
 
-  void CreateFile(const std::string path, int64_t size) {
+  void CreateFile(const std::string& path, int64_t size) {
     std::shared_ptr<MemoryMappedFile> file;
     ASSERT_OK(MemoryMappedFile::Create(path, size, &file));
     tmp_files_.push_back(path);
@@ -75,8 +75,9 @@ class MemoryMapFixture {
 
   Status InitMemoryMap(
       int64_t size, const std::string& path, std::shared_ptr<MemoryMappedFile>* mmap) {
-    CreateFile(path, size);
-    return MemoryMappedFile::Open(path, FileMode::READWRITE, mmap);
+    RETURN_NOT_OK(MemoryMappedFile::Create(path, size, mmap));
+    tmp_files_.push_back(path);
+    return Status::OK();
   }
 
  private:
