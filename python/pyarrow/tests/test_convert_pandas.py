@@ -75,16 +75,25 @@ class TestPandasConversion(unittest.TestCase):
             expected = df
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
 
-    def _check_array_roundtrip(self, values, expected=None,
+    def _check_array_roundtrip(self, values, expected=None, mask=None,
                                timestamps_to_ms=False, type=None):
         arr = A.Array.from_numpy(values, timestamps_to_ms=timestamps_to_ms,
-                                 type=type)
+                                 mask=mask, type=type)
         result = arr.to_pandas()
 
-        assert arr.null_count == pd.isnull(values).sum()
+        values_nulls = pd.isnull(values)
+        if mask is None:
+            assert arr.null_count == values_nulls.sum()
+        else:
+            assert arr.null_count == (mask | values_nulls).sum()
 
-        tm.assert_series_equal(pd.Series(result), pd.Series(values),
-                               check_names=False)
+        if mask is None:
+            tm.assert_series_equal(pd.Series(result), pd.Series(values),
+                                   check_names=False)
+        else:
+            expected = pd.Series(np.ma.masked_array(values, mask=mask))
+            tm.assert_series_equal(pd.Series(result), expected,
+                                   check_names=False)
 
     def test_float_no_nulls(self):
         data = {}
@@ -402,3 +411,43 @@ class TestPandasConversion(unittest.TestCase):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
         with self.assertRaises(A.error.ArrowException):
             A.Table.from_pandas(data)
+
+    def test_strided_data_import(self):
+        cases = []
+
+        columns = ['a', 'b', 'c']
+        N, K = 100, 3
+        random_numbers = np.random.randn(N, K).copy() * 100
+
+        numeric_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
+                          'f4', 'f8']
+
+        for type_name in numeric_dtypes:
+            cases.append(random_numbers.astype(type_name))
+
+        # strings
+        cases.append(np.array([tm.rands(10) for i in range(N * K)],
+                              dtype=object)
+                     .reshape(N, K).copy())
+
+        # booleans
+        boolean_objects = (np.array([True, False, True] * N, dtype=object)
+                           .reshape(N, K).copy())
+
+        # add some nulls, so dtype comes back as objects
+        boolean_objects[5] = None
+        cases.append(boolean_objects)
+
+        cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
+                               dtype='datetime64[ms]')
+                     .reshape(N, K).copy())
+
+        strided_mask = (random_numbers > 0).astype(bool)[:, 0]
+
+        for case in cases:
+            df = pd.DataFrame(case, columns=columns)
+            col = df['a']
+
+            self._check_pandas_roundtrip(df)
+            self._check_array_roundtrip(col)
+            self._check_array_roundtrip(col, mask=strided_mask)

@@ -82,8 +82,8 @@ cdef class Array:
 
     @staticmethod
     def from_numpy(obj, mask=None, DataType type=None,
-                    timestamps_to_ms=False,
-                    MemoryPool memory_pool=None):
+                   timestamps_to_ms=False,
+                   MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array.
 

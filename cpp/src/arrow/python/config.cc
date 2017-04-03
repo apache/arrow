@@ -16,6 +16,7 @@
 // under the License.
 
 #include <Python.h>
+#include <datetime.h>
 
 #include "arrow/python/config.h"
 
