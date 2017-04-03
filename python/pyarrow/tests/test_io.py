@@ -246,10 +246,10 @@ def sample_disk_data(request):
     return path, data
 
 
-def _check_native_file_reader(KLASS, sample_data):
+def _check_native_file_reader(FACTORY, sample_data):
     path, data = sample_data
 
-    f = KLASS(path, mode='r')
+    f = FACTORY(path, mode='r')
 
     assert f.read(10) == data[:10]
     assert f.read(0) == b''
@@ -269,14 +269,14 @@ def _check_native_file_reader(KLASS, sample_data):
 
 
 def test_memory_map_reader(sample_disk_data):
-    _check_native_file_reader(io.MemoryMappedFile, sample_disk_data)
+    _check_native_file_reader(pa.memory_map, sample_disk_data)
 
 
 def test_memory_map_retain_buffer_reference(sample_disk_data):
     path, data = sample_disk_data
 
     cases = []
-    with io.MemoryMappedFile(path, 'rb') as f:
+    with pa.memory_map(path, 'rb') as f:
         cases.append((f.read_buffer(100), data[:100]))
         cases.append((f.read_buffer(100), data[100:200]))
         cases.append((f.read_buffer(100), data[200:300]))
@@ -309,7 +309,7 @@ def test_memory_map_writer():
         with open(path, 'wb') as f:
             f.write(data)
 
-        f = io.MemoryMappedFile(path, mode='r+w')
+        f = pa.memory_map(path, mode='r+w')
 
         f.seek(10)
         f.write('peekaboo')
@@ -318,7 +318,7 @@ def test_memory_map_writer():
         f.seek(10)
         assert f.read(8) == b'peekaboo'
 
-        f2 = io.MemoryMappedFile(path, mode='r+w')
+        f2 = pa.memory_map(path, mode='r+w')
 
         f2.seek(10)
         f2.write(b'booapeak')
@@ -328,10 +328,10 @@ def test_memory_map_writer():
         assert f.read(8) == b'booapeak'
 
         # Does not truncate file
-        f3 = io.MemoryMappedFile(path, mode='w')
+        f3 = pa.memory_map(path, mode='w')
         f3.write('foo')
 
-        with io.MemoryMappedFile(path) as f4:
+        with pa.memory_map(path) as f4:
             assert f4.size() == SIZE
 
         with pytest.raises(IOError):

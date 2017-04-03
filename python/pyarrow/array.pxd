@@ -53,6 +53,7 @@ cdef class Tensor:
 
 
 cdef object box_array(const shared_ptr[CArray]& sp_array)
+cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor)
 
 
 cdef class BooleanArray(Array):

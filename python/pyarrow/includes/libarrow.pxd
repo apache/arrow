@@ -303,6 +303,162 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                               shared_ptr[CTable]* result)
 
 
+cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
+    enum FileMode" arrow::io::FileMode::type":
+        FileMode_READ" arrow::io::FileMode::READ"
+        FileMode_WRITE" arrow::io::FileMode::WRITE"
+        FileMode_READWRITE" arrow::io::FileMode::READWRITE"
+
+    enum ObjectType" arrow::io::ObjectType::type":
+        ObjectType_FILE" arrow::io::ObjectType::FILE"
+        ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
+
+    cdef cppclass FileInterface:
+        CStatus Close()
+        CStatus Tell(int64_t* position)
+        FileMode mode()
+
+    cdef cppclass Readable:
+        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
+        CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
+
+    cdef cppclass Seekable:
+        CStatus Seek(int64_t position)
+
+    cdef cppclass Writeable:
+        CStatus Write(const uint8_t* data, int64_t nbytes)
+
+    cdef cppclass OutputStream(FileInterface, Writeable):
+        pass
+
+    cdef cppclass InputStream(FileInterface, Readable):
+        pass
+
+    cdef cppclass RandomAccessFile(InputStream, Seekable):
+        CStatus GetSize(int64_t* size)
+
+        CStatus ReadAt(int64_t position, int64_t nbytes,
+                       int64_t* bytes_read, uint8_t* buffer)
+        CStatus ReadAt(int64_t position, int64_t nbytes,
+                       int64_t* bytes_read, shared_ptr[CBuffer]* out)
+
+    cdef cppclass WriteableFileInterface(OutputStream, Seekable):
+        CStatus WriteAt(int64_t position, const uint8_t* data,
+                        int64_t nbytes)
+
+    cdef cppclass ReadWriteFileInterface(RandomAccessFile,
+                                         WriteableFileInterface):
+        pass
+
+
+cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
+
+
+    cdef cppclass FileOutputStream(OutputStream):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
+
+        int file_descriptor()
+
+    cdef cppclass ReadableFile(RandomAccessFile):
+        @staticmethod
+        CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
+
+        @staticmethod
+        CStatus Open(const c_string& path, CMemoryPool* memory_pool,
+                     shared_ptr[ReadableFile]* file)
+
+        int file_descriptor()
+
+    cdef cppclass CMemoryMappedFile" arrow::io::MemoryMappedFile"\
+        (ReadWriteFileInterface):
+
+        @staticmethod
+        CStatus Create(const c_string& path, int64_t size,
+                     shared_ptr[CMemoryMappedFile]* file)
+
+        @staticmethod
+        CStatus Open(const c_string& path, FileMode mode,
+                     shared_ptr[CMemoryMappedFile]* file)
+
+        int file_descriptor()
+
+
+cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
+    CStatus HaveLibHdfs()
+    CStatus HaveLibHdfs3()
+
+    enum HdfsDriver" arrow::io::HdfsDriver":
+        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
+        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
+
+    cdef cppclass HdfsConnectionConfig:
+        c_string host
+        int port
+        c_string user
+        c_string kerb_ticket
+        HdfsDriver driver
+
+    cdef cppclass HdfsPathInfo:
+        ObjectType kind;
+        c_string name
+        c_string owner
+        c_string group
+        int32_t last_modified_time
+        int32_t last_access_time
+        int64_t size
+        int16_t replication
+        int64_t block_size
+        int16_t permissions
+
+    cdef cppclass HdfsReadableFile(RandomAccessFile):
+        pass
+
+    cdef cppclass HdfsOutputStream(OutputStream):
+        pass
+
+    cdef cppclass CHdfsClient" arrow::io::HdfsClient":
+        @staticmethod
+        CStatus Connect(const HdfsConnectionConfig* config,
+                        shared_ptr[CHdfsClient]* client)
+
+        CStatus CreateDirectory(const c_string& path)
+
+        CStatus Delete(const c_string& path, c_bool recursive)
+
+        CStatus Disconnect()
+
+        c_bool Exists(const c_string& path)
+
+        CStatus GetCapacity(int64_t* nbytes)
+        CStatus GetUsed(int64_t* nbytes)
+
+        CStatus ListDirectory(const c_string& path,
+                              vector[HdfsPathInfo]* listing)
+
+        CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
+
+        CStatus Rename(const c_string& src, const c_string& dst)
+
+        CStatus OpenReadable(const c_string& path,
+                             shared_ptr[HdfsReadableFile]* handle)
+
+        CStatus OpenWriteable(const c_string& path, c_bool append,
+                              int32_t buffer_size, int16_t replication,
+                              int64_t default_block_size,
+                              shared_ptr[HdfsOutputStream]* handle)
+
+
+cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
+    cdef cppclass CBufferReader" arrow::io::BufferReader"\
+        (RandomAccessFile):
+        CBufferReader(const shared_ptr[CBuffer]& buffer)
+        CBufferReader(const uint8_t* data, int64_t nbytes)
+
+    cdef cppclass BufferOutputStream(OutputStream):
+        BufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
+
+
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
     cdef cppclass SchemaMessage:
         int num_fields()
@@ -335,3 +491,82 @@ cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
         shared_ptr[SchemaMessage] GetSchema()
         shared_ptr[RecordBatchMessage] GetRecordBatch()
         shared_ptr[DictionaryBatchMessage] GetDictionaryBatch()
+
+
+cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
+
+    cdef cppclass CStreamWriter " arrow::ipc::StreamWriter":
+        @staticmethod
+        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
+                     shared_ptr[CStreamWriter]* out)
+
+        CStatus Close()
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
+
+    cdef cppclass CStreamReader " arrow::ipc::StreamReader":
+
+        @staticmethod
+        CStatus Open(const shared_ptr[InputStream]& stream,
+                     shared_ptr[CStreamReader]* out)
+
+        shared_ptr[CSchema] schema()
+
+        CStatus GetNextRecordBatch(shared_ptr[CRecordBatch]* batch)
+
+    cdef cppclass CFileWriter " arrow::ipc::FileWriter"(CStreamWriter):
+        @staticmethod
+        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
+                     shared_ptr[CFileWriter]* out)
+
+    cdef cppclass CFileReader " arrow::ipc::FileReader":
+
+        @staticmethod
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+                     shared_ptr[CFileReader]* out)
+
+        @staticmethod
+        CStatus Open2" Open"(const shared_ptr[RandomAccessFile]& file,
+                     int64_t footer_offset, shared_ptr[CFileReader]* out)
+
+        shared_ptr[CSchema] schema()
+
+        int num_record_batches()
+
+        CStatus GetRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+
+    CStatus WriteTensor(const CTensor& tensor, OutputStream* dst,
+                        int32_t* metadata_length,
+                        int64_t* body_length)
+
+    CStatus ReadTensor(int64_t offset, RandomAccessFile* file,
+                       shared_ptr[CTensor]* out)
+
+
+cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
+
+    cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
+        @staticmethod
+        CStatus Open(const shared_ptr[OutputStream]& stream,
+                     unique_ptr[CFeatherWriter]* out)
+
+        void SetDescription(const c_string& desc)
+        void SetNumRows(int64_t num_rows)
+
+        CStatus Append(const c_string& name, const CArray& values)
+        CStatus Finalize()
+
+    cdef cppclass CFeatherReader" arrow::ipc::feather::TableReader":
+        @staticmethod
+        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+                     unique_ptr[CFeatherReader]* out)
+
+        c_string GetDescription()
+        c_bool HasDescription()
+
+        int64_t num_rows()
+        int64_t num_columns()
+
+        shared_ptr[CSchema] schema()
+
+        CStatus GetColumn(int i, shared_ptr[CColumn]* out)
+        c_string GetColumnName(int i)

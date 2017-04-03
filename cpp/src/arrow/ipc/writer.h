@@ -122,14 +122,14 @@ class ARROW_EXPORT FileWriter : public StreamWriter {
 
 /// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
 /// may not be readable by all Arrow implementations
-Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool);
+Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
+    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
+    int64_t* body_length, MemoryPool* pool);
 
 /// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 /// <metadata size><metadata><tensor data>
-Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length);
+Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
+    int32_t* metadata_length, int64_t* body_length);
 
 }  // namespace ipc
 }  // namespace arrow

@@ -23,8 +23,6 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_io cimport (RandomAccessFile, OutputStream,
-                                           FileOutputStream)
 cimport pyarrow.includes.pyarrow as pyarrow
 
 from pyarrow.array cimport Array
