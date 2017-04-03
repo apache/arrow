@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "arrow/io/interfaces.h"
@@ -64,6 +65,28 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
+};
+
+/// \brief Enables random writes into a fixed-size mutable buffer
+///
+class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
+ public:
+  /// Input buffer must be mutable, will abort if not
+  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);
+  ~FixedSizeBufferWriter();
+
+  Status Close() override;
+  Status Seek(int64_t position) override;
+  Status Tell(int64_t* position) override;
+  Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
+
+ private:
+  std::mutex lock_;
+  std::shared_ptr<Buffer> buffer_;
+  uint8_t* mutable_data_;
+  int64_t size_;
+  int64_t position_;
 };
 
 class ARROW_EXPORT BufferReader : public RandomAccessFile {

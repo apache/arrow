@@ -342,12 +342,12 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         CStatus ReadAt(int64_t position, int64_t nbytes,
                        int64_t* bytes_read, shared_ptr[CBuffer]* out)
 
-    cdef cppclass WriteableFileInterface(OutputStream, Seekable):
+    cdef cppclass WriteableFile(OutputStream, Seekable):
         CStatus WriteAt(int64_t position, const uint8_t* data,
                         int64_t nbytes)
 
     cdef cppclass ReadWriteFileInterface(RandomAccessFile,
-                                         WriteableFileInterface):
+                                         WriteableFile):
         pass
 
 

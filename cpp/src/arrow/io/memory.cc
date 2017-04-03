@@ -99,6 +99,51 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 }
 
 // ----------------------------------------------------------------------
+// In-memory buffer writer
+
+/// Input buffer must be mutable, will abort if not
+FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer) {
+  buffer_ = buffer;
+  DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
+  mutable_data_ = buffer->mutable_data();
+  size_ = buffer->size();
+  position_ = 0;
+}
+
+FixedSizeBufferWriter::~FixedSizeBufferWriter() {}
+
+Status FixedSizeBufferWriter::Close() {
+  // No-op
+  return Status::OK();
+}
+
+Status FixedSizeBufferWriter::Seek(int64_t position) {
+  if (position < 0 || position >= size_) {
+    return Status::IOError("position out of bounds");
+  }
+  position_ = position;
+  return Status::OK();
+}
+
+Status FixedSizeBufferWriter::Tell(int64_t* position) {
+  *position = position_;
+  return Status::OK();
+}
+
+Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
+  std::memcpy(mutable_data_ + position_, data, nbytes);
+  position_ += nbytes;
+  return Status::OK();
+}
+
+Status FixedSizeBufferWriter::WriteAt(
+    int64_t position, const uint8_t* data, int64_t nbytes) {
+  std::lock_guard<std::mutex> guard(lock_);
+  RETURN_NOT_OK(Seek(position));
+  return Write(data, nbytes);
+}
+
+// ----------------------------------------------------------------------
 // In-memory buffer reader
 
 BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
