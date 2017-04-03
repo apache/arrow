@@ -148,10 +148,20 @@ if(CMAKE_HOST_WIN32)
         set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
     endif()
 elseif(APPLE)
-  # In Python C extensions on OS X, the flag "-undefined dynamic_lookup" can
-  # avoid certain kinds of dynamic linking issues with portable binaries, so
-  # you should avoid targeting libpython at link time if at all possible
-  set(PYTHON_LIBRARY "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+  # In some cases libpythonX.X.dylib is not part of the PYTHON_PREFIX and we
+  # need to call `python-config --prefix` to determine the correct location.
+
+  find_program(PYTHON_CONFIG python-config
+      NO_CMAKE_SYSTEM_PATH)
+  if (PYTHON_CONFIG)
+    execute_process(
+        COMMAND "${PYTHON_CONFIG}" "--prefix"
+        OUTPUT_VARIABLE PYTHON_CONFIG_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(PYTHON_LIBRARY "${PYTHON_CONFIG_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+  else()
+    set(PYTHON_LIBRARY "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+  endif()
 else()
     if(${PYTHON_SIZEOF_VOID_P} MATCHES 8)
         set(_PYTHON_LIBS_SEARCH "${PYTHON_PREFIX}/lib64" "${PYTHON_PREFIX}/lib" "${PYTHON_LIBRARY_PATH}")
