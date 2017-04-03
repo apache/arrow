@@ -81,10 +81,11 @@ class TestPandasConversion(unittest.TestCase):
                                  mask=mask, type=type)
         result = arr.to_pandas()
 
+        values_nulls = pd.isnull(values)
         if mask is None:
-            assert arr.null_count == pd.isnull(values).sum()
+            assert arr.null_count == values_nulls.sum()
         else:
-            assert arr.null_count == mask.sum()
+            assert arr.null_count == (mask | values_nulls).sum()
 
         if mask is None:
             tm.assert_series_equal(pd.Series(result), pd.Series(values),
@@ -430,8 +431,12 @@ class TestPandasConversion(unittest.TestCase):
                      .reshape(N, K).copy())
 
         # booleans
-        cases.append(np.array([True, False, True] * N, dtype=object)
-                     .reshape(N, K).copy())
+        boolean_objects = (np.array([True, False, True] * N, dtype=object)
+                           .reshape(N, K).copy())
+
+        # add some nulls, so dtype comes back as objects
+        boolean_objects[5] = None
+        cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
                                dtype='datetime64[ms]')
@@ -443,6 +448,6 @@ class TestPandasConversion(unittest.TestCase):
             df = pd.DataFrame(case, columns=columns)
             col = df['a']
 
-            # self._check_pandas_roundtrip(df)
-            # self._check_array_roundtrip(col)
+            self._check_pandas_roundtrip(df)
+            self._check_array_roundtrip(col)
             self._check_array_roundtrip(col, mask=strided_mask)
