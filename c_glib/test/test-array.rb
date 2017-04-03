@@ -40,10 +40,16 @@ class TestArray < Test::Unit::TestCase
     assert_equal(2, array.n_nulls)
   end
 
-  def test_data_type
+  def test_value_data_type
     builder = Arrow::BooleanArrayBuilder.new
     array = builder.finish
-    assert_equal(Arrow::BooleanDataType.new, array.data_type)
+    assert_equal(Arrow::BooleanDataType.new, array.value_data_type)
+  end
+
+  def test_value_type
+    builder = Arrow::BooleanArrayBuilder.new
+    array = builder.finish
+    assert_equal(Arrow::Type::BOOL, array.value_type)
   end
 
   def test_slice

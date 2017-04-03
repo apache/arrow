@@ -35,6 +35,7 @@
 #include <arrow-glib/null-array.h>
 #include <arrow-glib/string-array.h>
 #include <arrow-glib/struct-array.h>
+#include <arrow-glib/type.hpp>
 #include <arrow-glib/uint8-array.h>
 #include <arrow-glib/uint16-array.h>
 #include <arrow-glib/uint32-array.h>
@@ -189,17 +190,33 @@ garrow_array_get_n_nulls(GArrowArray *array)
 }
 
 /**
- * garrow_array_get_data_type:
+ * garrow_array_get_value_data_type:
  * @array: A #GArrowArray.
  *
- * Returns: (transfer full): The #GArrowDataType for the array.
+ * Since: 0.3.0
+ * Returns: (transfer full): The #GArrowDataType for each value of the
+ *   array.
  */
 GArrowDataType *
-garrow_array_get_data_type(GArrowArray *array)
+garrow_array_get_value_data_type(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_data_type = arrow_array->type();
   return garrow_data_type_new_raw(&arrow_data_type);
+}
+
+/**
+ * garrow_array_get_value_type:
+ * @array: A #GArrowArray.
+ *
+ * Since: 0.3.0
+ * Returns: The #GArrowType for each value of the array.
+ */
+GArrowType
+garrow_array_get_value_type(GArrowArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  return garrow_type_from_raw(arrow_array->type_enum());
 }
 
 /**
