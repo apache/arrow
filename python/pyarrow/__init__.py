@@ -38,7 +38,13 @@ from pyarrow.array import (Array, Tensor, from_pylist,
                            ListArray, StringArray,
                            DictionaryArray)
 
-from pyarrow.error import ArrowException
+from pyarrow.error import (ArrowException,
+                           ArrowKeyError,
+                           ArrowInvalid,
+                           ArrowIOError,
+                           ArrowMemoryError,
+                           ArrowNotImplementedError,
+                           ArrowTypeError)
 
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,

@@ -17,7 +17,7 @@
 # under the License.
 
 from pyarrow.compat import unittest, u  # noqa
-import pyarrow
+import pyarrow as pa
 
 import datetime
 
@@ -26,32 +26,32 @@ class TestConvertList(unittest.TestCase):
 
     def test_boolean(self):
         expected = [True, None, False, None]
-        arr = pyarrow.from_pylist(expected)
+        arr = pa.from_pylist(expected)
         assert len(arr) == 4
         assert arr.null_count == 2
-        assert arr.type == pyarrow.bool_()
+        assert arr.type == pa.bool_()
         assert arr.to_pylist() == expected
 
     def test_empty_list(self):
-        arr = pyarrow.from_pylist([])
+        arr = pa.from_pylist([])
         assert len(arr) == 0
         assert arr.null_count == 0
-        assert arr.type == pyarrow.null()
+        assert arr.type == pa.null()
         assert arr.to_pylist() == []
 
     def test_all_none(self):
-        arr = pyarrow.from_pylist([None, None])
+        arr = pa.from_pylist([None, None])
         assert len(arr) == 2
         assert arr.null_count == 2
-        assert arr.type == pyarrow.null()
+        assert arr.type == pa.null()
         assert arr.to_pylist() == [None, None]
 
     def test_integer(self):
         expected = [1, None, 3, None]
-        arr = pyarrow.from_pylist(expected)
+        arr = pa.from_pylist(expected)
         assert len(arr) == 4
         assert arr.null_count == 2
-        assert arr.type == pyarrow.int64()
+        assert arr.type == pa.int64()
         assert arr.to_pylist() == expected
 
     def test_garbage_collection(self):
@@ -60,25 +60,25 @@ class TestConvertList(unittest.TestCase):
         # Force the cyclic garbage collector to run
         gc.collect()
 
-        bytes_before = pyarrow.total_allocated_bytes()
-        pyarrow.from_pylist([1, None, 3, None])
+        bytes_before = pa.total_allocated_bytes()
+        pa.from_pylist([1, None, 3, None])
         gc.collect()
-        assert pyarrow.total_allocated_bytes() == bytes_before
+        assert pa.total_allocated_bytes() == bytes_before
 
     def test_double(self):
         data = [1.5, 1, None, 2.5, None, None]
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 6
         assert arr.null_count == 3
-        assert arr.type == pyarrow.float64()
+        assert arr.type == pa.float64()
         assert arr.to_pylist() == data
 
     def test_unicode(self):
         data = [u'foo', u'bar', None, u'mañana']
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == pyarrow.string()
+        assert arr.type == pa.string()
         assert arr.to_pylist() == data
 
     def test_bytes(self):
@@ -86,31 +86,31 @@ class TestConvertList(unittest.TestCase):
         data = [b'foo',
                 u1.decode('utf-8'),  # unicode gets encoded,
                 None]
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 3
         assert arr.null_count == 1
-        assert arr.type == pyarrow.binary()
+        assert arr.type == pa.binary()
         assert arr.to_pylist() == [b'foo', u1, None]
 
     def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb', b'2346']
-        arr = pyarrow.from_pylist(data, type=pyarrow.binary(4))
+        arr = pa.from_pylist(data, type=pa.binary(4))
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == pyarrow.binary(4)
+        assert arr.type == pa.binary(4)
         assert arr.to_pylist() == data
 
     def test_fixed_size_bytes_does_not_accept_varying_lengths(self):
         data = [b'foo', None, b'barb', b'2346']
-        with self.assertRaises(pyarrow.error.ArrowException):
-            pyarrow.from_pylist(data, type=pyarrow.binary(4))
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.from_pylist(data, type=pa.binary(4))
 
     def test_date(self):
         data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1),
                 datetime.date(2040, 2, 26)]
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 4
-        assert arr.type == pyarrow.date64()
+        assert arr.type == pa.date64()
         assert arr.null_count == 1
         assert arr[0].as_py() == datetime.date(2000, 1, 1)
         assert arr[1].as_py() is None
@@ -124,9 +124,9 @@ class TestConvertList(unittest.TestCase):
             datetime.datetime(2006, 1, 13, 12, 34, 56, 432539),
             datetime.datetime(2010, 8, 13, 5, 46, 57, 437699)
         ]
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 4
-        assert arr.type == pyarrow.timestamp('us')
+        assert arr.type == pa.timestamp('us')
         assert arr.null_count == 1
         assert arr[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                    23, 34, 123456)
@@ -137,28 +137,28 @@ class TestConvertList(unittest.TestCase):
                                                    46, 57, 437699)
 
     def test_mixed_nesting_levels(self):
-        pyarrow.from_pylist([1, 2, None])
-        pyarrow.from_pylist([[1], [2], None])
-        pyarrow.from_pylist([[1], [2], [None]])
+        pa.from_pylist([1, 2, None])
+        pa.from_pylist([[1], [2], None])
+        pa.from_pylist([[1], [2], [None]])
 
-        with self.assertRaises(pyarrow.ArrowException):
-            pyarrow.from_pylist([1, 2, [1]])
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.from_pylist([1, 2, [1]])
 
-        with self.assertRaises(pyarrow.ArrowException):
-            pyarrow.from_pylist([1, 2, []])
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.from_pylist([1, 2, []])
 
-        with self.assertRaises(pyarrow.ArrowException):
-            pyarrow.from_pylist([[1], [2], [None, [1]]])
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.from_pylist([[1], [2], [None, [1]]])
 
     def test_list_of_int(self):
         data = [[1, 2, 3], [], None, [1, 2]]
-        arr = pyarrow.from_pylist(data)
+        arr = pa.from_pylist(data)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == pyarrow.list_(pyarrow.int64())
+        assert arr.type == pa.list_(pa.int64())
         assert arr.to_pylist() == data
 
     def test_mixed_types_fails(self):
         data = ['a', 1, 2.0]
-        with self.assertRaises(pyarrow.error.ArrowException):
-            pyarrow.from_pylist(data)
+        with self.assertRaises(pa.ArrowException):
+            pa.from_pylist(data)
