@@ -38,9 +38,26 @@ try:
     else:
         from pandas.types.dtypes import DatetimeTZDtype
         pdapi = pd.api.types
+
+    PandasSeries = pd.Series
+    Categorical = pd.Categorical
     HAVE_PANDAS = True
 except:
     HAVE_PANDAS = False
+    class DatetimeTZDtype(object):
+        pass
+
+    class ClassPlaceholder(object):
+
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError
+
+    class PandasSeries(ClassPlaceholder):
+        pass
+
+    class Categorical(ClassPlaceholder):
+        pass
+
 
 if PY26:
     import unittest2 as unittest

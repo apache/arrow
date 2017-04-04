@@ -19,69 +19,69 @@
 import pandas as pd
 
 from pyarrow.compat import unittest, u, unicode_type
-import pyarrow as A
+import pyarrow as pa
 
 
 class TestScalars(unittest.TestCase):
 
     def test_null_singleton(self):
         with self.assertRaises(Exception):
-            A.NAType()
+            pa.NAType()
 
     def test_bool(self):
-        arr = A.from_pylist([True, None, False, None])
+        arr = pa.from_pylist([True, None, False, None])
 
         v = arr[0]
-        assert isinstance(v, A.BooleanValue)
+        assert isinstance(v, pa.BooleanValue)
         assert repr(v) == "True"
         assert v.as_py() is True
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
     def test_int64(self):
-        arr = A.from_pylist([1, 2, None])
+        arr = pa.from_pylist([1, 2, None])
 
         v = arr[0]
-        assert isinstance(v, A.Int64Value)
+        assert isinstance(v, pa.Int64Value)
         assert repr(v) == "1"
         assert v.as_py() == 1
 
-        assert arr[2] is A.NA
+        assert arr[2] is pa.NA
 
     def test_double(self):
-        arr = A.from_pylist([1.5, None, 3])
+        arr = pa.from_pylist([1.5, None, 3])
 
         v = arr[0]
-        assert isinstance(v, A.DoubleValue)
+        assert isinstance(v, pa.DoubleValue)
         assert repr(v) == "1.5"
         assert v.as_py() == 1.5
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
         v = arr[2]
         assert v.as_py() == 3.0
 
     def test_string_unicode(self):
-        arr = A.from_pylist([u'foo', None, u'mañana'])
+        arr = pa.from_pylist([u'foo', None, u'mañana'])
 
         v = arr[0]
-        assert isinstance(v, A.StringValue)
+        assert isinstance(v, pa.StringValue)
         assert v.as_py() == 'foo'
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
         v = arr[2].as_py()
         assert v == u'mañana'
         assert isinstance(v, unicode_type)
 
     def test_bytes(self):
-        arr = A.from_pylist([b'foo', None, u('bar')])
+        arr = pa.from_pylist([b'foo', None, u('bar')])
 
         v = arr[0]
-        assert isinstance(v, A.BinaryValue)
+        assert isinstance(v, pa.BinaryValue)
         assert v.as_py() == b'foo'
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
         v = arr[2].as_py()
         assert v == b'bar'
@@ -89,33 +89,57 @@ class TestScalars(unittest.TestCase):
 
     def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb']
-        arr = A.from_pylist(data, type=A.binary(4))
+        arr = pa.from_pylist(data, type=pa.binary(4))
 
         v = arr[0]
-        assert isinstance(v, A.FixedSizeBinaryValue)
+        assert isinstance(v, pa.FixedSizeBinaryValue)
         assert v.as_py() == b'foof'
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
         v = arr[2].as_py()
         assert v == b'barb'
         assert isinstance(v, bytes)
 
     def test_list(self):
-        arr = A.from_pylist([['foo', None], None, ['bar'], []])
+        arr = pa.from_pylist([['foo', None], None, ['bar'], []])
 
         v = arr[0]
         assert len(v) == 2
-        assert isinstance(v, A.ListValue)
+        assert isinstance(v, pa.ListValue)
         assert repr(v) == "['foo', None]"
         assert v.as_py() == ['foo', None]
         assert v[0].as_py() == 'foo'
-        assert v[1] is A.NA
+        assert v[1] is pa.NA
 
-        assert arr[1] is A.NA
+        assert arr[1] is pa.NA
 
         v = arr[3]
         assert len(v) == 0
+
+    def test_timestamp(self):
+        arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
+
+        units = ['s', 'ms', 'us', 'ns']
+
+        for unit in units:
+            dtype = 'datetime64[{0}]'.format(unit)
+            arrow_arr = pa.Array.from_numpy(arr.astype(dtype))
+            expected = pd.Timestamp('2000-01-01 12:34:56')
+
+            assert arrow_arr[0].as_py() == expected
+
+            tz = 'America/New_York'
+            arrow_type = pa.timestamp(unit, tz=tz)
+
+            dtype = 'datetime64[{0}]'.format(unit)
+            arrow_arr = pa.Array.from_numpy(arr.astype(dtype),
+                                            type=arrow_type)
+            expected = (pd.Timestamp('2000-01-01 12:34:56')
+                        .tz_localize('utc')
+                        .tz_convert(tz))
+
+            assert arrow_arr[0].as_py() == expected
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']
@@ -123,7 +147,7 @@ class TestScalars(unittest.TestCase):
 
         categorical = pd.Categorical(values, categories=colors)
 
-        v = A.DictionaryArray.from_arrays(categorical.codes,
-                                          categorical.categories)
+        v = pa.DictionaryArray.from_arrays(categorical.codes,
+                                           categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
