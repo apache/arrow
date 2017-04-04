@@ -211,6 +211,26 @@ TEST_P(TestIpcRoundTrip, RoundTrip) {
   CheckRoundtrip(*batch, 1 << 20);
 }
 
+TEST_F(TestIpcRoundTrip, MetadataVersion) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata", &mmap_));
+
+  int32_t metadata_length;
+  int64_t body_length;
+
+  const int64_t buffer_offset = 0;
+
+  ASSERT_OK(WriteRecordBatch(
+      *batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
+
+  std::shared_ptr<Message> message;
+  ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+
+  ASSERT_EQ(MetadataVersion::V3, message->metadata_version());
+}
+
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue

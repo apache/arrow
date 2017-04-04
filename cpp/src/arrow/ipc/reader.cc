@@ -332,7 +332,7 @@ class FileReader::FileReaderImpl {
 
   int num_record_batches() const { return footer_->recordBatches()->size(); }
 
-  MetadataVersion::type version() const {
+  MetadataVersion version() const {
     switch (footer_->version()) {
       case flatbuf::MetadataVersion_V1:
         // Arrow 0.1
@@ -459,7 +459,7 @@ int FileReader::num_record_batches() const {
   return impl_->num_record_batches();
 }
 
-MetadataVersion::type FileReader::version() const {
+MetadataVersion FileReader::version() const {
   return impl_->version();
 }
 
