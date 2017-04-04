@@ -394,7 +394,7 @@ class BytesConverter : public TypedConverter<BinaryBuilder> {
       } else if (PyBytes_Check(item)) {
         bytes_obj = item;
       } else {
-        return Status::TypeError(
+        return Status::Invalid(
             "Value that cannot be converted to bytes was encountered");
       }
       // No error checking
@@ -429,7 +429,7 @@ class FixedWidthBytesConverter : public TypedConverter<FixedSizeBinaryBuilder> {
       } else if (PyBytes_Check(item)) {
         bytes_obj = item;
       } else {
-        return Status::TypeError(
+        return Status::Invalid(
             "Value that cannot be converted to bytes was encountered");
       }
       // No error checking
@@ -458,7 +458,7 @@ class UTF8Converter : public TypedConverter<StringBuilder> {
         RETURN_NOT_OK(typed_builder_->AppendNull());
         continue;
       } else if (!PyUnicode_Check(item)) {
-        return Status::TypeError("Non-unicode value encountered");
+        return Status::Invalid("Non-unicode value encountered");
       }
       tmp.reset(PyUnicode_AsUTF8String(item));
       RETURN_IF_PYERROR();
@@ -585,7 +585,7 @@ Status CheckPythonBytesAreFixedLength(PyObject* obj, Py_ssize_t expected_length)
     std::stringstream ss;
     ss << "Found byte string of length " << length << ", expected length is "
        << expected_length;
-    return Status::TypeError(ss.str());
+    return Status::Invalid(ss.str());
   }
   return Status::OK();
 }

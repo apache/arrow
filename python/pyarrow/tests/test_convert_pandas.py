@@ -266,7 +266,7 @@ class TestPandasConversion(unittest.TestCase):
         values = [b'foo', None, b'ba', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = A.Schema.from_fields([A.field('strings', A.binary(3))])
-        with self.assertRaises(A.error.ArrowException):
+        with self.assertRaises(A.ArrowInvalid):
             A.Table.from_pandas(df, schema=schema)
 
     def test_timestamps_notimezone_no_nulls(self):
@@ -409,7 +409,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with self.assertRaises(A.error.ArrowException):
+        with self.assertRaises(A.ArrowException):
             A.Table.from_pandas(data)
 
     def test_strided_data_import(self):

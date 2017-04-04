@@ -134,7 +134,7 @@ class ARROW_EXPORT Status {
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
   bool IsIOError() const { return code() == StatusCode::IOError; }
-
+  bool IsTypeError() const { return code() == StatusCode::TypeError; }
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
 

@@ -161,7 +161,7 @@ static Status AppendObjectStrings(
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
         PyErr_Clear();
-        return Status::TypeError("failed converting unicode to UTF8");
+        return Status::Invalid("failed converting unicode to UTF8");
       }
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       Status s = builder->Append(PyBytes_AS_STRING(obj), length);
@@ -200,7 +200,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
         PyErr_Clear();
-        return Status::TypeError("failed converting unicode to UTF8");
+        return Status::Invalid("failed converting unicode to UTF8");
       }
 
       RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
@@ -482,7 +482,7 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
   std::stringstream ss;
   ss << "Python object of type " << cpp_type_name << " is not None and is not a "
      << expected_type_name << " object";
-  return Status::TypeError(ss.str());
+  return Status::Invalid(ss.str());
 }
 
 Status PandasConverter::ConvertDates() {

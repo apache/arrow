@@ -20,23 +20,31 @@ from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
 
-class ArrowException(ValueError):
+class ArrowException(Exception):
     pass
 
 
-class ArrowMemoryError(MemoryError):
+class ArrowInvalid(ValueError, ArrowException):
     pass
 
 
-class ArrowIOError(IOError):
+class ArrowMemoryError(MemoryError, ArrowException):
     pass
 
 
-class ArrowKeyError(KeyError):
+class ArrowIOError(IOError, ArrowException):
     pass
 
 
-class ArrowNotImplementedError(NotImplementedError):
+class ArrowKeyError(KeyError, ArrowException):
+    pass
+
+
+class ArrowTypeError(TypeError, ArrowException):
+    pass
+
+
+class ArrowNotImplementedError(NotImplementedError, ArrowException):
     pass
 
 
@@ -46,7 +54,9 @@ cdef int check_status(const CStatus& status) nogil except -1:
 
     with gil:
         message = frombytes(status.ToString())
-        if status.IsIOError():
+        if status.IsInvalid():
+            raise ArrowInvalid(message)
+        elif status.IsIOError():
             raise ArrowIOError(message)
         elif status.IsOutOfMemory():
             raise ArrowMemoryError(message)
@@ -54,5 +64,7 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowKeyError(message)
         elif status.IsNotImplemented():
             raise ArrowNotImplementedError(message)
+        elif status.IsTypeError():
+            raise ArrowTypeError(message)
         else:
             raise ArrowException(message)
