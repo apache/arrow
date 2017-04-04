@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define GARROW_IO_WRITEABLE_FILE(obj)                           \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
                               GARROW_IO_TYPE_WRITEABLE_FILE,    \
-                              GArrowIOWriteableFileInterface))
+                              GArrowIOWriteableFile))
 #define GARROW_IO_IS_WRITEABLE_FILE(obj)                        \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
                               GARROW_IO_TYPE_WRITEABLE_FILE))

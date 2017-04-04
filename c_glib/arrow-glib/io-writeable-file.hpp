@@ -24,15 +24,15 @@
 #include <arrow-glib/io-writeable-file.h>
 
 /**
- * GArrowIOWriteableFileInterface:
+ * GArrowIOWriteableFile:
  *
- * It wraps `arrow::io::WriteableFileInterface`.
+ * It wraps `arrow::io::WriteableFile`.
  */
 struct _GArrowIOWriteableFileInterface
 {
   GTypeInterface parent_iface;
 
-  std::shared_ptr<arrow::io::WriteableFileInterface> (*get_raw)(GArrowIOWriteableFile *file);
+  std::shared_ptr<arrow::io::WriteableFile> (*get_raw)(GArrowIOWriteableFile *file);
 };
 
-std::shared_ptr<arrow::io::WriteableFileInterface> garrow_io_writeable_file_get_raw(GArrowIOWriteableFile *writeable_file);
+std::shared_ptr<arrow::io::WriteableFile> garrow_io_writeable_file_get_raw(GArrowIOWriteableFile *writeable_file);
