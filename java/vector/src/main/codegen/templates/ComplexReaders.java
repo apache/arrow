@@ -97,13 +97,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
     return vector.getAccessor().getObject(idx());
   }
 
-  <#if minor.class == "DateDay" ||
-       minor.class == "DateMilli" ||
-       minor.class == "TimeSec" ||
-       minor.class == "TimeMilli" ||
-       minor.class == "TimeMicro" ||
-       minor.class == "TimeNano" ||
-       minor.class == "TimeStampSec" ||
+  <#if minor.class == "TimeStampSec" ||
        minor.class == "TimeStampMilli" ||
        minor.class == "TimeStampMicro" ||
        minor.class == "TimeStampNano">
