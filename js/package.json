@@ -12,7 +12,8 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "chai": "^3.5.0",
-    "mocha": "^3.3.0"
+    "mocha": "^3.3.0",
+    "webpack": "^2.3.3"
   },
   "dependencies": {
     "flatbuffers": "^1.5.0",

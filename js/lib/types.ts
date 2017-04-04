@@ -227,6 +227,48 @@ class NullableListVector extends ListVector {
     }
 }
 
+class FixedSizeListVector extends Vector {
+    private dataVector: Vector;
+    private size: number
+
+    constructor(name: string, size: number, dataVector: Vector) {
+        super(name);
+        this.dataVector = dataVector;
+        this.size = size;
+    }
+
+    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
+        this.dataVector.loadData(recordBatch, buffer, bufReader, baseOffset);
+    }
+
+    get(i: number) {
+        return this.dataVector.slice(i * this.size, (i + 1) * this.size);
+    }
+
+    slice(start : number, end : number) { return []; };
+}
+
+class NullableFixedSizeListVector extends FixedSizeListVector {
+    private validity: BitArray;
+
+    constructor(name: string, size: number, dataVector: Vector) {
+        super(name, size, dataVector);
+    }
+
+    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
+        this.validity = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
+        super.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
+    }
+
+    get(i: number) {
+        if (this.validity.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+}
+
 class StructVector extends Vector {
     private validityView: BitArray;
     private vectors : Vector[];
@@ -318,7 +360,15 @@ export function vectorFromField(field) : Vector {
     } else if (typeType === arrow.flatbuf.Type.List) {
         var dataVector = vectorFromField(field.children(0));
         return field.nullable() ? new NullableListVector(field.name(), dataVector) : new ListVector(field.name(), dataVector);
-    } else if (typeType === arrow.flatbuf.Type.Struct_) {
+    } else if (typeType === arrow.flatbuf.Type.FixedSizeList) {
+        var dataVector = vectorFromField(field.children(0));
+        var type = field.type(new arrow.flatbuf.FixedSizeList());
+        if (field.nullable()) {
+          return new NullableFixedSizeListVector(field.name(), type.size, dataVector);
+        } else {
+          return new FixedSizeListVector(field.name(), type.size, dataVector);
+        }
+     } else if (typeType === arrow.flatbuf.Type.Struct_) {
         var vectors : Vector[] = [];
         for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
             vectors.push(vectorFromField(field.children(i)));
