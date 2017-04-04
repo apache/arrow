@@ -45,7 +45,7 @@ class TestFeatherReader(unittest.TestCase):
                 pass
 
     def test_file_not_exist(self):
-        with self.assertRaises(pa.ArrowException):
+        with self.assertRaises(pa.ArrowIOError):
             FeatherReader('test_invalid_file')
 
     def _get_null_counts(self, path, columns=None):

@@ -43,6 +43,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToString()
 
         c_bool ok()
+        c_bool IsIOError()
         c_bool IsOutOfMemory()
         c_bool IsKeyError()
         c_bool IsNotImplemented()

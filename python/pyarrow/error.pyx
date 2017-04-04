@@ -19,13 +19,40 @@ from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
-class ArrowException(Exception):
+
+class ArrowException(ValueError):
     pass
+
+
+class ArrowMemoryError(MemoryError):
+    pass
+
+
+class ArrowIOError(IOError):
+    pass
+
+
+class ArrowKeyError(KeyError):
+    pass
+
+
+class ArrowNotImplementedError(NotImplementedError):
+    pass
+
 
 cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
-    cdef c_string c_message = status.ToString()
     with gil:
-        raise ArrowException(frombytes(c_message))
+        message = frombytes(status.ToString())
+        if status.IsIOError():
+            raise ArrowIOError(message)
+        elif status.IsOutOfMemory():
+            raise ArrowMemoryError(message)
+        elif status.IsKeyError():
+            raise ArrowKeyError(message)
+        elif status.IsNotImplemented():
+            raise ArrowNotImplementedError(message)
+        else:
+            raise ArrowException(message)
