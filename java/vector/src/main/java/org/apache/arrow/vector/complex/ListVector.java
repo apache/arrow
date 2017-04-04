@@ -24,6 +24,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -48,12 +52,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
-
-public class ListVector extends BaseRepeatedValueVector implements FieldVector {
+public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
 
   final UInt4Vector offsets;
   final BitVector bits;
@@ -220,7 +219,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   @Override
-  public FieldReader getReader() {
+  public UnionListReader getReader() {
     return reader;
   }
 
@@ -297,6 +296,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     return buffers;
   }
 
+  @Override
   public UnionVector promoteToUnion() {
     UnionVector vector = new UnionVector(name, allocator, callBack);
     replaceDataVector(vector);

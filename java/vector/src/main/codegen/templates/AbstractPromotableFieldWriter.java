@@ -42,7 +42,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
    * @param type
    * @return
    */
-  abstract protected FieldWriter getWriter(MinorType type);
+  abstract protected FieldWriter getWriter(ArrowType type);
 
   /**
    * Return the current FieldWriter
@@ -52,24 +52,41 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    getWriter(MinorType.MAP).start();
+    getWriter(MinorType.MAP.getType()).start();
   }
 
   @Override
   public void end() {
-    getWriter(MinorType.MAP).end();
+    getWriter(MinorType.MAP.getType()).end();
     setPosition(idx() + 1);
   }
 
   @Override
   public void startList() {
-    getWriter(MinorType.LIST).startList();
+    getListWriter().startList();
   }
 
   @Override
   public void endList() {
-    getWriter(MinorType.LIST).endList();
+    getListWriter().endList();
     setPosition(idx() + 1);
+  }
+
+  /**
+   * Gets or creates a list writer, backed by either a FixedSizeListVector or a variable length ListVector.
+   * If the writer doesn't exist, a variable length writer will be created.
+   *
+   * This allows us to re-use `startList()`, `endList()` etc methods for fixed and variable size lists
+   *
+   * @return list writer
+   */
+  protected ListWriter getListWriter() {
+    FieldWriter writer = getWriter();
+    if (writer != null && writer instanceof UnionListWriter) {
+      return writer;
+    } else {
+      return getWriter(MinorType.LIST.getType());
+    }
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -77,21 +94,21 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if !minor.class?starts_with("Decimal") >
   @Override
   public void write(${name}Holder holder) {
-    getWriter(MinorType.${name?upper_case}).write(holder);
+    getWriter(MinorType.${name?upper_case}.getType()).write(holder);
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+    getWriter(MinorType.${name?upper_case}.getType()).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
   <#else>
   @Override
   public void write(DecimalHolder holder) {
-    getWriter(MinorType.DECIMAL).write(holder);
+    getWriter(new Decimal(holder.precision, holder.scale)).write(holder);
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
+  public void writeDecimal(int precision, int scale, int start, ArrowBuf buffer) {
+    getWriter(new Decimal(precision, scale)).writeDecimal(start, buffer);
   }
 
   </#if>
@@ -103,22 +120,27 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map() {
-    return getWriter(MinorType.LIST).map();
+    return getListWriter().map();
   }
 
   @Override
   public ListWriter list() {
-    return getWriter(MinorType.LIST).list();
+    return getListWriter().list();
+  }
+
+  @Override
+  public ListWriter list(int size) {
+    return getWriter(new FixedSizeList(size)).list();
   }
 
   @Override
   public MapWriter map(String name) {
-    return getWriter(MinorType.MAP).map(name);
+    return getWriter(MinorType.MAP.getType()).map(name);
   }
 
   @Override
   public ListWriter list(String name) {
-    return getWriter(MinorType.MAP).list(name);
+    return getWriter(MinorType.MAP.getType()).list(name);
   }
 
   <#list vv.types as type><#list type.minor as minor>
@@ -128,17 +150,17 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#assign capName = minor.class?cap_first />
   <#if minor.class?starts_with("Decimal") >
   public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
-    return getWriter(MinorType.MAP).${lowerName}(name, scale, precision);
+    return getWriter(MinorType.MAP.getType()).${lowerName}(name, scale, precision);
   }
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.MAP).${lowerName}(name);
+    return getWriter(MinorType.MAP.getType()).${lowerName}(name);
   }
 
   @Override
   public ${capName}Writer ${lowerName}() {
-    return getWriter(MinorType.LIST).${lowerName}();
+    return getListWriter().${lowerName}();
   }
 
   </#list></#list>

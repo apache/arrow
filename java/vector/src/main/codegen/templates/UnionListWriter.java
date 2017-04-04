@@ -32,11 +32,22 @@ package org.apache.arrow.vector.complex.impl;
  * This class is generated using freemarker and the ${.template_name} template.
  */
 
+/**
+ * Writer for ListVector and fixedSizeListVector. If multiple types are written, list will be promoted
+ * to a union type.
+ */
 @SuppressWarnings("unused")
 public class UnionListWriter extends AbstractFieldWriter {
 
-  private ListVector vector;
-  private UInt4Vector offsets;
+  // only one of listVector/fixedSizeListVector will be set
+  private final FixedSizeListVector fixedSizeListVector;
+  private final ListVector listVector;
+  // will only be set if listVector is set
+  private final UInt4Vector offsets;
+
+  // for convenience, is whichever list vector is set
+  private final FieldVector vector;
+
   private PromotableWriter writer;
   private boolean inMap = false;
   private String mapName;
@@ -48,12 +59,22 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   public UnionListWriter(ListVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
     this.vector = vector;
-    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
+    this.listVector = vector;
+    this.fixedSizeListVector = null;
     this.offsets = vector.getOffsetVector();
+    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
   }
 
-  public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
-    this(vector);
+  public UnionListWriter(FixedSizeListVector vector) {
+    this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+  }
+
+  public UnionListWriter(FixedSizeListVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
+    this.vector = vector;
+    this.fixedSizeListVector = vector;
+    this.listVector = null;
+    this.offsets = null;
+    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
   }
 
   @Override
@@ -124,9 +145,15 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public ListWriter list(int size) {
+    // prime the writer with the fixed size list
+    writer.getWriter(new FixedSizeList(size));
+    return writer;
+  }
+
+  @Override
   public ListWriter list(String name) {
-    ListWriter listWriter = writer.list(name);
-    return listWriter;
+    return writer.list(name);
   }
 
   @Override
@@ -137,13 +164,20 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void startList() {
-    vector.getMutator().startNewValue(idx());
-    writer.setPosition(offsets.getAccessor().get(idx() + 1));
+    if (listVector != null) {
+      listVector.getMutator().startNewValue(idx());
+      writer.setPosition(offsets.getAccessor().get(idx() + 1));
+    } else if (fixedSizeListVector != null) {
+      fixedSizeListVector.getMutator().setNotNull(idx());
+      writer.setPosition(idx() * fixedSizeListVector.getListSize());
+    }
   }
 
   @Override
   public void endList() {
-    offsets.getMutator().set(idx() + 1, writer.idx());
+    if (listVector != null) {
+      offsets.getMutator().set(idx() + 1, writer.idx());
+    }
     setPosition(idx() + 1);
   }
 

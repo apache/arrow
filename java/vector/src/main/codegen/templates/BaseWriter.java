@@ -71,6 +71,7 @@ package org.apache.arrow.vector.complex.writer;
     void endList();
     MapWriter map();
     ListWriter list();
+    ListWriter list(int size);
     void copyReader(FieldReader reader);
 
     <#list vv.types as type><#list type.minor as minor>

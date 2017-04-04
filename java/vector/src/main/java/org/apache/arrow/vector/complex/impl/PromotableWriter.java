@@ -17,15 +17,20 @@
  */
 package org.apache.arrow.vector.complex.impl;
 
+import java.util.Objects;
+
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractMapVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.PromotableVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -39,7 +44,7 @@ import org.apache.arrow.vector.util.TransferPair;
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private final AbstractMapVector parentContainer;
-  private final ListVector listVector;
+  private final PromotableVector promotableVector;
   private final NullableMapWriterFactory nullableMapWriterFactory;
   private int position;
 
@@ -47,7 +52,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     UNTYPED, SINGLE, UNION
   }
 
-  private MinorType type;
+  private ArrowType type;
   private ValueVector vector;
   private UnionVector unionVector;
   private State state;
@@ -59,17 +64,17 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   public PromotableWriter(ValueVector v, AbstractMapVector parentContainer, NullableMapWriterFactory nullableMapWriterFactory) {
     this.parentContainer = parentContainer;
-    this.listVector = null;
+    this.promotableVector = null;
     this.nullableMapWriterFactory = nullableMapWriterFactory;
     init(v);
   }
 
-  public PromotableWriter(ValueVector v, ListVector listVector) {
+  public PromotableWriter(ValueVector v, PromotableVector listVector) {
     this(v, listVector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, ListVector listVector, NullableMapWriterFactory nullableMapWriterFactory) {
-    this.listVector = listVector;
+  public PromotableWriter(ValueVector v, PromotableVector listVector, NullableMapWriterFactory nullableMapWriterFactory) {
+    this.promotableVector = listVector;
     this.parentContainer = null;
     this.nullableMapWriterFactory = nullableMapWriterFactory;
     init(v);
@@ -90,19 +95,22 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private void setWriter(ValueVector v) {
     state = State.SINGLE;
     vector = v;
-    type = v.getMinorType();
-    switch (type) {
-      case MAP:
+    type = v.getField().getFieldType().getType();
+    switch (type.getTypeID()) {
+      case Struct:
         writer = nullableMapWriterFactory.build((NullableMapVector) vector);
         break;
-      case LIST:
+      case List:
         writer = new UnionListWriter((ListVector) vector, nullableMapWriterFactory);
         break;
-      case UNION:
+      case FixedSizeList:
+        writer = new UnionListWriter((FixedSizeListVector) vector, nullableMapWriterFactory);
+        break;
+      case Union:
         writer = new UnionWriter((UnionVector) vector, nullableMapWriterFactory);
         break;
       default:
-        writer = type.getNewFieldWriter(vector);
+        writer = FieldType.nullable(type).createNewFieldWriter(vector);
         break;
     }
   }
@@ -118,21 +126,22 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
-  protected FieldWriter getWriter(MinorType type) {
+  @Override
+  protected FieldWriter getWriter(ArrowType type) {
     if (state == State.UNION) {
-      ((UnionWriter)writer).getWriter(type);
+      ((UnionWriter) writer).getWriter(Types.getMinorTypeForArrowType(type));
     } else if (state == State.UNTYPED) {
       if (type == null) {
         // ???
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(type.getType())).getVector();
+      ValueVector v = promotableVector.addOrGetVector(FieldType.nullable(type)).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
-    } else if (type != this.type) {
+    } else if (!Objects.equals(type, this.type)) {
       promoteToUnion();
-      ((UnionWriter)writer).getWriter(type);
+      ((UnionWriter) writer).getWriter(Types.getMinorTypeForArrowType(type));
     }
     return writer;
   }
@@ -146,7 +155,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     return writer;
   }
 
-  private FieldWriter promoteToUnion() {
+  private void promoteToUnion() {
     String name = vector.getField().getName();
     TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
     tp.transfer();
@@ -154,8 +163,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       // TODO allow dictionaries in complex types
       unionVector = parentContainer.addOrGetUnion(name);
       unionVector.allocateNew();
-    } else if (listVector != null) {
-      unionVector = listVector.promoteToUnion();
+    } else if (promotableVector != null) {
+      unionVector = promotableVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector)tp.getTo());
     writer = new UnionWriter(unionVector, nullableMapWriterFactory);
@@ -165,7 +174,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
     vector = null;
     state = State.UNION;
-    return writer;
   }
 
   @Override

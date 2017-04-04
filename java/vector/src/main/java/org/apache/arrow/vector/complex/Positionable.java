@@ -18,5 +18,6 @@
 package org.apache.arrow.vector.complex;
 
 public interface Positionable {
+  public int getPosition();
   public void setPosition(int index);
 }

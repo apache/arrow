@@ -123,7 +123,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.MAP);
+        ((PromotableWriter)writer).getWriter(MinorType.MAP.getType());
       }
     }
     return writer;
@@ -166,7 +166,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.LIST);
+        ((PromotableWriter)writer).getWriter(MinorType.LIST.getType());
       }
     }
     return writer;
@@ -235,7 +235,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.${upperName});
+        ((PromotableWriter)writer).getWriter(MinorType.${upperName}.getType());
       }
     }
     return writer;
