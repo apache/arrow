@@ -121,16 +121,16 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   RandomAccessFile();
 };
 
-class ARROW_EXPORT WriteableFileInterface : public OutputStream, public Seekable {
+class ARROW_EXPORT WriteableFile : public OutputStream, public Seekable {
  public:
   virtual Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) = 0;
 
  protected:
-  WriteableFileInterface() { set_mode(FileMode::READ); }
+  WriteableFile() { set_mode(FileMode::READ); }
 };
 
 class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile,
-                                            public WriteableFileInterface {
+                                            public WriteableFile {
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };

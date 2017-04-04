@@ -127,7 +127,7 @@ garrow_io_writeable_interface_init(GArrowIOWriteableInterface *iface)
   iface->get_raw = garrow_io_memory_mapped_file_get_raw_writeable_interface;
 }
 
-static std::shared_ptr<arrow::io::WriteableFileInterface>
+static std::shared_ptr<arrow::io::WriteableFile>
 garrow_io_memory_mapped_file_get_raw_writeable_file_interface(GArrowIOWriteableFile *file)
 {
   auto memory_mapped_file = GARROW_IO_MEMORY_MAPPED_FILE(file);

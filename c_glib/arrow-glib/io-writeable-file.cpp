@@ -76,7 +76,7 @@ garrow_io_writeable_file_write_at(GArrowIOWriteableFile *writeable_file,
 
 G_END_DECLS
 
-std::shared_ptr<arrow::io::WriteableFileInterface>
+std::shared_ptr<arrow::io::WriteableFile>
 garrow_io_writeable_file_get_raw(GArrowIOWriteableFile *writeable_file)
 {
   auto *iface = GARROW_IO_WRITEABLE_FILE_GET_IFACE(writeable_file);

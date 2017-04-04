@@ -66,6 +66,33 @@ TEST_F(TestBufferOutputStream, CloseResizes) {
   ASSERT_EQ(static_cast<int64_t>(K * data.size()), buffer_->size());
 }
 
+TEST(TestFixedSizeBufferWriter, Basics) {
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), 1024, &buffer));
+
+  FixedSizeBufferWriter writer(buffer);
+
+  int64_t position;
+  ASSERT_OK(writer.Tell(&position));
+  ASSERT_EQ(0, position);
+
+  std::string data = "data123456";
+  auto nbytes = static_cast<int64_t>(data.size());
+  ASSERT_OK(writer.Write(reinterpret_cast<const uint8_t*>(data.c_str()), nbytes));
+
+  ASSERT_OK(writer.Tell(&position));
+  ASSERT_EQ(nbytes, position);
+
+  ASSERT_OK(writer.Seek(4));
+  ASSERT_OK(writer.Tell(&position));
+  ASSERT_EQ(4, position);
+
+  ASSERT_RAISES(IOError, writer.Seek(-1));
+  ASSERT_RAISES(IOError, writer.Seek(1024));
+
+  ASSERT_OK(writer.Close());
+}
+
 TEST(TestBufferReader, RetainParentReference) {
   // ARROW-387
   std::string data = "data123456";
