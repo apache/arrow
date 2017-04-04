@@ -23,5 +23,5 @@
 
 #include <arrow-glib/ipc-metadata-version.h>
 
-GArrowIPCMetadataVersion garrow_ipc_metadata_version_from_raw(arrow::ipc::MetadataVersion::type version);
-arrow::ipc::MetadataVersion::type garrow_ipc_metadata_version_to_raw(GArrowIPCMetadataVersion version);
+GArrowIPCMetadataVersion garrow_ipc_metadata_version_from_raw(arrow::ipc::MetadataVersion version);
+arrow::ipc::MetadataVersion garrow_ipc_metadata_version_to_raw(GArrowIPCMetadataVersion version);

@@ -50,7 +50,7 @@ using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 
-static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V2;
+static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V3;
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -826,6 +826,23 @@ class Message::MessageImpl {
     }
   }
 
+  MetadataVersion version() const {
+    switch (message_->version()) {
+      case flatbuf::MetadataVersion_V1:
+        // Arrow 0.1
+        return MetadataVersion::V1;
+      case flatbuf::MetadataVersion_V2:
+        // Arrow 0.2
+        return MetadataVersion::V2;
+      case flatbuf::MetadataVersion_V3:
+        // Arrow 0.3
+        return MetadataVersion::V3;
+      // Add cases as other versions become available
+      default:
+        return MetadataVersion::V3;
+    }
+  }
+
   const void* header() const { return message_->header(); }
 
   int64_t body_length() const { return message_->bodyLength(); }
@@ -854,6 +871,10 @@ Status Message::Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
 
 Message::Type Message::type() const {
   return impl_->type();
+}
+
+MetadataVersion Message::metadata_version() const {
+  return impl_->version();
 }
 
 int64_t Message::body_length() const {

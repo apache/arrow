@@ -332,15 +332,20 @@ class FileReader::FileReaderImpl {
 
   int num_record_batches() const { return footer_->recordBatches()->size(); }
 
-  MetadataVersion::type version() const {
+  MetadataVersion version() const {
     switch (footer_->version()) {
       case flatbuf::MetadataVersion_V1:
+        // Arrow 0.1
         return MetadataVersion::V1;
       case flatbuf::MetadataVersion_V2:
+        // Arrow 0.2
         return MetadataVersion::V2;
+      case flatbuf::MetadataVersion_V3:
+        // Arrow 0.3
+        return MetadataVersion::V3;
       // Add cases as other versions become available
       default:
-        return MetadataVersion::V2;
+        return MetadataVersion::V3;
     }
   }
 
@@ -454,7 +459,7 @@ int FileReader::num_record_batches() const {
   return impl_->num_record_batches();
 }
 
-MetadataVersion::type FileReader::version() const {
+MetadataVersion FileReader::version() const {
   return impl_->version();
 }
 

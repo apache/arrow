@@ -29,31 +29,35 @@
  * @short_description: Metadata version mapgging between Arrow and arrow-glib
  *
  * #GArrowIPCMetadataVersion provides metadata versions corresponding
- * to `arrow::ipc::MetadataVersion::type` values.
+ * to `arrow::ipc::MetadataVersion` values.
  */
 
 GArrowIPCMetadataVersion
-garrow_ipc_metadata_version_from_raw(arrow::ipc::MetadataVersion::type version)
+garrow_ipc_metadata_version_from_raw(arrow::ipc::MetadataVersion version)
 {
   switch (version) {
-  case arrow::ipc::MetadataVersion::type::V1:
+  case arrow::ipc::MetadataVersion::V1:
     return GARROW_IPC_METADATA_VERSION_V1;
-  case arrow::ipc::MetadataVersion::type::V2:
+  case arrow::ipc::MetadataVersion::V2:
     return GARROW_IPC_METADATA_VERSION_V2;
+  case arrow::ipc::MetadataVersion::V3:
+    return GARROW_IPC_METADATA_VERSION_V3;
   default:
-    return GARROW_IPC_METADATA_VERSION_V2;
+    return GARROW_IPC_METADATA_VERSION_V3;
   }
 }
 
-arrow::ipc::MetadataVersion::type
+arrow::ipc::MetadataVersion
 garrow_ipc_metadata_version_to_raw(GArrowIPCMetadataVersion version)
 {
   switch (version) {
   case GARROW_IPC_METADATA_VERSION_V1:
-    return arrow::ipc::MetadataVersion::type::V1;
+    return arrow::ipc::MetadataVersion::V1;
   case GARROW_IPC_METADATA_VERSION_V2:
-    return arrow::ipc::MetadataVersion::type::V2;
+    return arrow::ipc::MetadataVersion::V2;
+  case GARROW_IPC_METADATA_VERSION_V3:
+    return arrow::ipc::MetadataVersion::V3;
   default:
-    return arrow::ipc::MetadataVersion::type::V2;
+    return arrow::ipc::MetadataVersion::V3;
   }
 }

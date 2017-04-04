@@ -91,7 +91,7 @@ class ARROW_EXPORT FileReader {
 
   int num_record_batches() const;
 
-  MetadataVersion::type version() const;
+  MetadataVersion version() const;
 
   // Read a record batch from the file. Does not copy memory if the input
   // source supports zero-copy.

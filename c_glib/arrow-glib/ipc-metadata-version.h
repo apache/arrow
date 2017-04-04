@@ -27,13 +27,15 @@ G_BEGIN_DECLS
  * GArrowIPCMetadataVersion:
  * @GARROW_IPC_METADATA_VERSION_V1: Version 1.
  * @GARROW_IPC_METADATA_VERSION_V2: Version 2.
+ * @GARROW_IPC_METADATA_VERSION_V3: Version 3.
  *
  * They are corresponding to `arrow::ipc::MetadataVersion::type`
  * values.
  */
 typedef enum {
   GARROW_IPC_METADATA_VERSION_V1,
-  GARROW_IPC_METADATA_VERSION_V2
+  GARROW_IPC_METADATA_VERSION_V2,
+  GARROW_IPC_METADATA_VERSION_V3
 } GArrowIPCMetadataVersion;
 
 G_END_DECLS
