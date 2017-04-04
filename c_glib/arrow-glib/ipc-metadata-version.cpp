@@ -40,8 +40,10 @@ garrow_ipc_metadata_version_from_raw(arrow::ipc::MetadataVersion::type version)
     return GARROW_IPC_METADATA_VERSION_V1;
   case arrow::ipc::MetadataVersion::type::V2:
     return GARROW_IPC_METADATA_VERSION_V2;
+  case arrow::ipc::MetadataVersion::type::V3:
+    return GARROW_IPC_METADATA_VERSION_V3;
   default:
-    return GARROW_IPC_METADATA_VERSION_V2;
+    return GARROW_IPC_METADATA_VERSION_V3;
   }
 }
 
@@ -53,7 +55,9 @@ garrow_ipc_metadata_version_to_raw(GArrowIPCMetadataVersion version)
     return arrow::ipc::MetadataVersion::type::V1;
   case GARROW_IPC_METADATA_VERSION_V2:
     return arrow::ipc::MetadataVersion::type::V2;
+  case GARROW_IPC_METADATA_VERSION_V3:
+    return arrow::ipc::MetadataVersion::type::V3;
   default:
-    return arrow::ipc::MetadataVersion::type::V2;
+    return arrow::ipc::MetadataVersion::type::V3;
   }
 }

@@ -21,7 +21,8 @@ namespace org.apache.arrow.flatbuf;
 
 enum MetadataVersion:short {
   V1,
-  V2
+  V2,
+  V3
 }
 
 /// These are stored in the flatbuffer in the Type union below

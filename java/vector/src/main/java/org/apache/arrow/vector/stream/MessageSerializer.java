@@ -329,7 +329,7 @@ public class MessageSerializer {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
     Message.addHeader(builder, headerOffset);
-    Message.addVersion(builder, MetadataVersion.V2);
+    Message.addVersion(builder, MetadataVersion.V3);
     Message.addBodyLength(builder, bodyLength);
     builder.finish(Message.endMessage(builder));
     return builder.dataBuffer();

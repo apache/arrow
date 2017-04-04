@@ -51,7 +51,7 @@ class RandomAccessFile;
 namespace ipc {
 
 struct MetadataVersion {
-  enum type { V1, V2 };
+  enum type { V1, V2, V3 };
 };
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
