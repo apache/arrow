@@ -134,7 +134,11 @@ cdef class UInt64Value(ArrayValue):
 cdef class Date32Value(ArrayValue):
 
     def as_py(self):
-        raise NotImplementedError
+        cdef CDate32Array* ap = <CDate32Array*> self.sp_array.get()
+
+        # Shift to seconds since epoch
+        return datetime.datetime.utcfromtimestamp(
+            int(ap.Value(self.index)) * 86400).date()
 
 
 cdef class Date64Value(ArrayValue):

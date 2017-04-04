@@ -24,7 +24,7 @@
 namespace arrow {
 namespace py {
 
-inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
+static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   struct tm date = {0};
   date.tm_year = PyDateTime_GET_YEAR(pydate) - 1900;
   date.tm_mon = PyDateTime_GET_MONTH(pydate) - 1;
@@ -34,6 +34,10 @@ inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   epoch.tm_mday = 1;
   // Milliseconds since the epoch
   return lrint(difftime(mktime(&date), mktime(&epoch)) * 1000);
+}
+
+static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
+  return static_cast<int32_t>(PyDate_to_ms(pydate) / 86400000LL);
 }
 
 }  // namespace py
