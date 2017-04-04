@@ -26,6 +26,12 @@ cimport cpython as cp
 
 NA = None
 
+
+cdef _pandas():
+    import pandas as pd
+    return pd
+
+
 cdef class NAType(Scalar):
 
     def __cinit__(self):
@@ -146,16 +152,37 @@ cdef class TimestampValue(ArrayValue):
             CTimestampType* dtype = <CTimestampType*>ap.type().get()
             int64_t val = ap.Value(self.index)
 
-        if dtype.unit == TimeUnit_SECOND:
-            return datetime.datetime.utcfromtimestamp(val)
-        elif dtype.unit == TimeUnit_MILLI:
-            return datetime.datetime.utcfromtimestamp(float(val) / 1000)
-        elif dtype.unit == TimeUnit_MICRO:
-            return datetime.datetime.utcfromtimestamp(float(val) / 1000000)
-        else:
-            # TimeUnit_NANO
-            raise NotImplementedError("Cannot convert nanosecond timestamps "
-                                      "to datetime.datetime")
+        timezone = None
+        tzinfo = None
+        if dtype.timezone.size() > 0:
+            timezone = frombytes(dtype.timezone)
+            import pytz
+            tzinfo = pytz.timezone(timezone)
+
+        try:
+            pd = _pandas()
+            if dtype.unit == TimeUnit_SECOND:
+                val = val * 1000000000
+            elif dtype.unit == TimeUnit_MILLI:
+                val = val * 1000000
+            elif dtype.unit == TimeUnit_MICRO:
+                val = val * 1000
+            return pd.Timestamp(val, tz=tzinfo)
+        except ImportError:
+            if dtype.unit == TimeUnit_SECOND:
+                result = datetime.datetime.utcfromtimestamp(val)
+            elif dtype.unit == TimeUnit_MILLI:
+                result = datetime.datetime.utcfromtimestamp(float(val) / 1000)
+            elif dtype.unit == TimeUnit_MICRO:
+                result = datetime.datetime.utcfromtimestamp(
+                    float(val) / 1000000)
+            else:
+                # TimeUnit_NANO
+                raise NotImplementedError("Cannot convert nanosecond "
+                                          "timestamps without pandas")
+            if timezone is not None:
+                result = result.replace(tzinfo=tzinfo)
+            return result
 
 
 cdef class FloatValue(ArrayValue):

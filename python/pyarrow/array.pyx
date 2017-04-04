@@ -29,7 +29,7 @@ cimport pyarrow.includes.pyarrow as pyarrow
 
 import pyarrow.config
 
-from pyarrow.compat import frombytes, tobytes
+from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
 from pyarrow.error cimport check_status
 from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
 
@@ -42,11 +42,6 @@ from pyarrow.schema cimport (DataType, Field, Schema, DictionaryType,
 import pyarrow.schema as schema
 
 cimport cpython
-
-
-cdef _pandas():
-    import pandas as pd
-    return pd
 
 
 cdef maybe_coerce_datetime64(values, dtype, DataType type,
@@ -66,7 +61,7 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
         tz = dtype.tz
         unit = 'ms' if coerce_ms else dtype.unit
         type = schema.timestamp(unit, tz)
-    else:
+    elif type is None:
         # Trust the NumPy dtype
         type = schema.type_from_numpy_dtype(values.dtype)
 
@@ -141,15 +136,13 @@ cdef class Array:
             shared_ptr[CDataType] c_type
             CMemoryPool* pool
 
-        pd = _pandas()
-
         if mask is not None:
             mask = get_series_values(mask)
 
         values = get_series_values(obj)
         pool = maybe_unbox_memory_pool(memory_pool)
 
-        if isinstance(values, pd.Categorical):
+        if isinstance(values, Categorical):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, memory_pool=memory_pool)
@@ -397,9 +390,9 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return _pandas().Categorical(obj['indices'],
-                                     categories=obj['dictionary'],
-                                     fastpath=True)
+        return Categorical(obj['indices'],
+                           categories=obj['dictionary'],
+                           fastpath=True)
     else:
         return obj
 
@@ -622,14 +615,12 @@ cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor):
 
 
 cdef object get_series_values(object obj):
-    import pandas as pd
-
-    if isinstance(obj, pd.Series):
+    if isinstance(obj, PandasSeries):
         result = obj.values
     elif isinstance(obj, np.ndarray):
         result = obj
     else:
-        result = pd.Series(obj).values
+        result = PandasSeries(obj).values
 
     return result
 
