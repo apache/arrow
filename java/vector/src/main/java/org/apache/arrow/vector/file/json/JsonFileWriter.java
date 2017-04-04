@@ -23,11 +23,13 @@ import java.util.List;
 
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.DateVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -155,6 +157,12 @@ public class JsonFileWriter implements AutoCloseable {
         break;
       case TIMESTAMPNANO:
         generator.writeNumber(((TimeStampNanoVector)valueVector).getAccessor().get(i));
+        break;
+      case DATE:
+        generator.writeNumber(((DateVector)valueVector).getAccessor().get(i));
+        break;
+      case TIME:
+        generator.writeNumber(((TimeVector)valueVector).getAccessor().get(i));
         break;
       case BIT:
         generator.writeNumber(((BitVector)valueVector).getAccessor().get(i));
