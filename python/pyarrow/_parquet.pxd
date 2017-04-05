@@ -179,7 +179,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         @staticmethod
         unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
-        shared_ptr[CFileMetaData] metadata();
+        shared_ptr[CFileMetaData] metadata()
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
@@ -211,11 +211,18 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
-        CStatus ReadColumn(int i, shared_ptr[CArray]* out);
-        CStatus ReadTable(shared_ptr[CTable]* out);
+        CStatus ReadColumn(int i, shared_ptr[CArray]* out)
+
+        int num_row_groups()
+        CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)
+        CStatus ReadRowGroup(int i, const vector[int]& column_indices,
+                             shared_ptr[CTable]* out)
+
+        CStatus ReadTable(shared_ptr[CTable]* out)
         CStatus ReadTable(const vector[int]& column_indices,
-                              shared_ptr[CTable]* out);
-        const ParquetFileReader* parquet_reader();
+                          shared_ptr[CTable]* out)
+
+        const ParquetFileReader* parquet_reader()
 
         void set_num_threads(int num_threads)
 

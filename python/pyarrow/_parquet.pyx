@@ -31,7 +31,7 @@ from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
 from pyarrow.io import NativeFile
 from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
-from pyarrow.table cimport Table
+from pyarrow.table cimport Table, table_from_ctable
 
 from pyarrow.io cimport NativeFile, get_reader, get_writer
 
@@ -381,16 +381,39 @@ cdef class ParquetReader:
         result.init(metadata)
         return result
 
-    def read(self, column_indices=None, nthreads=1):
+    property num_row_groups:
+
+        def __get__(self):
+            return self.reader.get().num_row_groups()
+
+    def set_num_threads(self, int nthreads):
+        self.reader.get().set_num_threads(nthreads)
+
+    def read_row_group(self, int i, column_indices=None):
         cdef:
-            Table table = Table()
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
 
-        self.reader.get().set_num_threads(nthreads)
+        if column_indices is not None:
+            for index in column_indices:
+                c_column_indices.push_back(index)
+
+            with nogil:
+                check_status(self.reader.get()
+                             .ReadRowGroup(i, c_column_indices, &ctable))
+        else:
+            # Read all columns
+            with nogil:
+                check_status(self.reader.get()
+                             .ReadRowGroup(i, &ctable))
+        return table_from_ctable(ctable)
+
+    def read_all(self, column_indices=None):
+        cdef:
+            shared_ptr[CTable] ctable
+            vector[int] c_column_indices
 
         if column_indices is not None:
-            # Read only desired column indices
             for index in column_indices:
                 c_column_indices.push_back(index)
 
@@ -402,9 +425,7 @@ cdef class ParquetReader:
             with nogil:
                 check_status(self.reader.get()
                              .ReadTable(&ctable))
-
-        table.init(ctable)
-        return table
+        return table_from_ctable(ctable)
 
     def column_name_idx(self, column_name):
         """
