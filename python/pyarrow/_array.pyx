@@ -244,6 +244,9 @@ cdef class Schema:
         self.schema = schema.get()
         self.sp_schema = schema
 
+    def custom_metadata(self):
+        return self.schema.custom_metadata()
+
     def equals(self, other):
         """
         Test if this schema is equal to the other

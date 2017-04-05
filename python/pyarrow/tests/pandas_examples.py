@@ -72,6 +72,7 @@ def dataframe_with_arrays():
                  dtype='datetime64[ms]'),
     ]
 
+    fields.append(pa.field('__index_level_0__', pa.int64()))
     df = pd.DataFrame(arrays)
     schema = pa.Schema.from_fields(fields)
 
@@ -113,6 +114,7 @@ def dataframe_with_lists():
         [u"1", u"2", u"3"]
     ]
 
+    fields.append(pa.field('__index_level_0__', pa.int64()))
     df = pd.DataFrame(arrays)
     schema = pa.Schema.from_fields(fields)
 

@@ -233,6 +233,10 @@ std::string NullType::ToString() const {
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) : fields_(fields) {}
 
+Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
+    const std::unordered_map<std::string, std::vector<uint8_t>>& custom_metadata)
+    : fields_(fields), custom_metadata_(custom_metadata) {}
+
 bool Schema::Equals(const Schema& other) const {
   if (this == &other) { return true; }
 
@@ -263,7 +267,19 @@ Status Schema::AddField(
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field));
+  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), custom_metadata_);
+  return Status::OK();
+}
+
+Status Schema::AddCustomMetadata(
+    const std::unordered_map<std::string, std::vector<uint8_t>>& custom_metadata,
+    std::shared_ptr<Schema>* out) const {
+  *out = std::make_shared<Schema>(fields_, custom_metadata);
+  return Status::OK();
+}
+
+Status Schema::RemoveCustomMetadata(std::shared_ptr<Schema>* out) {
+  *out = std::make_shared<Schema>(fields_);
   return Status::OK();
 }
 
@@ -271,7 +287,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i));
+  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), custom_metadata_);
   return Status::OK();
 }
 

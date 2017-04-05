@@ -113,7 +113,7 @@ Status Array::Validate() const {
 static inline void ConformSliceParams(
     int64_t array_offset, int64_t array_length, int64_t* offset, int64_t* length) {
   DCHECK_LE(*offset, array_length);
-  DCHECK_GE(offset, 0);
+  DCHECK_NE(offset, nullptr);
   *length = std::min(array_length - *offset, *length);
   *offset = array_offset + *offset;
 }

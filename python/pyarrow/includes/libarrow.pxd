@@ -170,10 +170,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
+        CSchema(const vector[shared_ptr[CField]]& fields,
+                const unordered_map[c_string, vector[uint8_t]]&
+                custom_metadata)
 
         c_bool Equals(const CSchema& other)
 
         shared_ptr[CField] field(int i)
+        const unordered_map[c_string, vector[uint8_t]]& custom_metadata()
         shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()

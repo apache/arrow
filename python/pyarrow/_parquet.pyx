@@ -81,7 +81,7 @@ cdef class FileMetaData:
     cdef:
         shared_ptr[CFileMetaData] sp_metadata
         CFileMetaData* metadata
-        object _schema
+        ParquetSchema _schema
 
     def __cinit__(self):
         pass
@@ -159,14 +159,16 @@ cdef class FileMetaData:
         result.init_from_file(self, i)
         return result
 
+    def key_value_metadata(self):
+        return self.metadata.key_value_metadata()
+
 
 cdef class ParquetSchema:
     cdef:
-        object parent  # the FileMetaData owning the SchemaDescriptor
+        FileMetaData parent  # the FileMetaData owning the SchemaDescriptor
         const SchemaDescriptor* schema
 
     def __cinit__(self):
-        self.parent = None
         self.schema = NULL
 
     def __repr__(self):
@@ -211,7 +213,9 @@ cdef class ParquetSchema:
             shared_ptr[CSchema] sp_arrow_schema
 
         with nogil:
-            check_status(FromParquetSchema(self.schema, &sp_arrow_schema))
+            check_status(FromParquetSchema(
+                self.schema, self.parent.metadata.key_value_metadata(),
+                &sp_arrow_schema))
 
         return box_schema(sp_arrow_schema)
 
