@@ -56,12 +56,12 @@ class ParquetFile(object):
 
     def read_row_group(self, i, columns=None, nthreads=1):
         """
-        Read a Table from Parquet format
+        Read a single row group from a Parquet file
 
         Parameters
         ----------
         columns: list
-            If not None, only these columns will be read from the file.
+            If not None, only these columns will be read from the row group.
         nthreads : int, default 1
             Number of columns to read in parallel. If > 1, requires that the
             underlying file source is threadsafe
@@ -69,7 +69,7 @@ class ParquetFile(object):
         Returns
         -------
         pyarrow.table.Table
-            Content of the file as a table (of columns)
+            Content of the row group as a table (of columns)
         """
         column_indices = self._get_column_indices(columns)
         self.reader.set_num_threads(nthreads)
