@@ -86,11 +86,15 @@ public class TestSchema {
         field("h", new Binary()),
         field("i", new Bool()),
         field("j", new Decimal(5, 5)),
-        field("k", new Date(DateUnit.MILLISECOND)),
-        field("l", new Time(TimeUnit.MILLISECOND, 32)),
-        field("m", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        field("n", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("o", new Interval(IntervalUnit.DAY_TIME))
+        field("k", new Date(DateUnit.DAY)),
+        field("l", new Date(DateUnit.MILLISECOND)),
+        field("m", new Time(TimeUnit.SECOND, 32)),
+        field("n", new Time(TimeUnit.MILLISECOND, 32)),
+        field("o", new Time(TimeUnit.MICROSECOND, 64)),
+        field("p", new Time(TimeUnit.NANOSECOND, 64)),
+        field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+        field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
+        field("s", new Interval(IntervalUnit.DAY_TIME))
         ));
     roundTrip(schema);
   }
@@ -102,6 +106,32 @@ public class TestSchema {
         ));
     roundTrip(schema);
     contains(schema, "Sparse");
+  }
+
+  @Test
+  public void testDate() throws IOException {
+    Schema schema = new Schema(asList(
+        field("a", new Date(DateUnit.DAY)),
+        field("b", new Date(DateUnit.MILLISECOND))
+        ));
+    roundTrip(schema);
+    assertEquals(
+        "Schema<a: Date(DAY), b: Date(MILLISECOND)>",
+        schema.toString());
+  }
+
+  @Test
+  public void testTime() throws IOException {
+    Schema schema = new Schema(asList(
+            field("a", new Time(TimeUnit.SECOND, 32)),
+            field("b", new Time(TimeUnit.MILLISECOND, 32)),
+            field("c", new Time(TimeUnit.MICROSECOND, 64)),
+            field("d", new Time(TimeUnit.NANOSECOND, 64))
+    ));
+    roundTrip(schema);
+    assertEquals(
+            "Schema<a: Time(SECOND, 32), b: Time(MILLISECOND, 32), c: Time(MICROSECOND, 64), d: Time(NANOSECOND, 64)>",
+            schema.toString());
   }
 
   @Test

@@ -25,7 +25,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableBigIntVector;
 import org.apache.arrow.vector.NullableBitVector;
-import org.apache.arrow.vector.NullableDateVector;
+import org.apache.arrow.vector.NullableDateDayVector;
+import org.apache.arrow.vector.NullableDateMilliVector;
 import org.apache.arrow.vector.NullableDecimalVector;
 import org.apache.arrow.vector.NullableFloat4Vector;
 import org.apache.arrow.vector.NullableFloat8Vector;
@@ -33,11 +34,14 @@ import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableIntervalDayVector;
 import org.apache.arrow.vector.NullableIntervalYearVector;
 import org.apache.arrow.vector.NullableSmallIntVector;
+import org.apache.arrow.vector.NullableTimeMicroVector;
+import org.apache.arrow.vector.NullableTimeMilliVector;
+import org.apache.arrow.vector.NullableTimeNanoVector;
+import org.apache.arrow.vector.NullableTimeSecVector;
 import org.apache.arrow.vector.NullableTimeStampMicroVector;
 import org.apache.arrow.vector.NullableTimeStampMilliVector;
 import org.apache.arrow.vector.NullableTimeStampNanoVector;
 import org.apache.arrow.vector.NullableTimeStampSecVector;
-import org.apache.arrow.vector.NullableTimeVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
 import org.apache.arrow.vector.NullableUInt1Vector;
 import org.apache.arrow.vector.NullableUInt2Vector;
@@ -52,7 +56,8 @@ import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.impl.DateWriterImpl;
+import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
+import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
@@ -61,11 +66,14 @@ import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
 import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeMicroWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeMilliWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeNanoWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeSecWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampSecWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeWriterImpl;
 import org.apache.arrow.vector.complex.impl.TinyIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
@@ -164,26 +172,70 @@ public class Types {
         return new BigIntWriterImpl((NullableBigIntVector) vector);
       }
     },
-    DATE(new Date(DateUnit.MILLISECOND)) {
+    DATEDAY(new Date(DateUnit.DAY)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new NullableDateVector(name, fieldType, allocator);
+        return new NullableDateDayVector(name, fieldType, allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new DateWriterImpl((NullableDateVector) vector);
+        return new DateDayWriterImpl((NullableDateDayVector) vector);
       }
     },
-    TIME(new Time(TimeUnit.MILLISECOND, 32)) {
+    DATEMILLI(new Date(DateUnit.MILLISECOND)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new NullableTimeVector(name, fieldType, allocator);
+        return new NullableDateMilliVector(name, fieldType, allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeWriterImpl((NullableTimeVector) vector);
+        return new DateMilliWriterImpl((NullableDateMilliVector) vector);
+      }
+    },
+    TIMESEC(new Time(TimeUnit.SECOND, 32)) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeSecVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeSecWriterImpl((NullableTimeSecVector) vector);
+      }
+    },
+    TIMEMILLI(new Time(TimeUnit.MILLISECOND, 32)) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeMilliVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeMilliWriterImpl((NullableTimeMilliVector) vector);
+      }
+    },
+    TIMEMICRO(new Time(TimeUnit.MICROSECOND, 64)) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeMicroVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeMicroWriterImpl((NullableTimeMicroVector) vector);
+      }
+    },
+    TIMENANO(new Time(TimeUnit.NANOSECOND, 64)) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeNanoVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeNanoWriterImpl((NullableTimeNanoVector) vector);
       }
     },
     // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
@@ -479,14 +531,29 @@ public class Types {
       }
 
       @Override public MinorType visit(Date type) {
-        return MinorType.DATE;
+        switch (type.getUnit()) {
+          case DAY:
+            return MinorType.DATEDAY;
+          case MILLISECOND:
+            return MinorType.DATEMILLI;
+          default:
+            throw new IllegalArgumentException("unknown unit: " + type);
+        }
       }
 
       @Override public MinorType visit(Time type) {
-        if (type.getUnit() != TimeUnit.MILLISECOND || type.getBitWidth() != 32) {
-          throw new IllegalArgumentException("Only milliseconds on 32 bits supported for now: " + type);
+        switch (type.getUnit()) {
+          case SECOND:
+            return MinorType.TIMESEC;
+          case MILLISECOND:
+            return MinorType.TIMEMILLI;
+          case MICROSECOND:
+            return MinorType.TIMEMICRO;
+          case NANOSECOND:
+            return MinorType.TIMENANO;
+          default:
+            throw new IllegalArgumentException("unknown unit: " + type);
         }
-        return MinorType.TIME;
       }
 
       @Override public MinorType visit(Timestamp type) {

@@ -56,8 +56,10 @@
         { class: "Int", valueHolder: "IntHolder"},
         { class: "UInt4", valueHolder: "UInt4Holder" },
         { class: "Float4", javaType: "float" , boxedType: "Float", fields: [{name: "value", type: "float"}]},
-        { class: "IntervalYear", javaType: "int", friendlyType: "Period" }
-        { class: "Time", javaType: "int", friendlyType: "DateTime" }
+        { class: "DateDay" },
+        { class: "IntervalYear", javaType: "int", friendlyType: "Period" },
+        { class: "TimeSec" },
+        { class: "TimeMilli" }
       ]
     },
     {
@@ -70,11 +72,13 @@
         { class: "BigInt"},
         { class: "UInt8" },
         { class: "Float8", javaType: "double" , boxedType: "Double", fields: [{name: "value", type: "double"}], },
-        { class: "Date", javaType: "long", friendlyType: "DateTime" },
-        { class: "TimeStampSec", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
-        { class: "TimeStampMilli", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
-        { class: "TimeStampMicro", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
-        { class: "TimeStampNano", javaType: "long", boxedType: "Long", friendlyType: "DateTime" }
+        { class: "DateMilli" },
+        { class: "TimeStampSec", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
+        { class: "TimeStampMilli", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
+        { class: "TimeStampMicro", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
+        { class: "TimeStampNano", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
+        { class: "TimeMicro" },
+        { class: "TimeNano" }
       ]
     },
     {

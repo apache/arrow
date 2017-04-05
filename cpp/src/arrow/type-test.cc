@@ -191,12 +191,15 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
-TEST(TestDateTypes, ToString) {
+TEST(TestDateTypes, Attrs) {
   auto t1 = date32();
   auto t2 = date64();
 
   ASSERT_EQ("date32[day]", t1->ToString());
   ASSERT_EQ("date64[ms]", t2->ToString());
+
+  ASSERT_EQ(32, static_cast<const FixedWidthType&>(*t1).bit_width());
+  ASSERT_EQ(64, static_cast<const FixedWidthType&>(*t2).bit_width());
 }
 
 TEST(TestTimeType, Equals) {
@@ -206,6 +209,9 @@ TEST(TestTimeType, Equals) {
   Time64Type t3(TimeUnit::MICRO);
   Time64Type t4(TimeUnit::NANO);
   Time64Type t5(TimeUnit::MICRO);
+
+  ASSERT_EQ(32, t0.bit_width());
+  ASSERT_EQ(64, t3.bit_width());
 
   ASSERT_TRUE(t0.Equals(t2));
   ASSERT_TRUE(t1.Equals(t1));

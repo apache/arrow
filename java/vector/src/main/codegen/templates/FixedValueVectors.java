@@ -19,6 +19,7 @@
 import org.apache.arrow.vector.util.DecimalUtility;
 
 import java.lang.Override;
+import java.util.concurrent.TimeUnit;
 
 <@pp.dropOutputFile />
 <#list vv.types as type>
@@ -482,12 +483,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     </#if>
 
-    <#if minor.class == "Date">
+    <#if minor.class == "DateDay" ||
+         minor.class == "DateMilli" ||
+         minor.class == "TimeSec" ||
+         minor.class == "TimeMilli" ||
+         minor.class == "TimeMicro" ||
+         minor.class == "TimeNano">
     @Override
     public ${friendlyType} getObject(int index) {
-        org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return date;
+      return get(index);
     }
 
     <#elseif minor.class == "TimeStampSec">
@@ -552,15 +556,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return(new StringBuilder().
              append(years).append(yearString).
              append(months).append(monthString));
-    }
-
-    <#elseif minor.class == "Time">
-    @Override
-    public DateTime getObject(int index) {
-
-        org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return time;
     }
 
     <#elseif minor.class == "Decimal9" || minor.class == "Decimal18">

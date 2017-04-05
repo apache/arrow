@@ -18,6 +18,7 @@
 #ifndef ARROW_TYPE_H
 #define ARROW_TYPE_H
 
+#include <climits>
 #include <cstdint>
 #include <memory>
 #include <ostream>
@@ -220,7 +221,7 @@ struct ARROW_EXPORT CTypeImpl : public BASE {
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
-  int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
@@ -456,7 +457,7 @@ struct ARROW_EXPORT Date32Type : public DateType {
 
   Date32Type();
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -470,7 +471,7 @@ struct ARROW_EXPORT Date64Type : public DateType {
 
   Date64Type();
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -509,7 +510,7 @@ struct ARROW_EXPORT Time32Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
   explicit Time32Type(TimeUnit unit = TimeUnit::MILLI);
 
@@ -521,7 +522,7 @@ struct ARROW_EXPORT Time64Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME64;
   using c_type = int64_t;
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
   explicit Time64Type(TimeUnit unit = TimeUnit::MILLI);
 
@@ -535,7 +536,7 @@ struct ARROW_EXPORT TimestampType : public FixedWidthType {
   typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
 
-  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
       : FixedWidthType(Type::TIMESTAMP), unit(unit) {}
@@ -557,7 +558,7 @@ struct ARROW_EXPORT IntervalType : public FixedWidthType {
   using c_type = int64_t;
   static constexpr Type::type type_id = Type::INTERVAL;
 
-  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * 8); }
+  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   Unit unit;
 

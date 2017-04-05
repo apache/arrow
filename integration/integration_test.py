@@ -175,10 +175,14 @@ TEST_INT_MAX = 2**31 - 1
 
 class IntegerType(PrimitiveType):
 
-    def __init__(self, name, is_signed, bit_width, nullable=True):
+    def __init__(self, name, is_signed, bit_width, nullable=True,
+                 min_value=TEST_INT_MIN,
+                 max_value=TEST_INT_MAX):
         PrimitiveType.__init__(self, name, nullable=nullable)
         self.is_signed = is_signed
         self.bit_width = bit_width
+        self.min_value = min_value
+        self.max_value = max_value
 
     @property
     def numpy_type(self):
@@ -194,12 +198,78 @@ class IntegerType(PrimitiveType):
     def generate_column(self, size):
         iinfo = np.iinfo(self.numpy_type)
         values = [int(x) for x in
-                  np.random.randint(max(iinfo.min, TEST_INT_MIN),
-                                    min(iinfo.max, TEST_INT_MAX),
+                  np.random.randint(max(iinfo.min, self.min_value),
+                                    min(iinfo.max, self.max_value),
                                     size=size)]
 
         is_valid = self._make_is_valid(size)
         return PrimitiveColumn(self.name, size, is_valid, values)
+
+
+class DateType(IntegerType):
+
+    DAY = 0
+    MILLISECOND = 1
+
+    def __init__(self, name, unit, nullable=True):
+        self.unit = unit
+        bit_width = 32 if unit == self.DAY else 64
+        IntegerType.__init__(self, name, True, bit_width, nullable=nullable)
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'date'),
+            ('unit', 'DAY' if self.unit == self.DAY else 'MILLISECOND')
+        ])
+
+
+TIMEUNIT_NAMES = {
+    's': 'SECOND',
+    'ms': 'MILLISECOND',
+    'us': 'MICROSECOND',
+    'ns': 'NANOSECOND'
+}
+
+
+class TimeType(IntegerType):
+
+    BIT_WIDTHS = {
+        's': 32,
+        'ms': 32,
+        'us': 64,
+        'ns': 64
+    }
+
+    def __init__(self, name, unit='s', nullable=True):
+        self.unit = unit
+        IntegerType.__init__(self, name, True, self.BIT_WIDTHS[unit],
+                             nullable=nullable)
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'time'),
+            ('unit', TIMEUNIT_NAMES[self.unit]),
+            ('bitWidth', self.bit_width)
+        ])
+
+
+class TimestampType(IntegerType):
+
+    def __init__(self, name, unit='s', tz=None, nullable=True):
+        self.unit = unit
+        self.tz = tz
+        IntegerType.__init__(self, name, True, 64, nullable=nullable)
+
+    def _get_type(self):
+        fields = [
+            ('name', 'timestamp'),
+            ('unit', TIMEUNIT_NAMES[self.unit])
+        ]
+
+        if self.tz is not None:
+            fields.append(('timezone', self.tz))
+
+        return OrderedDict(fields)
 
 
 class FloatingPointType(PrimitiveType):
@@ -509,6 +579,20 @@ def get_field(name, type_, nullable=True):
         raise TypeError(dtype)
 
 
+def _generate_file(fields, batch_sizes):
+    schema = JSONSchema(fields)
+    batches = []
+    for size in batch_sizes:
+        columns = []
+        for field in fields:
+            col = field.generate_column(size)
+            columns.append(col)
+
+        batches.append(JSONRecordBatch(size, columns))
+
+    return JSONFile(schema, batches)
+
+
 def generate_primitive_case():
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
@@ -520,19 +604,27 @@ def generate_primitive_case():
         fields.append(get_field(type_ + "_nullable", type_, True))
         fields.append(get_field(type_ + "_nonnullable", type_, False))
 
-    schema = JSONSchema(fields)
+    batch_sizes = [7, 10]
+    return _generate_file(fields, batch_sizes)
+
+
+def generate_datetime_case():
+    fields = [
+        DateType('f0', DateType.DAY),
+        DateType('f1', DateType.MILLISECOND),
+        TimeType('f2', 's'),
+        TimeType('f3', 'ms'),
+        TimeType('f4', 'us'),
+        TimeType('f5', 'ns'),
+        TimestampType('f6', 's'),
+        TimestampType('f7', 'ms'),
+        TimestampType('f8', 'us'),
+        TimestampType('f9', 'ns'),
+        TimestampType('f10', 'ms', tz='America/New_York')
+    ]
 
     batch_sizes = [7, 10]
-    batches = []
-    for size in batch_sizes:
-        columns = []
-        for field in fields:
-            col = field.generate_column(size)
-            columns.append(col)
-
-        batches.append(JSONRecordBatch(size, columns))
-
-    return JSONFile(schema, batches)
+    return _generate_file(fields, batch_sizes)
 
 
 def generate_nested_case():
@@ -545,19 +637,8 @@ def generate_nested_case():
         # ListType('list_nonnullable', get_field('item', 'int32'), False),
     ]
 
-    schema = JSONSchema(fields)
-
     batch_sizes = [7, 10]
-    batches = []
-    for size in batch_sizes:
-        columns = []
-        for field in fields:
-            col = field.generate_column(size)
-            columns.append(col)
-
-        batches.append(JSONRecordBatch(size, columns))
-
-    return JSONFile(schema, batches)
+    return _generate_file(fields, batch_sizes)
 
 
 def get_generated_json_files():
@@ -566,13 +647,13 @@ def get_generated_json_files():
     def _temp_path():
         return
 
-    file_objs = []
-
-    K = 10
-    for i in range(K):
-        file_objs.append(generate_primitive_case())
-
-    file_objs.append(generate_nested_case())
+    file_objs = [
+        generate_primitive_case(),
+        generate_primitive_case(),
+        generate_primitive_case(),
+        generate_datetime_case(),
+        generate_nested_case()
+    ]
 
     generated_paths = []
     for file_obj in file_objs:
