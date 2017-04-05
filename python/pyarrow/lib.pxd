@@ -33,7 +33,7 @@ cdef class MemoryPool:
     cdef:
         CMemoryPool* pool
 
-    cdef init(self, CMemoryPool* pool)
+    cdef void init(self, CMemoryPool* pool)
 
 
 cdef class LoggingMemoryPool(MemoryPool):
@@ -89,7 +89,7 @@ cdef class Field:
     cdef readonly:
         DataType type
 
-    cdef init(self, const shared_ptr[CField]& field)
+    cdef void init(self, const shared_ptr[CField]& field)
 
 
 cdef class Schema:
@@ -97,8 +97,8 @@ cdef class Schema:
         shared_ptr[CSchema] sp_schema
         CSchema* schema
 
-    cdef init(self, const vector[shared_ptr[CField]]& fields)
-    cdef init_schema(self, const shared_ptr[CSchema]& schema)
+    cdef void init(self, const vector[shared_ptr[CField]]& fields)
+    cdef void init_schema(self, const shared_ptr[CSchema]& schema)
 
 
 cdef class Scalar:
@@ -155,7 +155,7 @@ cdef class Array:
     cdef readonly:
         DataType type
 
-    cdef init(self, const shared_ptr[CArray]& sp_array)
+    cdef void init(self, const shared_ptr[CArray]& sp_array)
     cdef getitem(self, int64_t i)
 
 
@@ -167,7 +167,7 @@ cdef class Tensor:
     cdef readonly:
         DataType type
 
-    cdef init(self, const shared_ptr[CTensor]& sp_tensor)
+    cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
 cdef class NullArray(Array):
@@ -266,8 +266,8 @@ cdef class ChunkedArray:
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
 
-    cdef init(self, const shared_ptr[CChunkedArray]& chunked_array)
-    cdef _check_nullptr(self)
+    cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array)
+    cdef int _check_nullptr(self) except -1
 
 
 cdef class Column:
@@ -275,8 +275,8 @@ cdef class Column:
         shared_ptr[CColumn] sp_column
         CColumn* column
 
-    cdef init(self, const shared_ptr[CColumn]& column)
-    cdef _check_nullptr(self)
+    cdef void init(self, const shared_ptr[CColumn]& column)
+    cdef int _check_nullptr(self) except -1
 
 
 cdef class Table:
@@ -284,8 +284,8 @@ cdef class Table:
         shared_ptr[CTable] sp_table
         CTable* table
 
-    cdef init(self, const shared_ptr[CTable]& table)
-    cdef _check_nullptr(self)
+    cdef void init(self, const shared_ptr[CTable]& table)
+    cdef int _check_nullptr(self) except -1
 
 
 cdef class RecordBatch:
@@ -294,8 +294,8 @@ cdef class RecordBatch:
         CRecordBatch* batch
         Schema _schema
 
-    cdef init(self, const shared_ptr[CRecordBatch]& table)
-    cdef _check_nullptr(self)
+    cdef void init(self, const shared_ptr[CRecordBatch]& table)
+    cdef int _check_nullptr(self) except -1
 
 
 cdef class Buffer:
@@ -304,7 +304,7 @@ cdef class Buffer:
         Py_ssize_t shape[1]
         Py_ssize_t strides[1]
 
-    cdef init(self, const shared_ptr[CBuffer]& buffer)
+    cdef void init(self, const shared_ptr[CBuffer]& buffer)
 
 
 cdef class NativeFile:
@@ -335,3 +335,5 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
+
+cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)

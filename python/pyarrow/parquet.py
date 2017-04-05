@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import itertools
+import json
+
 import six
 
 import numpy as np
@@ -101,14 +104,31 @@ class ParquetFile(object):
         column_indices = self._get_column_indices(columns)
         if nthreads is not None:
             self.reader.set_num_threads(nthreads)
+
+        return self.reader.read_all(column_indices=column_indices)
+
+    def read_pandas(self, columns=None, nthreads=1):
+        column_indices = self._get_column_indices(columns)
+        custom_metadata = self.metadata.metadata
+
+        if custom_metadata and b'pandas' in custom_metadata:
+            index_columns = json.loads(
+                custom_metadata[b'pandas'].decode('utf8')
+            )['index_columns']
+        else:
+            index_columns = []
+
+        if column_indices and index_columns:
+            column_indices += index_columns
+
+        if nthreads is not None:
+            self.reader.set_num_threads(nthreads)
         return self.reader.read_all(column_indices=column_indices)
 
     def _get_column_indices(self, column_names):
         if column_names is None:
             return None
-        else:
-            return [self.reader.column_name_idx(column)
-                    for column in column_names]
+        return list(map(self.reader.column_name_idx, column_names))
 
 
 # ----------------------------------------------------------------------
@@ -616,6 +636,19 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
 
     pf = ParquetFile(source, metadata=metadata)
     return pf.read(columns=columns, nthreads=nthreads)
+
+
+def read_pandas(source, columns=None, nthreads=1, metadata=None):
+    if is_string(source):
+        fs = LocalFilesystem.get_instance()
+        if fs.isdir(source):
+            raise NotImplementedError(
+                'Reading Parquet files with DataFrame index metadata is not '
+                'yet supported'
+            )
+
+    pf = ParquetFile(source, metadata=metadata)
+    return pf.read_pandas(columns=columns, nthreads=nthreads)
 
 
 def write_table(table, where, row_group_size=None, version='1.0',

@@ -21,7 +21,7 @@
 
 
 cdef class MemoryPool:
-    cdef init(self, CMemoryPool* pool):
+    cdef void init(self, CMemoryPool* pool):
         self.pool = pool
 
     def bytes_allocated(self):

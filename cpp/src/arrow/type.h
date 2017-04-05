@@ -699,7 +699,10 @@ class ARROW_EXPORT Schema {
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }
 
   // Returns nullptr if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name);
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  // Returns -1 if name not found
+  int64_t GetFieldIndex(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
@@ -720,7 +723,7 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
-  std::unordered_map<std::string, int> name_to_index_;
+  mutable std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };

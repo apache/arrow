@@ -462,7 +462,7 @@ cdef class Buffer:
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CBuffer]& buffer):
+    cdef void init(self, const shared_ptr[CBuffer]& buffer):
         self.buffer = buffer
         self.shape[0] = self.size
         self.strides[0] = <Py_ssize_t>(1)

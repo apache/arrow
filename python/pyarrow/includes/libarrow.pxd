@@ -29,6 +29,7 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
         void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum Type" arrow::Type::type":
@@ -205,7 +206,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CField] field(int i)
         shared_ptr[const CKeyValueMetadata] metadata()
-        shared_ptr[CField] GetFieldByName(c_string& name)
+        shared_ptr[CField] GetFieldByName(const c_string& name)
+        int64_t GetFieldIndex(const c_string& name)
         int num_fields()
         c_string ToString()
 
@@ -686,8 +688,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyBytesReader(CBufferReader):
         PyBytesReader(object fo)
 
+
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
+
 
 cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
     void set_numpy_nan(object o)
