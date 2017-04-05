@@ -255,12 +255,19 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Time: {
       auto time_type = static_cast<const flatbuf::Time*>(type_data);
       TimeUnit unit = FromFlatbufferUnit(time_type->unit());
+      int32_t bit_width = time_type->bitWidth();
       switch (unit) {
         case TimeUnit::SECOND:
         case TimeUnit::MILLI:
+          if (bit_width != 32) {
+            return Status::Invalid("Time is 32 bits for second/milli unit");
+          }
           *out = time32(unit);
           break;
         default:
+          if (bit_width != 64) {
+            return Status::Invalid("Time is 64 bits for micro/nano unit");
+          }
           *out = time64(unit);
           break;
       }
@@ -386,12 +393,12 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::TIME32: {
       const auto& time_type = static_cast<const Time32Type&>(*type);
       *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit)).Union();
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit), 32).Union();
     } break;
     case Type::TIME64: {
       const auto& time_type = static_cast<const Time64Type&>(*type);
       *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit)).Union();
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit), 64).Union();
     } break;
     case Type::TIMESTAMP: {
       const auto& ts_type = static_cast<const TimestampType&>(*type);

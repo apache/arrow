@@ -509,7 +509,7 @@ struct ARROW_EXPORT Time32Type : public TimeType {
   static constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
 
-  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 4); }
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * 8); }
 
   explicit Time32Type(TimeUnit unit = TimeUnit::MILLI);
 
