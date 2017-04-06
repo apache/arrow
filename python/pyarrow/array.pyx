@@ -497,8 +497,12 @@ cdef class DictionaryArray(Array):
 
     cdef getitem(self, int64_t i):
         cdef Array dictionary = self.dictionary
-        cdef int64_t index = self.indices[i].as_py()
-        return scalar.box_scalar(dictionary.type, dictionary.sp_array, index)
+        index = self.indices[i]
+        if index is NA:
+            return index
+        else:
+            return scalar.box_scalar(dictionary.type, dictionary.sp_array,
+                                     index.as_py())
 
     property dictionary:
 
@@ -544,15 +548,24 @@ cdef class DictionaryArray(Array):
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
 
-        if mask is None:
-            mask = indices == -1
+        if isinstance(indices, Array):
+            if mask is not None:
+                raise NotImplementedError(
+                    "mask not implemented with Arrow array inputs yet")
+            arrow_indices = indices
         else:
-            mask = mask | (indices == -1)
+            if mask is None:
+                mask = indices == -1
+            else:
+                mask = mask | (indices == -1)
+            arrow_indices = Array.from_numpy(indices, mask=mask,
+                                             memory_pool=memory_pool)
 
-        arrow_indices = Array.from_numpy(indices, mask=mask,
-                                         memory_pool=memory_pool)
-        arrow_dictionary = Array.from_numpy(dictionary,
-                                            memory_pool=memory_pool)
+        if isinstance(dictionary, Array):
+            arrow_dictionary = dictionary
+        else:
+            arrow_dictionary = Array.from_numpy(dictionary,
+                                                memory_pool=memory_pool)
 
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')

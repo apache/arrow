@@ -15,30 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
 import sys
 
-import pytest
+import numpy as np
+import pandas as pd
+import pandas.util.testing as tm
 
-import pyarrow
+import pyarrow as pa
 import pyarrow.formatting as fmt
 
 
 def test_total_bytes_allocated():
-    assert pyarrow.total_allocated_bytes() == 0
+    assert pa.total_allocated_bytes() == 0
 
 
 def test_repr_on_pre_init_array():
-    arr = pyarrow.array.Array()
+    arr = pa.Array()
     assert len(repr(arr)) > 0
 
 
 def test_getitem_NA():
-    arr = pyarrow.from_pylist([1, None, 2])
-    assert arr[1] is pyarrow.NA
+    arr = pa.from_pylist([1, None, 2])
+    assert arr[1] is pa.NA
 
 
 def test_list_format():
-    arr = pyarrow.from_pylist([[1], None, [2, 3, None]])
+    arr = pa.from_pylist([[1], None, [2, 3, None]])
     result = fmt.array_format(arr)
     expected = """\
 [
@@ -52,7 +55,7 @@ def test_list_format():
 
 
 def test_string_format():
-    arr = pyarrow.from_pylist(['', None, 'foo'])
+    arr = pa.from_pylist(['', None, 'foo'])
     result = fmt.array_format(arr)
     expected = """\
 [
@@ -64,7 +67,7 @@ def test_string_format():
 
 
 def test_long_array_format():
-    arr = pyarrow.from_pylist(range(100))
+    arr = pa.from_pylist(range(100))
     result = fmt.array_format(arr, window=2)
     expected = """\
 [
@@ -80,7 +83,7 @@ def test_long_array_format():
 def test_to_pandas_zero_copy():
     import gc
 
-    arr = pyarrow.from_pylist(range(10))
+    arr = pa.from_pylist(range(10))
 
     for i in range(10):
         np_arr = arr.to_pandas()
@@ -90,7 +93,7 @@ def test_to_pandas_zero_copy():
     assert sys.getrefcount(arr) == 2
 
     for i in range(10):
-        arr = pyarrow.from_pylist(range(10))
+        arr = pa.from_pylist(range(10))
         np_arr = arr.to_pandas()
         arr = None
         gc.collect()
@@ -105,14 +108,14 @@ def test_to_pandas_zero_copy():
 
 
 def test_array_slice():
-    arr = pyarrow.from_pylist(range(10))
+    arr = pa.from_pylist(range(10))
 
     sliced = arr.slice(2)
-    expected = pyarrow.from_pylist(range(2, 10))
+    expected = pa.from_pylist(range(2, 10))
     assert sliced.equals(expected)
 
     sliced2 = arr.slice(2, 4)
-    expected2 = pyarrow.from_pylist(range(2, 6))
+    expected2 = pa.from_pylist(range(2, 6))
     assert sliced2.equals(expected2)
 
     # 0 offset
@@ -136,3 +139,53 @@ def test_array_slice():
 
     with pytest.raises(IndexError):
         arr[::2]
+
+
+def test_dictionary_from_numpy():
+    indices = np.repeat([0, 1, 2], 2)
+    dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
+    mask = np.array([False, False, True, False, False, False])
+
+    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+
+    for i in range(len(indices)):
+        assert d1[i].as_py() == dictionary[indices[i]]
+
+        if mask[i]:
+            assert d2[i] is pa.NA
+        else:
+            assert d2[i].as_py() == dictionary[indices[i]]
+
+
+def test_dictionary_from_boxed_arrays():
+    indices = np.repeat([0, 1, 2], 2)
+    dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
+
+    iarr = pa.Array.from_numpy(indices)
+    darr = pa.Array.from_numpy(dictionary)
+
+    d1 = pa.DictionaryArray.from_arrays(iarr, darr)
+
+    for i in range(len(indices)):
+        assert d1[i].as_py() == dictionary[indices[i]]
+
+
+def test_dictionary_with_pandas():
+    indices = np.repeat([0, 1, 2], 2)
+    dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
+    mask = np.array([False, False, True, False, False, False])
+
+    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+
+    pandas1 = d1.to_pandas()
+    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+
+    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
+
+    pandas2 = d2.to_pandas()
+    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
+                                           categories=dictionary)
+
+    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
