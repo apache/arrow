@@ -275,7 +275,7 @@ public class JsonFileReader implements AutoCloseable {
       break;
     case TIMESTAMPNANO:
       ((TimeStampNanoVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-    break;
+      break;
     default:
       throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
     }
