@@ -250,9 +250,9 @@ static inline Status FileRead(
     int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
 #if defined(_MSC_VER)
   if (nbytes > INT32_MAX) { return Status::IOError("Unable to read > 2GB blocks yet"); }
-  *bytes_read = _read(fd, buffer, static_cast<size_t>(nbytes));
+  *bytes_read = static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(nbytes)));
 #else
-  *bytes_read = read(fd, buffer, static_cast<size_t>(nbytes));
+  *bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(nbytes)));
 #endif
 
   if (*bytes_read == -1) {
@@ -269,7 +269,7 @@ static inline Status FileWrite(int fd, const uint8_t* buffer, int64_t nbytes) {
   if (nbytes > INT32_MAX) {
     return Status::IOError("Unable to write > 2GB blocks to file yet");
   }
-  ret = static_cast<int>(_write(fd, buffer, static_cast<size_t>(nbytes)));
+  ret = static_cast<int>(_write(fd, buffer, static_cast<uint32_t>(nbytes)));
 #else
   ret = static_cast<int>(write(fd, buffer, static_cast<size_t>(nbytes)));
 #endif

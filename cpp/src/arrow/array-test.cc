@@ -124,10 +124,10 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
 TEST_F(TestArray, TestIsNull) {
   // clang-format off
   vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
-                                      1, 0, 1, 1, 0, 1, 0, 0,
-                                      1, 0, 1, 1, 0, 1, 0, 0,
-                                      1, 0, 1, 1, 0, 1, 0, 0,
-                                      1, 0, 0, 1};
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 0, 1};
   // clang-format on
   int64_t null_count = 0;
   for (uint8_t x : null_bitmap) {
@@ -144,7 +144,7 @@ TEST_F(TestArray, TestIsNull) {
   ASSERT_TRUE(arr->null_bitmap()->Equals(*null_buf.get()));
 
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
-    EXPECT_EQ(null_bitmap[i], !arr->IsNull(i)) << i;
+    EXPECT_EQ(null_bitmap[i] != 0, !arr->IsNull(i)) << i;
   }
 }
 
@@ -334,7 +334,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
   for (int64_t i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
     bool actual = BitUtil::GetBit(result->data()->data(), i);
-    ASSERT_EQ(static_cast<bool>(draws_[i]), actual) << i;
+    ASSERT_EQ(draws_[i] != 0, actual) << i;
   }
   ASSERT_TRUE(result->Equals(*expected));
 }
@@ -1379,7 +1379,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   }
 
   for (int i = 0; i < result->length(); ++i) {
-    ASSERT_EQ(!static_cast<bool>(is_valid[i]), result->IsNull(i));
+    ASSERT_EQ(is_valid[i] == 0, result->IsNull(i));
   }
 
   ASSERT_EQ(7, result->values()->length());

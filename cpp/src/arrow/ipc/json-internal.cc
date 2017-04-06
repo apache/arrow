@@ -1102,7 +1102,7 @@ class JsonArrayReader {
     std::vector<bool> is_valid;
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
-      is_valid.push_back(static_cast<bool>(val.GetInt()));
+      is_valid.push_back(val.GetInt() != 0);
     }
 
 #define TYPE_CASE(TYPE) \

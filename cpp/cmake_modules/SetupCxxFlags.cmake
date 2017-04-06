@@ -26,6 +26,10 @@ CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
 # compiler flags that are common across debug/release builds
 
 if (MSVC)
+  # TODO(wesm): Change usages of C runtime functions that MSVC says are
+  # insecure, like std::getenv
+  add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
   if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")

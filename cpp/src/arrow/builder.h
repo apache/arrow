@@ -275,6 +275,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status Append(uint8_t val) {
+    return Append(val != 0);
+  }
+
   /// Vector append
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte

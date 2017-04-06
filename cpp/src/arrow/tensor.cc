@@ -86,7 +86,7 @@ const std::string& Tensor::dim_name(int i) const {
 }
 
 int64_t Tensor::size() const {
-  return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<int64_t>());
+  return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
 }
 
 bool Tensor::is_contiguous() const {
