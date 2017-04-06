@@ -48,7 +48,7 @@ Now, you can bootstrap a build environment
 conda create -n arrow-dev cmake git boost
 ```
 
-## Building
+## Building with NMake
 
 Activate your conda build environment:
 
@@ -67,6 +67,16 @@ nmake
 ```
 
 When using conda, only release builds are currently supported.
+
+## Build using Visual Studio (MSVC) Solution Files
+
+To build on the command line by instead generating a MSVC solution, instead
+run:
+
+```
+cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
+```
 
 [1]: https://conda.io/miniconda.html
 [2]: https://conda-forge.github.io/
