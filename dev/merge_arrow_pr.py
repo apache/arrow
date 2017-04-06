@@ -42,8 +42,9 @@ except ImportError:
     JIRA_IMPORTED = False
 
 # Location of your Arrow git clone
-ARROW_HOME = os.path.abspath(__file__).rsplit("/", 2)[0]
-PROJECT_NAME = ARROW_HOME.rsplit("/", 1)[1]
+SEP = os.path.sep
+ARROW_HOME = os.path.abspath(__file__).rsplit(SEP, 2)[0]
+PROJECT_NAME = ARROW_HOME.rsplit(SEP, 1)[1]
 print("ARROW_HOME = " + ARROW_HOME)
 print("PROJECT_NAME = " + PROJECT_NAME)
 
