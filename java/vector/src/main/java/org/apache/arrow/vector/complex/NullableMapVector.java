@@ -54,6 +54,10 @@ public class NullableMapVector extends MapVector implements FieldVector {
   private final Accessor accessor;
   private final Mutator mutator;
 
+  public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, null, callBack);
+  }
+
   public NullableMapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     super(name, checkNotNull(allocator), callBack);
     this.bits = new BitVector("$bits$", allocator);

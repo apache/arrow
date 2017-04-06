@@ -618,10 +618,10 @@ public class DateUtility {
       }
     }
 
-    public static final DateTimeFormatter formatDate        = DateTimeFormat.forPattern("yyyy-MM-dd");
-    public static final DateTimeFormatter formatTimeStamp    = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
-    public static final DateTimeFormatter formatTime        = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    public static final DateTimeFormatter formatDate           = DateTimeFormat.forPattern("yyyy-MM-dd");
+    public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    public static final DateTimeFormatter formatTimeStampTZ    = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
+    public static final DateTimeFormatter formatTime           = DateTimeFormat.forPattern("HH:mm:ss.SSS");
 
     public static DateTimeFormatter dateTimeTZFormat = null;
     public static DateTimeFormatter timeFormat = null;
