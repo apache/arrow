@@ -24,10 +24,8 @@ SUBDIRS =					\
 
 EXTRA_DIST =					\
 	README.md				\
-	LICENSE.txt				\
 	version
 
 arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
 arrow_glib_doc_DATA =				\
-	README.md				\
-	LICENSE.txt
+	README.md
