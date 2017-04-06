@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define GARROW_IO_READABLE(obj)                                 \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
                               GARROW_IO_TYPE_READABLE,          \
-                              GArrowIOReadableInterface))
+                              GArrowIOReadable))
 #define GARROW_IO_IS_READABLE(obj)                      \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
                               GARROW_IO_TYPE_READABLE))

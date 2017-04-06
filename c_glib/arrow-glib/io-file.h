@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define GARROW_IO_FILE(obj)                             \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
                               GARROW_IO_TYPE_FILE,      \
-                              GArrowIOFileInterface))
+                              GArrowIOFile))
 #define GARROW_IO_IS_FILE(obj)                          \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
                               GARROW_IO_TYPE_FILE))

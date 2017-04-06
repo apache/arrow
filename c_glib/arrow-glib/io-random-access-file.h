@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define GARROW_IO_RANDOM_ACCESS_FILE(obj)                            \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                                 \
                               GARROW_IO_TYPE_RANDOM_ACCESS_FILE,     \
-                              GArrowIORandomAccessFileInterface))
+                              GArrowIORandomAccessFile))
 #define GARROW_IO_IS_RANDOM_ACCESS_FILE(obj)                            \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
                               GARROW_IO_TYPE_RANDOM_ACCESS_FILE))

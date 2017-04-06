@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define GARROW_IO_INPUT_STREAM(obj)                             \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
                               GARROW_IO_TYPE_INPUT_STREAM,      \
-                              GArrowIOInputStreamInterface))
+                              GArrowIOInputStream))
 #define GARROW_IO_IS_INPUT_STREAM(obj)                          \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
                               GARROW_IO_TYPE_INPUT_STREAM))
