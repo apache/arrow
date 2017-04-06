@@ -40,6 +40,8 @@ On OS X, you can use [Homebrew][1]:
 brew install boost cmake
 ```
 
+If you are developing on Windows, see the [Windows developer guide][2].
+
 ## Building Arrow
 
 Simple debug build:
@@ -124,3 +126,4 @@ both of these options would be used rarely.  Current known uses-cases whent hey 
 *  Parameterized tests in google test.
 
 [1]: https://brew.sh/
+[2]: https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md
