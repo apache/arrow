@@ -446,22 +446,29 @@ if(ARROW_BUILD_TESTS)
   if("$ENV{GTEST_HOME}" STREQUAL "")
     if(APPLE)
       set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
-    else()
+    elseif(NOT MSVC)
       set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
     endif()
     string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
     set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
+    if(MSVC)
+        # Disable too much warnings as build failure reason
+        string(REPLACE "-Wall" "" GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS}")
+    endif()
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB "${GTEST_PREFIX}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
+    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                         -Dgtest_force_shared_crt=ON
+                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
 
     if (CMAKE_VERSION VERSION_GREATER "3.2")
       # BUILD_BYPRODUCTS is a 3.2+ feature
       ExternalProject_Add(googletest_ep
         URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
+        CMAKE_ARGS ${GTEST_CMAKE_ARGS}
         # googletest doesn't define install rules, so just build in the
         # source dir and don't try to install.  See its README for
         # details.
@@ -471,7 +478,7 @@ if(ARROW_BUILD_TESTS)
     else()
       ExternalProject_Add(googletest_ep
         URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        CMAKE_ARGS -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS} -Dgtest_force_shared_crt=ON
+        CMAKE_ARGS ${GTEST_CMAKE_ARGS}
         # googletest doesn't define install rules, so just build in the
         # source dir and don't try to install.  See its README for
         # details.
