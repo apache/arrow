@@ -260,10 +260,16 @@ Status MakeListArary(const std::shared_ptr<Array>& values, int64_t size,
   return Status::OK();
 }
 
-std::shared_ptr<::arrow::Column> MakeColumn(
+static std::shared_ptr<::arrow::Column> MakeColumn(
     const std::string& name, const std::shared_ptr<Array>& array, bool nullable) {
   auto field = std::make_shared<::arrow::Field>(name, array->type(), nullable);
   return std::make_shared<::arrow::Column>(field, array);
+}
+
+static std::shared_ptr<::arrow::Column> MakeColumn(const std::string& name,
+    const std::vector<std::shared_ptr<Array>>& arrays, bool nullable) {
+  auto field = std::make_shared<::arrow::Field>(name, arrays[0]->type(), nullable);
+  return std::make_shared<::arrow::Column>(field, arrays);
 }
 
 std::shared_ptr<::arrow::Table> MakeSimpleTable(

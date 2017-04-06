@@ -107,6 +107,13 @@ class PARQUET_EXPORT FileReader {
   ::arrow::Status ReadTable(
       const std::vector<int>& column_indices, std::shared_ptr<::arrow::Table>* out);
 
+  ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
+      std::shared_ptr<::arrow::Table>* out);
+
+  ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
+
+  int num_row_groups() const;
+
   const ParquetFileReader* parquet_reader() const;
 
   /// Set the number of threads to use during reads of multiple columns. By

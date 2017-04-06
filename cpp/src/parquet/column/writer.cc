@@ -213,7 +213,7 @@ TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
     const WriterProperties* properties)
     : ColumnWriter(metadata, std::move(pager), expected_rows,
           (encoding == Encoding::PLAIN_DICTIONARY ||
-                       encoding == Encoding::RLE_DICTIONARY),
+              encoding == Encoding::RLE_DICTIONARY),
           encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:

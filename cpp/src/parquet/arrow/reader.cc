@@ -60,117 +60,8 @@ static inline int64_t impala_timestamp_to_nanoseconds(const Int96& impala_timest
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
-class FileReader::Impl {
- public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
-  virtual ~Impl() {}
-
-  bool CheckForFlatColumn(const ColumnDescriptor* descr);
-  bool CheckForFlatListColumn(const ColumnDescriptor* descr);
-  Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
-  Status ReadColumn(int i, std::shared_ptr<Array>* out);
-  Status ReadTable(std::shared_ptr<Table>* out);
-  Status ReadTable(const std::vector<int>& column_indices, std::shared_ptr<Table>* out);
-  const ParquetFileReader* parquet_reader() const { return reader_.get(); }
-
-  void set_num_threads(int num_threads) { num_threads_ = num_threads; }
-
- private:
-  MemoryPool* pool_;
-  std::unique_ptr<ParquetFileReader> reader_;
-
-  int num_threads_;
-};
-
-class ColumnReader::Impl {
- public:
-  Impl(MemoryPool* pool, const ColumnDescriptor* descr, ParquetFileReader* reader,
-      int column_index);
-  virtual ~Impl() {}
-
-  Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
-
-  template <typename ArrowType, typename ParquetType>
-  Status TypedReadBatch(int batch_size, std::shared_ptr<Array>* out);
-
-  template <typename ArrowType>
-  Status ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>* out);
-
-  template <typename ArrowType>
-  Status InitDataBuffer(int batch_size);
-  Status InitValidBits(int batch_size);
-  template <typename ArrowType, typename ParquetType>
-  Status ReadNullableBatch(TypedColumnReader<ParquetType>* reader, int16_t* def_levels,
-      int16_t* rep_levels, int64_t values_to_read, int64_t* levels_read,
-      int64_t* values_read);
-  template <typename ArrowType, typename ParquetType>
-  Status ReadNonNullableBatch(TypedColumnReader<ParquetType>* reader,
-      int64_t values_to_read, int64_t* levels_read);
-  Status WrapIntoListArray(const int16_t* def_levels, const int16_t* rep_levels,
-      int64_t total_values_read, std::shared_ptr<Array>* array);
-
- private:
-  void NextRowGroup();
-
-  template <typename InType, typename OutType>
-  struct can_copy_ptr {
-    static constexpr bool value =
-        std::is_same<InType, OutType>::value ||
-        (std::is_integral<InType>{} && std::is_integral<OutType>{} &&
-            (sizeof(InType) == sizeof(OutType)));
-  };
-
-  MemoryPool* pool_;
-  const ColumnDescriptor* descr_;
-  ParquetFileReader* reader_;
-  int column_index_;
-  int next_row_group_;
-  std::shared_ptr<::parquet::ColumnReader> column_reader_;
-  std::shared_ptr<Field> field_;
-
-  PoolBuffer values_buffer_;
-  PoolBuffer def_levels_buffer_;
-  PoolBuffer rep_levels_buffer_;
-  std::shared_ptr<PoolBuffer> data_buffer_;
-  uint8_t* data_buffer_ptr_;
-  std::shared_ptr<PoolBuffer> valid_bits_buffer_;
-  uint8_t* valid_bits_ptr_;
-  int64_t valid_bits_idx_;
-  int64_t null_count_;
-};
-
-FileReader::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-    : pool_(pool), reader_(std::move(reader)), num_threads_(1) {}
-
-Status FileReader::Impl::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
-  const SchemaDescriptor* schema = reader_->metadata()->schema();
-
-  std::unique_ptr<ColumnReader::Impl> impl(
-      new ColumnReader::Impl(pool_, schema->Column(i), reader_.get(), i));
-  *out = std::unique_ptr<ColumnReader>(new ColumnReader(std::move(impl)));
-  return Status::OK();
-}
-
-Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<Array>* out) {
-  std::unique_ptr<ColumnReader> flat_column_reader;
-  RETURN_NOT_OK(GetColumn(i, &flat_column_reader));
-
-  int64_t batch_size = 0;
-  for (int j = 0; j < reader_->metadata()->num_row_groups(); j++) {
-    batch_size += reader_->metadata()->RowGroup(j)->ColumnChunk(i)->num_values();
-  }
-
-  return flat_column_reader->NextBatch(batch_size, out);
-}
-
-Status FileReader::Impl::ReadTable(std::shared_ptr<Table>* table) {
-  std::vector<int> column_indices(reader_->metadata()->num_columns());
-
-  for (size_t i = 0; i < column_indices.size(); ++i) {
-    column_indices[i] = i;
-  }
-  return ReadTable(column_indices, table);
-}
+// ----------------------------------------------------------------------
+// Helper for parallel for-loop
 
 template <class FUNCTION>
 Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
@@ -206,12 +97,255 @@ Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
   return Status::OK();
 }
 
+// ----------------------------------------------------------------------
+// Iteration utilities
+
+// Abstraction to decouple row group iteration details from the ColumnReader,
+// so we can read only a single row group if we want
+class FileColumnIterator {
+ public:
+  explicit FileColumnIterator(int column_index, ParquetFileReader* reader)
+      : column_index_(column_index),
+        reader_(reader),
+        schema_(reader->metadata()->schema()) {}
+
+  virtual ~FileColumnIterator() {}
+
+  virtual std::shared_ptr<::parquet::ColumnReader> Next() = 0;
+
+  const SchemaDescriptor* schema() const { return schema_; }
+
+  const ColumnDescriptor* descr() const { return schema_->Column(column_index_); }
+
+  int column_index() const { return column_index_; }
+
+ protected:
+  int column_index_;
+  ParquetFileReader* reader_;
+  const SchemaDescriptor* schema_;
+};
+
+class AllRowGroupsIterator : public FileColumnIterator {
+ public:
+  explicit AllRowGroupsIterator(int column_index, ParquetFileReader* reader)
+      : FileColumnIterator(column_index, reader), next_row_group_(0) {}
+
+  std::shared_ptr<::parquet::ColumnReader> Next() override {
+    std::shared_ptr<::parquet::ColumnReader> result;
+    if (next_row_group_ < reader_->metadata()->num_row_groups()) {
+      result = reader_->RowGroup(next_row_group_)->Column(column_index_);
+      next_row_group_++;
+    } else {
+      result = nullptr;
+    }
+    return result;
+  };
+
+ private:
+  int next_row_group_;
+};
+
+class SingleRowGroupIterator : public FileColumnIterator {
+ public:
+  explicit SingleRowGroupIterator(
+      int column_index, int row_group_number, ParquetFileReader* reader)
+      : FileColumnIterator(column_index, reader),
+        row_group_number_(row_group_number),
+        done_(false) {}
+
+  std::shared_ptr<::parquet::ColumnReader> Next() override {
+    if (done_) { return nullptr; }
+
+    auto result = reader_->RowGroup(row_group_number_)->Column(column_index_);
+    done_ = true;
+    return result;
+  };
+
+ private:
+  int row_group_number_;
+  bool done_;
+};
+
+// ----------------------------------------------------------------------
+// File reader implementation
+
+class FileReader::Impl {
+ public:
+  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+      : pool_(pool), reader_(std::move(reader)), num_threads_(1) {}
+
+  virtual ~Impl() {}
+
+  Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
+  Status ReadColumn(int i, std::shared_ptr<Array>* out);
+  Status GetSchema(
+      const std::vector<int>& indices, std::shared_ptr<::arrow::Schema>* out);
+  Status ReadRowGroup(int row_group_index, const std::vector<int>& indices,
+      std::shared_ptr<::arrow::Table>* out);
+  Status ReadTable(const std::vector<int>& indices, std::shared_ptr<Table>* table);
+  Status ReadTable(std::shared_ptr<Table>* table);
+  Status ReadRowGroup(int i, std::shared_ptr<Table>* table);
+
+  bool CheckForFlatColumn(const ColumnDescriptor* descr);
+  bool CheckForFlatListColumn(const ColumnDescriptor* descr);
+
+  const ParquetFileReader* parquet_reader() const { return reader_.get(); }
+
+  int num_row_groups() const { return reader_->metadata()->num_row_groups(); }
+
+  void set_num_threads(int num_threads) { num_threads_ = num_threads; }
+
+ private:
+  MemoryPool* pool_;
+  std::unique_ptr<ParquetFileReader> reader_;
+
+  int num_threads_;
+};
+
+class ColumnReader::Impl {
+ public:
+  Impl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
+      : pool_(pool),
+        input_(std::move(input)),
+        descr_(input_->descr()),
+        values_buffer_(pool),
+        def_levels_buffer_(pool),
+        rep_levels_buffer_(pool) {
+    NodeToField(input_->descr()->schema_node(), &field_);
+    NextRowGroup();
+  }
+
+  virtual ~Impl() {}
+
+  Status NextBatch(int batch_size, std::shared_ptr<Array>* out);
+
+  template <typename ArrowType, typename ParquetType>
+  Status TypedReadBatch(int batch_size, std::shared_ptr<Array>* out);
+
+  template <typename ArrowType>
+  Status ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>* out);
+
+  template <typename ArrowType>
+  Status InitDataBuffer(int batch_size);
+  Status InitValidBits(int batch_size);
+  template <typename ArrowType, typename ParquetType>
+  Status ReadNullableBatch(TypedColumnReader<ParquetType>* reader, int16_t* def_levels,
+      int16_t* rep_levels, int64_t values_to_read, int64_t* levels_read,
+      int64_t* values_read);
+  template <typename ArrowType, typename ParquetType>
+  Status ReadNonNullableBatch(TypedColumnReader<ParquetType>* reader,
+      int64_t values_to_read, int64_t* levels_read);
+  Status WrapIntoListArray(const int16_t* def_levels, const int16_t* rep_levels,
+      int64_t total_values_read, std::shared_ptr<Array>* array);
+
+ private:
+  void NextRowGroup();
+
+  template <typename InType, typename OutType>
+  struct can_copy_ptr {
+    static constexpr bool value =
+        std::is_same<InType, OutType>::value ||
+        (std::is_integral<InType>{} && std::is_integral<OutType>{} &&
+            (sizeof(InType) == sizeof(OutType)));
+  };
+
+  MemoryPool* pool_;
+  std::unique_ptr<FileColumnIterator> input_;
+  const ColumnDescriptor* descr_;
+
+  std::shared_ptr<::parquet::ColumnReader> column_reader_;
+  std::shared_ptr<Field> field_;
+
+  PoolBuffer values_buffer_;
+  PoolBuffer def_levels_buffer_;
+  PoolBuffer rep_levels_buffer_;
+  std::shared_ptr<PoolBuffer> data_buffer_;
+  uint8_t* data_buffer_ptr_;
+  std::shared_ptr<PoolBuffer> valid_bits_buffer_;
+  uint8_t* valid_bits_ptr_;
+  int64_t valid_bits_idx_;
+  int64_t null_count_;
+};
+
+FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+    : impl_(new FileReader::Impl(pool, std::move(reader))) {}
+
+FileReader::~FileReader() {}
+
+Status FileReader::Impl::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
+  std::unique_ptr<FileColumnIterator> input(new AllRowGroupsIterator(i, reader_.get()));
+
+  std::unique_ptr<ColumnReader::Impl> impl(
+      new ColumnReader::Impl(pool_, std::move(input)));
+  *out = std::unique_ptr<ColumnReader>(new ColumnReader(std::move(impl)));
+  return Status::OK();
+}
+
+Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<Array>* out) {
+  std::unique_ptr<ColumnReader> flat_column_reader;
+  RETURN_NOT_OK(GetColumn(i, &flat_column_reader));
+
+  int64_t batch_size = 0;
+  for (int j = 0; j < reader_->metadata()->num_row_groups(); j++) {
+    batch_size += reader_->metadata()->RowGroup(j)->ColumnChunk(i)->num_values();
+  }
+
+  return flat_column_reader->NextBatch(batch_size, out);
+}
+
+Status FileReader::Impl::GetSchema(
+    const std::vector<int>& indices, std::shared_ptr<::arrow::Schema>* out) {
+  auto descr = reader_->metadata()->schema();
+  return FromParquetSchema(descr, indices, out);
+}
+
+Status FileReader::Impl::ReadRowGroup(int row_group_index,
+    const std::vector<int>& indices, std::shared_ptr<::arrow::Table>* out) {
+  std::shared_ptr<::arrow::Schema> schema;
+  RETURN_NOT_OK(GetSchema(indices, &schema));
+
+  auto rg_metadata = reader_->metadata()->RowGroup(row_group_index);
+
+  int num_columns = static_cast<int>(indices.size());
+  int nthreads = std::min<int>(num_threads_, num_columns);
+  std::vector<std::shared_ptr<Column>> columns(num_columns);
+
+  // TODO(wesm): Refactor to share more code with ReadTable
+
+  auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, &rg_metadata,
+      this](int i) {
+    int column_index = indices[i];
+    int64_t batch_size = rg_metadata->ColumnChunk(column_index)->num_values();
+
+    std::unique_ptr<FileColumnIterator> input(
+        new SingleRowGroupIterator(column_index, row_group_index, reader_.get()));
+
+    std::unique_ptr<ColumnReader::Impl> impl(
+        new ColumnReader::Impl(pool_, std::move(input)));
+    ColumnReader flat_column_reader(std::move(impl));
+
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(flat_column_reader.NextBatch(batch_size, &array));
+    columns[i] = std::make_shared<Column>(schema->field(i), array);
+    return Status::OK();
+  };
+
+  if (nthreads == 1) {
+    for (int i = 0; i < num_columns; i++) {
+      RETURN_NOT_OK(ReadColumnFunc(i));
+    }
+  } else {
+    RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumnFunc));
+  }
+
+  *out = std::make_shared<Table>(schema, columns);
+  return Status::OK();
+}
+
 Status FileReader::Impl::ReadTable(
     const std::vector<int>& indices, std::shared_ptr<Table>* table) {
-  auto descr = reader_->metadata()->schema();
-
   std::shared_ptr<::arrow::Schema> schema;
-  RETURN_NOT_OK(FromParquetSchema(descr, indices, &schema));
+  RETURN_NOT_OK(GetSchema(indices, &schema));
 
   int num_columns = static_cast<int>(indices.size());
   int nthreads = std::min<int>(num_threads_, num_columns);
@@ -236,10 +370,23 @@ Status FileReader::Impl::ReadTable(
   return Status::OK();
 }
 
-FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-    : impl_(new FileReader::Impl(pool, std::move(reader))) {}
+Status FileReader::Impl::ReadTable(std::shared_ptr<Table>* table) {
+  std::vector<int> indices(reader_->metadata()->num_columns());
 
-FileReader::~FileReader() {}
+  for (size_t i = 0; i < indices.size(); ++i) {
+    indices[i] = i;
+  }
+  return ReadTable(indices, table);
+}
+
+Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
+  std::vector<int> indices(reader_->metadata()->num_columns());
+
+  for (size_t i = 0; i < indices.size(); ++i) {
+    indices[i] = i;
+  }
+  return ReadRowGroup(i, indices, table);
+}
 
 // Static ctor
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
@@ -280,12 +427,33 @@ Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
 }
 
 Status FileReader::ReadTable(
-    const std::vector<int>& column_indices, std::shared_ptr<Table>* out) {
+    const std::vector<int>& indices, std::shared_ptr<Table>* out) {
   try {
-    return impl_->ReadTable(column_indices, out);
+    return impl_->ReadTable(indices, out);
   } catch (const ::parquet::ParquetException& e) {
     return ::arrow::Status::IOError(e.what());
   }
+}
+
+Status FileReader::ReadRowGroup(int i, std::shared_ptr<Table>* out) {
+  try {
+    return impl_->ReadRowGroup(i, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
+}
+
+Status FileReader::ReadRowGroup(
+    int i, const std::vector<int>& indices, std::shared_ptr<Table>* out) {
+  try {
+    return impl_->ReadRowGroup(i, indices, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
+}
+
+int FileReader::num_row_groups() const {
+  return impl_->num_row_groups();
 }
 
 void FileReader::set_num_threads(int num_threads) {
@@ -294,20 +462,6 @@ void FileReader::set_num_threads(int num_threads) {
 
 const ParquetFileReader* FileReader::parquet_reader() const {
   return impl_->parquet_reader();
-}
-
-ColumnReader::Impl::Impl(MemoryPool* pool, const ColumnDescriptor* descr,
-    ParquetFileReader* reader, int column_index)
-    : pool_(pool),
-      descr_(descr),
-      reader_(reader),
-      column_index_(column_index),
-      next_row_group_(0),
-      values_buffer_(pool),
-      def_levels_buffer_(pool),
-      rep_levels_buffer_(pool) {
-  NodeToField(descr_->schema_node(), &field_);
-  NextRowGroup();
 }
 
 template <typename ArrowType, typename ParquetType>
@@ -563,7 +717,7 @@ Status ColumnReader::Impl::WrapIntoListArray(const int16_t* def_levels,
   if (descr_->max_repetition_level() > 0) {
     std::shared_ptr<::arrow::Schema> arrow_schema;
     RETURN_NOT_OK(
-        FromParquetSchema(reader_->metadata()->schema(), {column_index_}, &arrow_schema));
+        FromParquetSchema(input_->schema(), {input_->column_index()}, &arrow_schema));
 
     // Walk downwards to extract nullability
     std::shared_ptr<Field> current_field = arrow_schema->field(0);
@@ -912,12 +1066,7 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
 }
 
 void ColumnReader::Impl::NextRowGroup() {
-  if (next_row_group_ < reader_->metadata()->num_row_groups()) {
-    column_reader_ = reader_->RowGroup(next_row_group_)->Column(column_index_);
-    next_row_group_++;
-  } else {
-    column_reader_ = nullptr;
-  }
+  column_reader_ = input_->Next();
 }
 
 ColumnReader::ColumnReader(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
