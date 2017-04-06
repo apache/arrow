@@ -64,6 +64,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   private CallBack callBack;
   private final DictionaryEncoding dictionary;
 
+  public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, null, callBack);
+  }
+
   public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     super(name, allocator, callBack);
     this.bits = new BitVector("$bits$", allocator);
