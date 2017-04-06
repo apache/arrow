@@ -403,6 +403,35 @@ def test_pass_separate_metadata():
 
 
 @parquet
+def test_read_single_row_group():
+    # ARROW-471
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+
+    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(a_table, buf, row_group_size=N / K,
+                   compression='snappy', version='2.0')
+
+    buf.seek(0)
+
+    pf = pq.ParquetFile(buf)
+
+    assert pf.num_row_groups == K
+
+    row_groups = [pf.read_row_group(i) for i in range(K)]
+    result = pa.concat_tables(row_groups)
+    pdt.assert_frame_equal(df, result.to_pandas())
+
+    cols = df.columns[:2]
+    row_groups = [pf.read_row_group(i, columns=cols)
+                  for i in range(K)]
+    result = pa.concat_tables(row_groups)
+    pdt.assert_frame_equal(df[cols], result.to_pandas())
+
+
+@parquet
 def test_read_multiple_files(tmpdir):
     nfiles = 10
     size = 5

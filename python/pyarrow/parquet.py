@@ -50,7 +50,32 @@ class ParquetFile(object):
     def schema(self):
         return self.metadata.schema
 
-    def read(self, nrows=None, columns=None, nthreads=1):
+    @property
+    def num_row_groups(self):
+        return self.reader.num_row_groups
+
+    def read_row_group(self, i, columns=None, nthreads=1):
+        """
+        Read a single row group from a Parquet file
+
+        Parameters
+        ----------
+        columns: list
+            If not None, only these columns will be read from the row group.
+        nthreads : int, default 1
+            Number of columns to read in parallel. If > 1, requires that the
+            underlying file source is threadsafe
+
+        Returns
+        -------
+        pyarrow.table.Table
+            Content of the row group as a table (of columns)
+        """
+        column_indices = self._get_column_indices(columns)
+        self.reader.set_num_threads(nthreads)
+        return self.reader.read_row_group(i, column_indices=column_indices)
+
+    def read(self, columns=None, nthreads=1):
         """
         Read a Table from Parquet format
 
@@ -67,17 +92,16 @@ class ParquetFile(object):
         pyarrow.table.Table
             Content of the file as a table (of columns)
         """
-        if nrows is not None:
-            raise NotImplementedError("nrows argument")
+        column_indices = self._get_column_indices(columns)
+        self.reader.set_num_threads(nthreads)
+        return self.reader.read_all(column_indices=column_indices)
 
-        if columns is None:
-            column_indices = None
+    def _get_column_indices(self, column_names):
+        if column_names is None:
+            return None
         else:
-            column_indices = [self.reader.column_name_idx(column)
-                              for column in columns]
-
-        return self.reader.read(column_indices=column_indices,
-                                nthreads=nthreads)
+            return [self.reader.column_name_idx(column)
+                    for column in column_names]
 
 
 def read_table(source, columns=None, nthreads=1, metadata=None):
@@ -178,8 +202,8 @@ def read_multiple_files(paths, columns=None, filesystem=None, nthreads=1,
     return all_data
 
 
-def write_table(table, sink, chunk_size=None, version='1.0',
-                use_dictionary=True, compression='snappy'):
+def write_table(table, sink, row_group_size=None, version='1.0',
+                use_dictionary=True, compression='snappy', **kwargs):
     """
     Write a Table to Parquet format
 
@@ -187,7 +211,7 @@ def write_table(table, sink, chunk_size=None, version='1.0',
     ----------
     table : pyarrow.Table
     sink: string or pyarrow.io.NativeFile
-    chunk_size : int, default None
+    row_group_size : int, default None
         The maximum number of rows in each Parquet RowGroup. As a default,
         we will write a single RowGroup per file.
     version : {"1.0", "2.0"}, default "1.0"
@@ -198,7 +222,8 @@ def write_table(table, sink, chunk_size=None, version='1.0',
     compression : str or dict
         Specify the compression codec, either on a general basis or per-column.
     """
+    row_group_size = kwargs.get('chunk_size', row_group_size)
     writer = ParquetWriter(sink, use_dictionary=use_dictionary,
                            compression=compression,
                            version=version)
-    writer.write_table(table, row_group_size=chunk_size)
+    writer.write_table(table, row_group_size=row_group_size)
