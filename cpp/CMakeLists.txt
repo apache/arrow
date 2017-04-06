@@ -146,9 +146,11 @@ include(BuildUtils)
 include(SetupCxxFlags)
 
 # Add common flags
-set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS "${ARROW_CXXFLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
+
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 # Determine compiler version
 include(CompilerInfo)
@@ -451,10 +453,6 @@ if(ARROW_BUILD_TESTS)
     endif()
     string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
     set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
-    if(MSVC)
-        # Disable too much warnings as build failure reason
-        string(REPLACE "-Wall" "" GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS}")
-    endif()
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
@@ -563,9 +561,9 @@ if(ARROW_BUILD_BENCHMARKS)
 
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
     if(APPLE)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++")
-    else()
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "--std=c++11")
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
+    elseif(NOT MSVC)
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC --std=c++11")
     endif()
 
     set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
@@ -576,7 +574,7 @@ if(ARROW_BUILD_BENCHMARKS)
           "-DCMAKE_BUILD_TYPE=Release"
           "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
           "-DBENCHMARK_ENABLE_TESTING=OFF"
-          "-DCMAKE_CXX_FLAGS=-fPIC ${GBENCHMARK_CMAKE_CXX_FLAGS}")
+          "-DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS}")
     if (APPLE)
       set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
     endif()
@@ -627,6 +625,13 @@ else()
 endif()
 message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
 include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+
+#----------------------------------------------------------------------
+
+if (MSVC)
+  # jemalloc is not supported on Windows
+  set(ARROW_JEMALLOC off)
+endif()
 
 if (ARROW_JEMALLOC)
   find_package(jemalloc)
@@ -847,12 +852,10 @@ if(ARROW_IPC)
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
-        "-DCMAKE_CXX_FLAGS=-fPIC"
         "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
         "-DFLATBUFFERS_BUILD_TESTS=OFF")
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-    set(FLATBUFFERS_STATIC_LIB "${FLATBUFFERS_PREFIX}/libflatbuffers.a")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
     set(FLATBUFFERS_VENDORED 1)
   else()
@@ -861,16 +864,8 @@ if(ARROW_IPC)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-  message(STATUS "Flatbuffers static library: ${FLATBUFFERS_STATIC_LIB}")
   message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
   include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(flatbuffers
-    STATIC_LIB ${FLATBUFFERS_STATIC_LIB})
-
-  if(FLATBUFFERS_VENDORED)
-    add_dependencies(flatbuffers flatbuffers_ep)
-  endif()
-
   add_subdirectory(src/arrow/ipc)
 endif()
 
