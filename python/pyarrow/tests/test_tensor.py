@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 import pytest
 
 import numpy as np
@@ -40,6 +41,12 @@ def test_tensor_attrs():
     data2.flags.writeable = False
     tensor = pa.Tensor.from_numpy(data2)
     assert not tensor.is_mutable
+
+def test_tensor_base_object():
+    tensor = pa.Tensor.from_numpy(np.random.randn(10, 4))
+    n = sys.getrefcount(tensor)
+    array = tensor.to_numpy()
+    assert sys.getrefcount(tensor) == n + 1
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', [
