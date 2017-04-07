@@ -85,32 +85,16 @@ export class ArrowReader {
     }
 }
 
-export function getFileReader(buf) {
-    var bb, footer, schema, field, vectors: Vector[] = [], i, len, recordBatchBlock, recordBatches = [];
-
-    bb = new ByteBuffer(buf);
-
-    footer = _loadFooter(bb);
-
-    schema = footer.schema();
-
-    for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
-        field = schema.fields(i);
-        vectors.push(vectorFromField(field));
-    }
-
-    for (i = 0, len = footer.recordBatchesLength(); i < len; i += 1|0) {
-        recordBatchBlock = footer.recordBatches(i);
-        bb.setPosition(recordBatchBlock.offset().low);
-        recordBatches.push(RecordBatch.getRootAsRecordBatch(bb));
-    }
-
-    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches);
-}
-
 export function getStreamReader(buf) {
-    var bb = new ByteBuffer(buf),
-        schema = _loadSchema(bb),
+    var bb = new ByteBuffer(buf);
+
+    // if this is the file format (vs streaming), skip past the magic bytes
+    if (_checkMagic(bb.bytes_, 0)) {
+      // TODO stop before logging error for reading past record batches
+      bb.setPosition(MAGIC.length);
+    }
+
+    var schema = _loadSchema(bb),
         field,
         vectors: Vector[] = [],
         i,
@@ -180,45 +164,12 @@ function _loadMessage(bb, type, container) {
     return { header: message.header(container), length: message.bodyLength().low };
 }
 
-function _loadFooter(bb) {
-    var fileLength: number = bb.bytes_.length;
-
-    if (fileLength < MAGIC.length*2 + 4) {
-      console.error("file too small " + fileLength);
-      return;
-    }
-
-    if (!_checkMagic(bb.bytes_, 0)) {
-      console.error("missing magic bytes at beginning of file")
-      return;
-    }
-
-    if (!_checkMagic(bb.bytes_, fileLength - MAGIC.length)) {
-      console.error("missing magic bytes at end of file")
-      return;
-    }
-
-    var footerLengthOffset: number = fileLength - MAGIC.length - 4;
-    bb.setPosition(footerLengthOffset);
-    var footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset)
-
-    if (footerLength <= 0 || footerLength + MAGIC.length*2 + 4 > fileLength)  {
-      console.error("Invalid footer length: " + footerLength)
-    }
-
-    var footerOffset: number = footerLengthOffset - footerLength;
-    bb.setPosition(footerOffset);
-
-    return Footer.getRootAsFooter(bb);
-}
-
 function Int32FromByteBuffer(bb, offset) {
     return ((bb.bytes_[offset + 3] & 255) << 24) |
            ((bb.bytes_[offset + 2] & 255) << 16) |
            ((bb.bytes_[offset + 1] & 255) << 8) |
            ((bb.bytes_[offset] & 255));
 }
-
 
 var MAGIC_STR = "ARROW1";
 var MAGIC = new Uint8Array(MAGIC_STR.length);

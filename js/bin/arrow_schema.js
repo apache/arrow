@@ -21,7 +21,7 @@ var fs = require('fs');
 var process = require('process');
 var arrow = require('../dist/arrow.js');
 
-var buf = fs.readFileSync('features.arrow');
+var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
 var reader = arrow.loadVectorsFromStream(buf);
 console.log(JSON.stringify(reader.getSchema(), null, '\t'));
 console.log(JSON.stringify(reader.getVectors(), null, '\t'));
