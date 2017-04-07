@@ -85,7 +85,7 @@ export class ArrowReader {
     }
 }
 
-export function getStreamReader(buf) {
+export function getReader(buf) {
     var bb = new ByteBuffer(buf);
 
     // if this is the file format (vs streaming), skip past the magic bytes

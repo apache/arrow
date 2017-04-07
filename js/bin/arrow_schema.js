@@ -22,7 +22,7 @@ var process = require('process');
 var arrow = require('../dist/arrow.js');
 
 var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
-var reader = arrow.loadVectorsFromStream(buf);
+var reader = arrow.getReader(buf);
 console.log(JSON.stringify(reader.getSchema(), null, '\t'));
 console.log(JSON.stringify(reader.getVectors(), null, '\t'));
 console.log('block count: ' + reader.getBlockCount());

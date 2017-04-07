@@ -38,7 +38,7 @@ if (!program.schema) {
 }
 
 var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
-var reader = arrow.getStreamReader(buf);
+var reader = arrow.getReader(buf);
 reader.loadNextBatch();
 
 for (var i = 0; i < vectors[program.schema[0]].length; i += 1|0) {
