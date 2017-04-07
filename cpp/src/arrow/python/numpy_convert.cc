@@ -258,6 +258,7 @@ Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
 
   if (base != Py_None) {
     PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result), base);
+    Py_XINCREF(base);
   }
   *out = result;
   return Status::OK();
