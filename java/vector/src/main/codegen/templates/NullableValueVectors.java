@@ -122,7 +122,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     <#if type.major = "VarLen">
     // variable width values: truncate offset vector buffer to size (#1)
-    org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, values.offsetVector.getBufferSizeFor(fieldNode.getLength() + 1));
+    org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1,
+        values.offsetVector.getBufferSizeFor(
+        fieldNode.getLength() == 0? 0 : fieldNode.getLength() + 1));
     <#else>
     // fixed width values truncate value vector to size (#1)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, values.getBufferSizeFor(fieldNode.getLength()));

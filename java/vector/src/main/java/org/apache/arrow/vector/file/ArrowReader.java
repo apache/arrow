@@ -89,7 +89,8 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     }
   }
 
-  public void loadNextBatch() throws IOException {
+  // Returns true if a batch was read, false on EOS
+  public boolean loadNextBatch() throws IOException {
     ensureInitialized();
     // read in all dictionary batches, then stop after our first record batch
     ArrowMessageVisitor<Boolean> visitor = new ArrowMessageVisitor<Boolean>() {
@@ -106,9 +107,18 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     };
     root.setRowCount(0);
     ArrowMessage message = readMessage(in, allocator);
-    while (message != null && message.accepts(visitor)) {
+
+    boolean readBatch = false;
+    while (message != null) {
+      if (!message.accepts(visitor)) {
+        readBatch = true;
+        break;
+      }
+      // else read a dictionary
       message = readMessage(in, allocator);
     }
+
+    return readBatch;
   }
 
   public long bytesRead() { return in.bytesRead(); }

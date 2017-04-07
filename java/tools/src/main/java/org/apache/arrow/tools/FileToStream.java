@@ -41,12 +41,16 @@ public class FileToStream {
     try (ArrowFileReader reader = new ArrowFileReader(in.getChannel(), allocator)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
       // load the first batch before instantiating the writer so that we have any dictionaries
-      reader.loadNextBatch();
+      if (!reader.loadNextBatch()) {
+        throw new IOException("Unable to read first record batch");
+      }
       try (ArrowStreamWriter writer = new ArrowStreamWriter(root, reader, out)) {
         writer.start();
-        while (root.getRowCount() > 0) {
+        while (true) {
           writer.writeBatch();
-          reader.loadNextBatch();
+          if (!reader.loadNextBatch()) {
+            break;
+          }
         }
         writer.end();
       }

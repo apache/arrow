@@ -97,13 +97,8 @@ class ArrayLoader {
     std::shared_ptr<Buffer> null_bitmap, offsets, values;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
-    } else {
-      context_->buffer_index += 2;
-      offsets = values = nullptr;
-    }
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
 
     result_ = std::make_shared<CONTAINER>(
         field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
@@ -166,12 +161,7 @@ class ArrayLoader {
     std::shared_ptr<Buffer> null_bitmap, offsets;
 
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &offsets));
-    } else {
-      offsets = nullptr;
-    }
-    ++context_->buffer_index;
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
 
     const int num_children = type.num_children();
     if (num_children != 1) {
