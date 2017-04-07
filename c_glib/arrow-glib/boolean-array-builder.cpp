@@ -84,7 +84,7 @@ garrow_boolean_array_builder_append(GArrowBooleanArrayBuilder *builder,
     static_cast<arrow::BooleanBuilder *>(
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
-  auto status = arrow_builder->Append(value);
+  auto status = arrow_builder->Append(static_cast<bool>(value));
   if (status.ok()) {
     return TRUE;
   } else {
