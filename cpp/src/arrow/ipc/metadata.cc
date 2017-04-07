@@ -50,7 +50,11 @@ using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 
-static constexpr flatbuf::MetadataVersion kMetadataVersion = flatbuf::MetadataVersion_V3;
+static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
+    flatbuf::MetadataVersion_V3;
+
+static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
+    flatbuf::MetadataVersion_V3;
 
 static Status IntFromFlatbuffer(
     const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -605,8 +609,8 @@ static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
 
 static Status WriteFBMessage(FBB& fbb, flatbuf::MessageHeader header_type,
     flatbuffers::Offset<void> header, int64_t body_length, std::shared_ptr<Buffer>* out) {
-  auto message =
-      flatbuf::CreateMessage(fbb, kMetadataVersion, header_type, header, body_length);
+  auto message = flatbuf::CreateMessage(
+      fbb, kCurrentMetadataVersion, header_type, header, body_length);
   fbb.Finish(message);
   return WriteFlatbufferBuilder(fbb, out);
 }
@@ -738,7 +742,7 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
 
   auto footer = flatbuf::CreateFooter(
-      fbb, kMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
+      fbb, kCurrentMetadataVersion, fb_schema, fb_dictionaries, fb_record_batches);
 
   fbb.Finish(footer);
 
@@ -814,7 +818,11 @@ class Message::MessageImpl {
   Status Open() {
     message_ = flatbuf::GetMessage(buffer_->data() + offset_);
 
-    // TODO(wesm): verify the message
+    // Check that the metadata version is supported
+    if (message_->version() < kMinMetadataVersion) {
+      return Status::Invalid("Old metadata version not supported");
+    }
+
     return Status::OK();
   }
 
