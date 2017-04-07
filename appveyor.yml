@@ -30,12 +30,8 @@ build_script:
  - cd cpp
  - mkdir build
  - cd build
- # A lot of features are still deactivated as they do not build on Windows
- #  * gbenchmark doesn't build with MSVC
- - cmake -G "%GENERATOR%" -DARROW_BOOST_USE_SHARED=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_JEMALLOC=OFF -DCMAKE_BUILD_TYPE=Release ..
+ - cmake -G "%GENERATOR%" -DARROW_CXXFLAGS="/WX" -DARROW_BOOST_USE_SHARED=OFF -DCMAKE_BUILD_TYPE=Release ..
  - cmake --build . --config Release
 
 # test_script:
  - ctest -VV
-
-

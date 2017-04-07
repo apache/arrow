@@ -107,7 +107,7 @@ class TestHdfsClient : public ::testing::Test {
     const char* port = std::getenv("ARROW_HDFS_TEST_PORT");
     const char* user = std::getenv("ARROW_HDFS_TEST_USER");
 
-    ASSERT_TRUE(user) << "Set ARROW_HDFS_TEST_USER";
+    ASSERT_TRUE(user != nullptr) << "Set ARROW_HDFS_TEST_USER";
 
     conf_.host = host == nullptr ? "localhost" : host;
     conf_.user = user;

@@ -125,7 +125,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
     std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
     // Force invariants
-    const int64_t child_length = child_array->length();
+    const int32_t child_length = static_cast<int32_t>(child_array->length());
     offsets[0] = 0;
     std::replace_if(offsets.begin(), offsets.end(),
         [child_length](int32_t offset) { return offset > child_length; }, child_length);
