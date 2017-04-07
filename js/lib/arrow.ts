@@ -81,7 +81,7 @@ export class ArrowReader {
 
     // set the index of the next batch to be loaded
     setBatchIndex(i: number) {
-      this.batchIndex = i;
+        this.batchIndex = i;
     }
 }
 

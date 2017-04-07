@@ -19,7 +19,6 @@ import { BitArray } from './bitarray';
 import { TextDecoder } from 'text-encoding';
 import { org } from './Arrow_generated';
 
-var Field = org.apache.arrow.flatbuf.Field;
 var Type = org.apache.arrow.flatbuf.Type;
 
 interface ArrayView {
@@ -175,16 +174,15 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
     }
 
     get(i) {
-        return Utf8Vector.decoder.decode
-            (this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
+        return Utf8Vector.decoder.decode(this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
     }
 
     slice(start: number, end: number) {
-        var rtrn: string[] = [];
+        var result: string[] = [];
         for (var i: number = start; i < end; i += 1|0) {
-            rtrn.push(this.get(i));
+            result.push(this.get(i));
         }
-        return rtrn;
+        return result;
     }
 }
 
@@ -237,7 +235,13 @@ class ListVector extends Uint32Vector {
         return "length: " + (this.length);
     }
 
-    slice(start : number, end : number) { return []; };
+    slice(start: number, end: number) {
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
+        }
+        return result;
+    }
 }
 
 class NullableListVector extends ListVector {
@@ -259,13 +263,13 @@ class NullableListVector extends ListVector {
 }
 
 class FixedSizeListVector extends Vector {
-    private dataVector: Vector;
     private size: number
+    private dataVector: Vector;
 
     constructor(field, size: number, dataVector: Vector) {
         super(field);
-        this.dataVector = dataVector;
         this.size = size;
+        this.dataVector = dataVector;
     }
 
     getChildVectors() {
@@ -280,8 +284,13 @@ class FixedSizeListVector extends Vector {
         return this.dataVector.slice(i * this.size, (i + 1) * this.size);
     }
 
-    // TODO
-    slice(start : number, end : number) { return []; };
+    slice(start : number, end : number) {
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
+        }
+        return result;
+    }
 }
 
 class NullableFixedSizeListVector extends FixedSizeListVector {
@@ -326,11 +335,11 @@ class StructVector extends Vector {
     }
 
     slice(start : number, end : number) {
-        var rtrn = [];
-        for (var i: number = start; i < end; i += 1|0) {
-            rtrn.push(this.get(i));
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
         }
-        return rtrn;
+        return result;
     }
 }
 
@@ -403,11 +412,11 @@ export function vectorFromField(field) : Vector {
         return field.nullable() ? new NullableListVector(field, dataVector) : new ListVector(field, dataVector);
     } else if (typeType === Type.FixedSizeList) {
         var dataVector = vectorFromField(field.children(0));
-        var type = field.type(new org.apache.arrow.flatbuf.FixedSizeList());
+        var size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
         if (field.nullable()) {
-          return new NullableFixedSizeListVector(field, type.size, dataVector);
+          return new NullableFixedSizeListVector(field, size, dataVector);
         } else {
-          return new FixedSizeListVector(field, type.size, dataVector);
+          return new FixedSizeListVector(field, size, dataVector);
         }
      } else if (typeType === Type.Struct_) {
         var vectors : Vector[] = [];
