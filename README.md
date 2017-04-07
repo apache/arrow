@@ -77,7 +77,7 @@ We prefer to receive contributions in the form of GitHub pull requests. Please
 send pull requests against the [github.com/apache/arrow][4] repository.
 
 If you are looking for some ideas on what to contribute, check out the [JIRA
-issues][5] for the Apache Arrow project. Comment on the issue and/or contact
+issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 [dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
 with your questions and ideas.
 
