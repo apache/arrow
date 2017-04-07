@@ -19,9 +19,7 @@ export class BitArray {
     private view: Uint8Array;
 
     constructor(buffer: ArrayBuffer, offset: number, length: number) {
-        var offset = offset || 0;
-        var length = length;// || buffer.length*8;
-        this.view = new Uint8Array(buffer, offset, Math.ceil(length/8));
+        this.view = new Uint8Array(buffer, offset || 0, Math.ceil(length / 8));
     }
 
     get(i) {
