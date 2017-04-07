@@ -17,16 +17,76 @@
 
 import { flatbuffers } from 'flatbuffers';
 import { org } from './Arrow_generated';
-var arrow = org.apache.arrow;
 import { vectorFromField, Vector } from './types';
 
-export function loadVectors(buf) {
-    var fileLength = buf.length, bb, footerLengthOffset, footerLength,
-        footerOffset, footer, schema, field, type, type_str, i,
-        len, rb_metas, rb_meta, rtrn, recordBatchBlock, recordBatchBlocks = [];
-    var vectors : Vector[] = [];
+import ByteBuffer = flatbuffers.ByteBuffer;
+var Footer = org.apache.arrow.flatbuf.Footer;
+var Message = org.apache.arrow.flatbuf.Message;
+var MessageHeader = org.apache.arrow.flatbuf.MessageHeader;
+var RecordBatch = org.apache.arrow.flatbuf.RecordBatch;
+var Schema = org.apache.arrow.flatbuf.Schema;
+var Type = org.apache.arrow.flatbuf.Type;
+var VectorType = org.apache.arrow.flatbuf.VectorType;
 
-    bb = new flatbuffers.ByteBuffer(buf);
+export class ArrowReader {
+
+    private schema: any = [];
+    private vectors: Vector[];
+    private vectorMap: any = {};
+    private batches: any = [];
+    private batchIndex: number = 0;
+
+    constructor(schema, vectors: Vector[], batches) {
+        this.schema = schema;
+        this.vectors = vectors;
+        for (var i: any = 0; i < vectors.length; i += 1|0) {
+            this.vectorMap[vectors[i].name] = vectors[i]
+        }
+        this.batches = batches;
+    }
+
+    loadNextBatch() {
+        if (this.batchIndex < this.batches.length) {
+            var batch = this.batches[this.batchIndex];
+            this.batchIndex += 1;
+            loadVectors(this.vectors, batch);
+            return batch.length().low;
+        } else {
+            return 0;
+        }
+    }
+
+    getSchema() {
+        return this.schema;
+    }
+
+    getVectors() {
+        return this.vectors;
+    }
+
+    getVector(name) {
+        return this.vectorMap[name];
+    }
+
+    getBatchCount() {
+        return this.batches.length;
+    }
+
+    // the index of the next batch to be loaded
+    getBatchIndex() {
+        return this.batchIndex;
+    }
+
+    // set the index of the next batch to be loaded
+    setBatchIndex(i: number) {
+      this.batchIndex = i;
+    }
+}
+
+export function getFileReader(buf) {
+    var bb, footer, schema, field, vectors: Vector[] = [], i, len, recordBatchBlock, recordBatches = [];
+
+    bb = new ByteBuffer(buf);
 
     footer = _loadFooter(bb);
 
@@ -37,92 +97,68 @@ export function loadVectors(buf) {
         vectors.push(vectorFromField(field));
     }
 
-    for (i = 0; i < footer.recordBatchesLength(); i += 1|0) {
+    for (i = 0, len = footer.recordBatchesLength(); i < len; i += 1|0) {
         recordBatchBlock = footer.recordBatches(i);
-        recordBatchBlocks.push({
-            offset: recordBatchBlock.offset(),
-            metaDataLength: recordBatchBlock.metaDataLength(),
-            bodyLength: recordBatchBlock.bodyLength(),
-        })
+        bb.setPosition(recordBatchBlock.offset().low);
+        recordBatches.push(RecordBatch.getRootAsRecordBatch(bb));
     }
 
-    loadBuffersIntoVectors(recordBatchBlocks, bb, vectors);
-    var rtrn : any = {};
-    for (var i : any = 0; i < vectors.length; i += 1|0) {
-      rtrn[vectors[i].name] = vectors[i]
-    }
-    return rtrn;
+    return new ArrowReader(parseSchema(schema), vectors, recordBatches);
 }
 
-export function loadSchema(buf) {
-    var footer = _loadFooter(new flatbuffers.ByteBuffer(buf));
-    var schema = footer.schema();
-
-    return parseSchema(schema);
-}
-
-export function loadVectorsFromStream(buf) {
-    var fileLength = buf.length, bb, footerLengthOffset, footerLength,
-        footerOffset, footer, schema, field, type, type_str, i,
-        len, rb_metas, rb_meta, rtrn, recordBatchBlock, recordBatchBlocks = [];
-    var vectors : Vector[] = [];
-
-    bb = new flatbuffers.ByteBuffer(buf);
-
-    schema = _loadSchema(bb);
+export function getStreamReader(buf) {
+    var bb = new ByteBuffer(buf),
+        schema = _loadSchema(bb),
+        field,
+        vectors: Vector[] = [],
+        i,
+        len,
+        recordBatch,
+        recordBatches = [];
 
     for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
         field = schema.fields(i);
         vectors.push(vectorFromField(field));
     }
 
-    while (bb.capacity() < bb.position()) {
-      var message = arrow.flatbuf.Message.getRootAsMessage(bb);
-      if (message == null) {
-        break;
+    while (bb.position() < bb.capacity()) {
+      // TODO read dictionaries before record batches
+      recordBatch = _loadRecordBatch(bb);
+      if (recordBatch == null) {
+          break;
       }
-      if (message.headerType() == arrow.flatbuf.MessageHeader.RecordBatch) {
-        recordBatchBlock = message.header(new arrow.flatbuf.RecordBatch());
-        recordBatchBlocks.push({
-            offset: recordBatchBlock.offset(),
-            metaDataLength: recordBatchBlock.metaDataLength(),
-            bodyLength: recordBatchBlock.bodyLength(),
-        })
-      }
+      recordBatches.push(recordBatch)
     }
 
-    loadBuffersIntoVectors(recordBatchBlocks, bb, vectors);
-
-    var rtrn : any = {};
-    for (var i : any = 0; i < vectors.length; i += 1|0) {
-      rtrn[vectors[i].name] = vectors[i]
-    }
-    return rtrn;
-}
-
-export function loadSchemaFromStream(buf) {
-    var schema = _loadSchema(new flatbuffers.ByteBuffer(buf));
-    return parseSchema(schema);
+    return new ArrowReader(parseSchema(schema), vectors, recordBatches);
 }
 
 function _loadSchema(bb) {
+    return _loadMessage(bb, MessageHeader.Schema, new Schema());
+}
+
+function _loadRecordBatch(bb) {
+    return _loadMessage(bb, MessageHeader.RecordBatch, new RecordBatch());
+}
+
+function _loadMessage(bb, type, container) {
     var messageLength: number = Int32FromByteBuffer(bb, bb.position());
     if (messageLength == 0) {
       return;
     }
     bb.setPosition(bb.position() + 4);
-    var message = arrow.flatbuf.Message.getRootAsMessage(bb);
+    var message = Message.getRootAsMessage(bb);
+    // position the buffer at the end of the message so it's ready to read the next one
+    bb.setPosition(bb.position() + messageLength + message.bodyLength().low);
 
     if (message == null) {
-      console.error("Unexpected end of input. Missing schema.");
+      console.error("Unexpected end of input");
+      return;
+    } else if (message.headerType() != type) {
+      console.error("Expected header type " + type + " but got " + message.headerType());
       return;
     }
-    if (message.headerType() != arrow.flatbuf.MessageHeader.Schema) {
-      console.error("Expected schema but header was " + message.headerType());
-      return;
-    }
-
-    return message.header(new arrow.flatbuf.Schema());
+    return message.header(container);
 }
 
 function _loadFooter(bb) {
@@ -153,9 +189,8 @@ function _loadFooter(bb) {
 
     var footerOffset: number = footerLengthOffset - footerLength;
     bb.setPosition(footerOffset);
-    var footer = arrow.flatbuf.Footer.getRootAsFooter(bb);
 
-    return footer;
+    return Footer.getRootAsFooter(bb);
 }
 
 function Int32FromByteBuffer(bb, offset) {
@@ -182,28 +217,28 @@ function _checkMagic(buf, index) {
 }
 
 var TYPEMAP = {}
-TYPEMAP[arrow.flatbuf.Type.NONE]          = "NONE";
-TYPEMAP[arrow.flatbuf.Type.Null]          = "Null";
-TYPEMAP[arrow.flatbuf.Type.Int]           = "Int";
-TYPEMAP[arrow.flatbuf.Type.FloatingPoint] = "FloatingPoint";
-TYPEMAP[arrow.flatbuf.Type.Binary]        = "Binary";
-TYPEMAP[arrow.flatbuf.Type.Utf8]          = "Utf8";
-TYPEMAP[arrow.flatbuf.Type.Bool]          = "Bool";
-TYPEMAP[arrow.flatbuf.Type.Decimal]       = "Decimal";
-TYPEMAP[arrow.flatbuf.Type.Date]          = "Date";
-TYPEMAP[arrow.flatbuf.Type.Time]          = "Time";
-TYPEMAP[arrow.flatbuf.Type.Timestamp]     = "Timestamp";
-TYPEMAP[arrow.flatbuf.Type.Interval]      = "Interval";
-TYPEMAP[arrow.flatbuf.Type.List]          = "List";
-TYPEMAP[arrow.flatbuf.Type.FixedSizeList] = "FixedSizeList";
-TYPEMAP[arrow.flatbuf.Type.Struct_]       = "Struct";
-TYPEMAP[arrow.flatbuf.Type.Union]         = "Union";
+TYPEMAP[Type.NONE]          = "NONE";
+TYPEMAP[Type.Null]          = "Null";
+TYPEMAP[Type.Int]           = "Int";
+TYPEMAP[Type.FloatingPoint] = "FloatingPoint";
+TYPEMAP[Type.Binary]        = "Binary";
+TYPEMAP[Type.Utf8]          = "Utf8";
+TYPEMAP[Type.Bool]          = "Bool";
+TYPEMAP[Type.Decimal]       = "Decimal";
+TYPEMAP[Type.Date]          = "Date";
+TYPEMAP[Type.Time]          = "Time";
+TYPEMAP[Type.Timestamp]     = "Timestamp";
+TYPEMAP[Type.Interval]      = "Interval";
+TYPEMAP[Type.List]          = "List";
+TYPEMAP[Type.FixedSizeList] = "FixedSizeList";
+TYPEMAP[Type.Struct_]       = "Struct";
+TYPEMAP[Type.Union]         = "Union";
 
 var VECTORTYPEMAP = {};
-VECTORTYPEMAP[arrow.flatbuf.VectorType.OFFSET]   = 'OFFSET';
-VECTORTYPEMAP[arrow.flatbuf.VectorType.DATA]     = 'DATA';
-VECTORTYPEMAP[arrow.flatbuf.VectorType.VALIDITY] = 'VALIDITY';
-VECTORTYPEMAP[arrow.flatbuf.VectorType.TYPE]     = 'TYPE';
+VECTORTYPEMAP[VectorType.OFFSET]   = 'OFFSET';
+VECTORTYPEMAP[VectorType.DATA]     = 'DATA';
+VECTORTYPEMAP[VectorType.VALIDITY] = 'VALIDITY';
+VECTORTYPEMAP[VectorType.TYPE]     = 'TYPE';
 
 function parseField(field) {
     var children = [];
@@ -214,7 +249,6 @@ function parseField(field) {
     var layouts = [];
     for (var i = 0; i < field.layoutLength(); i += 1|0) {
         layouts.push(VECTORTYPEMAP[field.layout(i).type()]);
-
     }
 
     return {
@@ -235,38 +269,25 @@ function parseSchema(schema) {
     return result;
 }
 
-function parseBuffer(buffer) {
-    return {
-        offset: buffer.offset(),
-        length: buffer.length()
-    };
+function loadVectors(vectors: Vector[], recordBatch) {
+    var indices = { bufferIndex: 0, nodeIndex: 0 }, i;
+    for (i = 0; i < vectors.length; i += 1) {
+        loadVector(vectors[i], recordBatch, indices);
+    }
 }
 
-function loadBuffersIntoVectors(recordBatchBlocks, bb, vectors : Vector[]) {
-    var fieldNode, message, recordBatchBlock, recordBatch, numBuffers, bufReader = {index: 0, node_index: 1}, field_ctr = 0;
-    var buffer = bb.bytes_.buffer;
-    var baseOffset = bb.bytes_.byteOffset;
-    for (var i = recordBatchBlocks.length - 1; i >= 0; i -= 1|0) {
-        recordBatchBlock = recordBatchBlocks[i];
-        bb.setPosition(recordBatchBlock.offset.low + 4);
-        message = arrow.flatbuf.Message.getRootAsMessage(bb);
-        if (message.headerType() != arrow.flatbuf.MessageHeader.RecordBatch) {
-            console.error('message is not a record batch!');
-            return;
-        }
-        recordBatch = message.header(new arrow.flatbuf.RecordBatch());
-        field_ctr = 0;
-        bufReader.index = 0;
-        bufReader.node_index = 0;
-        numBuffers = recordBatch.buffersLength();
+function loadVector(vector: Vector, recordBatch, indices) {
+    var node = recordBatch.nodes(indices.nodeIndex), ownBuffersLength, ownBuffers = [], i;
+    indices.nodeIndex += 1;
+    ownBuffersLength = vector.field.layoutLength();
+    for (i = 0; i < ownBuffersLength; i += 1) {
+        ownBuffers.push(recordBatch.buffers(indices.bufferIndex + i));
+    }
+    indices.bufferIndex += ownBuffersLength;
+    vector.loadData(node, ownBuffers);
 
-        //console.log('num buffers: ' + recordBatch.buffersLength());
-        //console.log('num nodes: ' + recordBatch.nodesLength());
-
-        while (bufReader.index < numBuffers) {
-            //console.log('Allocating buffers starting at ' + bufReader.index + '/' + numBuffers + ' to field ' + field_ctr);
-            vectors[field_ctr].loadData(recordBatch, buffer, bufReader, baseOffset + recordBatchBlock.offset.low + recordBatchBlock.metaDataLength)
-            field_ctr += 1;
-        }
+    var children = vector.getChildVectors();
+    for (i = 0; i < children.length; i++) {
+        loadVector(children[i], recordBatch, indices);
     }
 }
