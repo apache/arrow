@@ -306,6 +306,10 @@ DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length
       sign_bitmap_(sign_bitmap),
       sign_bitmap_data_(sign_bitmap != nullptr ? sign_bitmap->data() : nullptr) {}
 
+bool DecimalArray::IsNegative(int64_t i) const {
+  return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
+}
+
 template <typename T>
 ARROW_EXPORT Decimal<T> DecimalArray::Value(int64_t i) const {
   Decimal<T> result;

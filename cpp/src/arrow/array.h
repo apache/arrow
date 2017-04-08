@@ -382,9 +382,7 @@ class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0, const std::shared_ptr<Buffer>& sign_bitmap = nullptr);
 
-  bool IsNegative(int64_t i) const {
-    return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
-  }
+  bool IsNegative(int64_t i) const;
 
   template <typename T>
   ARROW_EXPORT Decimal<T> Value(int64_t i) const;
