@@ -60,7 +60,7 @@ garrow_uint32_array_class_init(GArrowUInt32ArrayClass *klass)
  */
 guint32
 garrow_uint32_array_get_value(GArrowUInt32Array *array,
-                             gint64 i)
+                              gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt32Array *>(arrow_array.get())->Value(i);
