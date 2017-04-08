@@ -384,6 +384,79 @@ TEST_F(TestTable, RemoveColumn) {
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 }
 
+TEST_F(TestTable, AddColumn) {
+  const int64_t length = 10;
+  MakeExample1(length);
+
+  Table table(schema_, columns_);
+
+  std::shared_ptr<Table> result;
+  // Some negative tests with invalid index
+  Status status = table.AddColumn(10, columns_[0], &result);
+  ASSERT_TRUE(status.IsInvalid());
+  status = table.AddColumn(-1, columns_[0], &result);
+  ASSERT_TRUE(status.IsInvalid());
+
+  // Add column with wrong length
+  auto longer_col = std::make_shared<Column>(
+      schema_->field(0), MakePrimitive<Int32Array>(length + 1));
+  status = table.AddColumn(0, longer_col, &result);
+  ASSERT_TRUE(status.IsInvalid());
+
+  // Add column 0 in different places
+  ASSERT_OK(table.AddColumn(0, columns_[0], &result));
+  auto ex_schema = std::shared_ptr<Schema>(new Schema({
+      schema_->field(0),
+      schema_->field(0),
+      schema_->field(1),
+      schema_->field(2)}));
+  std::vector<std::shared_ptr<Column>> ex_columns = {
+      table.column(0),
+      table.column(0),
+      table.column(1),
+      table.column(2)};
+  ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
+
+  ASSERT_OK(table.AddColumn(1, columns_[0], &result));
+  ex_schema = std::shared_ptr<Schema>(new Schema({
+      schema_->field(0),
+      schema_->field(0),
+      schema_->field(1),
+      schema_->field(2)}));
+  ex_columns = {
+      table.column(0),
+      table.column(0),
+      table.column(1),
+      table.column(2)};
+  ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
+
+  ASSERT_OK(table.AddColumn(2, columns_[0], &result));
+  ex_schema = std::shared_ptr<Schema>(new Schema({
+      schema_->field(0),
+      schema_->field(1),
+      schema_->field(0),
+      schema_->field(2)}));
+  ex_columns = {
+      table.column(0),
+      table.column(1),
+      table.column(0),
+      table.column(2)};
+  ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
+
+  ASSERT_OK(table.AddColumn(3, columns_[0], &result));
+  ex_schema = std::shared_ptr<Schema>(new Schema({
+      schema_->field(0),
+      schema_->field(1),
+      schema_->field(2),
+      schema_->field(0)}));
+  ex_columns = {
+      table.column(0),
+      table.column(1),
+      table.column(2),
+      table.column(0)};
+  ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
+}
+
 class TestRecordBatch : public TestBase {};
 
 TEST_F(TestRecordBatch, Equals) {
