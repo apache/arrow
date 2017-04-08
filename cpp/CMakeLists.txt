@@ -808,7 +808,7 @@ endif()
 ############################################################
 
 set(ARROW_LINK_LIBS
-    ${BOOST_REGEX_LIBRARY})
+)
 
 set(ARROW_PRIVATE_LINK_LIBS
 )
@@ -842,7 +842,8 @@ endif()
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_SRCS}
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
-  SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
+  SHARED_LINK_LIBS ${BOOST_SHARED_REGEX_LIBRARY}
+  STATIC_LINK_LIBS ${BOOST_STATIC_REGEX_LIBRARY}
 )
 
 add_subdirectory(src/arrow)
