@@ -470,6 +470,16 @@ class DictionaryWriter : public RecordBatchWriter {
   int64_t dictionary_id_;
 };
 
+// Adds padding bytes if necessary to ensure all memory blocks are written on
+// 8-byte boundaries.
+Status AlignStreamPosition(io::OutputStream* stream) {
+  int64_t position;
+  RETURN_NOT_OK(stream->Tell(&position));
+  int64_t remainder = PaddedLength(position) - position;
+  if (remainder > 0) { return stream->Write(kPaddingBytes, remainder); }
+  return Status::OK();
+}
+
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth, bool allow_64bit) {
@@ -486,6 +496,7 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length) {
+  RETURN_NOT_OK(AlignStreamPosition(dst));
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(WriteTensorMessage(tensor, 0, &metadata));
   RETURN_NOT_OK(WriteMessage(*metadata, dst, metadata_length));

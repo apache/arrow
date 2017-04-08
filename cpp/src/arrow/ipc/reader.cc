@@ -495,6 +495,8 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
 
 Status ReadTensor(
     int64_t offset, io::RandomAccessFile* file, std::shared_ptr<Tensor>* out) {
+  // Respect alignment of Tensor messages (see WriteTensor)
+  offset = PaddedLength(offset);
   std::shared_ptr<Message> message;
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(ReadContiguousPayload(offset, file, &message, &data));
