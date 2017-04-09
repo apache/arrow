@@ -28,7 +28,6 @@
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"

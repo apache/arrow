@@ -31,6 +31,8 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/pandas_convert.h"
 
+#include "arrow/util/decimal.h"
+
 namespace arrow {
 namespace py {
 

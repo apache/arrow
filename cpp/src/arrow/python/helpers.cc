@@ -17,6 +17,7 @@
 
 #include "arrow/python/helpers.h"
 #include "arrow/python/common.h"
+#include "arrow/util/decimal.h"
 
 #include <arrow/api.h>
 

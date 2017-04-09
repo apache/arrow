@@ -26,10 +26,13 @@
 
 #include "arrow/python/common.h"
 #include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+template <typename T>
+struct Decimal;
+
 namespace py {
 
 ARROW_EXPORT
