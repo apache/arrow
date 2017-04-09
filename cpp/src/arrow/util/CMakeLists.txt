@@ -69,3 +69,4 @@ if (ARROW_BUILD_BENCHMARKS)
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
+ADD_ARROW_TEST(stl-util-test)

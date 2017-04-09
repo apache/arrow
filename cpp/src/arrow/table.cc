@@ -321,6 +321,30 @@ Status Table::RemoveColumn(int i, std::shared_ptr<Table>* out) const {
   return Status::OK();
 }
 
+Status Table::AddColumn(int i, const std::shared_ptr<Column>& col,
+    std::shared_ptr<Table>* out) const {
+  if (i < 0 || i > num_columns() + 1) {
+    return Status::Invalid("Invalid column index.");
+  }
+  if (col == nullptr) {
+    std::stringstream ss;
+    ss << "Column " << i << " was null";
+    return Status::Invalid(ss.str());
+  }
+  if (col->length() != num_rows_) {
+    std::stringstream ss;
+    ss << "Added column's length must match table's length. Expected length " << num_rows_
+        << " but got length " << col->length();
+    return Status::Invalid(ss.str());
+  }
+
+  std::shared_ptr<Schema> new_schema;
+  RETURN_NOT_OK(schema_->AddField(i, col->field(), &new_schema));
+
+  *out = std::make_shared<Table>(new_schema, AddVectorElement(columns_, i, col));
+  return Status::OK();
+}
+
 Status Table::ValidateColumns() const {
   if (num_columns() != schema_->num_fields()) {
     return Status::Invalid("Number of columns did not match schema");

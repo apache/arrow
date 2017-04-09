@@ -20,16 +20,36 @@
 
 #include <vector>
 
+#include <arrow/util/logging.h>
+
 namespace arrow {
 
 template <typename T>
 inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
+  DCHECK(!values.empty());
+  DCHECK_LT(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() - 1);
   for (size_t i = 0; i < index; ++i) {
     out.push_back(values[i]);
   }
   for (size_t i = index + 1; i < values.size(); ++i) {
+    out.push_back(values[i]);
+  }
+  return out;
+}
+
+template <typename T>
+inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
+    const T& new_element) {
+  DCHECK_LE(index, values.size());
+  std::vector<T> out;
+  out.reserve(values.size() + 1);
+  for (size_t i = 0; i < index; ++i) {
+    out.push_back(values[i]);
+  }
+  out.push_back(new_element);
+  for (size_t i = index; i < values.size(); ++i) {
     out.push_back(values[i]);
   }
   return out;

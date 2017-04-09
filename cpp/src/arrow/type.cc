@@ -257,6 +257,15 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
   }
 }
 
+Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
+    std::shared_ptr<Schema>* out) const {
+  DCHECK_GE(i, 0);
+  DCHECK_LE(i, this->num_fields());
+
+  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field));
+  return Status::OK();
+}
+
 Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
