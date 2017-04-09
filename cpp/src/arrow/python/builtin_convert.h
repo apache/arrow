@@ -25,7 +25,7 @@
 
 #include <memory>
 
-#include <arrow/type.h>
+#include "arrow/type.h"
 
 #include "arrow/util/visibility.h"
 

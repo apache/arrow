@@ -39,6 +39,9 @@ class MemoryPool;
 class MutableBuffer;
 class Status;
 
+template <typename T>
+struct Decimal;
+
 /// Immutable data array with some logical type and some length.
 ///
 /// Any memory is owned by the respective Buffer instance (or its parents).
@@ -356,9 +359,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);
 
-  const uint8_t* GetValue(int64_t i) const {
-    return raw_data_ + (i + offset_) * byte_width_;
-  }
+  const uint8_t* GetValue(int64_t i) const;
 
   int32_t byte_width() const { return byte_width_; }
 
@@ -368,6 +369,30 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
  protected:
   int32_t byte_width_;
+};
+
+// ----------------------------------------------------------------------
+// DecimalArray
+class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
+ public:
+  using TypeClass = Type;
+
+  DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
+      const std::shared_ptr<Buffer>& data,
+      const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
+      int64_t offset = 0, const std::shared_ptr<Buffer>& sign_bitmap = nullptr);
+
+  bool IsNegative(int64_t i) const;
+
+  template <typename T>
+  ARROW_EXPORT Decimal<T> Value(int64_t i) const;
+
+  std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
+
+ private:
+  /// Only needed for 128 bit Decimals
+  std::shared_ptr<Buffer> sign_bitmap_;
+  const uint8_t* sign_bitmap_data_;
 };
 
 // ----------------------------------------------------------------------

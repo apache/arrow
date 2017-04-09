@@ -17,6 +17,7 @@
 
 #include "arrow/type.h"
 
+#include <climits>
 #include <sstream>
 #include <string>
 
@@ -91,7 +92,7 @@ std::string BinaryType::ToString() const {
 }
 
 int FixedSizeBinaryType::bit_width() const {
-  return 8 * byte_width();
+  return CHAR_BIT * byte_width();
 }
 
 std::string FixedSizeBinaryType::ToString() const {
@@ -380,6 +381,10 @@ std::shared_ptr<Field> field(
   return std::make_shared<Field>(name, type, nullable);
 }
 
+std::shared_ptr<DataType> decimal(int precision, int scale) {
+  return std::make_shared<DecimalType>(precision, scale);
+}
+
 static const BufferDescr kValidityBuffer(BufferType::VALIDITY, 1);
 static const BufferDescr kOffsetBuffer(BufferType::OFFSET, 32);
 static const BufferDescr kTypeBuffer(BufferType::TYPE, 32);
@@ -402,7 +407,11 @@ std::vector<BufferDescr> BinaryType::GetBufferLayout() const {
 }
 
 std::vector<BufferDescr> FixedSizeBinaryType::GetBufferLayout() const {
-  return {kValidityBuffer, BufferDescr(BufferType::DATA, byte_width_ * 8)};
+  return {kValidityBuffer, BufferDescr(BufferType::DATA, bit_width())};
+}
+
+std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
+  return {kValidityBuffer, kBooleanBuffer, BufferDescr(BufferType::DATA, bit_width())};
 }
 
 std::vector<BufferDescr> ListType::GetBufferLayout() const {
@@ -425,11 +434,6 @@ std::string DecimalType::ToString() const {
   std::stringstream s;
   s << "decimal(" << precision << ", " << scale << ")";
   return s.str();
-}
-
-std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
-  // TODO(wesm)
-  return {};
 }
 
 }  // namespace arrow

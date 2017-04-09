@@ -28,13 +28,46 @@
 
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/pandas_convert.h"
+
+#include "arrow/util/decimal.h"
 
 namespace arrow {
 namespace py {
 
 TEST(PyBuffer, InvalidInputObject) {
   PyBuffer buffer(Py_None);
+}
+
+TEST(DecimalTest, TestPythonDecimalToArrowDecimal128) {
+  PyAcquireGIL lock;
+
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  ASSERT_OK(ImportModule("decimal", &decimal));
+  ASSERT_NE(decimal.obj(), nullptr);
+
+  ASSERT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+  ASSERT_NE(Decimal.obj(), nullptr);
+
+  std::string decimal_string("-39402950693754869342983");
+  const char* format = "s#";
+  auto c_string = decimal_string.c_str();
+  ASSERT_NE(c_string, nullptr);
+
+  auto c_string_size = decimal_string.size();
+  ASSERT_GT(c_string_size, 0);
+  OwnedRef pydecimal(PyObject_CallFunction(
+      Decimal.obj(), const_cast<char*>(format), c_string, c_string_size));
+  ASSERT_NE(pydecimal.obj(), nullptr);
+  ASSERT_EQ(PyErr_Occurred(), nullptr);
+
+  Decimal128 arrow_decimal;
+  int128_t boost_decimal(decimal_string);
+  PyObject* obj = pydecimal.obj();
+  ASSERT_OK(PythonDecimalToArrowDecimal(obj, &arrow_decimal));
+  ASSERT_EQ(boost_decimal, arrow_decimal.value);
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {

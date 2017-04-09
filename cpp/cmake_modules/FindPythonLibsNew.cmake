@@ -175,7 +175,8 @@ else()
     find_library(PYTHON_LIBRARY
         NAMES "python${PYTHON_LIBRARY_SUFFIX}"
         PATHS ${_PYTHON_LIBS_SEARCH}
-        NO_SYSTEM_ENVIRONMENT_PATH)
+        NO_SYSTEM_ENVIRONMENT_PATH
+        NO_CMAKE_SYSTEM_PATH)
     message(STATUS "Found Python lib ${PYTHON_LIBRARY}")
 endif()
 

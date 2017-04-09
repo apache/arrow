@@ -116,6 +116,10 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
+cdef class DecimalArray(FixedSizeBinaryArray):
+    pass
+
+
 cdef class ListArray(Array):
     pass
 

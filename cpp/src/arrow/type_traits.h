@@ -229,6 +229,13 @@ struct TypeTraits<DoubleType> {
 };
 
 template <>
+struct TypeTraits<DecimalType> {
+  using ArrayType = DecimalArray;
+  using BuilderType = DecimalBuilder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
 struct TypeTraits<BooleanType> {
   using ArrayType = BooleanArray;
   using BuilderType = BooleanBuilder;
@@ -286,12 +293,6 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
-  constexpr static bool is_parameter_free = false;
-};
-
-template <>
-struct TypeTraits<DecimalType> {
-  // using ArrayType = DecimalArray;
   constexpr static bool is_parameter_free = false;
 };
 

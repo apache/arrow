@@ -20,6 +20,7 @@ from pyarrow.compat import unittest, u  # noqa
 import pyarrow as pa
 
 import datetime
+import decimal
 
 
 class TestConvertList(unittest.TestCase):
@@ -162,3 +163,42 @@ class TestConvertList(unittest.TestCase):
         data = ['a', 1, 2.0]
         with self.assertRaises(pa.ArrowException):
             pa.from_pylist(data)
+
+    def test_decimal(self):
+        data = [decimal.Decimal('1234.183'), decimal.Decimal('8094.234')]
+        type = pa.decimal(precision=7, scale=3)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data
+
+    def test_decimal_different_precisions(self):
+        data = [
+            decimal.Decimal('1234234983.183'), decimal.Decimal('80943244.234')
+        ]
+        type = pa.decimal(precision=13, scale=3)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data
+
+    def test_decimal_no_scale(self):
+        data = [decimal.Decimal('1234234983'), decimal.Decimal('8094324')]
+        type = pa.decimal(precision=10)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data
+
+    def test_decimal_negative(self):
+        data = [decimal.Decimal('-1234.234983'), decimal.Decimal('-8.094324')]
+        type = pa.decimal(precision=10, scale=6)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data
+
+    def test_decimal_no_whole_part(self):
+        data = [decimal.Decimal('-.4234983'), decimal.Decimal('.0103943')]
+        type = pa.decimal(precision=7, scale=7)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data
+
+    def test_decimal_large_integer(self):
+        data = [decimal.Decimal('-394029506937548693.42983'),
+                decimal.Decimal('32358695912932.01033')]
+        type = pa.decimal(precision=23, scale=5)
+        arr = pa.from_pylist(data, type=type)
+        assert arr.to_pylist() == data

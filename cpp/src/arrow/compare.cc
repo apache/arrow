@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -232,6 +233,41 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const DecimalArray& left) {
+    const auto& right = static_cast<const DecimalArray&>(right_);
+
+    int32_t width = left.byte_width();
+
+    const uint8_t* left_data = nullptr;
+    const uint8_t* right_data = nullptr;
+
+    if (left.data()) { left_data = left.raw_data() + left.offset() * width; }
+
+    if (right.data()) { right_data = right.raw_data() + right.offset() * width; }
+
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+         ++i, ++o_i) {
+      if (left.IsNegative(i) != right.IsNegative(o_i)) {
+        result_ = false;
+        return Status::OK();
+      }
+
+      const bool is_null = left.IsNull(i);
+      if (is_null != right.IsNull(o_i)) {
+        result_ = false;
+        return Status::OK();
+      }
+      if (is_null) continue;
+
+      if (std::memcmp(left_data + width * i, right_data + width * o_i, width)) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+    result_ = true;
+    return Status::OK();
+  }
+
   Status Visit(const NullArray& left) {
     UNUSED(left);
     result_ = true;
@@ -242,10 +278,6 @@ class RangeEqualsVisitor {
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value, Status>::type Visit(
       const T& left) {
     return CompareValues<T>(left);
-  }
-
-  Status Visit(const DecimalArray& left) {
-    return Status::NotImplemented("Decimal type");
   }
 
   Status Visit(const ListArray& left) {

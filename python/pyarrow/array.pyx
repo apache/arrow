@@ -481,6 +481,10 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
+cdef class DecimalArray(FixedSizeBinaryArray):
+    pass
+
+
 cdef class ListArray(Array):
     pass
 
@@ -602,6 +606,7 @@ cdef dict _array_classes = {
     Type_STRING: StringArray,
     Type_DICTIONARY: DictionaryArray,
     Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
+    Type_DECIMAL: DecimalArray,
 }
 
 cdef object box_array(const shared_ptr[CArray]& sp_array):

@@ -37,7 +37,8 @@ set(ARROW_PYTHON_MIN_TEST_LIBS
   arrow_python_static
   arrow_ipc_static
   arrow_io_static
-  arrow_static)
+  arrow_static
+  ${BOOST_REGEX_LIBRARY})
 
 if(ARROW_BUILD_TESTS)
   ADD_THIRDPARTY_LIB(python

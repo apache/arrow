@@ -71,7 +71,7 @@ from pyarrow.schema import (null, bool_,
                             uint8, uint16, uint32, uint64,
                             timestamp, date32, date64,
                             float16, float32, float64,
-                            binary, string,
+                            binary, string, decimal,
                             list_, struct, dictionary, field,
                             DataType, FixedSizeBinaryType,
                             Field, Schema, schema)

@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
 #include "arrow/visitor_inline.h"
@@ -283,15 +284,55 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type,
     int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
-    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {
-  DCHECK(type->type == Type::FIXED_SIZE_BINARY);
-  byte_width_ = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
-}
+    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset),
+      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
 std::shared_ptr<Array> FixedSizeBinaryArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<FixedSizeBinaryArray>(
       type_, length, data_, null_bitmap_, kUnknownNullCount, offset);
+}
+
+const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
+  return raw_data_ + (i + offset_) * byte_width_;
+}
+
+// ----------------------------------------------------------------------
+// Decimal
+DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int64_t null_count, int64_t offset, const std::shared_ptr<Buffer>& sign_bitmap)
+    : FixedSizeBinaryArray(type, length, data, null_bitmap, null_count, offset),
+      sign_bitmap_(sign_bitmap),
+      sign_bitmap_data_(sign_bitmap != nullptr ? sign_bitmap->data() : nullptr) {}
+
+bool DecimalArray::IsNegative(int64_t i) const {
+  return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
+}
+
+template <typename T>
+ARROW_EXPORT Decimal<T> DecimalArray::Value(int64_t i) const {
+  Decimal<T> result;
+  FromBytes(GetValue(i), &result);
+  return result;
+}
+
+template ARROW_EXPORT Decimal32 DecimalArray::Value(int64_t i) const;
+template ARROW_EXPORT Decimal64 DecimalArray::Value(int64_t i) const;
+
+template <>
+ARROW_EXPORT Decimal128 DecimalArray::Value(int64_t i) const {
+  Decimal128 result;
+  FromBytes(GetValue(i), IsNegative(i), &result);
+  return result;
+}
+
+template ARROW_EXPORT Decimal128 DecimalArray::Value(int64_t i) const;
+
+std::shared_ptr<Array> DecimalArray::Slice(int64_t offset, int64_t length) const {
+  ConformSliceParams(offset_, length_, &offset, &length);
+  return std::make_shared<DecimalArray>(
+      type_, length, data_, null_bitmap_, kUnknownNullCount, offset, sign_bitmap_);
 }
 
 // ----------------------------------------------------------------------

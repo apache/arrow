@@ -360,6 +360,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
 
   explicit FixedSizeBinaryType(int32_t byte_width)
       : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
+  explicit FixedSizeBinaryType(int32_t byte_width, Type::type type_id)
+      : FixedWidthType(type_id), byte_width_(byte_width) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -399,19 +401,31 @@ struct ARROW_EXPORT StructType : public NestedType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-struct ARROW_EXPORT DecimalType : public DataType {
+static inline int decimal_byte_width(int precision) {
+  if (precision >= 0 && precision < 10) {
+    return 4;
+  } else if (precision >= 10 && precision < 19) {
+    return 8;
+  } else {
+    // TODO(phillipc): validate that we can't construct > 128 bit types
+    return 16;
+  }
+}
+
+struct ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   static constexpr Type::type type_id = Type::DECIMAL;
 
   explicit DecimalType(int precision_, int scale_)
-      : DataType(Type::DECIMAL), precision(precision_), scale(scale_) {}
-  int precision;
-  int scale;
-
+      : FixedSizeBinaryType(decimal_byte_width(precision_), Type::DECIMAL),
+        precision(precision_),
+        scale(scale_) {}
+  std::vector<BufferDescr> GetBufferLayout() const override;
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "decimal"; }
 
-  std::vector<BufferDescr> GetBufferLayout() const override;
+  int precision;
+  int scale;
 };
 
 enum class UnionMode : char { SPARSE, DENSE };

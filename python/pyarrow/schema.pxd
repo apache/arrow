@@ -20,6 +20,7 @@ from pyarrow.includes.libarrow cimport (CDataType,
                                         CDictionaryType,
                                         CTimestampType,
                                         CFixedSizeBinaryType,
+                                        CDecimalType,
                                         CField, CSchema)
 
 cdef class DataType:
@@ -27,7 +28,7 @@ cdef class DataType:
         shared_ptr[CDataType] sp_type
         CDataType* type
 
-    cdef init(self, const shared_ptr[CDataType]& type)
+    cdef void init(self, const shared_ptr[CDataType]& type)
 
 
 cdef class DictionaryType(DataType):
@@ -45,6 +46,11 @@ cdef class FixedSizeBinaryType(DataType):
         const CFixedSizeBinaryType* fixed_size_binary_type
 
 
+cdef class DecimalType(FixedSizeBinaryType):
+    cdef:
+        const CDecimalType* decimal_type
+
+
 cdef class Field:
     cdef:
         shared_ptr[CField] sp_field
@@ -55,6 +61,7 @@ cdef class Field:
 
     cdef init(self, const shared_ptr[CField]& field)
 
+
 cdef class Schema:
     cdef:
         shared_ptr[CSchema] sp_schema
@@ -62,6 +69,7 @@ cdef class Schema:
 
     cdef init(self, const vector[shared_ptr[CField]]& fields)
     cdef init_schema(self, const shared_ptr[CSchema]& schema)
+
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type)
 cdef Field box_field(const shared_ptr[CField]& field)

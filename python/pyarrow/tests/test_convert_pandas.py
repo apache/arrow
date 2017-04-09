@@ -20,6 +20,7 @@ from collections import OrderedDict
 
 import datetime
 import unittest
+import decimal
 
 import numpy as np
 
@@ -451,3 +452,72 @@ class TestPandasConversion(unittest.TestCase):
             self._check_pandas_roundtrip(df)
             self._check_array_roundtrip(col)
             self._check_array_roundtrip(col, mask=strided_mask)
+
+    def test_decimal_32_from_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('-1234.123'),
+                decimal.Decimal('1234.439'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        field = A.Field.from_py('decimals', A.decimal(7, 3))
+        schema = A.Schema.from_fields([field])
+        assert converted.schema.equals(schema)
+
+    def test_decimal_32_to_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('-1234.123'),
+                decimal.Decimal('1234.439'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        df = converted.to_pandas()
+        tm.assert_frame_equal(df, expected)
+
+    def test_decimal_64_from_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('-129934.123331'),
+                decimal.Decimal('129534.123731'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        field = A.Field.from_py('decimals', A.decimal(12, 6))
+        schema = A.Schema.from_fields([field])
+        assert converted.schema.equals(schema)
+
+    def test_decimal_64_to_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('-129934.123331'),
+                decimal.Decimal('129534.123731'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        df = converted.to_pandas()
+        tm.assert_frame_equal(df, expected)
+
+    def test_decimal_128_from_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('394092382910493.12341234678'),
+                -decimal.Decimal('314292388910493.12343437128'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        field = A.Field.from_py('decimals', A.decimal(26, 11))
+        schema = A.Schema.from_fields([field])
+        assert converted.schema.equals(schema)
+
+    def test_decimal_128_to_pandas(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('394092382910493.12341234678'),
+                -decimal.Decimal('314292388910493.12343437128'),
+            ]
+        })
+        converted = A.Table.from_pandas(expected)
+        df = converted.to_pandas()
+        tm.assert_frame_equal(df, expected)

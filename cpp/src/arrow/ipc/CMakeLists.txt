@@ -27,7 +27,8 @@ set(ARROW_IPC_SHARED_LINK_LIBS
 set(ARROW_IPC_TEST_LINK_LIBS
   arrow_ipc_static
   arrow_io_static
-  arrow_static)
+  arrow_static
+  ${BOOST_REGEX_LIBRARY})
 
 set(ARROW_IPC_SRCS
   feather.cc
@@ -161,7 +162,8 @@ if(MSVC)
     arrow_io_static
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+    ${BOOST_SYSTEM_LIBRARY}
+    ${BOOST_REGEX_LIBRARY})
 else()
   set(UTIL_LINK_LIBS
     arrow_ipc_static
@@ -169,6 +171,7 @@ else()
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
+    ${BOOST_REGEX_LIBRARY}
     dl)
 endif()
 

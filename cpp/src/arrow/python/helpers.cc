@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/python/helpers.h"
+#include "arrow/python/common.h"
+#include "arrow/util/decimal.h"
 
 #include <arrow/api.h>
 
@@ -50,6 +52,83 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
     default:
       return nullptr;
   }
+}
+
+Status ImportModule(const std::string& module_name, OwnedRef* ref) {
+  PyAcquireGIL lock;
+  PyObject* module = PyImport_ImportModule(module_name.c_str());
+  RETURN_IF_PYERROR();
+  ref->reset(module);
+  return Status::OK();
+}
+
+Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref) {
+  /// Assumes that ImportModule was called first
+  DCHECK_NE(module.obj(), nullptr) << "Cannot import from nullptr Python module";
+
+  PyAcquireGIL lock;
+  PyObject* attr = PyObject_GetAttrString(module.obj(), name.c_str());
+  RETURN_IF_PYERROR();
+  ref->reset(attr);
+  return Status::OK();
+}
+
+template <typename T>
+Status PythonDecimalToArrowDecimal(PyObject* python_decimal, Decimal<T>* arrow_decimal) {
+  // Call Python's str(decimal_object)
+  OwnedRef str_obj(PyObject_Str(python_decimal));
+  RETURN_IF_PYERROR();
+
+  PyObjectStringify str(str_obj.obj());
+  RETURN_IF_PYERROR();
+
+  const char* bytes = str.bytes;
+  DCHECK_NE(bytes, nullptr);
+
+  Py_ssize_t size = str.size;
+
+  std::string c_string(bytes, size);
+  return FromString(c_string, arrow_decimal);
+}
+
+template Status PythonDecimalToArrowDecimal(
+    PyObject* python_decimal, Decimal32* arrow_decimal);
+template Status PythonDecimalToArrowDecimal(
+    PyObject* python_decimal, Decimal64* arrow_decimal);
+template Status PythonDecimalToArrowDecimal(
+    PyObject* python_decimal, Decimal128* arrow_decimal);
+
+Status InferDecimalPrecisionAndScale(
+    PyObject* python_decimal, int* precision, int* scale) {
+  // Call Python's str(decimal_object)
+  OwnedRef str_obj(PyObject_Str(python_decimal));
+  RETURN_IF_PYERROR();
+  PyObjectStringify str(str_obj.obj());
+
+  const char* bytes = str.bytes;
+  DCHECK_NE(bytes, nullptr);
+
+  auto size = str.size;
+
+  std::string c_string(bytes, size);
+  return FromString(c_string, static_cast<Decimal32*>(nullptr), precision, scale);
+}
+
+Status DecimalFromString(
+    PyObject* decimal_constructor, const std::string& decimal_string, PyObject** out) {
+  DCHECK_NE(decimal_constructor, nullptr);
+  DCHECK_NE(out, nullptr);
+
+  auto string_size = decimal_string.size();
+  DCHECK_GT(string_size, 0);
+
+  auto string_bytes = decimal_string.c_str();
+  DCHECK_NE(string_bytes, nullptr);
+
+  *out = PyObject_CallFunction(
+      decimal_constructor, const_cast<char*>("s#"), string_bytes, string_size);
+  RETURN_IF_PYERROR();
+  return Status::OK();
 }
 
 }  // namespace py

@@ -18,16 +18,38 @@
 #ifndef PYARROW_HELPERS_H
 #define PYARROW_HELPERS_H
 
+#include <Python.h>
+
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+template <typename T>
+struct Decimal;
+
 namespace py {
 
-ARROW_EXPORT
-std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
+class OwnedRef;
+
+ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
+
+Status ImportModule(const std::string& module_name, OwnedRef* ref);
+Status ImportFromModule(
+    const OwnedRef& module, const std::string& module_name, OwnedRef* ref);
+
+template <typename T>
+Status PythonDecimalToArrowDecimal(PyObject* python_decimal, Decimal<T>* arrow_decimal);
+
+Status InferDecimalPrecisionAndScale(
+    PyObject* python_decimal, int* precision = nullptr, int* scale = nullptr);
+
+Status DecimalFromString(
+    PyObject* decimal_constructor, const std::string& decimal_string, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

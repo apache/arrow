@@ -39,6 +39,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type_FLOAT" arrow::Type::FLOAT"
         Type_DOUBLE" arrow::Type::DOUBLE"
 
+        Type_DECIMAL" arrow::Type::DECIMAL"
+
         Type_DATE32" arrow::Type::DATE32"
         Type_DATE64" arrow::Type::DATE64"
         Type_TIMESTAMP" arrow::Type::TIMESTAMP"
@@ -57,6 +59,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_MILLI" arrow::TimeUnit::MILLI"
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
         TimeUnit_NANO" arrow::TimeUnit::NANO"
+
+    cdef cppclass Decimal[T]:
+        Decimal(const T&)
+
+    cdef c_string ToString[T](const Decimal[T]&, int, int)
 
     cdef cppclass CDataType" arrow::DataType":
         Type type
@@ -144,6 +151,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeBinaryType" arrow::FixedSizeBinaryType"(CFixedWidthType):
         CFixedSizeBinaryType(int byte_width)
         int byte_width()
+        int bit_width()
+
+    cdef cppclass CDecimalType" arrow::DecimalType"(CFixedSizeBinaryType):
+        int precision
+        int scale
+        CDecimalType(int precision, int scale)
 
     cdef cppclass CField" arrow::Field":
         c_string name
@@ -211,6 +224,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
         const uint8_t* GetValue(int i)
+
+    cdef cppclass CDecimalArray" arrow::DecimalArray"(CFixedSizeBinaryArray):
+        Decimal[T] Value[T](int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         const int32_t* raw_value_offsets()
