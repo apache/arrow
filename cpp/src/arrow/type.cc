@@ -258,8 +258,8 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
   }
 }
 
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-    std::shared_ptr<Schema>* out) const {
+Status Schema::AddField(
+    int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 

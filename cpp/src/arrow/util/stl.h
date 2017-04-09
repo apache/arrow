@@ -40,8 +40,8 @@ inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t i
 }
 
 template <typename T>
-inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
-    const T& new_element) {
+inline std::vector<T> AddVectorElement(
+    const std::vector<T>& values, size_t index, const T& new_element) {
   DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() + 1);

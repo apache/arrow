@@ -2081,7 +2081,7 @@ class ArrowDeserializer {
   template <typename Type>
   typename std::enable_if<std::is_base_of<TimeType, Type>::value, Status>::type Visit(
       const Type& type) {
-    return Status::NotImplemented("time type");
+    return Status::NotImplemented("Don't know how to serialize Arrow time type to NumPy");
   }
 
   // Integer specialization
