@@ -86,8 +86,8 @@ VectorLayout:
 Type:
 ```
 {
-  "name" : "null|struct|list|union|int|floatingpoint|utf8|binary|bool|decimal|date|time|timestamp|interval"
-  // fields as defined in the flatbuff depending on the type name
+  "name" : "null|struct|list|union|int|floatingpoint|utf8|binary|fixedsizebinary|bool|decimal|date|time|timestamp|interval"
+  // fields as defined in the Flatbuffer depending on the type name
 }
 ```
 Union:
@@ -126,14 +126,37 @@ Decimal:
   "scale" : /* integer */
 }
 ```
+
 Timestamp:
+
 ```
 {
   "name" : "timestamp",
   "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND"
 }
 ```
+
+Date:
+
+```
+{
+  "name" : "date",
+  "unit" : "DAY|MILLISECOND"
+}
+```
+
+Time:
+
+```
+{
+  "name" : "time",
+  "unit" : "SECOND|MILLISECOND|MICROSECOND|NANOSECOND",
+  "bitWidth": /* integer: 32 or 64 */
+}
+```
+
 Interval:
+
 ```
 {
   "name" : "interval",
@@ -161,11 +184,15 @@ Flatbuffers IDL for a record batch data header
 
 ```
 table RecordBatch {
-  length: int;
+  length: long;
   nodes: [FieldNode];
   buffers: [Buffer];
 }
 ```
+
+The `RecordBatch` metadata provides for record batches with length exceeding
+2^31 - 1, but Arrow implementations are not required to implement support
+beyond this size.
 
 The `nodes` and `buffers` fields are produced by a depth-first traversal /
 flattening of a schema (possibly containing nested types) for a given in-memory
@@ -205,12 +232,16 @@ hierarchy.
 struct FieldNode {
   /// The number of value slots in the Arrow array at this level of a nested
   /// tree
-  length: int;
+  length: long;
 
   /// The number of observed nulls.
-  null_count: int;
+  null_count: lohng;
 }
 ```
+
+The `FieldNode` metadata provides for fields with length exceeding 2^31 - 1,
+but Arrow implementations are not required to implement support for large
+arrays.
 
 ## Flattening of nested data
 
@@ -359,7 +390,21 @@ TBD
 
 ### Timestamp
 
-TBD
+All timestamps are stored as a 64-bit integer, with one of four unit
+resolutions: second, millisecond, microsecond, and nanosecond.
+
+### Date
+
+We support two different date types:
+
+* Days since the UNIX epoch as a 32-bit integer
+* Milliseconds since the UNIX epoch as a 64-bit integer
+
+### Time
+
+Time supports the same unit resolutions: second, millisecond, microsecond, and
+nanosecond. We represent time as the smallest integer accommodating the
+indicated unit. For second and millisecond: 32-bit, for the others 64-bit.
 
 ## Dictionary encoding
 
