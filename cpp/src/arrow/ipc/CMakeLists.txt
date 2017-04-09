@@ -16,85 +16,24 @@
 # under the License.
 
 #######################################
-# arrow_ipc
-#######################################
-
-set(ARROW_IPC_SHARED_LINK_LIBS
-  arrow_io_shared
-  arrow_shared
-)
-
-set(ARROW_IPC_TEST_LINK_LIBS
-  arrow_ipc_static
-  arrow_io_static
-  arrow_static
-  ${BOOST_REGEX_LIBRARY})
-
-set(ARROW_IPC_SRCS
-  feather.cc
-  json.cc
-  json-internal.cc
-  metadata.cc
-  reader.cc
-  writer.cc
-)
-
-if(NOT MSVC AND NOT APPLE)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
-  set(ARROW_IPC_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
-endif()
-
-if(RAPIDJSON_VENDORED)
-  set(IPC_DEPENDENCIES ${IPC_DEPENDENCIES} rapidjson_ep)
-endif()
-
-if(FLATBUFFERS_VENDORED)
-  set(IPC_DEPENDENCIES ${IPC_DEPENDENCIES} flatbuffers_ep)
-endif()
-
-ADD_ARROW_LIB(arrow_ipc
-  SOURCES ${ARROW_IPC_SRCS}
-  DEPENDENCIES ${IPC_DEPENDENCIES}
-  SHARED_LINK_FLAGS ${ARROW_IPC_LINK_FLAGS}
-  SHARED_LINK_LIBS ${ARROW_IPC_SHARED_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
-)
+# Messaging and interprocess communication
 
 ADD_ARROW_TEST(feather-test)
-ARROW_TEST_LINK_LIBRARIES(feather-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
 ADD_ARROW_TEST(ipc-read-write-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-read-write-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
 ADD_ARROW_TEST(ipc-json-test)
-ARROW_TEST_LINK_LIBRARIES(ipc-json-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
-
 ADD_ARROW_TEST(json-integration-test)
-ARROW_TEST_LINK_LIBRARIES(json-integration-test
-  ${ARROW_IPC_TEST_LINK_LIBS})
 
 if (ARROW_BUILD_TESTS)
   target_link_libraries(json-integration-test
-    gflags
-    gtest
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+    gflags)
 
   if (UNIX)
     if (APPLE)
-      target_link_libraries(json-integration-test
-        ${CMAKE_DL_LIBS})
       set_target_properties(json-integration-test
         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
     else()
       target_link_libraries(json-integration-test
-        pthread
-        ${CMAKE_DL_LIBS})
+        pthread)
     endif()
   endif()
 endif()
@@ -127,6 +66,7 @@ if(FLATBUFFERS_VENDORED)
 else()
   set(FBS_DEPENDS ${ABS_FBS_SRC})
 endif()
+
 add_custom_command(
   OUTPUT ${FBS_OUTPUT_FILES}
   COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
@@ -136,7 +76,6 @@ add_custom_command(
 )
 
 add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
-add_dependencies(arrow_ipc_objlib metadata_fbs)
 
 # Headers: top level
 install(FILES
@@ -148,26 +87,14 @@ install(FILES
   writer.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")
 
-# pkg-config support
-configure_file(arrow-ipc.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-ipc.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-
 if(MSVC)
   set(UTIL_LINK_LIBS
-    arrow_ipc_static
-    arrow_io_static
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY})
 else()
   set(UTIL_LINK_LIBS
-    arrow_ipc_static
-    arrow_io_static
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
@@ -183,5 +110,3 @@ if (ARROW_BUILD_UTILITIES)
 endif()
 
 ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
-ARROW_BENCHMARK_LINK_LIBRARIES(ipc-read-write-benchmark
-  ${ARROW_IPC_TEST_LINK_LIBS})
