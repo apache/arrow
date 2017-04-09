@@ -512,9 +512,9 @@ class TestPandasConversion(unittest.TestCase):
                 decimal.Decimal('1234.439'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
-        field = A.Field.from_py('decimals', A.decimal(7, 3))
-        schema = A.Schema.from_fields([field])
+        converted = pa.Table.from_pandas(expected)
+        field = pa.Field.from_py('decimals', pa.decimal(7, 3))
+        schema = pa.Schema.from_fields([field])
         assert converted.schema.equals(schema)
 
     def test_decimal_32_to_pandas(self):
@@ -524,7 +524,7 @@ class TestPandasConversion(unittest.TestCase):
                 decimal.Decimal('1234.439'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
+        converted = pa.Table.from_pandas(expected)
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
 
@@ -535,9 +535,9 @@ class TestPandasConversion(unittest.TestCase):
                 decimal.Decimal('129534.123731'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
-        field = A.Field.from_py('decimals', A.decimal(12, 6))
-        schema = A.Schema.from_fields([field])
+        converted = pa.Table.from_pandas(expected)
+        field = pa.Field.from_py('decimals', pa.decimal(12, 6))
+        schema = pa.Schema.from_fields([field])
         assert converted.schema.equals(schema)
 
     def test_decimal_64_to_pandas(self):
@@ -547,7 +547,7 @@ class TestPandasConversion(unittest.TestCase):
                 decimal.Decimal('129534.123731'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
+        converted = pa.Table.from_pandas(expected)
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
 
@@ -558,9 +558,9 @@ class TestPandasConversion(unittest.TestCase):
                 -decimal.Decimal('314292388910493.12343437128'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
-        field = A.Field.from_py('decimals', A.decimal(26, 11))
-        schema = A.Schema.from_fields([field])
+        converted = pa.Table.from_pandas(expected)
+        field = pa.Field.from_py('decimals', pa.decimal(26, 11))
+        schema = pa.Schema.from_fields([field])
         assert converted.schema.equals(schema)
 
     def test_decimal_128_to_pandas(self):
@@ -570,6 +570,6 @@ class TestPandasConversion(unittest.TestCase):
                 -decimal.Decimal('314292388910493.12343437128'),
             ]
         })
-        converted = A.Table.from_pandas(expected)
+        converted = pa.Table.from_pandas(expected)
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
