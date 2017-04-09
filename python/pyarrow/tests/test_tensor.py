@@ -98,3 +98,16 @@ def test_tensor_ipc_roundtrip():
         assert result.equals(tensor)
     finally:
         _try_delete(path)
+
+
+def test_tensor_ipc_strided():
+    data = np.random.randn(10, 4)
+    tensor = pa.Tensor.from_numpy(data[::2])
+
+    path = 'pyarrow-tensor-ipc-strided'
+    try:
+        with pytest.raises(ValueError):
+            mmap = pa.create_memory_map(path, 1024)
+            pa.write_tensor(tensor, mmap)
+    finally:
+        _try_delete(path)
