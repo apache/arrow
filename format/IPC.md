@@ -37,7 +37,7 @@ The `metadata_size` includes the size of the flatbuffer plus padding. The
 `Message` flatbuffer includes a version number, the particular message (as a
 flatbuffer union), and the size of the message body:
 
-````
+```
 table Message {
   version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
