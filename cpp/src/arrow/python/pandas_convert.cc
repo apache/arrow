@@ -477,31 +477,6 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
   return Status::OK();
 }
 
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
-  OwnedRef type(PyObject_Type(obj));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type.obj(), nullptr);
-
-  OwnedRef type_name(PyObject_GetAttrString(type.obj(), "__name__"));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type_name.obj(), nullptr);
-
-  PyObjectStringify bytestring(type_name.obj());
-  RETURN_IF_PYERROR();
-
-  const char* bytes = bytestring.bytes;
-  DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
-
-  Py_ssize_t size = bytestring.size;
-
-  std::string cpp_type_name(bytes, size);
-
-  std::stringstream ss;
-  ss << "Python object of type " << cpp_type_name << " is not None and is not a "
-     << expected_type_name << " object";
-  return Status::Invalid(ss.str());
-}
-
 template <typename T>
 struct UnboxDate {};
 
@@ -824,7 +799,7 @@ Status PandasConverter::ConvertObjects() {
         return ConvertBooleans();
       } else if (PyDate_CheckExact(objects[i])) {
         // We could choose Date32 or Date64
-        return ConvertDates<Date64Type>();
+        return ConvertDates<Date32Type>();
       } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
         return ConvertDecimals();
       } else {
@@ -1531,7 +1506,7 @@ class DatetimeBlock : public PandasBlock {
     if (type == Type::DATE32) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetimeNanos<int32_t, 86400000000000LL>(data, out_buffer);
+      ConvertDatetimeNanos<int32_t, kNanosecondsInDay>(data, out_buffer);
     } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?

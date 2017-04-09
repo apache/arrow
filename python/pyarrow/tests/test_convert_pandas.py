@@ -352,7 +352,7 @@ class TestPandasConversion(unittest.TestCase):
                      datetime.date(1970, 1, 1),
                      datetime.date(2040, 2, 26)]})
         table = pa.Table.from_pandas(df)
-        field = pa.Field.from_py('date', pa.date64())
+        field = pa.Field.from_py('date', pa.date32())
         schema = pa.Schema.from_fields([field])
         assert table.schema.equals(schema)
         result = table.to_pandas()

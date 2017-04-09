@@ -157,6 +157,8 @@ struct arrow_traits<Type::DOUBLE> {
 
 static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
 
+constexpr int64_t kNanosecondsInDay = 86400000000000LL;
+
 template <>
 struct arrow_traits<Type::TIMESTAMP> {
   static constexpr int npy_type = NPY_DATETIME;

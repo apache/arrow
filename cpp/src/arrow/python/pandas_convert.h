@@ -71,9 +71,6 @@ ARROW_EXPORT
 Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
 
-ARROW_EXPORT
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name);
-
 }  // namespace py
 }  // namespace arrow
 

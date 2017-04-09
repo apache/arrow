@@ -60,6 +60,9 @@ ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
     const std::shared_ptr<DataType>& type, int64_t size);
 
+ARROW_EXPORT
+Status InvalidConversion(PyObject* obj, const std::string& expected_type_name);
+
 ARROW_EXPORT Status CheckPythonBytesAreFixedLength(
     PyObject* obj, Py_ssize_t expected_length);
 
