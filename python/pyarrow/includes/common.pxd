@@ -51,11 +51,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsTypeError()
 
 
-cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
-    cdef cppclass int128_t:
-        pass
-
-
 cdef inline object PyObject_to_object(PyObject* o):
     # Cast to "object" increments reference count
     cdef object result = <object> o
