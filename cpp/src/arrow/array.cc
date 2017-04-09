@@ -311,9 +311,9 @@ bool DecimalArray::IsNegative(int64_t i) const {
 }
 
 std::string DecimalArray::Value(int64_t i) const {
-  auto type_ = std::dynamic_pointer_cast<DecimalType>(type());
-  int precision = type_->precision;
-  int scale = type_->scale;
+  const auto type_ = std::dynamic_pointer_cast<DecimalType>(type());
+  const int precision = type_->precision;
+  const int scale = type_->scale;
   const int byte_width = byte_width_;
   const uint8_t* bytes = GetValue(i);
   switch (byte_width) {
