@@ -24,7 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/python/common.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -35,8 +34,9 @@ struct Decimal;
 
 namespace py {
 
-ARROW_EXPORT
-std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
+class OwnedRef;
+
+ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref);
 Status ImportFromModule(
