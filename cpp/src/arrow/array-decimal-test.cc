@@ -25,48 +25,6 @@
 namespace arrow {
 namespace decimal {
 
-TEST(TypesTest, TestDecimal32Type) {
-  DecimalType t1(8, 4);
-
-  ASSERT_EQ(t1.type, Type::DECIMAL);
-  ASSERT_EQ(t1.precision, 8);
-  ASSERT_EQ(t1.scale, 4);
-
-  ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
-
-  // Test properties
-  ASSERT_EQ(t1.byte_width(), 4);
-  ASSERT_EQ(t1.bit_width(), 32);
-}
-
-TEST(TypesTest, TestDecimal64Type) {
-  DecimalType t1(12, 5);
-
-  ASSERT_EQ(t1.type, Type::DECIMAL);
-  ASSERT_EQ(t1.precision, 12);
-  ASSERT_EQ(t1.scale, 5);
-
-  ASSERT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
-
-  // Test properties
-  ASSERT_EQ(t1.byte_width(), 8);
-  ASSERT_EQ(t1.bit_width(), 64);
-}
-
-TEST(TypesTest, TestDecimal128Type) {
-  DecimalType t1(27, 7);
-
-  ASSERT_EQ(t1.type, Type::DECIMAL);
-  ASSERT_EQ(t1.precision, 27);
-  ASSERT_EQ(t1.scale, 7);
-
-  ASSERT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
-
-  // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
-}
-
 template <typename T>
 class DecimalTestBase {
  public:

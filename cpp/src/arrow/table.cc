@@ -153,7 +153,7 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
     : schema_(schema), num_rows_(num_rows), columns_(std::move(columns)) {}
 
 const std::string& RecordBatch::column_name(int i) const {
-  return schema_->field(i)->name;
+  return schema_->field(i)->name();
 }
 
 bool RecordBatch::Equals(const RecordBatch& other) const {
@@ -204,7 +204,7 @@ Status RecordBatch::Validate() const {
          << " vs " << num_rows_;
       return Status::Invalid(ss.str());
     }
-    const auto& schema_type = *schema_->field(i)->type;
+    const auto& schema_type = *schema_->field(i)->type();
     if (!arr.type()->Equals(schema_type)) {
       std::stringstream ss;
       ss << "Column " << i << " type not match schema: " << arr.type()->ToString()

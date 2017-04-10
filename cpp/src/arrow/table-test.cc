@@ -244,8 +244,8 @@ TEST_F(TestTable, Metadata) {
   ASSERT_TRUE(table_->schema()->Equals(*schema_));
 
   auto col = table_->column(0);
-  ASSERT_EQ(schema_->field(0)->name, col->name());
-  ASSERT_EQ(schema_->field(0)->type, col->type());
+  ASSERT_EQ(schema_->field(0)->name(), col->name());
+  ASSERT_EQ(schema_->field(0)->type(), col->type());
 }
 
 TEST_F(TestTable, InvalidColumns) {

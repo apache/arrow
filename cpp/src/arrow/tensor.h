@@ -98,7 +98,7 @@ class ARROW_EXPORT Tensor {
   /// AKA "Fortran order"
   bool is_column_major() const;
 
-  Type::type type_enum() const { return type_->type; }
+  Type::type type_id() const;
 
   bool Equals(const Tensor& other) const;
 

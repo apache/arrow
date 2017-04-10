@@ -618,7 +618,7 @@ cdef object box_array(const shared_ptr[CArray]& sp_array):
     if data_type == NULL:
         raise ValueError('Array data type was NULL')
 
-    cdef Array arr = _array_classes[data_type.type]()
+    cdef Array arr = _array_classes[data_type.id()]()
     arr.init(sp_array)
     return arr
 

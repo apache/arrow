@@ -163,13 +163,13 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
 
   const auto& union_type = static_cast<const UnionType&>(*type);
 
-  flatbuf::UnionMode mode = union_type.mode == UnionMode::SPARSE
+  flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
                                 ? flatbuf::UnionMode_Sparse
                                 : flatbuf::UnionMode_Dense;
 
   std::vector<int32_t> type_ids;
-  type_ids.reserve(union_type.type_codes.size());
-  for (uint8_t code : union_type.type_codes) {
+  type_ids.reserve(union_type.type_codes().size());
+  for (uint8_t code : union_type.type_codes()) {
     type_ids.push_back(code);
   }
 
@@ -306,7 +306,7 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
 static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     std::vector<FieldOffset>* children, std::vector<VectorLayoutOffset>* layout,
     flatbuf::Type* out_type, DictionaryMemo* dictionary_memo, Offset* offset) {
-  if (type->type == Type::DICTIONARY) {
+  if (type->id() == Type::DICTIONARY) {
     // In this library, the dictionary "type" is a logical construct. Here we
     // pass through to the value type, as we've already captured the index
     // type in the DictionaryEncoding metadata in the parent field
@@ -340,7 +340,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     layout->push_back(offset);
   }
 
-  switch (type->type) {
+  switch (type->id()) {
     case Type::BOOL:
       *out_type = flatbuf::Type_Bool;
       *offset = flatbuf::CreateBool(fbb).Union();
@@ -393,21 +393,21 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     case Type::TIME32: {
       const auto& time_type = static_cast<const Time32Type&>(*type);
       *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit), 32).Union();
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 32).Union();
     } break;
     case Type::TIME64: {
       const auto& time_type = static_cast<const Time64Type&>(*type);
       *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit), 64).Union();
+      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 64).Union();
     } break;
     case Type::TIMESTAMP: {
       const auto& ts_type = static_cast<const TimestampType&>(*type);
       *out_type = flatbuf::Type_Timestamp;
 
-      flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit);
+      flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
       FBString fb_timezone = 0;
-      if (ts_type.timezone.size() > 0) {
-        fb_timezone = fbb.CreateString(ts_type.timezone);
+      if (ts_type.timezone().size() > 0) {
+        fb_timezone = fbb.CreateString(ts_type.timezone());
       }
       *offset = flatbuf::CreateTimestamp(fbb, fb_unit, fb_timezone).Union();
     } break;
@@ -431,7 +431,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
 
 static Status TensorTypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     flatbuf::Type* out_type, Offset* offset) {
-  switch (type->type) {
+  switch (type->id()) {
     case Type::UINT8:
       INT_TO_FB_CASE(8, false);
     case Type::INT8:
@@ -486,7 +486,7 @@ static DictionaryOffset GetDictionaryEncoding(
 
 static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
     DictionaryMemo* dictionary_memo, FieldOffset* offset) {
-  auto fb_name = fbb.CreateString(field->name);
+  auto fb_name = fbb.CreateString(field->name());
 
   flatbuf::Type type_enum;
   Offset type_offset;
@@ -495,18 +495,18 @@ static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
   std::vector<VectorLayoutOffset> layout;
 
   RETURN_NOT_OK(TypeToFlatbuffer(
-      fbb, field->type, &children, &layout, &type_enum, dictionary_memo, &type_offset));
+      fbb, field->type(), &children, &layout, &type_enum, dictionary_memo, &type_offset));
   auto fb_children = fbb.CreateVector(children);
   auto fb_layout = fbb.CreateVector(layout);
 
   DictionaryOffset dictionary = 0;
-  if (field->type->type == Type::DICTIONARY) {
+  if (field->type()->id() == Type::DICTIONARY) {
     dictionary = GetDictionaryEncoding(
-        fbb, static_cast<const DictionaryType&>(*field->type), dictionary_memo);
+        fbb, static_cast<const DictionaryType&>(*field->type()), dictionary_memo);
   }
 
   // TODO: produce the list of VectorTypes
-  *offset = flatbuf::CreateField(fbb, fb_name, field->nullable, type_enum, type_offset,
+  *offset = flatbuf::CreateField(fbb, fb_name, field->nullable(), type_enum, type_offset,
       dictionary, fb_children, fb_layout);
 
   return Status::OK();

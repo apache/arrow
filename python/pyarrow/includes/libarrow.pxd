@@ -61,7 +61,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_NANO" arrow::TimeUnit::NANO"
 
     cdef cppclass CDataType" arrow::DataType":
-        Type type
+        Type id()
 
         c_bool Equals(const CDataType& other)
 
@@ -72,7 +72,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int64_t length()
         int64_t null_count()
-        Type type_enum()
+        Type type_id()
 
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
@@ -97,14 +97,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
     cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
-        TimeUnit unit
-        c_string timezone
+        TimeUnit unit()
+        const c_string& timezone()
 
     cdef cppclass CTime32Type" arrow::Time32Type"(CFixedWidthType):
-        TimeUnit unit
+        TimeUnit unit()
 
     cdef cppclass CTime64Type" arrow::Time64Type"(CFixedWidthType):
-        TimeUnit unit
+        TimeUnit unit()
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
@@ -149,15 +149,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int bit_width()
 
     cdef cppclass CDecimalType" arrow::DecimalType"(CFixedSizeBinaryType):
-        int precision
-        int scale
+        int precision()
+        int scale()
         CDecimalType(int precision, int scale)
 
     cdef cppclass CField" arrow::Field":
-        c_string name
-        shared_ptr[CDataType] type
-
-        c_bool nullable
+        const c_string& name()
+        shared_ptr[CDataType] type()
+        c_bool nullable()
 
         CField(const c_string& name, const shared_ptr[CDataType]& type,
                c_bool nullable)
@@ -307,7 +306,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool is_mutable()
         c_bool is_contiguous()
-        Type type_enum()
+        Type type_id()
         c_bool Equals(const CTensor& other)
 
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,

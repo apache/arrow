@@ -216,7 +216,7 @@ GArrowType
 garrow_array_get_value_type(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  return garrow_type_from_raw(arrow_array->type_enum());
+  return garrow_type_from_raw(arrow_array->type_id());
 }
 
 /**
@@ -247,7 +247,7 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
   GType type;
   GArrowArray *array;
 
-  switch ((*arrow_array)->type_enum()) {
+  switch ((*arrow_array)->type_id()) {
   case arrow::Type::type::NA:
     type = GARROW_TYPE_NULL_ARRAY;
     break;

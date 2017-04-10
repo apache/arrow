@@ -34,8 +34,8 @@ namespace arrow {
 
 class Array;
 class Buffer;
-struct DataType;
-struct Field;
+class DataType;
+class Field;
 class Schema;
 class Status;
 class Tensor;

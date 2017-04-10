@@ -33,7 +33,7 @@ namespace arrow {
 
 class Array;
 class Buffer;
-struct DataType;
+class DataType;
 
 // ARROW-109: We set this number arbitrarily to help catch user mistakes. For
 // deeply nested schemas, it is expected the user will indicate explicitly the

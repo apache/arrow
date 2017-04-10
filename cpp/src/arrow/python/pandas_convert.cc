@@ -669,8 +669,8 @@ static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     auto* arr(static_cast<arrow::DecimalArray*>(data.chunk(c).get()));
     auto type(std::dynamic_pointer_cast<arrow::DecimalType>(arr->type()));
-    const int precision = type->precision;
-    const int scale = type->scale;
+    const int precision = type->precision();
+    const int scale = type->scale();
     const int bit_width = type->bit_width();
 
     for (int64_t i = 0; i < arr->length(); ++i) {
@@ -764,7 +764,7 @@ Status PandasConverter::ConvertObjects() {
 
   // This means we received an explicit type from the user
   if (type_) {
-    switch (type_->type) {
+    switch (type_->id()) {
       case Type::STRING:
         return ConvertObjectStrings();
       case Type::FIXED_SIZE_BINARY:
@@ -777,7 +777,7 @@ Status PandasConverter::ConvertObjects() {
         return ConvertDates<Date64Type>();
       case Type::LIST: {
         const auto& list_field = static_cast<const ListType&>(*type_);
-        return ConvertLists(list_field.value_field()->type);
+        return ConvertLists(list_field.value_field()->type());
       }
       case Type::DECIMAL:
         return ConvertDecimals();
@@ -860,7 +860,7 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
-      if (inferred_type->type != type->type) {
+      if (inferred_type->id() != type->id()) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
@@ -909,7 +909,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
-      if (inferred_type->type != Type::STRING) {
+      if (inferred_type->id() != Type::STRING) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
@@ -928,7 +928,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   }
 
 Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
-  switch (type->type) {
+  switch (type->id()) {
     LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
     LIST_CASE(INT8, NPY_INT8, Int8Type)
     LIST_CASE(UINT16, NPY_UINT16, UInt16Type)
@@ -1300,7 +1300,7 @@ class ObjectBlock : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     PyObject** out_buffer =
         reinterpret_cast<PyObject**>(block_data_) + rel_placement * num_rows_;
@@ -1319,7 +1319,7 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertDecimals(data, out_buffer));
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
-      switch (list_type->value_type()->type) {
+      switch (list_type->value_type()->id()) {
         CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
         CONVERTLISTSLIKE_CASE(Int8Type, INT8)
         CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
@@ -1360,7 +1360,7 @@ class IntBlock : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     C_TYPE* out_buffer =
         reinterpret_cast<C_TYPE*>(block_data_) + rel_placement * num_rows_;
@@ -1392,7 +1392,7 @@ class Float32Block : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     if (type != Type::FLOAT) { return Status::NotImplemented(col->type()->ToString()); }
 
@@ -1412,7 +1412,7 @@ class Float64Block : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     double* out_buffer =
         reinterpret_cast<double*>(block_data_) + rel_placement * num_rows_;
@@ -1465,7 +1465,7 @@ class BoolBlock : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     if (type != Type::BOOL) { return Status::NotImplemented(col->type()->ToString()); }
 
@@ -1496,7 +1496,7 @@ class DatetimeBlock : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
       int64_t rel_placement) override {
-    Type::type type = col->type()->type;
+    Type::type type = col->type()->id();
 
     int64_t* out_buffer =
         reinterpret_cast<int64_t*>(block_data_) + rel_placement * num_rows_;
@@ -1514,13 +1514,13 @@ class DatetimeBlock : public PandasBlock {
     } else if (type == Type::TIMESTAMP) {
       auto ts_type = static_cast<TimestampType*>(col->type().get());
 
-      if (ts_type->unit == TimeUnit::NANO) {
+      if (ts_type->unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(data, kPandasTimestampNull, out_buffer);
-      } else if (ts_type->unit == TimeUnit::MICRO) {
+      } else if (ts_type->unit() == TimeUnit::MICRO) {
         ConvertDatetimeNanos<int64_t, 1000L>(data, out_buffer);
-      } else if (ts_type->unit == TimeUnit::MILLI) {
+      } else if (ts_type->unit() == TimeUnit::MILLI) {
         ConvertDatetimeNanos<int64_t, 1000000L>(data, out_buffer);
-      } else if (ts_type->unit == TimeUnit::SECOND) {
+      } else if (ts_type->unit() == TimeUnit::SECOND) {
         ConvertDatetimeNanos<int64_t, 1000000000L>(data, out_buffer);
       } else {
         return Status::NotImplemented("Unsupported time unit");
@@ -1661,7 +1661,7 @@ static inline Status MakeCategoricalBlock(const std::shared_ptr<DataType>& type,
     int64_t num_rows, std::shared_ptr<PandasBlock>* block) {
   // All categoricals become a block with a single column
   auto dict_type = static_cast<const DictionaryType*>(type.get());
-  switch (dict_type->index_type()->type) {
+  switch (dict_type->index_type()->id()) {
     case Type::INT8:
       *block = std::make_shared<CategoricalBlock<Type::INT8>>(num_rows);
       break;
@@ -1714,7 +1714,7 @@ class DataFrameBlockCreator {
       std::shared_ptr<Column> col = table_->column(i);
       PandasBlock::type output_type;
 
-      Type::type column_type = col->type()->type;
+      Type::type column_type = col->type()->id();
       switch (column_type) {
         case Type::BOOL:
           output_type = col->null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
@@ -1762,7 +1762,7 @@ class DataFrameBlockCreator {
           break;
         case Type::TIMESTAMP: {
           const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-          if (ts_type.timezone != "") {
+          if (ts_type.timezone() != "") {
             output_type = PandasBlock::DATETIME_WITH_TZ;
           } else {
             output_type = PandasBlock::DATETIME;
@@ -1770,7 +1770,7 @@ class DataFrameBlockCreator {
         } break;
         case Type::LIST: {
           auto list_type = std::static_pointer_cast<ListType>(col->type());
-          if (!ListTypeSupported(list_type->value_type()->type)) {
+          if (!ListTypeSupported(list_type->value_type()->id())) {
             std::stringstream ss;
             ss << "Not implemented type for lists: "
                << list_type->value_type()->ToString();
@@ -1795,7 +1795,7 @@ class DataFrameBlockCreator {
         categorical_blocks_[i] = block;
       } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
         const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone, table_->num_rows());
+        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone(), table_->num_rows());
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
       } else {
@@ -1942,10 +1942,10 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out)
   if (type == NPY_DATETIME) {
     PyArray_Descr* descr = PyArray_DESCR(out);
     auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-    if (datatype->type == Type::TIMESTAMP) {
+    if (datatype->id() == Type::TIMESTAMP) {
       auto timestamp_type = static_cast<TimestampType*>(datatype);
 
-      switch (timestamp_type->unit) {
+      switch (timestamp_type->unit()) {
         case TimestampType::Unit::SECOND:
           date_dtype->meta.base = NPY_FR_s;
           break;
@@ -2154,7 +2154,7 @@ class ArrowDeserializer {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     auto list_type = std::static_pointer_cast<ListType>(col_->type());
-    switch (list_type->value_type()->type) {
+    switch (list_type->value_type()->id()) {
       CONVERTVALUES_LISTSLIKE_CASE(UInt8Type, UINT8)
       CONVERTVALUES_LISTSLIKE_CASE(Int8Type, INT8)
       CONVERTVALUES_LISTSLIKE_CASE(UInt16Type, UINT16)

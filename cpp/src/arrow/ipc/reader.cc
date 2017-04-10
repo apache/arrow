@@ -97,7 +97,7 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
   context.max_recursion_depth = max_recursion_depth;
 
   for (int i = 0; i < schema->num_fields(); ++i) {
-    RETURN_NOT_OK(LoadArray(schema->field(i)->type, &context, &arrays[i]));
+    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, &arrays[i]));
     DCHECK_EQ(num_rows, arrays[i]->length())
         << "Array length did not match record batch length";
   }

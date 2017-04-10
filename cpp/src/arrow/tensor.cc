@@ -61,7 +61,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
     const std::vector<std::string>& dim_names)
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
-  DCHECK(is_tensor_supported(type->type));
+  DCHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
     ComputeRowMajorStrides(static_cast<const FixedWidthType&>(*type_), shape, &strides_);
   }
@@ -105,6 +105,10 @@ bool Tensor::is_column_major() const {
   const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
   ComputeColumnMajorStrides(fw_type, shape_, &f_strides);
   return strides_ == f_strides;
+}
+
+Type::type Tensor::type_id() const {
+  return type_->id();
 }
 
 bool Tensor::Equals(const Tensor& other) const {
@@ -161,7 +165,7 @@ Status ARROW_EXPORT MakeTensor(const std::shared_ptr<DataType>& type,
     const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names,
     std::shared_ptr<Tensor>* tensor) {
-  switch (type->type) {
+  switch (type->id()) {
     TENSOR_CASE(INT8, Int8Tensor);
     TENSOR_CASE(INT16, Int16Tensor);
     TENSOR_CASE(INT32, Int32Tensor);

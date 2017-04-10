@@ -158,26 +158,26 @@ cdef class TimestampValue(ArrayValue):
 
         timezone = None
         tzinfo = None
-        if dtype.timezone.size() > 0:
-            timezone = frombytes(dtype.timezone)
+        if dtype.timezone().size() > 0:
+            timezone = frombytes(dtype.timezone())
             import pytz
             tzinfo = pytz.timezone(timezone)
 
         try:
             pd = _pandas()
-            if dtype.unit == TimeUnit_SECOND:
+            if dtype.unit() == TimeUnit_SECOND:
                 val = val * 1000000000
-            elif dtype.unit == TimeUnit_MILLI:
+            elif dtype.unit() == TimeUnit_MILLI:
                 val = val * 1000000
-            elif dtype.unit == TimeUnit_MICRO:
+            elif dtype.unit() == TimeUnit_MICRO:
                 val = val * 1000
             return pd.Timestamp(val, tz=tzinfo)
         except ImportError:
-            if dtype.unit == TimeUnit_SECOND:
+            if dtype.unit() == TimeUnit_SECOND:
                 result = datetime.datetime.utcfromtimestamp(val)
-            elif dtype.unit == TimeUnit_MILLI:
+            elif dtype.unit() == TimeUnit_MILLI:
                 result = datetime.datetime.utcfromtimestamp(float(val) / 1000)
-            elif dtype.unit == TimeUnit_MICRO:
+            elif dtype.unit() == TimeUnit_MICRO:
                 result = datetime.datetime.utcfromtimestamp(
                     float(val) / 1000000)
             else:
@@ -208,10 +208,6 @@ cdef class DecimalValue(ArrayValue):
     def as_py(self):
         cdef:
             CDecimalArray* ap = <CDecimalArray*> self.sp_array.get()
-            CDecimalType* t = <CDecimalType*> ap.type().get()
-            int bit_width = t.bit_width()
-            int precision = t.precision
-            int scale = t.scale
             c_string s = ap.FormatValue(self.index)
         return decimal.Decimal(s.decode('utf8'))
 
@@ -309,11 +305,11 @@ cdef dict _scalar_classes = {
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):
     cdef ArrayValue val
-    if type.type.type == Type_NA:
+    if type.type.id() == Type_NA:
         return NA
     elif sp_array.get().IsNull(index):
         return NA
     else:
-        val = _scalar_classes[type.type.type]()
+        val = _scalar_classes[type.type.id()]()
         val.init(type, sp_array, index)
         return val

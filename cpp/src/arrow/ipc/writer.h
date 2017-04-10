@@ -31,7 +31,7 @@ namespace arrow {
 
 class Array;
 class Buffer;
-struct Field;
+class Field;
 class MemoryPool;
 class RecordBatch;
 class Schema;

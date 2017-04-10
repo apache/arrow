@@ -151,7 +151,7 @@ class RangeEqualsVisitor {
     // Define a mapping from the type id to child number
     uint8_t max_code = 0;
 
-    const std::vector<uint8_t> type_codes = left_type.type_codes;
+    const std::vector<uint8_t>& type_codes = left_type.type_codes();
     for (size_t i = 0; i < type_codes.size(); ++i) {
       const uint8_t code = type_codes[i];
       if (code > max_code) { max_code = code; }
@@ -532,7 +532,7 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
   if (left.length() != right.length() || left.null_count() != right.null_count() ||
-      left.type_enum() != right.type_enum()) {
+      left.type_id() != right.type_id()) {
     return false;
   }
   if (left.null_count() > 0) {
@@ -571,7 +571,7 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
     int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
   if (&left == &right) {
     *are_equal = true;
-  } else if (left.type_enum() != right.type_enum()) {
+  } else if (left.type_id() != right.type_id()) {
     *are_equal = false;
   } else if (left.length() == 0) {
     *are_equal = true;
@@ -615,7 +615,7 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
     *are_equal = true;
-  } else if (left.type_enum() != right.type_enum()) {
+  } else if (left.type_id() != right.type_id()) {
     *are_equal = false;
   } else if (left.size() == 0) {
     *are_equal = true;
@@ -670,13 +670,13 @@ class TypeEqualsVisitor {
       Status>::type
   Visit(const T& left) {
     const auto& right = static_cast<const T&>(right_);
-    result_ = left.unit == right.unit;
+    result_ = left.unit() == right.unit();
     return Status::OK();
   }
 
   Status Visit(const TimestampType& left) {
     const auto& right = static_cast<const TimestampType&>(right_);
-    result_ = left.unit == right.unit && left.timezone == right.timezone;
+    result_ = left.unit() == right.unit() && left.timezone() == right.timezone();
     return Status::OK();
   }
 
@@ -688,7 +688,7 @@ class TypeEqualsVisitor {
 
   Status Visit(const DecimalType& left) {
     const auto& right = static_cast<const DecimalType&>(right_);
-    result_ = left.precision == right.precision && left.scale == right.scale;
+    result_ = left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
 
@@ -699,13 +699,14 @@ class TypeEqualsVisitor {
   Status Visit(const UnionType& left) {
     const auto& right = static_cast<const UnionType&>(right_);
 
-    if (left.mode != right.mode || left.type_codes.size() != right.type_codes.size()) {
+    if (left.mode() != right.mode() ||
+        left.type_codes().size() != right.type_codes().size()) {
       result_ = false;
       return Status::OK();
     }
 
-    const std::vector<uint8_t> left_codes = left.type_codes;
-    const std::vector<uint8_t> right_codes = right.type_codes;
+    const std::vector<uint8_t>& left_codes = left.type_codes();
+    const std::vector<uint8_t>& right_codes = right.type_codes();
 
     for (size_t i = 0; i < left_codes.size(); ++i) {
       if (left_codes[i] != right_codes[i]) {
@@ -743,7 +744,7 @@ Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) 
   // The arrays are the same object
   if (&left == &right) {
     *are_equal = true;
-  } else if (left.type != right.type) {
+  } else if (left.id() != right.id()) {
     *are_equal = false;
   } else {
     TypeEqualsVisitor visitor(right);

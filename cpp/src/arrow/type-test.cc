@@ -34,11 +34,11 @@ TEST(TestField, Basics) {
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
 
-  ASSERT_EQ(f0.name, "f0");
-  ASSERT_EQ(f0.type->ToString(), int32()->ToString());
+  ASSERT_EQ(f0.name(), "f0");
+  ASSERT_EQ(f0.type()->ToString(), int32()->ToString());
 
-  ASSERT_TRUE(f0.nullable);
-  ASSERT_FALSE(f0_nn.nullable);
+  ASSERT_TRUE(f0.nullable());
+  ASSERT_FALSE(f0_nn.nullable());
 }
 
 TEST(TestField, Equals) {
@@ -121,7 +121,7 @@ TEST_F(TestSchema, GetFieldByName) {
   TEST(TypesTest, TestPrimitive_##ENUM) {        \
     KLASS tp;                                    \
                                                  \
-    ASSERT_EQ(tp.type, Type::ENUM);              \
+    ASSERT_EQ(tp.id(), Type::ENUM);              \
     ASSERT_EQ(tp.ToString(), std::string(NAME)); \
   }
 
@@ -145,19 +145,19 @@ TEST(TestBinaryType, ToString) {
   StringType t2;
   EXPECT_TRUE(t1.Equals(e1));
   EXPECT_FALSE(t1.Equals(t2));
-  ASSERT_EQ(t1.type, Type::BINARY);
+  ASSERT_EQ(t1.id(), Type::BINARY);
   ASSERT_EQ(t1.ToString(), std::string("binary"));
 }
 
 TEST(TestStringType, ToString) {
   StringType str;
-  ASSERT_EQ(str.type, Type::STRING);
+  ASSERT_EQ(str.id(), Type::STRING);
   ASSERT_EQ(str.ToString(), std::string("string"));
 }
 
 TEST(TestFixedSizeBinaryType, ToString) {
   auto t = fixed_size_binary(10);
-  ASSERT_EQ(t->type, Type::FIXED_SIZE_BINARY);
+  ASSERT_EQ(t->id(), Type::FIXED_SIZE_BINARY);
   ASSERT_EQ("fixed_size_binary[10]", t->ToString());
 }
 
@@ -175,13 +175,13 @@ TEST(TestListType, Basics) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 
   ListType list_type(vt);
-  ASSERT_EQ(list_type.type, Type::LIST);
+  ASSERT_EQ(list_type.id(), Type::LIST);
 
   ASSERT_EQ("list", list_type.name());
   ASSERT_EQ("list<item: uint8>", list_type.ToString());
 
-  ASSERT_EQ(list_type.value_type()->type, vt->type);
-  ASSERT_EQ(list_type.value_type()->type, vt->type);
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_type.value_type()->id(), vt->id());
 
   std::shared_ptr<DataType> st = std::make_shared<StringType>();
   std::shared_ptr<DataType> lt = std::make_shared<ListType>(st);
@@ -313,6 +313,48 @@ TEST(TestStructType, Basics) {
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
   // TODO(wesm): out of bounds for field(...)
+}
+
+TEST(TypesTest, TestDecimal32Type) {
+  DecimalType t1(8, 4);
+
+  ASSERT_EQ(t1.id(), Type::DECIMAL);
+  ASSERT_EQ(t1.precision(), 8);
+  ASSERT_EQ(t1.scale(), 4);
+
+  ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
+
+  // Test properties
+  ASSERT_EQ(t1.byte_width(), 4);
+  ASSERT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64Type) {
+  DecimalType t1(12, 5);
+
+  ASSERT_EQ(t1.id(), Type::DECIMAL);
+  ASSERT_EQ(t1.precision(), 12);
+  ASSERT_EQ(t1.scale(), 5);
+
+  ASSERT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
+
+  // Test properties
+  ASSERT_EQ(t1.byte_width(), 8);
+  ASSERT_EQ(t1.bit_width(), 64);
+}
+
+TEST(TypesTest, TestDecimal128Type) {
+  DecimalType t1(27, 7);
+
+  ASSERT_EQ(t1.id(), Type::DECIMAL);
+  ASSERT_EQ(t1.precision(), 27);
+  ASSERT_EQ(t1.scale(), 7);
+
+  ASSERT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
+
+  // Test properties
+  ASSERT_EQ(t1.byte_width(), 16);
+  ASSERT_EQ(t1.bit_width(), 128);
 }
 
 }  // namespace arrow

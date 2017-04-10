@@ -26,10 +26,10 @@ namespace arrow {
 
 class Status;
 
-struct DataType;
+class DataType;
 class Array;
 class ArrayBuilder;
-struct Field;
+class Field;
 class Tensor;
 
 class Buffer;
@@ -40,14 +40,14 @@ class Schema;
 class DictionaryType;
 class DictionaryArray;
 
-struct NullType;
+class NullType;
 class NullArray;
 
-struct BooleanType;
+class BooleanType;
 class BooleanArray;
 class BooleanBuilder;
 
-struct BinaryType;
+class BinaryType;
 class BinaryArray;
 class BinaryBuilder;
 
@@ -55,23 +55,23 @@ class FixedSizeBinaryType;
 class FixedSizeBinaryArray;
 class FixedSizeBinaryBuilder;
 
-struct StringType;
+class StringType;
 class StringArray;
 class StringBuilder;
 
-struct ListType;
+class ListType;
 class ListArray;
 class ListBuilder;
 
-struct StructType;
+class StructType;
 class StructArray;
 class StructBuilder;
 
-struct DecimalType;
+class DecimalType;
 class DecimalArray;
 class DecimalBuilder;
 
-struct UnionType;
+class UnionType;
 class UnionArray;
 
 template <typename TypeClass>
@@ -84,7 +84,7 @@ template <typename TypeClass>
 class NumericTensor;
 
 #define _NUMERIC_TYPE_DECL(KLASS)                     \
-  struct KLASS##Type;                                 \
+  class KLASS##Type;                                  \
   using KLASS##Array = NumericArray<KLASS##Type>;     \
   using KLASS##Builder = NumericBuilder<KLASS##Type>; \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
@@ -103,27 +103,27 @@ _NUMERIC_TYPE_DECL(Double);
 
 #undef _NUMERIC_TYPE_DECL
 
-struct Date64Type;
+class Date64Type;
 using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
 
-struct Date32Type;
+class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
 
-struct Time32Type;
+class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
 
-struct Time64Type;
+class Time64Type;
 using Time64Array = NumericArray<Time64Type>;
 using Time64Builder = NumericBuilder<Time64Type>;
 
-struct TimestampType;
+class TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
 
-struct IntervalType;
+class IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
 
 // ----------------------------------------------------------------------

@@ -571,7 +571,7 @@ class DecimalConverter : public TypedConverter<arrow::DecimalBuilder> {
 
 // Dynamic constructor for sequence converters
 std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
-  switch (type->type) {
+  switch (type->id()) {
     case Type::BOOL:
       return std::make_shared<BoolConverter>();
     case Type::INT64:
@@ -637,7 +637,7 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
     const std::shared_ptr<DataType>& type, int64_t size) {
   // Handle NA / NullType case
-  if (type->type == Type::NA) {
+  if (type->id() == Type::NA) {
     out->reset(new NullArray(size));
     return Status::OK();
   }

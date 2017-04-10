@@ -364,7 +364,7 @@ class RecordBatchWriter : public ArrayVisitor {
 
       // The Union type codes are not necessary 0-indexed
       uint8_t max_code = 0;
-      for (uint8_t code : type.type_codes) {
+      for (uint8_t code : type.type_codes()) {
         if (code > max_code) { max_code = code; }
       }
 
@@ -406,7 +406,7 @@ class RecordBatchWriter : public ArrayVisitor {
       for (int i = 0; i < type.num_children(); ++i) {
         std::shared_ptr<Array> child = array.child(i);
         if (array.offset() != 0) {
-          const uint8_t code = type.type_codes[i];
+          const uint8_t code = type.type_codes()[i];
           child = child->Slice(child_offsets[code], child_lengths[code]);
         }
         RETURN_NOT_OK(VisitArray(*child));

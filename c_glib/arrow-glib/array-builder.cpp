@@ -161,7 +161,7 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
 {
   GType type;
 
-  switch ((*arrow_builder)->type()->type) {
+  switch ((*arrow_builder)->type()->id()) {
   case arrow::Type::type::BOOL:
     type = GARROW_TYPE_BOOLEAN_ARRAY_BUILDER;
     break;

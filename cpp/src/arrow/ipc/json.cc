@@ -79,7 +79,7 @@ class JsonWriter::JsonWriterImpl {
       DCHECK_EQ(batch.num_rows(), column->length())
           << "Array length did not match record batch length";
 
-      RETURN_NOT_OK(WriteJsonArray(schema_->field(i)->name, *column, writer_.get()));
+      RETURN_NOT_OK(WriteJsonArray(schema_->field(i)->name(), *column, writer_.get()));
     }
 
     writer_->EndArray();
@@ -158,7 +158,7 @@ class JsonReader::JsonReaderImpl {
 
     std::vector<std::shared_ptr<Array>> columns(json_columns.Size());
     for (int i = 0; i < static_cast<int>(columns.size()); ++i) {
-      const std::shared_ptr<DataType>& type = schema_->field(i)->type;
+      const std::shared_ptr<DataType>& type = schema_->field(i)->type();
       RETURN_NOT_OK(ReadJsonArray(pool_, json_columns[i], type, &columns[i]));
     }
 
