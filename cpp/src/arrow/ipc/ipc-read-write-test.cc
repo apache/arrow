@@ -643,7 +643,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 
   int64_t serialized_size;
   ASSERT_OK(GetTensorSize(t0, &serialized_size));
-  ASSERT_TRUE(serialized_size > (size * sizeof(int64_t)));
+  ASSERT_TRUE(serialized_size > static_cast<int64_t>(size * sizeof(int64_t)));
 }
 
 TEST_F(TestTensorRoundTrip, NonContiguous) {
