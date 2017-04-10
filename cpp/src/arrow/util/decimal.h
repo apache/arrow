@@ -31,29 +31,30 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace arrow {
+namespace decimal {
 
 using boost::multiprecision::int128_t;
 
-template <typename T>
+template<typename T>
 struct ARROW_EXPORT Decimal;
 
 ARROW_EXPORT void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int32_t* out);
+    const std::string &whole, const std::string &fractional, int8_t sign, int32_t *out);
 ARROW_EXPORT void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int64_t* out);
+    const std::string &whole, const std::string &fractional, int8_t sign, int64_t *out);
 ARROW_EXPORT void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int128_t* out);
+    const std::string &whole, const std::string &fractional, int8_t sign, int128_t *out);
 
-template <typename T>
-ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out,
-    int* precision = nullptr, int* scale = nullptr);
+template<typename T>
+ARROW_EXPORT Status FromString(const std::string &s, Decimal<T> *out,
+                               int *precision = nullptr, int *scale = nullptr);
 
-template <typename T>
+template<typename T>
 struct ARROW_EXPORT Decimal {
   Decimal() : value() {}
-  explicit Decimal(const std::string& s) : value() { FromString(s, this); }
-  explicit Decimal(const char* s) : Decimal(std::string(s)) {}
-  explicit Decimal(const T& value) : value(value) {}
+  explicit Decimal(const std::string &s) : value() { FromString(s, this); }
+  explicit Decimal(const char *s) : Decimal(std::string(s)) {}
+  explicit Decimal(const T &value) : value(value) {}
 
   using value_type = T;
   value_type value;
@@ -63,38 +64,38 @@ using Decimal32 = Decimal<int32_t>;
 using Decimal64 = Decimal<int64_t>;
 using Decimal128 = Decimal<int128_t>;
 
-template <typename T>
+template<typename T>
 struct ARROW_EXPORT DecimalPrecision {};
 
-template <>
+template<>
 struct ARROW_EXPORT DecimalPrecision<int32_t> {
   constexpr static const int minimum = 1;
   constexpr static const int maximum = 9;
 };
 
-template <>
+template<>
 struct ARROW_EXPORT DecimalPrecision<int64_t> {
   constexpr static const int minimum = 10;
   constexpr static const int maximum = 18;
 };
 
-template <>
+template<>
 struct ARROW_EXPORT DecimalPrecision<int128_t> {
   constexpr static const int minimum = 19;
   constexpr static const int maximum = 38;
 };
 
-template <typename T>
+template<typename T>
 ARROW_EXPORT std::string ToString(
-    const Decimal<T>& decimal_value, int precision, int scale) {
+    const Decimal<T> &decimal_value, int precision, int scale) {
   T value = decimal_value.value;
 
   // Decimal values are sent to clients as strings so in the interest of
   // speed the string will be created without the using stringstream with the
   // whole/fractional_part().
   size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
-                         + (scale == precision)   // Add a space for leading 0
-                         + (value < 0);           // Add a space for negative sign
+      + (scale == precision)   // Add a space for leading 0
+      + (value < 0);           // Add a space for negative sign
   std::string str = std::string(last_char_idx, '0');
   // Start filling in the values in reverse order by taking the last digit
   // of the value. Use a positive value and worry about the sign later. At this
@@ -131,14 +132,15 @@ ARROW_EXPORT std::string ToString(
 }
 
 /// Conversion from raw bytes to a Decimal value
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, Decimal32* value);
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, Decimal64* value);
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, bool is_negative, Decimal128* decimal);
+ARROW_EXPORT void FromBytes(const uint8_t *bytes, Decimal32 *value);
+ARROW_EXPORT void FromBytes(const uint8_t *bytes, Decimal64 *value);
+ARROW_EXPORT void FromBytes(const uint8_t *bytes, bool is_negative, Decimal128 *decimal);
 
 /// Conversion from a Decimal value to raw bytes
-ARROW_EXPORT void ToBytes(const Decimal32& value, uint8_t** bytes);
-ARROW_EXPORT void ToBytes(const Decimal64& value, uint8_t** bytes);
-ARROW_EXPORT void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative);
+ARROW_EXPORT void ToBytes(const Decimal32 &value, uint8_t **bytes);
+ARROW_EXPORT void ToBytes(const Decimal64 &value, uint8_t **bytes);
+ARROW_EXPORT void ToBytes(const Decimal128 &decimal, uint8_t **bytes, bool *is_negative);
 
+}  // namespace decimal
 }  // namespace arrow
 #endif  // ARROW_DECIMAL_H

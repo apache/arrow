@@ -23,6 +23,7 @@
 #include "arrow/test-util.h"
 
 namespace arrow {
+namespace decimal {
 
 template <typename T>
 class DecimalTest : public ::testing::Test {
@@ -158,4 +159,5 @@ TEST(DecimalTest, TestDecimal128StringAndBytesRoundTrip) {
 
   ASSERT_EQ(expected.value, result.value);
 }
+}  // namespace decimal
 }  // namespace arrow

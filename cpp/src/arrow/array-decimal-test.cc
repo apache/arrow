@@ -23,6 +23,7 @@
 #include "arrow/util/decimal.h"
 
 namespace arrow {
+namespace decimal {
 
 TEST(TypesTest, TestDecimal32Type) {
   DecimalType t1(8, 4);
@@ -221,4 +222,5 @@ INSTANTIATE_TEST_CASE_P(Decimal128BuilderTest, Decimal128BuilderTest,
     ::testing::Range(
         DecimalPrecision<int128_t>::minimum, DecimalPrecision<int128_t>::maximum));
 
+}  // namespace decimal
 }  // namespace arrow

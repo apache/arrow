@@ -221,7 +221,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const uint8_t* GetValue(int i)
 
     cdef cppclass CDecimalArray" arrow::DecimalArray"(CFixedSizeBinaryArray):
-        c_string Value(int i)
+        c_string FormatValue(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         const int32_t* raw_value_offsets()

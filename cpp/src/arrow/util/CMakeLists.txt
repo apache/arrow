@@ -22,7 +22,6 @@
 # Headers: top level
 install(FILES
   bit-util.h
-  decimal.h
   logging.h
   macros.h
   random.h

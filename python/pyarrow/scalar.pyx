@@ -212,7 +212,7 @@ cdef class DecimalValue(ArrayValue):
             int bit_width = t.bit_width()
             int precision = t.precision
             int scale = t.scale
-            c_string s = ap.Value(self.index)
+            c_string s = ap.FormatValue(self.index)
         return decimal.Decimal(s.decode('utf8'))
 
 

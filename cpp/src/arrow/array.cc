@@ -310,7 +310,7 @@ bool DecimalArray::IsNegative(int64_t i) const {
   return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
 }
 
-std::string DecimalArray::Value(int64_t i) const {
+std::string DecimalArray::FormatValue(int64_t i) const {
   const auto type_ = std::dynamic_pointer_cast<DecimalType>(type());
   const int precision = type_->precision;
   const int scale = type_->scale;
@@ -318,19 +318,19 @@ std::string DecimalArray::Value(int64_t i) const {
   const uint8_t* bytes = GetValue(i);
   switch (byte_width) {
     case 4: {
-      Decimal32 value;
-      FromBytes(bytes, &value);
-      return ToString(value, precision, scale);
+      decimal::Decimal32 value;
+      decimal::FromBytes(bytes, &value);
+      return decimal::ToString(value, precision, scale);
     }
     case 8: {
-      Decimal64 value;
-      FromBytes(bytes, &value);
-      return ToString(value, precision, scale);
+      decimal::Decimal64 value;
+      decimal::FromBytes(bytes, &value);
+      return decimal::ToString(value, precision, scale);
     }
     case 16: {
-      Decimal128 value;
-      FromBytes(bytes, IsNegative(i), &value);
-      return ToString(value, precision, scale);
+      decimal::Decimal128 value;
+      decimal::FromBytes(bytes, IsNegative(i), &value);
+      return decimal::ToString(value, precision, scale);
     }
     default: {
       DCHECK(false) << "Invalid byte width: " << byte_width;

@@ -332,7 +332,7 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
       sign_bitmap_data_(nullptr) {}
 
 template <typename T>
-ARROW_EXPORT Status DecimalBuilder::Append(const Decimal<T>& val) {
+ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal<T>& val) {
   DCHECK_EQ(sign_bitmap_, nullptr) << "sign_bitmap_ is not null";
   DCHECK_EQ(sign_bitmap_data_, nullptr) << "sign_bitmap_data_ is not null";
 
@@ -340,11 +340,11 @@ ARROW_EXPORT Status DecimalBuilder::Append(const Decimal<T>& val) {
   return FixedSizeBinaryBuilder::Append(reinterpret_cast<const uint8_t*>(&val.value));
 }
 
-template ARROW_EXPORT Status DecimalBuilder::Append(const Decimal32& val);
-template ARROW_EXPORT Status DecimalBuilder::Append(const Decimal64& val);
+template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal32& val);
+template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal64& val);
 
 template <>
-ARROW_EXPORT Status DecimalBuilder::Append(const Decimal128& value) {
+ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
   DCHECK_NE(sign_bitmap_, nullptr) << "sign_bitmap_ is null";
   DCHECK_NE(sign_bitmap_data_, nullptr) << "sign_bitmap_data_ is null";
 
@@ -352,7 +352,7 @@ ARROW_EXPORT Status DecimalBuilder::Append(const Decimal128& value) {
   uint8_t stack_bytes[16] = {0};
   uint8_t* bytes = stack_bytes;
   bool is_negative;
-  ToBytes(value, &bytes, &is_negative);
+  decimal::ToBytes(value, &bytes, &is_negative);
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Append(bytes));
 
   // TODO(phillipc): calculate the proper storage size here (do we have a function to do
@@ -363,7 +363,7 @@ ARROW_EXPORT Status DecimalBuilder::Append(const Decimal128& value) {
   return Status::OK();
 }
 
-template ARROW_EXPORT Status DecimalBuilder::Append(const Decimal128& val);
+template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& val);
 
 Status DecimalBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Init(capacity));
