@@ -497,7 +497,7 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
     int64_t* body_length) {
   if (!tensor.is_contiguous()) {
-    return Status::Invalid("No support yer for writing non-contiguous tensors");
+    return Status::Invalid("No support yet for writing non-contiguous tensors");
   }
 
   RETURN_NOT_OK(AlignStreamPosition(dst));
