@@ -81,6 +81,10 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 // Flatbuffers metadata.
 Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
+// Compute the precise number of bytes needed in a contiguous memory segment to
+// write the tensor including metadata, padding, and data
+Status ARROW_EXPORT GetTensorSize(const Tensor& tensor, int64_t* size);
+
 class ARROW_EXPORT StreamWriter {
  public:
   virtual ~StreamWriter();

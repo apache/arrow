@@ -192,16 +192,6 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status GetTotalSize(const RecordBatch& batch, int64_t* size) {
-    // emulates the behavior of Write without actually writing
-    int32_t metadata_length = 0;
-    int64_t body_length = 0;
-    MockOutputStream dst;
-    RETURN_NOT_OK(Write(batch, &dst, &metadata_length, &body_length));
-    *size = dst.GetExtentBytesWritten();
-    return Status::OK();
-  }
-
  protected:
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
@@ -522,8 +512,23 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  RecordBatchWriter writer(default_memory_pool(), 0, kMaxNestingDepth, true);
-  RETURN_NOT_OK(writer.GetTotalSize(batch, size));
+  // emulates the behavior of Write without actually writing
+  int32_t metadata_length = 0;
+  int64_t body_length = 0;
+  MockOutputStream dst;
+  RETURN_NOT_OK(WriteRecordBatch(batch, 0, &dst, &metadata_length, &body_length,
+      default_memory_pool(), kMaxNestingDepth, true));
+  *size = dst.GetExtentBytesWritten();
+  return Status::OK();
+}
+
+Status GetTensorSize(const Tensor& tensor, int64_t* size) {
+  // emulates the behavior of Write without actually writing
+  int32_t metadata_length = 0;
+  int64_t body_length = 0;
+  MockOutputStream dst;
+  RETURN_NOT_OK(WriteTensor(tensor, &dst, &metadata_length, &body_length));
+  *size = dst.GetExtentBytesWritten();
   return Status::OK();
 }
 

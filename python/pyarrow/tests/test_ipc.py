@@ -151,6 +151,15 @@ def test_ipc_zero_copy_numpy():
     assert_frame_equal(df, rdf)
 
 
+def test_get_record_batch_size():
+    N = 10
+    itemsize = 8
+    df = pd.DataFrame({'foo': np.random.randn(N)})
+
+    batch = pa.RecordBatch.from_pandas(df)
+    assert pa.get_record_batch_size(batch) > (N * itemsize)
+
+
 def write_file(batch, sink):
     writer = pa.FileWriter(sink, batch.schema)
     writer.write_batch(batch)

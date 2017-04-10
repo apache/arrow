@@ -51,7 +51,8 @@ from pyarrow.io import (HdfsFile, NativeFile, PythonFileInterface,
                         Buffer, BufferReader, InMemoryOutputStream,
                         MemoryMappedFile, memory_map,
                         frombuffer, read_tensor, write_tensor,
-                        memory_map, create_memory_map)
+                        memory_map, create_memory_map,
+                        get_record_batch_size, get_tensor_size)
 
 from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter
 

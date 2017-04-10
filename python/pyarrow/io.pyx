@@ -1202,6 +1202,26 @@ cdef class FeatherReader:
         return col
 
 
+def get_tensor_size(Tensor tensor):
+    """
+    Return total size of serialized Tensor including metadata and padding
+    """
+    cdef int64_t size
+    with nogil:
+        check_status(GetTensorSize(deref(tensor.tp), &size))
+    return size
+
+
+def get_record_batch_size(RecordBatch batch):
+    """
+    Return total size of serialized RecordBatch including metadata and padding
+    """
+    cdef int64_t size
+    with nogil:
+        check_status(GetRecordBatchSize(deref(batch.batch), &size))
+    return size
+
+
 def write_tensor(Tensor tensor, NativeFile dest):
     """
     Write pyarrow.Tensor to pyarrow.NativeFile object its current position

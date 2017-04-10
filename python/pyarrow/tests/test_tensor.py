@@ -42,10 +42,11 @@ def test_tensor_attrs():
     tensor = pa.Tensor.from_numpy(data2)
     assert not tensor.is_mutable
 
+
 def test_tensor_base_object():
     tensor = pa.Tensor.from_numpy(np.random.randn(10, 4))
     n = sys.getrefcount(tensor)
-    array = tensor.to_numpy()
+    array = tensor.to_numpy()  # noqa
     assert sys.getrefcount(tensor) == n + 1
 
 
@@ -111,3 +112,9 @@ def test_tensor_ipc_strided():
             pa.write_tensor(tensor, mmap)
     finally:
         _try_delete(path)
+
+
+def test_tensor_size():
+    data = np.random.randn(10, 4)
+    tensor = pa.Tensor.from_numpy(data)
+    assert pa.get_tensor_size(tensor) > (data.size * 8)
