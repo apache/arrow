@@ -78,3 +78,20 @@
 #include <arrow-glib/uint64-array.h>
 #include <arrow-glib/uint64-array-builder.h>
 #include <arrow-glib/uint64-data-type.h>
+
+#include <arrow-glib/io-file.h>
+#include <arrow-glib/io-file-mode.h>
+#include <arrow-glib/io-file-output-stream.h>
+#include <arrow-glib/io-input-stream.h>
+#include <arrow-glib/io-memory-mapped-file.h>
+#include <arrow-glib/io-output-stream.h>
+#include <arrow-glib/io-random-access-file.h>
+#include <arrow-glib/io-readable.h>
+#include <arrow-glib/io-writeable.h>
+#include <arrow-glib/io-writeable-file.h>
+
+#include <arrow-glib/ipc-file-reader.h>
+#include <arrow-glib/ipc-file-writer.h>
+#include <arrow-glib/ipc-metadata-version.h>
+#include <arrow-glib/ipc-stream-reader.h>
+#include <arrow-glib/ipc-stream-writer.h>

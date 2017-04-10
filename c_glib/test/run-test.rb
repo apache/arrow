@@ -32,8 +32,6 @@ ENV["GI_TYPELIB_PATH"] = [
 require "gi"
 
 Arrow = GI.load("Arrow")
-ArrowIO = GI.load("ArrowIO")
-ArrowIPC = GI.load("ArrowIPC")
 
 require "tempfile"
 require_relative "helper/buildable"

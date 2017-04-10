@@ -244,17 +244,11 @@ endfunction(bundle_arrow_lib)
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow
   bundle_arrow_lib(ARROW_SHARED_LIB)
-  bundle_arrow_lib(ARROW_IO_SHARED_LIB)
-  bundle_arrow_lib(ARROW_IPC_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
 endif()
 
 ADD_THIRDPARTY_LIB(arrow
   SHARED_LIB ${ARROW_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_io
-  SHARED_LIB ${ARROW_IO_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_ipc
-  SHARED_LIB ${ARROW_IPC_SHARED_LIB})
 ADD_THIRDPARTY_LIB(arrow_python
   SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
 
@@ -279,8 +273,6 @@ set(CYTHON_EXTENSIONS
 
 set(LINK_LIBS
   arrow_shared
-  arrow_io_shared
-  arrow_ipc_shared
   arrow_python_shared
 )
 

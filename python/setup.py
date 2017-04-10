@@ -224,8 +224,6 @@ class build_ext(_build_ext):
 
         if self.bundle_arrow_cpp:
             move_lib("arrow")
-            move_lib("arrow_io")
-            move_lib("arrow_ipc")
             move_lib("arrow_python")
             if self.with_jemalloc:
                 move_lib("arrow_jemalloc")

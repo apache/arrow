@@ -21,7 +21,7 @@ class TestIOFileOutputStream < Test::Unit::TestCase
       tempfile = Tempfile.open("arrow-io-file-output-stream")
       tempfile.write("Hello")
       tempfile.close
-      file = ArrowIO::FileOutputStream.open(tempfile.path, false)
+      file = Arrow::IOFileOutputStream.open(tempfile.path, false)
       file.close
       assert_equal("", File.read(tempfile.path))
     end
@@ -30,7 +30,7 @@ class TestIOFileOutputStream < Test::Unit::TestCase
       tempfile = Tempfile.open("arrow-io-file-output-stream")
       tempfile.write("Hello")
       tempfile.close
-      file = ArrowIO::FileOutputStream.open(tempfile.path, true)
+      file = Arrow::IOFileOutputStream.open(tempfile.path, true)
       file.close
       assert_equal("Hello", File.read(tempfile.path))
     end

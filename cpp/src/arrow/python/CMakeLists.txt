@@ -35,8 +35,6 @@ endif()
 set(ARROW_PYTHON_MIN_TEST_LIBS
   arrow_python_test_main
   arrow_python_static
-  arrow_ipc_static
-  arrow_io_static
   arrow_static
   ${BOOST_REGEX_LIBRARY})
 
@@ -61,8 +59,6 @@ set(ARROW_PYTHON_SRCS
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
-  arrow_io_shared
-  arrow_ipc_shared
   arrow_shared
 )
 

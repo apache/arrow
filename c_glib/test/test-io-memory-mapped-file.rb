@@ -20,7 +20,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
       buffer = " " * 5
       file.read(buffer)
@@ -34,7 +34,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
       assert_equal(5, file.size)
     ensure
@@ -46,7 +46,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello World")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
       buffer = " " * 5
       _success, n_read_bytes = file.read(buffer)
@@ -60,7 +60,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello World")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
       buffer = " " * 5
       _success, n_read_bytes = file.read_at(6, buffer)
@@ -74,7 +74,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :readwrite)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :readwrite)
     begin
       file.write("World")
     ensure
@@ -87,7 +87,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :readwrite)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :readwrite)
     begin
       file.write_at(2, "rld")
     ensure
@@ -100,7 +100,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :readwrite)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :readwrite)
     begin
       file.write("World")
       file.flush
@@ -114,7 +114,7 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello World")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
       buffer = " " * 5
       file.read(buffer)
@@ -128,9 +128,9 @@ class TestIOMemoryMappedFile < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-io-memory-mapped-file")
     tempfile.write("Hello World")
     tempfile.close
-    file = ArrowIO::MemoryMappedFile.open(tempfile.path, :readwrite)
+    file = Arrow::IOMemoryMappedFile.open(tempfile.path, :readwrite)
     begin
-      assert_equal(ArrowIO::FileMode::READWRITE, file.mode)
+      assert_equal(Arrow::IOFileMode::READWRITE, file.mode)
     ensure
       file.close
     end

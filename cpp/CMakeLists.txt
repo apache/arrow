@@ -705,6 +705,49 @@ endif()
 #   set(ARROW_TCMALLOC_AVAILABLE 1)
 # endif()
 
+## Flatbuffers
+
+if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+  set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+  ExternalProject_Add(flatbuffers_ep
+    URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+    CMAKE_ARGS
+    "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+    "-DFLATBUFFERS_BUILD_TESTS=OFF")
+
+  set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+  set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+  set(FLATBUFFERS_VENDORED 1)
+else()
+  find_package(Flatbuffers REQUIRED)
+  set(FLATBUFFERS_VENDORED 0)
+endif()
+
+message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
+message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
+include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
+
+########################################################################
+# HDFS thirdparty setup
+
+if (DEFINED ENV{HADOOP_HOME})
+  set(HADOOP_HOME $ENV{HADOOP_HOME})
+  if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
+    message(STATUS "Did not find hdfs.h in expected location, using vendored one")
+    set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
+  endif()
+else()
+  set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
+endif()
+
+set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
+if (NOT EXISTS ${HDFS_H_PATH})
+  message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
+endif()
+message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
+
+include_directories(SYSTEM "${HADOOP_HOME}/include")
+
 ############################################################
 # Linker setup
 ############################################################
@@ -814,10 +857,37 @@ endif()
 ############################################################
 
 set(ARROW_LINK_LIBS
-    ${BOOST_REGEX_LIBRARY})
+  ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_PRIVATE_LINK_LIBS
-)
+set(ARROW_STATIC_LINK_LIBS)
+
+set(ARROW_SHARED_PRIVATE_LINK_LIBS
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY})
+
+set(ARROW_STATIC_PRIVATE_LINK_LIBS
+  ${BOOST_SYSTEM_LIBRARY}
+  ${BOOST_FILESYSTEM_LIBRARY})
+
+if (NOT MSVC)
+  set(ARROW_LINK_LIBS
+    ${ARROW_LINK_LIBS}
+    ${CMAKE_DL_LIBS})
+endif()
+
+if(RAPIDJSON_VENDORED)
+  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} rapidjson_ep)
+endif()
+
+if(FLATBUFFERS_VENDORED)
+  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
+endif()
+
+add_subdirectory(src/arrow)
+add_subdirectory(src/arrow/io)
+add_subdirectory(src/arrow/ipc)
+
+set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
 set(ARROW_SRCS
   src/arrow/array.cc
@@ -833,6 +903,19 @@ set(ARROW_SRCS
   src/arrow/type.cc
   src/arrow/visitor.cc
 
+  src/arrow/io/file.cc
+  src/arrow/io/hdfs.cc
+  src/arrow/io/hdfs-internal.cc
+  src/arrow/io/interfaces.cc
+  src/arrow/io/memory.cc
+
+  src/arrow/ipc/feather.cc
+  src/arrow/ipc/json.cc
+  src/arrow/ipc/json-internal.cc
+  src/arrow/ipc/metadata.cc
+  src/arrow/ipc/reader.cc
+  src/arrow/ipc/writer.cc
+
   src/arrow/util/bit-util.cc
   src/arrow/util/decimal.cc
 )
@@ -844,50 +927,23 @@ if(NOT APPLE AND NOT MSVC)
   set(ARROW_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
+set(ARROW_ALL_SRCS
+  ${ARROW_SRCS})
 
 ADD_ARROW_LIB(arrow
-  SOURCES ${ARROW_SRCS}
+  SOURCES ${ARROW_ALL_SRCS}
+  DEPENDENCIES ${ARROW_DEPENDENCIES}
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
+  SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
+  STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
 )
 
-add_subdirectory(src/arrow)
-add_subdirectory(src/arrow/io)
 add_subdirectory(src/arrow/util)
 
 if(ARROW_JEMALLOC)
   add_subdirectory(src/arrow/jemalloc)
-endif()
-
-#----------------------------------------------------------------------
-# IPC library
-
-if(ARROW_PYTHON)
-  set(ARROW_IPC on)
-endif()
-
-## Flatbuffers
-if(ARROW_IPC)
-  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
-    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-    ExternalProject_Add(flatbuffers_ep
-      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
-      CMAKE_ARGS
-        "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-        "-DFLATBUFFERS_BUILD_TESTS=OFF")
-
-    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-    set(FLATBUFFERS_VENDORED 1)
-  else()
-    find_package(Flatbuffers REQUIRED)
-    set(FLATBUFFERS_VENDORED 0)
-  endif()
-
-  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
-  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-  add_subdirectory(src/arrow/ipc)
 endif()
 
 if(ARROW_PYTHON)

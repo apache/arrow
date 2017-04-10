@@ -74,27 +74,17 @@ AC_ARG_WITH(arrow-cpp-build-dir,
   [GARROW_ARROW_CPP_BUILD_DIR=""])
 if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   PKG_CHECK_MODULES([ARROW], [arrow])
-  PKG_CHECK_MODULES([ARROW_IO], [arrow-io])
-  PKG_CHECK_MODULES([ARROW_IPC], [arrow-ipc])
 else
   ARROW_INCLUDE_DIR="\$(abs_top_srcdir)/../cpp/src"
   ARROW_LIB_DIR="${GARROW_ARROW_CPP_BUILD_DIR}/${GARROW_ARROW_CPP_BUILD_TYPE}"
 
   ARROW_CFLAGS="-I${ARROW_INCLUDE_DIR}"
-  ARROW_IO_CFLAGS="-I${ARROW_INCLUDE_DIR}"
-  ARROW_IPC_CFLAGS="-I${ARROW_INCLUDE_DIR}"
   ARROW_LIBS="-L${ARROW_LIB_DIR} -larrow"
-  ARROW_IO_LIBS="-L${ARROW_LIB_DIR} -larrow_io"
-  ARROW_IPC_LIBS="-L${ARROW_LIB_DIR} -larrow_ipc"
 
   AC_SUBST(ARROW_LIB_DIR)
 
   AC_SUBST(ARROW_CFLAGS)
-  AC_SUBST(ARROW_IO_CFLAGS)
-  AC_SUBST(ARROW_IPC_CFLAGS)
   AC_SUBST(ARROW_LIBS)
-  AC_SUBST(ARROW_IO_LIBS)
-  AC_SUBST(ARROW_IPC_LIBS)
 fi
 
 
@@ -102,8 +92,6 @@ AC_CONFIG_FILES([
   Makefile
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
-  arrow-glib/arrow-io-glib.pc
-  arrow-glib/arrow-ipc-glib.pc
   doc/Makefile
   doc/reference/Makefile
   example/Makefile
