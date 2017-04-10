@@ -657,7 +657,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   int64_t body_length;
   ASSERT_OK(mmap_->Seek(0));
   ASSERT_RAISES(
-      Invalida, WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+      Invalid, WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
 }
 
 }  // namespace ipc
