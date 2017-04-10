@@ -28,7 +28,7 @@ pushd $PYTHON_DIR
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 build_parquet_cpp() {
-  conda create -y -q -p $PARQUET_HOME python=3.5
+  conda create -y -q -p $PARQUET_HOME python=3.6
   source activate $PARQUET_HOME
 
   # In case some package wants to download the MKL
@@ -120,15 +120,15 @@ python_version_tests() {
   python -m pytest -vv -r sxX pyarrow
 
   # Build documentation once
-  if [[ "$PYTHON_VERSION" == "3.5" ]]
+  if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
       pip install -r doc/requirements.txt
       python setup.py build_sphinx
   fi
 }
 
-# run tests for python 2.7 and 3.5
+# run tests for python 2.7 and 3.6
 python_version_tests 2.7
-python_version_tests 3.5
+python_version_tests 3.6
 
 popd
