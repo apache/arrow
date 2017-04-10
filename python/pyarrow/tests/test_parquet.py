@@ -431,6 +431,19 @@ def test_read_single_row_group():
     pdt.assert_frame_equal(df[cols], result.to_pandas())
 
 
+def test_parquet_piece_formatting():
+    path = '/baz.parq'
+
+    piece1 = pq.ParquetDatasetPiece(path)
+    piece2 = pq.ParquetDatasetPiece(path, row_group=1)
+    piece3 = pq.ParquetDatasetPiece(
+        path, row_group=1, partition_keys=[('foo', 0), ('bar', 1)])
+
+    assert str(piece1) == path
+    assert str(piece2) == '/baz.parq | row_group=1'
+    assert str(piece3) == 'partition[foo=0, bar=1] /baz.parq | row_group=1'
+
+
 @parquet
 def test_read_multiple_files(tmpdir):
     nfiles = 10

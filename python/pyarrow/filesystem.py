@@ -87,20 +87,10 @@ class Filesystem(object):
         -------
         table : pyarrow.Table
         """
-        from pyarrow.parquet import read_multiple_files
-
-        if self.isdir(path):
-            paths_to_read = []
-            for path in self.ls(path):
-                if path.endswith('parq') or path.endswith('parquet'):
-                    paths_to_read.append(path)
-        else:
-            paths_to_read = [path]
-
-        return read_multiple_files(paths_to_read, columns=columns,
-                                   filesystem=self, schema=schema,
-                                   metadata=metadata,
-                                   nthreads=nthreads)
+        from pyarrow.parquet import ParquetDataset
+        dataset = ParquetDataset(path, schema=schema, metadata=metadata,
+                                 filesystem=self)
+        return dataset.read(columns=columns, nthreads=nthreads)
 
 
 class LocalFilesystem(Filesystem):

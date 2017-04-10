@@ -24,7 +24,6 @@ import pyarrow._parquet as _parquet  # noqa
 from pyarrow.filesystem import LocalFilesystem
 from pyarrow.table import concat_tables, Table
 
-from itertools import chain
 from os import path as osp
 
 EXCLUDED_PARQUET_PATHS = {'_metadata', '_common_metadata', '_SUCCESS'}
@@ -32,7 +31,7 @@ EXCLUDED_PARQUET_PATHS = {'_metadata', '_common_metadata', '_SUCCESS'}
 
 class ParquetFile(object):
     """
-    Open a Parquet binary file for reading
+    Reader interface for a single Parquet file
 
     Parameters
     ----------
@@ -108,133 +107,190 @@ class ParquetFile(object):
                     for column in column_names]
 
 
-def read_table(source, columns=None, nthreads=1, metadata=None):
+class ParquetPartitionSet(object):
+
+    def __init__(self, keys):
+        self.keys = keys
+
+    @property
+    def is_sorted(self):
+        return list(self.keys) == sorted(self.keys)
+
+
+class ParquetDatasetPiece(object):
     """
-    Read a Table from Parquet format
+    A single chunk of a potentially larger Parquet dataset to read. The
+    arguments will indicate to read either a single row group or all row
+    groups, and whether to add partition keys to the resulting pyarrow.Table
 
     Parameters
     ----------
-    source: str or pyarrow.io.NativeFile
-        Location of Parquet dataset. If a string passed, can be a single file
-        name or directory name. For passing Python file objects or byte
-        buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
-    columns: list
-        If not None, only these columns will be read from the file.
-    nthreads : int, default 1
-        Number of columns to read in parallel. Requires that the underlying
-        file source is threadsafe
-    metadata : FileMetaData
-        If separately computed
-
-    Returns
-    -------
-    pyarrow.Table
-        Content of the file as a table (of columns)
+    partition_keys : list of tuples
+      [(column name, ordinal index)]
     """
 
-    if isinstance(source, six.string_types):
-        fs = LocalFilesystem.get_instance()
-        if fs.isdir(source):
-            return fs.read_parquet(source, columns=columns,
-                                   metadata=metadata)
+    def __init__(self, path, row_group=None, partition_keys=None):
+        self.path = path
+        self.row_group = row_group
+        self.partition_keys = partition_keys
 
-    pf = ParquetFile(source, metadata=metadata)
-    return pf.read(columns=columns, nthreads=nthreads)
+    def __str__(self):
+        result = ''
+
+        if self.partition_keys is not None:
+            partition_str = ', '.join('{0}={1}'.format(name, index)
+                                      for name, index in self.partition_keys)
+            result += 'partition[{0}] '.format(partition_str)
+
+        result += self.path
+
+        if self.row_group is not None:
+            result += ' | row_group={0}'.format(self.row_group)
+
+        return result
+
+    def open(self, open_file_func):
+        return open_file_func(self.path)
+
+    def read(self, open_file_func, columns=None, nthreads=None):
+        reader = self.open(open_file_func)
+
+        if self.row_group is not None:
+            table = reader.read_row_group(self.row_group, columns=columns,
+                                          nthreads=nthreads)
+        else:
+            table = reader.read(columns=columns, nthreads=nthreads)
+
+        # TODO(wesm): add partition keys
+
+        return table
 
 
-def read_multiple_files(paths, columns=None, filesystem=None, nthreads=1,
-                        metadata=None, schema=None):
+def _is_parquet_file(path):
+    return path.endswith('parq') or path.endswith('parquet')
+
+
+class ParquetDataset(object):
     """
-    Read multiple Parquet files as a single pyarrow.Table
+    Encapsulates details of reading a complete Parquet dataset possibly
+    consisting of multiple files and partitions in subdirectories
 
     Parameters
     ----------
-    paths : List[str]
-        List of file paths
-    columns : List[str]
-        Names of columns to read from the file
+    path_or_paths : str or List[str]
+        One or more file paths
     filesystem : Filesystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
         filesystem
-    nthreads : int, default 1
-        Number of columns to read in parallel. Requires that the underlying
-        file source is threadsafe
     metadata : pyarrow.parquet.FileMetaData
         Use metadata obtained elsewhere to validate file schemas
     schema : pyarrow.parquet.Schema
         Use schema obtained elsewhere to validate file schemas. Alternative to
         metadata parameter
-
-    Returns
-    -------
-    pyarrow.Table
-        Content of the file as a table (of columns)
+    split_row_groups
+    validate_schema
     """
-    if filesystem is None:
-        def open_file(path, meta=None):
-            return ParquetFile(path, metadata=meta)
-    else:
-        def open_file(path, meta=None):
-            return ParquetFile(filesystem.open(path, mode='rb'), metadata=meta)
+    def __init__(self, path_or_paths, filesystem=None, schema=None,
+                 metadata=None, split_row_groups=False, validate_schema=True):
+        from pyarrow.filesystem import LocalFilesystem
+        if filesystem is None:
+            self.fs = LocalFilesystem.get_instance()
+        else:
+            self.fs = filesystem
 
-    if len(paths) == 0:
-        raise ValueError('Must pass at least one file path')
+        if isinstance(path_or_paths, six.string_types):
+            path_or_paths = [path_or_paths]
 
-    if metadata is None and schema is None:
-        schema = open_file(paths[0]).schema
-    elif schema is None:
-        schema = metadata.schema
+        if len(path_or_paths) == 0:
+            raise ValueError('Must pass at least one file path')
 
-    # Verify schemas are all equal
-    all_file_metadata = []
-    for path in paths:
-        file_metadata = open_file(path).metadata
-        if not schema.equals(file_metadata.schema):
-            raise ValueError('Schema in {0} was different. {1!s} vs {2!s}'
-                             .format(path, file_metadata.schema, schema))
-        all_file_metadata.append(file_metadata)
+        self.paths = path_or_paths
+        self.metadata = metadata
+        self.schema = schema
 
-    # Read the tables
-    tables = []
-    for path, path_metadata in zip(paths, all_file_metadata):
-        reader = open_file(path, meta=path_metadata)
-        table = reader.read(columns=columns, nthreads=nthreads)
-        tables.append(table)
+        self.split_row_groups = split_row_groups
+        self.pieces = self.get_dataset_pieces()
 
-    all_data = concat_tables(tables)
-    return all_data
+        if validate_schema:
+            self.validate_schemas()
 
+    def validate_schemas(self):
+        open_file = self._get_open_file_func()
 
-def write_table(table, sink, row_group_size=None, version='1.0',
-                use_dictionary=True, compression='snappy', **kwargs):
-    """
-    Write a Table to Parquet format
+        if self.metadata is None and self.schema is None:
+            self.schema = self.pieces[0].open(open_file).schema
+        elif self.schema is None:
+            self.schema = self.metadata.schema
 
-    Parameters
-    ----------
-    table : pyarrow.Table
-    sink: string or pyarrow.io.NativeFile
-    row_group_size : int, default None
-        The maximum number of rows in each Parquet RowGroup. As a default,
-        we will write a single RowGroup per file.
-    version : {"1.0", "2.0"}, default "1.0"
-        The Parquet format version, defaults to 1.0
-    use_dictionary : bool or list
-        Specify if we should use dictionary encoding in general or only for
-        some columns.
-    compression : str or dict
-        Specify the compression codec, either on a general basis or per-column.
-    """
-    row_group_size = kwargs.get('chunk_size', row_group_size)
-    writer = ParquetWriter(sink, use_dictionary=use_dictionary,
-                           compression=compression,
-                           version=version)
-<<<<<<< HEAD
-    writer.write_table(table, row_group_size=row_group_size)
-||||||| parent of d9f764c... [ARROW-539] [Python] Support reading Parquet datasets with standard partition directory schemes
-    writer.write_table(table, row_group_size=chunk_size)
-=======
-    writer.write_table(table, row_group_size=chunk_size)
+        # Verify schemas are all equal
+        for piece in self.pieces:
+            file_metadata = piece.open(open_file).metadata
+            if not self.schema.equals(file_metadata.schema):
+                raise ValueError('Schema in {0!s} was different. '
+                                 '{1!s} vs {2!s}'
+                                 .format(piece, file_metadata.schema,
+                                         self.schema))
+
+    def get_dataset_pieces(self):
+        pieces = []
+
+        for path in self.paths:
+            self._visit_path(path)
+            pieces.extend(path_pieces)
+
+        return pieces
+
+    def _visit_path(self, path, pieces):
+        part_keys = None
+
+        def _push_piece(path):
+            if _is_parquet_file(path):
+                piece = ParquetDatasetPiece(path, partition_keys=part_keys)
+                pieces.append(piece)
+
+        if self.fs.isdir(path):
+            for path in self.fs.ls(path):
+                _push_piece(path)
+        else:
+            _push_piece(path)
+
+        return paths_to_read
+
+    def read(self, columns=None, nthreads=None):
+        """
+        Read multiple Parquet files as a single pyarrow.Table
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the file
+        nthreads : int, default 1
+            Number of columns to read in parallel. Requires that the underlying
+            file source is threadsafe
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns)
+        """
+        open_file = self._get_open_file_func()
+
+        tables = []
+        for piece in self.pieces:
+            table = piece.read(open_file, columns=columns, nthreads=nthreads)
+            tables.append(table)
+
+        all_data = concat_tables(tables)
+        return all_data
+
+    def _get_open_file_func(self):
+        if self.fs is None:
+            def open_file(path, meta=None):
+                return ParquetFile(path, metadata=meta)
+        else:
+            def open_file(path, meta=None):
+                return ParquetFile(self.fs.open(path, mode='rb'),
+                                   metadata=meta)
 
 
 def _iter_parquet(root_dir, fs, ext='.parq'):
@@ -250,7 +306,7 @@ def _iter_parquet(root_dir, fs, ext='.parq'):
                 yield p
 
 
-def _partitions(path, root):
+def _partitions(path, root, path_separator):
     """
     >>> partitions('/root/x=1/y=2/x.parq')
     {'x': '1', 'y': '2'}
@@ -289,65 +345,61 @@ def _add_parts(table, parts, part_fields):
     return Table.from_arrays(arrays, names, table.name)
 
 
-def read_dir(root_dir, columns=None, filesystem=None, nthreads=1,
-             metadata=None, schema=None, ext='.parq'):
+def read_table(source, columns=None, nthreads=1, metadata=None):
     """
-    Read a partitioned directory as a single pyarrow.Table
+    Read a Table from Parquet format
 
     Parameters
     ----------
-    root_dir : str
-        Root directory
-    columns : List[str]
-        Names of columns to read from the file
-    filesystem : Filesystem, default None
-        If nothing passed, paths assumed to be found in the local on-disk
-        filesystem
+    source: str or pyarrow.io.NativeFile
+        Location of Parquet dataset. If a string passed, can be a single file
+        name or directory name. For passing Python file objects or byte
+        buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
+    columns: list
+        If not None, only these columns will be read from the file.
     nthreads : int, default 1
         Number of columns to read in parallel. Requires that the underlying
         file source is threadsafe
-    metadata : pyarrow.parquet.FileMetaData
-        Use metadata obtained elsewhere to validate file schemas
-    schema : pyarrow.parquet.Schema
-        Use schema obtained elsewhere to validate file schemas. Alternative to
-        metadata parameter
-    ext: str
-        Parqet file extension
+    metadata : FileMetaData
+        If separately computed
 
     Returns
     -------
     pyarrow.Table
-        Content of the directory as a table (of columns)
+        Content of the file as a table (of columns)
     """
-    fs = LocalFilesystem() if filesystem is None else filesystem
-    files = _iter_parquet(root_dir, fs, ext)
+    if isinstance(source, six.string_types):
+        fs = LocalFilesystem.get_instance()
+        if fs.isdir(source):
+            return fs.read_parquet(source, columns=columns,
+                                   metadata=metadata)
 
-    try:
-        path = next(files)
-        part_fields = sorted(_partitions(path, root_dir))
-    except StopIteration:
-        raise ValueError('no parquet files in {0!r}'.format(root_dir))
+    pf = ParquetFile(source, metadata=metadata)
+    return pf.read(columns=columns, nthreads=nthreads)
 
-    if metadata is None and schema is None:
-        schema = ParquetFile(fs.open(path), metadata=metadata).schema
-    elif schema is None:
-        schema = metadata.schema
 
-    tps = []
-    for path in chain([path], files):
-        parts = _partitions(path, root_dir)
-        if sorted(parts) != part_fields:
-            raise ValueError(
-                '{0!r} has different partitioning than {1}'.format(
-                    path, part_fields))
-        pfile = ParquetFile(fs.open(path), metadata=metadata)
-        if not schema.equals(pfile.metadata.schema):
-            raise ValueError(
-                'Schema in {0} was different. {1!s} vs {2!s}'.format(
-                    path, pfile.metadata.schema, schema))
+def write_table(table, sink, row_group_size=None, version='1.0',
+                use_dictionary=True, compression='snappy', **kwargs):
+    """
+    Write a Table to Parquet format
 
-        table = pfile.read(columns=columns, nthreads=nthreads)
-        tps.append((table, parts))
-
-    tables = [_add_parts(table, parts, part_fields) for table, parts in tps]
-    return concat_tables(tables)
+    Parameters
+    ----------
+    table : pyarrow.Table
+    sink: string or pyarrow.io.NativeFile
+    row_group_size : int, default None
+        The maximum number of rows in each Parquet RowGroup. As a default,
+        we will write a single RowGroup per file.
+    version : {"1.0", "2.0"}, default "1.0"
+        The Parquet format version, defaults to 1.0
+    use_dictionary : bool or list
+        Specify if we should use dictionary encoding in general or only for
+        some columns.
+    compression : str or dict
+        Specify the compression codec, either on a general basis or per-column.
+    """
+    row_group_size = kwargs.get('chunk_size', row_group_size)
+    writer = ParquetWriter(sink, use_dictionary=use_dictionary,
+                           compression=compression,
+                           version=version)
+    writer.write_table(table, row_group_size=row_group_size)
