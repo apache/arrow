@@ -20,11 +20,11 @@ class TestIPCStreamWriter < Test::Unit::TestCase
 
   def test_write_record_batch
     tempfile = Tempfile.open("arrow-ipc-stream-writer")
-    output = ArrowIO::FileOutputStream.open(tempfile.path, false)
+    output = Arrow::IOFileOutputStream.open(tempfile.path, false)
     begin
       field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
       schema = Arrow::Schema.new([field])
-      stream_writer = ArrowIPC::StreamWriter.open(output, schema)
+      stream_writer = Arrow::IPCStreamWriter.open(output, schema)
       begin
         columns = [
           build_boolean_array([true]),
@@ -38,9 +38,9 @@ class TestIPCStreamWriter < Test::Unit::TestCase
       output.close
     end
 
-    input = ArrowIO::MemoryMappedFile.open(tempfile.path, :read)
+    input = Arrow::IOMemoryMappedFile.open(tempfile.path, :read)
     begin
-      stream_reader = ArrowIPC::StreamReader.open(input)
+      stream_reader = Arrow::IPCStreamReader.open(input)
       assert_equal(["enabled"],
                    stream_reader.schema.fields.collect(&:name))
       assert_equal(true,
