@@ -347,9 +347,9 @@ Status FileReader::Impl::ReadTable(
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
-  int num_columns = static_cast<int>(indices.size());
-  int nthreads = std::min<int>(num_threads_, num_columns);
-  std::vector<std::shared_ptr<Column>> columns(num_columns);
+  int num_fields = static_cast<int>(schema->num_fields());
+  int nthreads = std::min<int>(num_threads_, num_fields);
+  std::vector<std::shared_ptr<Column>> columns(num_fields);
 
   auto ReadColumnFunc = [&indices, &schema, &columns, this](int i) {
     std::shared_ptr<Array> array;
@@ -359,11 +359,11 @@ Status FileReader::Impl::ReadTable(
   };
 
   if (nthreads == 1) {
-    for (int i = 0; i < num_columns; i++) {
+    for (int i = 0; i < num_fields; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
   } else {
-    RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumnFunc));
+    RETURN_NOT_OK(ParallelFor(nthreads, num_fields, ReadColumnFunc));
   }
 
   *table = std::make_shared<Table>(schema, columns);
