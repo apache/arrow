@@ -68,7 +68,7 @@ class TestPandasConversion(unittest.TestCase):
                                 timestamps_to_ms=False, expected_schema=None,
                                 check_dtype=True, schema=None):
         table = pa.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms,
-                                    schema=schema)
+                                     schema=schema)
         result = table.to_pandas(nthreads=nthreads)
         if expected_schema:
             assert table.schema.equals(expected_schema)
@@ -79,7 +79,7 @@ class TestPandasConversion(unittest.TestCase):
     def _check_array_roundtrip(self, values, expected=None, mask=None,
                                timestamps_to_ms=False, type=None):
         arr = pa.Array.from_numpy(values, timestamps_to_ms=timestamps_to_ms,
-                                 mask=mask, type=type)
+                                  mask=mask, type=type)
         result = arr.to_pandas()
 
         values_nulls = pd.isnull(values)
