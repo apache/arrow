@@ -530,7 +530,7 @@ Status PandasConverter::ConvertDates() {
 
 #define CONVERT_DECIMAL_CASE(bit_width, builder, object)      \
   case bit_width: {                                           \
-    Decimal##bit_width d;                                     \
+    decimal::Decimal##bit_width d;                            \
     RETURN_NOT_OK(PythonDecimalToArrowDecimal((object), &d)); \
     RETURN_NOT_OK((builder).Append(d));                       \
     break;                                                    \
@@ -620,7 +620,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
 
 template <typename T>
 Status validate_precision(int precision) {
-  constexpr static const int maximum_precision = DecimalPrecision<T>::maximum;
+  constexpr static const int maximum_precision = decimal::DecimalPrecision<T>::maximum;
   if (!(precision > 0 && precision <= maximum_precision)) {
     std::stringstream ss;
     ss << "Invalid precision: " << precision << ". Minimum is 1, maximum is "
@@ -636,7 +636,7 @@ Status RawDecimalToString(
   DCHECK_NE(bytes, nullptr);
   DCHECK_NE(result, nullptr);
   RETURN_NOT_OK(validate_precision<T>(precision));
-  Decimal<T> decimal;
+  decimal::Decimal<T> decimal;
   FromBytes(bytes, &decimal);
   *result = ToString(decimal, precision, scale);
   return Status::OK();
@@ -651,8 +651,8 @@ Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
     bool is_negative, std::string* result) {
   DCHECK_NE(bytes, nullptr);
   DCHECK_NE(result, nullptr);
-  RETURN_NOT_OK(validate_precision<int128_t>(precision));
-  Decimal128 decimal;
+  RETURN_NOT_OK(validate_precision<boost::multiprecision::int128_t>(precision));
+  decimal::Decimal128 decimal;
   FromBytes(bytes, is_negative, &decimal);
   *result = ToString(decimal, precision, scale);
   return Status::OK();

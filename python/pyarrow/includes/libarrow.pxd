@@ -60,11 +60,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
         TimeUnit_NANO" arrow::TimeUnit::NANO"
 
-    cdef cppclass Decimal[T]:
-        Decimal(const T&)
-
-    cdef c_string ToString[T](const Decimal[T]&, int, int)
-
     cdef cppclass CDataType" arrow::DataType":
         Type type
 
@@ -226,7 +221,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const uint8_t* GetValue(int i)
 
     cdef cppclass CDecimalArray" arrow::DecimalArray"(CFixedSizeBinaryArray):
-        Decimal[T] Value[T](int i)
+        c_string FormatValue(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         const int32_t* raw_value_offsets()

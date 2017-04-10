@@ -384,8 +384,7 @@ class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
 
   bool IsNegative(int64_t i) const;
 
-  template <typename T>
-  ARROW_EXPORT Decimal<T> Value(int64_t i) const;
+  std::string FormatValue(int64_t i) const;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 

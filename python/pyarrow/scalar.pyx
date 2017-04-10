@@ -17,7 +17,6 @@
 
 from pyarrow.schema cimport DataType, box_data_type
 
-from pyarrow.includes.common cimport int128_t
 from pyarrow.compat import frombytes
 import pyarrow.schema as schema
 import decimal
@@ -213,13 +212,7 @@ cdef class DecimalValue(ArrayValue):
             int bit_width = t.bit_width()
             int precision = t.precision
             int scale = t.scale
-            c_string s
-        if bit_width == 32:
-            s = ToString[int32_t](ap.Value[int32_t](self.index), precision, scale)
-        elif bit_width == 64:
-            s = ToString[int64_t](ap.Value[int64_t](self.index), precision, scale)
-        elif bit_width == 128:
-            s = ToString[int128_t](ap.Value[int128_t](self.index), precision, scale)
+            c_string s = ap.FormatValue(self.index)
         return decimal.Decimal(s.decode('utf8'))
 
 

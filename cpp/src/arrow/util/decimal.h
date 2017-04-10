@@ -31,6 +31,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace arrow {
+namespace decimal {
 
 using boost::multiprecision::int128_t;
 
@@ -140,5 +141,6 @@ ARROW_EXPORT void ToBytes(const Decimal32& value, uint8_t** bytes);
 ARROW_EXPORT void ToBytes(const Decimal64& value, uint8_t** bytes);
 ARROW_EXPORT void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative);
 
+}  // namespace decimal
 }  // namespace arrow
 #endif  // ARROW_DECIMAL_H

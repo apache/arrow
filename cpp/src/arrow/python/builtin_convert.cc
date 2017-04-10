@@ -523,7 +523,7 @@ class ListConverter : public TypedConverter<ListBuilder> {
 
 #define DECIMAL_CONVERT_CASE(bit_width, item, builder)        \
   case bit_width: {                                           \
-    arrow::Decimal##bit_width out;                            \
+    arrow::decimal::Decimal##bit_width out;                   \
     RETURN_NOT_OK(PythonDecimalToArrowDecimal((item), &out)); \
     RETURN_NOT_OK((builder)->Append(out));                    \
     break;                                                    \

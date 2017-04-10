@@ -310,24 +310,34 @@ bool DecimalArray::IsNegative(int64_t i) const {
   return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
 }
 
-template <typename T>
-ARROW_EXPORT Decimal<T> DecimalArray::Value(int64_t i) const {
-  Decimal<T> result;
-  FromBytes(GetValue(i), &result);
-  return result;
+std::string DecimalArray::FormatValue(int64_t i) const {
+  const auto type_ = std::dynamic_pointer_cast<DecimalType>(type());
+  const int precision = type_->precision;
+  const int scale = type_->scale;
+  const int byte_width = byte_width_;
+  const uint8_t* bytes = GetValue(i);
+  switch (byte_width) {
+    case 4: {
+      decimal::Decimal32 value;
+      decimal::FromBytes(bytes, &value);
+      return decimal::ToString(value, precision, scale);
+    }
+    case 8: {
+      decimal::Decimal64 value;
+      decimal::FromBytes(bytes, &value);
+      return decimal::ToString(value, precision, scale);
+    }
+    case 16: {
+      decimal::Decimal128 value;
+      decimal::FromBytes(bytes, IsNegative(i), &value);
+      return decimal::ToString(value, precision, scale);
+    }
+    default: {
+      DCHECK(false) << "Invalid byte width: " << byte_width;
+      return "";
+    }
+  }
 }
-
-template ARROW_EXPORT Decimal32 DecimalArray::Value(int64_t i) const;
-template ARROW_EXPORT Decimal64 DecimalArray::Value(int64_t i) const;
-
-template <>
-ARROW_EXPORT Decimal128 DecimalArray::Value(int64_t i) const {
-  Decimal128 result;
-  FromBytes(GetValue(i), IsNegative(i), &result);
-  return result;
-}
-
-template ARROW_EXPORT Decimal128 DecimalArray::Value(int64_t i) const;
 
 std::shared_ptr<Array> DecimalArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);

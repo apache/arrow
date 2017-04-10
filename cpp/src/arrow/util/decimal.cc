@@ -20,6 +20,7 @@
 #include <boost/regex.hpp>
 
 namespace arrow {
+namespace decimal {
 
 static const boost::regex DECIMAL_PATTERN("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
@@ -138,4 +139,5 @@ void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative) {
   *is_negative = backend.isneg();
 }
 
+}  // namespace decimal
 }  // namespace arrow

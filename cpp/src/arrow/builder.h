@@ -37,8 +37,12 @@ namespace arrow {
 
 class Array;
 
+namespace decimal {
+
 template <typename T>
 struct Decimal;
+
+}  // namespace decimal
 
 static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
@@ -421,7 +425,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   template <typename T>
-  ARROW_EXPORT Status Append(const Decimal<T>& val);
+  ARROW_EXPORT Status Append(const decimal::Decimal<T>& val);
 
   Status Init(int64_t capacity) override;
   Status Resize(int64_t capacity) override;

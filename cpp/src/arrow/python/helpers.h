@@ -29,8 +29,12 @@
 
 namespace arrow {
 
+namespace decimal {
+
 template <typename T>
 struct Decimal;
+
+}  // namespace decimal
 
 namespace py {
 
@@ -43,7 +47,8 @@ Status ImportFromModule(
     const OwnedRef& module, const std::string& module_name, OwnedRef* ref);
 
 template <typename T>
-Status PythonDecimalToArrowDecimal(PyObject* python_decimal, Decimal<T>* arrow_decimal);
+Status PythonDecimalToArrowDecimal(
+    PyObject* python_decimal, decimal::Decimal<T>* arrow_decimal);
 
 Status InferDecimalPrecisionAndScale(
     PyObject* python_decimal, int* precision = nullptr, int* scale = nullptr);
