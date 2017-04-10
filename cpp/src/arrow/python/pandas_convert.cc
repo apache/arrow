@@ -530,7 +530,7 @@ Status PandasConverter::ConvertDates() {
 
 #define CONVERT_DECIMAL_CASE(bit_width, builder, object)      \
   case bit_width: {                                           \
-    decimal::Decimal##bit_width d;                                     \
+    decimal::Decimal##bit_width d;                            \
     RETURN_NOT_OK(PythonDecimalToArrowDecimal((object), &d)); \
     RETURN_NOT_OK((builder).Append(d));                       \
     break;                                                    \

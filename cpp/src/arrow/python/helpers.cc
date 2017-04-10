@@ -74,7 +74,8 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
 }
 
 template <typename T>
-Status PythonDecimalToArrowDecimal(PyObject* python_decimal, decimal::Decimal<T>* arrow_decimal) {
+Status PythonDecimalToArrowDecimal(
+    PyObject* python_decimal, decimal::Decimal<T>* arrow_decimal) {
   // Call Python's str(decimal_object)
   OwnedRef str_obj(PyObject_Str(python_decimal));
   RETURN_IF_PYERROR();
@@ -111,7 +112,8 @@ Status InferDecimalPrecisionAndScale(
   auto size = str.size;
 
   std::string c_string(bytes, size);
-  return FromString(c_string, static_cast<decimal::Decimal32*>(nullptr), precision, scale);
+  return FromString(
+      c_string, static_cast<decimal::Decimal32*>(nullptr), precision, scale);
 }
 
 Status DecimalFromString(
