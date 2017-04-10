@@ -44,6 +44,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/visitor_inline.h"
 
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
@@ -271,7 +272,7 @@ static inline bool ListTypeSupported(const Type::type type_id) {
 // ----------------------------------------------------------------------
 // Conversion from NumPy-in-Pandas to Arrow
 
-class PandasConverter : public TypeVisitor {
+class PandasConverter {
  public:
   PandasConverter(
       MemoryPool* pool, PyObject* ao, PyObject* mo, const std::shared_ptr<DataType>& type)
@@ -332,23 +333,37 @@ class PandasConverter : public TypeVisitor {
     return LoadArray(type_, fields, {null_bitmap_, data}, &out_);
   }
 
-#define VISIT_NATIVE(TYPE) \
-  Status Visit(const TYPE& type) override { return VisitNative<TYPE>(); }
+  template <typename T>
+  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
+                              std::is_same<BooleanType, T>::value,
+      Status>::type
+  Visit(const T& type) {
+    return VisitNative<T>();
+  }
 
-  VISIT_NATIVE(BooleanType);
-  VISIT_NATIVE(Int8Type);
-  VISIT_NATIVE(Int16Type);
-  VISIT_NATIVE(Int32Type);
-  VISIT_NATIVE(Int64Type);
-  VISIT_NATIVE(UInt8Type);
-  VISIT_NATIVE(UInt16Type);
-  VISIT_NATIVE(UInt32Type);
-  VISIT_NATIVE(UInt64Type);
-  VISIT_NATIVE(FloatType);
-  VISIT_NATIVE(DoubleType);
-  VISIT_NATIVE(TimestampType);
+  Status Visit(const Date32Type& type) { return VisitNative<Int32Type>(); }
+  Status Visit(const Date64Type& type) { return VisitNative<Int64Type>(); }
+  Status Visit(const TimestampType& type) { return VisitNative<TimestampType>(); }
+  Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
+  Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
 
-#undef VISIT_NATIVE
+  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
+
+  Status Visit(const BinaryType& type) { return Status::NotImplemented(type.ToString()); }
+
+  Status Visit(const FixedSizeBinaryType& type) {
+    return Status::NotImplemented(type.ToString());
+  }
+
+  Status Visit(const DecimalType& type) {
+    return Status::NotImplemented(type.ToString());
+  }
+
+  Status Visit(const DictionaryType& type) {
+    return Status::NotImplemented(type.ToString());
+  }
+
+  Status Visit(const NestedType& type) { return Status::NotImplemented(type.ToString()); }
 
   Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {
@@ -358,9 +373,7 @@ class PandasConverter : public TypeVisitor {
     if (type_ == nullptr) { return Status::Invalid("Must pass data type"); }
 
     // Visit the type to perform conversion
-    RETURN_NOT_OK(type_->Accept(this));
-
-    return Status::OK();
+    return VisitTypeInline(*type_, this);
   }
 
   std::shared_ptr<Array> result() const { return out_; }
@@ -371,10 +384,12 @@ class PandasConverter : public TypeVisitor {
   template <int ITEM_TYPE, typename ArrowType>
   Status ConvertTypedLists(const std::shared_ptr<DataType>& type);
 
+  template <typename ArrowType>
+  Status ConvertDates();
+
   Status ConvertObjectStrings();
   Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertBooleans();
-  Status ConvertDates();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertObjects();
   Status ConvertDecimals();
@@ -462,33 +477,28 @@ inline Status PandasConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>*
   return Status::OK();
 }
 
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name) {
-  OwnedRef type(PyObject_Type(obj));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type.obj(), nullptr);
+template <typename T>
+struct UnboxDate {};
 
-  OwnedRef type_name(PyObject_GetAttrString(type.obj(), "__name__"));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type_name.obj(), nullptr);
+template <>
+struct UnboxDate<Date32Type> {
+  static int64_t Unbox(PyObject* obj) {
+    return PyDate_to_days(reinterpret_cast<PyDateTime_Date*>(obj));
+  }
+};
 
-  PyObjectStringify bytestring(type_name.obj());
-  RETURN_IF_PYERROR();
+template <>
+struct UnboxDate<Date64Type> {
+  static int64_t Unbox(PyObject* obj) {
+    return PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(obj));
+  }
+};
 
-  const char* bytes = bytestring.bytes;
-  DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
-
-  Py_ssize_t size = bytestring.size;
-
-  std::string cpp_type_name(bytes, size);
-
-  std::stringstream ss;
-  ss << "Python object of type " << cpp_type_name << " is not None and is not a "
-     << expected_type_name << " object";
-  return Status::Invalid(ss.str());
-}
-
+template <typename ArrowType>
 Status PandasConverter::ConvertDates() {
   PyAcquireGIL lock;
+
+  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
 
@@ -496,7 +506,7 @@ Status PandasConverter::ConvertDates() {
     return Status::NotImplemented("mask not supported in object conversions yet");
   }
 
-  Date64Builder date_builder(pool_);
+  BuilderType date_builder(pool_);
   RETURN_NOT_OK(date_builder.Resize(length_));
 
   /// We have to run this in this compilation unit, since we cannot use the
@@ -508,8 +518,7 @@ Status PandasConverter::ConvertDates() {
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
     if (PyDate_CheckExact(obj)) {
-      PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      date_builder.Append(PyDate_to_ms(pydate));
+      date_builder.Append(UnboxDate<ArrowType>::Unbox(obj));
     } else if (PyObject_is_null(obj)) {
       date_builder.AppendNull();
     } else {
@@ -762,8 +771,10 @@ Status PandasConverter::ConvertObjects() {
         return ConvertObjectFixedWidthBytes(type_);
       case Type::BOOL:
         return ConvertBooleans();
+      case Type::DATE32:
+        return ConvertDates<Date32Type>();
       case Type::DATE64:
-        return ConvertDates();
+        return ConvertDates<Date64Type>();
       case Type::LIST: {
         const auto& list_field = static_cast<const ListType&>(*type_);
         return ConvertLists(list_field.value_field()->type);
@@ -787,7 +798,8 @@ Status PandasConverter::ConvertObjects() {
       } else if (PyBool_Check(objects[i])) {
         return ConvertBooleans();
       } else if (PyDate_CheckExact(objects[i])) {
-        return ConvertDates();
+        // We could choose Date32 or Date64
+        return ConvertDates<Date32Type>();
       } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
         return ConvertDecimals();
       } else {
@@ -955,34 +967,6 @@ Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 // ----------------------------------------------------------------------
 // pandas 0.x DataFrame conversion internals
 
-inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
-  if (type == NPY_DATETIME) {
-    PyArray_Descr* descr = PyArray_DESCR(out);
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-    if (datatype->type == Type::TIMESTAMP) {
-      auto timestamp_type = static_cast<TimestampType*>(datatype);
-
-      switch (timestamp_type->unit) {
-        case TimestampType::Unit::SECOND:
-          date_dtype->meta.base = NPY_FR_s;
-          break;
-        case TimestampType::Unit::MILLI:
-          date_dtype->meta.base = NPY_FR_ms;
-          break;
-        case TimestampType::Unit::MICRO:
-          date_dtype->meta.base = NPY_FR_us;
-          break;
-        case TimestampType::Unit::NANO:
-          date_dtype->meta.base = NPY_FR_ns;
-          break;
-      }
-    } else {
-      // datatype->type == Type::DATE64
-      date_dtype->meta.base = NPY_FR_D;
-    }
-  }
-}
-
 class PandasBlock {
  public:
   enum type {
@@ -1148,8 +1132,9 @@ static void ConvertBooleanNoNulls(const ChunkedArray& data, uint8_t* out_values)
   }
 }
 
-template <typename ArrayType>
+template <typename Type>
 inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<ArrayType*>(data.chunk(c).get());
@@ -1287,21 +1272,7 @@ inline void ConvertNumericNullableCast(
   }
 }
 
-template <typename T>
-inline void ConvertDates(const ChunkedArray& data, T na_value, T* out_values) {
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const std::shared_ptr<Array> arr = data.chunk(c);
-    auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
-
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      // There are 1000 * 60 * 60 * 24 = 86400000ms in a day
-      *out_values++ = arr->IsNull(i) ? na_value : in_values[i] / 86400000;
-    }
-  }
-}
-
-template <typename InType, int SHIFT>
+template <typename InType, int64_t SHIFT>
 inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
@@ -1339,9 +1310,9 @@ class ObjectBlock : public PandasBlock {
     if (type == Type::BOOL) {
       RETURN_NOT_OK(ConvertBooleanWithNulls(data, out_buffer));
     } else if (type == Type::BINARY) {
-      RETURN_NOT_OK(ConvertBinaryLike<BinaryArray>(data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(data, out_buffer));
     } else if (type == Type::STRING) {
-      RETURN_NOT_OK(ConvertBinaryLike<StringArray>(data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<StringType>(data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
       RETURN_NOT_OK(ConvertFixedSizeBinary(data, out_buffer));
     } else if (type == Type::DECIMAL) {
@@ -1532,7 +1503,11 @@ class DatetimeBlock : public PandasBlock {
 
     const ChunkedArray& data = *col.get()->data();
 
-    if (type == Type::DATE64) {
+    if (type == Type::DATE32) {
+      // Date64Type is millisecond timestamp stored as int64_t
+      // TODO(wesm): Do we want to make sure to zero out the milliseconds?
+      ConvertDatetimeNanos<int32_t, kNanosecondsInDay>(data, out_buffer);
+    } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
       ConvertDatetimeNanos<int64_t, 1000000L>(data, out_buffer);
@@ -1779,6 +1754,9 @@ class DataFrameBlockCreator {
         case Type::FIXED_SIZE_BINARY:
           output_type = PandasBlock::OBJECT;
           break;
+        case Type::DATE32:
+          output_type = PandasBlock::DATETIME;
+          break;
         case Type::DATE64:
           output_type = PandasBlock::DATETIME;
           break;
@@ -1960,6 +1938,34 @@ class DataFrameBlockCreator {
   BlockMap datetimetz_blocks_;
 };
 
+inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
+  if (type == NPY_DATETIME) {
+    PyArray_Descr* descr = PyArray_DESCR(out);
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+    if (datatype->type == Type::TIMESTAMP) {
+      auto timestamp_type = static_cast<TimestampType*>(datatype);
+
+      switch (timestamp_type->unit) {
+        case TimestampType::Unit::SECOND:
+          date_dtype->meta.base = NPY_FR_s;
+          break;
+        case TimestampType::Unit::MILLI:
+          date_dtype->meta.base = NPY_FR_ms;
+          break;
+        case TimestampType::Unit::MICRO:
+          date_dtype->meta.base = NPY_FR_us;
+          break;
+        case TimestampType::Unit::NANO:
+          date_dtype->meta.base = NPY_FR_ns;
+          break;
+      }
+    } else {
+      // datatype->type == Type::DATE64
+      date_dtype->meta.base = NPY_FR_D;
+    }
+  }
+}
+
 class ArrowDeserializer {
  public:
   ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref)
@@ -2024,51 +2030,14 @@ class ArrowDeserializer {
   // Allocate new array and deserialize. Can do a zero copy conversion for some
   // types
 
-  Status Convert(PyObject** out) {
-#define CONVERT_CASE(TYPE)                      \
-  case Type::TYPE: {                            \
-    RETURN_NOT_OK(ConvertValues<Type::TYPE>()); \
-  } break;
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<FloatingPoint, Type>::value, Status>::type
+  Visit(const Type& type) {
+    constexpr int TYPE = Type::type_id;
+    using traits = arrow_traits<TYPE>;
 
-    switch (col_->type()->type) {
-      CONVERT_CASE(BOOL);
-      CONVERT_CASE(INT8);
-      CONVERT_CASE(INT16);
-      CONVERT_CASE(INT32);
-      CONVERT_CASE(INT64);
-      CONVERT_CASE(UINT8);
-      CONVERT_CASE(UINT16);
-      CONVERT_CASE(UINT32);
-      CONVERT_CASE(UINT64);
-      CONVERT_CASE(FLOAT);
-      CONVERT_CASE(DOUBLE);
-      CONVERT_CASE(BINARY);
-      CONVERT_CASE(STRING);
-      CONVERT_CASE(FIXED_SIZE_BINARY);
-      CONVERT_CASE(DATE64);
-      CONVERT_CASE(TIMESTAMP);
-      CONVERT_CASE(DICTIONARY);
-      CONVERT_CASE(LIST);
-      CONVERT_CASE(DECIMAL);
-      default: {
-        std::stringstream ss;
-        ss << "Arrow type reading not implemented for " << col_->type()->ToString();
-        return Status::NotImplemented(ss.str());
-      }
-    }
-
-#undef CONVERT_CASE
-
-    *out = result_;
-    return Status::OK();
-  }
-
-  template <int TYPE>
-  inline typename std::enable_if<
-      (TYPE != Type::DATE64) & arrow_traits<TYPE>::is_numeric_nullable, Status>::type
-  ConvertValues() {
-    typedef typename arrow_traits<TYPE>::T T;
-    int npy_type = arrow_traits<TYPE>::npy_type;
+    typedef typename traits::T T;
+    int npy_type = traits::npy_type;
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
       return ConvertValuesZeroCopy<TYPE>(npy_type, data_.chunk(0));
@@ -2076,31 +2045,56 @@ class ArrowDeserializer {
 
     RETURN_NOT_OK(AllocateOutput(npy_type));
     auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
-    ConvertNumericNullable<T>(data_, arrow_traits<TYPE>::na_value, out_values);
+    ConvertNumericNullable<T>(data_, traits::na_value, out_values);
 
     return Status::OK();
   }
 
-  template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DATE64, Status>::type ConvertValues() {
-    typedef typename arrow_traits<TYPE>::T T;
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<DateType, Type>::value ||
+                              std::is_base_of<TimestampType, Type>::value,
+      Status>::type
+  Visit(const Type& type) {
+    constexpr int TYPE = Type::type_id;
+    using traits = arrow_traits<TYPE>;
 
-    RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
+    typedef typename traits::T T;
+
+    RETURN_NOT_OK(AllocateOutput(traits::npy_type));
     auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
-    ConvertDates<T>(data_, arrow_traits<TYPE>::na_value, out_values);
+
+    constexpr T na_value = traits::na_value;
+    constexpr int64_t kShift = traits::npy_shift;
+
+    for (int c = 0; c < data_.num_chunks(); c++) {
+      const std::shared_ptr<Array> arr = data_.chunk(c);
+      auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
+      auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+
+      for (int64_t i = 0; i < arr->length(); ++i) {
+        *out_values++ = arr->IsNull(i) ? na_value : in_values[i] / kShift;
+      }
+    }
     return Status::OK();
+  }
+
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<TimeType, Type>::value, Status>::type Visit(
+      const Type& type) {
+    return Status::NotImplemented("Don't know how to serialize Arrow time type to NumPy");
   }
 
   // Integer specialization
-  template <int TYPE>
-  inline
-      typename std::enable_if<arrow_traits<TYPE>::is_numeric_not_nullable, Status>::type
-      ConvertValues() {
-    typedef typename arrow_traits<TYPE>::T T;
-    int npy_type = arrow_traits<TYPE>::npy_type;
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<Integer, Type>::value, Status>::type Visit(
+      const Type& type) {
+    constexpr int TYPE = Type::type_id;
+    using traits = arrow_traits<TYPE>;
+
+    typedef typename traits::T T;
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
-      return ConvertValuesZeroCopy<TYPE>(npy_type, data_.chunk(0));
+      return ConvertValuesZeroCopy<TYPE>(traits::npy_type, data_.chunk(0));
     }
 
     if (data_.null_count() > 0) {
@@ -2108,7 +2102,7 @@ class ArrowDeserializer {
       auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
       ConvertIntegerWithNulls<T>(data_, out_values);
     } else {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
+      RETURN_NOT_OK(AllocateOutput(traits::npy_type));
       auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
       ConvertIntegerNoNullsSameType<T>(data_, out_values);
     }
@@ -2117,15 +2111,13 @@ class ArrowDeserializer {
   }
 
   // Boolean specialization
-  template <int TYPE>
-  inline typename std::enable_if<arrow_traits<TYPE>::is_boolean, Status>::type
-  ConvertValues() {
+  Status Visit(const BooleanType& type) {
     if (data_.null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
       auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
       RETURN_NOT_OK(ConvertBooleanWithNulls(data_, out_values));
     } else {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<TYPE>::npy_type));
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<Type::BOOL>::npy_type));
       auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(arr_));
       ConvertBooleanNoNulls(data_, out_values);
     }
@@ -2133,43 +2125,32 @@ class ArrowDeserializer {
   }
 
   // UTF8 strings
-  template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::STRING, Status>::type ConvertValues() {
+  template <typename Type>
+  typename std::enable_if<std::is_base_of<BinaryType, Type>::value, Status>::type Visit(
+      const Type& type) {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertBinaryLike<StringArray>(data_, out_values);
-  }
-
-  // Binary strings
-  template <int T2>
-  inline typename std::enable_if<T2 == Type::BINARY, Status>::type ConvertValues() {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertBinaryLike<BinaryArray>(data_, out_values);
+    return ConvertBinaryLike<Type>(data_, out_values);
   }
 
   // Fixed length binary strings
-  template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::FIXED_SIZE_BINARY, Status>::type
-  ConvertValues() {
+  Status Visit(const FixedSizeBinaryType& type) {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertFixedSizeBinary(data_, out_values);
   }
 
-  template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DECIMAL, Status>::type ConvertValues() {
+  Status Visit(const DecimalType& type) {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertDecimals(data_, out_values);
   }
 
+  Status Visit(const ListType& type) {
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
   case Type::ArrowEnum:                                    \
     return ConvertListsLike<ArrowType>(col_, out_values);
 
-  template <int T2>
-  inline typename std::enable_if<T2 == Type::LIST, Status>::type ConvertValues() {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     auto list_type = std::static_pointer_cast<ListType>(col_->type());
@@ -2193,10 +2174,10 @@ class ArrowDeserializer {
         return Status::NotImplemented(ss.str());
       }
     }
+#undef CONVERTVALUES_LISTSLIKE_CASE
   }
 
-  template <int TYPE>
-  inline typename std::enable_if<TYPE == Type::DICTIONARY, Status>::type ConvertValues() {
+  Status Visit(const DictionaryType& type) {
     std::shared_ptr<PandasBlock> block;
     RETURN_NOT_OK(MakeCategoricalBlock(col_->type(), col_->length(), &block));
     RETURN_NOT_OK(block->Write(col_, 0, 0));
@@ -2213,6 +2194,18 @@ class ArrowDeserializer {
     PyDict_SetItemString(result_, "indices", block->block_arr());
     PyDict_SetItemString(result_, "dictionary", dictionary);
 
+    return Status::OK();
+  }
+
+  Status Visit(const NullType& type) { return Status::NotImplemented("null type"); }
+
+  Status Visit(const StructType& type) { return Status::NotImplemented("struct type"); }
+
+  Status Visit(const UnionType& type) { return Status::NotImplemented("union type"); }
+
+  Status Convert(PyObject** out) {
+    RETURN_NOT_OK(VisitTypeInline(*col_->type(), this));
+    *out = result_;
     return Status::OK();
   }
 

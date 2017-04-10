@@ -119,9 +119,6 @@ template <>
 struct arrow_traits<Type::BOOL> {
   static constexpr int npy_type = NPY_BOOL;
   static constexpr bool supports_nulls = false;
-  static constexpr bool is_boolean = true;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = false;
 };
 
 #define INT_DECL(TYPE)                                     \
@@ -130,9 +127,6 @@ struct arrow_traits<Type::BOOL> {
     static constexpr int npy_type = NPY_##TYPE;            \
     static constexpr bool supports_nulls = false;          \
     static constexpr double na_value = NAN;                \
-    static constexpr bool is_boolean = false;              \
-    static constexpr bool is_numeric_not_nullable = true;  \
-    static constexpr bool is_numeric_nullable = false;     \
     typedef typename npy_traits<NPY_##TYPE>::value_type T; \
   };
 
@@ -150,9 +144,6 @@ struct arrow_traits<Type::FLOAT> {
   static constexpr int npy_type = NPY_FLOAT32;
   static constexpr bool supports_nulls = true;
   static constexpr float na_value = NAN;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = true;
   typedef typename npy_traits<NPY_FLOAT32>::value_type T;
 };
 
@@ -161,33 +152,63 @@ struct arrow_traits<Type::DOUBLE> {
   static constexpr int npy_type = NPY_FLOAT64;
   static constexpr bool supports_nulls = true;
   static constexpr double na_value = NAN;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = true;
   typedef typename npy_traits<NPY_FLOAT64>::value_type T;
 };
 
 static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
 
+constexpr int64_t kNanosecondsInDay = 86400000000000LL;
+
 template <>
 struct arrow_traits<Type::TIMESTAMP> {
   static constexpr int npy_type = NPY_DATETIME;
+  static constexpr int64_t npy_shift = 1;
+
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = kPandasTimestampNull;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = true;
   typedef typename npy_traits<NPY_DATETIME>::value_type T;
 };
 
 template <>
-struct arrow_traits<Type::DATE64> {
+struct arrow_traits<Type::DATE32> {
+  // Data stores as FR_D day unit
   static constexpr int npy_type = NPY_DATETIME;
+  static constexpr int64_t npy_shift = 1;
+
+  static constexpr bool supports_nulls = true;
+  typedef typename npy_traits<NPY_DATETIME>::value_type T;
+
+  static constexpr int64_t na_value = kPandasTimestampNull;
+  static inline bool isnull(int64_t v) { return npy_traits<NPY_DATETIME>::isnull(v); }
+};
+
+template <>
+struct arrow_traits<Type::DATE64> {
+  // Data stores as FR_D day unit
+  static constexpr int npy_type = NPY_DATETIME;
+
+  // There are 1000 * 60 * 60 * 24 = 86400000ms in a day
+  static constexpr int64_t npy_shift = 86400000;
+
+  static constexpr bool supports_nulls = true;
+  typedef typename npy_traits<NPY_DATETIME>::value_type T;
+
+  static constexpr int64_t na_value = kPandasTimestampNull;
+  static inline bool isnull(int64_t v) { return npy_traits<NPY_DATETIME>::isnull(v); }
+};
+
+template <>
+struct arrow_traits<Type::TIME32> {
+  static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = kPandasTimestampNull;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = true;
+  typedef typename npy_traits<NPY_DATETIME>::value_type T;
+};
+
+template <>
+struct arrow_traits<Type::TIME64> {
+  static constexpr int npy_type = NPY_OBJECT;
+  static constexpr bool supports_nulls = true;
   typedef typename npy_traits<NPY_DATETIME>::value_type T;
 };
 
@@ -195,18 +216,12 @@ template <>
 struct arrow_traits<Type::STRING> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = false;
 };
 
 template <>
 struct arrow_traits<Type::BINARY> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
-  static constexpr bool is_boolean = false;
-  static constexpr bool is_numeric_not_nullable = false;
-  static constexpr bool is_numeric_nullable = false;
 };
 
 }  // namespace py

@@ -182,8 +182,8 @@ class ARROW_EXPORT Table {
   Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
 
   /// Add column to the table, producing a new Table
-  Status AddColumn(int i, const std::shared_ptr<Column>& column,
-      std::shared_ptr<Table>* out) const;
+  Status AddColumn(
+      int i, const std::shared_ptr<Column>& column, std::shared_ptr<Table>* out) const;
 
   // @returns: the number of columns in the table
   int num_columns() const { return static_cast<int>(columns_.size()); }
