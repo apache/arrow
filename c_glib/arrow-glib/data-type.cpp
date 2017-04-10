@@ -186,12 +186,12 @@ garrow_data_type_type(GArrowDataType *data_type)
 G_END_DECLS
 
 GArrowDataType *
-garrow_data_type_new_raw(arrow::DataType *arrow_data_type)
+garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
 {
   GType type;
   GArrowDataType *data_type;
 
-  switch (arrow_data_type->id()) {
+  switch ((*arrow_data_type)->id()) {
   case arrow::Type::type::NA:
     type = GARROW_TYPE_NULL_DATA_TYPE;
     break;

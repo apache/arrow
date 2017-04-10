@@ -66,7 +66,7 @@ garrow_list_array_get_value_type(GArrowListArray *array)
   auto arrow_list_array =
     static_cast<arrow::ListArray *>(arrow_array.get());
   auto arrow_value_type = arrow_list_array->value_type();
-  return garrow_data_type_new_raw(arrow_value_type.get());
+  return garrow_data_type_new_raw(&arrow_value_type);
 }
 
 /**

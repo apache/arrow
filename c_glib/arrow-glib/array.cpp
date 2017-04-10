@@ -202,7 +202,7 @@ garrow_array_get_value_data_type(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_data_type = arrow_array->type();
-  return garrow_data_type_new_raw(arrow_data_type.get());
+  return garrow_data_type_new_raw(&arrow_data_type);
 }
 
 /**
