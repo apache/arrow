@@ -642,5 +642,23 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   CheckTensorRoundTrip(tzero);
 }
 
+TEST_F(TestTensorRoundTrip, NonContiguous) {
+  std::string path = "test-write-tensor-strided";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  std::vector<int64_t> values;
+  test::randint<int64_t>(24, 0, 100, &values);
+
+  auto data = test::GetBufferFromVector(values);
+  Int64Tensor tensor(data, {4, 3}, {48, 16});
+
+  int32_t metadata_length;
+  int64_t body_length;
+  ASSERT_OK(mmap_->Seek(0));
+  ASSERT_RAISES(
+      Invalid, WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+}
+
 }  // namespace ipc
 }  // namespace arrow
