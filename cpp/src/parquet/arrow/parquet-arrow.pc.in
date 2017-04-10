@@ -24,4 +24,4 @@ Description: Apache Parquet Apache arrow adapter provides Arrow IPC modules for 
 Version: @PARQUET_VERSION@
 Libs: -L${libdir} -lparquet_arrow
 Cflags: -I${includedir}
-Requires: parquet arrow-io
+Requires: parquet arrow

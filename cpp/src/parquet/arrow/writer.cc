@@ -61,7 +61,7 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
     array_offsets_.push_back(array.offset());                           \
     valid_bitmaps_.push_back(array.null_bitmap_data());                 \
     null_counts_.push_back(array.null_count());                         \
-    values_type_ = array.type_enum();                                   \
+    values_type_ = array.type_id();                                     \
     values_array_ = &array;                                             \
     return Status::OK();                                                \
   }
@@ -125,15 +125,15 @@ class LevelBuilder : public ::arrow::ArrayVisitor {
 
     // Walk downwards to extract nullability
     std::shared_ptr<Field> current_field = field;
-    nullable_.push_back(current_field->nullable);
-    while (current_field->type->num_children() > 0) {
-      if (current_field->type->num_children() > 1) {
+    nullable_.push_back(current_field->nullable());
+    while (current_field->type()->num_children() > 0) {
+      if (current_field->type()->num_children() > 1) {
         return Status::NotImplemented(
             "Fields with more than one child are not supported.");
       } else {
-        current_field = current_field->type->child(0);
+        current_field = current_field->type()->child(0);
       }
-      nullable_.push_back(current_field->nullable);
+      nullable_.push_back(current_field->nullable());
     }
 
     // Generate the levels.

@@ -31,7 +31,6 @@ add_library(parquet_arrow_objlib OBJECT
 # Add dependencies so ExternalProjects are built beforehand
 add_dependencies(parquet_arrow_objlib
     arrow_static
-    arrow_io_static
     parquet_static)
 
 # SET_TARGET_PROPERTIES(parquet_arrow PROPERTIES LINKER_LANGUAGE CXX)
@@ -47,7 +46,6 @@ if (PARQUET_BUILD_SHARED)
       SOVERSION "${PARQUET_SO_VERSION}")
     target_link_libraries(parquet_arrow_shared
       arrow
-      arrow_io
       parquet_shared)
     if (PARQUET_RPATH_ORIGIN)
         if (APPLE)
@@ -77,7 +75,6 @@ if (PARQUET_BUILD_STATIC)
       OUTPUT_NAME "parquet_arrow")
   target_link_libraries(parquet_arrow_static
       arrow_static
-      arrow_io_static
       parquet_static)
   install(TARGETS parquet_arrow_static
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

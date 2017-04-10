@@ -724,23 +724,23 @@ Status ColumnReader::Impl::WrapIntoListArray(const int16_t* def_levels,
     std::vector<bool> nullable;
     std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
     std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
-    nullable.push_back(current_field->nullable);
-    while (current_field->type->num_children() > 0) {
-      if (current_field->type->num_children() > 1) {
+    nullable.push_back(current_field->nullable());
+    while (current_field->type()->num_children() > 0) {
+      if (current_field->type()->num_children() > 1) {
         return Status::NotImplemented(
             "Fields with more than one child are not supported.");
       } else {
-        if (current_field->type->type != ::arrow::Type::LIST) {
+        if (current_field->type()->id() != ::arrow::Type::LIST) {
           return Status::NotImplemented(
               "Currently only nesting with Lists is supported.");
         }
-        current_field = current_field->type->child(0);
+        current_field = current_field->type()->child(0);
       }
       offset_builders.emplace_back(
           std::make_shared<::arrow::Int32Builder>(pool_, ::arrow::int32()));
       valid_bits_builders.emplace_back(
           std::make_shared<::arrow::BooleanBuilder>(pool_, ::arrow::boolean()));
-      nullable.push_back(current_field->nullable);
+      nullable.push_back(current_field->nullable());
     }
 
     int64_t list_depth = offset_builders.size();
@@ -860,12 +860,12 @@ Status ColumnReader::Impl::TypedReadBatch(int batch_size, std::shared_ptr<Array>
           ::arrow::BitUtil::CeilByte(valid_bits_idx_) / 8, false));
     }
     *out = std::make_shared<ArrayType<ArrowType>>(
-        field_->type, valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
+        field_->type(), valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
     // Relase the ownership as the Buffer is now part of a new Array
     valid_bits_buffer_.reset();
   } else {
     *out = std::make_shared<ArrayType<ArrowType>>(
-        field_->type, valid_bits_idx_, data_buffer_);
+        field_->type(), valid_bits_idx_, data_buffer_);
   }
   // Relase the ownership as the Buffer is now part of a new Array
   data_buffer_.reset();
@@ -934,12 +934,12 @@ Status ColumnReader::Impl::TypedReadBatch<::arrow::BooleanType, BooleanType>(
       valid_bits_buffer_ = valid_bits_buffer;
     }
     *out = std::make_shared<BooleanArray>(
-        field_->type, valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
+        field_->type(), valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
     // Relase the ownership
     data_buffer_.reset();
     valid_bits_buffer_.reset();
   } else {
-    *out = std::make_shared<BooleanArray>(field_->type, valid_bits_idx_, data_buffer_);
+    *out = std::make_shared<BooleanArray>(field_->type(), valid_bits_idx_, data_buffer_);
     data_buffer_.reset();
   }
 
@@ -1028,7 +1028,7 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     return Status::OK();
   }
 
-  switch (field_->type->type) {
+  switch (field_->type()->id()) {
     TYPED_BATCH_CASE(BOOL, ::arrow::BooleanType, BooleanType)
     TYPED_BATCH_CASE(UINT8, ::arrow::UInt8Type, Int32Type)
     TYPED_BATCH_CASE(INT8, ::arrow::Int8Type, Int32Type)
@@ -1045,8 +1045,8 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     TYPED_BATCH_CASE(BINARY, ::arrow::BinaryType, ByteArrayType)
     case ::arrow::Type::TIMESTAMP: {
       ::arrow::TimestampType* timestamp_type =
-          static_cast<::arrow::TimestampType*>(field_->type.get());
-      switch (timestamp_type->unit) {
+          static_cast<::arrow::TimestampType*>(field_->type().get());
+      switch (timestamp_type->unit()) {
         case ::arrow::TimeUnit::MILLI:
           return TypedReadBatch<::arrow::TimestampType, Int64Type>(batch_size, out);
           break;
@@ -1060,7 +1060,7 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     }
     default:
       std::stringstream ss;
-      ss << "No support for reading columns of type " << field_->type->ToString();
+      ss << "No support for reading columns of type " << field_->type()->ToString();
       return Status::NotImplemented(ss.str());
   }
 }

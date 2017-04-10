@@ -327,10 +327,10 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
   Repetition::type repetition =
-      field->nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
+      field->nullable() ? Repetition::OPTIONAL : Repetition::REQUIRED;
   int length = -1;
 
-  switch (field->type->type) {
+  switch (field->type()->id()) {
     // TODO:
     // case ArrowType::NA:
     // break;
@@ -393,8 +393,8 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       logical_type = LogicalType::DATE;
       break;
     case ArrowType::TIMESTAMP: {
-      auto timestamp_type = static_cast<::arrow::TimestampType*>(field->type.get());
-      if (timestamp_type->unit != ::arrow::TimestampType::Unit::MILLI) {
+      auto timestamp_type = static_cast<::arrow::TimestampType*>(field->type().get());
+      if (timestamp_type->unit() != ::arrow::TimestampType::Unit::MILLI) {
         return Status::NotImplemented(
             "Other timestamp units than millisecond are not yet support with parquet.");
       }
@@ -410,18 +410,18 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       logical_type = LogicalType::TIME_MICROS;
       break;
     case ArrowType::STRUCT: {
-      auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type);
-      return StructToNode(struct_type, field->name, field->nullable, properties, out);
+      auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
+      return StructToNode(struct_type, field->name(), field->nullable(), properties, out);
     } break;
     case ArrowType::LIST: {
-      auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type);
-      return ListToNode(list_type, field->name, field->nullable, properties, out);
+      auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type());
+      return ListToNode(list_type, field->name(), field->nullable(), properties, out);
     } break;
     default:
       // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
       return Status::NotImplemented("unhandled type");
   }
-  *out = PrimitiveNode::Make(field->name, repetition, type, logical_type, length);
+  *out = PrimitiveNode::Make(field->name(), repetition, type, logical_type, length);
   return Status::OK();
 }
 
