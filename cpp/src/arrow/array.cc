@@ -453,11 +453,11 @@ DictionaryArray::DictionaryArray(
           indices->offset()),
       dict_type_(static_cast<const DictionaryType*>(type.get())),
       indices_(indices) {
-  DCHECK_EQ(type->type, Type::DICTIONARY);
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
 }
 
 Status DictionaryArray::Validate() const {
-  Type::type index_type_id = indices_->type()->type;
+  Type::type index_type_id = indices_->type()->id();
   if (!is_integer(index_type_id)) {
     return Status::Invalid("Dictionary indices must be integer type");
   }

@@ -691,8 +691,8 @@ TEST_F(TestStringArray, TestArrayBasics) {
 TEST_F(TestStringArray, TestType) {
   std::shared_ptr<DataType> type = strings_->type();
 
-  ASSERT_EQ(Type::STRING, type->type);
-  ASSERT_EQ(Type::STRING, strings_->type_enum());
+  ASSERT_EQ(Type::STRING, type->id());
+  ASSERT_EQ(Type::STRING, strings_->type_id());
 }
 
 TEST_F(TestStringArray, TestListFunctions) {
@@ -905,8 +905,8 @@ TEST_F(TestBinaryArray, TestArrayBasics) {
 TEST_F(TestBinaryArray, TestType) {
   std::shared_ptr<DataType> type = strings_->type();
 
-  ASSERT_EQ(Type::BINARY, type->type);
-  ASSERT_EQ(Type::BINARY, strings_->type_enum());
+  ASSERT_EQ(Type::BINARY, type->id());
+  ASSERT_EQ(Type::BINARY, strings_->type_id());
 }
 
 TEST_F(TestBinaryArray, TestListFunctions) {
@@ -1679,8 +1679,8 @@ TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_TRUE(result_->field(1)->IsNull(0));
   ASSERT_TRUE(result_->field(1)->IsNull(1));
 
-  ASSERT_EQ(Type::LIST, result_->field(0)->type_enum());
-  ASSERT_EQ(Type::INT32, result_->field(1)->type_enum());
+  ASSERT_EQ(Type::LIST, result_->field(0)->type_id());
+  ASSERT_EQ(Type::INT32, result_->field(1)->type_id());
 }
 
 TEST_F(TestStructBuilder, TestBasics) {

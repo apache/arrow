@@ -253,7 +253,7 @@ BooleanBuilder::BooleanBuilder(MemoryPool* pool)
 
 BooleanBuilder::BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
     : BooleanBuilder(pool) {
-  DCHECK_EQ(Type::BOOL, type->type);
+  DCHECK_EQ(Type::BOOL, type->id());
 }
 
 Status BooleanBuilder::Init(int64_t capacity) {
@@ -602,7 +602,7 @@ std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
 // TODO(wesm): come up with a less monolithic strategy
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out) {
-  switch (type->type) {
+  switch (type->id()) {
     BUILDER_CASE(UINT8, UInt8Builder);
     BUILDER_CASE(INT8, Int8Builder);
     BUILDER_CASE(UINT16, UInt16Builder);
@@ -633,12 +633,12 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::STRUCT: {
-      std::vector<FieldPtr>& fields = type->children_;
+      const std::vector<FieldPtr>& fields = type->children();
       std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
 
       for (auto it : fields) {
         std::shared_ptr<ArrayBuilder> builder;
-        RETURN_NOT_OK(MakeBuilder(pool, it->type, &builder));
+        RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
         values_builder.push_back(builder);
       }
       out->reset(new StructBuilder(pool, type, values_builder));

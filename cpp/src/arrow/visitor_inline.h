@@ -33,7 +33,7 @@ namespace arrow {
 
 template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
-  switch (type.type) {
+  switch (type.id()) {
     TYPE_VISIT_INLINE(NullType);
     TYPE_VISIT_INLINE(BooleanType);
     TYPE_VISIT_INLINE(Int8Type);
@@ -72,7 +72,7 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
-  switch (array.type_enum()) {
+  switch (array.type_id()) {
     ARRAY_VISIT_INLINE(NullType);
     ARRAY_VISIT_INLINE(BooleanType);
     ARRAY_VISIT_INLINE(Int8Type);
@@ -111,7 +111,7 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
 
 template <typename VISITOR>
 inline Status VisitTensorInline(const Tensor& array, VISITOR* visitor) {
-  switch (array.type_enum()) {
+  switch (array.type_id()) {
     TENSOR_VISIT_INLINE(Int8Type);
     TENSOR_VISIT_INLINE(UInt8Type);
     TENSOR_VISIT_INLINE(Int16Type);

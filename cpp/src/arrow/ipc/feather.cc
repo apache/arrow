@@ -349,7 +349,7 @@ class TableReader::TableReaderImpl {
       buffers.push_back(nullptr);
     }
 
-    if (is_binary_like(type->type)) {
+    if (is_binary_like(type->id())) {
       int64_t offsets_size = GetOutputLength((meta->length() + 1) * sizeof(int32_t));
       buffers.push_back(SliceBuffer(buffer, offset, offsets_size));
       offset += offsets_size;
@@ -516,13 +516,13 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {
-    if (!(is_primitive(values.type_enum()) || is_binary_like(values.type_enum()))) {
+    if (!(is_primitive(values.type_id()) || is_binary_like(values.type_id()))) {
       std::stringstream ss;
       ss << "Array is not primitive type: " << values.type()->ToString();
       return Status::Invalid(ss.str());
     }
 
-    meta->type = ToFlatbufferType(values.type_enum());
+    meta->type = ToFlatbufferType(values.type_id());
 
     RETURN_NOT_OK(stream_->Tell(&meta->offset));
 
@@ -552,7 +552,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     const uint8_t* values_buffer = nullptr;
 
-    if (is_binary_like(values.type_enum())) {
+    if (is_binary_like(values.type_id())) {
       const auto& bin_values = static_cast<const BinaryArray&>(values);
 
       int64_t offset_bytes = sizeof(int32_t) * (values.length() + 1);
@@ -570,7 +570,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
       const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
 
-      if (values.type_enum() == Type::BOOL) {
+      if (values.type_id() == Type::BOOL) {
         // Booleans are bit-packed
         values_bytes = BitUtil::BytesForBits(values.length());
       } else {
@@ -616,7 +616,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status Visit(const DictionaryArray& values) override {
     const auto& dict_type = static_cast<const DictionaryType&>(*values.type());
 
-    if (!is_integer(values.indices()->type_enum())) {
+    if (!is_integer(values.indices()->type_id())) {
       return Status::Invalid("Category values must be integers");
     }
 
@@ -631,7 +631,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status Visit(const TimestampArray& values) override {
     RETURN_NOT_OK(WritePrimitiveValues(values));
     const auto& ts_type = static_cast<const TimestampType&>(*values.type());
-    current_column_->SetTimestamp(ts_type.unit, ts_type.timezone);
+    current_column_->SetTimestamp(ts_type.unit(), ts_type.timezone());
     return Status::OK();
   }
 
@@ -643,7 +643,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   Status Visit(const Time32Array& values) override {
     RETURN_NOT_OK(WritePrimitiveValues(values));
-    auto unit = static_cast<const Time32Type&>(*values.type()).unit;
+    auto unit = static_cast<const Time32Type&>(*values.type()).unit();
     current_column_->SetTime(unit);
     return Status::OK();
   }

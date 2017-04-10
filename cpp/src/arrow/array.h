@@ -80,7 +80,7 @@ class ARROW_EXPORT Array {
   int64_t null_count() const;
 
   std::shared_ptr<DataType> type() const { return type_; }
-  Type::type type_enum() const { return type_->type; }
+  Type::type type_id() const { return type_->id(); }
 
   /// Buffer for the null bitmap.
   ///
@@ -447,7 +447,7 @@ class ARROW_EXPORT UnionArray : public Array {
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + offset_; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + offset_; }
 
-  UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode; }
+  UnionMode mode() const { return static_cast<const UnionType&>(*type_.get()).mode(); }
 
   std::shared_ptr<Array> child(int pos) const;
 

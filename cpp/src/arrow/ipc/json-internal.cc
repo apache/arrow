@@ -114,13 +114,13 @@ class JsonSchemaWriter {
     writer_->StartObject();
 
     writer_->Key("name");
-    writer_->String(field.name.c_str());
+    writer_->String(field.name().c_str());
 
     writer_->Key("nullable");
-    writer_->Bool(field.nullable);
+    writer_->Bool(field.nullable());
 
     // Visit the type
-    RETURN_NOT_OK(VisitTypeInline(*field.type, this));
+    RETURN_NOT_OK(VisitTypeInline(*field.type(), this));
     writer_->EndObject();
 
     return Status::OK();
@@ -153,7 +153,7 @@ class JsonSchemaWriter {
 
   void WriteTypeMetadata(const IntervalType& type) {
     writer_->Key("unit");
-    switch (type.unit) {
+    switch (type.unit()) {
       case IntervalType::Unit::YEAR_MONTH:
         writer_->String("YEAR_MONTH");
         break;
@@ -165,23 +165,23 @@ class JsonSchemaWriter {
 
   void WriteTypeMetadata(const TimestampType& type) {
     writer_->Key("unit");
-    writer_->String(GetTimeUnitName(type.unit));
-    if (type.timezone.size() > 0) {
+    writer_->String(GetTimeUnitName(type.unit()));
+    if (type.timezone().size() > 0) {
       writer_->Key("timezone");
-      writer_->String(type.timezone);
+      writer_->String(type.timezone());
     }
   }
 
   void WriteTypeMetadata(const TimeType& type) {
     writer_->Key("unit");
-    writer_->String(GetTimeUnitName(type.unit));
+    writer_->String(GetTimeUnitName(type.unit()));
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
   }
 
   void WriteTypeMetadata(const DateType& type) {
     writer_->Key("unit");
-    switch (type.unit) {
+    switch (type.unit()) {
       case DateUnit::DAY:
         writer_->String("DAY");
         break;
@@ -198,14 +198,14 @@ class JsonSchemaWriter {
 
   void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
-    writer_->Int(type.precision);
+    writer_->Int(type.precision());
     writer_->Key("scale");
-    writer_->Int(type.scale);
+    writer_->Int(type.scale());
   }
 
   void WriteTypeMetadata(const UnionType& type) {
     writer_->Key("mode");
-    switch (type.mode) {
+    switch (type.mode()) {
       case UnionMode::SPARSE:
         writer_->String("SPARSE");
         break;
@@ -217,8 +217,8 @@ class JsonSchemaWriter {
     // Write type ids
     writer_->Key("typeIds");
     writer_->StartArray();
-    for (size_t i = 0; i < type.type_codes.size(); ++i) {
-      writer_->Uint(type.type_codes[i]);
+    for (size_t i = 0; i < type.type_codes().size(); ++i) {
+      writer_->Uint(type.type_codes()[i]);
     }
     writer_->EndArray();
   }
@@ -461,7 +461,7 @@ class JsonArrayWriter {
     writer_->Key("children");
     writer_->StartArray();
     for (size_t i = 0; i < fields.size(); ++i) {
-      RETURN_NOT_OK(VisitArray(fields[i]->name, *arrays[i].get()));
+      RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i].get()));
     }
     writer_->EndArray();
     return Status::OK();
@@ -513,7 +513,7 @@ class JsonArrayWriter {
     auto type = static_cast<const UnionType*>(array.type().get());
 
     WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
-    if (type->mode == UnionMode::DENSE) {
+    if (type->mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
     return WriteChildren(type->children(), array.children());
@@ -1026,7 +1026,7 @@ class JsonArrayReader {
     RETURN_NOT_OK(
         GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length, &type_id_buffer));
 
-    if (union_type.mode == UnionMode::DENSE) {
+    if (union_type.mode() == UnionMode::DENSE) {
       const auto& json_offsets = json_array.FindMember("OFFSET");
       RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
       RETURN_NOT_OK(
@@ -1072,9 +1072,9 @@ class JsonArrayReader {
       auto it = json_child.FindMember("name");
       RETURN_NOT_STRING("name", it, json_child);
 
-      DCHECK_EQ(it->value.GetString(), child_field->name);
+      DCHECK_EQ(it->value.GetString(), child_field->name());
       std::shared_ptr<Array> child;
-      RETURN_NOT_OK(GetArray(json_children_arr[i], child_field->type, &child));
+      RETURN_NOT_OK(GetArray(json_children_arr[i], child_field->type(), &child));
       array->emplace_back(child);
     }
 
@@ -1109,7 +1109,7 @@ class JsonArrayReader {
   case TYPE::type_id:   \
     return ReadArray<TYPE>(json_array, length, is_valid, type, array);
 
-    switch (type->type) {
+    switch (type->id()) {
       TYPE_CASE(NullType);
       TYPE_CASE(BooleanType);
       TYPE_CASE(UInt8Type);
@@ -1192,7 +1192,7 @@ Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema
 
   std::shared_ptr<Field> result = nullptr;
   for (const std::shared_ptr<Field>& field : schema.fields()) {
-    if (field->name == name) {
+    if (field->name() == name) {
       result = field;
       break;
     }
@@ -1204,7 +1204,7 @@ Status ReadJsonArray(MemoryPool* pool, const rj::Value& json_array, const Schema
     return Status::KeyError(ss.str());
   }
 
-  return ReadJsonArray(pool, json_array, result->type, array);
+  return ReadJsonArray(pool, json_array, result->type(), array);
 }
 
 }  // namespace ipc

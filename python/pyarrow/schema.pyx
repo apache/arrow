@@ -81,13 +81,13 @@ cdef class TimestampType(DataType):
     property unit:
 
         def __get__(self):
-            return timeunit_to_string(self.ts_type.unit)
+            return timeunit_to_string(self.ts_type.unit())
 
     property tz:
 
         def __get__(self):
-            if self.ts_type.timezone.size() > 0:
-                return frombytes(self.ts_type.timezone)
+            if self.ts_type.timezone().size() > 0:
+                return frombytes(self.ts_type.timezone())
             else:
                 return None
 
@@ -119,7 +119,7 @@ cdef class Field:
     cdef init(self, const shared_ptr[CField]& field):
         self.sp_field = field
         self.field = field.get()
-        self.type = box_data_type(field.get().type)
+        self.type = box_data_type(field.get().type())
 
     @classmethod
     def from_py(cls, object name, DataType type, bint nullable=True):
@@ -137,7 +137,7 @@ cdef class Field:
     property nullable:
 
         def __get__(self):
-            return self.field.nullable
+            return self.field.nullable()
 
     property name:
 
@@ -145,7 +145,7 @@ cdef class Field:
             if box_field(self.sp_field) is None:
                 raise ReferenceError(
                     'Field not initialized (references NULL pointer)')
-            return frombytes(self.field.name)
+            return frombytes(self.field.name())
 
 
 cdef class Schema:
@@ -162,7 +162,7 @@ cdef class Schema:
 
         cdef Field result = Field()
         result.init(self.schema.field(i))
-        result.type = box_data_type(result.field.type)
+        result.type = box_data_type(result.field.type())
 
         return result
 
@@ -442,13 +442,13 @@ cdef DataType box_data_type(const shared_ptr[CDataType]& type):
     if type.get() == NULL:
         return None
 
-    if type.get().type == la.Type_DICTIONARY:
+    if type.get().id() == la.Type_DICTIONARY:
         out = DictionaryType()
-    elif type.get().type == la.Type_TIMESTAMP:
+    elif type.get().id() == la.Type_TIMESTAMP:
         out = TimestampType()
-    elif type.get().type == la.Type_FIXED_SIZE_BINARY:
+    elif type.get().id() == la.Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType()
-    elif type.get().type == la.Type_DECIMAL:
+    elif type.get().id() == la.Type_DECIMAL:
         out = DecimalType()
     else:
         out = DataType()

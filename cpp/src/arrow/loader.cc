@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
@@ -31,10 +32,6 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
-
-class Array;
-struct DataType;
-class Status;
 
 class ArrayLoader {
  public:
@@ -114,7 +111,7 @@ class ArrayLoader {
   }
 
   Status LoadChild(const Field& field, std::shared_ptr<Array>* out) {
-    ArrayLoader loader(field.type, context_);
+    ArrayLoader loader(field.type(), context_);
     --context_->max_recursion_depth;
     RETURN_NOT_OK(loader.Load(out));
     ++context_->max_recursion_depth;
@@ -211,11 +208,11 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
     if (field_meta.length > 0) {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
-      if (type.mode == UnionMode::DENSE) {
+      if (type.mode() == UnionMode::DENSE) {
         RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &offsets));
       }
     }
-    context_->buffer_index += type.mode == UnionMode::DENSE ? 2 : 1;
+    context_->buffer_index += type.mode() == UnionMode::DENSE ? 2 : 1;
 
     std::vector<std::shared_ptr<Array>> fields;
     RETURN_NOT_OK(LoadChildren(type.children(), &fields));

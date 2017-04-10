@@ -552,9 +552,9 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
       1489272000000, 1489272000000, 1489273000000};
 
   std::shared_ptr<Array> a0, a1, a2;
-  ArrayFromVector<TimestampType, int64_t>(f0->type, is_valid, ts_values, &a0);
-  ArrayFromVector<TimestampType, int64_t>(f1->type, is_valid, ts_values, &a1);
-  ArrayFromVector<TimestampType, int64_t>(f2->type, is_valid, ts_values, &a2);
+  ArrayFromVector<TimestampType, int64_t>(f0->type(), is_valid, ts_values, &a0);
+  ArrayFromVector<TimestampType, int64_t>(f1->type(), is_valid, ts_values, &a1);
+  ArrayFromVector<TimestampType, int64_t>(f2->type(), is_valid, ts_values, &a2);
 
   ArrayVector arrays = {a0, a1, a2};
   *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
@@ -575,10 +575,10 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
       1489272000000, 1489272000000, 1489273000000};
 
   std::shared_ptr<Array> a0, a1, a2, a3;
-  ArrayFromVector<Time32Type, int32_t>(f0->type, is_valid, t32_values, &a0);
-  ArrayFromVector<Time64Type, int64_t>(f1->type, is_valid, t64_values, &a1);
-  ArrayFromVector<Time32Type, int32_t>(f2->type, is_valid, t32_values, &a2);
-  ArrayFromVector<Time64Type, int64_t>(f3->type, is_valid, t64_values, &a3);
+  ArrayFromVector<Time32Type, int32_t>(f0->type(), is_valid, t32_values, &a0);
+  ArrayFromVector<Time64Type, int64_t>(f1->type(), is_valid, t64_values, &a1);
+  ArrayFromVector<Time32Type, int32_t>(f2->type(), is_valid, t32_values, &a2);
+  ArrayFromVector<Time64Type, int64_t>(f3->type(), is_valid, t64_values, &a3);
 
   ArrayVector arrays = {a0, a1, a2, a3};
   *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
@@ -605,8 +605,8 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Array> a1, a2;
 
-  FixedSizeBinaryBuilder b1(default_memory_pool(), f0->type);
-  FixedSizeBinaryBuilder b2(default_memory_pool(), f1->type);
+  FixedSizeBinaryBuilder b1(default_memory_pool(), f0->type());
+  FixedSizeBinaryBuilder b2(default_memory_pool(), f1->type());
 
   std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
   AppendValues(is_valid, values1, &b1);

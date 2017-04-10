@@ -118,7 +118,7 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     *type_num = NPY_##NPY_NAME;               \
     break;
 
-  switch (type.type) {
+  switch (type.id()) {
     NUMPY_TYPE_CASE(UINT8, UINT8);
     NUMPY_TYPE_CASE(INT8, INT8);
     NUMPY_TYPE_CASE(UINT16, UINT16);

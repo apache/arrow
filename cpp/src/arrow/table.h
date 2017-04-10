@@ -81,10 +81,10 @@ class ARROW_EXPORT Column {
   std::shared_ptr<Field> field() const { return field_; }
 
   // @returns: the column's name in the passed metadata
-  const std::string& name() const { return field_->name; }
+  const std::string& name() const { return field_->name(); }
 
   // @returns: the column's type according to the metadata
-  std::shared_ptr<DataType> type() const { return field_->type; }
+  std::shared_ptr<DataType> type() const { return field_->type(); }
 
   // @returns: the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }

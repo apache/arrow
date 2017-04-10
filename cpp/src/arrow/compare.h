@@ -27,7 +27,7 @@
 namespace arrow {
 
 class Array;
-struct DataType;
+class DataType;
 class Status;
 class Tensor;
 

@@ -31,7 +31,7 @@
 
 namespace arrow {
 
-struct DataType;
+class DataType;
 class MemoryPool;
 class Status;
 class Tensor;

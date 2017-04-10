@@ -379,7 +379,7 @@ TEST_F(TestTableWriter, TimeTypes) {
 
   for (int i = 1; i < schema->num_fields(); ++i) {
     std::shared_ptr<Array> arr;
-    LoadArray(schema->field(i)->type, fields, buffers, &arr);
+    LoadArray(schema->field(i)->type(), fields, buffers, &arr);
     arrays.push_back(arr);
   }
 
