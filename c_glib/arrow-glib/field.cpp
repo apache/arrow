@@ -171,7 +171,7 @@ const gchar *
 garrow_field_get_name(GArrowField *field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
-  return arrow_field->name.c_str();
+  return arrow_field->name().c_str();
 }
 
 /**
@@ -184,7 +184,7 @@ GArrowDataType *
 garrow_field_get_data_type(GArrowField *field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
-  return garrow_data_type_new_raw(&arrow_field->type);
+  return garrow_data_type_new_raw(arrow_field->type().get());
 }
 
 /**
@@ -197,7 +197,7 @@ gboolean
 garrow_field_is_nullable(GArrowField *field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
-  return arrow_field->nullable;
+  return arrow_field->nullable();
 }
 
 /**

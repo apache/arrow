@@ -180,18 +180,18 @@ GArrowType
 garrow_data_type_type(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  return garrow_type_from_raw(arrow_data_type->type);
+  return garrow_type_from_raw(arrow_data_type->id());
 }
 
 G_END_DECLS
 
 GArrowDataType *
-garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
+garrow_data_type_new_raw(arrow::DataType *arrow_data_type)
 {
   GType type;
   GArrowDataType *data_type;
 
-  switch ((*arrow_data_type)->type) {
+  switch (arrow_data_type->id()) {
   case arrow::Type::type::NA:
     type = GARROW_TYPE_NULL_DATA_TYPE;
     break;

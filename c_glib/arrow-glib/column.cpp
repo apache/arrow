@@ -224,7 +224,7 @@ garrow_column_get_data_type(GArrowColumn *column)
 {
   const auto arrow_column = garrow_column_get_raw(column);
   auto arrow_data_type = arrow_column->type();
-  return garrow_data_type_new_raw(&arrow_data_type);
+  return garrow_data_type_new_raw(arrow_data_type.get());
 }
 
 /**
