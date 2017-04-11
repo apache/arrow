@@ -18,19 +18,6 @@
 
 package io.netty.buffer;
 
-import com.google.common.base.Preconditions;
-
-import io.netty.util.internal.PlatformDependent;
-
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
-import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.BufferManager;
-import org.apache.arrow.memory.util.HistoricalLog;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -41,6 +28,19 @@ import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.arrow.memory.AllocationManager.BufferLedger;
+import org.apache.arrow.memory.ArrowByteBufAllocator;
+import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BaseAllocator.Verbosity;
+import org.apache.arrow.memory.BoundsChecking;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BufferManager;
+import org.apache.arrow.memory.util.HistoricalLog;
+
+import com.google.common.base.Preconditions;
+
+import io.netty.util.internal.PlatformDependent;
 
 public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
@@ -245,8 +245,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
     final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
     final ArrowBuf newBuf = otherLedger.newArrowBuf(offset, length, null);
-    newBuf.readerIndex(this.readerIndex);
-    newBuf.writerIndex(this.writerIndex);
+    newBuf.setIndex(this.readerIndex, this.writerIndex);
     final boolean allocationFit = this.ledger.transferBalance(otherLedger);
     return new TransferResult(allocationFit, newBuf);
   }
