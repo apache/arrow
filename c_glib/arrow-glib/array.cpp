@@ -142,6 +142,8 @@ garrow_array_class_init(GArrowArrayClass *klass)
  * @i: The index of the target value.
  *
  * Returns: Whether the i-th value is null or not.
+ *
+ * Since: 0.3.0
  */
 gboolean
 garrow_array_is_null(GArrowArray *array, gint64 i)
@@ -193,9 +195,10 @@ garrow_array_get_n_nulls(GArrowArray *array)
  * garrow_array_get_value_data_type:
  * @array: A #GArrowArray.
  *
- * Since: 0.3.0
  * Returns: (transfer full): The #GArrowDataType for each value of the
  *   array.
+ *
+ * Since: 0.3.0
  */
 GArrowDataType *
 garrow_array_get_value_data_type(GArrowArray *array)
@@ -209,8 +212,9 @@ garrow_array_get_value_data_type(GArrowArray *array)
  * garrow_array_get_value_type:
  * @array: A #GArrowArray.
  *
- * Since: 0.3.0
  * Returns: The #GArrowType for each value of the array.
+ *
+ * Since: 0.3.0
  */
 GArrowType
 garrow_array_get_value_type(GArrowArray *array)
