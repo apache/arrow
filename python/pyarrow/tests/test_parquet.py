@@ -505,7 +505,11 @@ def test_read_multiple_files(tmpdir):
     with open(pjoin(dirpath, '_SUCCESS.crc'), 'wb') as f:
         f.write(b'0')
 
-    result = pq.read_multiple_files(paths)
+    def read_multiple_files(paths, columns=None, nthreads=None, **kwargs):
+        dataset = pq.ParquetDataset(paths, **kwargs)
+        return dataset.read(columns=columns, nthreads=nthreads)
+
+    result = read_multiple_files(paths)
     expected = pa.concat_tables(test_data)
 
     assert result.equals(expected)
@@ -513,7 +517,7 @@ def test_read_multiple_files(tmpdir):
     # Read with provided metadata
     metadata = pq.ParquetFile(paths[0]).metadata
 
-    result2 = pq.read_multiple_files(paths, metadata=metadata)
+    result2 = read_multiple_files(paths, metadata=metadata)
     assert result2.equals(expected)
 
     result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
@@ -539,15 +543,15 @@ def test_read_multiple_files(tmpdir):
     bad_meta = pq.ParquetFile(bad_apple_path).metadata
 
     with pytest.raises(ValueError):
-        pq.read_multiple_files(paths + [bad_apple_path])
+        read_multiple_files(paths + [bad_apple_path])
 
     with pytest.raises(ValueError):
-        pq.read_multiple_files(paths, metadata=bad_meta)
+        read_multiple_files(paths, metadata=bad_meta)
 
     mixed_paths = [bad_apple_path, paths[0]]
 
     with pytest.raises(ValueError):
-        pq.read_multiple_files(mixed_paths, schema=bad_meta.schema)
+        read_multiple_files(mixed_paths, schema=bad_meta.schema)
 
     with pytest.raises(ValueError):
-        pq.read_multiple_files(mixed_paths)
+        read_multiple_files(mixed_paths)
