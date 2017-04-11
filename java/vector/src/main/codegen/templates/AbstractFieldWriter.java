@@ -98,12 +98,6 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
-  public ListWriter list(int size) {
-    fail("FixedSizeList");
-    return null;
-  }
-
-  @Override
   public MapWriter map(String name) {
     fail("Map");
     return null;

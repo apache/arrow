@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullableFloat4Vector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
 import org.apache.arrow.vector.NullableVarCharVector;
@@ -54,6 +55,7 @@ import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.stream.MessageSerializerTest;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -590,16 +592,14 @@ public class TestArrowFile extends BaseFileTest {
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          NullableMapVector parent = new NullableMapVector("parent", originalVectorAllocator, null, null)) {
       FixedSizeListVector tuples = parent.addOrGet("float-pairs", new FieldType(true, new FixedSizeList(2), null), FixedSizeListVector.class);
+      NullableFloat4Vector floats = (NullableFloat4Vector) tuples.addOrGetVector(new FieldType(true, MinorType.FLOAT4.getType(), null)).getVector();
       NullableIntVector ints = parent.addOrGet("ints", new FieldType(true, new Int(32, true), null), NullableIntVector.class);
-      tuples.allocateNew();
-      ints.allocateNew();
-      UnionListWriter writer = tuples.getWriter();
+      parent.allocateNew();
+
       for (int i = 0; i < 10; i++) {
-        writer.setPosition(i);
-        writer.startList();
-        writer.writeFloat4(i + 0.1f);
-        writer.writeFloat4(i + 10.1f);
-        writer.endList();
+        tuples.getMutator().setNotNull(i);
+        floats.getMutator().set(i * 2, i + 0.1f);
+        floats.getMutator().set(i * 2 + 1, i + 10.1f);
         ints.getMutator().set(i, i);
       }
 

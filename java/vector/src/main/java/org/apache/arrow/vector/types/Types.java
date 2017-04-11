@@ -452,7 +452,7 @@ public class Types {
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new UnionListWriter((FixedSizeListVector) vector);
+        throw new UnsupportedOperationException("FieldWriter not implemented for FixedSizeList type");
       }
     },
     UNION(new Union(Sparse, null)) {

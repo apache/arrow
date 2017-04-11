@@ -21,8 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
@@ -59,8 +57,4 @@ public class FieldType {
     return minorType.getNewVector(name, this, allocator, schemaCallBack);
   }
 
-  public FieldWriter createNewFieldWriter(ValueVector vector) {
-    MinorType minorType = Types.getMinorTypeForArrowType(type);
-    return minorType.getNewFieldWriter(vector);
-  }
 }

@@ -41,11 +41,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
-import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -132,10 +128,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public List<BufferBacked> getFieldInnerVectors() {
     return innerVectors;
-  }
-
-  public UnionListWriter getWriter() {
-    return new UnionListWriter(this);
   }
 
   @Override
@@ -268,11 +260,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   public void copyFrom(int inIndex, int outIndex, FixedSizeListVector from) {
-    FieldReader in = from.getReader();
-    in.setPosition(inIndex);
-    FieldWriter out = getWriter();
-    out.setPosition(outIndex);
-    ComplexCopier.copy(in, out);
+    throw new UnsupportedOperationException("FixedSizeListVector.copyFrom");
   }
 
   @Override
