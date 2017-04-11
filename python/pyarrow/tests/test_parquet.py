@@ -21,6 +21,7 @@ import os
 import pytest
 
 from pyarrow.compat import guid
+from pyarrow.filesystem import LocalFilesystem
 import pyarrow as pa
 import pyarrow.io as paio
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -431,7 +432,7 @@ def test_read_single_row_group():
     pdt.assert_frame_equal(df[cols], result.to_pandas())
 
 
-def test_parquet_piece_formatting():
+def test_parquet_piece_basics():
     path = '/baz.parq'
 
     piece1 = pq.ParquetDatasetPiece(path)
@@ -442,6 +443,38 @@ def test_parquet_piece_formatting():
     assert str(piece1) == path
     assert str(piece2) == '/baz.parq | row_group=1'
     assert str(piece3) == 'partition[foo=0, bar=1] /baz.parq | row_group=1'
+
+    assert piece1 == piece1
+    assert piece2 == piece2
+    assert piece3 == piece3
+    assert piece1 != piece3
+
+
+def test_parquet_get_pieces_file_list():
+    pass
+
+
+def _generate_partition_directories(base_dir, partition_spec, part_table):
+    # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
+    #                                       ['bar', ['a', 'b', 'c']]
+    # part_table : a pyarrow.Table to write to each partition
+    DEPTH = len(partition_spec)
+    fs = LocalFilesystem.get_instance()
+
+    def _visit_level(base_dir, level):
+        name, values = partition_spec[level]
+        for value in values:
+            level_dir = pjoin(base_dir, '{0}={1}'.format(name, value))
+            fs.mkdir(level_dir)
+
+            if level == DEPTH - 1:
+                # Generate example data
+                file_path = pjoin(level_dir, 'data.parq')
+                pq.write_table(part_table, file_path)
+            else:
+                _visit_level(level_dir, level + 1)
+
+    _visit_level(base_dir, 0)
 
 
 @parquet

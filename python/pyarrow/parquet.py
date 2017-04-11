@@ -109,8 +109,17 @@ class ParquetFile(object):
 
 class ParquetPartitionSet(object):
 
-    def __init__(self, keys):
-        self.keys = keys
+    def __init__(self, keys=None):
+        self.keys = keys or []
+        self.key_indices = {k: i for i, k in enumerate(self.keys)}
+
+    def get_index(self, key):
+        if key in self.key_indices:
+            return self.key_indices[key]
+        else:
+            index = len(self.key_indices)
+            self.key_indices[key] = index
+            return index
 
     @property
     def is_sorted(self):
@@ -133,6 +142,16 @@ class ParquetDatasetPiece(object):
         self.path = path
         self.row_group = row_group
         self.partition_keys = partition_keys
+
+    def __eq__(self, other):
+        if not isinstance(other, ParquetDatasetPiece):
+            return False
+        return (self.path == other.path and
+                self.row_group == other.row_group and
+                self.partition_keys == other.partition_keys)
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __str__(self):
         result = ''
@@ -293,6 +312,19 @@ class ParquetDataset(object):
                                    metadata=meta)
 
 
+class _ParquetDirectoryListing(object):
+    """
+
+    """
+    def __init__(self, filesystem, dirpath):
+        self.filesystem = filesystem
+        self.dirpath = dirpath
+        self.partitions = []
+
+    def _visit_level(self, level):
+        paths =
+
+
 def _iter_parquet(root_dir, fs, ext='.parq'):
     """Yield all parquet files under root_dir"""
     if not fs.isdir(root_dir):
@@ -378,7 +410,7 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
     return pf.read(columns=columns, nthreads=nthreads)
 
 
-def write_table(table, sink, row_group_size=None, version='1.0',
+def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy', **kwargs):
     """
     Write a Table to Parquet format
@@ -386,7 +418,7 @@ def write_table(table, sink, row_group_size=None, version='1.0',
     Parameters
     ----------
     table : pyarrow.Table
-    sink: string or pyarrow.io.NativeFile
+    where: string or pyarrow.io.NativeFile
     row_group_size : int, default None
         The maximum number of rows in each Parquet RowGroup. As a default,
         we will write a single RowGroup per file.
@@ -399,7 +431,7 @@ def write_table(table, sink, row_group_size=None, version='1.0',
         Specify the compression codec, either on a general basis or per-column.
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
-    writer = ParquetWriter(sink, use_dictionary=use_dictionary,
+    writer = ParquetWriter(where, use_dictionary=use_dictionary,
                            compression=compression,
                            version=version)
     writer.write_table(table, row_group_size=row_group_size)
