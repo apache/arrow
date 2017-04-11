@@ -28,7 +28,20 @@ AM_LDFLAGS =						\
 	$(builddir)/../arrow-glib/libarrow-glib.la
 
 noinst_PROGRAMS =				\
-	build
+	build					\
+	read-batch				\
+	read-stream
 
 build_SOURCES =					\
 	build.c
+
+read_batch_SOURCES =				\
+	read-batch.c
+
+read_stream_SOURCES =				\
+	read-stream.c
+
+example_DATA =					\
+	$(build_SOURCES)			\
+	$(read_batch_SOURCES)			\
+	$(read_stream_SOURCES)

@@ -87,6 +87,8 @@ else
   AC_SUBST(ARROW_LIBS)
 fi
 
+exampledir="\$(datadir)/arrow-glib/example"
+AC_SUBST(exampledir)
 
 AC_CONFIG_FILES([
   Makefile
