@@ -107,6 +107,13 @@ class LocalFilesystem(Filesystem):
     def ls(self, path):
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
+    @implements(Filesystem.mkdir)
+    def mkdir(self, path, create_parents=True):
+        if create_parents:
+            os.makedirs(path)
+        else:
+            os.mkdir(path)
+
     @implements(Filesystem.isdir)
     def isdir(self, path):
         return os.path.isdir(path)

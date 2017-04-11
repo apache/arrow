@@ -20,7 +20,7 @@ import io
 import os
 import pytest
 
-from pyarrow.compat import guid
+from pyarrow.compat import guid, u
 from pyarrow.filesystem import LocalFilesystem
 import pyarrow as pa
 import pyarrow.io as paio
@@ -29,7 +29,7 @@ from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 import numpy as np
 import pandas as pd
 
-import pandas.util.testing as pdt
+import pandas.util.testing as tm
 
 try:
     import pyarrow.parquet as pq
@@ -94,7 +94,7 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
     pq.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -126,7 +126,7 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     # We pass uint32_t as int64_t if we write Parquet version 1.0
     df['uint32'] = df['uint32'].values.astype(np.int64)
 
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -143,7 +143,7 @@ def test_pandas_column_selection(tmpdir):
     table_read = pq.read_table(filename.strpath, columns=['uint8'])
     df_read = table_read.to_pandas()
 
-    pdt.assert_frame_equal(df[['uint8']], df_read)
+    tm.assert_frame_equal(df[['uint8']], df_read)
 
 
 def _random_integers(size, dtype):
@@ -170,7 +170,7 @@ def _test_dataframe(size=10000, seed=0):
         'float64': np.random.randn(size),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        'strings': [pdt.rands(10) for i in range(size)]
+        'strings': [tm.rands(10) for i in range(size)]
     })
     return df
 
@@ -184,7 +184,7 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
     buf = imos.get_result()
     reader = paio.BufferReader(buf)
     df_read = pq.read_table(reader).to_pandas()
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -208,7 +208,7 @@ def test_pandas_parquet_pyfile_roundtrip(tmpdir):
 
     table_read = pq.read_table(data)
     df_read = table_read.to_pandas()
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -237,7 +237,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
                        use_dictionary=use_dictionary)
         table_read = pq.read_table(filename.strpath)
         df_read = table_read.to_pandas()
-        pdt.assert_frame_equal(df, df_read)
+        tm.assert_frame_equal(df, df_read)
 
     for compression in ['NONE', 'SNAPPY', 'GZIP']:
         pq.write_table(arrow_table, filename.strpath,
@@ -245,7 +245,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
                        compression=compression)
         table_read = pq.read_table(filename.strpath)
         df_read = table_read.to_pandas()
-        pdt.assert_frame_equal(df, df_read)
+        tm.assert_frame_equal(df, df_read)
 
 
 def make_sample_file(df):
@@ -332,7 +332,7 @@ def test_column_of_arrays(tmpdir):
     pq.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -345,7 +345,7 @@ def test_column_of_lists(tmpdir):
     pq.write_table(arrow_table, filename.strpath, version="2.0")
     table_read = pq.read_table(filename.strpath)
     df_read = table_read.to_pandas()
-    pdt.assert_frame_equal(df, df_read)
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -400,7 +400,7 @@ def test_pass_separate_metadata():
 
     fileh = pq.ParquetFile(buf, metadata=metadata)
 
-    pdt.assert_frame_equal(df, fileh.read().to_pandas())
+    tm.assert_frame_equal(df, fileh.read().to_pandas())
 
 
 @parquet
@@ -423,15 +423,16 @@ def test_read_single_row_group():
 
     row_groups = [pf.read_row_group(i) for i in range(K)]
     result = pa.concat_tables(row_groups)
-    pdt.assert_frame_equal(df, result.to_pandas())
+    tm.assert_frame_equal(df, result.to_pandas())
 
     cols = df.columns[:2]
     row_groups = [pf.read_row_group(i, columns=cols)
                   for i in range(K)]
     result = pa.concat_tables(row_groups)
-    pdt.assert_frame_equal(df[cols], result.to_pandas())
+    tm.assert_frame_equal(df[cols], result.to_pandas())
 
 
+@parquet
 def test_parquet_piece_basics():
     path = '/baz.parq'
 
@@ -450,31 +451,89 @@ def test_parquet_piece_basics():
     assert piece1 != piece3
 
 
-def test_parquet_get_pieces_file_list():
-    pass
+@parquet
+def test_partition_set_dictionary_type():
+    set1 = pq.PartitionSet('key1', [u('foo'), u('bar'), u('baz')])
+    set2 = pq.PartitionSet('key2', [2007, 2008, 2009])
+
+    assert isinstance(set1.dictionary, pa.StringArray)
+    assert isinstance(set2.dictionary, pa.IntegerArray)
 
 
-def _generate_partition_directories(base_dir, partition_spec, part_table):
+@parquet
+def test_read_partitioned_directory(tmpdir):
+    foo_keys = [0, 1]
+    bar_keys = ['a', 'b', 'c']
+    partition_spec = [
+        ['foo', foo_keys],
+        ['bar', bar_keys]
+    ]
+    N = 30
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'foo': np.array(foo_keys, dtype='i4').repeat(15),
+        'bar': np.tile(np.tile(np.array(bar_keys, dtype=object), 5), 2),
+        'values': np.random.randn(N)
+    }, columns=['index', 'foo', 'bar', 'values'])
+
+    base_path = str(tmpdir)
+    _generate_partition_directories(base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(base_path)
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                 .sort_values(by='index')
+                 .reset_index(drop=True))
+
+    expected_df = (df.sort_values(by='index')
+                   .reset_index(drop=True)
+                   .reindex(columns=result_df.columns))
+    expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
+    expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+
+    assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()
+
+    tm.assert_frame_equal(result_df, expected_df)
+
+
+def _generate_partition_directories(base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     DEPTH = len(partition_spec)
     fs = LocalFilesystem.get_instance()
 
-    def _visit_level(base_dir, level):
+    def _visit_level(base_dir, level, part_keys):
         name, values = partition_spec[level]
         for value in values:
+            this_part_keys = part_keys + [(name, value)]
+
             level_dir = pjoin(base_dir, '{0}={1}'.format(name, value))
             fs.mkdir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
                 file_path = pjoin(level_dir, 'data.parq')
+
+                filtered_df = _filter_partition(df, this_part_keys)
+                part_table = pa.Table.from_pandas(filtered_df)
                 pq.write_table(part_table, file_path)
             else:
-                _visit_level(level_dir, level + 1)
+                _visit_level(level_dir, level + 1, this_part_keys)
 
-    _visit_level(base_dir, 0)
+    _visit_level(base_dir, 0, [])
+
+
+def _filter_partition(df, part_keys):
+    predicate = np.ones(len(df), dtype=bool)
+
+    to_drop = []
+    for name, value in part_keys:
+        to_drop.append(name)
+        predicate &= df[name] == value
+
+    return df[predicate].drop(to_drop, axis=1)
 
 
 @parquet

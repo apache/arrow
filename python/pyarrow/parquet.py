@@ -17,11 +17,14 @@
 
 import six
 
+import numpy as np
+
+from pyarrow.filesystem import LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, Schema, ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
-from pyarrow.filesystem import LocalFilesystem
-from pyarrow.table import concat_tables
+import pyarrow.array as _array
+import pyarrow.table as _table
 
 
 # ----------------------------------------------------------------------
@@ -128,7 +131,7 @@ class ParquetDatasetPiece(object):
     def __init__(self, path, row_group=None, partition_keys=None):
         self.path = path
         self.row_group = row_group
-        self.partition_keys = partition_keys
+        self.partition_keys = partition_keys or []
 
     def __eq__(self, other):
         if not isinstance(other, ParquetDatasetPiece):
@@ -149,7 +152,7 @@ class ParquetDatasetPiece(object):
     def __str__(self):
         result = ''
 
-        if self.partition_keys is not None:
+        if len(self.partition_keys) > 0:
             partition_str = ', '.join('{0}={1}'.format(name, index)
                                       for name, index in self.partition_keys)
             result += 'partition[{0}] '.format(partition_str)
@@ -164,7 +167,8 @@ class ParquetDatasetPiece(object):
     def open(self, open_file_func):
         return open_file_func(self.path)
 
-    def read(self, open_file_func, columns=None, nthreads=1):
+    def read(self, open_file_func, columns=None, nthreads=1,
+             partitions=None):
         reader = self.open(open_file_func)
 
         if self.row_group is not None:
@@ -173,7 +177,16 @@ class ParquetDatasetPiece(object):
         else:
             table = reader.read(columns=columns, nthreads=nthreads)
 
-        # TODO(wesm): add partition keys
+        if len(self.partition_keys) > 0:
+            if partitions is None:
+                raise ValueError('Must pass partition sets')
+
+            for i, (name, index) in enumerate(self.partition_keys):
+                indices = np.array([index], dtype='i4').repeat(len(table))
+                dictionary = partitions.levels[i].dictionary
+                arr = _array.DictionaryArray.from_arrays(indices, dictionary)
+                col = _table.Column.from_array(name, arr)
+                table = table.append_column(col)
 
         return table
 
@@ -188,6 +201,7 @@ class PartitionSet(object):
         self.name = name
         self.keys = keys or []
         self.key_indices = {k: i for i, k in enumerate(self.keys)}
+        self._dictionary = None
 
     def get_index(self, key):
         if key in self.key_indices:
@@ -199,6 +213,24 @@ class PartitionSet(object):
             return index
 
     @property
+    def dictionary(self):
+        if self._dictionary is not None:
+            return self._dictionary
+
+        if len(self.keys) == 0:
+            raise ValueError('No known partition keys')
+
+        # Only integer and string partition types are supported right now
+        try:
+            integer_keys = [int(x) for x in self.keys]
+            dictionary = _array.from_pylist(integer_keys)
+        except:
+            dictionary = _array.from_pylist(self.keys)
+
+        self._dictionary = dictionary
+        return dictionary
+
+    @property
     def is_sorted(self):
         return list(self.keys) == sorted(self.keys)
 
@@ -208,6 +240,12 @@ class ParquetPartitions(object):
     def __init__(self):
         self.levels = []
         self.partition_names = set()
+
+    def __len__(self):
+        return len(self.levels)
+
+    def __getitem__(self, i):
+        return self.levels[i]
 
     def get_index(self, level, name, key):
         if level == len(self.levels):
@@ -254,11 +292,11 @@ class ParquetManifest(object):
             if fs.isfile(path):
                 if _is_parquet_file(path):
                     files.append(path)
-                elif path == '_common_metadata':
+                elif path.endswith('_common_metadata'):
                     self.common_metadata_path = path
-                elif path == '_metadata':
+                elif path.endswith('_metadata'):
                     self.metadata_path = path
-                else:
+                elif not self._should_silently_exclude(path):
                     print('Ignoring path: {0}'.format(path))
             elif fs.isdir(path):
                 directories.append(path)
@@ -270,6 +308,10 @@ class ParquetManifest(object):
             self._visit_directories(level, directories, part_keys)
         else:
             self._push_pieces(files, part_keys)
+
+    def _should_silently_exclude(self, path):
+        _, tail = path.rsplit(self.pathsep, 1)
+        return tail.endswith('.crc') or tail in EXCLUDED_PARQUET_PATHS
 
     def _visit_directories(self, level, directories, part_keys):
         for path in directories:
@@ -378,10 +420,11 @@ class ParquetDataset(object):
 
         tables = []
         for piece in self.pieces:
-            table = piece.read(open_file, columns=columns, nthreads=nthreads)
+            table = piece.read(open_file, columns=columns, nthreads=nthreads,
+                               partitions=self.partitions)
             tables.append(table)
 
-        all_data = concat_tables(tables)
+        all_data = _table.concat_tables(tables)
         return all_data
 
     def _get_open_file_func(self):

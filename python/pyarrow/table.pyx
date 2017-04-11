@@ -30,8 +30,9 @@ import pyarrow.config
 from pyarrow.array cimport Array, box_array, wrap_array_output
 from pyarrow.error import ArrowException
 from pyarrow.error cimport check_status
-from pyarrow.schema cimport box_data_type, box_schema, DataType
+from pyarrow.schema cimport box_data_type, box_schema, DataType, Field
 
+from pyarrow.schema import field
 from pyarrow.compat import frombytes, tobytes
 
 cimport cpython
@@ -140,6 +141,19 @@ cdef class Column:
     cdef init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
         self.column = column.get()
+
+    @staticmethod
+    def from_array(object field_or_name, Array arr):
+        cdef Field boxed_field
+
+        if isinstance(field_or_name, Field):
+            boxed_field = field_or_name
+        else:
+            boxed_field = field(field_or_name, arr.type)
+
+        cdef shared_ptr[CColumn] sp_column
+        sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
+        return box_column(sp_column)
 
     def to_pandas(self):
         """
@@ -828,6 +842,24 @@ cdef class Table:
         """
         return (self.num_rows, self.num_columns)
 
+    def add_column(self, int i, Column column):
+        """
+        Add column to Table at position. Returns new table
+        """
+        cdef:
+            shared_ptr[CTable] c_table
+
+        with nogil:
+            check_status(self.table.AddColumn(i, column.sp_column, &c_table))
+
+        return table_from_ctable(c_table)
+
+    def append_column(self, Column column):
+        """
+        Append column at end of columns. Returns new table
+        """
+        return self.add_column(self.num_columns, column)
+
     def remove_column(self, int i):
         """
         Create new Table with the indicated column removed
@@ -863,6 +895,12 @@ def concat_tables(tables):
         check_status(ConcatenateTables(c_tables, &c_result))
 
     return table_from_ctable(c_result)
+
+
+cdef object box_column(const shared_ptr[CColumn]& ccolumn):
+    cdef Column column = Column()
+    column.init(ccolumn)
+    return column
 
 
 cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
