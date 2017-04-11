@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/column.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
@@ -201,6 +202,63 @@ garrow_table_get_n_rows(GArrowTable *table)
 {
   const auto arrow_table = garrow_table_get_raw(table);
   return arrow_table->num_rows();
+}
+
+/**
+ * garrow_table_add_column:
+ * @table: A #GArrowTable.
+ * @i: The index of the new column.
+ * @column: The column to be added.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The newly allocated
+ *   #GArrowTable that has a new column or %NULL on error.
+ *
+ * Since: 0.3.0
+ */
+GArrowTable *
+garrow_table_add_column(GArrowTable *table,
+                        guint i,
+                        GArrowColumn *column,
+                        GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  const auto arrow_column = garrow_column_get_raw(column);
+  std::shared_ptr<arrow::Table> arrow_new_table;
+  auto status = arrow_table->AddColumn(i, arrow_column, &arrow_new_table);
+  if (status.ok()) {
+    return garrow_table_new_raw(&arrow_new_table);
+  } else {
+    garrow_error_set(error, status, "[table][add-column]");
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_remove_column:
+ * @table: A #GArrowTable.
+ * @i: The index of the column to be removed.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The newly allocated
+ *   #GArrowTable that doesn't have the column or %NULL on error.
+ *
+ * Since: 0.3.0
+ */
+GArrowTable *
+garrow_table_remove_column(GArrowTable *table,
+                           guint i,
+                           GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  std::shared_ptr<arrow::Table> arrow_new_table;
+  auto status = arrow_table->RemoveColumn(i, &arrow_new_table);
+  if (status.ok()) {
+    return garrow_table_new_raw(&arrow_new_table);
+  } else {
+    garrow_error_set(error, status, "[table][remove-column]");
+    return NULL;
+  }
 }
 
 G_END_DECLS

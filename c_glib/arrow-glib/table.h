@@ -75,4 +75,12 @@ GArrowColumn   *garrow_table_get_column    (GArrowTable *table,
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);
 
+GArrowTable    *garrow_table_add_column    (GArrowTable *table,
+                                            guint i,
+                                            GArrowColumn *column,
+                                            GError **error);
+GArrowTable    *garrow_table_remove_column (GArrowTable *table,
+                                            guint i,
+                                            GError **error);
+
 G_END_DECLS
