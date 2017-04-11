@@ -82,5 +82,19 @@ class TestTable < Test::Unit::TestCase
     def test_n_rows
       assert_equal(1, @table.n_rows)
     end
+
+    def test_add_column
+      field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
+      column = Arrow::Column.new(field, build_boolean_array([true]))
+      new_table = @table.add_column(1, column)
+      assert_equal(["visible", "added", "valid"],
+                   new_table.schema.fields.collect(&:name))
+    end
+
+    def test_remove_column
+      new_table = @table.remove_column(0)
+      assert_equal(["valid"],
+                   new_table.schema.fields.collect(&:name))
+    end
   end
 end
