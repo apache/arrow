@@ -43,3 +43,5 @@ Makefile.in
 /arrow-glib/stamp-*
 /arrow-glib/*.pc
 /example/build
+/example/read-batch
+/example/read-stream
