@@ -170,8 +170,12 @@ TYPED_TEST(TestHdfsClient, CreateDirectory) {
 
   ASSERT_OK(this->client_->CreateDirectory(path));
   ASSERT_TRUE(this->client_->Exists(path));
+  std::vector<HdfsPathInfo> listing;
+  EXPECT_OK(this->client_->ListDirectory(path, &listing));
+  ASSERT_EQ(0, listing.size());
   EXPECT_OK(this->client_->Delete(path, true));
   ASSERT_FALSE(this->client_->Exists(path));
+  ASSERT_RAISES(IOError, this->client_->ListDirectory(path, &listing));
 }
 
 TYPED_TEST(TestHdfsClient, GetCapacityUsed) {
