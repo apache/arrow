@@ -36,10 +36,6 @@ Makefile.in
 /version
 /arrow-glib/enums.c
 /arrow-glib/enums.h
-/arrow-glib/io-enums.c
-/arrow-glib/io-enums.h
-/arrow-glib/ipc-enums.c
-/arrow-glib/ipc-enums.h
 /arrow-glib/stamp-*
 /arrow-glib/*.pc
 /example/build
