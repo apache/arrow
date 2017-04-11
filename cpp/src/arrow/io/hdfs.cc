@@ -406,8 +406,11 @@ class HdfsClient::HdfsClientImpl {
       // errno indicates error
       //
       // Note: errno is thread-locala
-      if (errno == 0) { num_entries = 0; }
-      { return Status::IOError("HDFS: list directory failed"); }
+      if (errno == 0) {
+        num_entries = 0;
+      } else {
+        return Status::IOError("HDFS: list directory failed");
+      }
     }
 
     // Allocate additional space for elements
