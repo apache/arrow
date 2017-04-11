@@ -428,7 +428,7 @@ class ParquetDataset(object):
         return all_data
 
     def _get_open_file_func(self):
-        if self.fs is None:
+        if self.fs is None or isinstance(self.fs, LocalFilesystem):
             def open_file(path, meta=None):
                 return ParquetFile(path, metadata=meta)
         else:
