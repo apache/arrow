@@ -49,6 +49,17 @@ if not on_rtd:
     # build pyarrow there.
     sys.path.insert(0, os.path.abspath('..'))
 
+sys.path.insert(0, os.path.abspath('../sphinxext'))
+
+sys.path.extend([
+
+    # numpy standard doc extensions
+    os.path.join(os.path.dirname(__file__),
+                 '..', '../..',
+                 'sphinxext')
+
+])
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -64,7 +75,8 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'numpydoc',  # used to parse numpy-style docstrings for autodoc
 ]
 
 # numpydoc configuration
@@ -78,6 +90,9 @@ templates_path = ['_templates']
 #
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
+
+import glob
+autosummary_generate = glob.glob("*.rst")
 
 # The encoding of source files.
 #
