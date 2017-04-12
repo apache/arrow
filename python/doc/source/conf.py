@@ -38,14 +38,9 @@ if not on_rtd:
     # build pyarrow there.
     sys.path.insert(0, os.path.abspath('..'))
 
-sys.path.insert(0, os.path.abspath('../sphinxext'))
-
 sys.path.extend([
-
-    # numpy standard doc extensions
     os.path.join(os.path.dirname(__file__),
-                 '..', '../..',
-                 'sphinxext')
+                 '..', '../..')
 
 ])
 
