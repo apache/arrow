@@ -39,6 +39,14 @@ class TestColumn(unittest.TestCase):
         assert column.shape == (5,)
         assert column.to_pylist() == [-10, -5, 0, 5, 10]
 
+    def test_from_array(self):
+        arr = pa.from_pylist([0, 1, 2, 3, 4])
+
+        col1 = pa.Column.from_array('foo', arr)
+        col2 = pa.Column.from_array(pa.field('foo', arr.type), arr)
+
+        assert col1.equals(col2)
+
     def test_pandas(self):
         data = [
             pa.from_pylist([-10, -5, 0, 5, 10])
@@ -167,6 +175,29 @@ def test_table_basics():
     for col in table.itercolumns():
         for chunk in col.data.iterchunks():
             assert chunk is not None
+
+
+def test_table_add_column():
+    data = [
+        pa.from_pylist(range(5)),
+        pa.from_pylist([-10, -5, 0, 5, 10]),
+        pa.from_pylist(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    col = pa.Column.from_array('d', data[1])
+    t2 = table.add_column(3, col)
+    t3 = table.append_column(col)
+
+    expected = pa.Table.from_arrays(data + [data[1]],
+                                    names=('a', 'b', 'c', 'd'))
+    assert t2.equals(expected)
+    assert t3.equals(expected)
+
+    t4 = table.add_column(0, col)
+    expected = pa.Table.from_arrays([data[1]] + data,
+                                    names=('d', 'a', 'b', 'c'))
+    assert t4.equals(expected)
 
 
 def test_table_remove_column():

@@ -291,6 +291,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] schema()
         shared_ptr[CColumn] column(int i)
 
+        CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
+                          shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
 
     cdef cppclass CTensor" arrow::Tensor":
