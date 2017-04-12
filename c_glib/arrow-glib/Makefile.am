@@ -102,23 +102,23 @@ libarrow_glib_la_headers =			\
 	uint64-data-type.h
 
 libarrow_glib_la_headers +=			\
-	io-file.h				\
-	io-file-mode.h				\
-	io-file-output-stream.h			\
-	io-input-stream.h			\
-	io-memory-mapped-file.h			\
-	io-output-stream.h			\
-	io-random-access-file.h			\
-	io-readable.h				\
-	io-writeable.h				\
-	io-writeable-file.h
+	file.h					\
+	file-mode.h				\
+	file-output-stream.h			\
+	input-stream.h				\
+	memory-mapped-file.h			\
+	output-stream.h				\
+	random-access-file.h			\
+	readable.h				\
+	writeable.h				\
+	writeable-file.h
 
 libarrow_glib_la_headers +=			\
-	ipc-file-reader.h			\
-	ipc-file-writer.h			\
-	ipc-stream-reader.h			\
-	ipc-stream-writer.h			\
-	ipc-metadata-version.h
+	file-reader.h				\
+	file-writer.h				\
+	stream-reader.h				\
+	stream-writer.h				\
+	metadata-version.h
 
 libarrow_glib_la_generated_headers =		\
 	enums.h
@@ -190,23 +190,23 @@ libarrow_glib_la_sources =			\
 	$(libarrow_glib_la_generated_sources)
 
 libarrow_glib_la_sources +=			\
-	io-file.cpp				\
-	io-file-mode.cpp			\
-	io-file-output-stream.cpp		\
-	io-input-stream.cpp			\
-	io-memory-mapped-file.cpp		\
-	io-output-stream.cpp			\
-	io-random-access-file.cpp		\
-	io-readable.cpp				\
-	io-writeable.cpp			\
-	io-writeable-file.cpp
+	file.cpp				\
+	file-mode.cpp				\
+	file-output-stream.cpp			\
+	input-stream.cpp			\
+	memory-mapped-file.cpp			\
+	output-stream.cpp			\
+	random-access-file.cpp			\
+	readable.cpp				\
+	writeable.cpp				\
+	writeable-file.cpp
 
 libarrow_glib_la_sources +=			\
-	ipc-file-reader.cpp			\
-	ipc-file-writer.cpp			\
-	ipc-metadata-version.cpp		\
-	ipc-stream-reader.cpp			\
-	ipc-stream-writer.cpp
+	file-reader.cpp				\
+	file-writer.cpp				\
+	metadata-version.cpp			\
+	stream-reader.cpp			\
+	stream-writer.cpp
 
 libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
@@ -223,23 +223,23 @@ libarrow_glib_la_cpp_headers =			\
 	type.hpp
 
 libarrow_glib_la_cpp_headers +=			\
-	io-file.hpp				\
-	io-file-mode.hpp			\
-	io-file-output-stream.hpp		\
-	io-input-stream.hpp			\
-	io-memory-mapped-file.hpp		\
-	io-output-stream.hpp			\
-	io-random-access-file.hpp		\
-	io-readable.hpp				\
-	io-writeable.hpp			\
-	io-writeable-file.hpp
+	file.hpp				\
+	file-mode.hpp				\
+	file-output-stream.hpp			\
+	input-stream.hpp			\
+	memory-mapped-file.hpp			\
+	output-stream.hpp			\
+	random-access-file.hpp			\
+	readable.hpp				\
+	writeable.hpp				\
+	writeable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
-	ipc-file-reader.hpp			\
-	ipc-file-writer.hpp			\
-	ipc-metadata-version.hpp		\
-	ipc-stream-reader.hpp			\
-	ipc-stream-writer.hpp
+	file-reader.hpp				\
+	file-writer.hpp				\
+	metadata-version.hpp			\
+	stream-reader.hpp			\
+	stream-writer.hpp
 
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\

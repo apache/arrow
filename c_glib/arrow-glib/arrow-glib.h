@@ -79,19 +79,19 @@
 #include <arrow-glib/uint64-array-builder.h>
 #include <arrow-glib/uint64-data-type.h>
 
-#include <arrow-glib/io-file.h>
-#include <arrow-glib/io-file-mode.h>
-#include <arrow-glib/io-file-output-stream.h>
-#include <arrow-glib/io-input-stream.h>
-#include <arrow-glib/io-memory-mapped-file.h>
-#include <arrow-glib/io-output-stream.h>
-#include <arrow-glib/io-random-access-file.h>
-#include <arrow-glib/io-readable.h>
-#include <arrow-glib/io-writeable.h>
-#include <arrow-glib/io-writeable-file.h>
+#include <arrow-glib/file.h>
+#include <arrow-glib/file-mode.h>
+#include <arrow-glib/file-output-stream.h>
+#include <arrow-glib/input-stream.h>
+#include <arrow-glib/memory-mapped-file.h>
+#include <arrow-glib/output-stream.h>
+#include <arrow-glib/random-access-file.h>
+#include <arrow-glib/readable.h>
+#include <arrow-glib/writeable.h>
+#include <arrow-glib/writeable-file.h>
 
-#include <arrow-glib/ipc-file-reader.h>
-#include <arrow-glib/ipc-file-writer.h>
-#include <arrow-glib/ipc-metadata-version.h>
-#include <arrow-glib/ipc-stream-reader.h>
-#include <arrow-glib/ipc-stream-writer.h>
+#include <arrow-glib/file-reader.h>
+#include <arrow-glib/file-writer.h>
+#include <arrow-glib/metadata-version.h>
+#include <arrow-glib/stream-reader.h>
+#include <arrow-glib/stream-writer.h>
