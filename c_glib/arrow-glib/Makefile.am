@@ -44,14 +44,15 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
-	chunked-array.h				\
-	column.h				\
 	binary-array.h				\
 	binary-array-builder.h			\
 	binary-data-type.h			\
 	boolean-array.h				\
 	boolean-array-builder.h			\
 	boolean-data-type.h			\
+	buffer.h				\
+	chunked-array.h				\
+	column.h				\
 	data-type.h				\
 	double-array.h				\
 	double-array-builder.h			\
@@ -136,6 +137,7 @@ libarrow_glib_la_sources =			\
 	boolean-array.cpp			\
 	boolean-array-builder.cpp		\
 	boolean-data-type.cpp			\
+	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
 	data-type.cpp				\
@@ -212,6 +214,7 @@ libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
 	arrow-glib.hpp				\
+	buffer.hpp				\
 	chunked-array.hpp			\
 	column.hpp				\
 	data-type.hpp				\
