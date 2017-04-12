@@ -20,7 +20,7 @@
 # cython: embedsignature = True
 
 from pyarrow.includes.libarrow_jemalloc cimport CJemallocMemoryPool
-from pyarrow.memory cimport MemoryPool
+from pyarrow._memory cimport MemoryPool
 
 def default_pool():
     cdef MemoryPool pool = MemoryPool()

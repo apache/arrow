@@ -20,20 +20,18 @@
 # cython: embedsignature = True
 
 from cython.operator cimport dereference as deref
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
+from pyarrow._array cimport Array
+from pyarrow._error cimport check_status
+from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
+from pyarrow._table cimport Table, table_from_ctable
+from pyarrow._io cimport NativeFile, get_reader, get_writer
 
-from pyarrow.array cimport Array
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.error import ArrowException
-from pyarrow.error cimport check_status
-from pyarrow.io import NativeFile
-from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
-from pyarrow.table cimport Table, table_from_ctable
-
-from pyarrow.io cimport NativeFile, get_reader, get_writer
+from pyarrow._error import ArrowException
+from pyarrow._io import NativeFile
 
 import six
 

@@ -261,14 +261,12 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  array
-  config
-  error
-  io
-  memory
-  scalar
-  schema
-  table
+  _array
+  _config
+  _error
+  _io
+  _memory
+  _table
 )
 
 set(LINK_LIBS
@@ -313,7 +311,7 @@ if (PYARROW_BUILD_JEMALLOC)
     arrow_jemalloc_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
-    jemalloc)
+    _jemalloc)
 endif()
 
 ############################################################

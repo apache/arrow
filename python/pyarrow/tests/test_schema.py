@@ -16,13 +16,9 @@
 # under the License.
 
 import pytest
-
-import pyarrow as pa
-
 import numpy as np
 
-# XXX: pyarrow.schema.schema masks the module on imports
-sch = pa._schema
+import pyarrow as pa
 
 
 def test_type_integers():
@@ -62,7 +58,7 @@ def test_type_from_numpy_dtype_timestamps():
     ]
 
     for dt, pt in cases:
-        result = sch.type_from_numpy_dtype(dt)
+        result = pa.from_numpy_dtype(dt)
         assert result == pt
 
 

@@ -113,8 +113,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] index_type()
         shared_ptr[CArray] dictionary()
 
-    shared_ptr[CDataType] timestamp(TimeUnit unit)
-    shared_ptr[CDataType] timestamp(TimeUnit unit, const c_string& timezone)
+    shared_ptr[CDataType] ctimestamp" arrow::timestamp"(TimeUnit unit)
+    shared_ptr[CDataType] ctimestamp" arrow::timestamp"(
+        TimeUnit unit, const c_string& timezone)
 
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()

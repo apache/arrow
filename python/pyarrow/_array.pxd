@@ -15,18 +15,107 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.common cimport shared_ptr, int64_t
-from pyarrow.includes.libarrow cimport CArray, CTensor
-
-from pyarrow.scalar import NA
-
-from pyarrow.schema cimport DataType
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
 
 from cpython cimport PyObject
 
-
 cdef extern from "Python.h":
     int PySlice_Check(object)
+
+
+cdef class DataType:
+    cdef:
+        shared_ptr[CDataType] sp_type
+        CDataType* type
+
+    cdef void init(self, const shared_ptr[CDataType]& type)
+
+
+cdef class DictionaryType(DataType):
+    cdef:
+        const CDictionaryType* dict_type
+
+
+cdef class TimestampType(DataType):
+    cdef:
+        const CTimestampType* ts_type
+
+
+cdef class FixedSizeBinaryType(DataType):
+    cdef:
+        const CFixedSizeBinaryType* fixed_size_binary_type
+
+
+cdef class DecimalType(FixedSizeBinaryType):
+    cdef:
+        const CDecimalType* decimal_type
+
+
+cdef class Field:
+    cdef:
+        shared_ptr[CField] sp_field
+        CField* field
+
+    cdef readonly:
+        DataType type
+
+    cdef init(self, const shared_ptr[CField]& field)
+
+
+cdef class Schema:
+    cdef:
+        shared_ptr[CSchema] sp_schema
+        CSchema* schema
+
+    cdef init(self, const vector[shared_ptr[CField]]& fields)
+    cdef init_schema(self, const shared_ptr[CSchema]& schema)
+
+
+cdef class Scalar:
+    cdef readonly:
+        DataType type
+
+
+cdef class NAType(Scalar):
+    pass
+
+
+cdef class ArrayValue(Scalar):
+    cdef:
+        shared_ptr[CArray] sp_array
+        int64_t index
+
+    cdef void init(self, DataType type,
+                   const shared_ptr[CArray]& sp_array, int64_t index)
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
+
+
+cdef class Int8Value(ArrayValue):
+    pass
+
+
+cdef class Int64Value(ArrayValue):
+    pass
+
+
+cdef class ListValue(ArrayValue):
+    cdef readonly:
+        DataType value_type
+
+    cdef:
+        CListArray* ap
+
+    cdef getitem(self, int64_t i)
+
+
+cdef class StringValue(ArrayValue):
+    pass
+
+
+cdef class FixedSizeBinaryValue(ArrayValue):
+    pass
 
 
 cdef class Array:
@@ -50,10 +139,6 @@ cdef class Tensor:
         DataType type
 
     cdef init(self, const shared_ptr[CTensor]& sp_tensor)
-
-
-cdef object box_array(const shared_ptr[CArray]& sp_array)
-cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor)
 
 
 cdef class BooleanArray(Array):
@@ -137,5 +222,12 @@ cdef class DictionaryArray(Array):
         object _indices, _dictionary
 
 
-
 cdef wrap_array_output(PyObject* output)
+cdef DataType box_data_type(const shared_ptr[CDataType]& type)
+cdef Field box_field(const shared_ptr[CField]& field)
+cdef Schema box_schema(const shared_ptr[CSchema]& schema)
+cdef object box_array(const shared_ptr[CArray]& sp_array)
+cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor)
+cdef object box_scalar(DataType type,
+                       const shared_ptr[CArray]& sp_array,
+                       int64_t index)

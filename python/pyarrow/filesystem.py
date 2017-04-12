@@ -19,7 +19,7 @@ from os.path import join as pjoin
 import os
 
 from pyarrow.util import implements
-import pyarrow.io as io
+import pyarrow._io as io
 
 
 class Filesystem(object):

@@ -23,21 +23,18 @@
 # cython: embedsignature = True
 
 from cython.operator cimport dereference as deref
-
 from libc.stdlib cimport malloc, free
-
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
-
-from pyarrow.compat import frombytes, tobytes, encode_file_path
-from pyarrow.array cimport Array, Tensor, box_tensor
-from pyarrow.error cimport check_status
-from pyarrow.memory cimport MemoryPool, maybe_unbox_memory_pool
-from pyarrow.schema cimport Schema
-from pyarrow.table cimport (Column, RecordBatch, batch_from_cbatch,
-                            table_from_ctable)
-
+from pyarrow._array cimport Array, Tensor, box_tensor, Schema
+from pyarrow._error cimport check_status
+from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
+from pyarrow._table cimport (Column, RecordBatch, batch_from_cbatch,
+                             table_from_ctable)
 cimport cpython as cp
+
+import pyarrow._config
+from pyarrow.compat import frombytes, tobytes, encode_file_path
 
 import re
 import six
