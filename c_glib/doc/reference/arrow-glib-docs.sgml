@@ -105,6 +105,10 @@
       <xi:include href="xml/column.xml"/>
       <xi:include href="xml/chunked-array.xml"/>
     </chapter>
+    <chapter id="buffer">
+      <title>Buffer</title>
+      <xi:include href="xml/buffer.xml"/>
+    </chapter>
     <chapter id="error">
       <title>Error</title>
       <xi:include href="xml/error.xml"/>
