@@ -29,18 +29,7 @@ import inspect
 import os
 import sys
 
-from sphinx import apidoc
-
 import sphinx_rtd_theme
-
-
-__location__ = os.path.join(os.getcwd(), os.path.dirname(
-        inspect.getfile(inspect.currentframe())))
-output_dir = os.path.join(__location__)
-module_dir = os.path.join(__location__, "..", "pyarrow")
-cmd_line_template = "sphinx-apidoc -f -e -o {outputdir} {moduledir}"
-cmd_line = cmd_line_template.format(outputdir=output_dir, moduledir=module_dir)
-apidoc.main(cmd_line.split(" "))
 
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
