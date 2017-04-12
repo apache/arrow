@@ -64,7 +64,7 @@ set( CYTHON_NO_DOCSTRINGS OFF
   CACHE BOOL "Strip docstrings from the compiled module." )
 set( CYTHON_FLAGS "" CACHE STRING
   "Extra flags to the cython compiler." )
-mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS CYTHON_EMBED_SIGNATURES)
+mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS)
 
 find_package( Cython REQUIRED )
 find_package( PythonLibsNew REQUIRED )
