@@ -1,0 +1,139 @@
+.. currentmodule:: pyarrow
+.. _api:
+
+*************
+API Reference
+*************
+
+.. _api.functions:
+
+Type Metadata and Schemas
+------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   null
+   bool_
+   int8
+   int16
+   int32
+   int64
+   uint8
+   uint16
+   uint32
+   uint64
+   float16
+   float32
+   float64
+   timestamp
+   date32
+   date64
+   binary
+   string
+   decimal
+   list_
+   struct
+   dictionary
+   field
+   DataType
+   Field
+   Schema
+   schema
+
+Scalar Value Types
+------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   NA
+   NAType
+   Scalar
+   ArrayValue
+   Int8Value
+   Int16Value
+   Int32Value
+   Int64Value
+   UInt8Value
+   UInt16Value
+   UInt32Value
+   UInt64Value
+   FloatValue
+   DoubleValue
+   ListValue
+   BinaryValue
+   StringValue
+   FixedSizeBinaryValue
+
+Array Types
+-----------
+
+.. autosummary::
+   :toctree: generated/
+
+   Array
+   NumericArray
+   IntegerArray
+   FloatingPointArray
+   BooleanArray
+   Int8Array
+   Int16Array
+   Int32Array
+   Int64Array
+   UInt8Array
+   UInt16Array
+   UInt32Array
+   UInt64Array
+   DictionaryArray
+   StringArray
+
+Tables and Record Batches
+-------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   ChunkedArray
+   Column
+   RecordBatch
+   Table
+   get_record_batche_size
+
+Tensor type and Functions
+-------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   Tensor
+   write_tensor
+   get_tensor_size
+   read_tensor
+
+Input / Output and Shared Memory
+--------------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   Buffer
+   BufferReader
+   InMemoryOutputStream
+   NativeFile
+   OSFile
+   MemoryMappedFile
+   memory_map
+   create_memory_map
+   PythonFileInterface
+
+Interprocess Communication and Messaging
+----------------------------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   FileReader
+   FileWriter
+   StreamReader
+   StreamWriter
