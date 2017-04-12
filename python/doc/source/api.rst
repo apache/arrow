@@ -8,7 +8,7 @@ API Reference
 .. _api.functions:
 
 Type Metadata and Schemas
-------------------------
+-------------------------
 
 .. autosummary::
    :toctree: generated/
@@ -94,11 +94,9 @@ Tables and Record Batches
 .. autosummary::
    :toctree: generated/
 
-   ChunkedArray
    Column
    RecordBatch
    Table
-   get_record_batche_size
 
 Tensor type and Functions
 -------------------------
@@ -121,7 +119,6 @@ Input / Output and Shared Memory
    BufferReader
    InMemoryOutputStream
    NativeFile
-   OSFile
    MemoryMappedFile
    memory_map
    create_memory_map

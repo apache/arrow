@@ -65,7 +65,6 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
-    'numpydoc',  # used to parse numpy-style docstrings for autodoc
 ]
 
 # numpydoc configuration
