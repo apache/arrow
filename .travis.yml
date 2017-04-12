@@ -21,6 +21,12 @@ addons:
     - autoconf-archive
     - libgirepository1.0-dev
 
+cache:
+  ccache: true
+  directories:
+    - $HOME/.conda_packages
+    - $HOME/.ccache
+
 matrix:
   fast_finish: true
   allow_failures:
