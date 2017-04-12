@@ -121,14 +121,13 @@ public class TestFixedSizeListVector {
 
       for (int i = 0; i < 10; i++) {
         if (i % 2 == 0) {
-          mutator.startNewValue(i);
-          int position = vector.getOffsetVector().getAccessor().get(i + 1);
+          int position = mutator.startNewValue(i);
           for (int j = 0; j < i % 7; j++) {
             tupleMutator.setNotNull(position + j);
             innerMutator.set((position + j) * 2, j);
             innerMutator.set((position + j) * 2 + 1, j + 1);
           }
-          vector.getOffsetVector().getMutator().set(i + 1, position + i % 7);
+          mutator.endValue(i, i % 7);
         }
       }
       mutator.setValueCount(10);

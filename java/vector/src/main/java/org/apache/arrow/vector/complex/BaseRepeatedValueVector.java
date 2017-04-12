@@ -213,12 +213,14 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public abstract class BaseRepeatedMutator extends BaseValueVector.BaseMutator implements RepeatedMutator {
 
     @Override
-    public void startNewValue(int index) {
+    public int startNewValue(int index) {
       while (offsets.getValueCapacity() <= index) {
         offsets.reAlloc();
       }
-      offsets.getMutator().setSafe(index+1, offsets.getAccessor().get(index));
+      int offset = offsets.getAccessor().get(index);
+      offsets.getMutator().setSafe(index+1, offset);
       setValueCount(index+1);
+      return offset;
     }
 
     @Override

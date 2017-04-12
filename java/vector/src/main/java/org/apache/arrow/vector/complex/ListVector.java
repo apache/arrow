@@ -345,12 +345,23 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
 
     @Override
-    public void startNewValue(int index) {
+    public int startNewValue(int index) {
       for (int i = lastSet; i <= index; i++) {
         offsets.getMutator().setSafe(i + 1, offsets.getAccessor().get(i));
       }
       setNotNull(index);
       lastSet = index + 1;
+      return offsets.getAccessor().get(lastSet);
+    }
+
+    /**
+     * End the current value
+     *
+     * @param index index of the value to end
+     * @param size number of elements in the list that was written
+     */
+    public void endValue(int index, int size) {
+      offsets.getMutator().set(index + 1, offsets.getAccessor().get(index + 1) + size);
     }
 
     @Override
