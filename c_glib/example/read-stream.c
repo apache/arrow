@@ -87,14 +87,14 @@ int
 main(int argc, char **argv)
 {
   const char *input_path = "/tmp/stream.arrow";
-  GArrowIOMemoryMappedFile *input;
+  GArrowMemoryMappedFile *input;
   GError *error = NULL;
 
   if (argc > 1)
     input_path = argv[1];
-  input = garrow_io_memory_mapped_file_open(input_path,
-                                            GARROW_IO_FILE_MODE_READ,
-                                            &error);
+  input = garrow_memory_mapped_file_open(input_path,
+                                         GARROW_FILE_MODE_READ,
+                                         &error);
   if (!input) {
     g_print("failed to open file: %s\n", error->message);
     g_error_free(error);
@@ -102,10 +102,10 @@ main(int argc, char **argv)
   }
 
   {
-    GArrowIPCStreamReader *reader;
+    GArrowStreamReader *reader;
 
-    reader = garrow_ipc_stream_reader_open(GARROW_IO_INPUT_STREAM(input),
-                                           &error);
+    reader = garrow_stream_reader_open(GARROW_INPUT_STREAM(input),
+                                       &error);
     if (!reader) {
       g_print("failed to open stream reader: %s\n", error->message);
       g_error_free(error);
@@ -117,7 +117,7 @@ main(int argc, char **argv)
       GArrowRecordBatch *record_batch;
 
       record_batch =
-        garrow_ipc_stream_reader_get_next_record_batch(reader, &error);
+        garrow_stream_reader_get_next_record_batch(reader, &error);
       if (error) {
         g_print("failed to get record batch: %s\n", error->message);
         g_error_free(error);

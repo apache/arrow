@@ -36,18 +36,18 @@
 #include <arrow-glib/table.hpp>
 #include <arrow-glib/type.hpp>
 
-#include <arrow-glib/io-file.hpp>
-#include <arrow-glib/io-file-mode.hpp>
-#include <arrow-glib/io-file-output-stream.hpp>
-#include <arrow-glib/io-input-stream.hpp>
-#include <arrow-glib/io-memory-mapped-file.hpp>
-#include <arrow-glib/io-output-stream.hpp>
-#include <arrow-glib/io-random-access-file.hpp>
-#include <arrow-glib/io-readable.hpp>
-#include <arrow-glib/io-writeable.hpp>
+#include <arrow-glib/file.hpp>
+#include <arrow-glib/file-mode.hpp>
+#include <arrow-glib/file-output-stream.hpp>
+#include <arrow-glib/input-stream.hpp>
+#include <arrow-glib/memory-mapped-file.hpp>
+#include <arrow-glib/output-stream.hpp>
+#include <arrow-glib/random-access-file.hpp>
+#include <arrow-glib/readable.hpp>
+#include <arrow-glib/writeable.hpp>
 
-#include <arrow-glib/ipc-file-reader.hpp>
-#include <arrow-glib/ipc-file-writer.hpp>
-#include <arrow-glib/ipc-metadata-version.hpp>
-#include <arrow-glib/ipc-stream-reader.hpp>
-#include <arrow-glib/ipc-stream-writer.hpp>
+#include <arrow-glib/file-reader.hpp>
+#include <arrow-glib/file-writer.hpp>
+#include <arrow-glib/metadata-version.hpp>
+#include <arrow-glib/stream-reader.hpp>
+#include <arrow-glib/stream-writer.hpp>

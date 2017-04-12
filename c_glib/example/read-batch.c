@@ -87,14 +87,14 @@ int
 main(int argc, char **argv)
 {
   const char *input_path = "/tmp/batch.arrow";
-  GArrowIOMemoryMappedFile *input;
+  GArrowMemoryMappedFile *input;
   GError *error = NULL;
 
   if (argc > 1)
     input_path = argv[1];
-  input = garrow_io_memory_mapped_file_open(input_path,
-                                            GARROW_IO_FILE_MODE_READ,
-                                            &error);
+  input = garrow_memory_mapped_file_open(input_path,
+                                         GARROW_FILE_MODE_READ,
+                                         &error);
   if (!input) {
     g_print("failed to open file: %s\n", error->message);
     g_error_free(error);
@@ -102,10 +102,10 @@ main(int argc, char **argv)
   }
 
   {
-    GArrowIPCFileReader *reader;
+    GArrowFileReader *reader;
 
-    reader = garrow_ipc_file_reader_open(GARROW_IO_RANDOM_ACCESS_FILE(input),
-                                         &error);
+    reader = garrow_file_reader_open(GARROW_RANDOM_ACCESS_FILE(input),
+                                     &error);
     if (!reader) {
       g_print("failed to open file reader: %s\n", error->message);
       g_error_free(error);
@@ -116,12 +116,12 @@ main(int argc, char **argv)
     {
       guint i, n;
 
-      n = garrow_ipc_file_reader_get_n_record_batches(reader);
+      n = garrow_file_reader_get_n_record_batches(reader);
       for (i = 0; i < n; i++) {
         GArrowRecordBatch *record_batch;
 
         record_batch =
-          garrow_ipc_file_reader_get_record_batch(reader, i, &error);
+          garrow_file_reader_get_record_batch(reader, i, &error);
         if (!record_batch) {
           g_print("failed to open file reader: %s\n", error->message);
           g_error_free(error);

@@ -15,45 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-DOC_MODULE = arrow-glib
+class TestFileOutputStream < Test::Unit::TestCase
+  sub_test_case(".open") do
+    def test_create
+      tempfile = Tempfile.open("arrow-io-file-output-stream")
+      tempfile.write("Hello")
+      tempfile.close
+      file = Arrow::FileOutputStream.open(tempfile.path, false)
+      file.close
+      assert_equal("", File.read(tempfile.path))
+    end
 
-DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.sgml
-
-DOC_SOURCE_DIR =				\
-	$(top_srcdir)/arrow-glib
-
-SCAN_OPTIONS =						\
-	--deprecated-guards="GARROW_DISABLE_DEPRECATED"
-
-MKDB_OPTIONS =					\
-	--name-space=garrow			\
-	--source-suffixes="c,cpp,h"
-
-HFILE_GLOB =					\
-	$(top_srcdir)/arrow-glib/*.h
-
-IGNORE_HFILES =					\
-	enums.h
-
-CFILE_GLOB =					\
-	$(top_srcdir)/arrow-glib/*.cpp
-
-AM_CPPFLAGS =					\
-	-I$(top_builddir)			\
-	-I$(top_srcdir)
-
-AM_CFLAGS =					\
-	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)
-
-GTKDOC_LIBS =						\
-	$(top_builddir)/arrow-glib/libarrow-glib.la
-
-include $(srcdir)/gtk-doc.make
-
-CLEANFILES +=					\
-	$(DOC_MODULE)-decl-list.txt		\
-	$(DOC_MODULE)-decl.txt			\
-	$(DOC_MODULE)-overrides.txt		\
-	$(DOC_MODULE)-sections.txt		\
-	$(DOC_MODULE).types
+    def test_append
+      tempfile = Tempfile.open("arrow-io-file-output-stream")
+      tempfile.write("Hello")
+      tempfile.close
+      file = Arrow::FileOutputStream.open(tempfile.path, true)
+      file.close
+      assert_equal("Hello", File.read(tempfile.path))
+    end
+  end
+end

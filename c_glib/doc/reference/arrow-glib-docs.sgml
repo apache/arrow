@@ -31,8 +31,8 @@
     </releaseinfo>
   </bookinfo>
 
-  <part id="arrow">
-    <title>GArrow</title>
+  <part id="data">
+    <title>Data</title>
     <chapter id="array">
       <title>Array</title>
       <xi:include href="xml/array.xml"/>
@@ -111,47 +111,47 @@
     </chapter>
   </part>
 
-  <part id="arrow-io">
-    <title>GArrowIO</title>
-    <chapter id="io-mode">
-      <title>Enums</title>
-      <xi:include href="xml/io-file-mode.xml"/>
+  <part id="io">
+    <title>IO</title>
+    <chapter id="mode">
+      <title>Mode</title>
+      <xi:include href="xml/file-mode.xml"/>
     </chapter>
-    <chapter id="io-input">
+    <chapter id="input">
       <title>Input</title>
-      <xi:include href="xml/io-readable.xml"/>
-      <xi:include href="xml/io-input-stream.xml"/>
-      <xi:include href="xml/io-random-access-file.xml"/>
+      <xi:include href="xml/readable.xml"/>
+      <xi:include href="xml/input-stream.xml"/>
+      <xi:include href="xml/random-access-file.xml"/>
     </chapter>
-    <chapter id="io-output">
+    <chapter id="output">
       <title>Output</title>
-      <xi:include href="xml/io-writeable.xml"/>
-      <xi:include href="xml/io-output-stream.xml"/>
-      <xi:include href="xml/io-writeable-file.xml"/>
-      <xi:include href="xml/io-file-output-stream.xml"/>
+      <xi:include href="xml/writeable.xml"/>
+      <xi:include href="xml/output-stream.xml"/>
+      <xi:include href="xml/writeable-file.xml"/>
+      <xi:include href="xml/file-output-stream.xml"/>
     </chapter>
-    <chapter id="io-input-output">
+    <chapter id="input-output">
       <title>Input and output</title>
-      <xi:include href="xml/io-file.xml"/>
-      <xi:include href="xml/io-memory-mapped-file.xml"/>
+      <xi:include href="xml/file.xml"/>
+      <xi:include href="xml/memory-mapped-file.xml"/>
     </chapter>
   </part>
 
-  <part id="arrow-ipc">
-    <title>GArrowIPC</title>
-    <chapter id="ipc-metadata">
-      <title>Enums</title>
-      <xi:include href="xml/ipc-metadata-version.xml"/>
+  <part id="ipc">
+    <title>IPC</title>
+    <chapter id="metadata">
+      <title>Metadata</title>
+      <xi:include href="xml/metadata-version.xml"/>
     </chapter>
-    <chapter id="ipc-reader">
+    <chapter id="reader">
       <title>Reader</title>
-      <xi:include href="xml/ipc-file-reader.xml"/>
-      <xi:include href="xml/ipc-stream-reader.xml"/>
+      <xi:include href="xml/file-reader.xml"/>
+      <xi:include href="xml/stream-reader.xml"/>
     </chapter>
-    <chapter id="ipc-writer">
-      <title>Input</title>
-      <xi:include href="xml/ipc-file-writer.xml"/>
-      <xi:include href="xml/ipc-stream-writer.xml"/>
+    <chapter id="writer">
+      <title>Writer</title>
+      <xi:include href="xml/file-writer.xml"/>
+      <xi:include href="xml/stream-writer.xml"/>
     </chapter>
   </part>
 
