@@ -81,6 +81,13 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     return true;
   }
 
+  @Override
+  public void reAlloc() {
+    for (final ValueVector v: vectors.values()) {
+      v.reAlloc();
+    }
+  }
+
   /**
    * Adds a new field with the given parameters or replaces the existing one and consequently returns the resultant
    * {@link org.apache.arrow.vector.ValueVector}.

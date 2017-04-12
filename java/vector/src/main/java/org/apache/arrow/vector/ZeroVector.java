@@ -143,6 +143,9 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
+  public void reAlloc() {}
+
+  @Override
   public BufferAllocator getAllocator() {
     throw new UnsupportedOperationException("Tried to get allocator from ZeroVector");
   }

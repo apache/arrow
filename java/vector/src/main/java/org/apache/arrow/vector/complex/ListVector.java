@@ -124,6 +124,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     bits.allocateNewSafe();
   }
 
+  @Override
+  public void reAlloc() {
+    super.reAlloc();
+    bits.reAlloc();
+  }
+
   public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
     copyFrom(inIndex, outIndex, from);
   }

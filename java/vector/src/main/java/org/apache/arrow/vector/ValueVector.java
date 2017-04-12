@@ -68,6 +68,12 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   boolean allocateNewSafe();
 
+  /**
+   * Allocate new buffer with double capacity, and copy data into the new buffer.
+   * Replace vector's buffer with new buffer, and release old one
+   */
+  void reAlloc();
+
   BufferAllocator getAllocator();
 
   /**

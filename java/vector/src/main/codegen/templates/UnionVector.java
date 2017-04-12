@@ -215,6 +215,12 @@ public class UnionVector implements FieldVector {
   }
 
   @Override
+  public void reAlloc() {
+    internalMap.reAlloc();
+    typeVector.reAlloc();
+  }
+
+  @Override
   public void setInitialCapacity(int numRecords) {
   }
 
