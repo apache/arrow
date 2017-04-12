@@ -23,8 +23,8 @@ fi
 wget -O miniconda.sh $MINICONDA_URL
 
 export MINICONDA=$HOME/miniconda
-export CONDA_PKGS_DIR=$HOME/.conda_packages
-mkdir -p $CONDA_PKGS_DIR
+export CONDA_PKGS_DIRS=$HOME/.conda_packages
+mkdir -p $CONDA_PKGS_DIRS
 
 bash miniconda.sh -b -p $MINICONDA
 export PATH="$MINICONDA/bin:$PATH"
