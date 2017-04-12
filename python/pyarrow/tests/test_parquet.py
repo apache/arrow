@@ -16,6 +16,7 @@
 # under the License.
 
 from os.path import join as pjoin
+import datetime
 import io
 import os
 import pytest
@@ -458,6 +459,10 @@ def test_partition_set_dictionary_type():
 
     assert isinstance(set1.dictionary, pa.StringArray)
     assert isinstance(set2.dictionary, pa.IntegerArray)
+
+    set3 = pq.PartitionSet('key2', [datetime.datetime(2007, 1, 1)])
+    with pytest.raises(TypeError):
+        set3.dictionary
 
 
 @parquet

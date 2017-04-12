@@ -124,8 +124,12 @@ class ParquetDatasetPiece(object):
 
     Parameters
     ----------
+    path : str
+        Path to file in the file system where this piece is located
     partition_keys : list of tuples
       [(column name, ordinal index)]
+    row_group : int, default None
+        Row group to load. By default, reads all row groups
     """
 
     def __init__(self, path, row_group=None, partition_keys=None):
@@ -164,12 +168,43 @@ class ParquetDatasetPiece(object):
 
         return result
 
-    def open(self, open_file_func):
+    def get_metadata(self, open_file_func=None):
+        """
+        Given a function that can create an open ParquetFile object, return the
+        file's metadata
+        """
+        return self._open(open_file_func).metadata
+
+    def _open(self, open_file_func=None):
+        """
+        Returns instance of ParquetFile
+        """
+        if open_file_func is None:
+            def simple_opener(path):
+                return ParquetFile(path)
+            open_file_func = simple_opener
         return open_file_func(self.path)
 
-    def read(self, open_file_func, columns=None, nthreads=1,
-             partitions=None):
-        reader = self.open(open_file_func)
+    def read(self, columns=None, nthreads=1, partitions=None,
+             open_file_func=None):
+        """
+        Read this piece as a pyarrow.Table
+
+        Parameters
+        ----------
+        columns : list of column names, default None
+        nthreads : int, default 1
+            For multithreaded file reads
+        partitions : ParquetPartitions, default None
+        open_file_func : function, default None
+            A function that knows how to construct a ParquetFile object given
+            the file path in this piece
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
+        reader = self._open(open_file_func)
 
         if self.row_group is not None:
             table = reader.read_row_group(self.row_group, columns=columns,
@@ -181,9 +216,25 @@ class ParquetDatasetPiece(object):
             if partitions is None:
                 raise ValueError('Must pass partition sets')
 
+            # Here, the index is the categorical code of the partition where
+            # this piece is located. Suppose we had
+            #
+            # /foo=a/0.parq
+            # /foo=b/0.parq
+            # /foo=c/0.parq
+            #
+            # Then we assign a=0, b=1, c=2. And the resulting Table pieces will
+            # have a DictionaryArray column named foo having the constant index
+            # value as indicated. The distinct categories of the partition have
+            # been computed in the ParquetManifest
             for i, (name, index) in enumerate(self.partition_keys):
+                # The partition code is the same for all values in this piece
                 indices = np.array([index], dtype='i4').repeat(len(table))
+
+                # This is set of all partition values, computed as part of the
+                # manifest, so ['a', 'b', 'c'] as in our example above.
                 dictionary = partitions.levels[i].dictionary
+
                 arr = _array.DictionaryArray.from_arrays(indices, dictionary)
                 col = _table.Column.from_array(name, arr)
                 table = table.append_column(col)
@@ -196,6 +247,20 @@ def _is_parquet_file(path):
 
 
 class PartitionSet(object):
+    """A data structure for cataloguing the observed Parquet partitions at a
+    particular level. So if we have
+
+    /foo=a/bar=0
+    /foo=a/bar=1
+    /foo=a/bar=2
+    /foo=b/bar=0
+    /foo=b/bar=1
+    /foo=b/bar=2
+
+    Then we have two partition sets, one for foo, another for bar. As we visit
+    levels of the partition hierarchy, a PartitionSet tracks the distinct
+    values and assigns categorical codes to use when reading the pieces
+    """
 
     def __init__(self, name, keys=None):
         self.name = name
@@ -204,6 +269,10 @@ class PartitionSet(object):
         self._dictionary = None
 
     def get_index(self, key):
+        """
+        Get the index of the partition value if it is known, otherwise assign
+        one
+        """
         if key in self.key_indices:
             return self.key_indices[key]
         else:
@@ -224,7 +293,7 @@ class PartitionSet(object):
         try:
             integer_keys = [int(x) for x in self.keys]
             dictionary = _array.from_pylist(integer_keys)
-        except:
+        except ValueError:
             dictionary = _array.from_pylist(self.keys)
 
         self._dictionary = dictionary
@@ -248,6 +317,24 @@ class ParquetPartitions(object):
         return self.levels[i]
 
     def get_index(self, level, name, key):
+        """
+        Record a partition value at a particular level, returning the distinct
+        code for that value at that level. Example:
+
+        partitions.get_index(1, 'foo', 'a') returns 0
+        partitions.get_index(1, 'foo', 'b') returns 1
+        partitions.get_index(1, 'foo', 'c') returns 2
+        partitions.get_index(1, 'foo', 'a') returns 0
+
+        Parameters
+        ----------
+        level : int
+            The nesting level of the partition we are observing
+        name : string
+            The partition name
+        key : string or int
+            The partition value
+        """
         if level == len(self.levels):
             if name in self.partition_names:
                 raise ValueError('{0} was the name of the partition in '
@@ -268,10 +355,12 @@ class ParquetManifest(object):
     """
 
     """
-    def __init__(self, dirpath, filesystem=None, pathsep='/'):
+    def __init__(self, dirpath, filesystem=None, pathsep='/',
+                 partition_scheme='hive'):
         self.filesystem = filesystem or LocalFilesystem.get_instance()
         self.pathsep = pathsep
         self.dirpath = dirpath
+        self.partition_scheme = partition_scheme
         self.partitions = ParquetPartitions()
         self.pieces = []
 
@@ -322,10 +411,18 @@ class ParquetManifest(object):
             dir_part_keys = part_keys + [(name, index)]
             self._visit_level(level + 1, path, dir_part_keys)
 
+    def _parse_partition(self, dirname):
+        if self.partition_scheme == 'hive':
+            return _parse_hive_partition(dirname)
+        else:
+            raise NotImplementedError('partition schema: {0}'
+                                      .format(self.partition_scheme))
+
     def _push_pieces(self, files, part_keys):
-        for path in files:
-            piece = ParquetDatasetPiece(path, partition_keys=part_keys)
-            self.pieces.append(piece)
+        self.pieces.extend([
+            ParquetDatasetPiece(path, partition_keys=part_keys)
+            for path in files
+        ])
 
 
 def _parse_hive_partition(value):
@@ -362,8 +459,10 @@ class ParquetDataset(object):
     schema : pyarrow.parquet.Schema
         Use schema obtained elsewhere to validate file schemas. Alternative to
         metadata parameter
-    split_row_groups
-    validate_schema
+    split_row_groups : boolean, default False
+        Divide files into pieces for each row group in the file
+    validate_schema : boolean, default True
+        Check that individual file schemas are all the same / compatible
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True):
@@ -379,6 +478,9 @@ class ParquetDataset(object):
 
         self.split_row_groups = split_row_groups
 
+        if split_row_groups:
+            raise NotImplementedError("split_row_groups not yet implemented")
+
         if validate_schema:
             self.validate_schemas()
 
@@ -386,13 +488,13 @@ class ParquetDataset(object):
         open_file = self._get_open_file_func()
 
         if self.metadata is None and self.schema is None:
-            self.schema = self.pieces[0].open(open_file).schema
+            self.schema = self.pieces[0].get_metadata(open_file).schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
         # Verify schemas are all equal
         for piece in self.pieces:
-            file_metadata = piece.open(open_file).metadata
+            file_metadata = piece.get_metadata(open_file)
             if not self.schema.equals(file_metadata.schema):
                 raise ValueError('Schema in {0!s} was different. '
                                  '{1!s} vs {2!s}'
@@ -420,8 +522,9 @@ class ParquetDataset(object):
 
         tables = []
         for piece in self.pieces:
-            table = piece.read(open_file, columns=columns, nthreads=nthreads,
-                               partitions=self.partitions)
+            table = piece.read(columns=columns, nthreads=nthreads,
+                               partitions=self.partitions,
+                               open_file_func=open_file)
             tables.append(table)
 
         all_data = _table.concat_tables(tables)
