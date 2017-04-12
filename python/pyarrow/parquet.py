@@ -23,8 +23,8 @@ from pyarrow.filesystem import LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, Schema, ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
-import pyarrow.array as _array
-import pyarrow.table as _table
+import pyarrow._array as _array
+import pyarrow._table as _table
 
 
 # ----------------------------------------------------------------------
