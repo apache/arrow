@@ -53,6 +53,7 @@ import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -270,10 +271,10 @@ public class TestVectorUnloadLoad {
   @Test
   public void testWithoutFieldNodes() throws Exception {
     BufferAllocator original = allocator.newChildAllocator("original", 0, Integer.MAX_VALUE);
-    NullableIntVector intVector = new NullableIntVector("int", original, null);
-    NullableVarCharVector varCharVector = new NullableVarCharVector("int", original, null);
+    NullableIntVector intVector = new NullableIntVector("int", original);
+    NullableVarCharVector varCharVector = new NullableVarCharVector("int", original);
     ListVector listVector = new ListVector("list", original, null, null);
-    ListVector innerListVector = (ListVector) listVector.addOrGetVector(MinorType.LIST, null).getVector();
+    ListVector innerListVector = (ListVector) listVector.addOrGetVector(FieldType.nullable(MinorType.LIST.getType())).getVector();
 
     intVector.allocateNew();;
     varCharVector.allocateNew();
@@ -335,10 +336,10 @@ public class TestVectorUnloadLoad {
     body.writeBytes(bytes);
 
 
-    NullableIntVector newIntVector = new NullableIntVector("newInt", newAllocator, null);
-    NullableVarCharVector newVarCharVector = new NullableVarCharVector("newVarChar", newAllocator, null);
-    ListVector newListVector = new ListVector("newListVector", newAllocator, null, null);
-    ((ListVector) newListVector.addOrGetVector(MinorType.LIST, null).getVector()).addOrGetVector(MinorType.INT, null);
+    NullableIntVector newIntVector = new NullableIntVector("newInt", newAllocator);
+    NullableVarCharVector newVarCharVector = new NullableVarCharVector("newVarChar", newAllocator);
+    ListVector newListVector = new ListVector("newListVector", newAllocator, null);
+    ((ListVector) newListVector.addOrGetVector(FieldType.nullable(MinorType.LIST.getType())).getVector()).addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
     BuffersIterator buffersIterator = new BuffersIterator(recordBatch);
 
