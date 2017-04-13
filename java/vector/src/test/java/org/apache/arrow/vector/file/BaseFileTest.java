@@ -22,6 +22,8 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullableDateMilliVector;
+import org.apache.arrow.vector.NullableTimeMilliVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
@@ -173,11 +175,11 @@ public class BaseFileTest {
     Assert.assertEquals(count, root.getRowCount());
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
-      Object dateVal = root.getVector("date").getAccessor().getObject(i);
+      long dateVal = ((NullableDateMilliVector)root.getVector("date")).getAccessor().get(i);
       DateTime dt = makeDateTimeFromCount(i);
       DateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
       Assert.assertEquals(dateExpected.getMillis(), dateVal);
-      Object timeVal = root.getVector("time").getAccessor().getObject(i);
+      long timeVal = ((NullableTimeMilliVector)root.getVector("time")).getAccessor().get(i);
       Assert.assertEquals(dt.getMillisOfDay(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getAccessor().getObject(i);
       Assert.assertTrue(dt.withZoneRetainFields(DateTimeZone.getDefault()).equals(timestampMilliVal));

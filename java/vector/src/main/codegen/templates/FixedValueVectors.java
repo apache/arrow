@@ -484,14 +484,28 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     </#if>
 
     <#if minor.class == "DateDay" ||
-         minor.class == "DateMilli" ||
          minor.class == "TimeSec" ||
-         minor.class == "TimeMilli" ||
          minor.class == "TimeMicro" ||
          minor.class == "TimeNano">
     @Override
     public ${friendlyType} getObject(int index) {
       return get(index);
+    }
+
+    <#elseif minor.class == "DateMilli">
+    @Override
+    public ${friendlyType} getObject(int index) {
+      org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
+    }
+
+    <#elseif minor.class == "TimeMilli">
+    @Override
+    public ${friendlyType} getObject(int index) {
+      org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return time;
     }
 
     <#elseif minor.class == "TimeStampSec">
