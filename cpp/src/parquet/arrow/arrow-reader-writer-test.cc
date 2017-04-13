@@ -23,9 +23,9 @@
 #include "parquet/api/writer.h"
 
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/schema.h"
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
-#include "parquet/arrow/schema.h"
 
 #include "parquet/file/writer.h"
 
@@ -890,17 +890,17 @@ class TestNestedSchemaRead : public ::testing::Test {
   void InitReader(std::shared_ptr<FileReader>* out) {
     std::shared_ptr<Buffer> buffer = nested_parquet_->GetBuffer();
     std::unique_ptr<FileReader> reader;
-    ASSERT_OK_NO_THROW(OpenFile(
-      std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-      ::parquet::default_reader_properties(), nullptr, &reader));
+    ASSERT_OK_NO_THROW(
+        OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
+            ::parquet::default_reader_properties(), nullptr, &reader));
 
     *out = std::move(reader);
   }
 
   void InitNewParquetFile(const std::shared_ptr<GroupNode>& schema, int num_rows) {
     nested_parquet_ = std::make_shared<InMemoryOutputStream>();
-    writer_ = parquet::ParquetFileWriter::Open(nested_parquet_,
-       schema, default_writer_properties());
+    writer_ = parquet::ParquetFileWriter::Open(
+        nested_parquet_, schema, default_writer_properties());
     row_group_writer_ = writer_->AppendRowGroup(num_rows);
   }
 
@@ -920,14 +920,11 @@ class TestNestedSchemaRead : public ::testing::Test {
     // }
     // required int32 leaf3;
 
+    parquet_fields.push_back(GroupNode::Make("group1", Repetition::REQUIRED,
+        {PrimitiveNode::Make("leaf1", Repetition::REQUIRED, ParquetType::INT32),
+            PrimitiveNode::Make("leaf2", Repetition::REQUIRED, ParquetType::INT32)}));
     parquet_fields.push_back(
-        GroupNode::Make("group1", Repetition::REQUIRED, {
-          PrimitiveNode::Make(
-            "leaf1", Repetition::REQUIRED, ParquetType::INT32),
-          PrimitiveNode::Make(
-            "leaf2", Repetition::REQUIRED, ParquetType::INT32)}));
-    parquet_fields.push_back(PrimitiveNode::Make(
-        "leaf3", Repetition::REQUIRED, ParquetType::INT32));
+        PrimitiveNode::Make("leaf3", Repetition::REQUIRED, ParquetType::INT32));
 
     const int num_columns = 3;
     auto schema_node = GroupNode::Make("schema", Repetition::REQUIRED, parquet_fields);

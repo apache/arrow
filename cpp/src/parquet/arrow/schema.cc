@@ -18,8 +18,8 @@
 #include "parquet/arrow/schema.h"
 
 #include <string>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 #include "parquet/api/schema.h"
 
@@ -192,11 +192,9 @@ Status NodeToFieldInternal(const NodePtr& node,
  * Auxilary function to test if a parquet schema node is a leaf node
  * that should be included in a resulting arrow schema
  */
-inline bool IsIncludedLeaf(const NodePtr& node,
-    const std::unordered_set<NodePtr>* included_leaf_nodes) {
-  if (included_leaf_nodes == nullptr) {
-    return true;
-  }
+inline bool IsIncludedLeaf(
+    const NodePtr& node, const std::unordered_set<NodePtr>* included_leaf_nodes) {
+  if (included_leaf_nodes == nullptr) { return true; }
   auto search = included_leaf_nodes->find(node);
   return (search != included_leaf_nodes->end());
 }
@@ -210,13 +208,9 @@ Status StructFromGroup(const GroupNode* group,
 
   for (int i = 0; i < group->field_count(); i++) {
     RETURN_NOT_OK(NodeToFieldInternal(group->field(i), included_leaf_nodes, &field));
-    if (field != nullptr) {
-      fields.push_back(field);
-    }
+    if (field != nullptr) { fields.push_back(field); }
   }
-  if (fields.size() > 0) {
-    *out = std::make_shared<::arrow::StructType>(fields);
-  }
+  if (fields.size() > 0) { *out = std::make_shared<::arrow::StructType>(fields); }
   return Status::OK();
 }
 
@@ -240,12 +234,10 @@ Status NodeToList(const GroupNode* group,
           !str_endswith_tuple(list_node->name())) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
-        RETURN_NOT_OK(NodeToFieldInternal(
-          list_group->field(0), included_leaf_nodes, &item_field));
+        RETURN_NOT_OK(
+            NodeToFieldInternal(list_group->field(0), included_leaf_nodes, &item_field));
 
-        if (item_field != nullptr) {
-          *out = ::arrow::list(item_field);
-        }
+        if (item_field != nullptr) { *out = ::arrow::list(item_field); }
       } else {
         // List of struct
         std::shared_ptr<::arrow::DataType> inner_type;
@@ -260,7 +252,7 @@ Status NodeToList(const GroupNode* group,
       std::shared_ptr<::arrow::DataType> inner_type;
       if (IsIncludedLeaf(static_cast<NodePtr>(list_node), included_leaf_nodes)) {
         const PrimitiveNode* primitive =
-          static_cast<const PrimitiveNode*>(list_node.get());
+            static_cast<const PrimitiveNode*>(list_node.get());
         RETURN_NOT_OK(FromPrimitive(primitive, &inner_type));
         auto item_field = std::make_shared<Field>(list_node->name(), inner_type, false);
         *out = ::arrow::list(item_field);
@@ -282,7 +274,6 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
 
 Status NodeToFieldInternal(const NodePtr& node,
     const std::unordered_set<NodePtr>* included_leaf_nodes, std::shared_ptr<Field>* out) {
-
   std::shared_ptr<::arrow::DataType> type = nullptr;
   bool nullable = !node->is_required();
 
@@ -317,9 +308,7 @@ Status NodeToFieldInternal(const NodePtr& node,
       RETURN_NOT_OK(FromPrimitive(primitive, &type));
     }
   }
-  if (type != nullptr) {
-    *out = std::make_shared<Field>(node->name(), type, nullable);
-  }
+  if (type != nullptr) { *out = std::make_shared<Field>(node->name(), type, nullable); }
   return Status::OK();
 }
 
@@ -354,11 +343,9 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
   for (int i = 0; i < schema_node->field_count(); i++) {
-    RETURN_NOT_OK(NodeToFieldInternal(
-      schema_node->field(i), &included_leaf_nodes, &field));
-    if (field != nullptr) {
-      fields.push_back(field);
-    }
+    RETURN_NOT_OK(
+        NodeToFieldInternal(schema_node->field(i), &included_leaf_nodes, &field));
+    if (field != nullptr) { fields.push_back(field); }
   }
 
   *out = std::make_shared<::arrow::Schema>(fields);

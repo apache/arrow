@@ -496,9 +496,6 @@ Status FileWriter::Impl::Close() {
   return Status::OK();
 }
 
-FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
-    : impl_(new FileWriter::Impl(pool, std::move(writer))) {}
-
 Status FileWriter::NewRowGroup(int64_t chunk_size) {
   return impl_->NewRowGroup(chunk_size);
 }
@@ -589,16 +586,33 @@ MemoryPool* FileWriter::memory_pool() const {
 
 FileWriter::~FileWriter() {}
 
-Status WriteTable(const Table& table, MemoryPool* pool,
-    const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties) {
-  std::shared_ptr<SchemaDescriptor> parquet_schema;
-  RETURN_NOT_OK(ToParquetSchema(table.schema().get(), *properties, &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-  std::unique_ptr<ParquetFileWriter> parquet_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties);
-  FileWriter writer(pool, std::move(parquet_writer));
+FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
+    : impl_(new FileWriter::Impl(pool, std::move(writer))) {}
 
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<OutputStream>& sink,
+    const std::shared_ptr<WriterProperties>& properties,
+    std::unique_ptr<FileWriter>* writer) {
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  RETURN_NOT_OK(ToParquetSchema(&schema, *properties, &parquet_schema));
+
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+  std::unique_ptr<ParquetFileWriter> base_writer =
+      ParquetFileWriter::Open(sink, schema_node, properties);
+
+  writer->reset(new FileWriter(pool, std::move(base_writer)));
+  return Status::OK();
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<::arrow::io::OutputStream>& sink,
+    const std::shared_ptr<WriterProperties>& properties,
+    std::unique_ptr<FileWriter>* writer) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  return Open(schema, pool, wrapper, properties, writer);
+}
+
+Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   // TODO(ARROW-232) Support writing chunked arrays.
   for (int i = 0; i < table.num_columns(); i++) {
     if (table.column(i)->data()->num_chunks() != 1) {
@@ -609,19 +623,26 @@ Status WriteTable(const Table& table, MemoryPool* pool,
   for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
     int64_t offset = chunk * chunk_size;
     int64_t size = std::min(chunk_size, table.num_rows() - offset);
-    RETURN_NOT_OK_ELSE(writer.NewRowGroup(size), PARQUET_IGNORE_NOT_OK(writer.Close()));
+    RETURN_NOT_OK_ELSE(NewRowGroup(size), PARQUET_IGNORE_NOT_OK(Close()));
     for (int i = 0; i < table.num_columns(); i++) {
       std::shared_ptr<Array> array = table.column(i)->data()->chunk(0);
       array = array->Slice(offset, size);
-      RETURN_NOT_OK_ELSE(
-          writer.WriteColumnChunk(*array), PARQUET_IGNORE_NOT_OK(writer.Close()));
+      RETURN_NOT_OK_ELSE(WriteColumnChunk(*array), PARQUET_IGNORE_NOT_OK(Close()));
     }
   }
-
-  return writer.Close();
+  return Status::OK();
 }
 
-Status WriteTable(const Table& table, MemoryPool* pool,
+Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
+    const std::shared_ptr<WriterProperties>& properties) {
+  std::unique_ptr<FileWriter> writer;
+  RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties, &writer));
+  RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
+  return writer->Close();
+}
+
+Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
@@ -629,5 +650,4 @@ Status WriteTable(const Table& table, MemoryPool* pool,
 }
 
 }  // namespace arrow
-
 }  // namespace parquet

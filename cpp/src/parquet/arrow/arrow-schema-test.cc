@@ -73,8 +73,8 @@ class TestConvertParquetSchema : public ::testing::Test {
     return FromParquetSchema(&descr_, &result_schema_);
   }
 
-  ::arrow::Status ConvertSchema(const std::vector<NodePtr>& nodes,
-        const std::vector<int>& column_indices) {
+  ::arrow::Status ConvertSchema(
+      const std::vector<NodePtr>& nodes, const std::vector<int>& column_indices) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
     return FromParquetSchema(&descr_, column_indices, &result_schema_);
@@ -365,18 +365,14 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchema) {
   // }
   // required int64 leaf3;
   {
+    parquet_fields.push_back(GroupNode::Make("group1", Repetition::REQUIRED,
+        {PrimitiveNode::Make("leaf1", Repetition::REQUIRED, ParquetType::BOOLEAN),
+            PrimitiveNode::Make("leaf2", Repetition::REQUIRED, ParquetType::INT32)}));
     parquet_fields.push_back(
-        GroupNode::Make("group1", Repetition::REQUIRED, {
-          PrimitiveNode::Make(
-            "leaf1", Repetition::REQUIRED, ParquetType::BOOLEAN),
-          PrimitiveNode::Make(
-            "leaf2", Repetition::REQUIRED, ParquetType::INT32)}));
-    parquet_fields.push_back(PrimitiveNode::Make(
-        "leaf3", Repetition::REQUIRED, ParquetType::INT64));
+        PrimitiveNode::Make("leaf3", Repetition::REQUIRED, ParquetType::INT64));
 
-    auto group1_fields = {
-      std::make_shared<Field>("leaf1", BOOL, false),
-      std::make_shared<Field>("leaf2", INT32, false)};
+    auto group1_fields = {std::make_shared<Field>("leaf1", BOOL, false),
+        std::make_shared<Field>("leaf2", INT32, false)};
     auto arrow_group1_type = std::make_shared<::arrow::StructType>(group1_fields);
     arrow_fields.push_back(std::make_shared<Field>("group1", arrow_group1_type, false));
     arrow_fields.push_back(std::make_shared<Field>("leaf3", INT64, false));
@@ -412,20 +408,14 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchemaPartial) {
   // }
   // required int64 leaf5;
   {
+    parquet_fields.push_back(GroupNode::Make("group1", Repetition::REQUIRED,
+        {PrimitiveNode::Make("leaf1", Repetition::REQUIRED, ParquetType::INT64),
+            PrimitiveNode::Make("leaf2", Repetition::REQUIRED, ParquetType::INT64)}));
+    parquet_fields.push_back(GroupNode::Make("group2", Repetition::REQUIRED,
+        {PrimitiveNode::Make("leaf3", Repetition::REQUIRED, ParquetType::INT64),
+            PrimitiveNode::Make("leaf4", Repetition::REQUIRED, ParquetType::INT64)}));
     parquet_fields.push_back(
-        GroupNode::Make("group1", Repetition::REQUIRED, {
-          PrimitiveNode::Make(
-            "leaf1", Repetition::REQUIRED, ParquetType::INT64),
-          PrimitiveNode::Make(
-            "leaf2", Repetition::REQUIRED, ParquetType::INT64)}));
-    parquet_fields.push_back(
-        GroupNode::Make("group2", Repetition::REQUIRED, {
-          PrimitiveNode::Make(
-            "leaf3", Repetition::REQUIRED, ParquetType::INT64),
-          PrimitiveNode::Make(
-            "leaf4", Repetition::REQUIRED, ParquetType::INT64)}));
-    parquet_fields.push_back(PrimitiveNode::Make(
-        "leaf5", Repetition::REQUIRED, ParquetType::INT64));
+        PrimitiveNode::Make("leaf5", Repetition::REQUIRED, ParquetType::INT64));
 
     auto group1_fields = {std::make_shared<Field>("leaf1", INT64, false)};
     auto arrow_group1_type = std::make_shared<::arrow::StructType>(group1_fields);
@@ -456,26 +446,24 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
     //   }
     parquet_fields.push_back(
         PrimitiveNode::Make("leaf1", Repetition::OPTIONAL, ParquetType::INT32));
-    parquet_fields.push_back(
-      GroupNode::Make("outerGroup", Repetition::REPEATED, {
-        PrimitiveNode::Make(
-          "leaf2", Repetition::OPTIONAL, ParquetType::INT32),
-        GroupNode::Make("innerGroup", Repetition::REPEATED, {
-          PrimitiveNode::Make(
-            "leaf3", Repetition::OPTIONAL, ParquetType::INT32)})}));
+    parquet_fields.push_back(GroupNode::Make("outerGroup", Repetition::REPEATED,
+        {PrimitiveNode::Make("leaf2", Repetition::OPTIONAL, ParquetType::INT32),
+            GroupNode::Make("innerGroup", Repetition::REPEATED,
+                {PrimitiveNode::Make(
+                    "leaf3", Repetition::OPTIONAL, ParquetType::INT32)})}));
 
     auto inner_group_fields = {std::make_shared<Field>("leaf3", INT32, true)};
     auto inner_group_type = std::make_shared<::arrow::StructType>(inner_group_fields);
-    auto outer_group_fields = {
-        std::make_shared<Field>("leaf2", INT32, true),
-        std::make_shared<Field>("innerGroup", ::arrow::list(
-            std::make_shared<Field>("innerGroup", inner_group_type, false)), false)};
+    auto outer_group_fields = {std::make_shared<Field>("leaf2", INT32, true),
+        std::make_shared<Field>("innerGroup",
+            ::arrow::list(std::make_shared<Field>("innerGroup", inner_group_type, false)),
+            false)};
     auto outer_group_type = std::make_shared<::arrow::StructType>(outer_group_fields);
 
     arrow_fields.push_back(std::make_shared<Field>("leaf1", INT32, true));
-    arrow_fields.push_back(
-        std::make_shared<Field>("outerGroup", ::arrow::list(
-            std::make_shared<Field>("outerGroup", outer_group_type, false)), false));
+    arrow_fields.push_back(std::make_shared<Field>("outerGroup",
+        ::arrow::list(std::make_shared<Field>("outerGroup", outer_group_type, false)),
+        false));
   }
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
