@@ -48,6 +48,7 @@ matrix:
   - compiler: clang
     osx_image: xcode6.4
     os: osx
+    cache:
     addons:
     before_script:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh

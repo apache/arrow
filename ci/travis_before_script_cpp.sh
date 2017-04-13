@@ -24,6 +24,7 @@ conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew update > /dev/null
   brew install jemalloc
+  brew install ccache
 fi
 
 mkdir $ARROW_CPP_BUILD_DIR
