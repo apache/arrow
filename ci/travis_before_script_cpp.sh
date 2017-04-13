@@ -15,8 +15,6 @@
 
 set -ex
 
-: ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
-
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
@@ -28,8 +26,8 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew install jemalloc
 fi
 
-mkdir $CPP_BUILD_DIR
-pushd $CPP_BUILD_DIR
+mkdir $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \

@@ -14,23 +14,16 @@
 
 set -e
 
-: ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-JAVA_DIR=${TRAVIS_BUILD_DIR}/java
-
-pushd $JAVA_DIR
+pushd $ARROW_JAVA_DIR
 
 mvn package
 
 popd
 
-pushd $TRAVIS_BUILD_DIR/integration
-
-export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
-
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-export MINICONDA=$HOME/miniconda
-export PATH="$MINICONDA/bin:$PATH"
+pushd $ARROW_INTEGRATION_DIR
+export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 
 CONDA_ENV_NAME=arrow-integration-test
 conda create -y -q -n $CONDA_ENV_NAME python=3.5
