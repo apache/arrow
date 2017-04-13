@@ -24,7 +24,6 @@ import pytest
 from pyarrow.compat import guid, u
 from pyarrow.filesystem import LocalFilesystem
 import pyarrow as pa
-import pyarrow.io as paio
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 import numpy as np
@@ -180,10 +179,10 @@ def _test_dataframe(size=10000, seed=0):
 def test_pandas_parquet_native_file_roundtrip(tmpdir):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
-    imos = paio.InMemoryOutputStream()
+    imos = pa.InMemoryOutputStream()
     pq.write_table(arrow_table, imos, version="2.0")
     buf = imos.get_result()
-    reader = paio.BufferReader(buf)
+    reader = pa.BufferReader(buf)
     df_read = pq.read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
 

@@ -99,16 +99,14 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
-        'array',
-        'config',
-        'error',
-        'io',
-        'jemalloc',
-        'memory',
+        '_array',
+        '_config',
+        '_error',
+        '_io',
+        '_jemalloc',
+        '_memory',
         '_parquet',
-        'scalar',
-        'schema',
-        'table']
+        '_table']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -261,7 +259,7 @@ class build_ext(_build_ext):
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
             return True
-        if name == 'jemalloc' and not self.with_jemalloc:
+        if name == '_jemalloc' and not self.with_jemalloc:
             return True
         return False
 

@@ -26,8 +26,6 @@ import pandas.util.testing as pdt
 import pytest
 
 from pyarrow.compat import guid
-from pyarrow.filesystem import HdfsClient
-import pyarrow.io as io
 import pyarrow as pa
 
 import pyarrow.tests.test_parquet as test_parquet
@@ -45,7 +43,7 @@ def hdfs_test_client(driver='libhdfs'):
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return HdfsClient(host, port, user, driver=driver)
+    return pa.HdfsClient(host, port, user, driver=driver)
 
 
 @pytest.mark.hdfs
@@ -190,7 +188,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
     @classmethod
     def check_driver(cls):
-        if not io.have_libhdfs():
+        if not pa.have_libhdfs():
             pytest.fail('No libhdfs available on system')
 
     def test_hdfs_orphaned_file(self):
@@ -209,5 +207,5 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
 
     @classmethod
     def check_driver(cls):
-        if not io.have_libhdfs3():
+        if not pa.have_libhdfs3():
             pytest.fail('No libhdfs3 available on system')

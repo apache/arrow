@@ -25,7 +25,7 @@ import pyarrow as pa
 from pyarrow.compat import guid
 from pyarrow.feather import (read_feather, write_feather,
                              FeatherReader)
-from pyarrow.io import FeatherWriter
+from pyarrow._io import FeatherWriter
 
 
 def random_path():

@@ -24,18 +24,16 @@ from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.common cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
+from pyarrow._array cimport (Array, box_array, wrap_array_output,
+                             box_data_type, box_schema, DataType, Field)
+from pyarrow._error cimport check_status
+cimport cpython
 
-import pyarrow.config
-
-from pyarrow.array cimport Array, box_array, wrap_array_output
-from pyarrow.error import ArrowException
-from pyarrow.error cimport check_status
-from pyarrow.schema cimport box_data_type, box_schema, DataType, Field
-
-from pyarrow.schema import field
+import pyarrow._config
+from pyarrow._error import ArrowException
+from pyarrow._array import field
 from pyarrow.compat import frombytes, tobytes
 
-cimport cpython
 
 from collections import OrderedDict
 
@@ -744,7 +742,7 @@ cdef class Table:
         pandas.DataFrame
         """
         if nthreads is None:
-            nthreads = pyarrow.config.cpu_count()
+            nthreads = pyarrow._config.cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return _pandas().DataFrame(mgr)

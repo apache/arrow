@@ -18,8 +18,7 @@
 from pyarrow.includes.common cimport shared_ptr
 from pyarrow.includes.libarrow cimport (CChunkedArray, CColumn, CTable,
                                         CRecordBatch)
-
-from pyarrow.schema cimport Schema
+from pyarrow._array cimport Schema
 
 
 cdef class ChunkedArray:

@@ -24,7 +24,6 @@ import numpy as np
 
 from pyarrow.compat import u, guid
 import pyarrow as pa
-import pyarrow.io as io
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -33,7 +32,7 @@ import pyarrow.io as io
 def test_python_file_write():
     buf = BytesIO()
 
-    f = io.PythonFileInterface(buf)
+    f = pa.PythonFileInterface(buf)
 
     assert f.tell() == 0
 
@@ -57,7 +56,7 @@ def test_python_file_read():
     data = b'some sample data'
 
     buf = BytesIO(data)
-    f = io.PythonFileInterface(buf, mode='r')
+    f = pa.PythonFileInterface(buf, mode='r')
 
     assert f.size() == len(data)
 
@@ -82,7 +81,7 @@ def test_python_file_read():
 def test_bytes_reader():
     # Like a BytesIO, but zero-copy underneath for C++ consumers
     data = b'some sample data'
-    f = io.BufferReader(data)
+    f = pa.BufferReader(data)
     assert f.tell() == 0
 
     assert f.size() == len(data)
@@ -103,7 +102,7 @@ def test_bytes_reader():
 
 def test_bytes_reader_non_bytes():
     with pytest.raises(ValueError):
-        io.BufferReader(u('some sample data'))
+        pa.BufferReader(u('some sample data'))
 
 
 def test_bytes_reader_retains_parent_reference():
@@ -112,7 +111,7 @@ def test_bytes_reader_retains_parent_reference():
     # ARROW-421
     def get_buffer():
         data = b'some sample data' * 1000
-        reader = io.BufferReader(data)
+        reader = pa.BufferReader(data)
         reader.seek(5)
         return reader.read_buffer(6)
 
@@ -129,7 +128,7 @@ def test_buffer_bytes():
     val = b'some data'
 
     buf = pa.frombuffer(val)
-    assert isinstance(buf, io.Buffer)
+    assert isinstance(buf, pa.Buffer)
 
     result = buf.to_pybytes()
 
@@ -140,7 +139,7 @@ def test_buffer_memoryview():
     val = b'some data'
 
     buf = pa.frombuffer(val)
-    assert isinstance(buf, io.Buffer)
+    assert isinstance(buf, pa.Buffer)
 
     result = memoryview(buf)
 
@@ -151,7 +150,7 @@ def test_buffer_bytearray():
     val = bytearray(b'some data')
 
     buf = pa.frombuffer(val)
-    assert isinstance(buf, io.Buffer)
+    assert isinstance(buf, pa.Buffer)
 
     result = bytearray(buf)
 
@@ -162,7 +161,7 @@ def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
     buf = pa.frombuffer(val)
-    assert isinstance(buf, io.Buffer)
+    assert isinstance(buf, pa.Buffer)
 
     result = memoryview(buf)
 
@@ -180,7 +179,7 @@ def test_memory_output_stream():
     # 10 bytes
     val = b'dataabcdef'
 
-    f = io.InMemoryOutputStream()
+    f = pa.InMemoryOutputStream()
 
     K = 1000
     for i in range(K):
@@ -193,7 +192,7 @@ def test_memory_output_stream():
 
 
 def test_inmemory_write_after_closed():
-    f = io.InMemoryOutputStream()
+    f = pa.InMemoryOutputStream()
     f.write(b'ok')
     f.get_result()
 
@@ -213,7 +212,7 @@ def test_buffer_protocol_ref_counting():
 
 
 def test_nativefile_write_memoryview():
-    f = io.InMemoryOutputStream()
+    f = pa.InMemoryOutputStream()
     data = b'ok'
 
     arr = np.frombuffer(data, dtype='S1')
@@ -289,7 +288,7 @@ def test_memory_map_retain_buffer_reference(sample_disk_data):
 
 
 def test_os_file_reader(sample_disk_data):
-    _check_native_file_reader(io.OSFile, sample_disk_data)
+    _check_native_file_reader(pa.OSFile, sample_disk_data)
 
 
 def _try_delete(path):
@@ -354,10 +353,10 @@ def test_os_file_writer():
             f.write(data)
 
         # Truncates file
-        f2 = io.OSFile(path, mode='w')
+        f2 = pa.OSFile(path, mode='w')
         f2.write('foo')
 
-        with io.OSFile(path) as f3:
+        with pa.OSFile(path) as f3:
             assert f3.size() == 3
 
         with pytest.raises(IOError):
