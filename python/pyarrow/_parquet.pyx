@@ -551,7 +551,7 @@ cdef class ParquetWriter:
                 props.enable_dictionary()
             else:
                 props.disable_dictionary()
-        else:
+        elif self.use_dictionary is not None:
             # Deactivate dictionary encoding by default
             props.disable_dictionary()
             for column in self.use_dictionary:
