@@ -115,7 +115,7 @@ python_version_tests() {
   python setup.py build_ext --inplace --with-parquet --with-jemalloc
 
   python -c "import pyarrow.parquet"
-  python -c "import pyarrow.jemalloc"
+  python -c "import pyarrow._jemalloc"
 
   python -m pytest -vv -r sxX pyarrow
 
