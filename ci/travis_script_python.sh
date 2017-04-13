@@ -123,7 +123,7 @@ python_version_tests() {
   if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
       pip install -r doc/requirements.txt
-      python setup.py build_sphinx
+      python setup.py build_sphinx -s doc/source
   fi
 }
 
