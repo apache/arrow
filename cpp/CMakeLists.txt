@@ -90,9 +90,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow micro benchmarks"
     OFF)
 
-  option(ARROW_IPC
-    "Build the Arrow IPC extensions"
-    ON)
+  option(ARROW_PARQUET_DEPENDENCY_ONLY
+    "Build only dependencies required for C++ Parquet without Arrow support"
+    OFF)
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
@@ -131,6 +131,10 @@ if(ARROW_BUILD_TESTS)
   set(ARROW_BUILD_STATIC ON)
 else()
   set(NO_TESTS 1)
+endif()
+
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_UTILITIES)
+  set(ARROW_PARQUET_DEPENDENCY_ONLY OFF)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -621,27 +625,28 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-# RapidJSON, header only dependency
-if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
-  ExternalProject_Add(rapidjson_ep
-    PREFIX "${CMAKE_BINARY_DIR}"
-    URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
-    URL_MD5 "badd12c511e081fec6c89c43a7027bce"
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    BUILD_IN_SOURCE 1
-    INSTALL_COMMAND "")
+if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+  # RapidJSON, header only dependency
+  if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
+    ExternalProject_Add(rapidjson_ep
+      PREFIX "${CMAKE_BINARY_DIR}"
+      URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
+      URL_MD5 "badd12c511e081fec6c89c43a7027bce"
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      BUILD_IN_SOURCE 1
+      INSTALL_COMMAND "")
 
-  ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
-  set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
-  set(RAPIDJSON_VENDORED 1)
-else()
-  set(RAPIDJSON_INCLUDE_DIR "$ENV{RAPIDJSON_HOME}/include")
-  set(RAPIDJSON_VENDORED 0)
+    ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
+    set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
+    set(RAPIDJSON_VENDORED 1)
+  else()
+    set(RAPIDJSON_INCLUDE_DIR "$ENV{RAPIDJSON_HOME}/include")
+    set(RAPIDJSON_VENDORED 0)
+  endif()
+  message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
+  include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 endif()
-message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
-include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-
 #----------------------------------------------------------------------
 
 if (MSVC)
@@ -705,48 +710,50 @@ endif()
 #   set(ARROW_TCMALLOC_AVAILABLE 1)
 # endif()
 
-## Flatbuffers
+if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+  ## Flatbuffers
+  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    ExternalProject_Add(flatbuffers_ep
+      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      CMAKE_ARGS
+      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+      "-DFLATBUFFERS_BUILD_TESTS=OFF")
 
-if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
-  set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-  ExternalProject_Add(flatbuffers_ep
-    URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
-    CMAKE_ARGS
-    "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-    "-DFLATBUFFERS_BUILD_TESTS=OFF")
+    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+    set(FLATBUFFERS_VENDORED 1)
+  else()
+    find_package(Flatbuffers REQUIRED)
+    set(FLATBUFFERS_VENDORED 0)
+  endif()
 
-  set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-  set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-  set(FLATBUFFERS_VENDORED 1)
-else()
-  find_package(Flatbuffers REQUIRED)
-  set(FLATBUFFERS_VENDORED 0)
+  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
+  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
+  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 endif()
-
-message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
-include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 
 ########################################################################
-# HDFS thirdparty setup
-
-if (DEFINED ENV{HADOOP_HOME})
-  set(HADOOP_HOME $ENV{HADOOP_HOME})
-  if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
-    message(STATUS "Did not find hdfs.h in expected location, using vendored one")
+if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+  # HDFS thirdparty setup
+  if (DEFINED ENV{HADOOP_HOME})
+    set(HADOOP_HOME $ENV{HADOOP_HOME})
+    if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
+      message(STATUS "Did not find hdfs.h in expected location, using vendored one")
+      set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
+    endif()
+  else()
     set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
   endif()
-else()
-  set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-endif()
 
-set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
-if (NOT EXISTS ${HDFS_H_PATH})
-  message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
-endif()
-message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
+  set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
+  if (NOT EXISTS ${HDFS_H_PATH})
+    message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
+  endif()
+  message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
 
-include_directories(SYSTEM "${HADOOP_HOME}/include")
+  include_directories(SYSTEM "${HADOOP_HOME}/include")
+endif()
 
 ############################################################
 # Linker setup
@@ -889,36 +896,50 @@ add_subdirectory(src/arrow/ipc)
 
 set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
-set(ARROW_SRCS
-  src/arrow/array.cc
-  src/arrow/buffer.cc
-  src/arrow/builder.cc
-  src/arrow/compare.cc
-  src/arrow/loader.cc
-  src/arrow/memory_pool.cc
-  src/arrow/pretty_print.cc
-  src/arrow/status.cc
-  src/arrow/table.cc
-  src/arrow/tensor.cc
-  src/arrow/type.cc
-  src/arrow/visitor.cc
+if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+  set(ARROW_SRCS
+    src/arrow/array.cc
+    src/arrow/buffer.cc
+    src/arrow/builder.cc
+    src/arrow/compare.cc
+    src/arrow/loader.cc
+    src/arrow/memory_pool.cc
+    src/arrow/pretty_print.cc
+    src/arrow/status.cc
+    src/arrow/table.cc
+    src/arrow/tensor.cc
+    src/arrow/type.cc
+    src/arrow/visitor.cc
 
-  src/arrow/io/file.cc
-  src/arrow/io/hdfs.cc
-  src/arrow/io/hdfs-internal.cc
-  src/arrow/io/interfaces.cc
-  src/arrow/io/memory.cc
+    src/arrow/io/file.cc
+    src/arrow/io/hdfs.cc
+    src/arrow/io/hdfs-internal.cc
+    src/arrow/io/interfaces.cc
+    src/arrow/io/memory.cc
 
-  src/arrow/ipc/feather.cc
-  src/arrow/ipc/json.cc
-  src/arrow/ipc/json-internal.cc
-  src/arrow/ipc/metadata.cc
-  src/arrow/ipc/reader.cc
-  src/arrow/ipc/writer.cc
+    src/arrow/ipc/feather.cc
+    src/arrow/ipc/json.cc
+    src/arrow/ipc/json-internal.cc
+    src/arrow/ipc/metadata.cc
+    src/arrow/ipc/reader.cc
+    src/arrow/ipc/writer.cc
 
-  src/arrow/util/bit-util.cc
-  src/arrow/util/decimal.cc
-)
+    src/arrow/util/bit-util.cc
+    src/arrow/util/decimal.cc
+  )
+else()
+  set(ARROW_SRCS
+    src/arrow/buffer.cc
+    src/arrow/memory_pool.cc
+    src/arrow/status.cc
+
+    src/arrow/io/file.cc
+    src/arrow/io/interfaces.cc
+    src/arrow/io/memory.cc
+
+    src/arrow/util/bit-util.cc
+  )
+endif()
 
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
