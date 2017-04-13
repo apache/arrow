@@ -64,7 +64,7 @@ set( CYTHON_NO_DOCSTRINGS OFF
   CACHE BOOL "Strip docstrings from the compiled module." )
 set( CYTHON_FLAGS "" CACHE STRING
   "Extra flags to the cython compiler." )
-mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS )
+mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS)
 
 find_package( Cython REQUIRED )
 find_package( PythonLibsNew REQUIRED )
@@ -131,7 +131,8 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
   # Add the command to run the compiler.
   add_custom_target(${pyx_target_name}
     COMMAND ${CYTHON_EXECUTABLE} ${cxx_arg} ${include_directory_arg}
-    ${annotate_arg} ${no_docstrings_arg} ${cython_debug_arg} ${CYTHON_FLAGS}
+    ${annotate_arg} ${no_docstrings_arg} ${cython_debug_arg}
+    ${CYTHON_FLAGS}
     --output-file "${_name}.${extension}" ${pyx_location}
     DEPENDS ${pyx_location}
     # do not specify byproducts for now since they don't work with the older

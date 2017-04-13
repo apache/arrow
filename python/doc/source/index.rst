@@ -38,7 +38,7 @@ structures.
    pandas
    filesystems
    parquet
-   modules
+   api
    getting_involved
 
 .. toctree::

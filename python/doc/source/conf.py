@@ -29,18 +29,7 @@ import inspect
 import os
 import sys
 
-from sphinx import apidoc
-
 import sphinx_rtd_theme
-
-
-__location__ = os.path.join(os.getcwd(), os.path.dirname(
-        inspect.getfile(inspect.currentframe())))
-output_dir = os.path.join(__location__)
-module_dir = os.path.join(__location__, "..", "pyarrow")
-cmd_line_template = "sphinx-apidoc -f -e -o {outputdir} {moduledir}"
-cmd_line = cmd_line_template.format(outputdir=output_dir, moduledir=module_dir)
-apidoc.main(cmd_line.split(" "))
 
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
@@ -48,6 +37,12 @@ if not on_rtd:
     # Hack: On RTD we use the pyarrow package from conda-forge as we cannot
     # build pyarrow there.
     sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.extend([
+    os.path.join(os.path.dirname(__file__),
+                 '..', '../..')
+
+])
 
 # -- General configuration ------------------------------------------------
 
@@ -64,7 +59,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
 ]
 
 # numpydoc configuration
@@ -78,6 +73,9 @@ templates_path = ['_templates']
 #
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
+
+import glob
+autosummary_generate = glob.glob("*.rst")
 
 # The encoding of source files.
 #
