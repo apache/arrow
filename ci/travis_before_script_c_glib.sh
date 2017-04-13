@@ -15,13 +15,13 @@
 
 set -ex
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 if [ $TRAVIS_OS_NAME == "osx" ]; then
     brew install gtk-doc autoconf-archive gobject-introspection
 fi
 
 gem install gobject-introspection
-
-ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 
 pushd $ARROW_C_GLIB_DIR
 

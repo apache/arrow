@@ -15,19 +15,20 @@
 
 set -ex
 
-: ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
+# Set up C++ toolchain from conda-forge packages for faster builds
+conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew update > /dev/null
   brew install jemalloc
+  brew install ccache
 fi
 
-mkdir $CPP_BUILD_DIR
-pushd $CPP_BUILD_DIR
-
-CPP_DIR=$TRAVIS_BUILD_DIR/cpp
-
-: ${ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install}
+mkdir $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
@@ -37,11 +38,11 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake -DARROW_TEST_MEMCHECK=on \
           $CMAKE_COMMON_FLAGS \
           -DARROW_CXXFLAGS="-Wconversion -Werror" \
-          $CPP_DIR
+          $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
           -DARROW_CXXFLAGS=-Werror \
-          $CPP_DIR
+          $ARROW_CPP_DIR
 fi
 
 make -j4

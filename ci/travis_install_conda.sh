@@ -22,8 +22,7 @@ fi
 
 wget -O miniconda.sh $MINICONDA_URL
 
-export MINICONDA=$HOME/miniconda
-export CONDA_PKGS_DIRS=$HOME/.conda_packages
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 mkdir -p $CONDA_PKGS_DIRS
 
 bash miniconda.sh -b -p $MINICONDA

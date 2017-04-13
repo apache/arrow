@@ -14,17 +14,11 @@
 
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-PYTHON_DIR=$TRAVIS_BUILD_DIR/python
-
-# Re-use conda installation from C++
-export MINICONDA=$HOME/miniconda
-export PATH="$MINICONDA/bin:$PATH"
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 export ARROW_HOME=$ARROW_CPP_INSTALL
 
-pushd $PYTHON_DIR
+pushd $ARROW_PYTHON_DIR
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 build_parquet_cpp() {
@@ -101,10 +95,10 @@ python_version_tests() {
   which python
 
   # faster builds, please
-  conda install -y nomkl
+  conda install -y -q nomkl
 
   # Expensive dependencies install from Continuum package repo
-  conda install -y pip numpy pandas cython
+  conda install -y -q pip numpy pandas cython
 
   # Build C++ libraries
   build_arrow_libraries arrow-build-$PYTHON_VERSION $ARROW_HOME
