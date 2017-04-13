@@ -1504,8 +1504,7 @@ class DatetimeBlock : public PandasBlock {
     const ChunkedArray& data = *col.get()->data();
 
     if (type == Type::DATE32) {
-      // Date64Type is millisecond timestamp stored as int64_t
-      // TODO(wesm): Do we want to make sure to zero out the milliseconds?
+      // Convert from days since epoch to datetime64[ns]
       ConvertDatetimeNanos<int32_t, kNanosecondsInDay>(data, out_buffer);
     } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
