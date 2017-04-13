@@ -12,29 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
 
+export MINICONDA=$HOME/miniconda
+export PATH="$MINICONDA/bin:$PATH"
+export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
-set -ex
+# C++ toolchain
+export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
+export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
+export RAPIDJSON_HOME=$CPP_TOOLCHAIN
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
+export ARROW_PYTHON_DIR=$TRAVIS_BUILD_DIR/python
+export ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
-    brew install gtk-doc autoconf-archive gobject-introspection
-fi
-
-gem install gobject-introspection
-
-pushd $ARROW_C_GLIB_DIR
-
-: ${ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install}
-
-./autogen.sh
-
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
-
-./configure --prefix=${ARROW_C_GLIB_INSTALL} --enable-gtk-doc
-
-make -j4
-make install
-
-popd
+export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
