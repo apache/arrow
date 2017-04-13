@@ -21,7 +21,8 @@ import numpy as np
 
 from pyarrow.filesystem import LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
-                              RowGroupMetaData, Schema, ParquetWriter)
+                              RowGroupMetaData, ParquetSchema,
+                              ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
 import pyarrow._array as _array
 import pyarrow._table as _table
@@ -622,7 +623,24 @@ def write_table(table, where, row_group_size=None, version='1.0',
         Specify the compression codec, either on a general basis or per-column.
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
-    writer = ParquetWriter(where, use_dictionary=use_dictionary,
+    writer = ParquetWriter(where, table.schema,
+                           use_dictionary=use_dictionary,
                            compression=compression,
                            version=version)
     writer.write_table(table, row_group_size=row_group_size)
+    writer.close()
+
+
+def write_metadata(schema, where, version='1.0'):
+    """
+    Write metadata-only Parquet file from schema
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+    where: string or pyarrow.io.NativeFile
+    version : {"1.0", "2.0"}, default "1.0"
+        The Parquet format version, defaults to 1.0
+    """
+    writer = ParquetWriter(where, schema, version=version)
+    writer.close()
