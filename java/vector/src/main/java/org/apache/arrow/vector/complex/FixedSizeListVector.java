@@ -171,6 +171,12 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return success;
   }
 
+  @Override
+  public void reAlloc() {
+    bits.reAlloc();
+    vector.reAlloc();
+  }
+
   public FieldVector getDataVector() {
     return vector;
   }
