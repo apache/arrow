@@ -105,8 +105,10 @@ public class TestArrowStreamPipe {
           return message;
         }
         @Override
-        public void loadNextBatch() throws IOException {
-          super.loadNextBatch();
+        public boolean loadNextBatch() throws IOException {
+          if (!super.loadNextBatch()) {
+            return false;
+          }
           if (!done) {
             VectorSchemaRoot root = getVectorSchemaRoot();
             Assert.assertEquals(16, root.getRowCount());
@@ -120,6 +122,7 @@ public class TestArrowStreamPipe {
               }
             }
           }
+          return true;
         }
       };
     }
@@ -132,7 +135,7 @@ public class TestArrowStreamPipe {
             reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectorTypes().toString(),
             reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectors().size() > 0);
         while (!done) {
-          reader.loadNextBatch();
+          assertTrue(reader.loadNextBatch());
         }
       } catch (IOException e) {
         e.printStackTrace();

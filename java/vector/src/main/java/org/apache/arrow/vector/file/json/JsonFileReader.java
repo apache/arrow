@@ -94,7 +94,7 @@ public class JsonFileReader implements AutoCloseable {
     }
   }
 
-  public void read(VectorSchemaRoot root) throws IOException {
+  public boolean read(VectorSchemaRoot root) throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
       {
@@ -111,8 +111,10 @@ public class JsonFileReader implements AutoCloseable {
         readToken(END_ARRAY);
       }
       readToken(END_OBJECT);
+      return true;
     } else if (t == END_ARRAY) {
       root.setRowCount(0);
+      return false;
     } else {
       throw new IllegalArgumentException("Invalid token: " + t);
     }

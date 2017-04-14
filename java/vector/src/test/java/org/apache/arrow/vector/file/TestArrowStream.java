@@ -19,6 +19,7 @@ package org.apache.arrow.vector.file;
 
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -36,6 +37,7 @@ import org.apache.arrow.vector.stream.ArrowStreamReader;
 import org.apache.arrow.vector.stream.ArrowStreamWriter;
 import org.apache.arrow.vector.stream.MessageSerializerTest;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestArrowStream extends BaseFileTest {
@@ -52,10 +54,10 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
       assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
-      // Empty should return nothing. Can be called repeatedly.
-      reader.loadNextBatch();
+      // Empty should return false
+      Assert.assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
-      reader.loadNextBatch();
+      Assert.assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
     }
   }
@@ -90,11 +92,11 @@ public class TestArrowStream extends BaseFileTest {
         Schema readSchema = reader.getVectorSchemaRoot().getSchema();
         assertEquals(schema, readSchema);
         for (int i = 0; i < numBatches; i++) {
-          reader.loadNextBatch();
+          assertTrue(reader.loadNextBatch());
         }
         // TODO figure out why reader isn't getting padding bytes
         assertEquals(bytesWritten, reader.bytesRead() + 4);
-        reader.loadNextBatch();
+        assertFalse(reader.loadNextBatch());
         assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
       }
     }

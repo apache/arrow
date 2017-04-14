@@ -118,7 +118,7 @@ public class EchoServerTest {
       NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot()
           .getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
-        reader.loadNextBatch();
+        Assert.assertTrue(reader.loadNextBatch());
         assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
         assertEquals(16, readVector.getAccessor().getValueCount());
         for (int j = 0; j < 8; j++) {
@@ -126,7 +126,7 @@ public class EchoServerTest {
           assertTrue(readVector.getAccessor().isNull(j + 8));
         }
       }
-      reader.loadNextBatch();
+      Assert.assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
       assertEquals(reader.bytesRead(), writer.bytesWritten());
     }

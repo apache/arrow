@@ -103,14 +103,14 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
     return footer.getRecordBatches();
   }
 
-  public void loadRecordBatch(ArrowBlock block) throws IOException {
+  public boolean loadRecordBatch(ArrowBlock block) throws IOException {
     ensureInitialized();
     int blockIndex = footer.getRecordBatches().indexOf(block);
     if (blockIndex == -1) {
       throw new IllegalArgumentException("Arrow bock does not exist in record batches: " + block);
     }
     currentRecordBatch = blockIndex;
-    loadNextBatch();
+    return loadNextBatch();
   }
 
   private ArrowDictionaryBatch readDictionaryBatch(SeekableReadChannel in,

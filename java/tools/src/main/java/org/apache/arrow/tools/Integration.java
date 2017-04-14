@@ -126,7 +126,9 @@ public class Integration {
               .pretty(true))) {
             writer.start(schema);
             for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
-              arrowReader.loadRecordBatch(rbBlock);
+              if (!arrowReader.loadRecordBatch(rbBlock)) {
+                throw new IOException("Expected to load record batch");
+              }
               writer.write(root);
             }
           }
@@ -148,10 +150,8 @@ public class Integration {
                ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream
                    .getChannel())) {
             arrowWriter.start();
-            reader.read(root);
-            while (root.getRowCount() != 0) {
+            while (reader.read(root)) {
               arrowWriter.writeBatch();
-              reader.read(root);
             }
             arrowWriter.end();
           }
@@ -179,16 +179,21 @@ public class Integration {
           List<ArrowBlock> recordBatches = arrowReader.getRecordBlocks();
           Iterator<ArrowBlock> iterator = recordBatches.iterator();
           VectorSchemaRoot jsonRoot;
+          int totalBatches = 0;
           while ((jsonRoot = jsonReader.read()) != null && iterator.hasNext()) {
             ArrowBlock rbBlock = iterator.next();
-            arrowReader.loadRecordBatch(rbBlock);
+            if (!arrowReader.loadRecordBatch(rbBlock)) {
+              throw new IOException("Expected to load record batch");
+            }
             Validator.compareVectorSchemaRoot(arrowRoot, jsonRoot);
             jsonRoot.close();
+            totalBatches++;
           }
           boolean hasMoreJSON = jsonRoot != null;
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {
-            throw new IllegalArgumentException("Unexpected RecordBatches. J:" + hasMoreJSON + " "
+            throw new IllegalArgumentException("Unexpected RecordBatches. Total: " + totalBatches
+                                               + " J:" + hasMoreJSON + " "
                 + "A:" + hasMoreArrow);
           }
         }

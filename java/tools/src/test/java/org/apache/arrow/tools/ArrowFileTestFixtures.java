@@ -67,7 +67,9 @@ public class ArrowFileTestFixtures {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
-        arrowReader.loadRecordBatch(rbBlock);
+        if (!arrowReader.loadRecordBatch(rbBlock)) {
+          throw new IOException("Expected to read record batch");
+        }
         validateContent(COUNT, root);
       }
     }

@@ -152,7 +152,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       Assert.assertEquals(count, root.getRowCount());
       validateContent(count, root);
     }
@@ -193,7 +193,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       Assert.assertEquals(count, root.getRowCount());
       validateComplexContent(count, root);
     }
@@ -263,13 +263,12 @@ public class TestArrowFile extends BaseFileTest {
       int i = 0;
 
       for (int n = 0; n < 2; n++) {
-        arrowReader.loadNextBatch();
+        Assert.assertTrue(arrowReader.loadNextBatch());
         Assert.assertEquals("RB #" + i, counts[i], root.getRowCount());
         validateContent(counts[i], root);
         ++i;
       }
-      arrowReader.loadNextBatch();
-      Assert.assertEquals(0, root.getRowCount());
+      Assert.assertFalse(arrowReader.loadNextBatch());
     }
   }
 
@@ -294,7 +293,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateUnionData(count, root);
     }
 
@@ -305,7 +304,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateUnionData(count, root);
     }
   }
@@ -347,7 +346,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateTinyData(root);
     }
 
@@ -358,7 +357,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateTinyData(root);
     }
   }
@@ -433,7 +432,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateFlatDictionary(root.getFieldVectors().get(0), arrowReader);
     }
 
@@ -444,7 +443,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateFlatDictionary(root.getFieldVectors().get(0), arrowReader);
     }
   }
@@ -537,7 +536,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateNestedDictionary((ListVector) root.getFieldVectors().get(0), arrowReader);
     }
 
@@ -548,7 +547,7 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      arrowReader.loadNextBatch();
+      Assert.assertTrue(arrowReader.loadNextBatch());
       validateNestedDictionary((ListVector) root.getFieldVectors().get(0), arrowReader);
     }
   }

@@ -93,9 +93,7 @@ public class FileRoundtrip {
                  fileOutputStream.getChannel())) {
           arrowWriter.start();
           while (true) {
-            arrowReader.loadNextBatch();
-            int loaded = root.getRowCount();
-            if (loaded == 0) {
+            if (!arrowReader.loadNextBatch()) {
               break;
             } else {
               arrowWriter.writeBatch();
