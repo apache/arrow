@@ -242,6 +242,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     return success;
   }
 
+  @Override
+  public void reAlloc() {
+    bits.reAlloc();
+    values.reAlloc();
+  }
+
   <#if type.major == "VarLen">
   @Override
   public void allocateNew(int totalBytes, int valueCount) {

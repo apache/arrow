@@ -197,6 +197,13 @@ public class NullableMapVector extends MapVector implements FieldVector {
     bits.zeroVector();
     return success;
   }
+
+  @Override
+  public void reAlloc() {
+    bits.reAlloc();
+    super.reAlloc();
+  }
+
   public final class Accessor extends MapVector.Accessor  {
     final BitVector.Accessor bAccessor = bits.getAccessor();
 
