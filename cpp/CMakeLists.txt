@@ -90,9 +90,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow micro benchmarks"
     OFF)
 
-  option(ARROW_PARQUET_DEPENDENCY_ONLY
-    "Build only dependencies required for C++ Parquet without Arrow support"
-    OFF)
+  option(ARROW_IPC
+    "Build the Arrow IPC extensions"
+    ON)
+
+  option(ARROW_HDFS
+    "Build the Arrow HDFS extensions"
+    ON)
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
@@ -131,10 +135,6 @@ if(ARROW_BUILD_TESTS)
   set(ARROW_BUILD_STATIC ON)
 else()
   set(NO_TESTS 1)
-endif()
-
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_UTILITIES)
-  set(ARROW_PARQUET_DEPENDENCY_ONLY OFF)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
@@ -625,7 +625,7 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+if (ARROW_IPC)
   # RapidJSON, header only dependency
   if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
     ExternalProject_Add(rapidjson_ep
@@ -710,7 +710,7 @@ endif()
 #   set(ARROW_TCMALLOC_AVAILABLE 1)
 # endif()
 
-if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+if (ARROW_IPC)
   ## Flatbuffers
   if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
@@ -734,7 +734,7 @@ if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
 endif()
 
 ########################################################################
-if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
+if (ARROW_HDFS)
   # HDFS thirdparty setup
   if (DEFINED ENV{HADOOP_HOME})
     set(HADOOP_HOME $ENV{HADOOP_HOME})
@@ -892,54 +892,51 @@ endif()
 
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
-add_subdirectory(src/arrow/ipc)
+if (ARROW_IPC)
+  add_subdirectory(src/arrow/ipc)
+endif()
 
 set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
-if (NOT ARROW_PARQUET_DEPENDENCY_ONLY)
-  set(ARROW_SRCS
-    src/arrow/array.cc
-    src/arrow/buffer.cc
-    src/arrow/builder.cc
-    src/arrow/compare.cc
-    src/arrow/loader.cc
-    src/arrow/memory_pool.cc
-    src/arrow/pretty_print.cc
-    src/arrow/status.cc
-    src/arrow/table.cc
-    src/arrow/tensor.cc
-    src/arrow/type.cc
-    src/arrow/visitor.cc
+set(ARROW_SRCS
+  src/arrow/array.cc
+  src/arrow/buffer.cc
+  src/arrow/builder.cc
+  src/arrow/compare.cc
+  src/arrow/loader.cc
+  src/arrow/memory_pool.cc
+  src/arrow/pretty_print.cc
+  src/arrow/status.cc
+  src/arrow/table.cc
+  src/arrow/tensor.cc
+  src/arrow/type.cc
+  src/arrow/visitor.cc
 
-    src/arrow/io/file.cc
+  src/arrow/io/file.cc
+  src/arrow/io/interfaces.cc
+  src/arrow/io/memory.cc
+
+  src/arrow/util/bit-util.cc
+  src/arrow/util/decimal.cc
+)
+if (ARROW_HDFS)
+  set(ARROW_SRCS ${ARROW_SRCS}
     src/arrow/io/hdfs.cc
     src/arrow/io/hdfs-internal.cc
-    src/arrow/io/interfaces.cc
-    src/arrow/io/memory.cc
+  )
+endif()
 
+if (ARROW_IPC)
+  set(ARROW_SRCS ${ARROW_SRCS}
     src/arrow/ipc/feather.cc
     src/arrow/ipc/json.cc
     src/arrow/ipc/json-internal.cc
     src/arrow/ipc/metadata.cc
     src/arrow/ipc/reader.cc
     src/arrow/ipc/writer.cc
-
-    src/arrow/util/bit-util.cc
-    src/arrow/util/decimal.cc
-  )
-else()
-  set(ARROW_SRCS
-    src/arrow/buffer.cc
-    src/arrow/memory_pool.cc
-    src/arrow/status.cc
-
-    src/arrow/io/file.cc
-    src/arrow/io/interfaces.cc
-    src/arrow/io/memory.cc
-
-    src/arrow/util/bit-util.cc
   )
 endif()
+
 
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
