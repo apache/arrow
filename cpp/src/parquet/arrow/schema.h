@@ -39,6 +39,13 @@ namespace arrow {
 ::arrow::Status PARQUET_EXPORT NodeToField(
     const schema::NodePtr& node, std::shared_ptr<::arrow::Field>* out);
 
+/// Convert parquet schema to arrow schema with selected indices
+/// \param parquet_schema to be converted
+/// \param column_indices indices of leaf nodes in parquet schema tree. Appearing ordering
+///                       matters for the converted schema. Repeated indices are ignored
+///                       except for the first one
+/// \param out the corresponding arrow schema
+/// \return Status::OK() on a successful conversion.
 ::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
     const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out);
 
