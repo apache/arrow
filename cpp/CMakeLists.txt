@@ -94,10 +94,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
-  option(ARROW_HDFS
-    "Build the Arrow HDFS extensions"
-    ON)
-
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
     ON)
@@ -646,6 +642,27 @@ if (ARROW_IPC)
   endif()
   message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+
+  ## Flatbuffers
+  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    ExternalProject_Add(flatbuffers_ep
+      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      CMAKE_ARGS
+      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+      "-DFLATBUFFERS_BUILD_TESTS=OFF")
+
+    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+    set(FLATBUFFERS_VENDORED 1)
+  else()
+    find_package(Flatbuffers REQUIRED)
+    set(FLATBUFFERS_VENDORED 0)
+  endif()
+
+  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
+  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
+  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 endif()
 #----------------------------------------------------------------------
 
@@ -710,50 +727,26 @@ endif()
 #   set(ARROW_TCMALLOC_AVAILABLE 1)
 # endif()
 
-if (ARROW_IPC)
-  ## Flatbuffers
-  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
-    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-    ExternalProject_Add(flatbuffers_ep
-      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
-      CMAKE_ARGS
-      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-      "-DFLATBUFFERS_BUILD_TESTS=OFF")
-
-    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-    set(FLATBUFFERS_VENDORED 1)
-  else()
-    find_package(Flatbuffers REQUIRED)
-    set(FLATBUFFERS_VENDORED 0)
-  endif()
-
-  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
-  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-endif()
-
 ########################################################################
-if (ARROW_HDFS)
-  # HDFS thirdparty setup
-  if (DEFINED ENV{HADOOP_HOME})
-    set(HADOOP_HOME $ENV{HADOOP_HOME})
-    if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
-      message(STATUS "Did not find hdfs.h in expected location, using vendored one")
-      set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-    endif()
-  else()
+# HDFS thirdparty setup
+
+if (DEFINED ENV{HADOOP_HOME})
+  set(HADOOP_HOME $ENV{HADOOP_HOME})
+  if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
+    message(STATUS "Did not find hdfs.h in expected location, using vendored one")
     set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
   endif()
-
-  set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
-  if (NOT EXISTS ${HDFS_H_PATH})
-    message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
-  endif()
-  message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
-
-  include_directories(SYSTEM "${HADOOP_HOME}/include")
+else()
+  set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
 endif()
+
+set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
+if (NOT EXISTS ${HDFS_H_PATH})
+  message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
+endif()
+message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
+
+include_directories(SYSTEM "${HADOOP_HOME}/include")
 
 ############################################################
 # Linker setup
@@ -913,18 +906,14 @@ set(ARROW_SRCS
   src/arrow/visitor.cc
 
   src/arrow/io/file.cc
+  src/arrow/io/hdfs.cc
+  src/arrow/io/hdfs-internal.cc
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
 
   src/arrow/util/bit-util.cc
   src/arrow/util/decimal.cc
 )
-if (ARROW_HDFS)
-  set(ARROW_SRCS ${ARROW_SRCS}
-    src/arrow/io/hdfs.cc
-    src/arrow/io/hdfs-internal.cc
-  )
-endif()
 
 if (ARROW_IPC)
   set(ARROW_SRCS ${ARROW_SRCS}
