@@ -529,6 +529,30 @@ def _generate_partition_directories(base_dir, partition_spec, df):
     _visit_level(base_dir, 0, [])
 
 
+@parquet
+def test_read_common_metadata_files(tmpdir):
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    base_path = str(tmpdir)
+    data_path = pjoin(base_path, 'data.parquet')
+
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, data_path)
+
+    metadata_path = pjoin(base_path, '_metadata')
+    pq.write_metadata(table.schema, metadata_path)
+
+    dataset = pq.ParquetDataset(base_path)
+    assert dataset.metadata_path == metadata_path
+
+    pf = pq.ParquetFile(data_path)
+    assert dataset.schema.equals(pf.schema)
+
+
 def _filter_partition(df, part_keys):
     predicate = np.ones(len(df), dtype=bool)
 

@@ -21,7 +21,8 @@ import numpy as np
 
 from pyarrow.filesystem import LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
-                              RowGroupMetaData, Schema, ParquetWriter)
+                              RowGroupMetaData, ParquetSchema,
+                              ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
 import pyarrow._array as _array
 import pyarrow._table as _table
@@ -471,7 +472,8 @@ class ParquetDataset(object):
         else:
             self.fs = filesystem
 
-        self.pieces, self.partitions = _make_manifest(path_or_paths, self.fs)
+        (self.pieces, self.partitions,
+         self.metadata_path) = _make_manifest(path_or_paths, self.fs)
 
         self.metadata = metadata
         self.schema = schema
@@ -488,7 +490,10 @@ class ParquetDataset(object):
         open_file = self._get_open_file_func()
 
         if self.metadata is None and self.schema is None:
-            self.schema = self.pieces[0].get_metadata(open_file).schema
+            if self.metadata_path is not None:
+                self.schema = open_file(self.metadata_path).schema
+            else:
+                self.schema = self.pieces[0].get_metadata(open_file).schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
@@ -543,10 +548,12 @@ class ParquetDataset(object):
 
 def _make_manifest(path_or_paths, fs, pathsep='/'):
     partitions = None
+    metadata_path = None
 
     if is_string(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=pathsep)
+        metadata_path = manifest.metadata_path
         pieces = manifest.pieces
         partitions = manifest.partitions
     else:
@@ -565,7 +572,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
             piece = ParquetDatasetPiece(path)
             pieces.append(piece)
 
-    return pieces, partitions
+    return pieces, partitions, metadata_path
 
 
 def read_table(source, columns=None, nthreads=1, metadata=None):
@@ -622,7 +629,24 @@ def write_table(table, where, row_group_size=None, version='1.0',
         Specify the compression codec, either on a general basis or per-column.
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
-    writer = ParquetWriter(where, use_dictionary=use_dictionary,
+    writer = ParquetWriter(where, table.schema,
+                           use_dictionary=use_dictionary,
                            compression=compression,
                            version=version)
     writer.write_table(table, row_group_size=row_group_size)
+    writer.close()
+
+
+def write_metadata(schema, where, version='1.0'):
+    """
+    Write metadata-only Parquet file from schema
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+    where: string or pyarrow.io.NativeFile
+    version : {"1.0", "2.0"}, default "1.0"
+        The Parquet format version, defaults to 1.0
+    """
+    writer = ParquetWriter(where, schema, version=version)
+    writer.close()
