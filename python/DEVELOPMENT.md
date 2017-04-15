@@ -81,7 +81,6 @@ cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
 
 make -j4
 make install
-
 popd
 ```
 
@@ -91,7 +90,7 @@ Now, install requisite build requirements for pyarrow, then build:
 conda install -y -q six setuptools cython pandas pytest
 
 cd python
-python setup.py build_ext --with-parquet --inplace
+python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --with-parquet --inplace
 ```
 
 You should be able to run the unit tests with:
