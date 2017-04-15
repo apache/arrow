@@ -151,3 +151,15 @@ Interprocess Communication and Messaging
    FileWriter
    StreamReader
    StreamWriter
+
+Memory Pools
+------------
+
+.. autosummary::
+   :toctree: generated/
+
+   MemoryPool
+   default_memory_pool
+   jemalloc_memory_pool
+   total_allocated_bytes
+   set_memory_pool

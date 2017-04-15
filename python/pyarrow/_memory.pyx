@@ -22,6 +22,7 @@
 from pyarrow.includes.libarrow cimport CMemoryPool, CLoggingMemoryPool
 from pyarrow.includes.pyarrow cimport set_default_memory_pool, get_memory_pool
 
+
 cdef class MemoryPool:
     cdef init(self, CMemoryPool* pool):
         self.pool = pool
@@ -29,23 +30,28 @@ cdef class MemoryPool:
     def bytes_allocated(self):
         return self.pool.bytes_allocated()
 
+
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
         return get_memory_pool()
     else:
         return memory_pool.pool
 
+
 cdef class LoggingMemoryPool(MemoryPool):
     pass
 
-def default_pool():
-    cdef: 
+
+def default_memory_pool():
+    cdef:
         MemoryPool pool = MemoryPool()
     pool.init(get_memory_pool())
     return pool
 
-def set_default_pool(MemoryPool pool):
+
+def set_memory_pool(MemoryPool pool):
     set_default_memory_pool(pool.pool)
+
 
 def total_allocated_bytes():
     cdef CMemoryPool* pool = get_memory_pool()

@@ -35,18 +35,14 @@ operations.
 .. code:: python
 
     import pyarrow as pa
-    import pyarrow.jemalloc
-    import pyarrow.memory
 
-    jemalloc_pool = pyarrow.jemalloc.default_pool()
+    jemalloc_pool = pyarrow.jemalloc_memory_pool()
 
     # Explicitly use jemalloc for allocating memory for an Arrow Table object
     array = pa.Array.from_pylist([1, 2, 3], memory_pool=jemalloc_pool)
 
     # Set the global pool
-    pyarrow.memory.set_default_pool(jemalloc_pool)
+    pyarrow.set_memory_pool(jemalloc_pool)
     # This operation has no explicit MemoryPool specified and will thus will
     # also use jemalloc for its allocations.
     array = pa.Array.from_pylist([1, 2, 3])
-
-

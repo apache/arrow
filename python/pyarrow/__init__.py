@@ -62,7 +62,8 @@ from pyarrow._io import (HdfsFile, NativeFile, PythonFileInterface,
                          memory_map, create_memory_map,
                          get_record_batch_size, get_tensor_size)
 
-from pyarrow._memory import MemoryPool, total_allocated_bytes
+from pyarrow._memory import (MemoryPool, total_allocated_bytes,
+                             set_memory_pool, default_memory_pool)
 from pyarrow._table import Column, RecordBatch, Table, concat_tables
 from pyarrow._error import (ArrowException,
                             ArrowKeyError,
@@ -71,6 +72,16 @@ from pyarrow._error import (ArrowException,
                             ArrowMemoryError,
                             ArrowNotImplementedError,
                             ArrowTypeError)
+
+
+def jemalloc_memory_pool():
+    """
+    Returns a jemalloc-based memory allocator, which can be passed to
+    pyarrow.set_memory_pool
+    """
+    from pyarrow._jemalloc import default_pool
+    return default_pool()
+
 
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 
