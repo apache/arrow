@@ -539,8 +539,6 @@ cdef class ParquetWriter:
             check_compression_name(self.compression)
             props.compression(compression_from_name(self.compression))
         elif self.compression is not None:
-            # Deactivate dictionary encoding by default
-            props.disable_dictionary()
             for column, codec in self.compression.iteritems():
                 check_compression_name(codec)
                 props.compression(column, compression_from_name(codec))
