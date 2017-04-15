@@ -59,7 +59,7 @@
         { class: "DateDay" },
         { class: "IntervalYear", javaType: "int", friendlyType: "Period" },
         { class: "TimeSec" },
-        { class: "TimeMilli" }
+        { class: "TimeMilli", javaType: "int", friendlyType: "DateTime" }
       ]
     },
     {
@@ -72,7 +72,7 @@
         { class: "BigInt"},
         { class: "UInt8" },
         { class: "Float8", javaType: "double" , boxedType: "Double", fields: [{name: "value", type: "double"}], },
-        { class: "DateMilli" },
+        { class: "DateMilli", javaType: "long", friendlyType: "DateTime" },
         { class: "TimeStampSec", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
         { class: "TimeStampMilli", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
         { class: "TimeStampMicro", javaType: "long", boxedType: "Long", friendlyType: "DateTime" },
