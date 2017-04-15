@@ -32,28 +32,6 @@ install(FILES
 # arrow_test_main
 #######################################
 
-if (ARROW_BUILD_TESTS)
-  add_library(arrow_test_main
-	test_main.cc)
-
-  if (APPLE)
-	  target_link_libraries(arrow_test_main
-        gtest
-        dl)
-	  set_target_properties(arrow_test_main
-        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  elseif(MSVC)
-	  target_link_libraries(arrow_test_main
-        gtest)
-  else()
-	  target_link_libraries(arrow_test_main
-        gtest
-        pthread
-        dl
-	    )
-  endif()
-endif()
-
 if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
   if (APPLE)
