@@ -72,7 +72,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIPI_IO -r requirements.txt
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.jemalloc"
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow._jemalloc"
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
