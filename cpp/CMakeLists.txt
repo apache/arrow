@@ -458,7 +458,7 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 # ----------------------------------------------------------------------
 # Enable / disable tests and benchmarks
 
-if(ARROW_BUILD_TESTS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_custom_target(unittest ctest -L unittest)
 
   if("$ENV{GTEST_HOME}" STREQUAL "")
