@@ -1,4 +1,4 @@
-# Licensed to the Apache Software Foundation (ASF) under one
+#t Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -22,37 +22,37 @@ from pyarrow.includes.common cimport *
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     enum Type" arrow::Type::type":
-        Type_NA" arrow::Type::NA"
+        _Type_NA" arrow::Type::NA"
 
-        Type_BOOL" arrow::Type::BOOL"
+        _Type_BOOL" arrow::Type::BOOL"
 
-        Type_UINT8" arrow::Type::UINT8"
-        Type_INT8" arrow::Type::INT8"
-        Type_UINT16" arrow::Type::UINT16"
-        Type_INT16" arrow::Type::INT16"
-        Type_UINT32" arrow::Type::UINT32"
-        Type_INT32" arrow::Type::INT32"
-        Type_UINT64" arrow::Type::UINT64"
-        Type_INT64" arrow::Type::INT64"
+        _Type_UINT8" arrow::Type::UINT8"
+        _Type_INT8" arrow::Type::INT8"
+        _Type_UINT16" arrow::Type::UINT16"
+        _Type_INT16" arrow::Type::INT16"
+        _Type_UINT32" arrow::Type::UINT32"
+        _Type_INT32" arrow::Type::INT32"
+        _Type_UINT64" arrow::Type::UINT64"
+        _Type_INT64" arrow::Type::INT64"
 
-        Type_HALF_FLOAT" arrow::Type::HALF_FLOAT"
-        Type_FLOAT" arrow::Type::FLOAT"
-        Type_DOUBLE" arrow::Type::DOUBLE"
+        _Type_HALF_FLOAT" arrow::Type::HALF_FLOAT"
+        _Type_FLOAT" arrow::Type::FLOAT"
+        _Type_DOUBLE" arrow::Type::DOUBLE"
 
-        Type_DECIMAL" arrow::Type::DECIMAL"
+        _Type_DECIMAL" arrow::Type::DECIMAL"
 
-        Type_DATE32" arrow::Type::DATE32"
-        Type_DATE64" arrow::Type::DATE64"
-        Type_TIMESTAMP" arrow::Type::TIMESTAMP"
-        Type_TIME32" arrow::Type::TIME32"
-        Type_TIME64" arrow::Type::TIME64"
-        Type_BINARY" arrow::Type::BINARY"
-        Type_STRING" arrow::Type::STRING"
-        Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_DATE32" arrow::Type::DATE32"
+        _Type_DATE64" arrow::Type::DATE64"
+        _Type_TIMESTAMP" arrow::Type::TIMESTAMP"
+        _Type_TIME32" arrow::Type::TIME32"
+        _Type_TIME64" arrow::Type::TIME64"
+        _Type_BINARY" arrow::Type::BINARY"
+        _Type_STRING" arrow::Type::STRING"
+        _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
 
-        Type_LIST" arrow::Type::LIST"
-        Type_STRUCT" arrow::Type::STRUCT"
-        Type_DICTIONARY" arrow::Type::DICTIONARY"
+        _Type_LIST" arrow::Type::LIST"
+        _Type_STRUCT" arrow::Type::STRUCT"
+        _Type_DICTIONARY" arrow::Type::DICTIONARY"
 
     enum TimeUnit" arrow::TimeUnit":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
