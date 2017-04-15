@@ -621,27 +621,49 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-# RapidJSON, header only dependency
-if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
-  ExternalProject_Add(rapidjson_ep
-    PREFIX "${CMAKE_BINARY_DIR}"
-    URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
-    URL_MD5 "badd12c511e081fec6c89c43a7027bce"
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    BUILD_IN_SOURCE 1
-    INSTALL_COMMAND "")
+if (ARROW_IPC)
+  # RapidJSON, header only dependency
+  if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
+    ExternalProject_Add(rapidjson_ep
+      PREFIX "${CMAKE_BINARY_DIR}"
+      URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
+      URL_MD5 "badd12c511e081fec6c89c43a7027bce"
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      BUILD_IN_SOURCE 1
+      INSTALL_COMMAND "")
 
-  ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
-  set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
-  set(RAPIDJSON_VENDORED 1)
-else()
-  set(RAPIDJSON_INCLUDE_DIR "$ENV{RAPIDJSON_HOME}/include")
-  set(RAPIDJSON_VENDORED 0)
+    ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
+    set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
+    set(RAPIDJSON_VENDORED 1)
+  else()
+    set(RAPIDJSON_INCLUDE_DIR "$ENV{RAPIDJSON_HOME}/include")
+    set(RAPIDJSON_VENDORED 0)
+  endif()
+  message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
+  include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+
+  ## Flatbuffers
+  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    ExternalProject_Add(flatbuffers_ep
+      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      CMAKE_ARGS
+      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+      "-DFLATBUFFERS_BUILD_TESTS=OFF")
+
+    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+    set(FLATBUFFERS_VENDORED 1)
+  else()
+    find_package(Flatbuffers REQUIRED)
+    set(FLATBUFFERS_VENDORED 0)
+  endif()
+
+  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
+  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
+  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 endif()
-message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
-include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-
 #----------------------------------------------------------------------
 
 if (MSVC)
@@ -704,28 +726,6 @@ endif()
 #   add_definitions("-DTCMALLOC_ENABLED")
 #   set(ARROW_TCMALLOC_AVAILABLE 1)
 # endif()
-
-## Flatbuffers
-
-if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
-  set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-  ExternalProject_Add(flatbuffers_ep
-    URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
-    CMAKE_ARGS
-    "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-    "-DFLATBUFFERS_BUILD_TESTS=OFF")
-
-  set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-  set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-  set(FLATBUFFERS_VENDORED 1)
-else()
-  find_package(Flatbuffers REQUIRED)
-  set(FLATBUFFERS_VENDORED 0)
-endif()
-
-message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
-include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 
 ########################################################################
 # HDFS thirdparty setup
@@ -885,7 +885,9 @@ endif()
 
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
-add_subdirectory(src/arrow/ipc)
+if (ARROW_IPC)
+  add_subdirectory(src/arrow/ipc)
+endif()
 
 set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
@@ -909,16 +911,21 @@ set(ARROW_SRCS
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
 
-  src/arrow/ipc/feather.cc
-  src/arrow/ipc/json.cc
-  src/arrow/ipc/json-internal.cc
-  src/arrow/ipc/metadata.cc
-  src/arrow/ipc/reader.cc
-  src/arrow/ipc/writer.cc
-
   src/arrow/util/bit-util.cc
   src/arrow/util/decimal.cc
 )
+
+if (ARROW_IPC)
+  set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/ipc/feather.cc
+    src/arrow/ipc/json.cc
+    src/arrow/ipc/json-internal.cc
+    src/arrow/ipc/metadata.cc
+    src/arrow/ipc/reader.cc
+    src/arrow/ipc/writer.cc
+  )
+endif()
+
 
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
