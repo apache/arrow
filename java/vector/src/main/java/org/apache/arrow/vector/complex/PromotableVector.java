@@ -1,4 +1,5 @@
-/**
+/*******************************************************************************
+
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -14,37 +15,18 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-package org.apache.arrow.vector.complex.impl;
+ ******************************************************************************/
+package org.apache.arrow.vector.complex;
 
-import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.FieldType;
 
+public interface PromotableVector {
 
-abstract class AbstractBaseWriter implements FieldWriter {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseWriter.class);
+  <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType type);
 
-  private int index;
-
-  @Override
-  public String toString() {
-    return super.toString() + "[index = " + index + "]";
-  }
-
-  int idx() {
-    return index;
-  }
-
-  @Override
-  public int getPosition() {
-    return index;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    this.index = index;
-  }
-
-  @Override
-  public void end() {
-  }
+  UnionVector promoteToUnion();
 }

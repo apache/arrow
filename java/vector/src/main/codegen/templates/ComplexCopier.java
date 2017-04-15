@@ -55,6 +55,8 @@ public class ComplexCopier {
           writer.endList();
         }
         break;
+      case FIXED_SIZE_LIST:
+        throw new UnsupportedOperationException("Copy fixed size list");
       case MAP:
         if (reader.isSet()) {
           writer.start();

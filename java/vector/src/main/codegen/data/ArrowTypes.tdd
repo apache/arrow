@@ -28,6 +28,11 @@
       complex: true
     },
     {
+      name: "FixedSizeList",
+      fields: [{name: "listSize", type: int}],
+      complex: true
+    },
+    {
       name: "Union",
       fields: [{name: "mode", type: short, valueType: UnionMode}, {name: "typeIds", type: "int[]"}],
       complex: true

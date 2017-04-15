@@ -31,6 +31,14 @@ public class JsonStringArrayList<E> extends ArrayList<E> {
     mapper = new ObjectMapper();
   }
 
+  public JsonStringArrayList() {
+    super();
+  }
+
+  public JsonStringArrayList(int size) {
+    super(size);
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {

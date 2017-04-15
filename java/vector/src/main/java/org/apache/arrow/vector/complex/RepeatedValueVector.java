@@ -73,13 +73,13 @@ public interface RepeatedValueVector extends ValueVector {
   }
 
   interface RepeatedMutator extends ValueVector.Mutator {
+
     /**
      * Starts a new value that is a container of cells.
      *
      * @param index  index of new value to start
+     * @return index into the child vector
      */
-    void startNewValue(int index);
-
-
+    int startNewValue(int index);
   }
 }

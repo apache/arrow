@@ -51,6 +51,7 @@ import org.apache.arrow.vector.NullableVarBinaryVector;
 import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -90,6 +91,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
@@ -436,6 +438,23 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
+    FIXED_SIZE_LIST(null) {
+      @Override
+      public ArrowType getType() {
+        throw new UnsupportedOperationException("Cannot get simple type for FixedSizeList type");
+      }
+
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        int size = ((FixedSizeList)fieldType.getType()).getListSize();
+        return new FixedSizeListVector(name, allocator, size, fieldType.getDictionary(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        throw new UnsupportedOperationException("FieldWriter not implemented for FixedSizeList type");
+      }
+    },
     UNION(new Union(Sparse, null)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
@@ -478,6 +497,10 @@ public class Types {
 
       @Override public MinorType visit(List type) {
         return MinorType.LIST;
+      }
+
+      @Override public MinorType visit(FixedSizeList type) {
+        return MinorType.FIXED_SIZE_LIST;
       }
 
       @Override public MinorType visit(Union type) {

@@ -35,6 +35,11 @@ abstract class AbstractBaseReader implements FieldReader{
     super();
   }
 
+  @Override
+  public int getPosition() {
+    return index;
+  }
+
   public void setPosition(int index){
     this.index = index;
   }

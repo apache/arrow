@@ -39,6 +39,11 @@ table Struct_ {
 table List {
 }
 
+table FixedSizeList {
+  /// Number of list items per value
+  listSize: int;
+}
+
 enum UnionMode:short { Sparse, Dense }
 
 /// A union is a complex type with children in Field
@@ -159,7 +164,8 @@ union Type {
   List,
   Struct_,
   Union,
-  FixedSizeBinary
+  FixedSizeBinary,
+  FixedSizeList
 }
 
 /// ----------------------------------------------------------------------

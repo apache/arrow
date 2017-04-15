@@ -53,7 +53,7 @@ import com.google.common.collect.ObjectArrays;
 
 import io.netty.buffer.ArrowBuf;
 
-public class ListVector extends BaseRepeatedValueVector implements FieldVector {
+public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
 
   final UInt4Vector offsets;
   final BitVector bits;
@@ -220,7 +220,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
   }
 
   @Override
-  public FieldReader getReader() {
+  public UnionListReader getReader() {
     return reader;
   }
 
@@ -297,6 +297,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     return buffers;
   }
 
+  @Override
   public UnionVector promoteToUnion() {
     UnionVector vector = new UnionVector(name, allocator, callBack);
     replaceDataVector(vector);
@@ -345,12 +346,23 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector {
     }
 
     @Override
-    public void startNewValue(int index) {
+    public int startNewValue(int index) {
       for (int i = lastSet; i <= index; i++) {
         offsets.getMutator().setSafe(i + 1, offsets.getAccessor().get(i));
       }
       setNotNull(index);
       lastSet = index + 1;
+      return offsets.getAccessor().get(lastSet);
+    }
+
+    /**
+     * End the current value
+     *
+     * @param index index of the value to end
+     * @param size number of elements in the list that was written
+     */
+    public void endValue(int index, int size) {
+      offsets.getMutator().set(index + 1, offsets.getAccessor().get(index + 1) + size);
     }
 
     @Override

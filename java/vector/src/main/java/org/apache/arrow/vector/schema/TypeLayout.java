@@ -35,6 +35,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
@@ -101,6 +102,13 @@ public class TypeLayout {
         List<VectorLayout> vectors = asList(
             validityVector(),
             offsetVector()
+            );
+        return new TypeLayout(vectors);
+      }
+
+      @Override public TypeLayout visit(FixedSizeList type) {
+        List<VectorLayout> vectors = asList(
+            validityVector()
             );
         return new TypeLayout(vectors);
       }
