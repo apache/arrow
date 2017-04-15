@@ -469,25 +469,28 @@
       <version>${dep.slf4j.version}</version>
     </dependency>
 
+    <!-- Test Dependencies -->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jcl-over-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>log4j-over-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
-    <!-- Test Dependencies -->
     <dependency>
       <!-- JMockit needs to be on class path before JUnit. -->
       <groupId>com.googlecode.jmockit</groupId>
