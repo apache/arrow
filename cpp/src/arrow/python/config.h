@@ -18,6 +18,7 @@
 #ifndef ARROW_PYTHON_CONFIG_H
 #define ARROW_PYTHON_CONFIG_H
 
+#include <iostream>
 #include <Python.h>
 
 #include "arrow/python/numpy_interop.h"
