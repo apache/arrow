@@ -16,7 +16,7 @@
 
 First, set up your thirdparty C++ toolchain using libraries from conda-forge:
 
-```
+```shell
 conda config --add channels conda-forge
 
 export ARROW_BUILD_TYPE=Release
@@ -42,7 +42,7 @@ conda create -y -q -p $CPP_TOOLCHAIN \
 Now, activate a conda environment containing your target Python version and
 NumPy installed:
 
-```
+```shell
 conda create -y -q -n pyarrow-dev python=3.6 numpy
 source activate pyarrow-dev
 ```
@@ -50,7 +50,7 @@ source activate pyarrow-dev
 Now build and install the Arrow C++ libraries from the base of your
 apache/arrow clone:
 
-```
+```shell
 mkdir cpp/build
 pushd cpp/build
 
@@ -66,7 +66,7 @@ popd
 
 Now build and install the Apache Parquet libraries in your toolchain:
 
-```
+```shell
 git clone https://github.com/apache/parquet-cpp.git
 mkdir parquet-cpp/build
 pushd parquet-cpp/build
@@ -87,7 +87,7 @@ popd
 
 Now, install requisite build requirements for pyarrow, then build:
 
-```
+```shell
 conda install -y -q six setuptools cython pandas pytest
 
 cd python
@@ -96,7 +96,7 @@ python setup.py build_ext --with-parquet --inplace
 
 You should be able to run the unit tests with:
 
-```
+```shell
 $ py.test pyarrow
 ================================ test session starts ================================
 platform linux -- Python 3.6.1, pytest-3.0.7, py-1.4.33, pluggy-0.4.0
