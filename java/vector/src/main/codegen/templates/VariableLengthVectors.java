@@ -613,16 +613,21 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
     @Override
     public void setValueCount(int valueCount) {
-      final int currentByteCapacity = getByteCapacity();
-      final int idx = offsetVector.getAccessor().get(valueCount);
-      data.writerIndex(idx);
-      if (valueCount > 0 && currentByteCapacity > idx * 2) {
-        incrementAllocationMonitor();
-      } else if (allocationMonitor > 0) {
-        allocationMonitor = 0;
+      if (valueCount == 0) {
+        // if no values in vector, don't try to retrieve the current value count.
+        offsetVector.getMutator().setValueCount(0);
+      } else {
+        final int currentByteCapacity = getByteCapacity();
+        final int idx = offsetVector.getAccessor().get(valueCount);
+        data.writerIndex(idx);
+        if (currentByteCapacity > idx * 2) {
+          incrementAllocationMonitor();
+        } else if (allocationMonitor > 0) {
+          allocationMonitor = 0;
+        }
+        VectorTrimmer.trim(data, idx);
+        offsetVector.getMutator().setValueCount(valueCount+1);
       }
-      VectorTrimmer.trim(data, idx);
-      offsetVector.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
     }
 
     @Override
