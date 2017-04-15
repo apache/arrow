@@ -47,12 +47,29 @@ conda create -y -q -n pyarrow-dev python=3.6 numpy
 source activate pyarrow-dev
 ```
 
-Now build and install the Arrow C++ libraries from the base of your
-apache/arrow clone:
+Now, let's clone the Arrow and Parquet git repositories:
 
 ```shell
-mkdir cpp/build
-pushd cpp/build
+mkdir repos
+cd repos
+git clone https://github.com/apache/arrow.git
+git clone https://github.com/apache/parquet-cpp.git
+```
+
+You should now see
+
+```shell
+$ ls -l
+total 8
+drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
+drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 parquet-cpp/
+```
+
+Now build and install the Arrow C++ libraries:
+
+```shell
+mkdir arrow/cpp/build
+pushd arrow/cpp/build
 
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$CPP_TOOLCHAIN \
@@ -67,7 +84,6 @@ popd
 Now build and install the Apache Parquet libraries in your toolchain:
 
 ```shell
-git clone https://github.com/apache/parquet-cpp.git
 mkdir parquet-cpp/build
 pushd parquet-cpp/build
 
@@ -89,7 +105,7 @@ Now, install requisite build requirements for pyarrow, then build:
 ```shell
 conda install -y -q six setuptools cython pandas pytest
 
-cd python
+cd arrow/python
 python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --with-parquet --inplace
 ```
 
