@@ -43,7 +43,7 @@ set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 
 set(GFLAGS_VERSION "2.1.2")
-set(GTEST_VERSION "1.7.0")
+set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.6.0")
 set(JEMALLOC_VERSION "4.4.0")
@@ -458,7 +458,7 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 # ----------------------------------------------------------------------
 # Enable / disable tests and benchmarks
 
-if(ARROW_BUILD_TESTS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_custom_target(unittest ctest -L unittest)
 
   if("$ENV{GTEST_HOME}" STREQUAL "")
@@ -472,9 +472,13 @@ if(ARROW_BUILD_TESTS)
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-    set(GTEST_STATIC_LIB "${GTEST_PREFIX}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GTEST_MAIN_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
     set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
                          -Dgtest_force_shared_crt=ON
                          -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
 
@@ -482,22 +486,11 @@ if(ARROW_BUILD_TESTS)
       # BUILD_BYPRODUCTS is a 3.2+ feature
       ExternalProject_Add(googletest_ep
         URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        CMAKE_ARGS ${GTEST_CMAKE_ARGS}
-        # googletest doesn't define install rules, so just build in the
-        # source dir and don't try to install.  See its README for
-        # details.
-        BUILD_IN_SOURCE 1
-        BUILD_BYPRODUCTS "${GTEST_STATIC_LIB}"
-        INSTALL_COMMAND "")
+        CMAKE_ARGS ${GTEST_CMAKE_ARGS})
     else()
       ExternalProject_Add(googletest_ep
         URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        CMAKE_ARGS ${GTEST_CMAKE_ARGS}
-        # googletest doesn't define install rules, so just build in the
-        # source dir and don't try to install.  See its README for
-        # details.
-        BUILD_IN_SOURCE 1
-        INSTALL_COMMAND "")
+        CMAKE_ARGS ${GTEST_CMAKE_ARGS})
     endif()
   else()
     find_package(GTest REQUIRED)
@@ -509,9 +502,12 @@ if(ARROW_BUILD_TESTS)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(gtest
     STATIC_LIB ${GTEST_STATIC_LIB})
+  ADD_THIRDPARTY_LIB(gtest_main
+    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
 
   if(GTEST_VENDORED)
     add_dependencies(gtest googletest_ep)
+    add_dependencies(gtest_main googletest_ep)
   endif()
 
   # gflags (formerly Googleflags) command line parsing
@@ -753,9 +749,21 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 ############################################################
 set(ARROW_MIN_TEST_LIBS
   arrow_static
-  arrow_test_main
+  gtest
+  gtest_main
   ${ARROW_BASE_LIBS}
   ${BOOST_REGEX_LIBRARY})
+
+if (APPLE)
+  set(ARROW_MIN_TEST_LIBS
+    ${ARROW_MIN_TEST_LIBS}
+    ${CMAKE_DL_LIBS})
+elseif(NOT MSVC)
+  set(ARROW_MIN_TEST_LIBS
+    ${ARROW_MIN_TEST_LIBS}
+    pthread
+    ${CMAKE_DL_LIBS})
+endif()
 
 set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
