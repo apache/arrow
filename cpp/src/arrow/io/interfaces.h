@@ -34,11 +34,11 @@ class Status;
 
 namespace io {
 
-struct ARROW_EXPORT FileMode {
+struct FileMode {
   enum type { READ, WRITE, READWRITE };
 };
 
-struct ARROW_EXPORT ObjectType {
+struct ObjectType {
   enum type { FILE, DIRECTORY };
 };
 

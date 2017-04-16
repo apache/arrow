@@ -38,7 +38,7 @@ namespace py {
 bool is_contiguous(PyObject* array) {
   if (PyArray_Check(array)) {
     return (PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(array)) &
-        (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
+               (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
   } else {
     return false;
   }

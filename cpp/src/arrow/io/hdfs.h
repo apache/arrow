@@ -38,7 +38,7 @@ class HdfsClient;
 class HdfsReadableFile;
 class HdfsOutputStream;
 
-struct ARROW_EXPORT HdfsPathInfo {
+struct HdfsPathInfo {
   ObjectType::type kind;
 
   std::string name;
@@ -56,9 +56,9 @@ struct ARROW_EXPORT HdfsPathInfo {
   int16_t permissions;
 };
 
-enum class ARROW_EXPORT HdfsDriver : char { LIBHDFS, LIBHDFS3 };
+enum class HdfsDriver : char { LIBHDFS, LIBHDFS3 };
 
-struct ARROW_EXPORT HdfsConnectionConfig {
+struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;

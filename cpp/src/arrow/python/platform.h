@@ -21,8 +21,8 @@
 #ifndef ARROW_PYTHON_PLATFORM_H
 #define ARROW_PYTHON_PLATFORM_H
 
-#include <iostream>
 #include <Python.h>
+#include <iostream>
 
 // Work around C2528 error
 #if _MSC_VER >= 1900
