@@ -75,7 +75,7 @@ struct ARROW_EXPORT CategoryMetadata {
 };
 
 struct ARROW_EXPORT TimestampMetadata {
-  TimeUnit unit;
+  TimeUnit::type unit;
 
   // A timezone name known to the Olson timezone database. For display purposes
   // because the actual data is all UTC
@@ -83,7 +83,7 @@ struct ARROW_EXPORT TimestampMetadata {
 };
 
 struct ARROW_EXPORT TimeMetadata {
-  TimeUnit unit;
+  TimeUnit::type unit;
 };
 
 static constexpr const char* kFeatherMagicBytes = "FEA1";
@@ -156,12 +156,12 @@ static inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
       array.length, array.null_count, array.total_bytes);
 }
 
-static inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit unit) {
+static inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit::type unit) {
   return static_cast<fbs::TimeUnit>(static_cast<int>(unit));
 }
 
-static inline TimeUnit FromFlatbufferEnum(fbs::TimeUnit unit) {
-  return static_cast<TimeUnit>(static_cast<int>(unit));
+static inline TimeUnit::type FromFlatbufferEnum(fbs::TimeUnit unit) {
+  return static_cast<TimeUnit::type>(static_cast<int>(unit));
 }
 
 // Convert Feather enums to Flatbuffer enums
@@ -197,10 +197,10 @@ class ARROW_EXPORT ColumnBuilder {
   void SetValues(const ArrayMetadata& values);
   void SetUserMetadata(const std::string& data);
   void SetCategory(const ArrayMetadata& levels, bool ordered = false);
-  void SetTimestamp(TimeUnit unit);
-  void SetTimestamp(TimeUnit unit, const std::string& timezone);
+  void SetTimestamp(TimeUnit::type unit);
+  void SetTimestamp(TimeUnit::type unit, const std::string& timezone);
   void SetDate();
-  void SetTime(TimeUnit unit);
+  void SetTime(TimeUnit::type unit);
   FBB& fbb();
 
  private:

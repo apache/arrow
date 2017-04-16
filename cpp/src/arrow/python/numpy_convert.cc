@@ -166,7 +166,7 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
     case NPY_DATETIME: {
       auto date_dtype =
           reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-      TimeUnit unit;
+      TimeUnit::type unit;
       switch (date_dtype->meta.base) {
         case NPY_FR_s:
           unit = TimeUnit::SECOND;

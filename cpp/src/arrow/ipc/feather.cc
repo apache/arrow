@@ -184,12 +184,12 @@ void ColumnBuilder::SetCategory(const ArrayMetadata& levels, bool ordered) {
   meta_category_.ordered = ordered;
 }
 
-void ColumnBuilder::SetTimestamp(TimeUnit unit) {
+void ColumnBuilder::SetTimestamp(TimeUnit::type unit) {
   type_ = ColumnType::TIMESTAMP;
   meta_timestamp_.unit = unit;
 }
 
-void ColumnBuilder::SetTimestamp(TimeUnit unit, const std::string& timezone) {
+void ColumnBuilder::SetTimestamp(TimeUnit::type unit, const std::string& timezone) {
   SetTimestamp(unit);
   meta_timestamp_.timezone = timezone;
 }
@@ -198,7 +198,7 @@ void ColumnBuilder::SetDate() {
   type_ = ColumnType::DATE;
 }
 
-void ColumnBuilder::SetTime(TimeUnit unit) {
+void ColumnBuilder::SetTime(TimeUnit::type unit) {
   type_ = ColumnType::TIME;
   meta_time_.unit = unit;
 }
@@ -279,7 +279,7 @@ class TableReader::TableReaderImpl {
       }
       case fbs::TypeMetadata_TimestampMetadata: {
         auto meta = static_cast<const fbs::TimestampMetadata*>(metadata);
-        TimeUnit unit = FromFlatbufferEnum(meta->unit());
+        TimeUnit::type unit = FromFlatbufferEnum(meta->unit());
         std::string tz;
         // flatbuffer non-null
         if (meta->timezone() != 0) {

@@ -134,10 +134,10 @@ std::string Date32Type::ToString() const {
 // ----------------------------------------------------------------------
 // Time types
 
-TimeType::TimeType(Type::type type_id, TimeUnit unit)
+TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
     : FixedWidthType(type_id), unit_(unit) {}
 
-Time32Type::Time32Type(TimeUnit unit) : TimeType(Type::TIME32, unit) {
+Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
   DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
       << "Must be seconds or milliseconds";
 }
@@ -148,7 +148,7 @@ std::string Time32Type::ToString() const {
   return ss.str();
 }
 
-Time64Type::Time64Type(TimeUnit unit) : TimeType(Type::TIME64, unit) {
+Time64Type::Time64Type(TimeUnit::type unit) : TimeType(Type::TIME64, unit) {
   DCHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
       << "Must be microseconds or nanoseconds";
 }
@@ -338,19 +338,19 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-std::shared_ptr<DataType> timestamp(TimeUnit unit) {
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit) {
   return std::make_shared<TimestampType>(unit);
 }
 
-std::shared_ptr<DataType> timestamp(TimeUnit unit, const std::string& timezone) {
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone) {
   return std::make_shared<TimestampType>(unit, timezone);
 }
 
-std::shared_ptr<DataType> time32(TimeUnit unit) {
+std::shared_ptr<DataType> time32(TimeUnit::type unit) {
   return std::make_shared<Time32Type>(unit);
 }
 
-std::shared_ptr<DataType> time64(TimeUnit unit) {
+std::shared_ptr<DataType> time64(TimeUnit::type unit) {
   return std::make_shared<Time64Type>(unit);
 }
 

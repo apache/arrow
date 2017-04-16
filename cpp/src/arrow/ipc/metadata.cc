@@ -188,7 +188,7 @@ static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
-static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit unit) {
+static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       return flatbuf::TimeUnit_SECOND;
@@ -204,7 +204,7 @@ static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit unit) {
   return flatbuf::TimeUnit_MIN;
 }
 
-static inline TimeUnit FromFlatbufferUnit(flatbuf::TimeUnit unit) {
+static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   switch (unit) {
     case flatbuf::TimeUnit_SECOND:
       return TimeUnit::SECOND;
@@ -258,7 +258,7 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Time: {
       auto time_type = static_cast<const flatbuf::Time*>(type_data);
-      TimeUnit unit = FromFlatbufferUnit(time_type->unit());
+      TimeUnit::type unit = FromFlatbufferUnit(time_type->unit());
       int32_t bit_width = time_type->bitWidth();
       switch (unit) {
         case TimeUnit::SECOND:
@@ -279,7 +279,7 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     }
     case flatbuf::Type_Timestamp: {
       auto ts_type = static_cast<const flatbuf::Timestamp*>(type_data);
-      TimeUnit unit = FromFlatbufferUnit(ts_type->unit());
+      TimeUnit::type unit = FromFlatbufferUnit(ts_type->unit());
       if (ts_type->timezone() != 0 && ts_type->timezone()->Length() > 0) {
         *out = timestamp(unit, ts_type->timezone()->str());
       } else {
