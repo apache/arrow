@@ -14,6 +14,7 @@
 
 import os
 import unittest
+import pytest
 
 from numpy.testing import assert_array_equal
 import numpy as np
@@ -317,6 +318,15 @@ class TestFeatherReader(unittest.TestCase):
                                     None,
                                     pd.datetime(2016, 1, 3)]})
         df['with_tz'] = df.test.dt.tz_localize('utc')
+
+        self._check_pandas_roundtrip(df, null_counts=[1, 1])
+
+    @pytest.mark.xfail(reason="not supported ATM",
+                       raises=NotImplementedError)
+    def test_timedelta_with_nulls(self):
+        df = pd.DataFrame({'test': [pd.Timedelta('1 day'),
+                                    None,
+                                    pd.Timedelta('3 day')]})
 
         self._check_pandas_roundtrip(df, null_counts=[1, 1])
 

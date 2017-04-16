@@ -18,6 +18,7 @@
 
 from collections import OrderedDict
 
+import pytest
 import datetime
 import unittest
 import decimal
@@ -411,6 +412,18 @@ class TestPandasConversion(unittest.TestCase):
         expected = datetime.date(2017, 4, 3)
         assert a1[0].as_py() == expected
         assert a2[0].as_py() == expected
+
+    @pytest.mark.xfail(reason="not supported ATM",
+                       raises=NotImplementedError)
+    def test_timedelta(self):
+        # TODO(jreback): Pandas only support ns resolution
+        # Arrow supports ??? for resolution
+        df = pd.DataFrame({
+            'timedelta': np.arange(start=0, stop=3*86400000,
+                                   step=86400000,
+                                   dtype='timedelta64[ms]')
+            })
+        pa.Table.from_pandas(df)
 
     def test_column_of_arrays(self):
         df, schema = dataframe_with_arrays()
