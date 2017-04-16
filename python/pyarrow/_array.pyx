@@ -790,6 +790,37 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
     return values, type
 
 
+
+def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
+    """
+    Create pyarrow.Array instance from a Python sequence
+
+    Parameters
+    ----------
+    list_obj : array_like
+
+    Returns
+    -------
+    pyarrow.array.Array
+    """
+    cdef:
+       shared_ptr[CArray] sp_array
+       CMemoryPool* pool
+
+    pool = maybe_unbox_memory_pool(memory_pool)
+    if type is None:
+        check_status(pyarrow.ConvertPySequence(sequence, pool, &sp_array))
+    else:
+        check_status(
+            pyarrow.ConvertPySequence(
+                sequence, pool, &sp_array, type.sp_type
+            )
+        )
+
+    return box_array(sp_array)
+
+
+
 cdef class Array:
 
     cdef init(self, const shared_ptr[CArray]& sp_array):
@@ -890,36 +921,6 @@ cdef class Array:
                     pool, values, mask, c_type, &out))
 
         return box_array(out)
-
-    @staticmethod
-    def from_list(object list_obj, DataType type=None,
-                  MemoryPool memory_pool=None):
-        """
-        Convert Python list to Arrow array
-
-        Parameters
-        ----------
-        list_obj : array_like
-
-        Returns
-        -------
-        pyarrow.array.Array
-        """
-        cdef:
-           shared_ptr[CArray] sp_array
-           CMemoryPool* pool
-
-        pool = maybe_unbox_memory_pool(memory_pool)
-        if type is None:
-            check_status(pyarrow.ConvertPySequence(list_obj, pool, &sp_array))
-        else:
-            check_status(
-                pyarrow.ConvertPySequence(
-                    list_obj, pool, &sp_array, type.sp_type
-                )
-            )
-
-        return box_array(sp_array)
 
     property null_count:
 
@@ -1363,6 +1364,3 @@ cdef object get_series_values(object obj):
         result = PandasSeries(obj).values
 
     return result
-
-
-from_pylist = Array.from_list

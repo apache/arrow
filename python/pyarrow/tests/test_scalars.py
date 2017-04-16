@@ -29,7 +29,7 @@ class TestScalars(unittest.TestCase):
             pa.NAType()
 
     def test_bool(self):
-        arr = pa.from_pylist([True, None, False, None])
+        arr = pa.array([True, None, False, None])
 
         v = arr[0]
         assert isinstance(v, pa.BooleanValue)
@@ -39,7 +39,7 @@ class TestScalars(unittest.TestCase):
         assert arr[1] is pa.NA
 
     def test_int64(self):
-        arr = pa.from_pylist([1, 2, None])
+        arr = pa.array([1, 2, None])
 
         v = arr[0]
         assert isinstance(v, pa.Int64Value)
@@ -49,7 +49,7 @@ class TestScalars(unittest.TestCase):
         assert arr[2] is pa.NA
 
     def test_double(self):
-        arr = pa.from_pylist([1.5, None, 3])
+        arr = pa.array([1.5, None, 3])
 
         v = arr[0]
         assert isinstance(v, pa.DoubleValue)
@@ -62,7 +62,7 @@ class TestScalars(unittest.TestCase):
         assert v.as_py() == 3.0
 
     def test_string_unicode(self):
-        arr = pa.from_pylist([u'foo', None, u'mañana'])
+        arr = pa.array([u'foo', None, u'mañana'])
 
         v = arr[0]
         assert isinstance(v, pa.StringValue)
@@ -75,7 +75,7 @@ class TestScalars(unittest.TestCase):
         assert isinstance(v, unicode_type)
 
     def test_bytes(self):
-        arr = pa.from_pylist([b'foo', None, u('bar')])
+        arr = pa.array([b'foo', None, u('bar')])
 
         v = arr[0]
         assert isinstance(v, pa.BinaryValue)
@@ -89,7 +89,7 @@ class TestScalars(unittest.TestCase):
 
     def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb']
-        arr = pa.from_pylist(data, type=pa.binary(4))
+        arr = pa.array(data, type=pa.binary(4))
 
         v = arr[0]
         assert isinstance(v, pa.FixedSizeBinaryValue)
@@ -102,7 +102,7 @@ class TestScalars(unittest.TestCase):
         assert isinstance(v, bytes)
 
     def test_list(self):
-        arr = pa.from_pylist([['foo', None], None, ['bar'], []])
+        arr = pa.array([['foo', None], None, ['bar'], []])
 
         v = arr[0]
         assert len(v) == 2
