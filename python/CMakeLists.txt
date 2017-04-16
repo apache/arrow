@@ -164,9 +164,6 @@ endif()
 # act on its value.
 if ("${PYARROW_LINK}" STREQUAL "d")
   set(BUILD_SHARED_LIBS ON)
-
-  # Position independent code is only necessary when producing shared objects.
-  add_definitions(-fPIC)
 endif()
 
 # set compile output directory
@@ -186,8 +183,15 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
 EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
   ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+  if (MSVC)
+    # MSVC makes its own output directories based on the build configuration
+    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/")
+  else()
+    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+  endif()
 endif()
+
+message(STATUS "Build output directory: ${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
