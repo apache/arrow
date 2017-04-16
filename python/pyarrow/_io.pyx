@@ -807,7 +807,7 @@ cdef class _HdfsClient:
         cdef c_string c_path = tobytes(path)
         with nogil:
             check_status(self.client.get()
-                         .CreateDirectory(c_path))
+                         .MakeDirectory(c_path))
 
     def delete(self, path, bint recursive=False):
         """

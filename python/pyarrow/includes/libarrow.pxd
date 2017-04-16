@@ -435,7 +435,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHdfsClient]* client)
 
-        CStatus CreateDirectory(const c_string& path)
+        CStatus MakeDirectory(const c_string& path)
 
         CStatus Delete(const c_string& path, c_bool recursive)
 

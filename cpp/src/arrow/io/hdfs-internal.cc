@@ -409,7 +409,7 @@ int LibHdfsShim::SetWorkingDirectory(hdfsFS fs, const char* path) {
   }
 }
 
-int LibHdfsShim::CreateDirectory(hdfsFS fs, const char* path) {
+int LibHdfsShim::MakeDirectory(hdfsFS fs, const char* path) {
   return this->hdfsCreateDirectory(fs, path);
 }
 

@@ -82,7 +82,7 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   //
   // @param path (in): absolute HDFS path
   // @returns Status
-  Status CreateDirectory(const std::string& path);
+  Status MakeDirectory(const std::string& path);
 
   // Delete file or directory
   // @param path: absolute path to data
