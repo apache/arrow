@@ -20,12 +20,11 @@
 #ifndef ARROW_PYTHON_NUMPY_INTERNAL_H
 #define ARROW_PYTHON_NUMPY_INTERNAL_H
 
-#include <Python.h>
+#include "arrow/python/numpy_interop.h"
+
+#include "arrow/python/platform.h"
 
 #include <cstdint>
-
-#include "arrow/python/numpy_convert.h"
-#include "arrow/python/numpy_interop.h"
 
 namespace arrow {
 namespace py {
