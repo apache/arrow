@@ -41,6 +41,31 @@ cdef _pandas():
     return pd
 
 
+# These are imprecise because the type (in pandas 0.x) depends on the presence
+# of nulls
+_pandas_type_map = {
+    _Type_NA: np.float64,  # NaNs
+    _Type_BOOL: np.bool_,
+    _Type_INT8: np.int8,
+    _Type_INT16: np.int16,
+    _Type_INT32: np.int32,
+    _Type_INT64: np.int64,
+    _Type_UINT8: np.uint8,
+    _Type_UINT16: np.uint16,
+    _Type_UINT32: np.uint32,
+    _Type_UINT64: np.uint64,
+    _Type_HALF_FLOAT: np.float16,
+    _Type_FLOAT: np.float32,
+    _Type_DOUBLE: np.float64,
+    _Type_DATE32: np.dtype('datetime64[ns]'),
+    _Type_DATE64: np.dtype('datetime64[ns]'),
+    _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
+    _Type_BINARY: np.object_,
+    _Type_FIXED_SIZE_BINARY: np.object_,
+    _Type_STRING: np.object_,
+    _Type_LIST: np.object_
+}
+
 cdef class DataType:
 
     def __cinit__(self):
@@ -69,48 +94,8 @@ cdef class DataType:
         Return the NumPy dtype that would be used for storing this
         """
         cdef Type type_id = self.type.id()
-
-        if type_id == _Type_NA:
-            # NaNs
-            return np.float64
-        elif type_id == _Type_BOOL:
-            return np.bool_
-        elif type_id == _Type_INT8:
-            return np.int8
-        elif type_id == _Type_INT16:
-            return np.int16
-        elif type_id == _Type_INT32:
-            return np.int32
-        elif type_id == _Type_INT64:
-            return np.int64
-        elif type_id == _Type_UINT8:
-            return np.uint8
-        elif type_id == _Type_UINT16:
-            return np.uint16
-        elif type_id == _Type_UINT32:
-            return np.uint32
-        elif type_id == _Type_UINT64:
-            return np.uint64
-        elif type_id == _Type_HALF_FLOAT:
-            return np.float16
-        elif type_id == _Type_FLOAT:
-            return np.float32
-        elif type_id == _Type_DOUBLE:
-            return np.float64
-        elif type_id == _Type_DATE32:
-            return np.dtype('datetime64[ns]')
-        elif type_id == _Type_DATE64:
-            return np.dtype('datetime64[ns]')
-        elif type_id == _Type_TIMESTAMP:
-            return np.dtype('datetime64[ns]')
-        elif type_id == _Type_BINARY:
-            return np.object_
-        elif type_id == _Type_FIXED_SIZE_BINARY:
-            return np.object_
-        elif type_id == _Type_STRING:
-            return np.object_
-        elif type_id == _Type_LIST:
-            return np.object_
+        if type_id in _pandas_type_map:
+            return _pandas_type_map[type_id]
         else:
             raise NotImplementedError(str(self))
 
