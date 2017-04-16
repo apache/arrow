@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_CONFIG_H
-#define ARROW_PYTHON_CONFIG_H
-
 #include "arrow/python/platform.h"
+
 #include "arrow/python/do_import_numpy.h"
+
+#include "arrow/python/init.h"
 #include "arrow/python/numpy_interop.h"
 
 namespace arrow {
@@ -31,5 +31,3 @@ void InitNumPy() {
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_INIT_H

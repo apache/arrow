@@ -34,9 +34,6 @@ ARROW_EXPORT
 extern PyObject* numpy_nan;
 
 ARROW_EXPORT
-void Init();
-
-ARROW_EXPORT
 void set_numpy_nan(PyObject* obj);
 
 }  // namespace py

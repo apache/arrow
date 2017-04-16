@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_CONFIG_H
-#define ARROW_PYTHON_CONFIG_H
+#ifndef ARROW_PYTHON_INIT_H
+#define ARROW_PYTHON_INIT_H
 
 #include "arrow/python/platform.h"
 

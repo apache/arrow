@@ -23,8 +23,6 @@
 namespace arrow {
 namespace py {
 
-void Init() {}
-
 PyObject* numpy_nan = nullptr;
 
 void set_numpy_nan(PyObject* obj) {

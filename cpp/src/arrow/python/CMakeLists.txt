@@ -61,6 +61,7 @@ ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
+  STATIC_LINK_LIBS ""
 )
 
 if (MSVC)
@@ -88,6 +89,7 @@ install(FILES
   numpy_convert.h
   numpy_interop.h
   pandas_convert.h
+  platform.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
