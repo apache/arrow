@@ -47,6 +47,7 @@ set(ARROW_PYTHON_SRCS
   common.cc
   config.cc
   helpers.cc
+  init.cc
   io.cc
   numpy_convert.cc
   pandas_convert.cc
@@ -82,6 +83,7 @@ install(FILES
   config.h
   do_import_numpy.h
   helpers.h
+  init.h
   io.h
   numpy_convert.h
   numpy_interop.h
