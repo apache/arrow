@@ -797,11 +797,16 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    list_obj : array_like
+    sequence : sequence-like object of Python objects
+    type : pyarrow.DataType, optional
+        If not passed, will be inferred from the data
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the currently-set default
+        memory pool
 
     Returns
     -------
-    pyarrow.array.Array
+    array : pyarrow.Array
     """
     cdef:
        shared_ptr[CArray] sp_array
