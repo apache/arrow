@@ -18,11 +18,15 @@
 import gc
 import pytest
 
+import pyarrow as pa
+
+
 try:
-    import pyarrow.jemalloc
+    pa.jemalloc_memory_pool()
     HAVE_JEMALLOC = True
 except ImportError:
     HAVE_JEMALLOC = False
+
 
 jemalloc = pytest.mark.skipif(not HAVE_JEMALLOC,
                               reason='jemalloc support not built')
@@ -31,33 +35,33 @@ jemalloc = pytest.mark.skipif(not HAVE_JEMALLOC,
 @jemalloc
 def test_different_memory_pool():
     gc.collect()
-    bytes_before_default = pyarrow.total_allocated_bytes()
-    bytes_before_jemalloc = pyarrow.jemalloc.default_pool().bytes_allocated()
+    bytes_before_default = pa.total_allocated_bytes()
+    bytes_before_jemalloc = pa.jemalloc_memory_pool().bytes_allocated()
 
     # it works
-    array = pyarrow.from_pylist([1, None, 3, None],  # noqa
-                                memory_pool=pyarrow.jemalloc.default_pool())
+    array = pa.from_pylist([1, None, 3, None],  # noqa
+                                memory_pool=pa.jemalloc_memory_pool())
     gc.collect()
-    assert pyarrow.total_allocated_bytes() == bytes_before_default
-    assert (pyarrow.jemalloc.default_pool().bytes_allocated() >
+    assert pa.total_allocated_bytes() == bytes_before_default
+    assert (pa.jemalloc_memory_pool().bytes_allocated() >
             bytes_before_jemalloc)
 
 
 @jemalloc
 def test_default_memory_pool():
     gc.collect()
-    bytes_before_default = pyarrow.total_allocated_bytes()
-    bytes_before_jemalloc = pyarrow.jemalloc.default_pool().bytes_allocated()
+    bytes_before_default = pa.total_allocated_bytes()
+    bytes_before_jemalloc = pa.jemalloc_memory_pool().bytes_allocated()
 
-    old_memory_pool = pyarrow.memory.default_pool()
-    pyarrow.memory.set_default_pool(pyarrow.jemalloc.default_pool())
+    old_memory_pool = pa.default_memory_pool()
+    pa.set_memory_pool(pa.jemalloc_memory_pool())
 
-    array = pyarrow.from_pylist([1, None, 3, None])  # noqa
+    array = pa.from_pylist([1, None, 3, None])  # noqa
 
-    pyarrow.memory.set_default_pool(old_memory_pool)
+    pa.set_memory_pool(old_memory_pool)
     gc.collect()
 
-    assert pyarrow.total_allocated_bytes() == bytes_before_default
+    assert pa.total_allocated_bytes() == bytes_before_default
 
-    assert (pyarrow.jemalloc.default_pool().bytes_allocated() >
+    assert (pa.jemalloc_memory_pool().bytes_allocated() >
             bytes_before_jemalloc)

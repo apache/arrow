@@ -89,7 +89,7 @@ export PYARROW_CMAKE_OPTIONS=-DPYARROW_BUILD_PARQUET=on
 
 ```bash
 pip install -r doc/requirements.txt
-python setup.py build_sphinx
+python setup.py build_sphinx -s doc/source
 ```
 
 [1]: https://github.com/apache/parquet-cpp
