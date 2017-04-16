@@ -17,7 +17,7 @@
 #
 # Sets COMPILER_FAMILY to 'clang' or 'gcc'
 # Sets COMPILER_VERSION to the version
-execute_process(COMMAND "${CMAKE_CXX_COMPILER}"
+execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -v
                 ERROR_VARIABLE COMPILER_VERSION_FULL)
 message(INFO "Compiler version: ${COMPILER_VERSION_FULL}")
 message(INFO "Compiler id: ${CMAKE_CXX_COMPILER_ID}")
