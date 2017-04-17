@@ -69,7 +69,7 @@ static inline bool PyFloat_isnan(const PyObject* obj) {
     return false;
   }
 }
-static inline bool PyObject_is_null(const PyObject* obj) {
+static inline bool PandasObjectIsNull(const PyObject* obj) {
   return obj == Py_None || obj == numpy_nan || PyFloat_isnan(obj);
 }
 
@@ -166,7 +166,7 @@ static Status AppendObjectStrings(
 
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -205,7 +205,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
 
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -527,7 +527,7 @@ Status PandasConverter::ConvertDates() {
     obj = objects[i];
     if (PyDate_CheckExact(obj)) {
       date_builder.Append(UnboxDate<ArrowType>::Unbox(obj));
-    } else if (PyObject_is_null(obj)) {
+    } else if (PandasObjectIsNull(obj)) {
       date_builder.AppendNull();
     } else {
       return InvalidConversion(obj, "date");
@@ -578,7 +578,7 @@ Status PandasConverter::ConvertDecimals() {
         default:
           break;
       }
-    } else if (PyObject_is_null(object)) {
+    } else if (PandasObjectIsNull(object)) {
       decimal_builder.AppendNull();
     } else {
       return InvalidConversion(object, "decimal.Decimal");
@@ -732,7 +732,7 @@ Status PandasConverter::ConvertBooleans() {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PyObject_is_null(obj)) {
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       ++null_count;
     } else if (obj == Py_True) {
       BitUtil::SetBit(bitmap, i);
@@ -799,7 +799,7 @@ Status PandasConverter::ConvertObjects() {
     RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
 
     for (int64_t i = 0; i < length_; ++i) {
-      if (PyObject_is_null(objects[i])) {
+      if (PandasObjectIsNull(objects[i])) {
         continue;
       } else if (PyObject_is_string(objects[i])) {
         return ConvertObjectStrings();
@@ -842,7 +842,7 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
   ListBuilder list_builder(pool_, value_builder);
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   for (int64_t i = 0; i < length_; ++i) {
-    if (PyObject_is_null(objects[i])) {
+    if (PandasObjectIsNull(objects[i])) {
       RETURN_NOT_OK(list_builder.AppendNull());
     } else if (PyArray_Check(objects[i])) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
@@ -902,7 +902,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   ListBuilder list_builder(pool_, value_builder);
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   for (int64_t i = 0; i < length_; ++i) {
-    if (PyObject_is_null(objects[i])) {
+    if (PandasObjectIsNull(objects[i])) {
       RETURN_NOT_OK(list_builder.AppendNull());
     } else if (PyArray_Check(objects[i])) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
