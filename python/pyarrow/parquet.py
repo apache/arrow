@@ -474,6 +474,8 @@ class ParquetDataset(object):
         else:
             self.fs = filesystem
 
+        self.paths = path_or_paths
+
         (self.pieces, self.partitions,
          self.metadata_path) = _make_manifest(path_or_paths, self.fs)
 
