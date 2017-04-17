@@ -61,8 +61,16 @@ namespace py {
 // ----------------------------------------------------------------------
 // Utility code
 
+static inline bool PyFloat_isnan(const PyObject* obj) {
+  if (PyFloat_Check(obj)) {
+    double val = PyFloat_AS_DOUBLE(obj);
+    return val != val;
+  } else {
+    return false;
+  }
+}
 static inline bool PyObject_is_null(const PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan;
+  return obj == Py_None || obj == numpy_nan || PyFloat_isnan(obj);
 }
 
 static inline bool PyObject_is_string(const PyObject* obj) {

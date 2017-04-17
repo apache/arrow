@@ -588,11 +588,13 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(df, expected)
 
     def test_all_nones(self):
-        s = pd.Series([None, None, None])
+        def _check_series(s):
+            converted = pa.Array.from_pandas(s)
+            assert isinstance(converted, pa.NullArray)
+            assert len(converted) == 3
+            assert converted.null_count == 3
+            assert converted[0] is pa.NA
 
-        converted = pa.Array.from_pandas(s)
-
-        assert isinstance(converted, pa.NullArray)
-        assert len(converted) == 3
-        assert converted.null_count == 3
-        assert converted[0] is pa.NA
+        _check_series(pd.Series([None] * 3, dtype=object))
+        _check_series(pd.Series([np.nan] * 3, dtype=object))
+        _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
