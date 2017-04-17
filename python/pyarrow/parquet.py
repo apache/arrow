@@ -295,9 +295,9 @@ class PartitionSet(object):
         # Only integer and string partition types are supported right now
         try:
             integer_keys = [int(x) for x in self.keys]
-            dictionary = _array.from_pylist(integer_keys)
+            dictionary = _array.array(integer_keys)
         except ValueError:
-            dictionary = _array.from_pylist(self.keys)
+            dictionary = _array.array(self.keys)
 
         self._dictionary = dictionary
         return dictionary

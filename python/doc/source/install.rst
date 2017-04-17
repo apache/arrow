@@ -90,7 +90,7 @@ using the default system install location will work, but for now we are being
 explicit:
 
 .. code-block:: bash
-    
+
     export ARROW_HOME=$HOME/local
 
 Now, we build Arrow:
@@ -98,18 +98,18 @@ Now, we build Arrow:
 .. code-block:: bash
 
     cd arrow/cpp
-    
+
     mkdir dev-build
     cd dev-build
-    
+
     cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
-    
+
     make
-    
+
     # Use sudo here if $ARROW_HOME requires it
     make install
 
-To get the optional Parquet support, you should also build and install 
+To get the optional Parquet support, you should also build and install
 `parquet-cpp <https://github.com/apache/parquet-cpp/blob/master/README.md>`_.
 
 Install `pyarrow`
@@ -138,10 +138,10 @@ Install `pyarrow`
 
 
 .. code-block:: python
-    
+
     In [1]: import pyarrow
 
-    In [2]: pyarrow.from_pylist([1,2,3])
+    In [2]: pyarrow.array([1,2,3])
     Out[2]:
     <pyarrow.array.Int64Array object at 0x7f899f3e60e8>
     [
@@ -149,4 +149,3 @@ Install `pyarrow`
       2,
       3
     ]
-

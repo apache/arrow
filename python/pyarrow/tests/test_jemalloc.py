@@ -39,8 +39,8 @@ def test_different_memory_pool():
     bytes_before_jemalloc = pa.jemalloc_memory_pool().bytes_allocated()
 
     # it works
-    array = pa.from_pylist([1, None, 3, None],  # noqa
-                                memory_pool=pa.jemalloc_memory_pool())
+    array = pa.array([1, None, 3, None],  # noqa
+                     memory_pool=pa.jemalloc_memory_pool())
     gc.collect()
     assert pa.total_allocated_bytes() == bytes_before_default
     assert (pa.jemalloc_memory_pool().bytes_allocated() >
@@ -56,7 +56,7 @@ def test_default_memory_pool():
     old_memory_pool = pa.default_memory_pool()
     pa.set_memory_pool(pa.jemalloc_memory_pool())
 
-    array = pa.from_pylist([1, None, 3, None])  # noqa
+    array = pa.array([1, None, 3, None])  # noqa
 
     pa.set_memory_pool(old_memory_pool)
     gc.collect()

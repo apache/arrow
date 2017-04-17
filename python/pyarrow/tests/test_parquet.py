@@ -47,7 +47,7 @@ def test_single_pylist_column_roundtrip(tmpdir):
     for dtype in [int, float]:
         filename = tmpdir.join('single_{}_column.parquet'
                                .format(dtype.__name__))
-        data = [pa.from_pylist(list(map(dtype, range(5))))]
+        data = [pa.array(list(map(dtype, range(5))))]
         table = pa.Table.from_arrays(data, names=('a', 'b'))
         pq.write_table(table, filename.strpath)
         table_read = pq.read_table(filename.strpath)

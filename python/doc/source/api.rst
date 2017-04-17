@@ -83,12 +83,13 @@ Scalar Value Types
    StringValue
    FixedSizeBinaryValue
 
-Array Types
------------
+Array Types and Constructors
+----------------------------
 
 .. autosummary::
    :toctree: generated/
 
+   array
    Array
    NullArray
    NumericArray

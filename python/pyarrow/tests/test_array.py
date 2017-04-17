@@ -36,12 +36,12 @@ def test_repr_on_pre_init_array():
 
 
 def test_getitem_NA():
-    arr = pa.from_pylist([1, None, 2])
+    arr = pa.array([1, None, 2])
     assert arr[1] is pa.NA
 
 
 def test_list_format():
-    arr = pa.from_pylist([[1], None, [2, 3, None]])
+    arr = pa.array([[1], None, [2, 3, None]])
     result = fmt.array_format(arr)
     expected = """\
 [
@@ -55,7 +55,7 @@ def test_list_format():
 
 
 def test_string_format():
-    arr = pa.from_pylist(['', None, 'foo'])
+    arr = pa.array(['', None, 'foo'])
     result = fmt.array_format(arr)
     expected = """\
 [
@@ -67,7 +67,7 @@ def test_string_format():
 
 
 def test_long_array_format():
-    arr = pa.from_pylist(range(100))
+    arr = pa.array(range(100))
     result = fmt.array_format(arr, window=2)
     expected = """\
 [
@@ -83,7 +83,7 @@ def test_long_array_format():
 def test_to_pandas_zero_copy():
     import gc
 
-    arr = pa.from_pylist(range(10))
+    arr = pa.array(range(10))
 
     for i in range(10):
         np_arr = arr.to_pandas()
@@ -93,7 +93,7 @@ def test_to_pandas_zero_copy():
     assert sys.getrefcount(arr) == 2
 
     for i in range(10):
-        arr = pa.from_pylist(range(10))
+        arr = pa.array(range(10))
         np_arr = arr.to_pandas()
         arr = None
         gc.collect()
@@ -108,14 +108,14 @@ def test_to_pandas_zero_copy():
 
 
 def test_array_slice():
-    arr = pa.from_pylist(range(10))
+    arr = pa.array(range(10))
 
     sliced = arr.slice(2)
-    expected = pa.from_pylist(range(2, 10))
+    expected = pa.array(range(2, 10))
     assert sliced.equals(expected)
 
     sliced2 = arr.slice(2, 4)
-    expected2 = pa.from_pylist(range(2, 6))
+    expected2 = pa.array(range(2, 6))
     assert sliced2.equals(expected2)
 
     # 0 offset
