@@ -552,6 +552,10 @@ def test_read_common_metadata_files(tmpdir):
     pf = pq.ParquetFile(data_path)
     assert dataset.schema.equals(pf.schema)
 
+    # handle list of one directory
+    dataset2 = pq.ParquetDataset([base_path])
+    assert dataset2.schema.equals(dataset.schema)
+
 
 def _filter_partition(df, part_keys):
     predicate = np.ones(len(df), dtype=bool)

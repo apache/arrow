@@ -31,6 +31,29 @@ def test_type_integers():
         assert str(t) == name
 
 
+def test_type_to_pandas_dtype():
+    cases = [
+        (pa.bool_(), np.bool_),
+        (pa.int8(), np.int8),
+        (pa.int16(), np.int16),
+        (pa.int32(), np.int32),
+        (pa.int64(), np.int64),
+        (pa.uint8(), np.uint8),
+        (pa.uint16(), np.uint16),
+        (pa.uint32(), np.uint32),
+        (pa.uint64(), np.uint64),
+        (pa.float16(), np.float16),
+        (pa.float32(), np.float32),
+        (pa.float64(), np.float64),
+        (pa.binary(), np.object_),
+        (pa.binary(12), np.object_),
+        (pa.string(), np.object_),
+        (pa.list_(pa.int8()), np.object_),
+    ]
+    for arrow_type, numpy_type in cases:
+        assert arrow_type.to_pandas_dtype() == numpy_type
+
+
 def test_type_list():
     value_type = pa.int32()
     list_type = pa.list_(value_type)
@@ -82,6 +105,8 @@ def test_schema():
         pa.field('baz', pa.list_(pa.int8()))
     ]
     sch = pa.schema(fields)
+
+    assert sch.names == ['foo', 'bar', 'baz']
 
     assert len(sch) == 3
     assert sch[0].name == 'foo'
