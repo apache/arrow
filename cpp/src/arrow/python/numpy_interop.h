@@ -18,7 +18,7 @@
 #ifndef PYARROW_NUMPY_INTEROP_H
 #define PYARROW_NUMPY_INTEROP_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <numpy/numpyconfig.h>
 

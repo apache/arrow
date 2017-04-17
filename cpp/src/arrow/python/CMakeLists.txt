@@ -17,18 +17,18 @@ if (ARROW_BUILD_TESTS)
   add_library(arrow_python_test_main STATIC
 	util/test_main.cc)
 
+  target_link_libraries(arrow_python_test_main
+    gtest)
+
   if (APPLE)
 	target_link_libraries(arrow_python_test_main
-      gtest
-      dl)
+      ${CMAKE_DL_LIBS})
 	set_target_properties(arrow_python_test_main
       PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  else()
+  elseif(NOT MSVC)
 	target_link_libraries(arrow_python_test_main
-      gtest
       pthread
-      dl
-	  )
+      ${CMAKE_DL_LIBS})
   endif()
 endif()
 
@@ -37,12 +37,6 @@ set(ARROW_PYTHON_MIN_TEST_LIBS
   arrow_python_static
   arrow_static
   ${BOOST_REGEX_LIBRARY})
-
-if(ARROW_BUILD_TESTS)
-  ADD_THIRDPARTY_LIB(python
-    SHARED_LIB "${PYTHON_LIBRARIES}")
-  list(APPEND ARROW_PYTHON_MIN_TEST_LIBS python)
-endif()
 
 set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 
@@ -53,6 +47,7 @@ set(ARROW_PYTHON_SRCS
   common.cc
   config.cc
   helpers.cc
+  init.cc
   io.cc
   numpy_convert.cc
   pandas_convert.cc
@@ -66,8 +61,13 @@ ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_IO_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS ""
 )
+
+if (MSVC)
+  target_link_libraries(arrow_python_shared
+    ${PYTHON_LIBRARIES})
+endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Clang, be quiet. Python C API has lots of macros
@@ -82,19 +82,19 @@ install(FILES
   builtin_convert.h
   common.h
   config.h
-  do_import_numpy.h
   helpers.h
+  init.h
   io.h
   numpy_convert.h
   numpy_interop.h
   pandas_convert.h
+  platform.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
-
-# set_target_properties(arrow_python_shared PROPERTIES
-#     INSTALL_RPATH "\$ORIGIN")
 
 if (ARROW_BUILD_TESTS)
   ADD_ARROW_TEST(python-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}")
+  target_link_libraries(python-test
+    ${PYTHON_LIBRARIES})
 endif()

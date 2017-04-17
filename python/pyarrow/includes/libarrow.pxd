@@ -54,7 +54,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
 
-    enum TimeUnit" arrow::TimeUnit":
+    enum TimeUnit" arrow::TimeUnit::type":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
         TimeUnit_MILLI" arrow::TimeUnit::MILLI"
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
@@ -435,7 +435,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHdfsClient]* client)
 
-        CStatus CreateDirectory(const c_string& path)
+        CStatus MakeDirectory(const c_string& path)
 
         CStatus Delete(const c_string& path, c_bool recursive)
 

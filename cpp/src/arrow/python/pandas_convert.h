@@ -21,7 +21,7 @@
 #ifndef ARROW_PYTHON_ADAPTERS_PANDAS_H
 #define ARROW_PYTHON_ADAPTERS_PANDAS_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <memory>
 #include <string>

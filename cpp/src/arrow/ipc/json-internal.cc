@@ -77,7 +77,7 @@ static std::string GetFloatingPrecisionName(FloatingPoint::Precision precision) 
   return "UNKNOWN";
 }
 
-static std::string GetTimeUnitName(TimeUnit unit) {
+static std::string GetTimeUnitName(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       return "SECOND";
@@ -645,7 +645,7 @@ static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>*
 
   std::string unit_str = json_unit->value.GetString();
 
-  TimeUnit unit;
+  TimeUnit::type unit;
   if (unit_str == "SECOND") {
     unit = TimeUnit::SECOND;
   } else if (unit_str == "MILLISECOND") {

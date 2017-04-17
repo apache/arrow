@@ -26,8 +26,7 @@ from libcpp.vector cimport vector
 from cpython cimport PyObject
 cimport cpython
 
-# This must be included for cerr and other things to work
-cdef extern from "<iostream>":
+cdef extern from "arrow/python/platform.h":
     pass
 
 cdef extern from "<Python.h>":

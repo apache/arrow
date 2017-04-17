@@ -173,7 +173,7 @@ struct LibHdfsShim {
 
   int SetWorkingDirectory(hdfsFS fs, const char* path);
 
-  int CreateDirectory(hdfsFS fs, const char* path);
+  int MakeDirectory(hdfsFS fs, const char* path);
 
   int SetReplication(hdfsFS fs, const char* path, int16_t replication);
 

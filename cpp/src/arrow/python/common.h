@@ -32,7 +32,7 @@ class MemoryPool;
 
 namespace py {
 
-class PyAcquireGIL {
+class ARROW_EXPORT PyAcquireGIL {
  public:
   PyAcquireGIL() { state_ = PyGILState_Ensure(); }
 
@@ -45,7 +45,7 @@ class PyAcquireGIL {
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
-class OwnedRef {
+class ARROW_EXPORT OwnedRef {
  public:
   OwnedRef() : obj_(nullptr) {}
 
@@ -70,7 +70,7 @@ class OwnedRef {
   PyObject* obj_;
 };
 
-struct PyObjectStringify {
+struct ARROW_EXPORT PyObjectStringify {
   OwnedRef tmp_obj;
   const char* bytes;
   Py_ssize_t size;

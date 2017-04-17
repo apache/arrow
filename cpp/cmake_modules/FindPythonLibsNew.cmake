@@ -233,12 +233,17 @@ FUNCTION(PYTHON_ADD_MODULE _NAME )
       # segfaults, so do this dynamic lookup instead.
       SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
                           "-undefined dynamic_lookup")
+    ELSEIF(MSVC)
+      target_link_libraries(${_NAME} ${PYTHON_LIBRARIES})
     ELSE()
-     # In general, we should not link against libpython as we do not embed
-     # the Python interpreter. The python binary itself can then define where
-     # the symbols should loaded from.
-     SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
-         "-Wl,-undefined,dynamic_lookup")
+      # In general, we should not link against libpython as we do not embed the
+      # Python interpreter. The python binary itself can then define where the
+      # symbols should loaded from. For being manylinux1 compliant, one is not
+      # allowed to link to libpython. Partly because not all systems ship it,
+      # also because the interpreter ABI/API was not stable between patch
+      # releases for Python < 3.5.
+      SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
+        "-Wl,-undefined,dynamic_lookup")
     ENDIF()
     IF(PYTHON_MODULE_${_NAME}_BUILD_SHARED)
       SET_TARGET_PROPERTIES(${_NAME} PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}")

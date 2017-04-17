@@ -538,9 +538,11 @@ class ARROW_EXPORT Date64Type : public DateType {
   static std::string name() { return "date"; }
 };
 
-enum class TimeUnit : char { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+struct TimeUnit {
+  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+};
 
-static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
+static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       os << "s";
@@ -560,11 +562,11 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit unit) {
 
 class ARROW_EXPORT TimeType : public FixedWidthType {
  public:
-  TimeUnit unit() const { return unit_; }
+  TimeUnit::type unit() const { return unit_; }
 
  protected:
-  TimeType(Type::type type_id, TimeUnit unit);
-  TimeUnit unit_;
+  TimeType(Type::type type_id, TimeUnit::type unit);
+  TimeUnit::type unit_;
 };
 
 class ARROW_EXPORT Time32Type : public TimeType {
@@ -574,7 +576,7 @@ class ARROW_EXPORT Time32Type : public TimeType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  explicit Time32Type(TimeUnit unit = TimeUnit::MILLI);
+  explicit Time32Type(TimeUnit::type unit = TimeUnit::MILLI);
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -587,7 +589,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  explicit Time64Type(TimeUnit unit = TimeUnit::MILLI);
+  explicit Time64Type(TimeUnit::type unit = TimeUnit::MILLI);
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -602,21 +604,21 @@ class ARROW_EXPORT TimestampType : public FixedWidthType {
 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
-  explicit TimestampType(TimeUnit unit = TimeUnit::MILLI)
+  explicit TimestampType(TimeUnit::type unit = TimeUnit::MILLI)
       : FixedWidthType(Type::TIMESTAMP), unit_(unit) {}
 
-  explicit TimestampType(TimeUnit unit, const std::string& timezone)
+  explicit TimestampType(TimeUnit::type unit, const std::string& timezone)
       : FixedWidthType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "timestamp"; }
 
-  TimeUnit unit() const { return unit_; }
+  TimeUnit::type unit() const { return unit_; }
   const std::string& timezone() const { return timezone_; }
 
  private:
-  TimeUnit unit_;
+  TimeUnit::type unit_;
   std::string timezone_;
 };
 
@@ -710,15 +712,15 @@ std::shared_ptr<DataType> ARROW_EXPORT fixed_size_binary(int32_t byte_width);
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
 
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit unit);
+std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(
-    TimeUnit unit, const std::string& timezone);
+    TimeUnit::type unit, const std::string& timezone);
 
 /// Unit can be either SECOND or MILLI
-std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit unit);
+std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 
 /// Unit can be either MICRO or NANO
-std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit unit);
+std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
 std::shared_ptr<DataType> ARROW_EXPORT struct_(
     const std::vector<std::shared_ptr<Field>>& fields);

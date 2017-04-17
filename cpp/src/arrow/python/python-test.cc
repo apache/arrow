@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include "arrow/array.h"
 #include "arrow/builder.h"

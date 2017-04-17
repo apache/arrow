@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Python.h>
+#include "arrow/python/numpy_interop.h"
 
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/numpy_interop.h"
 
 #include <cstdint>
 #include <memory>
@@ -38,8 +37,8 @@ namespace py {
 
 bool is_contiguous(PyObject* array) {
   if (PyArray_Check(array)) {
-    return PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(array)) &
-           (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS);
+    return (PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(array)) &
+               (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
   } else {
     return false;
   }
@@ -167,7 +166,7 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
     case NPY_DATETIME: {
       auto date_dtype =
           reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-      TimeUnit unit;
+      TimeUnit::type unit;
       switch (date_dtype->meta.base) {
         case NPY_FR_s:
           unit = TimeUnit::SECOND;

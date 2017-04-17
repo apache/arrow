@@ -17,9 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
-#include <Python.h>
-
 #include "arrow/python/numpy_interop.h"
+
 #include "arrow/python/pandas_convert.h"
 
 #include <algorithm>
@@ -490,7 +489,7 @@ struct UnboxDate {};
 
 template <>
 struct UnboxDate<Date32Type> {
-  static int64_t Unbox(PyObject* obj) {
+  static int32_t Unbox(PyObject* obj) {
     return PyDate_to_days(reinterpret_cast<PyDateTime_Date*>(obj));
   }
 };

@@ -34,7 +34,7 @@ namespace py {
 
 // A common interface to a Python file-like object. Must acquire GIL before
 // calling any methods
-class PythonFile {
+class ARROW_EXPORT PythonFile {
  public:
   explicit PythonFile(PyObject* file);
   ~PythonFile();
