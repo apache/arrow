@@ -843,9 +843,9 @@ cdef class Array:
         self.type = box_data_type(self.sp_array.get().type())
 
     @staticmethod
-    def from_numpy(obj, mask=None, DataType type=None,
-                   timestamps_to_ms=False,
-                   MemoryPool memory_pool=None):
+    def from_pandas(obj, mask=None, DataType type=None,
+                    timestamps_to_ms=False,
+                    MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array.
 
@@ -878,7 +878,7 @@ cdef class Array:
 
         >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> pa.Array.from_numpy(pd.Series([1, 2]))
+        >>> pa.Array.from_pandas(pd.Series([1, 2]))
         <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
         [
           1,
@@ -886,7 +886,7 @@ cdef class Array:
         ]
 
         >>> import numpy as np
-        >>> pa.Array.from_numpy(pd.Series([1, 2]), np.array([0, 1],
+        >>> pa.Array.from_pandas(pd.Series([1, 2]), np.array([0, 1],
         ... dtype=bool))
         <pyarrow.array.Int64Array object at 0x7f9019e11208>
         [
@@ -1329,14 +1329,14 @@ cdef class DictionaryArray(Array):
                 mask = indices == -1
             else:
                 mask = mask | (indices == -1)
-            arrow_indices = Array.from_numpy(indices, mask=mask,
-                                             memory_pool=memory_pool)
+            arrow_indices = Array.from_pandas(indices, mask=mask,
+                                              memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
             arrow_dictionary = dictionary
         else:
-            arrow_dictionary = Array.from_numpy(dictionary,
-                                                memory_pool=memory_pool)
+            arrow_dictionary = Array.from_pandas(dictionary,
+                                                 memory_pool=memory_pool)
 
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')

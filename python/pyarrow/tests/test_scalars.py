@@ -124,7 +124,7 @@ class TestScalars(unittest.TestCase):
 
         for unit in units:
             dtype = 'datetime64[{0}]'.format(unit)
-            arrow_arr = pa.Array.from_numpy(arr.astype(dtype))
+            arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
             expected = pd.Timestamp('2000-01-01 12:34:56')
 
             assert arrow_arr[0].as_py() == expected
@@ -133,8 +133,8 @@ class TestScalars(unittest.TestCase):
             arrow_type = pa.timestamp(unit, tz=tz)
 
             dtype = 'datetime64[{0}]'.format(unit)
-            arrow_arr = pa.Array.from_numpy(arr.astype(dtype),
-                                            type=arrow_type)
+            arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
+                                             type=arrow_type)
             expected = (pd.Timestamp('2000-01-01 12:34:56')
                         .tz_localize('utc')
                         .tz_convert(tz))

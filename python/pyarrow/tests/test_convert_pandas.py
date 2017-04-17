@@ -79,8 +79,8 @@ class TestPandasConversion(unittest.TestCase):
 
     def _check_array_roundtrip(self, values, expected=None, mask=None,
                                timestamps_to_ms=False, type=None):
-        arr = pa.Array.from_numpy(values, timestamps_to_ms=timestamps_to_ms,
-                                  mask=mask, type=type)
+        arr = pa.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
+                                   mask=mask, type=type)
         result = arr.to_pandas()
 
         values_nulls = pd.isnull(values)
@@ -125,7 +125,7 @@ class TestPandasConversion(unittest.TestCase):
         for name, arrow_dtype in dtypes:
             values = np.random.randn(num_values).astype(name)
 
-            arr = pa.Array.from_numpy(values, null_mask)
+            arr = pa.Array.from_pandas(values, null_mask)
             arrays.append(arr)
             fields.append(pa.Field.from_py(name, arrow_dtype))
             values[null_mask] = np.nan
@@ -178,7 +178,7 @@ class TestPandasConversion(unittest.TestCase):
         for name in int_dtypes:
             values = np.random.randint(0, 100, size=num_values)
 
-            arr = pa.Array.from_numpy(values, null_mask)
+            arr = pa.Array.from_pandas(values, null_mask)
             arrays.append(arr)
 
             expected = values.astype('f8')
@@ -212,7 +212,7 @@ class TestPandasConversion(unittest.TestCase):
         mask = np.random.randint(0, 10, size=num_values) < 3
         values = np.random.randint(0, 10, size=num_values) < 5
 
-        arr = pa.Array.from_numpy(values, mask)
+        arr = pa.Array.from_pandas(values, mask)
 
         expected = values.astype(object)
         expected[mask] = None
@@ -375,11 +375,11 @@ class TestPandasConversion(unittest.TestCase):
         t32 = pa.date32()
         t64 = pa.date64()
 
-        a32 = pa.Array.from_numpy(arr, type=t32)
-        a64 = pa.Array.from_numpy(arr, type=t64)
+        a32 = pa.Array.from_pandas(arr, type=t32)
+        a64 = pa.Array.from_pandas(arr, type=t64)
 
-        a32_expected = pa.Array.from_numpy(arr_i4, mask=mask, type=t32)
-        a64_expected = pa.Array.from_numpy(arr_i8, mask=mask, type=t64)
+        a32_expected = pa.Array.from_pandas(arr_i4, mask=mask, type=t32)
+        a64_expected = pa.Array.from_pandas(arr_i8, mask=mask, type=t64)
 
         assert a32.equals(a32_expected)
         assert a64.equals(a64_expected)
@@ -406,8 +406,8 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([17259, 17260, 17261], dtype='int32')
         arr2 = arr.astype('int64') * 86400000
 
-        a1 = pa.Array.from_numpy(arr, type=t1)
-        a2 = pa.Array.from_numpy(arr2, type=t2)
+        a1 = pa.Array.from_pandas(arr, type=t1)
+        a2 = pa.Array.from_pandas(arr2, type=t2)
 
         expected = datetime.date(2017, 4, 3)
         assert a1[0].as_py() == expected
@@ -586,3 +586,15 @@ class TestPandasConversion(unittest.TestCase):
         converted = pa.Table.from_pandas(expected)
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
+
+    def test_all_nones(self):
+        def _check_series(s):
+            converted = pa.Array.from_pandas(s)
+            assert isinstance(converted, pa.NullArray)
+            assert len(converted) == 3
+            assert converted.null_count == 3
+            assert converted[0] is pa.NA
+
+        _check_series(pd.Series([None] * 3, dtype=object))
+        _check_series(pd.Series([np.nan] * 3, dtype=object))
+        _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))

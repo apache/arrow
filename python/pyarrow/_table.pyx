@@ -321,7 +321,7 @@ cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
         if schema is not None:
             type = schema.field_by_name(name).type
 
-        arr = Array.from_numpy(col, type=type,
+        arr = Array.from_pandas(col, type=type,
                                 timestamps_to_ms=timestamps_to_ms)
         names.append(name)
         arrays.append(arr)
