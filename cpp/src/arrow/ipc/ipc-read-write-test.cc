@@ -270,6 +270,30 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(bin_array2, 1 << 20);
 }
 
+TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
+  auto CheckBatch = [this](const RecordBatch& batch) {
+    auto sliced_batch = batch.Slice(0, 2);
+
+    int64_t full_size;
+    int64_t sliced_size;
+
+    ASSERT_OK(GetRecordBatchSize(batch, &full_size));
+    ASSERT_OK(GetRecordBatchSize(*sliced_batch, &sliced_size));
+    ASSERT_TRUE(sliced_size < full_size);
+
+    // Make sure we can write and read it
+    this->CheckRoundtrip(*sliced_batch, 1 << 20);
+  };
+
+  std::shared_ptr<RecordBatch> batch;
+
+  ASSERT_OK(MakeIntBatchSized(500, &batch));
+  CheckBatch(*batch);
+
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch));
+  CheckBatch(*batch);
+}
+
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
   int32_t mock_metadata_length = -1;

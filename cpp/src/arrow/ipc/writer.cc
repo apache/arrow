@@ -45,6 +45,25 @@ namespace ipc {
 // ----------------------------------------------------------------------
 // Record batch write path
 
+static inline Status GetTruncatedValidityBitmap(
+    const Array& arr, MemoryPool* pool, std::shared_ptr<Buffer>* buffer) {
+  std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
+  int64_t min_length = PaddedLength(BitUtil::BytesForBits(arr.length()));
+  if (arr.offset() != 0 || min_length < bitmap->size()) {
+    // With a sliced array / non-zero offset, we must copy the bitmap
+    RETURN_NOT_OK(CopyBitmap(pool, bitmap->data(), arr.offset(), arr.length(), &bitmap));
+  }
+  *buffer = bitmap;
+  return Status::OK();
+}
+
+static inline bool NeedTruncate(
+    int64_t offset, const Buffer* buffer, int64_t min_length) {
+  // buffer can be NULL
+  if (buffer == nullptr) { return false; }
+  return offset != 0 || min_length < buffer->size();
+}
+
 class RecordBatchWriter : public ArrayVisitor {
  public:
   RecordBatchWriter(MemoryPool* pool, int64_t buffer_start_offset,
@@ -71,14 +90,8 @@ class RecordBatchWriter : public ArrayVisitor {
     field_nodes_.emplace_back(arr.length(), arr.null_count(), 0);
 
     if (arr.null_count() > 0) {
-      std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
-
-      if (arr.offset() != 0) {
-        // With a sliced array / non-zero offset, we must copy the bitmap
-        RETURN_NOT_OK(
-            CopyBitmap(pool_, bitmap->data(), arr.offset(), arr.length(), &bitmap));
-      }
-
+      std::shared_ptr<Buffer> bitmap;
+      RETURN_NOT_OK(GetTruncatedValidityBitmap(arr, pool_, &bitmap));
       buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
@@ -195,21 +208,23 @@ class RecordBatchWriter : public ArrayVisitor {
  protected:
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
-    std::shared_ptr<Buffer> data_buffer = array.data();
+    std::shared_ptr<Buffer> data = array.data();
 
-    if (array.offset() != 0) {
+    const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
+    const int64_t type_width = fw_type.bit_width() / 8;
+    int64_t min_length = PaddedLength(array.length() * type_width);
+
+    if (NeedTruncate(array.offset(), data.get(), min_length)) {
       // Non-zero offset, slice the buffer
-      const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
-      const int type_width = fw_type.bit_width() / 8;
       const int64_t byte_offset = array.offset() * type_width;
 
       // Send padding if it's available
       const int64_t buffer_length =
           std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
-              data_buffer->size() - byte_offset);
-      data_buffer = SliceBuffer(data_buffer, byte_offset, buffer_length);
+              data->size() - byte_offset);
+      data = SliceBuffer(data, byte_offset, buffer_length);
     }
-    buffers_.push_back(data_buffer);
+    buffers_.push_back(data);
     return Status::OK();
   }
 
@@ -249,23 +264,19 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
     auto data = array.data();
 
-    if (array.offset() != 0) {
+    int64_t total_data_bytes = 0;
+    if (value_offsets) {
+      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    }
+    if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
-      data = SliceBuffer(data, array.value_offset(0), array.value_offset(array.length()));
+      const int64_t start_offset = array.value_offset(0);
+      const int64_t slice_length =
+          std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
+      data = SliceBuffer(data, start_offset, slice_length);
     }
 
     buffers_.push_back(value_offsets);
-    buffers_.push_back(data);
-    return Status::OK();
-  }
-
-  Status Visit(const FixedSizeBinaryArray& array) override {
-    auto data = array.data();
-    int32_t width = array.byte_width();
-
-    if (data && array.offset() != 0) {
-      data = SliceBuffer(data, array.offset() * width, width * array.length());
-    }
     buffers_.push_back(data);
     return Status::OK();
   }
@@ -299,6 +310,7 @@ class RecordBatchWriter : public ArrayVisitor {
   VISIT_FIXED_WIDTH(TimestampArray);
   VISIT_FIXED_WIDTH(Time32Array);
   VISIT_FIXED_WIDTH(Time64Array);
+  VISIT_FIXED_WIDTH(FixedSizeBinaryArray);
 
 #undef VISIT_FIXED_WIDTH
 

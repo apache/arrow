@@ -160,9 +160,7 @@ Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  const int length = 10;
-
+Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
@@ -175,6 +173,10 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1));
   out->reset(new RecordBatch(schema, length, {a0, a1}));
   return Status::OK();
+}
+
+Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeIntBatchSized(10, out);
 }
 
 template <class Builder, class RawType>
