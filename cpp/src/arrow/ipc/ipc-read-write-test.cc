@@ -275,7 +275,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
     auto f0 = field("f0", array->type());
     auto schema = std::shared_ptr<Schema>(new Schema({f0}));
     RecordBatch batch(schema, array->length(), {array});
-    auto sliced_batch = batch.Slice(0, 2);
+    auto sliced_batch = batch.Slice(0, 5);
 
     int64_t full_size;
     int64_t sliced_size;
@@ -288,20 +288,28 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
     this->CheckRoundtrip(*sliced_batch, 1 << 20);
   };
 
-  std::shared_ptr<Array> array;
+  std::shared_ptr<Array> a0, a1;
   auto pool = default_memory_pool();
 
-  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &array));
-  CheckArray(array);
+  // Integer
+  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &a0));
+  CheckArray(a0);
 
+  // String / Binary
   {
-    auto s = MakeRandomBinaryArray<StringBuilder, char>(500, false, pool, &array);
+    auto s = MakeRandomBinaryArray<StringBuilder, char>(500, false, pool, &a0);
     ASSERT_TRUE(s.ok());
   }
-  CheckArray(array);
+  CheckArray(a0);
 
-  ASSERT_OK(MakeRandomBooleanArray(10000, false, &array));
-  CheckArray(array);
+  // Boolean
+  ASSERT_OK(MakeRandomBooleanArray(10000, false, &a0));
+  CheckArray(a0);
+
+  // List
+  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &a0));
+  ASSERT_OK(MakeRandomListArray(a0, 200, false, pool, &a1));
+  CheckArray(a1);
 }
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
