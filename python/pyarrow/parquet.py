@@ -180,14 +180,13 @@ class ParquetDatasetPiece(object):
         """
         Returns instance of ParquetFile
         """
-        if open_file_func is None:
-            def simple_opener(path):
-                return ParquetFile(path)
-            open_file_func = simple_opener
-        return open_file_func(self.path)
+        reader = open_file_func(self.path)
+        if not isinstance(reader, ParquetFile):
+            reader = ParquetFile(reader)
+        return reader
 
     def read(self, columns=None, nthreads=1, partitions=None,
-             open_file_func=None):
+             open_file_func=None, file=None):
         """
         Read this piece as a pyarrow.Table
 
@@ -205,7 +204,10 @@ class ParquetDatasetPiece(object):
         -------
         table : pyarrow.Table
         """
-        reader = self._open(open_file_func)
+        if open_file_func is not None:
+            reader = self._open(open_file_func)
+        elif file is not None:
+            reader = ParquetFile(file)
 
         if self.row_group is not None:
             table = reader.read_row_group(self.row_group, columns=columns,
@@ -472,6 +474,8 @@ class ParquetDataset(object):
         else:
             self.fs = filesystem
 
+        self.paths = path_or_paths
+
         (self.pieces, self.partitions,
          self.metadata_path) = _make_manifest(path_or_paths, self.fs)
 
@@ -549,6 +553,10 @@ class ParquetDataset(object):
 def _make_manifest(path_or_paths, fs, pathsep='/'):
     partitions = None
     metadata_path = None
+
+    if len(path_or_paths) == 1:
+        # Dask passes a directory as a list of length 1
+        path_or_paths = path_or_paths[0]
 
     if is_string(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,

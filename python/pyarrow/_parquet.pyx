@@ -23,7 +23,7 @@ from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 cimport pyarrow.includes.pyarrow as pyarrow
-from pyarrow._array cimport Array, Schema
+from pyarrow._array cimport Array, Schema, box_schema
 from pyarrow._error cimport check_status
 from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
 from pyarrow._table cimport Table, table_from_ctable
@@ -193,6 +193,27 @@ cdef class ParquetSchema:
 
     def __getitem__(self, i):
         return self.column(i)
+
+    property names:
+
+        def __get__(self):
+            return [self[i].name for i in range(len(self))]
+
+    def to_arrow_schema(self):
+        """
+        Convert Parquet schema to effective Arrow schema
+
+        Returns
+        -------
+        schema : pyarrow.Schema
+        """
+        cdef:
+            shared_ptr[CSchema] sp_arrow_schema
+
+        with nogil:
+            check_status(FromParquetSchema(self.schema, &sp_arrow_schema))
+
+        return box_schema(sp_arrow_schema)
 
     def equals(self, ParquetSchema other):
         """

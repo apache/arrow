@@ -41,6 +41,31 @@ cdef _pandas():
     return pd
 
 
+# These are imprecise because the type (in pandas 0.x) depends on the presence
+# of nulls
+_pandas_type_map = {
+    _Type_NA: np.float64,  # NaNs
+    _Type_BOOL: np.bool_,
+    _Type_INT8: np.int8,
+    _Type_INT16: np.int16,
+    _Type_INT32: np.int32,
+    _Type_INT64: np.int64,
+    _Type_UINT8: np.uint8,
+    _Type_UINT16: np.uint16,
+    _Type_UINT32: np.uint32,
+    _Type_UINT64: np.uint64,
+    _Type_HALF_FLOAT: np.float16,
+    _Type_FLOAT: np.float32,
+    _Type_DOUBLE: np.float64,
+    _Type_DATE32: np.dtype('datetime64[ns]'),
+    _Type_DATE64: np.dtype('datetime64[ns]'),
+    _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
+    _Type_BINARY: np.object_,
+    _Type_FIXED_SIZE_BINARY: np.object_,
+    _Type_STRING: np.object_,
+    _Type_LIST: np.object_
+}
+
 cdef class DataType:
 
     def __cinit__(self):
@@ -63,6 +88,16 @@ cdef class DataType:
             return not self.type.Equals(deref(other.type))
         else:
             raise TypeError('Invalid comparison')
+
+    def to_pandas_dtype(self):
+        """
+        Return the NumPy dtype that would be used for storing this
+        """
+        cdef Type type_id = self.type.id()
+        if type_id in _pandas_type_map:
+            return _pandas_type_map[type_id]
+        else:
+            raise NotImplementedError(str(self))
 
 
 cdef class DictionaryType(DataType):
@@ -167,6 +202,16 @@ cdef class Schema:
 
         return result
 
+    property names:
+
+        def __get__(self):
+            cdef int i
+            result = []
+            for i in range(self.schema.num_fields()):
+                name = frombytes(self.schema.field(i).get().name())
+                result.append(name)
+            return result
+
     cdef init(self, const vector[shared_ptr[CField]]& fields):
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
@@ -244,56 +289,56 @@ def field(name, type, bint nullable=True):
 
 
 cdef set PRIMITIVE_TYPES = set([
-    Type_NA, Type_BOOL,
-    Type_UINT8, Type_INT8,
-    Type_UINT16, Type_INT16,
-    Type_UINT32, Type_INT32,
-    Type_UINT64, Type_INT64,
-    Type_TIMESTAMP, Type_DATE32,
-    Type_DATE64,
-    Type_HALF_FLOAT,
-    Type_FLOAT,
-    Type_DOUBLE])
+    _Type_NA, _Type_BOOL,
+    _Type_UINT8, _Type_INT8,
+    _Type_UINT16, _Type_INT16,
+    _Type_UINT32, _Type_INT32,
+    _Type_UINT64, _Type_INT64,
+    _Type_TIMESTAMP, _Type_DATE32,
+    _Type_DATE64,
+    _Type_HALF_FLOAT,
+    _Type_FLOAT,
+    _Type_DOUBLE])
 
 
 def null():
-    return primitive_type(Type_NA)
+    return primitive_type(_Type_NA)
 
 
 def bool_():
-    return primitive_type(Type_BOOL)
+    return primitive_type(_Type_BOOL)
 
 
 def uint8():
-    return primitive_type(Type_UINT8)
+    return primitive_type(_Type_UINT8)
 
 
 def int8():
-    return primitive_type(Type_INT8)
+    return primitive_type(_Type_INT8)
 
 
 def uint16():
-    return primitive_type(Type_UINT16)
+    return primitive_type(_Type_UINT16)
 
 
 def int16():
-    return primitive_type(Type_INT16)
+    return primitive_type(_Type_INT16)
 
 
 def uint32():
-    return primitive_type(Type_UINT32)
+    return primitive_type(_Type_UINT32)
 
 
 def int32():
-    return primitive_type(Type_INT32)
+    return primitive_type(_Type_INT32)
 
 
 def uint64():
-    return primitive_type(Type_UINT64)
+    return primitive_type(_Type_UINT64)
 
 
 def int64():
-    return primitive_type(Type_INT64)
+    return primitive_type(_Type_INT64)
 
 
 cdef dict _timestamp_type_cache = {}
@@ -344,23 +389,23 @@ def timestamp(unit_str, tz=None):
 
 
 def date32():
-    return primitive_type(Type_DATE32)
+    return primitive_type(_Type_DATE32)
 
 
 def date64():
-    return primitive_type(Type_DATE64)
+    return primitive_type(_Type_DATE64)
 
 
 def float16():
-    return primitive_type(Type_HALF_FLOAT)
+    return primitive_type(_Type_HALF_FLOAT)
 
 
 def float32():
-    return primitive_type(Type_FLOAT)
+    return primitive_type(_Type_FLOAT)
 
 
 def float64():
-    return primitive_type(Type_DOUBLE)
+    return primitive_type(_Type_DOUBLE)
 
 
 cpdef DataType decimal(int precision, int scale=0):
@@ -373,7 +418,7 @@ def string():
     """
     UTF8 string
     """
-    return primitive_type(Type_STRING)
+    return primitive_type(_Type_STRING)
 
 
 def binary(int length=-1):
@@ -387,7 +432,7 @@ def binary(int length=-1):
         width `length`.
     """
     if length == -1:
-        return primitive_type(Type_BINARY)
+        return primitive_type(_Type_BINARY)
 
     cdef shared_ptr[CDataType] fixed_size_binary_type
     fixed_size_binary_type.reset(new CFixedSizeBinaryType(length))
@@ -443,13 +488,13 @@ cdef DataType box_data_type(const shared_ptr[CDataType]& type):
     if type.get() == NULL:
         return None
 
-    if type.get().id() == Type_DICTIONARY:
+    if type.get().id() == _Type_DICTIONARY:
         out = DictionaryType()
-    elif type.get().id() == Type_TIMESTAMP:
+    elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType()
-    elif type.get().id() == Type_FIXED_SIZE_BINARY:
+    elif type.get().id() == _Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType()
-    elif type.get().id() == Type_DECIMAL:
+    elif type.get().id() == _Type_DECIMAL:
         out = DecimalType()
     else:
         out = DataType()
@@ -732,31 +777,31 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 
 cdef dict _scalar_classes = {
-    Type_BOOL: BooleanValue,
-    Type_UINT8: Int8Value,
-    Type_UINT16: Int16Value,
-    Type_UINT32: Int32Value,
-    Type_UINT64: Int64Value,
-    Type_INT8: Int8Value,
-    Type_INT16: Int16Value,
-    Type_INT32: Int32Value,
-    Type_INT64: Int64Value,
-    Type_DATE32: Date32Value,
-    Type_DATE64: Date64Value,
-    Type_TIMESTAMP: TimestampValue,
-    Type_FLOAT: FloatValue,
-    Type_DOUBLE: DoubleValue,
-    Type_LIST: ListValue,
-    Type_BINARY: BinaryValue,
-    Type_STRING: StringValue,
-    Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
-    Type_DECIMAL: DecimalValue,
+    _Type_BOOL: BooleanValue,
+    _Type_UINT8: Int8Value,
+    _Type_UINT16: Int16Value,
+    _Type_UINT32: Int32Value,
+    _Type_UINT64: Int64Value,
+    _Type_INT8: Int8Value,
+    _Type_INT16: Int16Value,
+    _Type_INT32: Int32Value,
+    _Type_INT64: Int64Value,
+    _Type_DATE32: Date32Value,
+    _Type_DATE64: Date64Value,
+    _Type_TIMESTAMP: TimestampValue,
+    _Type_FLOAT: FloatValue,
+    _Type_DOUBLE: DoubleValue,
+    _Type_LIST: ListValue,
+    _Type_BINARY: BinaryValue,
+    _Type_STRING: StringValue,
+    _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
+    _Type_DECIMAL: DecimalValue,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):
     cdef ArrayValue val
-    if type.type.id() == Type_NA:
+    if type.type.id() == _Type_NA:
         return NA
     elif sp_array.get().IsNull(index):
         return NA
@@ -1306,29 +1351,29 @@ cdef class DictionaryArray(Array):
 
 
 cdef dict _array_classes = {
-    Type_NA: NullArray,
-    Type_BOOL: BooleanArray,
-    Type_UINT8: UInt8Array,
-    Type_UINT16: UInt16Array,
-    Type_UINT32: UInt32Array,
-    Type_UINT64: UInt64Array,
-    Type_INT8: Int8Array,
-    Type_INT16: Int16Array,
-    Type_INT32: Int32Array,
-    Type_INT64: Int64Array,
-    Type_DATE32: Date32Array,
-    Type_DATE64: Date64Array,
-    Type_TIMESTAMP: TimestampArray,
-    Type_TIME32: Time32Array,
-    Type_TIME64: Time64Array,
-    Type_FLOAT: FloatArray,
-    Type_DOUBLE: DoubleArray,
-    Type_LIST: ListArray,
-    Type_BINARY: BinaryArray,
-    Type_STRING: StringArray,
-    Type_DICTIONARY: DictionaryArray,
-    Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
-    Type_DECIMAL: DecimalArray,
+    _Type_NA: NullArray,
+    _Type_BOOL: BooleanArray,
+    _Type_UINT8: UInt8Array,
+    _Type_UINT16: UInt16Array,
+    _Type_UINT32: UInt32Array,
+    _Type_UINT64: UInt64Array,
+    _Type_INT8: Int8Array,
+    _Type_INT16: Int16Array,
+    _Type_INT32: Int32Array,
+    _Type_INT64: Int64Array,
+    _Type_DATE32: Date32Array,
+    _Type_DATE64: Date64Array,
+    _Type_TIMESTAMP: TimestampArray,
+    _Type_TIME32: Time32Array,
+    _Type_TIME64: Time64Array,
+    _Type_FLOAT: FloatArray,
+    _Type_DOUBLE: DoubleArray,
+    _Type_LIST: ListArray,
+    _Type_BINARY: BinaryArray,
+    _Type_STRING: StringArray,
+    _Type_DICTIONARY: DictionaryArray,
+    _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
+    _Type_DECIMAL: DecimalArray,
 }
 
 cdef object box_array(const shared_ptr[CArray]& sp_array):
