@@ -271,7 +271,10 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 }
 
 TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
-  auto CheckBatch = [this](const RecordBatch& batch) {
+  auto CheckArray = [this](const std::shared_ptr<Array>& array) {
+    auto f0 = field("f0", array->type());
+    auto schema = std::shared_ptr<Schema>(new Schema({f0}));
+    RecordBatch batch(schema, array->length(), {array});
     auto sliced_batch = batch.Slice(0, 2);
 
     int64_t full_size;
@@ -279,19 +282,26 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 
     ASSERT_OK(GetRecordBatchSize(batch, &full_size));
     ASSERT_OK(GetRecordBatchSize(*sliced_batch, &sliced_size));
-    ASSERT_TRUE(sliced_size < full_size);
+    ASSERT_TRUE(sliced_size < full_size) << sliced_size << " " << full_size;
 
-    // Make sure we can write and read it
+    // make sure we can write and read it
     this->CheckRoundtrip(*sliced_batch, 1 << 20);
   };
 
-  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<Array> array;
+  auto pool = default_memory_pool();
 
-  ASSERT_OK(MakeIntBatchSized(500, &batch));
-  CheckBatch(*batch);
+  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &array));
+  CheckArray(array);
 
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch));
-  CheckBatch(*batch);
+  {
+    auto s = MakeRandomBinaryArray<StringBuilder, char>(500, false, pool, &array);
+    ASSERT_TRUE(s.ok());
+  }
+  CheckArray(array);
+
+  ASSERT_OK(MakeRandomBooleanArray(10000, false, &array));
+  CheckArray(array);
 }
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {

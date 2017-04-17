@@ -45,15 +45,20 @@ namespace ipc {
 // ----------------------------------------------------------------------
 // Record batch write path
 
-static inline Status GetTruncatedValidityBitmap(
-    const Array& arr, MemoryPool* pool, std::shared_ptr<Buffer>* buffer) {
-  std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
-  int64_t min_length = PaddedLength(BitUtil::BytesForBits(arr.length()));
-  if (arr.offset() != 0 || min_length < bitmap->size()) {
-    // With a sliced array / non-zero offset, we must copy the bitmap
-    RETURN_NOT_OK(CopyBitmap(pool, bitmap->data(), arr.offset(), arr.length(), &bitmap));
+static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
+    const std::shared_ptr<Buffer> input, MemoryPool* pool,
+    std::shared_ptr<Buffer>* buffer) {
+  if (!input) {
+    *buffer = input;
+    return Status::OK();
   }
-  *buffer = bitmap;
+  int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
+  if (offset != 0 || min_length < input->size()) {
+    // With a sliced array / non-zero offset, we must copy the bitmap
+    RETURN_NOT_OK(CopyBitmap(pool, input->data(), offset, length, buffer));
+  } else {
+    *buffer = input;
+  }
   return Status::OK();
 }
 
@@ -91,7 +96,8 @@ class RecordBatchWriter : public ArrayVisitor {
 
     if (arr.null_count() > 0) {
       std::shared_ptr<Buffer> bitmap;
-      RETURN_NOT_OK(GetTruncatedValidityBitmap(arr, pool_, &bitmap));
+      RETURN_NOT_OK(GetTruncatedBitmap(
+          arr.offset(), arr.length(), arr.null_bitmap(), pool_, &bitmap));
       buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
@@ -282,12 +288,10 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const BooleanArray& array) override {
-    std::shared_ptr<Buffer> bits = array.data();
-    if (array.offset() != 0) {
-      RETURN_NOT_OK(
-          CopyBitmap(pool_, bits->data(), array.offset(), array.length(), &bits));
-    }
-    buffers_.push_back(bits);
+    std::shared_ptr<Buffer> data;
+    RETURN_NOT_OK(
+        GetTruncatedBitmap(array.offset(), array.length(), array.data(), pool_, &data));
+    buffers_.push_back(data);
     return Status::OK();
   }
 
