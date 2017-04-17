@@ -32,7 +32,9 @@ def test_type_integers():
 
 
 def test_type_to_pandas_dtype():
+    M8_ns = np.dtype('datetime64[ns]')
     cases = [
+        (pa.null(), np.float64),
         (pa.bool_(), np.bool_),
         (pa.int8(), np.int8),
         (pa.int16(), np.int16),
@@ -45,6 +47,9 @@ def test_type_to_pandas_dtype():
         (pa.float16(), np.float16),
         (pa.float32(), np.float32),
         (pa.float64(), np.float64),
+        (pa.date32(), M8_ns),
+        (pa.date64(), M8_ns),
+        (pa.timestamp('ms'), M8_ns),
         (pa.binary(), np.object_),
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
