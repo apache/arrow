@@ -809,7 +809,8 @@ Status PandasConverter::ConvertObjects() {
     }
   }
 
-  return Status::TypeError("Unable to infer type of object array, were all null");
+  out_ = std::make_shared<NullArray>(length_);
+  return Status::OK();
 }
 
 template <int ITEM_TYPE, typename ArrowType>

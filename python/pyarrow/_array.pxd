@@ -141,6 +141,10 @@ cdef class Tensor:
     cdef init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
+cdef class NullArray(Array):
+    pass
+
+
 cdef class BooleanArray(Array):
     pass
 

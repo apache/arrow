@@ -1148,7 +1148,7 @@ cdef class FeatherWriter:
         if isinstance(col, Array):
             arr = col
         else:
-            arr = Array.from_numpy(col, mask=mask)
+            arr = Array.from_pandas(col, mask=mask)
 
         cdef c_string c_name = tobytes(name)
 

@@ -162,8 +162,8 @@ def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
 
-    iarr = pa.Array.from_numpy(indices)
-    darr = pa.Array.from_numpy(dictionary)
+    iarr = pa.Array.from_pandas(indices)
+    darr = pa.Array.from_pandas(dictionary)
 
     d1 = pa.DictionaryArray.from_arrays(iarr, darr)
 

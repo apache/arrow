@@ -90,6 +90,7 @@ Array Types
    :toctree: generated/
 
    Array
+   NullArray
    NumericArray
    IntegerArray
    FloatingPointArray
