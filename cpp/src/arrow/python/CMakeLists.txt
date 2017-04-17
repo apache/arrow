@@ -82,7 +82,6 @@ install(FILES
   builtin_convert.h
   common.h
   config.h
-  do_import_numpy.h
   helpers.h
   init.h
   io.h

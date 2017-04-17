@@ -17,7 +17,8 @@
 
 #include "arrow/python/platform.h"
 
-#include "arrow/python/do_import_numpy.h"
+// Trigger the array import (inversion of NO_IMPORT_ARRAY)
+#define NUMPY_IMPORT_ARRAY
 
 #include "arrow/python/init.h"
 #include "arrow/python/numpy_interop.h"
