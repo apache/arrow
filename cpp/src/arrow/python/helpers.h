@@ -18,7 +18,7 @@
 #ifndef PYARROW_HELPERS_H
 #define PYARROW_HELPERS_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <memory>
 #include <string>
@@ -42,18 +42,18 @@ class OwnedRef;
 
 ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-Status ImportModule(const std::string& module_name, OwnedRef* ref);
-Status ImportFromModule(
+Status ARROW_EXPORT ImportModule(const std::string& module_name, OwnedRef* ref);
+Status ARROW_EXPORT ImportFromModule(
     const OwnedRef& module, const std::string& module_name, OwnedRef* ref);
 
 template <typename T>
-Status PythonDecimalToArrowDecimal(
+Status ARROW_EXPORT PythonDecimalToArrowDecimal(
     PyObject* python_decimal, decimal::Decimal<T>* arrow_decimal);
 
-Status InferDecimalPrecisionAndScale(
+Status ARROW_EXPORT InferDecimalPrecisionAndScale(
     PyObject* python_decimal, int* precision = nullptr, int* scale = nullptr);
 
-Status DecimalFromString(
+Status ARROW_EXPORT DecimalFromString(
     PyObject* decimal_constructor, const std::string& decimal_string, PyObject** out);
 
 }  // namespace py

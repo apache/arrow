@@ -19,8 +19,8 @@
 # Sets COMPILER_VERSION to the version
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -v
                 ERROR_VARIABLE COMPILER_VERSION_FULL)
-message(INFO " ${COMPILER_VERSION_FULL}")
-message(INFO " ${CMAKE_CXX_COMPILER_ID}")
+message(INFO "Compiler version: ${COMPILER_VERSION_FULL}")
+message(INFO "Compiler id: ${CMAKE_CXX_COMPILER_ID}")
 string(TOLOWER "${COMPILER_VERSION_FULL}" COMPILER_VERSION_FULL_LOWER)
 
 if(MSVC)
@@ -62,4 +62,3 @@ else()
   message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
 endif()
 message("Selected compiler ${COMPILER_FAMILY} ${COMPILER_VERSION}")
-

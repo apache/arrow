@@ -21,13 +21,12 @@
 #ifndef ARROW_PYTHON_ADAPTERS_BUILTIN_H
 #define ARROW_PYTHON_ADAPTERS_BUILTIN_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <memory>
 #include <string>
 
 #include "arrow/type.h"
-
 #include "arrow/util/visibility.h"
 
 #include "arrow/python/common.h"

@@ -15,7 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Trick borrowed from dynd-python for initializing the NumPy array API
+// Functions for converting between pandas's NumPy-based data representation
+// and Arrow data structures
 
-// Trigger the array import (inversion of NO_IMPORT_ARRAY)
-#define NUMPY_IMPORT_ARRAY
+#ifndef ARROW_PYTHON_PLATFORM_H
+#define ARROW_PYTHON_PLATFORM_H
+
+#include <Python.h>
+#include <iostream>
+
+// Work around C2528 error
+#if _MSC_VER >= 1900
+#undef timezone
+#endif
+
+#endif  // ARROW_PYTHON_PLATFORM_H

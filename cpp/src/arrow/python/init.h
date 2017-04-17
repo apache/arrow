@@ -15,20 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/platform.h"
-#include <datetime.h>
+#ifndef ARROW_PYTHON_INIT_H
+#define ARROW_PYTHON_INIT_H
 
-#include "arrow/python/config.h"
+#include "arrow/python/platform.h"
+
+#include "arrow/python/numpy_interop.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace py {
 
-PyObject* numpy_nan = nullptr;
-
-void set_numpy_nan(PyObject* obj) {
-  Py_INCREF(obj);
-  numpy_nan = obj;
-}
+ARROW_EXPORT
+void InitNumPy();
 
 }  // namespace py
 }  // namespace arrow
+
+#endif  // ARROW_PYTHON_INIT_H

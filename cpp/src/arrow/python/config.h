@@ -18,8 +18,7 @@
 #ifndef ARROW_PYTHON_CONFIG_H
 #define ARROW_PYTHON_CONFIG_H
 
-#include <iostream>
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include "arrow/python/numpy_interop.h"
 #include "arrow/util/visibility.h"
@@ -33,9 +32,6 @@ namespace py {
 
 ARROW_EXPORT
 extern PyObject* numpy_nan;
-
-ARROW_EXPORT
-void Init();
 
 ARROW_EXPORT
 void set_numpy_nan(PyObject* obj);

@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cpp/cmake_mod
 
 include(CMakeParseArguments)
 
-set(BUILD_SUPPORT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/build-support)
+set(BUILD_SUPPORT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/build-support")
 
 # Allow "make install" to not depend on all targets.
 #
@@ -58,10 +58,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 endif()
 
-if(NOT PYARROW_BUILD_TESTS)
-  set(NO_TESTS 1)
-endif()
-
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -73,18 +69,19 @@ endif(CCACHE_FOUND)
 ############################################################
 
 include(BuildUtils)
-include(CompilerInfo)
 include(SetupCxxFlags)
+include(CompilerInfo)
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
-# Enable perf and other tools to work properly
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+if (NOT MSVC)
+  # Enable perf and other tools to work properly
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
-# Suppress Cython warnings
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
-
+  # Suppress Cython warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -146,9 +143,10 @@ endif()
 #
 # The gold linker is only for ELF binaries, which OSX doesn't use. We can
 # just skip.
-if (NOT APPLE)
+if (NOT APPLE AND NOT MSVC)
   execute_process(COMMAND ${CMAKE_CXX_COMPILER} -Wl,--version OUTPUT_VARIABLE LINKER_OUTPUT)
 endif ()
+
 if (LINKER_OUTPUT MATCHES "gold")
   if ("${PYARROW_LINK}" STREQUAL "d" AND
       "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
@@ -166,9 +164,6 @@ endif()
 # act on its value.
 if ("${PYARROW_LINK}" STREQUAL "d")
   set(BUILD_SHARED_LIBS ON)
-
-  # Position independent code is only necessary when producing shared objects.
-  add_definitions(-fPIC)
 endif()
 
 # set compile output directory
@@ -188,8 +183,15 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
 EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
   ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+  if (MSVC)
+    # MSVC makes its own output directories based on the build configuration
+    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/")
+  else()
+    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+  endif()
 endif()
+
+message(STATUS "Build output directory: ${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")

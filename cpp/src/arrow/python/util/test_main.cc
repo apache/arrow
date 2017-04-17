@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <gtest/gtest.h>
 
-#include "arrow/python/do_import_numpy.h"
-#include "arrow/python/numpy_interop.h"
+#include "arrow/python/init.h"
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   Py_Initialize();
-  arrow::py::import_numpy();
+  arrow::py::InitNumPy();
 
   int ret = RUN_ALL_TESTS();
 

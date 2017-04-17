@@ -16,18 +16,18 @@
 // under the License.
 
 #include "arrow/python/platform.h"
-#include <datetime.h>
 
-#include "arrow/python/config.h"
+// Trigger the array import (inversion of NO_IMPORT_ARRAY)
+#define NUMPY_IMPORT_ARRAY
+
+#include "arrow/python/init.h"
+#include "arrow/python/numpy_interop.h"
 
 namespace arrow {
 namespace py {
 
-PyObject* numpy_nan = nullptr;
-
-void set_numpy_nan(PyObject* obj) {
-  Py_INCREF(obj);
-  numpy_nan = obj;
+void InitNumPy() {
+  import_numpy();
 }
 
 }  // namespace py

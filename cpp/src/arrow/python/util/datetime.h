@@ -18,7 +18,7 @@
 #ifndef PYARROW_UTIL_DATETIME_H
 #define PYARROW_UTIL_DATETIME_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 #include <datetime.h>
 
 namespace arrow {

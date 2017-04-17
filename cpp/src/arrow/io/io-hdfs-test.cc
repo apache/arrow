@@ -45,7 +45,7 @@ class TestHdfsClient : public ::testing::Test {
     if (client_->Exists(scratch_dir_)) {
       RETURN_NOT_OK((client_->Delete(scratch_dir_, true)));
     }
-    return client_->CreateDirectory(scratch_dir_);
+    return client_->MakeDirectory(scratch_dir_);
   }
 
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
@@ -161,14 +161,14 @@ TYPED_TEST(TestHdfsClient, ConnectsAgain) {
   ASSERT_OK(client->Disconnect());
 }
 
-TYPED_TEST(TestHdfsClient, CreateDirectory) {
+TYPED_TEST(TestHdfsClient, MakeDirectory) {
   SKIP_IF_NO_DRIVER();
 
   std::string path = this->ScratchPath("create-directory");
 
   if (this->client_->Exists(path)) { ASSERT_OK(this->client_->Delete(path, true)); }
 
-  ASSERT_OK(this->client_->CreateDirectory(path));
+  ASSERT_OK(this->client_->MakeDirectory(path));
   ASSERT_TRUE(this->client_->Exists(path));
   std::vector<HdfsPathInfo> listing;
   EXPECT_OK(this->client_->ListDirectory(path, &listing));
@@ -253,7 +253,7 @@ TYPED_TEST(TestHdfsClient, ListDirectory) {
   ASSERT_OK(this->MakeScratchDir());
   ASSERT_OK(this->WriteDummyFile(p1, data.data(), size));
   ASSERT_OK(this->WriteDummyFile(p2, data.data(), size / 2));
-  ASSERT_OK(this->client_->CreateDirectory(d1));
+  ASSERT_OK(this->client_->MakeDirectory(d1));
 
   std::vector<HdfsPathInfo> listing;
   ASSERT_OK(this->client_->ListDirectory(this->scratch_dir_, &listing));

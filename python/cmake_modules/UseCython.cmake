@@ -122,9 +122,11 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
   endif()
   set_source_files_properties( ${_generated_files} PROPERTIES GENERATED TRUE )
 
-  # Cython creates a lot of compiler warning detritus on clang
-  set_source_files_properties(${_generated_files} PROPERTIES
-    COMPILE_FLAGS -Wno-unused-function)
+  if (NOT WIN32)
+    # Cython creates a lot of compiler warning detritus on clang
+    set_source_files_properties(${_generated_files} PROPERTIES
+      COMPILE_FLAGS -Wno-unused-function)
+  endif()
 
   set( ${generated_files} ${_generated_files} PARENT_SCOPE )
 

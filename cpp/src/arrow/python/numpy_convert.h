@@ -21,7 +21,7 @@
 #ifndef ARROW_PYTHON_NUMPY_CONVERT_H
 #define ARROW_PYTHON_NUMPY_CONVERT_H
 
-#include <Python.h>
+#include "arrow/python/platform.h"
 
 #include <memory>
 #include <string>
@@ -48,14 +48,19 @@ class ARROW_EXPORT NumPyBuffer : public Buffer {
 };
 
 // Handle misbehaved types like LONGLONG and ULONGLONG
+ARROW_EXPORT
 int cast_npy_type_compat(int type_num);
 
+ARROW_EXPORT
 bool is_contiguous(PyObject* array);
 
 ARROW_EXPORT
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
 
+ARROW_EXPORT
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
+
+ARROW_EXPORT
 Status GetNumPyType(const DataType& type, int* type_num);
 
 ARROW_EXPORT Status NdarrayToTensor(
