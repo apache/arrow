@@ -62,6 +62,25 @@ static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
   return Status::OK();
 }
 
+template <typename T>
+inline Status GetTruncatedBuffer(int64_t offset, int64_t length,
+    const std::shared_ptr<Buffer> input, MemoryPool* pool,
+    std::shared_ptr<Buffer>* buffer) {
+  if (!input) {
+    *buffer = input;
+    return Status::OK();
+  }
+  int32_t byte_width = static_cast<int32_t>(sizeof(T));
+  int64_t padded_length = PaddedLength(length * byte_width);
+  if (offset != 0 || padded_length < input->size()) {
+    *buffer =
+        SliceBuffer(input, offset * byte_width, std::min(padded_length, input->size()));
+  } else {
+    *buffer = input;
+  }
+  return Status::OK();
+}
+
 static inline bool NeedTruncate(
     int64_t offset, const Buffer* buffer, int64_t min_length) {
   // buffer can be NULL
@@ -360,18 +379,21 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    auto type_ids = array.type_ids();
-    if (array.offset() != 0) {
-      type_ids = SliceBuffer(type_ids, array.offset() * sizeof(UnionArray::type_id_t),
-          array.length() * sizeof(UnionArray::type_id_t));
-    }
+    const int64_t offset = array.offset();
+    const int64_t length = array.length();
 
+    std::shared_ptr<Buffer> type_ids;
+    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_id_t>(
+        offset, length, array.type_ids(), pool_, &type_ids));
     buffers_.push_back(type_ids);
 
     --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
       const auto& type = static_cast<const UnionType&>(*array.type());
-      auto value_offsets = array.value_offsets();
+
+      std::shared_ptr<Buffer> value_offsets;
+      RETURN_NOT_OK(GetTruncatedBuffer<int32_t>(
+          offset, length, array.value_offsets(), pool_, &value_offsets));
 
       // The Union type codes are not necessary 0-indexed
       uint8_t max_code = 0;
@@ -384,7 +406,7 @@ class RecordBatchWriter : public ArrayVisitor {
       std::vector<int32_t> child_offsets(max_code + 1);
       std::vector<int32_t> child_lengths(max_code + 1, 0);
 
-      if (array.offset() != 0) {
+      if (offset != 0) {
         // This is an unpleasant case. Because the offsets are different for
         // each child array, when we have a sliced array, we need to "rebase"
         // the value_offsets for each array
@@ -394,12 +416,12 @@ class RecordBatchWriter : public ArrayVisitor {
 
         // Allocate the shifted offsets
         std::shared_ptr<MutableBuffer> shifted_offsets_buffer;
-        RETURN_NOT_OK(AllocateBuffer(
-            pool_, array.length() * sizeof(int32_t), &shifted_offsets_buffer));
+        RETURN_NOT_OK(
+            AllocateBuffer(pool_, length * sizeof(int32_t), &shifted_offsets_buffer));
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-        for (int64_t i = 0; i < array.length(); ++i) {
+        for (int64_t i = 0; i < length; ++i) {
           const uint8_t code = type_ids[i];
           int32_t shift = child_offsets[code];
           if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
@@ -416,7 +438,10 @@ class RecordBatchWriter : public ArrayVisitor {
       // Visit children and slice accordingly
       for (int i = 0; i < type.num_children(); ++i) {
         std::shared_ptr<Array> child = array.child(i);
-        if (array.offset() != 0) {
+
+        // TODO: ARROW-809, for sliced unions, tricky to know how much to
+        // truncate the children
+        if (offset != 0) {
           const uint8_t code = type.type_codes()[i];
           child = child->Slice(child_offsets[code], child_lengths[code]);
         }
@@ -425,9 +450,9 @@ class RecordBatchWriter : public ArrayVisitor {
     } else {
       for (std::shared_ptr<Array> child : array.children()) {
         // Sparse union, slicing is simpler
-        if (array.offset() != 0) {
+        if (offset != 0 || length < child->length()) {
           // If offset is non-zero, slice the child array
-          child = child->Slice(array.offset(), array.length());
+          child = child->Slice(offset, length);
         }
         RETURN_NOT_OK(VisitArray(*child));
       }

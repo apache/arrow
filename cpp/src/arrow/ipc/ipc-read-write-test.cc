@@ -316,6 +316,15 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   std::vector<std::shared_ptr<Array>> struct_children = {a0};
   a1 = std::make_shared<StructArray>(struct_type, a0->length(), struct_children);
   CheckArray(a1);
+
+  // Union
+  auto union_type = union_({field("f0", a0->type())}, {0});
+  std::vector<int32_t> type_codes(a0->length());
+  std::shared_ptr<Buffer> codes_buffer;
+  ASSERT_OK(test::CopyBufferFromVector(type_codes, &codes_buffer));
+  a1 = std::make_shared<UnionArray>(
+      union_type, a0->length(), struct_children, codes_buffer);
+  CheckArray(a1);
 }
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
