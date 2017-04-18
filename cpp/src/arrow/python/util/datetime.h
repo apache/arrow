@@ -33,7 +33,13 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   epoch.tm_year = 70;
   epoch.tm_mday = 1;
   // Milliseconds since the epoch
+#ifdef _MSC_VER
+  const int64_t current_timestamp = static_cast<int64_t>(_mkgmtime64(&date));
+  const int64_t epoch_timestamp = static_cast<int64_t>(_mkgmtime64(&epoch));
+  return (current_timestamp - epoch_timestamp) * 1000LL;
+#else
   return lrint(difftime(mktime(&date), mktime(&epoch)) * 1000);
+#endif
 }
 
 static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
