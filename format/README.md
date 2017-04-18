@@ -14,16 +14,14 @@
 
 ## Arrow specification documents
 
-> **Work-in-progress specification documents**. These are discussion documents
-> created by the Arrow developers during late 2015 and in no way represents a
-> finalized specification.
-
 Currently, the Arrow specification consists of these pieces:
 
 - Metadata specification (see Metadata.md)
 - Physical memory layout specification (see Layout.md)
-- Metadata serialized representation (see Message.fbs)
+- Logical Types, Schemas, and Record Batch Metadata (see Schema.fbs)
+- Encapsulated Messages (see Message.fbs)
 - Mechanics of messaging between Arrow systems (IPC, RPC, etc.) (see IPC.md)
+- Tensor (Multi-dimensional array) Metadata (see Tensor.fbs)
 
 The metadata currently uses Google's [flatbuffers library][1] for serializing a
 couple related pieces of information:
@@ -34,5 +32,17 @@ couple related pieces of information:
 - *Data headers* for record (row) batches. These must correspond to a known
    schema, and enable a system to send and receive Arrow row batches in a form
    that can be precisely disassembled or reconstructed.
+
+## Arrow Format Maturity and Stability
+
+We have made significant progress hardening the Arrow in-memory format and
+Flatbuffer metadata since the project started in February 2016. We have
+integration tests which verify binary compatibility between the Java and C++
+implementations, for example.
+
+Major versions may still include breaking changes to the memory format or
+metadata, so it is recommended to use the same released version of all
+libraries in your applications for maximum compatibility. Data stored in the
+Arrow IPC formats should not be used for long term storage.
 
 [1]: http://github.com/google/flatbuffers
