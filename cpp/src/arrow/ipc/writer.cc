@@ -440,10 +440,12 @@ class RecordBatchWriter : public ArrayVisitor {
         std::shared_ptr<Array> child = array.child(i);
 
         // TODO: ARROW-809, for sliced unions, tricky to know how much to
-        // truncate the children
-        if (offset != 0) {
-          const uint8_t code = type.type_codes()[i];
-          child = child->Slice(child_offsets[code], child_lengths[code]);
+        // truncate the children. For now, we are truncating the children to be
+        // no longer than the parent union
+        const uint8_t code = type.type_codes()[i];
+        const int64_t child_length = child_lengths[code];
+        if (offset != 0 || length < child_length) {
+          child = child->Slice(child_offsets[code], std::min(length, child_length));
         }
         RETURN_NOT_OK(VisitArray(*child));
       }
