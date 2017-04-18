@@ -22,7 +22,7 @@ dependencies from conda-forge:
 ```shell
 conda create -y -q -n pyarrow-dev \
       python=3.6 numpy six setuptools cython pandas pytest \
-      flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+      cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
       brotli jemalloc -c conda-forge
 source activate pyarrow-dev
 ```
