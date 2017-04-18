@@ -329,7 +329,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   // Dense union
   auto dense_union_type = union_({field("f0", a0->type())}, {0}, UnionMode::DENSE);
   std::vector<int32_t> type_offsets;
-  for (int64_t i = 0; i < a0->length(); ++i) {
+  for (int32_t i = 0; i < a0->length(); ++i) {
     type_offsets.push_back(i);
   }
   std::shared_ptr<Buffer> offsets_buffer;
