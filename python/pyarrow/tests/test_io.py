@@ -32,7 +32,7 @@ import pyarrow as pa
 def test_python_file_write():
     buf = BytesIO()
 
-    f = pa.PythonFileInterface(buf)
+    f = pa.PythonFile(buf)
 
     assert f.tell() == 0
 
@@ -56,7 +56,7 @@ def test_python_file_read():
     data = b'some sample data'
 
     buf = BytesIO(data)
-    f = pa.PythonFileInterface(buf, mode='r')
+    f = pa.PythonFile(buf, mode='r')
 
     assert f.size() == len(data)
 

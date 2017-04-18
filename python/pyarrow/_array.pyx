@@ -127,6 +127,30 @@ cdef class TimestampType(DataType):
                 return None
 
 
+cdef class Time32Type(DataType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.time_type = <const CTime32Type*> type.get()
+
+    property unit:
+
+        def __get__(self):
+            return timeunit_to_string(self.time_type.unit())
+
+
+cdef class Time64Type(DataType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.time_type = <const CTime64Type*> type.get()
+
+    property unit:
+
+        def __get__(self):
+            return timeunit_to_string(self.time_type.unit())
+
+
 cdef class FixedSizeBinaryType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
@@ -342,6 +366,7 @@ def int64():
 
 
 cdef dict _timestamp_type_cache = {}
+cdef dict _time_type_cache = {}
 
 
 cdef timeunit_to_string(TimeUnit unit):
@@ -369,7 +394,7 @@ def timestamp(unit_str, tz=None):
     elif unit_str == 'ns':
         unit = TimeUnit_NANO
     else:
-        raise TypeError('Invalid TimeUnit string')
+        raise ValueError('Invalid TimeUnit string')
 
     cdef TimestampType out = TimestampType()
 
@@ -386,6 +411,50 @@ def timestamp(unit_str, tz=None):
         out.init(ctimestamp(unit, c_timezone))
 
     return out
+
+
+def time32(unit_str):
+    cdef:
+        TimeUnit unit
+        c_string c_timezone
+
+    if unit_str == "s":
+        unit = TimeUnit_SECOND
+    elif unit_str == 'ms':
+        unit = TimeUnit_MILLI
+    else:
+        raise ValueError('Invalid TimeUnit for time32: {}'.format(unit_str))
+
+    cdef Time32Type out
+    if unit in _time_type_cache:
+        return _time_type_cache[unit]
+    else:
+        out = Time32Type()
+        out.init(ctime32(unit))
+        _time_type_cache[unit] = out
+        return out
+
+
+def time64(unit_str):
+    cdef:
+        TimeUnit unit
+        c_string c_timezone
+
+    if unit_str == "us":
+        unit = TimeUnit_MICRO
+    elif unit_str == 'ns':
+        unit = TimeUnit_NANO
+    else:
+        raise ValueError('Invalid TimeUnit for time64: {}'.format(unit_str))
+
+    cdef Time64Type out
+    if unit in _time_type_cache:
+        return _time_type_cache[unit]
+    else:
+        out = Time64Type()
+        out.init(ctime64(unit))
+        _time_type_cache[unit] = out
+        return out
 
 
 def date32():
@@ -516,6 +585,9 @@ cdef Schema box_schema(const shared_ptr[CSchema]& type):
 
 
 def from_numpy_dtype(object dtype):
+    """
+    Convert NumPy dtype to pyarrow.DataType
+    """
     cdef shared_ptr[CDataType] c_type
     with nogil:
         check_status(pyarrow.NumPyDtypeToArrow(dtype, &c_type))

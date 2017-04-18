@@ -77,6 +77,27 @@ def test_type_timestamp_with_tz():
     assert t.tz == tz
 
 
+def test_time_types():
+    t1 = pa.time32('s')
+    t2 = pa.time32('ms')
+    t3 = pa.time64('us')
+    t4 = pa.time64('ns')
+
+    assert t1.unit == 's'
+    assert t2.unit == 'ms'
+    assert t3.unit == 'us'
+    assert t4.unit == 'ns'
+
+    assert str(t1) == 'time32[s]'
+    assert str(t4) == 'time64[ns]'
+
+    with pytest.raises(ValueError):
+        pa.time32('us')
+
+    with pytest.raises(ValueError):
+        pa.time64('s')
+
+
 def test_type_from_numpy_dtype_timestamps():
     cases = [
         (np.dtype('datetime64[s]'), pa.timestamp('s')),

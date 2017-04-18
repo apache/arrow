@@ -24,8 +24,8 @@ API Reference
 
 .. _api.functions:
 
-Type Metadata and Schemas
--------------------------
+Type and Schema Factory Functions
+---------------------------------
 
 .. autosummary::
    :toctree: generated/
@@ -43,6 +43,8 @@ Type Metadata and Schemas
    float16
    float32
    float64
+   time32
+   time64
    timestamp
    date32
    date64
@@ -53,10 +55,8 @@ Type Metadata and Schemas
    struct
    dictionary
    field
-   DataType
-   Field
-   Schema
    schema
+   from_numpy_dtype
 
 Scalar Value Types
 ------------------
@@ -68,6 +68,7 @@ Scalar Value Types
    NAType
    Scalar
    ArrayValue
+   BooleanValue
    Int8Value
    Int16Value
    Int32Value
@@ -82,6 +83,11 @@ Scalar Value Types
    BinaryValue
    StringValue
    FixedSizeBinaryValue
+   Date32Value
+   Date64Value
+   TimestampValue
+   DecimalValue
+
 
 Array Types and Constructors
 ----------------------------
@@ -91,21 +97,30 @@ Array Types and Constructors
 
    array
    Array
-   NullArray
-   NumericArray
-   IntegerArray
-   FloatingPointArray
    BooleanArray
+   DictionaryArray
+   FloatingPointArray
+   IntegerArray
    Int8Array
    Int16Array
    Int32Array
    Int64Array
+   NullArray
+   NumericArray
    UInt8Array
    UInt16Array
    UInt32Array
    UInt64Array
-   DictionaryArray
+   BinaryArray
+   FixedSizeBinaryArray
    StringArray
+   Time32Array
+   Time64Array
+   Date32Array
+   Date64Array
+   TimestampArray
+   DecimalArray
+   ListArray
 
 Tables and Record Batches
 -------------------------
@@ -113,9 +128,11 @@ Tables and Record Batches
 .. autosummary::
    :toctree: generated/
 
+   ChunkedArray
    Column
    RecordBatch
    Table
+   get_record_batch_size
 
 Tensor type and Functions
 -------------------------
@@ -141,7 +158,7 @@ Input / Output and Shared Memory
    MemoryMappedFile
    memory_map
    create_memory_map
-   PythonFileInterface
+   PythonFile
 
 Interprocess Communication and Messaging
 ----------------------------------------
@@ -165,3 +182,33 @@ Memory Pools
    jemalloc_memory_pool
    total_allocated_bytes
    set_memory_pool
+
+Type Classes
+------------
+
+.. autosummary::
+   :toctree: generated/
+
+   DataType
+   DecimalType
+   DictionaryType
+   FixedSizeBinaryType
+   Time32Type
+   Time64Type
+   TimestampType
+   Field
+   Schema
+
+.. currentmodule:: pyarrow.parquet
+
+Apache Parquet
+--------------
+
+.. autosummary::
+   :toctree: generated/
+
+   ParquetDataset
+   ParquetFile
+   read_table
+   write_metadata
+   write_table

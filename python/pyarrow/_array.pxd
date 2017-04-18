@@ -42,6 +42,16 @@ cdef class TimestampType(DataType):
         const CTimestampType* ts_type
 
 
+cdef class Time32Type(DataType):
+    cdef:
+        const CTime32Type* time_type
+
+
+cdef class Time64Type(DataType):
+    cdef:
+        const CTime64Type* time_type
+
+
 cdef class FixedSizeBinaryType(DataType):
     cdef:
         const CFixedSizeBinaryType* fixed_size_binary_type
