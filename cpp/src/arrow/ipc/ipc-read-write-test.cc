@@ -310,6 +310,12 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   ASSERT_OK(MakeRandomInt32Array(500, false, pool, &a0));
   ASSERT_OK(MakeRandomListArray(a0, 200, false, pool, &a1));
   CheckArray(a1);
+
+  // Struct
+  auto struct_type = struct_({field("f0", a0->type())});
+  std::vector<std::shared_ptr<Array>> struct_children = {a0};
+  a1 = std::make_shared<StructArray>(struct_type, a0->length(), struct_children);
+  CheckArray(a1);
 }
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {

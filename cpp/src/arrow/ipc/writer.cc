@@ -349,7 +349,7 @@ class RecordBatchWriter : public ArrayVisitor {
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
     for (std::shared_ptr<Array> field : array.fields()) {
-      if (array.offset() != 0) {
+      if (array.offset() != 0 || array.length() < field->length()) {
         // If offset is non-zero, slice the child array
         field = field->Slice(array.offset(), array.length());
       }
