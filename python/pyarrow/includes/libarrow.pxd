@@ -106,6 +106,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CTime64Type" arrow::Time64Type"(CFixedWidthType):
         TimeUnit unit()
 
+    shared_ptr[CDataType] ctime32" arrow::time32"(TimeUnit unit)
+    shared_ptr[CDataType] ctime64" arrow::time64"(TimeUnit unit)
+
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
                         const shared_ptr[CArray]& dictionary)

@@ -307,7 +307,7 @@ cdef class NativeFile:
 # Python file-like objects
 
 
-cdef class PythonFileInterface(NativeFile):
+cdef class PythonFile(NativeFile):
     cdef:
         object handle
 
@@ -600,7 +600,7 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
         source = BufferReader(source)
     elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
         # Optimistically hope this is file-like
-        source = PythonFileInterface(source, mode='r')
+        source = PythonFile(source, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
@@ -622,7 +622,7 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
         source = OSFile(source, mode='w')
     elif not isinstance(source, NativeFile) and hasattr(source, 'write'):
         # Optimistically hope this is file-like
-        source = PythonFileInterface(source, mode='w')
+        source = PythonFile(source, mode='w')
 
     if isinstance(source, NativeFile):
         nf = source
