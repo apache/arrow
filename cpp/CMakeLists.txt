@@ -486,6 +486,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
       # BUILD_BYPRODUCTS is a 3.2+ feature
       ExternalProject_Add(googletest_ep
         URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+        BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
         CMAKE_ARGS ${GTEST_CMAKE_ARGS})
     else()
       ExternalProject_Add(googletest_ep
