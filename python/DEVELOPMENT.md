@@ -14,6 +14,8 @@
 
 ## Developer guide for conda users
 
+### Linux and macOS
+
 First, set up your thirdparty C++ toolchain using libraries from conda-forge:
 
 ```shell
@@ -134,3 +136,49 @@ pyarrow/tests/test_tensor.py ................
 
 ====================== 181 passed, 17 skipped in 0.98 seconds =======================
 ```
+
+### Windows
+
+First, make sure you can [build the C++ library][1].
+
+Now, we need to build and install the C++ libraries someplace.
+
+```shell
+mkdir cpp\build
+cd cpp\build
+set ARROW_HOME=C:\thirdparty
+cmake -G "Visual Studio 14 2015 Win64" ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DARROW_BUILD_TESTS=off ^
+      -DARROW_PYTHON=on ..
+cmake --build . --target INSTALL --config Release
+cd ..\..
+```
+
+After that, we must put the install directory's bin path in our `%PATH%`:
+
+```shell
+set PATH=%ARROW_HOME%\bin;%PATH%
+```
+
+Now, we can build pyarrow:
+
+```shell
+cd python
+python setup.py build_ext --inplace
+```
+
+#### Running C++ unit tests with Python
+
+Getting `python-test.exe` to run is a bit tricky because your `%PYTHONPATH%`
+must be configured given the active conda environment:
+
+```shell
+set CONDA_ENV=C:\Users\wesm\Miniconda\envs\arrow-test
+set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
+```
+
+Now `python-test.exe` or simply `ctest` (to run all tests) should work.
+
+[1]: https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md
