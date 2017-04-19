@@ -16,6 +16,33 @@
 
 ### Linux and macOS
 
+#### System Requirements
+
+On macOS, any modern XCode (6.4 or higher; the current version is 8.3.1) is
+sufficient.
+
+On Linux, for this guide, we recommend using gcc 4.8 or 4.9, or clang 3.7 or
+higher. You can check your version by running
+
+```shell
+$ gcc --version
+```
+
+On Ubuntu 16.04 and higher, you can obtain gcc 4.9 with:
+
+```shell
+$ sudo apt-get install g++-4.9
+```
+
+Finally, set gcc 4.9 as the active compiler using:
+
+```shell
+export CC=gcc-4.9
+export CXX=g++-4.9
+```
+
+#### Environment Setup and Build
+
 First, let's create a conda environment with all the C++ build and Python
 dependencies from conda-forge:
 
@@ -74,7 +101,6 @@ pushd arrow/cpp/build
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
       -DARROW_PYTHON=on \
-      -DARROW_BOOST_USE_SHARED=off \
       -DARROW_BUILD_TESTS=OFF \
       ..
 make -j4
