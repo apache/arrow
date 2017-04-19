@@ -32,4 +32,4 @@ init:
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
 build_script:
- - call msvc-build.bat
+ - call ci\msvc-build.bat
