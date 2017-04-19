@@ -17,12 +17,12 @@
 
 #include "arrow/util/decimal.h"
 
-#include <boost/regex.hpp>
+#include <regex>
 
 namespace arrow {
 namespace decimal {
 
-static const boost::regex DECIMAL_PATTERN("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
+static const std::regex DECIMAL_PATTERN("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
 template <typename T>
 ARROW_EXPORT Status FromString(
@@ -30,8 +30,8 @@ ARROW_EXPORT Status FromString(
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
-  boost::smatch match;
-  if (!boost::regex_match(s, match, DECIMAL_PATTERN)) {
+  std::smatch match;
+  if (!std::regex_match(s, match, DECIMAL_PATTERN)) {
     std::stringstream ss;
     ss << "String " << s << " is not a valid decimal string";
     return Status::Invalid(ss.str());
