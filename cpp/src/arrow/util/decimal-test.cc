@@ -159,5 +159,45 @@ TEST(DecimalTest, TestDecimal128StringAndBytesRoundTrip) {
 
   ASSERT_EQ(expected.value, result.value);
 }
+
+template <typename T>
+class DecimalZerosTest : public ::testing::Test {};
+TYPED_TEST_CASE(DecimalZerosTest, DecimalTypes);
+
+TYPED_TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
+  std::string string_value("0000000");
+  Decimal<TypeParam> d;
+  int precision;
+  int scale;
+  FromString(string_value, &d, &precision, &scale);
+  ASSERT_EQ(precision, 7);
+  ASSERT_EQ(scale, 0);
+  ASSERT_EQ(d.value, 0);
+}
+
+TYPED_TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
+  std::string string_value("000.0000");
+  Decimal<TypeParam> d;
+  int precision;
+  int scale;
+  FromString(string_value, &d, &precision, &scale);
+  // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
+  ASSERT_NE(precision, 7);
+
+  ASSERT_EQ(scale, 4);
+  ASSERT_EQ(d.value, 0);
+}
+
+TYPED_TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
+  std::string string_value(".00000");
+  Decimal<TypeParam> d;
+  int precision;
+  int scale;
+  FromString(string_value, &d, &precision, &scale);
+  ASSERT_EQ(precision, 5);
+  ASSERT_EQ(scale, 5);
+  ASSERT_EQ(d.value, 0);
+}
+
 }  // namespace decimal
 }  // namespace arrow

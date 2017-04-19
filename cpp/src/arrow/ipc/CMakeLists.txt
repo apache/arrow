@@ -91,14 +91,12 @@ if(MSVC)
   set(UTIL_LINK_LIBS
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY})
+    ${BOOST_SYSTEM_LIBRARY})
 else()
   set(UTIL_LINK_LIBS
     arrow_static
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
     dl)
 endif()
 
