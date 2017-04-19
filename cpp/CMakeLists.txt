@@ -40,13 +40,6 @@ set(ARROW_SO_VERSION "0")
 set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
-set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
-
-set(GFLAGS_VERSION "2.1.2")
-set(GTEST_VERSION "1.8.0")
-set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.6.0")
-set(JEMALLOC_VERSION "4.4.0")
 
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
@@ -382,6 +375,40 @@ enable_testing()
 ############################################################
 
 # ----------------------------------------------------------------------
+# Thirdparty toolchain
+
+set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
+set(GFLAGS_VERSION "2.1.2")
+set(GTEST_VERSION "1.8.0")
+set(GBENCHMARK_VERSION "1.1.0")
+set(FLATBUFFERS_VERSION "1.6.0")
+set(JEMALLOC_VERSION "4.4.0")
+
+if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
+  if ("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+    set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  else()
+    set(FLATBUFFERS_HOME "$ENV{FLATBUFFERS_HOME}")
+  endif()
+
+  if ("$ENV{BOOST_ROOT}" STREQUAL "")
+    set(ENV{BOOST_ROOT} "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  endif()
+
+  if ("$ENV{RAPIDJSON_HOME}" STREQUAL "")
+    set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  else()
+    set(RAPIDJSON_HOME "$ENV{RAPIDJSON_HOME}")
+  endif()
+
+  if ("$ENV{JEMALLOC_HOME}" STREQUAL "")
+    set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  else()
+    set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
+  endif()
+endif()
+
+# ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
 set(Boost_DEBUG TRUE)
@@ -454,9 +481,6 @@ ADD_THIRDPARTY_LIB(boost_regex
 SET(ARROW_BOOST_LIBS boost_system boost_filesystem boost_regex)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-
-# ----------------------------------------------------------------------
-# Enable / disable tests and benchmarks
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_custom_target(unittest ctest -L unittest)
@@ -620,7 +644,7 @@ endif()
 
 if (ARROW_IPC)
   # RapidJSON, header only dependency
-  if("$ENV{RAPIDJSON_HOME}" STREQUAL "")
+  if("${RAPIDJSON_HOME}" STREQUAL "")
     ExternalProject_Add(rapidjson_ep
       PREFIX "${CMAKE_BINARY_DIR}"
       URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
@@ -641,7 +665,7 @@ if (ARROW_IPC)
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 
   ## Flatbuffers
-  if("$ENV{FLATBUFFERS_HOME}" STREQUAL "")
+  if("${FLATBUFFERS_HOME}" STREQUAL "")
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"

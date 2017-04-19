@@ -30,8 +30,8 @@
 #  JEMALLOC_SHARED_LIB, path to libjemalloc.so/dylib
 #  JEMALLOC_FOUND, whether flatbuffers has been found
 
-if( NOT "$ENV{JEMALLOC_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "$ENV{JEMALLOC_HOME}" _native_path )
+if( NOT "${JEMALLOC_HOME}" STREQUAL "")
+    file( TO_CMAKE_PATH "${JEMALLOC_HOME}" _native_path )
     list( APPEND _jemalloc_roots ${_native_path} )
 elseif ( JEMALLOC_HOME )
     list( APPEND _jemalloc_roots ${JEMALLOC_HOME} )
