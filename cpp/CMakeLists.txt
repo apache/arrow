@@ -36,6 +36,12 @@ else()
   include(GNUInstallDirs)
 endif()
 
+# Compatibility with CMake 3.1
+if(POLICY CMP0054)
+  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+  cmake_policy(SET CMP0054 NEW)
+endif()
+
 set(ARROW_SO_VERSION "0")
 set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
 
