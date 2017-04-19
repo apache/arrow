@@ -137,8 +137,8 @@ class ARROW_EXPORT RecordBatch {
   int64_t num_rows() const { return num_rows_; }
 
   /// Slice each of the arrays in the record batch and construct a new RecordBatch object
-  std::shared_ptr<RecordBatch> Slice(int64_t offset);
-  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length);
+  std::shared_ptr<RecordBatch> Slice(int64_t offset) const;
+  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const;
 
   /// Returns error status is there is something wrong with the record batch
   /// contents, like a schema/array mismatch or inconsistent lengths

@@ -180,11 +180,11 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   return true;
 }
 
-std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) {
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
   return Slice(offset, this->num_rows() - offset);
 }
 
-std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset, int64_t length) {
+std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset, int64_t length) const {
   std::vector<std::shared_ptr<Array>> arrays;
   arrays.reserve(num_columns());
   for (const auto& field : columns_) {

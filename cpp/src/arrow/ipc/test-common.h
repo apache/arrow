@@ -138,31 +138,41 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
-Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
-  const int length = 1000;
+Status MakeRandomBooleanArray(
+    const int length, bool include_nulls, std::shared_ptr<Array>* out) {
+  std::vector<uint8_t> values(length);
+  test::random_null_bytes(length, 0.5, values.data());
+  auto data = test::bytes_to_null_buffer(values);
 
+  if (include_nulls) {
+    std::vector<uint8_t> valid_bytes(length);
+    auto null_bitmap = test::bytes_to_null_buffer(valid_bytes);
+    test::random_null_bytes(length, 0.1, valid_bytes.data());
+    *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
+  } else {
+    *out = std::make_shared<BooleanArray>(length, data, nullptr, 0);
+  }
+  return Status::OK();
+}
+
+Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", boolean());
   auto f1 = field("f1", boolean());
   std::shared_ptr<Schema> schema(new Schema({f0, f1}));
 
-  std::vector<uint8_t> values(length);
-  std::vector<uint8_t> valid_bytes(length);
-  test::random_null_bytes(length, 0.5, values.data());
-  test::random_null_bytes(length, 0.1, valid_bytes.data());
-
-  auto data = test::bytes_to_null_buffer(values);
-  auto null_bitmap = test::bytes_to_null_buffer(valid_bytes);
-
-  auto a0 = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
-  auto a1 = std::make_shared<BooleanArray>(length, data, nullptr, 0);
+  std::shared_ptr<Array> a0, a1;
+  RETURN_NOT_OK(MakeRandomBooleanArray(length, true, &a0));
+  RETURN_NOT_OK(MakeRandomBooleanArray(length, false, &a1));
   out->reset(new RecordBatch(schema, length, {a0, a1}));
   return Status::OK();
 }
 
-Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  const int length = 10;
+Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeBooleanBatchSized(1000, out);
+}
 
+Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
@@ -177,16 +187,20 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  return MakeIntBatchSized(10, out);
+}
+
 template <class Builder, class RawType>
 Status MakeRandomBinaryArray(
-    int64_t length, MemoryPool* pool, std::shared_ptr<Array>* out) {
+    int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {
       "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
   Builder builder(pool);
   const size_t values_len = values.size();
   for (int64_t i = 0; i < length; ++i) {
     int64_t values_index = i % values_len;
-    if (values_index == 0) {
+    if (include_nulls && values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       const std::string& value = values[values_index];
@@ -210,12 +224,12 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
   // Quirk with RETURN_NOT_OK macro and templated functions
   {
-    auto s = MakeRandomBinaryArray<StringBuilder, char>(length, pool, &a0);
+    auto s = MakeRandomBinaryArray<StringBuilder, char>(length, true, pool, &a0);
     RETURN_NOT_OK(s);
   }
 
   {
-    auto s = MakeRandomBinaryArray<BinaryBuilder, uint8_t>(length, pool, &a1);
+    auto s = MakeRandomBinaryArray<BinaryBuilder, uint8_t>(length, true, pool, &a1);
     RETURN_NOT_OK(s);
   }
   out->reset(new RecordBatch(schema, length, {a0, a1}));

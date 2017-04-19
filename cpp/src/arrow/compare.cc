@@ -460,14 +460,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    if (left.offset() == 0 && right.offset() == 0) {
-      result_ = left.values()->Equals(right.values());
-    } else {
-      // One of the arrays is sliced
-      result_ = left.values()->RangeEquals(left.value_offset(0),
-          left.value_offset(left.length()), right.value_offset(0), right.values());
-    }
-
+    result_ = left.values()->RangeEquals(left.value_offset(0),
+        left.value_offset(left.length()), right.value_offset(0), right.values());
     return Status::OK();
   }
 

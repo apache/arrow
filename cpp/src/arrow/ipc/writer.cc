@@ -45,6 +45,49 @@ namespace ipc {
 // ----------------------------------------------------------------------
 // Record batch write path
 
+static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
+    const std::shared_ptr<Buffer> input, MemoryPool* pool,
+    std::shared_ptr<Buffer>* buffer) {
+  if (!input) {
+    *buffer = input;
+    return Status::OK();
+  }
+  int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
+  if (offset != 0 || min_length < input->size()) {
+    // With a sliced array / non-zero offset, we must copy the bitmap
+    RETURN_NOT_OK(CopyBitmap(pool, input->data(), offset, length, buffer));
+  } else {
+    *buffer = input;
+  }
+  return Status::OK();
+}
+
+template <typename T>
+inline Status GetTruncatedBuffer(int64_t offset, int64_t length,
+    const std::shared_ptr<Buffer> input, MemoryPool* pool,
+    std::shared_ptr<Buffer>* buffer) {
+  if (!input) {
+    *buffer = input;
+    return Status::OK();
+  }
+  int32_t byte_width = static_cast<int32_t>(sizeof(T));
+  int64_t padded_length = PaddedLength(length * byte_width);
+  if (offset != 0 || padded_length < input->size()) {
+    *buffer =
+        SliceBuffer(input, offset * byte_width, std::min(padded_length, input->size()));
+  } else {
+    *buffer = input;
+  }
+  return Status::OK();
+}
+
+static inline bool NeedTruncate(
+    int64_t offset, const Buffer* buffer, int64_t min_length) {
+  // buffer can be NULL
+  if (buffer == nullptr) { return false; }
+  return offset != 0 || min_length < buffer->size();
+}
+
 class RecordBatchWriter : public ArrayVisitor {
  public:
   RecordBatchWriter(MemoryPool* pool, int64_t buffer_start_offset,
@@ -71,14 +114,9 @@ class RecordBatchWriter : public ArrayVisitor {
     field_nodes_.emplace_back(arr.length(), arr.null_count(), 0);
 
     if (arr.null_count() > 0) {
-      std::shared_ptr<Buffer> bitmap = arr.null_bitmap();
-
-      if (arr.offset() != 0) {
-        // With a sliced array / non-zero offset, we must copy the bitmap
-        RETURN_NOT_OK(
-            CopyBitmap(pool_, bitmap->data(), arr.offset(), arr.length(), &bitmap));
-      }
-
+      std::shared_ptr<Buffer> bitmap;
+      RETURN_NOT_OK(GetTruncatedBitmap(
+          arr.offset(), arr.length(), arr.null_bitmap(), pool_, &bitmap));
       buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
@@ -195,21 +233,23 @@ class RecordBatchWriter : public ArrayVisitor {
  protected:
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
-    std::shared_ptr<Buffer> data_buffer = array.data();
+    std::shared_ptr<Buffer> data = array.data();
 
-    if (array.offset() != 0) {
+    const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
+    const int64_t type_width = fw_type.bit_width() / 8;
+    int64_t min_length = PaddedLength(array.length() * type_width);
+
+    if (NeedTruncate(array.offset(), data.get(), min_length)) {
       // Non-zero offset, slice the buffer
-      const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
-      const int type_width = fw_type.bit_width() / 8;
       const int64_t byte_offset = array.offset() * type_width;
 
       // Send padding if it's available
       const int64_t buffer_length =
           std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
-              data_buffer->size() - byte_offset);
-      data_buffer = SliceBuffer(data_buffer, byte_offset, buffer_length);
+              data->size() - byte_offset);
+      data = SliceBuffer(data, byte_offset, buffer_length);
     }
-    buffers_.push_back(data_buffer);
+    buffers_.push_back(data);
     return Status::OK();
   }
 
@@ -249,9 +289,16 @@ class RecordBatchWriter : public ArrayVisitor {
     RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
     auto data = array.data();
 
-    if (array.offset() != 0) {
+    int64_t total_data_bytes = 0;
+    if (value_offsets) {
+      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    }
+    if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
-      data = SliceBuffer(data, array.value_offset(0), array.value_offset(array.length()));
+      const int64_t start_offset = array.value_offset(0);
+      const int64_t slice_length =
+          std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
+      data = SliceBuffer(data, start_offset, slice_length);
     }
 
     buffers_.push_back(value_offsets);
@@ -259,24 +306,11 @@ class RecordBatchWriter : public ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const FixedSizeBinaryArray& array) override {
-    auto data = array.data();
-    int32_t width = array.byte_width();
-
-    if (data && array.offset() != 0) {
-      data = SliceBuffer(data, array.offset() * width, width * array.length());
-    }
-    buffers_.push_back(data);
-    return Status::OK();
-  }
-
   Status Visit(const BooleanArray& array) override {
-    std::shared_ptr<Buffer> bits = array.data();
-    if (array.offset() != 0) {
-      RETURN_NOT_OK(
-          CopyBitmap(pool_, bits->data(), array.offset(), array.length(), &bits));
-    }
-    buffers_.push_back(bits);
+    std::shared_ptr<Buffer> data;
+    RETURN_NOT_OK(
+        GetTruncatedBitmap(array.offset(), array.length(), array.data(), pool_, &data));
+    buffers_.push_back(data);
     return Status::OK();
   }
 
@@ -299,6 +333,7 @@ class RecordBatchWriter : public ArrayVisitor {
   VISIT_FIXED_WIDTH(TimestampArray);
   VISIT_FIXED_WIDTH(Time32Array);
   VISIT_FIXED_WIDTH(Time64Array);
+  VISIT_FIXED_WIDTH(FixedSizeBinaryArray);
 
 #undef VISIT_FIXED_WIDTH
 
@@ -314,11 +349,16 @@ class RecordBatchWriter : public ArrayVisitor {
     --max_recursion_depth_;
     std::shared_ptr<Array> values = array.values();
 
-    if (array.offset() != 0) {
-      // For non-zero offset, we slice the values array accordingly
-      const int32_t offset = array.value_offset(0);
-      const int32_t length = array.value_offset(array.length()) - offset;
-      values = values->Slice(offset, length);
+    int32_t values_offset = 0;
+    int32_t values_length = 0;
+    if (value_offsets) {
+      values_offset = array.value_offset(0);
+      values_length = array.value_offset(array.length()) - values_offset;
+    }
+
+    if (array.offset() != 0 || values_length < values->length()) {
+      // Must also slice the values
+      values = values->Slice(values_offset, values_length);
     }
     RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
@@ -328,7 +368,7 @@ class RecordBatchWriter : public ArrayVisitor {
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
     for (std::shared_ptr<Array> field : array.fields()) {
-      if (array.offset() != 0) {
+      if (array.offset() != 0 || array.length() < field->length()) {
         // If offset is non-zero, slice the child array
         field = field->Slice(array.offset(), array.length());
       }
@@ -339,18 +379,21 @@ class RecordBatchWriter : public ArrayVisitor {
   }
 
   Status Visit(const UnionArray& array) override {
-    auto type_ids = array.type_ids();
-    if (array.offset() != 0) {
-      type_ids = SliceBuffer(type_ids, array.offset() * sizeof(UnionArray::type_id_t),
-          array.length() * sizeof(UnionArray::type_id_t));
-    }
+    const int64_t offset = array.offset();
+    const int64_t length = array.length();
 
+    std::shared_ptr<Buffer> type_ids;
+    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_id_t>(
+        offset, length, array.type_ids(), pool_, &type_ids));
     buffers_.push_back(type_ids);
 
     --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
       const auto& type = static_cast<const UnionType&>(*array.type());
-      auto value_offsets = array.value_offsets();
+
+      std::shared_ptr<Buffer> value_offsets;
+      RETURN_NOT_OK(GetTruncatedBuffer<int32_t>(
+          offset, length, array.value_offsets(), pool_, &value_offsets));
 
       // The Union type codes are not necessary 0-indexed
       uint8_t max_code = 0;
@@ -363,7 +406,7 @@ class RecordBatchWriter : public ArrayVisitor {
       std::vector<int32_t> child_offsets(max_code + 1);
       std::vector<int32_t> child_lengths(max_code + 1, 0);
 
-      if (array.offset() != 0) {
+      if (offset != 0) {
         // This is an unpleasant case. Because the offsets are different for
         // each child array, when we have a sliced array, we need to "rebase"
         // the value_offsets for each array
@@ -373,12 +416,12 @@ class RecordBatchWriter : public ArrayVisitor {
 
         // Allocate the shifted offsets
         std::shared_ptr<MutableBuffer> shifted_offsets_buffer;
-        RETURN_NOT_OK(AllocateBuffer(
-            pool_, array.length() * sizeof(int32_t), &shifted_offsets_buffer));
+        RETURN_NOT_OK(
+            AllocateBuffer(pool_, length * sizeof(int32_t), &shifted_offsets_buffer));
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-        for (int64_t i = 0; i < array.length(); ++i) {
+        for (int64_t i = 0; i < length; ++i) {
           const uint8_t code = type_ids[i];
           int32_t shift = child_offsets[code];
           if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
@@ -395,18 +438,23 @@ class RecordBatchWriter : public ArrayVisitor {
       // Visit children and slice accordingly
       for (int i = 0; i < type.num_children(); ++i) {
         std::shared_ptr<Array> child = array.child(i);
-        if (array.offset() != 0) {
-          const uint8_t code = type.type_codes()[i];
-          child = child->Slice(child_offsets[code], child_lengths[code]);
+
+        // TODO: ARROW-809, for sliced unions, tricky to know how much to
+        // truncate the children. For now, we are truncating the children to be
+        // no longer than the parent union
+        const uint8_t code = type.type_codes()[i];
+        const int64_t child_length = child_lengths[code];
+        if (offset != 0 || length < child_length) {
+          child = child->Slice(child_offsets[code], std::min(length, child_length));
         }
         RETURN_NOT_OK(VisitArray(*child));
       }
     } else {
       for (std::shared_ptr<Array> child : array.children()) {
         // Sparse union, slicing is simpler
-        if (array.offset() != 0) {
+        if (offset != 0 || length < child->length()) {
           // If offset is non-zero, slice the child array
-          child = child->Slice(array.offset(), array.length());
+          child = child->Slice(offset, length);
         }
         RETURN_NOT_OK(VisitArray(*child));
       }

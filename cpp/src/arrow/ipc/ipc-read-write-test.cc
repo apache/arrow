@@ -270,6 +270,75 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(bin_array2, 1 << 20);
 }
 
+TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
+  auto CheckArray = [this](const std::shared_ptr<Array>& array) {
+    auto f0 = field("f0", array->type());
+    auto schema = std::shared_ptr<Schema>(new Schema({f0}));
+    RecordBatch batch(schema, array->length(), {array});
+    auto sliced_batch = batch.Slice(0, 5);
+
+    int64_t full_size;
+    int64_t sliced_size;
+
+    ASSERT_OK(GetRecordBatchSize(batch, &full_size));
+    ASSERT_OK(GetRecordBatchSize(*sliced_batch, &sliced_size));
+    ASSERT_TRUE(sliced_size < full_size) << sliced_size << " " << full_size;
+
+    // make sure we can write and read it
+    this->CheckRoundtrip(*sliced_batch, 1 << 20);
+  };
+
+  std::shared_ptr<Array> a0, a1;
+  auto pool = default_memory_pool();
+
+  // Integer
+  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &a0));
+  CheckArray(a0);
+
+  // String / Binary
+  {
+    auto s = MakeRandomBinaryArray<StringBuilder, char>(500, false, pool, &a0);
+    ASSERT_TRUE(s.ok());
+  }
+  CheckArray(a0);
+
+  // Boolean
+  ASSERT_OK(MakeRandomBooleanArray(10000, false, &a0));
+  CheckArray(a0);
+
+  // List
+  ASSERT_OK(MakeRandomInt32Array(500, false, pool, &a0));
+  ASSERT_OK(MakeRandomListArray(a0, 200, false, pool, &a1));
+  CheckArray(a1);
+
+  // Struct
+  auto struct_type = struct_({field("f0", a0->type())});
+  std::vector<std::shared_ptr<Array>> struct_children = {a0};
+  a1 = std::make_shared<StructArray>(struct_type, a0->length(), struct_children);
+  CheckArray(a1);
+
+  // Sparse Union
+  auto union_type = union_({field("f0", a0->type())}, {0});
+  std::vector<int32_t> type_ids(a0->length());
+  std::shared_ptr<Buffer> ids_buffer;
+  ASSERT_OK(test::CopyBufferFromVector(type_ids, &ids_buffer));
+  a1 = std::make_shared<UnionArray>(
+      union_type, a0->length(), struct_children, ids_buffer);
+  CheckArray(a1);
+
+  // Dense union
+  auto dense_union_type = union_({field("f0", a0->type())}, {0}, UnionMode::DENSE);
+  std::vector<int32_t> type_offsets;
+  for (int32_t i = 0; i < a0->length(); ++i) {
+    type_offsets.push_back(i);
+  }
+  std::shared_ptr<Buffer> offsets_buffer;
+  ASSERT_OK(test::CopyBufferFromVector(type_offsets, &offsets_buffer));
+  a1 = std::make_shared<UnionArray>(
+      dense_union_type, a0->length(), struct_children, ids_buffer, offsets_buffer);
+  CheckArray(a1);
+}
+
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   ipc::MockOutputStream mock;
   int32_t mock_metadata_length = -1;

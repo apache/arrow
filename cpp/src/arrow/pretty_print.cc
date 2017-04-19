@@ -162,10 +162,8 @@ class ArrayPrinter {
 
     Newline();
     Write("-- values: ");
-    auto values = array.values();
-    if (array.offset() != 0) {
-      values = values->Slice(array.value_offset(0), array.value_offset(array.length()));
-    }
+    auto values =
+        array.values()->Slice(array.value_offset(0), array.value_offset(array.length()));
     RETURN_NOT_OK(PrettyPrint(*values, indent_ + 2, sink_));
 
     return Status::OK();

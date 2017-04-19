@@ -32,8 +32,8 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   struct tm epoch = {0};
   epoch.tm_year = 70;
   epoch.tm_mday = 1;
-  // Milliseconds since the epoch
 #ifdef _MSC_VER
+  // Milliseconds since the epoch
   const int64_t current_timestamp = static_cast<int64_t>(_mkgmtime64(&date));
   const int64_t epoch_timestamp = static_cast<int64_t>(_mkgmtime64(&epoch));
   return (current_timestamp - epoch_timestamp) * 1000LL;
