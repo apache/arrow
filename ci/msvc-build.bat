@@ -29,7 +29,7 @@ cd cpp
 mkdir build
 cd build
 cmake -G "%GENERATOR%" ^
-      -CCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_CXXFLAGS="/WX" ^
