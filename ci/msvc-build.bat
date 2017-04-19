@@ -46,6 +46,6 @@ ctest -VV  || exit /B
 
 set PATH=%ARROW_HOME%\bin;%PATH%
 
-cd ..\python
+cd ..\..\python
 python setup.py build_ext --inplace  || exit /B
 python -c "import pyarrow"  || exit /B
