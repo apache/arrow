@@ -16,36 +16,41 @@
 
 ### Linux and macOS
 
-First, set up your thirdparty C++ toolchain using libraries from conda-forge:
+#### System Requirements
+
+On macOS, any modern XCode (6.4 or higher; the current version is 8.3.1) is
+sufficient.
+
+On Linux, for this guide, we recommend using gcc 4.8 or 4.9, or clang 3.7 or
+higher. You can check your version by running
 
 ```shell
-conda config --add channels conda-forge
-
-export ARROW_BUILD_TYPE=Release
-
-export CPP_TOOLCHAIN=$HOME/cpp-toolchain
-export LD_LIBRARY_PATH=$CPP_TOOLCHAIN/lib:$LD_LIBRARY_PATH
-
-export BOOST_ROOT=$CPP_TOOLCHAIN
-export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
-export RAPIDJSON_HOME=$CPP_TOOLCHAIN
-export THRIFT_HOME=$CPP_TOOLCHAIN
-export ZLIB_HOME=$CPP_TOOLCHAIN
-export SNAPPY_HOME=$CPP_TOOLCHAIN
-export BROTLI_HOME=$CPP_TOOLCHAIN
-export JEMALLOC_HOME=$CPP_TOOLCHAIN
-export ARROW_HOME=$CPP_TOOLCHAIN
-export PARQUET_HOME=$CPP_TOOLCHAIN
-
-conda create -y -q -p $CPP_TOOLCHAIN \
-      flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib brotli jemalloc
+$ gcc --version
 ```
 
-Now, activate a conda environment containing your target Python version and
-NumPy installed:
+On Ubuntu 16.04 and higher, you can obtain gcc 4.9 with:
 
 ```shell
-conda create -y -q -n pyarrow-dev python=3.6 numpy
+$ sudo apt-get install g++-4.9
+```
+
+Finally, set gcc 4.9 as the active compiler using:
+
+```shell
+export CC=gcc-4.9
+export CXX=g++-4.9
+```
+
+#### Environment Setup and Build
+
+First, let's create a conda environment with all the C++ build and Python
+dependencies from conda-forge:
+
+```shell
+conda create -y -q -n pyarrow-dev \
+      python=3.6 numpy six setuptools cython pandas pytest \
+      cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+      brotli jemalloc -c conda-forge
 source activate pyarrow-dev
 ```
 
@@ -67,6 +72,26 @@ drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
 drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 parquet-cpp/
 ```
 
+We need to set a number of environment variables to let Arrow's build system
+know about our build toolchain:
+
+```
+export ARROW_BUILD_TYPE=release
+
+export BOOST_ROOT=$CONDA_PREFIX
+export BOOST_LIBRARYDIR=$CONDA_PREFIX/lib
+
+export FLATBUFFERS_HOME=$CONDA_PREFIX
+export RAPIDJSON_HOME=$CONDA_PREFIX
+export THRIFT_HOME=$CONDA_PREFIX
+export ZLIB_HOME=$CONDA_PREFIX
+export SNAPPY_HOME=$CONDA_PREFIX
+export BROTLI_HOME=$CONDA_PREFIX
+export JEMALLOC_HOME=$CONDA_PREFIX
+export ARROW_HOME=$CONDA_PREFIX
+export PARQUET_HOME=$CONDA_PREFIX
+```
+
 Now build and install the Arrow C++ libraries:
 
 ```shell
@@ -74,7 +99,7 @@ mkdir arrow/cpp/build
 pushd arrow/cpp/build
 
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-      -DCMAKE_INSTALL_PREFIX=$CPP_TOOLCHAIN \
+      -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
       -DARROW_PYTHON=on \
       -DARROW_BUILD_TESTS=OFF \
       ..
@@ -90,7 +115,7 @@ mkdir parquet-cpp/build
 pushd parquet-cpp/build
 
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-      -DCMAKE_INSTALL_PREFIX=$CPP_TOOLCHAIN \
+      -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_ZLIB_VENDORED=off \
@@ -102,11 +127,9 @@ make install
 popd
 ```
 
-Now, install requisite build requirements for pyarrow, then build:
+Now, build pyarrow:
 
 ```shell
-conda install -y -q six setuptools cython pandas pytest
-
 cd arrow/python
 python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --with-parquet --inplace
 ```

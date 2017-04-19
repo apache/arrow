@@ -155,7 +155,7 @@ class build_ext(_build_ext):
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
 
         cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
-                             .format(self.build_type))
+                             .format(self.build_type.lower()))
 
         if sys.platform != 'win32':
             cmake_command = (['cmake', self.extra_cmake_args] +
