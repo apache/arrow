@@ -139,6 +139,9 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 package org.apache.arrow.vector.complex.writer;
 
 <#include "/@includes/vv_imports.ftl" />
+/*
+ * This class is generated using FreeMarker on the ${.template_name} template.
+ */
 @SuppressWarnings("unused")
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);

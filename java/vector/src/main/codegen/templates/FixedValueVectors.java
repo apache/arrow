@@ -495,16 +495,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     <#elseif minor.class == "DateMilli">
     @Override
     public ${friendlyType} getObject(int index) {
-      org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(get(index), org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
     <#elseif minor.class == "TimeMilli">
     @Override
     public ${friendlyType} getObject(int index) {
-      org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime time = new org.joda.time.LocalDateTime(get(index), org.joda.time.DateTimeZone.UTC);
       return time;
     }
 
@@ -512,16 +510,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     @Override
     public ${friendlyType} getObject(int index) {
       long secs = java.util.concurrent.TimeUnit.SECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(secs, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(secs, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
     <#elseif minor.class == "TimeStampMilli">
     @Override
     public ${friendlyType} getObject(int index) {
-        org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+        org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(get(index), org.joda.time.DateTimeZone.UTC);
         return date;
     }
 
@@ -530,8 +526,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${friendlyType} getObject(int index) {
       // value is truncated when converting microseconds to milliseconds in order to use DateTime type
       long micros = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(micros, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(micros, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
@@ -540,8 +535,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${friendlyType} getObject(int index) {
       // value is truncated when converting nanoseconds to milliseconds in order to use DateTime type
       long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(millis, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 

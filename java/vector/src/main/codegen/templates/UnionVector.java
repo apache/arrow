@@ -50,6 +50,7 @@ import static org.apache.arrow.vector.types.UnionMode.Sparse;
  *
  * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the map lookup
  * each time the vector is accessed.
+ * Source code generated using FreeMarker template ${.template_name}
  */
 public class UnionVector implements FieldVector {
 
