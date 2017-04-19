@@ -34,18 +34,18 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_CXXFLAGS="/WX" ^
       -DARROW_PYTHON=on ^
-      ..
-cmake --build . --target INSTALL --config Release
+      ..  || exit /B
+cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
 
-ctest -VV
+ctest -VV  || exit /B
 
 @rem Build and import pyarrow
 
 set PATH=%ARROW_HOME%\bin;%PATH%
 
 cd ..\python
-python setup.py build_ext --inplace
-python -c "import pyarrow"
+python setup.py build_ext --inplace  || exit /B
+python -c "import pyarrow"  || exit /B
