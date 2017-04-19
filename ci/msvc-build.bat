@@ -22,7 +22,6 @@ set ARROW_HOME=C:\arrow-install
 
 conda create -p %CONDA_ENV% -q -y python=%PYTHON% six pytest setuptools numpy pandas
 call activate %CONDA_ENV%
-conda list
 
 @rem Build and test Arrow C++ libraries
 
