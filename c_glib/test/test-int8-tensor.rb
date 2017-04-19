@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,24 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pathname"
-require "test-unit"
+class TestInt8Tensor < Test::Unit::TestCase
+  include Helper::Omittable
 
-base_dir = Pathname(__dir__).parent
-typelib_dir = base_dir + "arrow-glib"
-test_dir = base_dir + "test"
+  def setup
+    @raw_data = [
+      1, 2,
+      3, 4,
 
-ENV["GI_TYPELIB_PATH"] = [
-  typelib_dir.to_s,
-  ENV["GI_TYPELIB_PATH"],
-].compact.join(File::PATH_SEPARATOR)
+      5, 6,
+      7, 8,
 
-require "gi"
+      9, 10,
+      11, 12,
+    ]
+    data = Arrow::Buffer.new(@raw_data.pack("c*"))
+    shape = [3, 2, 2]
+    strides = []
+    names = []
+    @tensor = Arrow::Int8Tensor.new(data, shape, strides, names)
+  end
 
-Arrow = GI.load("Arrow")
-
-require "tempfile"
-require_relative "helper/buildable"
-require_relative "helper/omittable"
-
-exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))
+  def test_raw_data
+    require_gi(3, 1, 2)
+    assert_equal(@raw_data, @tensor.raw_data)
+  end
+end

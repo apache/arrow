@@ -31,9 +31,11 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/float-array.hpp>
+#include <arrow-glib/numeric-tensor.hpp>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/tensor.hpp>
 #include <arrow-glib/type.hpp>
 
 #include <arrow-glib/file.hpp>

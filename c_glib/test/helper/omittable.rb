@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,24 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pathname"
-require "test-unit"
-
-base_dir = Pathname(__dir__).parent
-typelib_dir = base_dir + "arrow-glib"
-test_dir = base_dir + "test"
-
-ENV["GI_TYPELIB_PATH"] = [
-  typelib_dir.to_s,
-  ENV["GI_TYPELIB_PATH"],
-].compact.join(File::PATH_SEPARATOR)
-
-require "gi"
-
-Arrow = GI.load("Arrow")
-
-require "tempfile"
-require_relative "helper/buildable"
-require_relative "helper/omittable"
-
-exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))
+module Helper
+  module Omittable
+    def require_gi(major, minor, micro)
+      return if GLib.check_binding_version?(major, minor, micro)
+      message =
+        "Require gobject-introspection #{major}.#{minor}.#{micro} or later: " +
+        GLib::BINDING_VERSION.join(".")
+      omit(message)
+    end
+  end
+end
