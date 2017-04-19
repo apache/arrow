@@ -346,21 +346,25 @@ foreach(module ${CYTHON_EXTENSIONS})
           LIBRARY_OUTPUT_DIRECTORY ${module_output_directory})
     endif()
 
-    if(APPLE)
+    if (PYARROW_BUNDLE_ARROW_CPP)
+      # In the event that we are bundling the shared libraries (e.g. in a
+      # manylinux1 wheel), we need to set the RPATH of the extensions to the
+      # root of the pyarrow/ package so that libarrow/libarrow_python are able
+      # to be loaded properly
+      if(APPLE)
         set(module_install_rpath "@loader_path")
-    else()
+      else()
         set(module_install_rpath "\$ORIGIN")
-    endif()
-    list(LENGTH directories i)
-    while(${i} GREATER 0)
+      endif()
+      list(LENGTH directories i)
+      while(${i} GREATER 0)
         set(module_install_rpath "${module_install_rpath}/..")
         math(EXPR i "${i} - 1" )
-    endwhile(${i} GREATER 0)
+      endwhile(${i} GREATER 0)
 
-    # for inplace development for now
-    #set(module_install_rpath "${CMAKE_SOURCE_DIR}/pyarrow/")
+      set_target_properties(${module_name} PROPERTIES
+        INSTALL_RPATH ${module_install_rpath})
+    endif()
 
-    set_target_properties(${module_name} PROPERTIES
-      INSTALL_RPATH ${module_install_rpath})
     target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)
