@@ -322,8 +322,8 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   std::vector<int32_t> type_ids(a0->length());
   std::shared_ptr<Buffer> ids_buffer;
   ASSERT_OK(test::CopyBufferFromVector(type_ids, &ids_buffer));
-  a1 = std::make_shared<UnionArray>(
-      union_type, a0->length(), struct_children, ids_buffer);
+  a1 =
+      std::make_shared<UnionArray>(union_type, a0->length(), struct_children, ids_buffer);
   CheckArray(a1);
 
   // Dense union

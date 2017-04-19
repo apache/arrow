@@ -17,34 +17,77 @@
 
 #include "arrow/util/decimal.h"
 
-#include <boost/regex.hpp>
-
 namespace arrow {
 namespace decimal {
-
-static const boost::regex DECIMAL_PATTERN("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
 template <typename T>
 ARROW_EXPORT Status FromString(
     const std::string& s, Decimal<T>* out, int* precision, int* scale) {
+  // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?";
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
-  boost::smatch match;
-  if (!boost::regex_match(s, match, DECIMAL_PATTERN)) {
-    std::stringstream ss;
-    ss << "String " << s << " is not a valid decimal string";
-    return Status::Invalid(ss.str());
+
+  int8_t sign = 1;
+  auto charp = s.cbegin();
+  auto end = s.cend();
+
+  if (*charp == '+' || *charp == '-') {
+    if (*charp == '-') { sign = -1; }
+    ++charp;
   }
-  const int8_t sign = match[1].str() == "-" ? -1 : 1;
-  std::string whole_part = match[4].str();
-  std::string fractional_part = match[6].str();
-  if (scale != nullptr) { *scale = static_cast<int>(fractional_part.size()); }
+
+  auto numeric_string_start = charp;
+
+  // skip leading zeros
+  while (*charp == '0') {
+    ++charp;
+  }
+
+  // all zeros and no decimal point
+  if (charp == end) {
+    if (out != nullptr) { out->value = static_cast<T>(0); }
+
+    // Not sure what other libraries assign precision to for this case (this case of
+    // a string consisting only of one or more zeros)
+    if (precision != nullptr) {
+      *precision = static_cast<int>(charp - numeric_string_start);
+    }
+
+    if (scale != nullptr) { *scale = 0; }
+
+    return Status::OK();
+  }
+
+  auto whole_part_start = charp;
+  while (isdigit(*charp)) {
+    ++charp;
+  }
+  auto whole_part_end = charp;
+  std::string whole_part(whole_part_start, whole_part_end);
+
+  if (*charp == '.') {
+    ++charp;
+  } else {
+    // no decimal point
+    DCHECK_EQ(charp, end);
+  }
+
+  auto fractional_part_start = charp;
+  while (isdigit(*charp)) {
+    ++charp;
+  }
+  auto fractional_part_end = charp;
+  std::string fractional_part(fractional_part_start, fractional_part_end);
+
   if (precision != nullptr) {
-    *precision =
-        static_cast<int>(whole_part.size()) + static_cast<int>(fractional_part.size());
+    *precision = static_cast<int>(whole_part.size() + fractional_part.size());
   }
+
+  if (scale != nullptr) { *scale = static_cast<int>(fractional_part.size()); }
+
   if (out != nullptr) { StringToInteger(whole_part, fractional_part, sign, &out->value); }
+
   return Status::OK();
 }
 

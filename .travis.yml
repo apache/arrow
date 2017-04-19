@@ -14,7 +14,6 @@ addons:
     - valgrind
     - libboost-dev
     - libboost-filesystem-dev
-    - libboost-regex-dev
     - libboost-system-dev
     - libjemalloc-dev
     - gtk-doc-tools

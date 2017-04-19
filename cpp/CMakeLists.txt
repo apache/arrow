@@ -410,19 +410,16 @@ if (ARROW_BOOST_USE_SHARED)
     add_definitions(-DBOOST_ALL_DYN_LINK)
   endif()
 
-  find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+  find_package(Boost COMPONENTS system filesystem REQUIRED)
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
     set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-    set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
   else()
     set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
     set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-    set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
   endif()
   set(BOOST_SYSTEM_LIBRARY boost_system_shared)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
-  set(BOOST_REGEX_LIBRARY boost_regex_shared)
 else()
   # Find static boost headers and libs
   # TODO Differentiate here between release and debug builds
@@ -431,15 +428,12 @@ else()
   if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
     set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-    set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
   else()
     set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
     set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-    set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
   endif()
   set(BOOST_SYSTEM_LIBRARY boost_system_static)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
@@ -453,11 +447,7 @@ ADD_THIRDPARTY_LIB(boost_filesystem
     STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
     SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
-ADD_THIRDPARTY_LIB(boost_regex
-        STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}"
-        SHARED_LIB "${BOOST_SHARED_REGEX_LIBRARY}")
-
-SET(ARROW_BOOST_LIBS boost_system boost_filesystem boost_regex)
+SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -758,8 +748,7 @@ set(ARROW_MIN_TEST_LIBS
   arrow_static
   gtest
   gtest_main
-  ${ARROW_BASE_LIBS}
-  ${BOOST_REGEX_LIBRARY})
+  ${ARROW_BASE_LIBS})
 
 if (APPLE)
   set(ARROW_MIN_TEST_LIBS
@@ -777,8 +766,7 @@ set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
-  ${ARROW_BASE_LIBS}
-  ${BOOST_REGEX_LIBRARY})
+  ${ARROW_BASE_LIBS})
 
 ############################################################
 # "make ctags" target
@@ -875,7 +863,7 @@ endif()
 ############################################################
 
 set(ARROW_LINK_LIBS
-  ${BOOST_REGEX_LIBRARY})
+    )
 
 set(ARROW_STATIC_LINK_LIBS)
 
