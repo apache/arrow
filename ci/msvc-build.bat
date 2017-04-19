@@ -20,7 +20,8 @@
 set CONDA_ENV=C:\arrow-conda-env
 set ARROW_HOME=C:\arrow-install
 
-conda create -p %CONDA_ENV% -q -y python=%PYTHON% six pytest setuptools numpy pandas
+conda create -p %CONDA_ENV% -q -y python=%PYTHON% ^
+      six pytest setuptools numpy pandas cython
 call activate %CONDA_ENV%
 
 @rem Build and test Arrow C++ libraries
