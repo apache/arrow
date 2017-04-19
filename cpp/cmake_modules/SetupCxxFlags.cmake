@@ -30,7 +30,7 @@ if (MSVC)
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")
   elseif(${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19)

@@ -28,6 +28,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cpp/cmake_mod
 
 include(CMakeParseArguments)
 
+# Compatibility with CMake 3.1
+if(POLICY CMP0054)
+  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+  cmake_policy(SET CMP0054 NEW)
+endif()
+
 set(BUILD_SUPPORT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/build-support")
 
 # Allow "make install" to not depend on all targets.

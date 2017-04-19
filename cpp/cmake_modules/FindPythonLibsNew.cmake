@@ -141,12 +141,13 @@ string(REGEX REPLACE "\\\\" "/" PYTHON_INCLUDE_DIR ${PYTHON_INCLUDE_DIR})
 string(REGEX REPLACE "\\\\" "/" PYTHON_SITE_PACKAGES ${PYTHON_SITE_PACKAGES})
 
 if(CMAKE_HOST_WIN32)
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-        set(PYTHON_LIBRARY
-            "${PYTHON_PREFIX}/libs/Python${PYTHON_LIBRARY_SUFFIX}.lib")
-    else()
-        set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
-    endif()
+  # Appease CMP0054
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(PYTHON_LIBRARY
+      "${PYTHON_PREFIX}/libs/Python${PYTHON_LIBRARY_SUFFIX}.lib")
+  else()
+    set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
+  endif()
 elseif(APPLE)
   # In some cases libpythonX.X.dylib is not part of the PYTHON_PREFIX and we
   # need to call `python-config --prefix` to determine the correct location.

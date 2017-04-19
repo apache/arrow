@@ -57,17 +57,19 @@ set(ARROW_PYTHON_SHARED_LINK_LIBS
   arrow_shared
 )
 
+if (MSVC)
+  set(ARROW_PYTHON_SHARED_LINK_LIBS
+    ${ARROW_PYTHON_SHARED_LINK_LIBS}
+    ${PYTHON_LIBRARIES}
+    )
+endif()
+
 ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
   STATIC_LINK_LIBS ""
 )
-
-if (MSVC)
-  target_link_libraries(arrow_python_shared
-    ${PYTHON_LIBRARIES})
-endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Clang, be quiet. Python C API has lots of macros

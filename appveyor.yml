@@ -21,17 +21,15 @@ os: Visual Studio 2015
 environment:
   matrix:
     - GENERATOR: Visual Studio 14 2015 Win64
-    # - GENERATOR: Visual Studio 14 2015
+      PYTHON: "3.5"
+      ARCH: "64"
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0
   BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
 
-build_script:
- - cd cpp
- - mkdir build
- - cd build
- - cmake -G "%GENERATOR%" -DARROW_CXXFLAGS="/WX" -DARROW_BOOST_USE_SHARED=OFF -DCMAKE_BUILD_TYPE=Release ..
- - cmake --build . --config Release
+init:
+  - set MINICONDA=C:\Miniconda35-x64
+  - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
-# test_script:
- - ctest -VV
+build_script:
+ - call ci\msvc-build.bat
