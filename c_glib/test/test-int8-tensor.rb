@@ -31,8 +31,8 @@ class TestInt8Tensor < Test::Unit::TestCase
     ]
     data = Arrow::Buffer.new(@raw_data.pack("c*"))
     shape = [3, 2, 2]
-    strides = nil
-    names = nil
+    strides = []
+    names = []
     @tensor = Arrow::Int8Tensor.new(data, shape, strides, names)
   end
 
