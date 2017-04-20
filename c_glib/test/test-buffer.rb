@@ -32,7 +32,7 @@ class TestBuffer < Test::Unit::TestCase
   end
 
   def test_data
-    assert_equal(@data, @buffer.data.pack("C*"))
+    assert_equal(@data, @buffer.data.to_s)
   end
 
   def test_size
@@ -45,11 +45,11 @@ class TestBuffer < Test::Unit::TestCase
 
   def test_copy
     copied_buffer = @buffer.copy(1, 3)
-    assert_equal(@data[1, 3], copied_buffer.data.pack("C*"))
+    assert_equal(@data[1, 3], copied_buffer.data.to_s)
   end
 
   def test_slice
     sliced_buffer = @buffer.slice(1, 3)
-    assert_equal(@data[1, 3], sliced_buffer.data.pack("C*"))
+    assert_equal(@data[1, 3], sliced_buffer.data.to_s)
   end
 end

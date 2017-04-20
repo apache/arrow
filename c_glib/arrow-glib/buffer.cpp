@@ -167,18 +167,19 @@ garrow_buffer_get_capacity(GArrowBuffer *buffer)
 /**
  * garrow_buffer_get_data:
  * @buffer: A #GArrowBuffer.
- * @size: (out): The number of bytes of the data.
  *
- * Returns: (array length=size): The data of the buffer.
+ * Returns: (transfer full): The data of the buffer. The data is owned by
+ *   the buffer. You should not free or modify the data.
  *
  * Since: 0.3.0
  */
-const guint8 *
-garrow_buffer_get_data(GArrowBuffer *buffer, gint64 *size)
+GBytes *
+garrow_buffer_get_data(GArrowBuffer *buffer)
 {
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  *size = arrow_buffer->size();
-  return arrow_buffer->data();
+  auto data = g_bytes_new_static(arrow_buffer->data(),
+                                 arrow_buffer->size());
+  return data;
 }
 
 /**

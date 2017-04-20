@@ -49,7 +49,7 @@ class TestTensor < Test::Unit::TestCase
   end
 
   def test_buffer
-    assert_equal(@raw_data, @tensor.buffer.data)
+    assert_equal(@raw_data, @tensor.buffer.data.to_s.unpack("c*"))
   end
 
   def test_shape
