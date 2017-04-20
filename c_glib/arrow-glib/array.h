@@ -68,4 +68,739 @@ GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 offset,
                                          gint64 length);
 
+#define GARROW_TYPE_NULL_ARRAY                  \
+  (garrow_null_array_get_type())
+#define GARROW_NULL_ARRAY(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_NULL_ARRAY,   \
+                              GArrowNullArray))
+#define GARROW_NULL_ARRAY_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_NULL_ARRAY,      \
+                           GArrowNullArrayClass))
+#define GARROW_IS_NULL_ARRAY(obj)                       \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_NULL_ARRAY))
+#define GARROW_IS_NULL_ARRAY_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_NULL_ARRAY))
+#define GARROW_NULL_ARRAY_GET_CLASS(obj)                \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_NULL_ARRAY,    \
+                             GArrowNullArrayClass))
+
+typedef struct _GArrowNullArray         GArrowNullArray;
+typedef struct _GArrowNullArrayClass    GArrowNullArrayClass;
+
+/**
+ * GArrowNullArray:
+ *
+ * It wraps `arrow::NullArray`.
+ */
+struct _GArrowNullArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowNullArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_null_array_get_type(void) G_GNUC_CONST;
+
+GArrowNullArray *garrow_null_array_new(gint64 length);
+
+
+#define GARROW_TYPE_BOOLEAN_ARRAY               \
+  (garrow_boolean_array_get_type())
+#define GARROW_BOOLEAN_ARRAY(obj)                               \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_BOOLEAN_ARRAY,        \
+                              GArrowBooleanArray))
+#define GARROW_BOOLEAN_ARRAY_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_BOOLEAN_ARRAY,   \
+                           GArrowBooleanArrayClass))
+#define GARROW_IS_BOOLEAN_ARRAY(obj)                            \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_BOOLEAN_ARRAY))
+#define GARROW_IS_BOOLEAN_ARRAY_CLASS(klass)            \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_BOOLEAN_ARRAY))
+#define GARROW_BOOLEAN_ARRAY_GET_CLASS(obj)             \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_BOOLEAN_ARRAY, \
+                             GArrowBooleanArrayClass))
+
+typedef struct _GArrowBooleanArray         GArrowBooleanArray;
+typedef struct _GArrowBooleanArrayClass    GArrowBooleanArrayClass;
+
+/**
+ * GArrowBooleanArray:
+ *
+ * It wraps `arrow::BooleanArray`.
+ */
+struct _GArrowBooleanArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowBooleanArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType          garrow_boolean_array_get_type  (void) G_GNUC_CONST;
+gboolean       garrow_boolean_array_get_value (GArrowBooleanArray *array,
+                                               gint64 i);
+
+
+#define GARROW_TYPE_INT8_ARRAY                  \
+  (garrow_int8_array_get_type())
+#define GARROW_INT8_ARRAY(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_INT8_ARRAY,   \
+                              GArrowInt8Array))
+#define GARROW_INT8_ARRAY_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_INT8_ARRAY,      \
+                           GArrowInt8ArrayClass))
+#define GARROW_IS_INT8_ARRAY(obj)                       \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_INT8_ARRAY))
+#define GARROW_IS_INT8_ARRAY_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_INT8_ARRAY))
+#define GARROW_INT8_ARRAY_GET_CLASS(obj)                \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_INT8_ARRAY,    \
+                             GArrowInt8ArrayClass))
+
+typedef struct _GArrowInt8Array         GArrowInt8Array;
+typedef struct _GArrowInt8ArrayClass    GArrowInt8ArrayClass;
+
+/**
+ * GArrowInt8Array:
+ *
+ * It wraps `arrow::Int8Array`.
+ */
+struct _GArrowInt8Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowInt8ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_int8_array_get_type(void) G_GNUC_CONST;
+
+gint8 garrow_int8_array_get_value(GArrowInt8Array *array,
+                                  gint64 i);
+
+
+#define GARROW_TYPE_UINT8_ARRAY                 \
+  (garrow_uint8_array_get_type())
+#define GARROW_UINT8_ARRAY(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_UINT8_ARRAY,  \
+                              GArrowUInt8Array))
+#define GARROW_UINT8_ARRAY_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_UINT8_ARRAY,     \
+                           GArrowUInt8ArrayClass))
+#define GARROW_IS_UINT8_ARRAY(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_UINT8_ARRAY))
+#define GARROW_IS_UINT8_ARRAY_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_UINT8_ARRAY))
+#define GARROW_UINT8_ARRAY_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_UINT8_ARRAY,   \
+                             GArrowUInt8ArrayClass))
+
+typedef struct _GArrowUInt8Array         GArrowUInt8Array;
+typedef struct _GArrowUInt8ArrayClass    GArrowUInt8ArrayClass;
+
+/**
+ * GArrowUInt8Array:
+ *
+ * It wraps `arrow::UInt8Array`.
+ */
+struct _GArrowUInt8Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowUInt8ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_uint8_array_get_type(void) G_GNUC_CONST;
+
+guint8 garrow_uint8_array_get_value(GArrowUInt8Array *array,
+                                    gint64 i);
+
+
+#define GARROW_TYPE_INT16_ARRAY                  \
+  (garrow_int16_array_get_type())
+#define GARROW_INT16_ARRAY(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_INT16_ARRAY,  \
+                              GArrowInt16Array))
+#define GARROW_INT16_ARRAY_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_INT16_ARRAY,     \
+                           GArrowInt16ArrayClass))
+#define GARROW_IS_INT16_ARRAY(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_INT16_ARRAY))
+#define GARROW_IS_INT16_ARRAY_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_INT16_ARRAY))
+#define GARROW_INT16_ARRAY_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_INT16_ARRAY,   \
+                             GArrowInt16ArrayClass))
+
+typedef struct _GArrowInt16Array         GArrowInt16Array;
+typedef struct _GArrowInt16ArrayClass    GArrowInt16ArrayClass;
+
+/**
+ * GArrowInt16Array:
+ *
+ * It wraps `arrow::Int16Array`.
+ */
+struct _GArrowInt16Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowInt16ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_int16_array_get_type(void) G_GNUC_CONST;
+
+gint16 garrow_int16_array_get_value(GArrowInt16Array *array,
+                                    gint64 i);
+
+
+#define GARROW_TYPE_UINT16_ARRAY                 \
+  (garrow_uint16_array_get_type())
+#define GARROW_UINT16_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_UINT16_ARRAY, \
+                              GArrowUInt16Array))
+#define GARROW_UINT16_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_UINT16_ARRAY,    \
+                           GArrowUInt16ArrayClass))
+#define GARROW_IS_UINT16_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_UINT16_ARRAY))
+#define GARROW_IS_UINT16_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_UINT16_ARRAY))
+#define GARROW_UINT16_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_UINT16_ARRAY,  \
+                             GArrowUInt16ArrayClass))
+
+typedef struct _GArrowUInt16Array         GArrowUInt16Array;
+typedef struct _GArrowUInt16ArrayClass    GArrowUInt16ArrayClass;
+
+/**
+ * GArrowUInt16Array:
+ *
+ * It wraps `arrow::UInt16Array`.
+ */
+struct _GArrowUInt16Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowUInt16ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_uint16_array_get_type(void) G_GNUC_CONST;
+
+guint16 garrow_uint16_array_get_value(GArrowUInt16Array *array,
+                                      gint64 i);
+
+
+#define GARROW_TYPE_INT32_ARRAY                 \
+  (garrow_int32_array_get_type())
+#define GARROW_INT32_ARRAY(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_INT32_ARRAY,  \
+                              GArrowInt32Array))
+#define GARROW_INT32_ARRAY_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_INT32_ARRAY,     \
+                           GArrowInt32ArrayClass))
+#define GARROW_IS_INT32_ARRAY(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_INT32_ARRAY))
+#define GARROW_IS_INT32_ARRAY_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_INT32_ARRAY))
+#define GARROW_INT32_ARRAY_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_INT32_ARRAY,   \
+                             GArrowInt32ArrayClass))
+
+typedef struct _GArrowInt32Array         GArrowInt32Array;
+typedef struct _GArrowInt32ArrayClass    GArrowInt32ArrayClass;
+
+/**
+ * GArrowInt32Array:
+ *
+ * It wraps `arrow::Int32Array`.
+ */
+struct _GArrowInt32Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowInt32ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_int32_array_get_type(void) G_GNUC_CONST;
+
+gint32 garrow_int32_array_get_value(GArrowInt32Array *array,
+                                    gint64 i);
+
+
+#define GARROW_TYPE_UINT32_ARRAY                \
+  (garrow_uint32_array_get_type())
+#define GARROW_UINT32_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_UINT32_ARRAY, \
+                              GArrowUInt32Array))
+#define GARROW_UINT32_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_UINT32_ARRAY,    \
+                           GArrowUInt32ArrayClass))
+#define GARROW_IS_UINT32_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_UINT32_ARRAY))
+#define GARROW_IS_UINT32_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_UINT32_ARRAY))
+#define GARROW_UINT32_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_UINT32_ARRAY,  \
+                             GArrowUInt32ArrayClass))
+
+typedef struct _GArrowUInt32Array         GArrowUInt32Array;
+typedef struct _GArrowUInt32ArrayClass    GArrowUInt32ArrayClass;
+
+/**
+ * GArrowUInt32Array:
+ *
+ * It wraps `arrow::UInt32Array`.
+ */
+struct _GArrowUInt32Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowUInt32ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_uint32_array_get_type(void) G_GNUC_CONST;
+
+guint32 garrow_uint32_array_get_value(GArrowUInt32Array *array,
+                                      gint64 i);
+
+
+#define GARROW_TYPE_INT64_ARRAY                 \
+  (garrow_int64_array_get_type())
+#define GARROW_INT64_ARRAY(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_INT64_ARRAY,  \
+                              GArrowInt64Array))
+#define GARROW_INT64_ARRAY_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_INT64_ARRAY,     \
+                           GArrowInt64ArrayClass))
+#define GARROW_IS_INT64_ARRAY(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_INT64_ARRAY))
+#define GARROW_IS_INT64_ARRAY_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_INT64_ARRAY))
+#define GARROW_INT64_ARRAY_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_INT64_ARRAY,   \
+                             GArrowInt64ArrayClass))
+
+typedef struct _GArrowInt64Array         GArrowInt64Array;
+typedef struct _GArrowInt64ArrayClass    GArrowInt64ArrayClass;
+
+/**
+ * GArrowInt64Array:
+ *
+ * It wraps `arrow::Int64Array`.
+ */
+struct _GArrowInt64Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowInt64ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_int64_array_get_type(void) G_GNUC_CONST;
+
+gint64 garrow_int64_array_get_value(GArrowInt64Array *array,
+                                    gint64 i);
+
+
+#define GARROW_TYPE_UINT64_ARRAY                \
+  (garrow_uint64_array_get_type())
+#define GARROW_UINT64_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_UINT64_ARRAY, \
+                              GArrowUInt64Array))
+#define GARROW_UINT64_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_UINT64_ARRAY,    \
+                           GArrowUInt64ArrayClass))
+#define GARROW_IS_UINT64_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_UINT64_ARRAY))
+#define GARROW_IS_UINT64_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_UINT64_ARRAY))
+#define GARROW_UINT64_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_UINT64_ARRAY,  \
+                             GArrowUInt64ArrayClass))
+
+typedef struct _GArrowUInt64Array         GArrowUInt64Array;
+typedef struct _GArrowUInt64ArrayClass    GArrowUInt64ArrayClass;
+
+/**
+ * GArrowUInt64Array:
+ *
+ * It wraps `arrow::UInt64Array`.
+ */
+struct _GArrowUInt64Array
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowUInt64ArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_uint64_array_get_type(void) G_GNUC_CONST;
+
+guint64 garrow_uint64_array_get_value(GArrowUInt64Array *array,
+                                      gint64 i);
+
+
+#define GARROW_TYPE_FLOAT_ARRAY                 \
+  (garrow_float_array_get_type())
+#define GARROW_FLOAT_ARRAY(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_FLOAT_ARRAY,  \
+                              GArrowFloatArray))
+#define GARROW_FLOAT_ARRAY_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_FLOAT_ARRAY,     \
+                           GArrowFloatArrayClass))
+#define GARROW_IS_FLOAT_ARRAY(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_FLOAT_ARRAY))
+#define GARROW_IS_FLOAT_ARRAY_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_FLOAT_ARRAY))
+#define GARROW_FLOAT_ARRAY_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_FLOAT_ARRAY,   \
+                             GArrowFloatArrayClass))
+
+typedef struct _GArrowFloatArray         GArrowFloatArray;
+typedef struct _GArrowFloatArrayClass    GArrowFloatArrayClass;
+
+/**
+ * GArrowFloatArray:
+ *
+ * It wraps `arrow::FloatArray`.
+ */
+struct _GArrowFloatArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowFloatArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_float_array_get_type(void) G_GNUC_CONST;
+
+gfloat garrow_float_array_get_value(GArrowFloatArray *array,
+                                    gint64 i);
+
+
+#define GARROW_TYPE_DOUBLE_ARRAY                \
+  (garrow_double_array_get_type())
+#define GARROW_DOUBLE_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_DOUBLE_ARRAY, \
+                              GArrowDoubleArray))
+#define GARROW_DOUBLE_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_DOUBLE_ARRAY,    \
+                           GArrowDoubleArrayClass))
+#define GARROW_IS_DOUBLE_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_DOUBLE_ARRAY))
+#define GARROW_IS_DOUBLE_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_DOUBLE_ARRAY))
+#define GARROW_DOUBLE_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_DOUBLE_ARRAY,  \
+                             GArrowDoubleArrayClass))
+
+typedef struct _GArrowDoubleArray         GArrowDoubleArray;
+typedef struct _GArrowDoubleArrayClass    GArrowDoubleArrayClass;
+
+/**
+ * GArrowDoubleArray:
+ *
+ * It wraps `arrow::DoubleArray`.
+ */
+struct _GArrowDoubleArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowDoubleArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_double_array_get_type(void) G_GNUC_CONST;
+
+gdouble garrow_double_array_get_value(GArrowDoubleArray *array,
+                                      gint64 i);
+
+
+#define GARROW_TYPE_BINARY_ARRAY                \
+  (garrow_binary_array_get_type())
+#define GARROW_BINARY_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_BINARY_ARRAY, \
+                              GArrowBinaryArray))
+#define GARROW_BINARY_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_BINARY_ARRAY,    \
+                           GArrowBinaryArrayClass))
+#define GARROW_IS_BINARY_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_BINARY_ARRAY))
+#define GARROW_IS_BINARY_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_BINARY_ARRAY))
+#define GARROW_BINARY_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_BINARY_ARRAY,  \
+                             GArrowBinaryArrayClass))
+
+typedef struct _GArrowBinaryArray         GArrowBinaryArray;
+typedef struct _GArrowBinaryArrayClass    GArrowBinaryArrayClass;
+
+/**
+ * GArrowBinaryArray:
+ *
+ * It wraps `arrow::BinaryArray`.
+ */
+struct _GArrowBinaryArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowBinaryArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_binary_array_get_type(void) G_GNUC_CONST;
+
+const guint8 *garrow_binary_array_get_value(GArrowBinaryArray *array,
+                                            gint64 i,
+                                            gint32 *length);
+
+#define GARROW_TYPE_STRING_ARRAY                \
+  (garrow_string_array_get_type())
+#define GARROW_STRING_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_STRING_ARRAY, \
+                              GArrowStringArray))
+#define GARROW_STRING_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_STRING_ARRAY,    \
+                           GArrowStringArrayClass))
+#define GARROW_IS_STRING_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_STRING_ARRAY))
+#define GARROW_IS_STRING_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_STRING_ARRAY))
+#define GARROW_STRING_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_STRING_ARRAY,  \
+                             GArrowStringArrayClass))
+
+typedef struct _GArrowStringArray         GArrowStringArray;
+typedef struct _GArrowStringArrayClass    GArrowStringArrayClass;
+
+/**
+ * GArrowStringArray:
+ *
+ * It wraps `arrow::StringArray`.
+ */
+struct _GArrowStringArray
+{
+  /*< private >*/
+  GArrowBinaryArray parent_instance;
+};
+
+struct _GArrowStringArrayClass
+{
+  GArrowBinaryArrayClass parent_class;
+};
+
+GType garrow_string_array_get_type(void) G_GNUC_CONST;
+
+gchar *garrow_string_array_get_string(GArrowStringArray *array,
+                                      gint64 i);
+
+
+#define GARROW_TYPE_LIST_ARRAY                  \
+  (garrow_list_array_get_type())
+#define GARROW_LIST_ARRAY(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_LIST_ARRAY,   \
+                              GArrowListArray))
+#define GARROW_LIST_ARRAY_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_LIST_ARRAY,      \
+                           GArrowListArrayClass))
+#define GARROW_IS_LIST_ARRAY(obj)                       \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
+                              GARROW_TYPE_LIST_ARRAY))
+#define GARROW_IS_LIST_ARRAY_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_LIST_ARRAY))
+#define GARROW_LIST_ARRAY_GET_CLASS(obj)                \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_LIST_ARRAY,    \
+                             GArrowListArrayClass))
+
+typedef struct _GArrowListArray         GArrowListArray;
+typedef struct _GArrowListArrayClass    GArrowListArrayClass;
+
+/**
+ * GArrowListArray:
+ *
+ * It wraps `arrow::ListArray`.
+ */
+struct _GArrowListArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowListArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_list_array_get_type(void) G_GNUC_CONST;
+
+GArrowDataType *garrow_list_array_get_value_type(GArrowListArray *array);
+GArrowArray *garrow_list_array_get_value(GArrowListArray *array,
+                                         gint64 i);
+
+
+#define GARROW_TYPE_STRUCT_ARRAY                \
+  (garrow_struct_array_get_type())
+#define GARROW_STRUCT_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_STRUCT_ARRAY, \
+                              GArrowStructArray))
+#define GARROW_STRUCT_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_STRUCT_ARRAY,    \
+                           GArrowStructArrayClass))
+#define GARROW_IS_STRUCT_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_STRUCT_ARRAY))
+#define GARROW_IS_STRUCT_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_STRUCT_ARRAY))
+#define GARROW_STRUCT_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_STRUCT_ARRAY,  \
+                             GArrowStructArrayClass))
+
+typedef struct _GArrowStructArray         GArrowStructArray;
+typedef struct _GArrowStructArrayClass    GArrowStructArrayClass;
+
+/**
+ * GArrowStructArray:
+ *
+ * It wraps `arrow::StructArray`.
+ */
+struct _GArrowStructArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowStructArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_struct_array_get_type(void) G_GNUC_CONST;
+
+GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
+                                           gint i);
+GList *garrow_struct_array_get_fields(GArrowStructArray *array);
+
 G_END_DECLS

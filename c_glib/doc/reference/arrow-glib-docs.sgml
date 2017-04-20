@@ -36,22 +36,6 @@
     <chapter id="array">
       <title>Array</title>
       <xi:include href="xml/array.xml"/>
-      <xi:include href="xml/null-array.xml"/>
-      <xi:include href="xml/boolean-array.xml"/>
-      <xi:include href="xml/int8-array.xml"/>
-      <xi:include href="xml/uint8-array.xml"/>
-      <xi:include href="xml/int16-array.xml"/>
-      <xi:include href="xml/uint16-array.xml"/>
-      <xi:include href="xml/int32-array.xml"/>
-      <xi:include href="xml/uint32-array.xml"/>
-      <xi:include href="xml/int64-array.xml"/>
-      <xi:include href="xml/uint64-array.xml"/>
-      <xi:include href="xml/float-array.xml"/>
-      <xi:include href="xml/double-array.xml"/>
-      <xi:include href="xml/binary-array.xml"/>
-      <xi:include href="xml/string-array.xml"/>
-      <xi:include href="xml/list-array.xml"/>
-      <xi:include href="xml/struct-array.xml"/>
     </chapter>
     <chapter id="array-builder">
       <title>Array builder</title>
