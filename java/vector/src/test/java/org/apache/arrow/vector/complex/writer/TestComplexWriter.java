@@ -210,6 +210,36 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void listOfLists() {
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(0);
+    rootWriter.list("list").startList();
+    rootWriter.list("list").bigInt().writeBigInt(0);
+    rootWriter.list("list").endList();
+    rootWriter.end();
+
+    rootWriter.setPosition(1);
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(1);
+    rootWriter.end();
+
+    writer.setValueCount(2);
+
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+
+    rootReader.setPosition(0);
+    assertTrue("row 0 list is not set", rootReader.reader("list").isSet());
+    assertEquals(Long.valueOf(0), rootReader.reader("list").reader().readLong());
+
+    rootReader.setPosition(1);
+    assertFalse("row 1 list is set", rootReader.reader("list").isSet());
+  }
+
+  @Test
   public void listScalarType() {
     ListVector listVector = new ListVector("list", allocator, null, null);
     listVector.allocateNew();
