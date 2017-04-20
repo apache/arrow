@@ -22,24 +22,8 @@
 #endif
 
 #include <arrow-glib/array.hpp>
-#include <arrow-glib/binary-array.h>
-#include <arrow-glib/boolean-array.h>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/double-array.h>
-#include <arrow-glib/float-array.h>
-#include <arrow-glib/int8-array.h>
-#include <arrow-glib/int16-array.h>
-#include <arrow-glib/int32-array.h>
-#include <arrow-glib/int64-array.h>
-#include <arrow-glib/list-array.h>
-#include <arrow-glib/null-array.h>
-#include <arrow-glib/string-array.h>
-#include <arrow-glib/struct-array.h>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/uint8-array.h>
-#include <arrow-glib/uint16-array.h>
-#include <arrow-glib/uint32-array.h>
-#include <arrow-glib/uint64-array.h>
 
 #include <iostream>
 
@@ -47,13 +31,80 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: array
- * @short_description: Base class for all array classes
+ * @section_id: array-classes
+ * @title: Array classes
+ * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowArray is a base class for all array classes such as
  * #GArrowBooleanArray.
  *
- * Array is immutable. You need to use array builder class such as
- * #GArrowBooleanArrayBuilder to create a new array.
+ * All array classes are immutable. You need to use array builder
+ * class such as #GArrowBooleanArrayBuilder to create a new array
+ * except #GArrowNullArray.
+ *
+ * #GArrowNullArray is a class for null array. It can store zero or
+ * more null values. You need to specify an array length to create a
+ * new array.
+ *
+ * #GArrowBooleanArray is a class for binary array. It can store zero
+ * or more boolean data. You need to use #GArrowBooleanArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowInt8Array is a class for 8-bit integer array. It can store
+ * zero or more 8-bit integer data. You need to use
+ * #GArrowInt8ArrayBuilder to create a new array.
+ *
+ * #GArrowUInt8Array is a class for 8-bit unsigned integer array. It
+ * can store zero or more 8-bit unsigned integer data. You need to use
+ * #GArrowUInt8ArrayBuilder to create a new array.
+ *
+ * #GArrowInt16Array is a class for 16-bit integer array. It can store
+ * zero or more 16-bit integer data. You need to use
+ * #GArrowInt16ArrayBuilder to create a new array.
+ *
+ * #GArrowUInt16Array is a class for 16-bit unsigned integer array. It
+ * can store zero or more 16-bit unsigned integer data. You need to use
+ * #GArrowUInt16ArrayBuilder to create a new array.
+ *
+ * #GArrowInt32Array is a class for 32-bit integer array. It can store
+ * zero or more 32-bit integer data. You need to use
+ * #GArrowInt32ArrayBuilder to create a new array.
+ *
+ * #GArrowUInt32Array is a class for 32-bit unsigned integer array. It
+ * can store zero or more 32-bit unsigned integer data. You need to use
+ * #GArrowUInt32ArrayBuilder to create a new array.
+ *
+ * #GArrowInt64Array is a class for 64-bit integer array. It can store
+ * zero or more 64-bit integer data. You need to use
+ * #GArrowInt64ArrayBuilder to create a new array.
+ *
+ * #GArrowUInt64Array is a class for 64-bit unsigned integer array. It
+ * can store zero or more 64-bit unsigned integer data. You need to
+ * use #GArrowUInt64ArrayBuilder to create a new array.
+ *
+ * #GArrowFloatArray is a class for 32-bit floating point array. It
+ * can store zero or more 32-bit floating data. You need to use
+ * #GArrowFloatArrayBuilder to create a new array.
+ *
+ * #GArrowDoubleArray is a class for 64-bit floating point array. It
+ * can store zero or more 64-bit floating data. You need to use
+ * #GArrowDoubleArrayBuilder to create a new array.
+ *
+ * #GArrowBinaryArray is a class for binary array. It can store zero
+ * or more binary data. You need to use #GArrowBinaryArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowStringArray is a class for UTF-8 encoded string array. It
+ * can store zero or more UTF-8 encoded string data. You need to use
+ * #GArrowStringArrayBuilder to create a new array.
+ *
+ * #GArrowListArray is a class for list array. It can store zero or
+ * more list data. You need to use #GArrowListArrayBuilder to create a
+ * new array.
+ *
+ * #GArrowStructArray is a class for struct array. It can store zero
+ * or more structs. One struct has zero or more fields. You need to
+ * use #GArrowStructArrayBuilder to create a new array.
  */
 
 typedef struct GArrowArrayPrivate_ {
@@ -241,6 +292,541 @@ garrow_array_slice(GArrowArray *array,
   const auto arrow_array = garrow_array_get_raw(array);
   auto arrow_sub_array = arrow_array->Slice(offset, length);
   return garrow_array_new_raw(&arrow_sub_array);
+}
+
+
+G_DEFINE_TYPE(GArrowNullArray,               \
+              garrow_null_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_null_array_init(GArrowNullArray *object)
+{
+}
+
+static void
+garrow_null_array_class_init(GArrowNullArrayClass *klass)
+{
+}
+
+/**
+ * garrow_null_array_new:
+ * @length: An array length.
+ *
+ * Returns: A newly created #GArrowNullArray.
+ */
+GArrowNullArray *
+garrow_null_array_new(gint64 length)
+{
+  auto arrow_null_array = std::make_shared<arrow::NullArray>(length);
+  std::shared_ptr<arrow::Array> arrow_array = arrow_null_array;
+  auto array = garrow_array_new_raw(&arrow_array);
+  return GARROW_NULL_ARRAY(array);
+}
+
+
+G_DEFINE_TYPE(GArrowBooleanArray,               \
+              garrow_boolean_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_boolean_array_init(GArrowBooleanArray *object)
+{
+}
+
+static void
+garrow_boolean_array_class_init(GArrowBooleanArrayClass *klass)
+{
+}
+
+/**
+ * garrow_boolean_array_get_value:
+ * @array: A #GArrowBooleanArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gboolean
+garrow_boolean_array_get_value(GArrowBooleanArray *array,
+                               gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::BooleanArray *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowInt8Array,               \
+              garrow_int8_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_int8_array_init(GArrowInt8Array *object)
+{
+}
+
+static void
+garrow_int8_array_class_init(GArrowInt8ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_int8_array_get_value:
+ * @array: A #GArrowInt8Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gint8
+garrow_int8_array_get_value(GArrowInt8Array *array,
+                            gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Int8Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowUInt8Array,               \
+              garrow_uint8_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_uint8_array_init(GArrowUInt8Array *object)
+{
+}
+
+static void
+garrow_uint8_array_class_init(GArrowUInt8ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_uint8_array_get_value:
+ * @array: A #GArrowUInt8Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+guint8
+garrow_uint8_array_get_value(GArrowUInt8Array *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::UInt8Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowInt16Array,               \
+              garrow_int16_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_int16_array_init(GArrowInt16Array *object)
+{
+}
+
+static void
+garrow_int16_array_class_init(GArrowInt16ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_int16_array_get_value:
+ * @array: A #GArrowInt16Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gint16
+garrow_int16_array_get_value(GArrowInt16Array *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Int16Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowUInt16Array,               \
+              garrow_uint16_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_uint16_array_init(GArrowUInt16Array *object)
+{
+}
+
+static void
+garrow_uint16_array_class_init(GArrowUInt16ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_uint16_array_get_value:
+ * @array: A #GArrowUInt16Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+guint16
+garrow_uint16_array_get_value(GArrowUInt16Array *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::UInt16Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowInt32Array,               \
+              garrow_int32_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_int32_array_init(GArrowInt32Array *object)
+{
+}
+
+static void
+garrow_int32_array_class_init(GArrowInt32ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_int32_array_get_value:
+ * @array: A #GArrowInt32Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gint32
+garrow_int32_array_get_value(GArrowInt32Array *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Int32Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowUInt32Array,               \
+              garrow_uint32_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_uint32_array_init(GArrowUInt32Array *object)
+{
+}
+
+static void
+garrow_uint32_array_class_init(GArrowUInt32ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_uint32_array_get_value:
+ * @array: A #GArrowUInt32Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+guint32
+garrow_uint32_array_get_value(GArrowUInt32Array *array,
+                              gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::UInt32Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowInt64Array,               \
+              garrow_int64_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_int64_array_init(GArrowInt64Array *object)
+{
+}
+
+static void
+garrow_int64_array_class_init(GArrowInt64ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_int64_array_get_value:
+ * @array: A #GArrowInt64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gint64
+garrow_int64_array_get_value(GArrowInt64Array *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Int64Array *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowUInt64Array,               \
+              garrow_uint64_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_uint64_array_init(GArrowUInt64Array *object)
+{
+}
+
+static void
+garrow_uint64_array_class_init(GArrowUInt64ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_uint64_array_get_value:
+ * @array: A #GArrowUInt64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+guint64
+garrow_uint64_array_get_value(GArrowUInt64Array *array,
+                              gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::UInt64Array *>(arrow_array.get())->Value(i);
+}
+
+G_DEFINE_TYPE(GArrowFloatArray,               \
+              garrow_float_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_float_array_init(GArrowFloatArray *object)
+{
+}
+
+static void
+garrow_float_array_class_init(GArrowFloatArrayClass *klass)
+{
+}
+
+/**
+ * garrow_float_array_get_value:
+ * @array: A #GArrowFloatArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gfloat
+garrow_float_array_get_value(GArrowFloatArray *array,
+                             gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::FloatArray *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowDoubleArray,               \
+              garrow_double_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_double_array_init(GArrowDoubleArray *object)
+{
+}
+
+static void
+garrow_double_array_class_init(GArrowDoubleArrayClass *klass)
+{
+}
+
+/**
+ * garrow_double_array_get_value:
+ * @array: A #GArrowDoubleArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ */
+gdouble
+garrow_double_array_get_value(GArrowDoubleArray *array,
+                              gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::DoubleArray *>(arrow_array.get())->Value(i);
+}
+
+
+G_DEFINE_TYPE(GArrowBinaryArray,               \
+              garrow_binary_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_binary_array_init(GArrowBinaryArray *object)
+{
+}
+
+static void
+garrow_binary_array_class_init(GArrowBinaryArrayClass *klass)
+{
+}
+
+/**
+ * garrow_binary_array_get_value:
+ * @array: A #GArrowBinaryArray.
+ * @i: The index of the target value.
+ * @length: (out): The length of the value.
+ *
+ * Returns: (array length=length): The i-th value.
+ */
+const guint8 *
+garrow_binary_array_get_value(GArrowBinaryArray *array,
+                              gint64 i,
+                              gint32 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_binary_array =
+    static_cast<arrow::BinaryArray *>(arrow_array.get());
+  return arrow_binary_array->GetValue(i, length);
+}
+
+
+G_DEFINE_TYPE(GArrowStringArray,               \
+              garrow_string_array,             \
+              GARROW_TYPE_BINARY_ARRAY)
+
+static void
+garrow_string_array_init(GArrowStringArray *object)
+{
+}
+
+static void
+garrow_string_array_class_init(GArrowStringArrayClass *klass)
+{
+}
+
+/**
+ * garrow_string_array_get_string:
+ * @array: A #GArrowStringArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th UTF-8 encoded string.
+ */
+gchar *
+garrow_string_array_get_string(GArrowStringArray *array,
+                               gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_string_array =
+    static_cast<arrow::StringArray *>(arrow_array.get());
+  gint32 length;
+  auto value =
+    reinterpret_cast<const gchar *>(arrow_string_array->GetValue(i, &length));
+  return g_strndup(value, length);
+}
+
+
+G_DEFINE_TYPE(GArrowListArray,               \
+              garrow_list_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_list_array_init(GArrowListArray *object)
+{
+}
+
+static void
+garrow_list_array_class_init(GArrowListArrayClass *klass)
+{
+}
+
+/**
+ * garrow_list_array_get_value_type:
+ * @array: A #GArrowListArray.
+ *
+ * Returns: (transfer full): The data type of value in each list.
+ */
+GArrowDataType *
+garrow_list_array_get_value_type(GArrowListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_list_array =
+    static_cast<arrow::ListArray *>(arrow_array.get());
+  auto arrow_value_type = arrow_list_array->value_type();
+  return garrow_data_type_new_raw(&arrow_value_type);
+}
+
+/**
+ * garrow_list_array_get_value:
+ * @array: A #GArrowListArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The i-th list.
+ */
+GArrowArray *
+garrow_list_array_get_value(GArrowListArray *array,
+                            gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_list_array =
+    static_cast<arrow::ListArray *>(arrow_array.get());
+  auto arrow_list =
+    arrow_list_array->values()->Slice(arrow_list_array->value_offset(i),
+                                      arrow_list_array->value_length(i));
+  return garrow_array_new_raw(&arrow_list);
+}
+
+
+G_DEFINE_TYPE(GArrowStructArray,               \
+              garrow_struct_array,             \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_struct_array_init(GArrowStructArray *object)
+{
+}
+
+static void
+garrow_struct_array_class_init(GArrowStructArrayClass *klass)
+{
+}
+
+/**
+ * garrow_struct_array_get_field
+ * @array: A #GArrowStructArray.
+ * @i: The index of the field in the struct.
+ *
+ * Returns: (transfer full): The i-th field.
+ */
+GArrowArray *
+garrow_struct_array_get_field(GArrowStructArray *array,
+                              gint i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_struct_array =
+    static_cast<arrow::StructArray *>(arrow_array.get());
+  auto arrow_field = arrow_struct_array->field(i);
+  return garrow_array_new_raw(&arrow_field);
+}
+
+/**
+ * garrow_struct_array_get_fields
+ * @array: A #GArrowStructArray.
+ *
+ * Returns: (element-type GArrowArray) (transfer full):
+ *   The fields in the struct.
+ */
+GList *
+garrow_struct_array_get_fields(GArrowStructArray *array)
+{
+  const auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  const auto arrow_struct_array =
+    static_cast<const arrow::StructArray *>(arrow_array.get());
+
+  GList *fields = NULL;
+  for (auto arrow_field : arrow_struct_array->fields()) {
+    GArrowArray *field = garrow_array_new_raw(&arrow_field);
+    fields = g_list_prepend(fields, field);
+  }
+
+  return g_list_reverse(fields);
 }
 
 G_END_DECLS
