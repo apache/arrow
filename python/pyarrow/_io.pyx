@@ -936,44 +936,6 @@ cdef class HdfsFile(NativeFile):
 # ----------------------------------------------------------------------
 # File and stream readers and writers
 
-class _StreamSinkWrapper(object):
-    """
-    Wrapper for writable stream to ensure implements "tell". This will
-    initialize stream at position 0 and increment after each write.
-    """
-
-    def __init__(self, sink):
-        self._sink = sink
-        self._position = 0
-
-    def close(self):
-        self._sink.close()
-
-    def flush(self):
-        self._sink.flush()
-
-    def tell(self):
-        return self._position
-
-    def write(self, data):
-        data = str(data)
-        self._sink.write(data)
-        self._position += len(data)
-
-    @staticmethod
-    def check(sink):
-        import socket
-        if isinstance(sink, socket.socket):
-            # Use a buffer of 0 to flush after each write, otherwise it is
-            # possible to close socket without flushing
-            sink_file = sink.makefile("wb", 0)
-            return _StreamSinkWrapper(sink_file)
-        if not hasattr(sink, "tell"):
-            return _StreamSinkWrapper(sink)
-        else:
-            return sink
-
-
 cdef class _StreamWriter:
     cdef:
         shared_ptr[CStreamWriter] writer
@@ -988,7 +950,7 @@ cdef class _StreamWriter:
             self.close()
 
     def _open(self, sink, Schema schema):
-        get_writer(_StreamSinkWrapper.check(sink), &self.sink)
+        get_writer(sink, &self.sink)
 
         with nogil:
             check_status(CStreamWriter.Open(self.sink.get(), schema.sp_schema,

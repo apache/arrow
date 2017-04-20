@@ -130,7 +130,7 @@ class TestStream(MessagingTest, unittest.TestCase):
 
 class TestSocket(MessagingTest, unittest.TestCase):
 
-    class EchoServer(threading.Thread):
+    class StreamReaderServer(threading.Thread):
 
         def init(self, do_read_all):
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -164,15 +164,15 @@ class TestSocket(MessagingTest, unittest.TestCase):
         # NOTE: must start and stop server in test
         pass
 
-    def startClientServer(self, do_read_all):
-        self._server = TestSocket.EchoServer()
+    def start_server(self, do_read_all):
+        self._server = TestSocket.StreamReaderServer()
         port = self._server.init(do_read_all)
         self._server.start()
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect(('127.0.0.1', port))
         self.sink = self._get_sink()
 
-    def stopClientServer(self):
+    def stop_and_get_result(self):
         import struct
         self.sink.write(struct.pack('i', 0))
         self.sink.flush()
@@ -187,9 +187,9 @@ class TestSocket(MessagingTest, unittest.TestCase):
         return pa.StreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
-        self.startClientServer(do_read_all=False)
+        self.start_server(do_read_all=False)
         writer_batches = self.write_batches()
-        reader_schema, reader_batches = self.stopClientServer()
+        reader_schema, reader_batches = self.stop_and_get_result()
 
         assert reader_schema.equals(writer_batches[0].schema)
         assert len(reader_batches) == len(writer_batches)
@@ -197,9 +197,9 @@ class TestSocket(MessagingTest, unittest.TestCase):
             assert reader_batches[i].equals(batch)
 
     def test_read_all(self):
-        self.startClientServer(do_read_all=True)
+        self.start_server(do_read_all=True)
         writer_batches = self.write_batches()
-        _, result = self.stopClientServer()
+        _, result = self.stop_and_get_result()
 
         expected = pa.Table.from_batches(writer_batches)
         assert result.equals(expected)
