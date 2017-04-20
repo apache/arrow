@@ -71,11 +71,12 @@ endif()
 #   Same as DEBUG, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
 #   -O3: Enable all compiler optimizations
-#   -g: Enable symbols for profiler tools (TODO: remove for shipping)
+#   Debug symbols are stripped for reduced binary size. Add
+#   -DARROW_CXXFLAGS="-g" to add them
 if (NOT MSVC)
   set(CXX_FLAGS_DEBUG "-ggdb -O0")
   set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
-  set(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
+  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
