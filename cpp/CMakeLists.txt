@@ -88,14 +88,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Run the test suite using valgrind --tool=memcheck"
     OFF)
 
-  option(ARROW_BUILD_TESTS
-    "Build the Arrow googletest unit tests"
-    ON)
-
-  option(ARROW_BUILD_BENCHMARKS
-    "Build the Arrow micro benchmarks"
-    OFF)
-
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -123,6 +115,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_ALTIVEC
     "Build Arrow with Altivec"
     ON)
+
+  option(ARROW_BUILD_TESTS
+    "Build the Arrow googletest unit tests"
+    OFF)
+
+  option(ARROW_BUILD_BENCHMARKS
+    "Build the Arrow micro benchmarks"
+    OFF)
 
   option(ARROW_BUILD_UTILITIES
     "Build Arrow commandline utilities"

@@ -42,20 +42,20 @@ brew install boost cmake
 
 If you are developing on Windows, see the [Windows developer guide][2].
 
-## Building Arrow
+## Building and Running Unit Tests
 
 Simple debug build:
 
     mkdir debug
     cd debug
-    cmake ..
+    cmake -DARROW_BUILD_TESTS=ON ..
     make unittest
 
 Simple release build:
 
     mkdir release
     cd release
-    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake -DARROW_BUILD_TESTS=ON  -DCMAKE_BUILD_TYPE=Release ..
     make unittest
 
 Detailed unit test logs will be placed in the build directory under `build/test-logs`.
@@ -78,6 +78,7 @@ To set up your own specific build toolchain, here are the relevant environment
 variables
 
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
+* GFlags: `GFLAGS_HOME` (only required to build the integration tests)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)

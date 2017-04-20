@@ -71,8 +71,7 @@ function build_arrow_libraries() {
   mkdir $CPP_BUILD_DIR
   pushd $CPP_BUILD_DIR
 
-  cmake -DARROW_BUILD_TESTS=off \
-        -DARROW_PYTHON=on \
+  cmake -DARROW_PYTHON=on \
         -DCMAKE_INSTALL_PREFIX=$2 \
         $CPP_DIR
 
