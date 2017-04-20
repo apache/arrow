@@ -704,8 +704,8 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 
   auto data = test::GetBufferFromVector(values);
 
-  Int64Tensor t0(data, shape, strides, dim_names);
-  Int64Tensor tzero(data, {}, {}, {});
+  Tensor t0(int64(), data, shape, strides, dim_names);
+  Tensor tzero(int64(), data, {}, {}, {});
 
   CheckTensorRoundTrip(t0);
   CheckTensorRoundTrip(tzero);
@@ -724,7 +724,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   test::randint<int64_t>(24, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
-  Int64Tensor tensor(data, {4, 3}, {48, 16});
+  Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
   int32_t metadata_length;
   int64_t body_length;

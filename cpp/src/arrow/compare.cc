@@ -580,31 +580,6 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
 // ----------------------------------------------------------------------
 // Implement TensorEquals
 
-class TensorEqualsVisitor {
- public:
-  explicit TensorEqualsVisitor(const Tensor& right) : right_(right) {}
-
-  template <typename TensorType>
-  Status Visit(const TensorType& left) {
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / 8;
-    DCHECK_GT(byte_width, 0);
-
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right_.data()->data();
-
-    result_ =
-        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
-    return Status::OK();
-  }
-
-  bool result() const { return result_; }
-
- protected:
-  const Tensor& right_;
-  bool result_;
-};
-
 Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
@@ -619,9 +594,15 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
           "Comparison not implemented for non-contiguous tensors");
     }
 
-    TensorEqualsVisitor visitor(right);
-    RETURN_NOT_OK(VisitTensorInline(left, &visitor));
-    *are_equal = visitor.result();
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int byte_width = size_meta.bit_width() / 8;
+    DCHECK_GT(byte_width, 0);
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right.data()->data();
+
+    *are_equal =
+        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
   }
   return Status::OK();
 }

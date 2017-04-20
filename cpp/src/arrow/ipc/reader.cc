@@ -507,7 +507,8 @@ Status ReadTensor(
   std::vector<std::string> dim_names;
   RETURN_NOT_OK(
       GetTensorMetadata(message->header(), &type, &shape, &strides, &dim_names));
-  return MakeTensor(type, data, shape, strides, dim_names, out);
+  *out = std::make_shared<Tensor>(type, data, shape, strides, dim_names);
+  return Status::OK();
 }
 
 }  // namespace ipc
