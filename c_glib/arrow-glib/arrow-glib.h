@@ -42,7 +42,6 @@
 #include <arrow-glib/int8-array.h>
 #include <arrow-glib/int8-array-builder.h>
 #include <arrow-glib/int8-data-type.h>
-#include <arrow-glib/int8-tensor.h>
 #include <arrow-glib/int16-array.h>
 #include <arrow-glib/int16-array-builder.h>
 #include <arrow-glib/int16-data-type.h>
@@ -71,7 +70,6 @@
 #include <arrow-glib/uint8-array.h>
 #include <arrow-glib/uint8-array-builder.h>
 #include <arrow-glib/uint8-data-type.h>
-#include <arrow-glib/uint8-tensor.h>
 #include <arrow-glib/uint16-array.h>
 #include <arrow-glib/uint16-array-builder.h>
 #include <arrow-glib/uint16-data-type.h>

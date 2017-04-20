@@ -33,7 +33,11 @@ class TestTensor < Test::Unit::TestCase
     @shape = [3, 2, 2]
     strides = []
     names = ["a", "b", "c"]
-    @tensor = Arrow::Int8Tensor.new(data, @shape, strides, names)
+    @tensor = Arrow::Tensor.new(Arrow::Int8DataType.new,
+                                data,
+                                @shape,
+                                strides,
+                                names)
   end
 
   def test_value_data_type

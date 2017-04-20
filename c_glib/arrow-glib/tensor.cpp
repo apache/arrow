@@ -23,10 +23,8 @@
 
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/int8-tensor.h>
 #include <arrow-glib/tensor.hpp>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/uint8-tensor.h>
 
 G_BEGIN_DECLS
 
@@ -119,6 +117,58 @@ garrow_tensor_class_init(GArrowTensorClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_TENSOR, spec);
+}
+
+/**
+ * garrow_tensor_new:
+ * @data_type: A #GArrowDataType that indicates each element type
+ *   in the tensor.
+ * @data: A #GArrowBuffer that contains tensor data.
+ * @shape: (array length=n_dimensions): A list of dimension sizes.
+ * @n_dimensions: The number of dimensions.
+ * @strides: (array length=n_strides) (nullable): A list of the number of
+ *   bytes in each dimension.
+ * @n_strides: The number of strides.
+ * @dimention_names: (array length=n_dimention_names) (nullable): A list of
+ *   dimension names.
+ * @n_dimention_names: The number of dimension names
+ *
+ * Returns: The newly created #GArrowTensor.
+ *
+ * Since: 0.3.0
+ */
+GArrowTensor *
+garrow_tensor_new(GArrowDataType *data_type,
+                  GArrowBuffer *data,
+                  gint64 *shape,
+                  gsize n_dimensions,
+                  gint64 *strides,
+                  gsize n_strides,
+                  gchar **dimension_names,
+                  gsize n_dimension_names)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_data = garrow_buffer_get_raw(data);
+  std::vector<int64_t> arrow_shape;
+  for (gsize i = 0; i < n_dimensions; ++i) {
+    arrow_shape.push_back(shape[i]);
+  }
+  std::vector<int64_t> arrow_strides;
+  for (gsize i = 0; i < n_strides; ++i) {
+    arrow_strides.push_back(strides[i]);
+  }
+  std::vector<std::string> arrow_dimension_names;
+  for (gsize i = 0; i < n_dimension_names; ++i) {
+    arrow_dimension_names.push_back(dimension_names[i]);
+  }
+  auto arrow_tensor =
+    std::make_shared<arrow::Tensor>(arrow_data_type,
+                                    arrow_data,
+                                    arrow_shape,
+                                    arrow_strides,
+                                    arrow_dimension_names);
+  auto tensor = garrow_tensor_new_raw(&arrow_tensor);
+  return tensor;
 }
 
 /**
@@ -333,52 +383,9 @@ G_END_DECLS
 GArrowTensor *
 garrow_tensor_new_raw(std::shared_ptr<arrow::Tensor> *arrow_tensor)
 {
-  GType type;
-  GArrowTensor *tensor;
-
-  switch ((*arrow_tensor)->type_id()) {
-  case arrow::Type::type::UINT8:
-    type = GARROW_TYPE_UINT8_TENSOR;
-    break;
-  case arrow::Type::type::INT8:
-    type = GARROW_TYPE_INT8_TENSOR;
-    break;
-/*
-  case arrow::Type::type::UINT16:
-    type = GARROW_TYPE_UINT16_TENSOR;
-    break;
-  case arrow::Type::type::INT16:
-    type = GARROW_TYPE_INT16_TENSOR;
-    break;
-  case arrow::Type::type::UINT32:
-    type = GARROW_TYPE_UINT32_TENSOR;
-    break;
-  case arrow::Type::type::INT32:
-    type = GARROW_TYPE_INT32_TENSOR;
-    break;
-  case arrow::Type::type::UINT64:
-    type = GARROW_TYPE_UINT64_TENSOR;
-    break;
-  case arrow::Type::type::INT64:
-    type = GARROW_TYPE_INT64_TENSOR;
-    break;
-  case arrow::Type::type::HALF_FLOAT:
-    type = GARROW_TYPE_HALF_FLOAT_TENSOR;
-    break;
-  case arrow::Type::type::FLOAT:
-    type = GARROW_TYPE_FLOAT_TENSOR;
-    break;
-  case arrow::Type::type::DOUBLE:
-    type = GARROW_TYPE_DOUBLE_TENSOR;
-    break;
-*/
-  default:
-    type = GARROW_TYPE_TENSOR;
-    break;
-  }
-  tensor = GARROW_TENSOR(g_object_new(type,
-                                    "tensor", arrow_tensor,
-                                    NULL));
+  auto tensor = GARROW_TENSOR(g_object_new(GARROW_TYPE_TENSOR,
+                                           "tensor", arrow_tensor,
+                                           NULL));
   return tensor;
 }
 
