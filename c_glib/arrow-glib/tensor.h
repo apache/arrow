@@ -58,6 +58,14 @@ struct _GArrowTensorClass
 
 GType           garrow_tensor_get_type           (void) G_GNUC_CONST;
 
+GArrowTensor   *garrow_tensor_new                (GArrowDataType *data_type,
+                                                  GArrowBuffer *data,
+                                                  gint64 *shape,
+                                                  gsize n_dimensions,
+                                                  gint64 *strides,
+                                                  gsize n_strides,
+                                                  gchar **dimention_names,
+                                                  gsize n_dimention_names);
 GArrowDataType *garrow_tensor_get_value_data_type(GArrowTensor *tensor);
 GArrowType      garrow_tensor_get_value_type     (GArrowTensor *tensor);
 GArrowBuffer   *garrow_tensor_get_buffer         (GArrowTensor *tensor);

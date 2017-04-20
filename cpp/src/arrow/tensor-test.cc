@@ -39,7 +39,7 @@ TEST(TestTensor, ZeroDim) {
   std::shared_ptr<MutableBuffer> buffer;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
 
-  Int64Tensor t0(buffer, shape);
+  Tensor t0(int64(), buffer, shape);
 
   ASSERT_EQ(1, t0.size());
 }
@@ -55,9 +55,9 @@ TEST(TestTensor, BasicCtors) {
   std::shared_ptr<MutableBuffer> buffer;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
 
-  Int64Tensor t1(buffer, shape);
-  Int64Tensor t2(buffer, shape, strides);
-  Int64Tensor t3(buffer, shape, strides, dim_names);
+  Tensor t1(int64(), buffer, shape);
+  Tensor t2(int64(), buffer, shape, strides);
+  Tensor t3(int64(), buffer, shape, strides, dim_names);
 
   ASSERT_EQ(24, t1.size());
   ASSERT_TRUE(t1.is_mutable());
@@ -84,9 +84,9 @@ TEST(TestTensor, IsContiguous) {
   std::vector<int64_t> c_strides = {48, 8};
   std::vector<int64_t> f_strides = {8, 32};
   std::vector<int64_t> noncontig_strides = {8, 8};
-  Int64Tensor t1(buffer, shape, c_strides);
-  Int64Tensor t2(buffer, shape, f_strides);
-  Int64Tensor t3(buffer, shape, noncontig_strides);
+  Tensor t1(int64(), buffer, shape, c_strides);
+  Tensor t2(int64(), buffer, shape, f_strides);
+  Tensor t3(int64(), buffer, shape, noncontig_strides);
 
   ASSERT_TRUE(t1.is_contiguous());
   ASSERT_TRUE(t2.is_contiguous());

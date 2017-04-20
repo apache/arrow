@@ -223,7 +223,8 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* 
   std::shared_ptr<DataType> type;
   RETURN_NOT_OK(
       GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
-  return MakeTensor(type, data, shape, strides, {}, out);
+  *out = std::make_shared<Tensor>(type, data, shape, strides);
+  return Status::OK();
 }
 
 Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {

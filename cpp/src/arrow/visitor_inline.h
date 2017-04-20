@@ -104,31 +104,6 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
   return Status::NotImplemented("Type not implemented");
 }
 
-#define TENSOR_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS::type_id:             \
-    return visitor->Visit(              \
-        static_cast<const typename TypeTraits<TYPE_CLASS>::TensorType&>(array));
-
-template <typename VISITOR>
-inline Status VisitTensorInline(const Tensor& array, VISITOR* visitor) {
-  switch (array.type_id()) {
-    TENSOR_VISIT_INLINE(Int8Type);
-    TENSOR_VISIT_INLINE(UInt8Type);
-    TENSOR_VISIT_INLINE(Int16Type);
-    TENSOR_VISIT_INLINE(UInt16Type);
-    TENSOR_VISIT_INLINE(Int32Type);
-    TENSOR_VISIT_INLINE(UInt32Type);
-    TENSOR_VISIT_INLINE(Int64Type);
-    TENSOR_VISIT_INLINE(UInt64Type);
-    TENSOR_VISIT_INLINE(HalfFloatType);
-    TENSOR_VISIT_INLINE(FloatType);
-    TENSOR_VISIT_INLINE(DoubleType);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Type not implemented");
-}
-
 }  // namespace arrow
 
 #endif  // ARROW_VISITOR_INLINE_H

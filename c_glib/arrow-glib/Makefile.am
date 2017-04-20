@@ -65,7 +65,6 @@ libarrow_glib_la_headers =			\
 	int8-array.h				\
 	int8-array-builder.h			\
 	int8-data-type.h			\
-	int8-tensor.h				\
 	int16-array.h				\
 	int16-array-builder.h			\
 	int16-data-type.h			\
@@ -94,7 +93,6 @@ libarrow_glib_la_headers =			\
 	uint8-array.h				\
 	uint8-array-builder.h			\
 	uint8-data-type.h			\
-	uint8-tensor.h				\
 	uint16-array.h				\
 	uint16-array-builder.h			\
 	uint16-data-type.h			\
@@ -155,7 +153,6 @@ libarrow_glib_la_sources =			\
 	int8-array.cpp				\
 	int8-array-builder.cpp			\
 	int8-data-type.cpp			\
-	int8-tensor.cpp				\
 	int16-array.cpp				\
 	int16-array-builder.cpp			\
 	int16-data-type.cpp			\
@@ -184,7 +181,6 @@ libarrow_glib_la_sources =			\
 	uint8-array.cpp				\
 	uint8-array-builder.cpp			\
 	uint8-data-type.cpp			\
-	uint8-tensor.cpp			\
 	uint16-array.cpp			\
 	uint16-array-builder.cpp		\
 	uint16-data-type.cpp			\
@@ -226,7 +222,6 @@ libarrow_glib_la_cpp_headers =			\
 	data-type.hpp				\
 	error.hpp				\
 	field.hpp				\
-	numeric-tensor.hpp			\
 	record-batch.hpp			\
 	schema.hpp				\
 	table.hpp				\

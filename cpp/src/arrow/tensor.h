@@ -76,6 +76,9 @@ class ARROW_EXPORT Tensor {
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }
 
+  const uint8_t* raw_data() const { return data_->data(); }
+  uint8_t* raw_data() { return data_->mutable_data(); }
+
   const std::vector<int64_t>& shape() const { return shape_; }
   const std::vector<int64_t>& strides() const { return strides_; }
 
@@ -116,50 +119,6 @@ class ARROW_EXPORT Tensor {
  private:
   DISALLOW_COPY_AND_ASSIGN(Tensor);
 };
-
-template <typename T>
-class ARROW_EXPORT NumericTensor : public Tensor {
- public:
-  using value_type = typename T::c_type;
-
-  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape);
-
-  /// Constructor with non-negative strides
-  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
-      const std::vector<int64_t>& strides);
-
-  /// Constructor with strides and dimension names
-  NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
-      const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names);
-
-  const value_type* raw_data() const { return raw_data_; }
-  value_type* raw_data() { return mutable_raw_data_; }
-
- private:
-  const value_type* raw_data_;
-  value_type* mutable_raw_data_;
-};
-
-Status ARROW_EXPORT MakeTensor(const std::shared_ptr<DataType>& type,
-    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
-    const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names,
-    std::shared_ptr<Tensor>* tensor);
-
-// ----------------------------------------------------------------------
-// extern templates and other details
-
-// Only instantiate these templates once
-ARROW_EXTERN_TEMPLATE NumericTensor<Int8Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<UInt8Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<Int16Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<UInt16Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<Int32Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<UInt32Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<Int64Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<UInt64Type>;
-ARROW_EXTERN_TEMPLATE NumericTensor<HalfFloatType>;
-ARROW_EXTERN_TEMPLATE NumericTensor<FloatType>;
-ARROW_EXTERN_TEMPLATE NumericTensor<DoubleType>;
 
 }  // namespace arrow
 
