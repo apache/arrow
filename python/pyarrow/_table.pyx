@@ -164,7 +164,7 @@ cdef class Column:
             PyObject* out
 
         check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
-                                                   <PyObject*> self, &out))
+                                                   self, &out))
 
         return _pandas().Series(wrap_array_output(out), name=self.name)
 

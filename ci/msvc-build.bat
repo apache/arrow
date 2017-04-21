@@ -43,6 +43,8 @@ set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python3
 
 ctest -VV  || exit /B
 
+set PYTHONPATH=
+
 @rem Build and import pyarrow
 
 set PATH=%ARROW_HOME%\bin;%PATH%
@@ -50,3 +52,6 @@ set PATH=%ARROW_HOME%\bin;%PATH%
 cd ..\..\python
 python setup.py build_ext --inplace  || exit /B
 python -c "import pyarrow"  || exit /B
+
+@rem TODO: re-enable when last tests are fixed
+@rem py.test pyarrow -v -s || exit /B

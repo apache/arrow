@@ -77,41 +77,37 @@ def test_tensor_numpy_roundtrip(dtype_str, arrow_type):
 
 
 def _try_delete(path):
+    import gc
+    gc.collect()
     try:
         os.remove(path)
     except os.error:
         pass
 
 
-def test_tensor_ipc_roundtrip():
+def test_tensor_ipc_roundtrip(tmpdir):
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
 
-    path = 'pyarrow-tensor-ipc-roundtrip'
-    try:
-        mmap = pa.create_memory_map(path, 1024)
+    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-roundtrip')
+    mmap = pa.create_memory_map(path, 1024)
 
-        pa.write_tensor(tensor, mmap)
+    pa.write_tensor(tensor, mmap)
 
-        mmap.seek(0)
-        result = pa.read_tensor(mmap)
+    mmap.seek(0)
+    result = pa.read_tensor(mmap)
 
-        assert result.equals(tensor)
-    finally:
-        _try_delete(path)
+    assert result.equals(tensor)
 
 
-def test_tensor_ipc_strided():
+def test_tensor_ipc_strided(tmpdir):
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data[::2])
 
-    path = 'pyarrow-tensor-ipc-strided'
-    try:
-        with pytest.raises(ValueError):
-            mmap = pa.create_memory_map(path, 1024)
-            pa.write_tensor(tensor, mmap)
-    finally:
-        _try_delete(path)
+    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-strided')
+    with pytest.raises(ValueError):
+        mmap = pa.create_memory_map(path, 1024)
+        pa.write_tensor(tensor, mmap)
 
 
 def test_tensor_size():

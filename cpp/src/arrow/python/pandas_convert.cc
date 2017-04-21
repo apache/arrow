@@ -763,11 +763,10 @@ Status PandasConverter::ConvertObjects() {
 
   Ndarray1DIndexer<PyObject*> objects;
 
-  {
-    PyAcquireGIL lock;
-    objects.Init(arr_);
-    PyDateTime_IMPORT;
-  }
+  PyAcquireGIL lock;
+  objects.Init(arr_);
+  PyDateTime_IMPORT;
+  lock.release();
 
   // This means we received an explicit type from the user
   if (type_) {
@@ -792,6 +791,9 @@ Status PandasConverter::ConvertObjects() {
         return Status::TypeError("No known conversion to Arrow type");
     }
   } else {
+    // Re-acquire GIL
+    lock.acquire();
+
     OwnedRef decimal;
     OwnedRef Decimal;
     RETURN_NOT_OK(ImportModule("decimal", &decimal));
@@ -2196,7 +2198,12 @@ class ArrowDeserializer {
     RETURN_IF_PYERROR();
 
     PyObject* dictionary;
+
+    // Release GIL before calling ConvertArrayToPandas, will be reacquired
+    // there if needed
+    lock.release();
     RETURN_NOT_OK(ConvertArrayToPandas(dict_type->dictionary(), nullptr, &dictionary));
+    lock.acquire();
 
     PyDict_SetItemString(result_, "indices", block->block_arr());
     PyDict_SetItemString(result_, "dictionary", dictionary);

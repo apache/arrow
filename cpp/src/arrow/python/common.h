@@ -34,11 +34,29 @@ namespace py {
 
 class ARROW_EXPORT PyAcquireGIL {
  public:
-  PyAcquireGIL() { state_ = PyGILState_Ensure(); }
+  PyAcquireGIL() : acquired_gil_(false) {
+    acquire();
+  }
 
-  ~PyAcquireGIL() { PyGILState_Release(state_); }
+  ~PyAcquireGIL() { release(); }
+
+  void acquire() {
+    if (!acquired_gil_) {
+      state_ = PyGILState_Ensure();
+      acquired_gil_ = true;
+    }
+  }
+
+  // idempotent
+  void release() {
+    if (acquired_gil_) {
+      PyGILState_Release(state_);
+      acquired_gil_ = false;
+    }
+  }
 
  private:
+  bool acquired_gil_;
   PyGILState_STATE state_;
   DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };

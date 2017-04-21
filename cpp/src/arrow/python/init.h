@@ -19,17 +19,11 @@
 #define ARROW_PYTHON_INIT_H
 
 #include "arrow/python/platform.h"
-
-#include "arrow/python/numpy_interop.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace py {
-
+extern "C" {
 ARROW_EXPORT
-void InitNumPy();
-
-}  // namespace py
-}  // namespace arrow
+int arrow_init_numpy();
+}
 
 #endif  // ARROW_PYTHON_INIT_H

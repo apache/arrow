@@ -42,6 +42,29 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
 #endif
 }
 
+static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
+  struct tm datetime = {0};
+  datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
+  datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
+  datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
+  datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
+  datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
+  datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
+  int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
+  struct tm epoch = {0};
+  epoch.tm_year = 70;
+  epoch.tm_mday = 1;
+#ifdef _MSC_VER
+  // Microseconds since the epoch
+  const int64_t current_timestamp = static_cast<int64_t>(_mkgmtime64(&datetime));
+  const int64_t epoch_timestamp = static_cast<int64_t>(_mkgmtime64(&epoch));
+  return (current_timestamp - epoch_timestamp) * 1000000L + us;
+#else
+  return static_cast<int64_t>(
+      lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
+#endif
+}
+
 static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
   return static_cast<int32_t>(PyDate_to_ms(pydate) / 86400000LL);
 }
