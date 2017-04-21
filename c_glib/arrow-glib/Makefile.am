@@ -45,47 +45,31 @@ libarrow_glib_la_headers =			\
 	array-builder.h				\
 	arrow-glib.h				\
 	binary-array-builder.h			\
-	binary-data-type.h			\
 	boolean-array-builder.h			\
-	boolean-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
 	data-type.h				\
 	double-array-builder.h			\
-	double-data-type.h			\
 	error.h					\
 	field.h					\
 	float-array-builder.h			\
-	float-data-type.h			\
 	int8-array-builder.h			\
-	int8-data-type.h			\
 	int16-array-builder.h			\
-	int16-data-type.h			\
 	int32-array-builder.h			\
-	int32-data-type.h			\
 	int64-array-builder.h			\
-	int64-data-type.h			\
 	list-array-builder.h			\
-	list-data-type.h			\
-	null-data-type.h			\
 	record-batch.h				\
 	schema.h				\
 	string-array-builder.h			\
-	string-data-type.h			\
 	struct-array-builder.h			\
-	struct-data-type.h			\
 	table.h					\
 	tensor.h				\
 	type.h					\
 	uint8-array-builder.h			\
-	uint8-data-type.h			\
 	uint16-array-builder.h			\
-	uint16-data-type.h			\
 	uint32-array-builder.h			\
-	uint32-data-type.h			\
-	uint64-array-builder.h			\
-	uint64-data-type.h
+	uint64-array-builder.h
 
 libarrow_glib_la_headers +=			\
 	file.h					\
@@ -117,47 +101,31 @@ libarrow_glib_la_sources =			\
 	array.cpp				\
 	array-builder.cpp			\
 	binary-array-builder.cpp		\
-	binary-data-type.cpp			\
 	boolean-array-builder.cpp		\
-	boolean-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
 	data-type.cpp				\
 	double-array-builder.cpp		\
-	double-data-type.cpp			\
 	error.cpp				\
 	field.cpp				\
 	float-array-builder.cpp			\
-	float-data-type.cpp			\
 	int8-array-builder.cpp			\
-	int8-data-type.cpp			\
 	int16-array-builder.cpp			\
-	int16-data-type.cpp			\
 	int32-array-builder.cpp			\
-	int32-data-type.cpp			\
 	int64-array-builder.cpp			\
-	int64-data-type.cpp			\
 	list-array-builder.cpp			\
-	list-data-type.cpp			\
-	null-data-type.cpp			\
 	record-batch.cpp			\
 	schema.cpp				\
 	string-array-builder.cpp		\
-	string-data-type.cpp			\
 	struct-array-builder.cpp		\
-	struct-data-type.cpp			\
 	table.cpp				\
 	tensor.cpp				\
 	type.cpp				\
 	uint8-array-builder.cpp			\
-	uint8-data-type.cpp			\
 	uint16-array-builder.cpp		\
-	uint16-data-type.cpp			\
 	uint32-array-builder.cpp		\
-	uint32-data-type.cpp			\
 	uint64-array-builder.cpp		\
-	uint64-data-type.cpp			\
 	$(libarrow_glib_la_headers)		\
 	$(libarrow_glib_la_generated_sources)
 

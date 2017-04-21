@@ -60,22 +60,6 @@
       <title>Type</title>
       <xi:include href="xml/type.xml"/>
       <xi:include href="xml/data-type.xml"/>
-      <xi:include href="xml/null-data-type.xml"/>
-      <xi:include href="xml/boolean-data-type.xml"/>
-      <xi:include href="xml/int8-data-type.xml"/>
-      <xi:include href="xml/uint8-data-type.xml"/>
-      <xi:include href="xml/int16-data-type.xml"/>
-      <xi:include href="xml/uint16-data-type.xml"/>
-      <xi:include href="xml/int32-data-type.xml"/>
-      <xi:include href="xml/uint32-data-type.xml"/>
-      <xi:include href="xml/int64-data-type.xml"/>
-      <xi:include href="xml/uint64-data-type.xml"/>
-      <xi:include href="xml/float-data-type.xml"/>
-      <xi:include href="xml/double-data-type.xml"/>
-      <xi:include href="xml/binary-data-type.xml"/>
-      <xi:include href="xml/string-data-type.xml"/>
-      <xi:include href="xml/list-data-type.xml"/>
-      <xi:include href="xml/struct-data-type.xml"/>
     </chapter>
     <chapter id="schema">
       <title>Schema</title>
