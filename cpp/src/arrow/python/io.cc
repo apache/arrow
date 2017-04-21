@@ -189,7 +189,7 @@ bool PyReadableFile::supports_zero_copy() const {
 // ----------------------------------------------------------------------
 // Output stream
 
-PyOutputStream::PyOutputStream(PyObject* file) {
+PyOutputStream::PyOutputStream(PyObject* file) : position_(0) {
   file_.reset(new PythonFile(file));
 }
 
@@ -201,12 +201,13 @@ Status PyOutputStream::Close() {
 }
 
 Status PyOutputStream::Tell(int64_t* position) {
-  PyAcquireGIL lock;
-  return file_->Tell(position);
+  *position = position_;
+  return Status::OK();
 }
 
 Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   PyAcquireGIL lock;
+  position_ += nbytes;
   return file_->Write(data, nbytes);
 }
 

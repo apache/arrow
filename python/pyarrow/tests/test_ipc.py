@@ -17,6 +17,8 @@
 
 import io
 import pytest
+import socket
+import threading
 
 import numpy as np
 
@@ -123,6 +125,83 @@ class TestStream(MessagingTest, unittest.TestCase):
 
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
+        assert result.equals(expected)
+
+
+class TestSocket(MessagingTest, unittest.TestCase):
+
+    class StreamReaderServer(threading.Thread):
+
+        def init(self, do_read_all):
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._sock.bind(('127.0.0.1', 0))
+            self._sock.listen(1)
+            host, port = self._sock.getsockname()
+            self._do_read_all = do_read_all
+            self._schema = None
+            self._batches = []
+            self._table = None
+            return port
+
+        def run(self):
+            connection, client_address = self._sock.accept()
+            try:
+                source = connection.makefile(mode='rb')
+                reader = pa.StreamReader(source)
+                self._schema = reader.schema
+                if self._do_read_all:
+                    self._table = reader.read_all()
+                else:
+                    for i, batch in enumerate(reader):
+                        self._batches.append(batch)
+            finally:
+                connection.close()
+
+        def get_result(self):
+            return(self._schema, self._table if self._do_read_all else self._batches)
+
+    def setUp(self):
+        # NOTE: must start and stop server in test
+        pass
+
+    def start_server(self, do_read_all):
+        self._server = TestSocket.StreamReaderServer()
+        port = self._server.init(do_read_all)
+        self._server.start()
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.connect(('127.0.0.1', port))
+        self.sink = self._get_sink()
+
+    def stop_and_get_result(self):
+        import struct
+        self.sink.write(struct.pack('i', 0))
+        self.sink.flush()
+        self._sock.close()
+        self._server.join()
+        return self._server.get_result()
+
+    def _get_sink(self):
+        return self._sock.makefile(mode='wb')
+
+    def _get_writer(self, sink, schema):
+        return pa.StreamWriter(sink, schema)
+
+    def test_simple_roundtrip(self):
+        self.start_server(do_read_all=False)
+        writer_batches = self.write_batches()
+        reader_schema, reader_batches = self.stop_and_get_result()
+
+        assert reader_schema.equals(writer_batches[0].schema)
+        assert len(reader_batches) == len(writer_batches)
+        for i, batch in enumerate(writer_batches):
+            assert reader_batches[i].equals(batch)
+
+    def test_read_all(self):
+        self.start_server(do_read_all=True)
+        writer_batches = self.write_batches()
+        _, result = self.stop_and_get_result()
+
+        expected = pa.Table.from_batches(writer_batches)
         assert result.equals(expected)
 
 

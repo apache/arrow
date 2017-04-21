@@ -82,6 +82,7 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
 
  private:
   std::unique_ptr<PythonFile> file_;
+  int64_t position_;
 };
 
 // A zero-copy reader backed by a PyBuffer object
