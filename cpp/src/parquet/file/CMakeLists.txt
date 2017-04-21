@@ -17,6 +17,7 @@
 
 install(FILES
   metadata.h
+  printer.h
   reader.h
   writer.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/file")

@@ -15,23 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_READER_H
-#define PARQUET_API_READER_H
+#ifndef PARQUET_FILE_PRINTER_H
+#define PARQUET_FILE_PRINTER_H
 
-// Column reader API
-#include "parquet/column/reader.h"
-#include "parquet/column/scan-all.h"
-#include "parquet/exception.h"
-#include "parquet/file/printer.h"
+#include <cstdint>
+#include <iosfwd>
+#include <list>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "parquet/file/reader.h"
 
-// Metadata reader API
-#include "parquet/file/metadata.h"
+namespace parquet {
 
-// Schemas
-#include "parquet/api/schema.h"
+class PARQUET_EXPORT ParquetFilePrinter {
+ private:
+  ParquetFileReader* fileReader;
+ public:
+  explicit ParquetFilePrinter(ParquetFileReader* reader) : fileReader(reader) {}
+  ~ParquetFilePrinter() {}
 
-// IO
-#include "parquet/api/io.h"
+  void DebugPrint(
+      std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
+};
 
-#endif  // PARQUET_API_READER_H
+}  // namespace parquet
+
+#endif  // PARQUET_FILE_PRINTER_H

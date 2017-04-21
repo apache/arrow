@@ -111,9 +111,6 @@ class PARQUET_EXPORT ParquetFileReader {
   // Returns the file metadata. Only one instance is ever created
   std::shared_ptr<FileMetaData> metadata() const;
 
-  void DebugPrint(
-      std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
-
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;

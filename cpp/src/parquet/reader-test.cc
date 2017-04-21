@@ -27,6 +27,7 @@
 
 #include "parquet/column/reader.h"
 #include "parquet/column/scanner.h"
+#include "parquet/file/printer.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/reader.h"
 #include "parquet/util/memory.h"
@@ -131,7 +132,8 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   std::stringstream ss;
 
   std::list<int> columns;
-  reader_->DebugPrint(ss, columns);
+  ParquetFilePrinter printer(reader_.get());
+  printer.DebugPrint(ss, columns);
 
   std::string result = ss.str();
   ASSERT_GT(result.size(), 0);
@@ -144,7 +146,8 @@ TEST_F(TestAllTypesPlain, ColumnSelection) {
   columns.push_back(5);
   columns.push_back(0);
   columns.push_back(10);
-  reader_->DebugPrint(ss, columns);
+  ParquetFilePrinter printer(reader_.get());
+  printer.DebugPrint(ss, columns);
 
   std::string result = ss.str();
   ASSERT_GT(result.size(), 0);
@@ -155,11 +158,13 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
 
   std::list<int> columns;
   columns.push_back(100);
-  ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
+  ParquetFilePrinter printer1(reader_.get());
+  ASSERT_THROW(printer1.DebugPrint(ss, columns), ParquetException);
 
   columns.clear();
   columns.push_back(-1);
-  ASSERT_THROW(reader_->DebugPrint(ss, columns), ParquetException);
+  ParquetFilePrinter printer2(reader_.get());
+  ASSERT_THROW(printer2.DebugPrint(ss, columns), ParquetException);
 }
 
 class TestLocalFile : public ::testing::Test {
@@ -216,7 +221,8 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   ASSERT_EQ(metadata.get(), reader->metadata().get());
 
   std::list<int> columns;
-  reader->DebugPrint(ss, columns, true);
+  ParquetFilePrinter printer(reader.get());
+  printer.DebugPrint(ss, columns, true);
 
   // Make sure OpenFile passes on the external metadata, too
   auto reader2 = ParquetFileReader::OpenFile(
@@ -237,11 +243,13 @@ TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
 
   // empty list means print all
   std::list<int> columns;
-  reader->DebugPrint(ss, columns, true);
+  ParquetFilePrinter printer1(reader.get());
+  printer1.DebugPrint(ss, columns, true);
 
   reader = ParquetFileReader::OpenFile(nation_dict_truncated_data_page(), true);
   std::stringstream ss2;
-  reader->DebugPrint(ss2, columns, true);
+  ParquetFilePrinter printer2(reader.get());
+  printer2.DebugPrint(ss2, columns, true);
 
   // The memory-mapped reads runs over the end of the column chunk and succeeds
   // by accident
