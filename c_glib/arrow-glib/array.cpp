@@ -672,19 +672,20 @@ garrow_binary_array_class_init(GArrowBinaryArrayClass *klass)
  * garrow_binary_array_get_value:
  * @array: A #GArrowBinaryArray.
  * @i: The index of the target value.
- * @length: (out): The length of the value.
  *
- * Returns: (array length=length): The i-th value.
+ * Returns: (transfer full): The i-th value.
  */
-const guint8 *
+GBytes *
 garrow_binary_array_get_value(GArrowBinaryArray *array,
-                              gint64 i,
-                              gint32 *length)
+                              gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_binary_array =
     static_cast<arrow::BinaryArray *>(arrow_array.get());
-  return arrow_binary_array->GetValue(i, length);
+
+  int32_t length;
+  auto value = arrow_binary_array->GetValue(i, &length);
+  return g_bytes_new_static(value, length);
 }
 
 

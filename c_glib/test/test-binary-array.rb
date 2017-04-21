@@ -17,9 +17,10 @@
 
 class TestBinaryArray < Test::Unit::TestCase
   def test_value
+    data = "\x00\x01\x02"
     builder = Arrow::BinaryArrayBuilder.new
-    builder.append("\x00\x01\x02")
+    builder.append(data)
     array = builder.finish
-    assert_equal([0, 1, 2], array.get_value(0))
+    assert_equal(data, array.get_value(0).to_s)
   end
 end
