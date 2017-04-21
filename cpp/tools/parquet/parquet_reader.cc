@@ -57,7 +57,8 @@ int main(int argc, char** argv) {
   try {
     std::unique_ptr<parquet::ParquetFileReader> reader =
         parquet::ParquetFileReader::OpenFile(filename, memory_map);
-    reader->DebugPrint(std::cout, columns, print_values);
+    parquet::ParquetFilePrinter printer(reader.get());
+    printer.DebugPrint(std::cout, columns, print_values);
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: " << e.what() << std::endl;
     return -1;
