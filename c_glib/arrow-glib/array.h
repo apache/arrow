@@ -660,9 +660,8 @@ struct _GArrowBinaryArrayClass
 
 GType garrow_binary_array_get_type(void) G_GNUC_CONST;
 
-const guint8 *garrow_binary_array_get_value(GArrowBinaryArray *array,
-                                            gint64 i,
-                                            gint32 *length);
+GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
+                                      gint64 i);
 
 #define GARROW_TYPE_STRING_ARRAY                \
   (garrow_string_array_get_type())
