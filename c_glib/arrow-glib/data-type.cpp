@@ -21,34 +21,55 @@
 #  include <config.h>
 #endif
 
-#include <arrow-glib/boolean-data-type.h>
-#include <arrow-glib/binary-data-type.h>
-#include <arrow-glib/boolean-data-type.h>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/double-data-type.h>
-#include <arrow-glib/float-data-type.h>
-#include <arrow-glib/int8-data-type.h>
-#include <arrow-glib/int16-data-type.h>
-#include <arrow-glib/int32-data-type.h>
-#include <arrow-glib/int64-data-type.h>
-#include <arrow-glib/list-data-type.h>
-#include <arrow-glib/null-data-type.h>
-#include <arrow-glib/string-data-type.h>
-#include <arrow-glib/struct-data-type.h>
+#include <arrow-glib/field.hpp>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/uint8-data-type.h>
-#include <arrow-glib/uint16-data-type.h>
-#include <arrow-glib/uint32-data-type.h>
-#include <arrow-glib/uint64-data-type.h>
 
 G_BEGIN_DECLS
 
 /**
  * SECTION: data-type
- * @short_description: Base class for all data type classes
+ * @section_id: data-type-classes
+ * @title: Data type classes
+ * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowDataType is a base class for all data type classes such as
  * #GArrowBooleanDataType.
+ *
+ * #GArrowNullDataType is a class for null data type.
+ *
+ * #GArrowBooleanDataType is a class for boolean data type.
+ *
+ * #GArrowInt8DataType is a class for 8-bit integer data type.
+ *
+ * #GArrowUInt8DataType is a class for 8-bit unsigned integer data type.
+ *
+ * #GArrowInt16DataType is a class for 16-bit integer data type.
+ *
+ * #GArrowUInt16DataType is a class for 16-bit unsigned integer data type.
+ *
+ * #GArrowInt32DataType is a class for 32-bit integer data type.
+ *
+ * #GArrowUInt32DataType is a class for 32-bit unsigned integer data type.
+ *
+ * #GArrowInt64DataType is a class for 64-bit integer data type.
+ *
+ * #GArrowUInt64DataType is a class for 64-bit unsigned integer data type.
+ *
+ * #GArrowFloatDataType is a class for 32-bit floating point data
+ * type.
+ *
+ * #GArrowDoubleDataType is a class for 64-bit floating point data
+ * type.
+ *
+ * #GArrowBinaryDataType is a class for binary data type.
+ *
+ * #GArrowStringDataType is a class for UTF-8 encoded string data
+ * type.
+ *
+ * #GArrowListDataType is a class for list data type.
+ *
+ * #GArrowStructDataType is a class for struct data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
@@ -181,6 +202,548 @@ garrow_data_type_type(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   return garrow_type_from_raw(arrow_data_type->id());
+}
+
+
+G_DEFINE_TYPE(GArrowNullDataType,                \
+              garrow_null_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_null_data_type_init(GArrowNullDataType *object)
+{
+}
+
+static void
+garrow_null_data_type_class_init(GArrowNullDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_null_data_type_new:
+ *
+ * Returns: The newly created null data type.
+ */
+GArrowNullDataType *
+garrow_null_data_type_new(void)
+{
+  auto arrow_data_type = arrow::null();
+
+  GArrowNullDataType *data_type =
+    GARROW_NULL_DATA_TYPE(g_object_new(GARROW_TYPE_NULL_DATA_TYPE,
+                                       "data-type", &arrow_data_type,
+                                       NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowBooleanDataType,                \
+              garrow_boolean_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_boolean_data_type_init(GArrowBooleanDataType *object)
+{
+}
+
+static void
+garrow_boolean_data_type_class_init(GArrowBooleanDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_boolean_data_type_new:
+ *
+ * Returns: The newly created boolean data type.
+ */
+GArrowBooleanDataType *
+garrow_boolean_data_type_new(void)
+{
+  auto arrow_data_type = arrow::boolean();
+
+  GArrowBooleanDataType *data_type =
+    GARROW_BOOLEAN_DATA_TYPE(g_object_new(GARROW_TYPE_BOOLEAN_DATA_TYPE,
+                                          "data-type", &arrow_data_type,
+                                          NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowInt8DataType,                \
+              garrow_int8_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_int8_data_type_init(GArrowInt8DataType *object)
+{
+}
+
+static void
+garrow_int8_data_type_class_init(GArrowInt8DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_int8_data_type_new:
+ *
+ * Returns: The newly created 8-bit integer data type.
+ */
+GArrowInt8DataType *
+garrow_int8_data_type_new(void)
+{
+  auto arrow_data_type = arrow::int8();
+
+  GArrowInt8DataType *data_type =
+    GARROW_INT8_DATA_TYPE(g_object_new(GARROW_TYPE_INT8_DATA_TYPE,
+                                       "data-type", &arrow_data_type,
+                                       NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowUInt8DataType,                \
+              garrow_uint8_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_uint8_data_type_init(GArrowUInt8DataType *object)
+{
+}
+
+static void
+garrow_uint8_data_type_class_init(GArrowUInt8DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_uint8_data_type_new:
+ *
+ * Returns: The newly created 8-bit unsigned integer data type.
+ */
+GArrowUInt8DataType *
+garrow_uint8_data_type_new(void)
+{
+  auto arrow_data_type = arrow::uint8();
+
+  GArrowUInt8DataType *data_type =
+    GARROW_UINT8_DATA_TYPE(g_object_new(GARROW_TYPE_UINT8_DATA_TYPE,
+                                        "data-type", &arrow_data_type,
+                                        NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowInt16DataType,                \
+              garrow_int16_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_int16_data_type_init(GArrowInt16DataType *object)
+{
+}
+
+static void
+garrow_int16_data_type_class_init(GArrowInt16DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_int16_data_type_new:
+ *
+ * Returns: The newly created 16-bit integer data type.
+ */
+GArrowInt16DataType *
+garrow_int16_data_type_new(void)
+{
+  auto arrow_data_type = arrow::int16();
+
+  GArrowInt16DataType *data_type =
+    GARROW_INT16_DATA_TYPE(g_object_new(GARROW_TYPE_INT16_DATA_TYPE,
+                                        "data-type", &arrow_data_type,
+                                        NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowUInt16DataType,                \
+              garrow_uint16_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_uint16_data_type_init(GArrowUInt16DataType *object)
+{
+}
+
+static void
+garrow_uint16_data_type_class_init(GArrowUInt16DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_uint16_data_type_new:
+ *
+ * Returns: The newly created 16-bit unsigned integer data type.
+ */
+GArrowUInt16DataType *
+garrow_uint16_data_type_new(void)
+{
+  auto arrow_data_type = arrow::uint16();
+
+  GArrowUInt16DataType *data_type =
+    GARROW_UINT16_DATA_TYPE(g_object_new(GARROW_TYPE_UINT16_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowInt32DataType,                \
+              garrow_int32_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_int32_data_type_init(GArrowInt32DataType *object)
+{
+}
+
+static void
+garrow_int32_data_type_class_init(GArrowInt32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_int32_data_type_new:
+ *
+ * Returns: The newly created 32-bit integer data type.
+ */
+GArrowInt32DataType *
+garrow_int32_data_type_new(void)
+{
+  auto arrow_data_type = arrow::int32();
+
+  GArrowInt32DataType *data_type =
+    GARROW_INT32_DATA_TYPE(g_object_new(GARROW_TYPE_INT32_DATA_TYPE,
+                                        "data-type", &arrow_data_type,
+                                        NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowUInt32DataType,                \
+              garrow_uint32_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_uint32_data_type_init(GArrowUInt32DataType *object)
+{
+}
+
+static void
+garrow_uint32_data_type_class_init(GArrowUInt32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_uint32_data_type_new:
+ *
+ * Returns: The newly created 32-bit unsigned integer data type.
+ */
+GArrowUInt32DataType *
+garrow_uint32_data_type_new(void)
+{
+  auto arrow_data_type = arrow::uint32();
+
+  GArrowUInt32DataType *data_type =
+    GARROW_UINT32_DATA_TYPE(g_object_new(GARROW_TYPE_UINT32_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowInt64DataType,                \
+              garrow_int64_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_int64_data_type_init(GArrowInt64DataType *object)
+{
+}
+
+static void
+garrow_int64_data_type_class_init(GArrowInt64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_int64_data_type_new:
+ *
+ * Returns: The newly created 64-bit integer data type.
+ */
+GArrowInt64DataType *
+garrow_int64_data_type_new(void)
+{
+  auto arrow_data_type = arrow::int64();
+
+  GArrowInt64DataType *data_type =
+    GARROW_INT64_DATA_TYPE(g_object_new(GARROW_TYPE_INT64_DATA_TYPE,
+                                        "data-type", &arrow_data_type,
+                                        NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowUInt64DataType,                \
+              garrow_uint64_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_uint64_data_type_init(GArrowUInt64DataType *object)
+{
+}
+
+static void
+garrow_uint64_data_type_class_init(GArrowUInt64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_uint64_data_type_new:
+ *
+ * Returns: The newly created 64-bit unsigned integer data type.
+ */
+GArrowUInt64DataType *
+garrow_uint64_data_type_new(void)
+{
+  auto arrow_data_type = arrow::uint64();
+
+  GArrowUInt64DataType *data_type =
+    GARROW_UINT64_DATA_TYPE(g_object_new(GARROW_TYPE_UINT64_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowFloatDataType,                \
+              garrow_float_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_float_data_type_init(GArrowFloatDataType *object)
+{
+}
+
+static void
+garrow_float_data_type_class_init(GArrowFloatDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_float_data_type_new:
+ *
+ * Returns: The newly created float data type.
+ */
+GArrowFloatDataType *
+garrow_float_data_type_new(void)
+{
+  auto arrow_data_type = arrow::float32();
+
+  GArrowFloatDataType *data_type =
+    GARROW_FLOAT_DATA_TYPE(g_object_new(GARROW_TYPE_FLOAT_DATA_TYPE,
+                                        "data-type", &arrow_data_type,
+                                        NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowDoubleDataType,                \
+              garrow_double_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_double_data_type_init(GArrowDoubleDataType *object)
+{
+}
+
+static void
+garrow_double_data_type_class_init(GArrowDoubleDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_double_data_type_new:
+ *
+ * Returns: The newly created 64-bit floating point data type.
+ */
+GArrowDoubleDataType *
+garrow_double_data_type_new(void)
+{
+  auto arrow_data_type = arrow::float64();
+
+  GArrowDoubleDataType *data_type =
+    GARROW_DOUBLE_DATA_TYPE(g_object_new(GARROW_TYPE_DOUBLE_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowBinaryDataType,                \
+              garrow_binary_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_binary_data_type_init(GArrowBinaryDataType *object)
+{
+}
+
+static void
+garrow_binary_data_type_class_init(GArrowBinaryDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_binary_data_type_new:
+ *
+ * Returns: The newly created binary data type.
+ */
+GArrowBinaryDataType *
+garrow_binary_data_type_new(void)
+{
+  auto arrow_data_type = arrow::binary();
+
+  GArrowBinaryDataType *data_type =
+    GARROW_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_BINARY_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowStringDataType,                \
+              garrow_string_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_string_data_type_init(GArrowStringDataType *object)
+{
+}
+
+static void
+garrow_string_data_type_class_init(GArrowStringDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_string_data_type_new:
+ *
+ * Returns: The newly created UTF-8 encoded string data type.
+ */
+GArrowStringDataType *
+garrow_string_data_type_new(void)
+{
+  auto arrow_data_type = arrow::utf8();
+
+  GArrowStringDataType *data_type =
+    GARROW_STRING_DATA_TYPE(g_object_new(GARROW_TYPE_STRING_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowListDataType,                \
+              garrow_list_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_list_data_type_init(GArrowListDataType *object)
+{
+}
+
+static void
+garrow_list_data_type_class_init(GArrowListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_list_data_type_new:
+ * @field: The field of elements
+ *
+ * Returns: The newly created list data type.
+ */
+GArrowListDataType *
+garrow_list_data_type_new(GArrowField *field)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_data_type =
+    std::make_shared<arrow::ListType>(arrow_field);
+
+  GArrowListDataType *data_type =
+    GARROW_LIST_DATA_TYPE(g_object_new(GARROW_TYPE_LIST_DATA_TYPE,
+                                       "data-type", &arrow_data_type,
+                                       NULL));
+  return data_type;
+}
+
+/**
+ * garrow_list_data_type_get_value_field:
+ * @list_data_type: A #GArrowListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ */
+GArrowField *
+garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
+{
+  auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(list_data_type));
+  auto arrow_list_data_type =
+    static_cast<arrow::ListType *>(arrow_data_type.get());
+
+  auto arrow_field = arrow_list_data_type->value_field();
+  auto field = garrow_field_new_raw(&arrow_field);
+
+  return field;
+}
+
+
+G_DEFINE_TYPE(GArrowStructDataType,                \
+              garrow_struct_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_struct_data_type_init(GArrowStructDataType *object)
+{
+}
+
+static void
+garrow_struct_data_type_class_init(GArrowStructDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_struct_data_type_new:
+ * @fields: (element-type GArrowField): The fields of the struct.
+ *
+ * Returns: The newly created struct data type.
+ */
+GArrowStructDataType *
+garrow_struct_data_type_new(GList *fields)
+{
+  std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
+  for (GList *node = fields; node; node = g_list_next(node)) {
+    auto field = GARROW_FIELD(node->data);
+    auto arrow_field = garrow_field_get_raw(field);
+    arrow_fields.push_back(arrow_field);
+  }
+
+  auto arrow_data_type = std::make_shared<arrow::StructType>(arrow_fields);
+  GArrowStructDataType *data_type =
+    GARROW_STRUCT_DATA_TYPE(g_object_new(GARROW_TYPE_STRUCT_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
 }
 
 G_END_DECLS

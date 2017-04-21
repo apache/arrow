@@ -20,7 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array-builder.h>
-#include <arrow-glib/struct-data-type.h>
+#include <arrow-glib/data-type.h>
 
 G_BEGIN_DECLS
 
