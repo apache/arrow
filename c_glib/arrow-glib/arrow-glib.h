@@ -21,32 +21,17 @@
 
 #include <arrow-glib/array.h>
 #include <arrow-glib/array-builder.h>
-#include <arrow-glib/binary-array-builder.h>
-#include <arrow-glib/boolean-array-builder.h>
 #include <arrow-glib/chunked-array.h>
 #include <arrow-glib/column.h>
 #include <arrow-glib/data-type.h>
-#include <arrow-glib/double-array-builder.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
 #include <arrow-glib/field.h>
-#include <arrow-glib/float-array-builder.h>
-#include <arrow-glib/int8-array-builder.h>
-#include <arrow-glib/int16-array-builder.h>
-#include <arrow-glib/int32-array-builder.h>
-#include <arrow-glib/int64-array-builder.h>
-#include <arrow-glib/list-array-builder.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
-#include <arrow-glib/string-array-builder.h>
-#include <arrow-glib/struct-array-builder.h>
 #include <arrow-glib/table.h>
 #include <arrow-glib/tensor.h>
 #include <arrow-glib/type.h>
-#include <arrow-glib/uint8-array-builder.h>
-#include <arrow-glib/uint16-array-builder.h>
-#include <arrow-glib/uint32-array-builder.h>
-#include <arrow-glib/uint64-array-builder.h>
 
 #include <arrow-glib/file.h>
 #include <arrow-glib/file-mode.h>

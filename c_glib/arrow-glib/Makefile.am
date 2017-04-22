@@ -44,32 +44,17 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
-	binary-array-builder.h			\
-	boolean-array-builder.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
 	data-type.h				\
-	double-array-builder.h			\
 	error.h					\
 	field.h					\
-	float-array-builder.h			\
-	int8-array-builder.h			\
-	int16-array-builder.h			\
-	int32-array-builder.h			\
-	int64-array-builder.h			\
-	list-array-builder.h			\
 	record-batch.h				\
 	schema.h				\
-	string-array-builder.h			\
-	struct-array-builder.h			\
 	table.h					\
 	tensor.h				\
-	type.h					\
-	uint8-array-builder.h			\
-	uint16-array-builder.h			\
-	uint32-array-builder.h			\
-	uint64-array-builder.h
+	type.h
 
 libarrow_glib_la_headers +=			\
 	file.h					\
@@ -100,32 +85,17 @@ libarrow_glib_la_generated_sources =		\
 libarrow_glib_la_sources =			\
 	array.cpp				\
 	array-builder.cpp			\
-	binary-array-builder.cpp		\
-	boolean-array-builder.cpp		\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
 	data-type.cpp				\
-	double-array-builder.cpp		\
 	error.cpp				\
 	field.cpp				\
-	float-array-builder.cpp			\
-	int8-array-builder.cpp			\
-	int16-array-builder.cpp			\
-	int32-array-builder.cpp			\
-	int64-array-builder.cpp			\
-	list-array-builder.cpp			\
 	record-batch.cpp			\
 	schema.cpp				\
-	string-array-builder.cpp		\
-	struct-array-builder.cpp		\
 	table.cpp				\
 	tensor.cpp				\
 	type.cpp				\
-	uint8-array-builder.cpp			\
-	uint16-array-builder.cpp		\
-	uint32-array-builder.cpp		\
-	uint64-array-builder.cpp		\
 	$(libarrow_glib_la_headers)		\
 	$(libarrow_glib_la_generated_sources)
 
