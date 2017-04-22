@@ -24,11 +24,15 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "arrow/io/interfaces.h"
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+
+static constexpr int64_t BYTES_IN_MB = 1 << 20;
 
 namespace arrow {
 
@@ -37,6 +41,33 @@ class ResizableBuffer;
 class Status;
 
 namespace io {
+
+// A helper class for doing memcpy with multiple threads. This is required
+// to saturate the memory bandwidth of modern cpus.
+class ParallelMemcopy {
+ public:
+  explicit ParallelMemcopy(uint64_t block_size, int threadpool_size)
+      : block_size_(block_size),
+        threadpool_(threadpool_size) {}
+
+  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes);
+
+  ~ParallelMemcopy() {
+    // Join threadpool threads just in case they are still running.
+    for (auto& t : threadpool_) {
+      if (t.joinable()) { t.join(); }
+    }
+  }
+
+ private:
+  // Specifies the desired alignment in bytes, as a power of 2.
+  uint64_t block_size_;
+  // Internal threadpool to be used in the fork/join pattern.
+  std::vector<std::thread> threadpool_;
+
+  void memcopy_aligned(
+      uint8_t* dst, const uint8_t* src, uint64_t nbytes, uint64_t block_size);
+};
 
 // An output stream that writes to a MutableBuffer, such as one obtained from a
 // memory map
