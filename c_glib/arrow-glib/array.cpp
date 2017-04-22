@@ -707,6 +707,22 @@ garrow_binary_array_get_value(GArrowBinaryArray *array,
   return g_bytes_new_static(value, length);
 }
 
+/**
+ * garrow_binary_array_get_buffer:
+ * @array: A #GArrowBinaryArray.
+ *
+ * Returns: (transfer full): The data of the array as #GArrowBuffer.
+ */
+GArrowBuffer *
+garrow_binary_array_get_buffer(GArrowBinaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_binary_array =
+    static_cast<arrow::BinaryArray *>(arrow_array.get());
+  auto arrow_data = arrow_binary_array->data();
+  return garrow_buffer_new_raw(&arrow_data);
+}
+
 
 G_DEFINE_TYPE(GArrowStringArray,               \
               garrow_string_array,             \
