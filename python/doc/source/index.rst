@@ -39,6 +39,7 @@ structures.
    filesystems
    parquet
    api
+   development
    getting_involved
 
 .. toctree::
