@@ -202,7 +202,7 @@ Now, we can build pyarrow:
    python setup.py build_ext --inplace
 
 Running C++ unit tests with Python
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------
 
 Getting ``python-test.exe`` to run is a bit tricky because your
 ``%PYTHONPATH%`` must be configured given the active conda environment:
