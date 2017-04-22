@@ -466,4 +466,16 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testFillEmptiesNotOverfill() {
+    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+      vector.allocateNew();
+
+      vector.getMutator().setSafe(4094, "hello".getBytes(), 0, 5);
+      vector.getMutator().setValueCount(4095);
+      assertEquals(4096 * 4, vector.getFieldBuffers().get(1).capacity());
+    }
+  }
+
+
 }

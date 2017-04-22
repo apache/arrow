@@ -526,8 +526,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     private void fillEmpties(int index){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
-      for (int i = lastSet; i < index; i++) {
-        valuesMutator.setSafe(i + 1, emptyByteArray);
+      for (int i = lastSet + 1; i < index; i++) {
+        valuesMutator.setSafe(i, emptyByteArray);
       }
       while(index > bits.getValueCapacity()) {
         bits.reAlloc();
