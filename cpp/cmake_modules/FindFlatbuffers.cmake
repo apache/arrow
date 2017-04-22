@@ -31,8 +31,8 @@
 #  FLATBUFFERS_STATIC_LIB, path to libflatbuffers.a
 #  FLATBUFFERS_FOUND, whether flatbuffers has been found
 
-if( NOT "$ENV{FLATBUFFERS_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "$ENV{FLATBUFFERS_HOME}" _native_path )
+if( NOT "${FLATBUFFERS_HOME}" STREQUAL "")
+    file( TO_CMAKE_PATH "${FLATBUFFERS_HOME}" _native_path )
     list( APPEND _flatbuffers_roots ${_native_path} )
 elseif ( Flatbuffers_HOME )
     list( APPEND _flatbuffers_roots ${Flatbuffers_HOME} )
@@ -52,7 +52,7 @@ else ()
 endif ()
 
 find_program(FLATBUFFERS_COMPILER flatc
-  $ENV{FLATBUFFERS_HOME}/bin
+  ${FLATBUFFERS_HOME}/bin
   /usr/local/bin
   /usr/bin
   NO_DEFAULT_PATH
