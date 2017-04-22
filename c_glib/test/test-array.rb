@@ -40,6 +40,17 @@ class TestArray < Test::Unit::TestCase
     assert_equal(2, array.n_nulls)
   end
 
+  def test_null_bitmap
+    builder = Arrow::BooleanArrayBuilder.new
+    builder.append_null
+    builder.append(true)
+    builder.append(false)
+    builder.append_null
+    builder.append(false)
+    array = builder.finish
+    assert_equal(0b10110, array.null_bitmap.data.to_s.unpack("c*")[0])
+  end
+
   def test_value_data_type
     builder = Arrow::BooleanArrayBuilder.new
     array = builder.finish

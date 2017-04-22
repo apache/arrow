@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/buffer.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/type.hpp>
 
@@ -240,6 +241,24 @@ garrow_array_get_n_nulls(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
   return arrow_array->null_count();
+}
+
+/**
+ * garrow_array_get_null_bitmap:
+ * @array: A #GArrowArray.
+ *
+ * Returns: (transfer full) (nullable): The bitmap that indicates null
+ *   value indexes for the array as #GArrowBuffer or %NULL when
+ *   garrow_array_get_n_nulls() returns 0.
+ *
+ * Since: 0.3.0
+ */
+GArrowBuffer *
+garrow_array_get_null_bitmap(GArrowArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_null_bitmap = arrow_array->null_bitmap();
+  return garrow_buffer_new_raw(&arrow_null_bitmap);
 }
 
 /**
