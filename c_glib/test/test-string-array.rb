@@ -22,4 +22,12 @@ class TestStringArray < Test::Unit::TestCase
     array = builder.finish
     assert_equal("Hello", array.get_string(0))
   end
+
+  def test_buffer
+    builder = Arrow::StringArrayBuilder.new
+    builder.append("Hello")
+    builder.append("World")
+    array = builder.finish
+    assert_equal("HelloWorld", array.buffer.data.to_s)
+  end
 end

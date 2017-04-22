@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow-glib/buffer.h>
 #include <arrow-glib/data-type.h>
 
 G_BEGIN_DECLS
@@ -662,6 +663,7 @@ GType garrow_binary_array_get_type(void) G_GNUC_CONST;
 
 GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
                                       gint64 i);
+GArrowBuffer *garrow_binary_array_get_buffer(GArrowBinaryArray *array);
 
 #define GARROW_TYPE_STRING_ARRAY                \
   (garrow_string_array_get_type())
