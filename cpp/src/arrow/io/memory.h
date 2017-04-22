@@ -42,17 +42,27 @@ class Status;
 
 namespace io {
 
+class Memcopy {
+public:
+  virtual void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) = 0;
+};
+
+class SerialMemcopy : public Memcopy {
+public:
+  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) override;
+};
+
 // A helper class for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
-class ParallelMemcopy {
+class ParallelMemcopy : public Memcopy {
  public:
   explicit ParallelMemcopy(uint64_t block_size, int threadpool_size)
       : block_size_(block_size),
         threadpool_(threadpool_size) {}
 
-  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes);
+  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) override;
 
-  ~ParallelMemcopy() {
+  virtual ~ParallelMemcopy() {
     // Join threadpool threads just in case they are still running.
     for (auto& t : threadpool_) {
       if (t.joinable()) { t.join(); }
@@ -73,7 +83,8 @@ class ParallelMemcopy {
 // memory map
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
-  explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
+  explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer,
+    std::unique_ptr<Memcopy> memcopy = nullptr);
 
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
       std::shared_ptr<BufferOutputStream>* out);
@@ -96,6 +107,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
+  std::unique_ptr<Memcopy> memcopy_;
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
@@ -103,7 +115,8 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
  public:
   /// Input buffer must be mutable, will abort if not
-  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);
+  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer,
+    std::unique_ptr<Memcopy> memcopy = nullptr);
   ~FixedSizeBufferWriter();
 
   Status Close() override;
@@ -118,6 +131,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t position_;
+  std::unique_ptr<Memcopy> memcopy_;
 };
 
 class ARROW_EXPORT BufferReader : public RandomAccessFile {

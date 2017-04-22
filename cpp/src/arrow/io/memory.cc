@@ -33,6 +33,10 @@
 namespace arrow {
 namespace io {
 
+void SerialMemcopy::memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) {
+  std::memcpy(dst, src, nbytes);
+}
+
 void ParallelMemcopy::memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) {
   if (nbytes >= BYTES_IN_MB) {
     memcopy_aligned(dst, src, nbytes, block_size_);
@@ -80,11 +84,16 @@ void ParallelMemcopy::memcopy_aligned(
 
 static constexpr int64_t kBufferMinimumSize = 256;
 
-BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
+BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer, std::unique_ptr<Memcopy> memcopy)
     : buffer_(buffer),
       capacity_(buffer->size()),
       position_(0),
-      mutable_data_(buffer->mutable_data()) {}
+      mutable_data_(buffer->mutable_data()),
+      memcopy_(std::move(memcopy)) {
+    if (!memcopy_) {
+      memcopy_ = std::unique_ptr<SerialMemcopy>(new SerialMemcopy());
+    }
+  }
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
     std::shared_ptr<BufferOutputStream>* out) {
@@ -122,7 +131,7 @@ Status BufferOutputStream::Tell(int64_t* position) {
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   DCHECK(buffer_);
   RETURN_NOT_OK(Reserve(nbytes));
-  std::memcpy(mutable_data_ + position_, data, nbytes);
+  memcopy_->memcopy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;
   return Status::OK();
 }
@@ -144,12 +153,15 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // In-memory buffer writer
 
 /// Input buffer must be mutable, will abort if not
-FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer) {
+FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer, std::unique_ptr<Memcopy> memcopy) : memcopy_(std::move(memcopy)) {
   buffer_ = buffer;
   DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
   mutable_data_ = buffer->mutable_data();
   size_ = buffer->size();
   position_ = 0;
+  if (!memcopy_) {
+    memcopy_ = std::unique_ptr<SerialMemcopy>(new SerialMemcopy());
+  }
 }
 
 FixedSizeBufferWriter::~FixedSizeBufferWriter() {}
@@ -173,7 +185,7 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 }
 
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
-  std::memcpy(mutable_data_ + position_, data, nbytes);
+  memcopy_->memcopy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;
   return Status::OK();
 }
