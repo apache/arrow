@@ -16,6 +16,15 @@
 # under the License.
 
 class TestDoubleArray < Test::Unit::TestCase
+  def test_buffer
+    builder = Arrow::DoubleArrayBuilder.new
+    builder.append(-1.1)
+    builder.append(2.2)
+    builder.append(-4.4)
+    array = builder.finish
+    assert_equal([-1.1, 2.2, -4.4].pack("d*"), array.buffer.data.to_s)
+  end
+
   def test_value
     builder = Arrow::DoubleArrayBuilder.new
     builder.append(1.5)
