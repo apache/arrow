@@ -454,7 +454,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-handler</artifactId>
-      <version>4.0.41.Final</version>
+      <version>4.0.45.Final</version>
     </dependency>
 
     <dependency>
