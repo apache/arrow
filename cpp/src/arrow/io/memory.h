@@ -42,19 +42,19 @@ class Status;
 
 namespace io {
 
-class Memcopy {
+class ARROW_EXPORT Memcopy {
 public:
   virtual void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) = 0;
 };
 
-class SerialMemcopy : public Memcopy {
+class ARROW_EXPORT SerialMemcopy : public Memcopy {
 public:
   void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) override;
 };
 
 // A helper class for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
-class ParallelMemcopy : public Memcopy {
+class ARROW_EXPORT ParallelMemcopy : public Memcopy {
  public:
   explicit ParallelMemcopy(uint64_t block_size, int threadpool_size)
       : block_size_(block_size),
