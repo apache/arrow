@@ -1,0 +1,10 @@
+---
+---
+
+$container-desktop: 960px;
+$container-large-desktop: $container-desktop;
+$grid-gutter-width: 15px;
+
+@import "bootstrap-sprockets";
+@import "bootstrap";
+@import "font-awesome";
