@@ -197,8 +197,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
     final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
     ArrowBuf newArrowBuf = otherLedger.newArrowBuf(offset, length, null);
-    newArrowBuf.readerIndex(this.readerIndex);
-    newArrowBuf.writerIndex(this.writerIndex);
+    newArrowBuf.readerIndex(this.readerIndex());
+    newArrowBuf.writerIndex(this.writerIndex());
     return newArrowBuf;
   }
 
@@ -245,8 +245,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
     final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
     final ArrowBuf newBuf = otherLedger.newArrowBuf(offset, length, null);
-    newBuf.readerIndex(this.readerIndex);
-    newBuf.writerIndex(this.writerIndex);
+    newBuf.readerIndex(this.readerIndex());
+    newBuf.writerIndex(this.writerIndex());
     final boolean allocationFit = this.ledger.transferBalance(otherLedger);
     return new TransferResult(allocationFit, newBuf);
   }
