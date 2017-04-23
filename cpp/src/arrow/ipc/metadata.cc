@@ -957,12 +957,8 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
   custom_metadata.reserve(fb_metadata->size());
 
   for (auto pair = fb_metadata->begin(); pair != fb_metadata->end(); ++pair) {
-    custom_metadata.insert(
-        std::make_pair(
-            pair->key()->str(),
-            std::vector<uint8_t>(pair->value()->begin(), pair->value()->end())
-        )
-    );
+    custom_metadata.insert(std::make_pair(pair->key()->str(),
+        std::vector<uint8_t>(pair->value()->begin(), pair->value()->end())));
   }
 
   *out = std::make_shared<Schema>(fields, custom_metadata);
