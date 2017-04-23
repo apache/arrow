@@ -1,4 +1,4 @@
-#t Licensed to the Apache Software Foundation (ASF) under one
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -18,6 +18,12 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
+
+cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
+    cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
+        CKeyValueMetadata()
+        CKeyValueMetadata(const unordered_map[c_string, c_string]&)
+        void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
@@ -170,10 +176,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
+        CSchema(const vector[shared_ptr[CField]]& fields,
+                const CKeyValueMetadata& custom_metadata)
 
         c_bool Equals(const CSchema& other)
 
         shared_ptr[CField] field(int i)
+        const CKeyValueMetadata& custom_metadata() const
         shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()

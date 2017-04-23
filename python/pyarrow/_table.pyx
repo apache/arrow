@@ -34,7 +34,6 @@ from pyarrow._error import ArrowException
 from pyarrow._array import field
 from pyarrow.compat import frombytes, tobytes
 
-
 from collections import OrderedDict
 
 
@@ -273,15 +272,22 @@ cdef class Column:
         return chunked_array
 
 
-cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
+cdef CKeyValueMetadata key_value_metadata_from_dict(dict metadata):
+    cdef:
+        unordered_map[c_string, c_string] unordered_metadata = metadata
+        CKeyValueMetadata c_metadata = CKeyValueMetadata(unordered_metadata)
+    return c_metadata
+
+
+cdef int _schema_from_arrays(
+        arrays, names, dict metadata, shared_ptr[CSchema]* schema) except -1:
     cdef:
         Array arr
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
-        cdef shared_ptr[CDataType] type_
-
-    cdef int K = len(arrays)
+        shared_ptr[CDataType] type_
+        int K = len(arrays)
 
     fields.resize(K)
 
@@ -306,15 +312,16 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
     else:
         raise TypeError(type(arrays[0]))
 
-    schema.reset(new CSchema(fields))
+    schema.reset(new CSchema(fields, key_value_metadata_from_dict(metadata)))
+    return 0
 
 
-
-cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
+cdef tuple _dataframe_to_arrays(df, bint timestamps_to_ms, Schema schema):
     cdef:
         list names = []
         list arrays = []
         DataType type = None
+        dict metadata = {}
 
     for name in df.columns:
         col = df[name]
@@ -326,7 +333,7 @@ cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
         names.append(name)
         arrays.append(arr)
 
-    return names, arrays
+    return names, arrays, metadata
 
 
 cdef class RecordBatch:
@@ -486,11 +493,11 @@ cdef class RecordBatch:
         -------
         pyarrow.table.RecordBatch
         """
-        names, arrays = _dataframe_to_arrays(df, False, schema)
-        return cls.from_arrays(arrays, names)
+        names, arrays, metadata = _dataframe_to_arrays(df, False, schema)
+        return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(arrays, names):
+    def from_arrays(list arrays, list names, dict metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -512,15 +519,17 @@ cdef class RecordBatch:
             shared_ptr[CRecordBatch] batch
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
+            int64_t i
+            int64_t number_of_arrays = len(arrays)
 
-        if len(arrays) == 0:
+        if not number_of_arrays:
             raise ValueError('Record batch cannot contain no arrays (for now)')
 
         num_rows = len(arrays[0])
-        _schema_from_arrays(arrays, names, &schema)
+        _schema_from_arrays(arrays, names, metadata or {}, &schema)
 
-        for i in range(len(arrays)):
-            arr = arrays[i]
+        c_arrays.reserve(len(arrays))
+        for arr in arrays:
             c_arrays.push_back(arr.sp_array)
 
         batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
@@ -656,13 +665,13 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays = _dataframe_to_arrays(df,
+        names, arrays, metadata = _dataframe_to_arrays(df,
                                              timestamps_to_ms=timestamps_to_ms,
                                              schema=schema)
-        return cls.from_arrays(arrays, names=names)
+        return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None):
+    def from_arrays(arrays, names=None, dict metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -680,22 +689,25 @@ cdef class Table:
 
         """
         cdef:
-            vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
+            size_t K = len(arrays)
 
-        _schema_from_arrays(arrays, names, &schema)
+        _schema_from_arrays(arrays, names, metadata or {}, &schema)
 
-        cdef int K = len(arrays)
-        columns.resize(K)
+        columns.reserve(K)
 
         for i in range(K):
             if isinstance(arrays[i], Array):
-                columns[i].reset(new CColumn(schema.get().field(i),
-                                             (<Array> arrays[i]).sp_array))
+                columns.push_back(
+                    make_shared[CColumn](
+                        schema.get().field(i),
+                        (<Array> arrays[i]).sp_array
+                    )
+                )
             elif isinstance(arrays[i], Column):
-                columns[i] = (<Column> arrays[i]).sp_column
+                columns.push_back((<Column> arrays[i]).sp_column)
             else:
                 raise ValueError(type(arrays[i]))
 

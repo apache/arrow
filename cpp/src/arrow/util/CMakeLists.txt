@@ -26,6 +26,7 @@ install(FILES
   macros.h
   random.h
   visibility.h
+  key_value_metadata.h
   DESTINATION include/arrow/util)
 
 #######################################
@@ -52,3 +53,4 @@ endif()
 ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(stl-util-test)
 ADD_ARROW_TEST(decimal-test)
+ADD_ARROW_TEST(key-value-metadata-test)

@@ -24,6 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/status.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 #include "arrow/visitor.h"
@@ -231,7 +232,9 @@ std::string NullType::ToString() const {
 // ----------------------------------------------------------------------
 // Schema implementation
 
-Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields) : fields_(fields) {}
+Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
+    const KeyValueMetadata& custom_metadata)
+    : fields_(fields), custom_metadata_(custom_metadata) {}
 
 bool Schema::Equals(const Schema& other) const {
   if (this == &other) { return true; }
@@ -263,7 +266,18 @@ Status Schema::AddField(
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field));
+  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), custom_metadata_);
+  return Status::OK();
+}
+
+Status Schema::AddCustomMetadata(
+    const KeyValueMetadata& custom_metadata, std::shared_ptr<Schema>* out) const {
+  *out = std::make_shared<Schema>(fields_, custom_metadata);
+  return Status::OK();
+}
+
+Status Schema::RemoveCustomMetadata(std::shared_ptr<Schema>* out) {
+  *out = std::make_shared<Schema>(fields_, KeyValueMetadata());
   return Status::OK();
 }
 
@@ -271,7 +285,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i));
+  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), custom_metadata_);
   return Status::OK();
 }
 
