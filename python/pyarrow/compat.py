@@ -34,7 +34,12 @@ try:
     import pandas as pd
     pdver = LooseVersion(pd.__version__)
     if pdver >= '0.20.0':
-        from pandas.core.dtypes.dtypes import DatetimeTZDtype
+        try:
+            from pandas.api.types import DatetimeTZDtype
+        except AttributeError:
+            # can be removed once 0.20.0 is released
+            from pandas.core.dtypes.dtypes import DatetimeTZDtype
+
         pdapi = pd.api.types
     elif pdver < '0.19.0':
         from pandas.core.dtypes import DatetimeTZDtype
