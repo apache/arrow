@@ -95,6 +95,7 @@ if(MSVC)
 else()
   set(UTIL_LINK_LIBS
     arrow_static
+    pthread
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
     dl)
