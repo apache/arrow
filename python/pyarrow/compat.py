@@ -32,9 +32,18 @@ PY2 = sys.version_info[0] == 2
 
 try:
     import pandas as pd
-    if LooseVersion(pd.__version__) < '0.19.0':
-        pdapi = pd.core.common
+    pdver = LooseVersion(pd.__version__)
+    if pdver >= '0.20.0':
+        try:
+            from pandas.api.types import DatetimeTZDtype
+        except AttributeError:
+            # can be removed once 0.20.0 is released
+            from pandas.core.dtypes.dtypes import DatetimeTZDtype
+
+        pdapi = pd.api.types
+    elif pdver < '0.19.0':
         from pandas.core.dtypes import DatetimeTZDtype
+        pdapi = pd.core.common
     else:
         from pandas.types.dtypes import DatetimeTZDtype
         pdapi = pd.api.types
