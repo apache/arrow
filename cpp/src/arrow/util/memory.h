@@ -1,6 +1,9 @@
 #ifndef ARROW_UTIL_MEMORY_H
 #define ARROW_UTIL_MEMORY_H
 
+#include <thread>
+#include <vector>
+
 namespace arrow {
 
 // A helper function for doing memcpy with multiple threads. This is required

@@ -114,5 +114,22 @@ TEST(TestBufferReader, RetainParentReference) {
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
 }
 
+TEST(TestMemcopy, ParallelMemcopy) {
+  constexpr int64_t kTotalSize = 10 * 1024 * 1024; // 10MB
+
+  auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
+  buffer1->Resize(kTotalSize);
+
+  auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
+  buffer2->Resize(kTotalSize);
+  test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
+
+  io::FixedSizeBufferWriter writer(buffer1);
+  writer.set_memcopy_threads(4);
+  writer.Write(buffer2->data(), buffer2->size());
+
+  ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));
+}
+
 }  // namespace io
 }  // namespace arrow
