@@ -36,7 +36,7 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
-    io::FixedSizeBufferWriter writer(buffer1, std::unique_ptr<io::Memcopy>(new io::SerialMemcopy()));
+    io::FixedSizeBufferWriter writer(buffer1);
     writer.Write(buffer2->data(), buffer2->size());
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
@@ -52,9 +52,9 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
   buffer2->Resize(kTotalSize);
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
-  io::FixedSizeBufferWriter writer(buffer1, std::unique_ptr<io::Memcopy>(new io::ParallelMemcopy(64, 4)));
   while (state.KeepRunning()) {
-    writer.Seek(0);
+		io::FixedSizeBufferWriter writer(buffer1);
+    writer.set_memcopy_threads(4);
     writer.Write(buffer2->data(), buffer2->size());
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);

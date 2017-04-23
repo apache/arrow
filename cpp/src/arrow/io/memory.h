@@ -32,8 +32,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-static constexpr int64_t BYTES_IN_MB = 1 << 20;
-
 namespace arrow {
 
 class Buffer;
@@ -42,49 +40,11 @@ class Status;
 
 namespace io {
 
-class ARROW_EXPORT Memcopy {
-public:
-  virtual void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) = 0;
-};
-
-class ARROW_EXPORT SerialMemcopy : public Memcopy {
-public:
-  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) override;
-};
-
-// A helper class for doing memcpy with multiple threads. This is required
-// to saturate the memory bandwidth of modern cpus.
-class ARROW_EXPORT ParallelMemcopy : public Memcopy {
- public:
-  explicit ParallelMemcopy(uint64_t block_size, int threadpool_size)
-      : block_size_(block_size),
-        threadpool_(threadpool_size) {}
-
-  void memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) override;
-
-  virtual ~ParallelMemcopy() {
-    // Join threadpool threads just in case they are still running.
-    for (auto& t : threadpool_) {
-      if (t.joinable()) { t.join(); }
-    }
-  }
-
- private:
-  // Specifies the desired alignment in bytes, as a power of 2.
-  uint64_t block_size_;
-  // Internal threadpool to be used in the fork/join pattern.
-  std::vector<std::thread> threadpool_;
-
-  void memcopy_aligned(
-      uint8_t* dst, const uint8_t* src, uint64_t nbytes, uint64_t block_size);
-};
-
 // An output stream that writes to a MutableBuffer, such as one obtained from a
 // memory map
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
-  explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer,
-    std::unique_ptr<Memcopy> memcopy = nullptr);
+  explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
       std::shared_ptr<BufferOutputStream>* out);
@@ -98,7 +58,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
-
  private:
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
@@ -107,7 +66,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
-  std::unique_ptr<Memcopy> memcopy_;
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
@@ -115,8 +73,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
  public:
   /// Input buffer must be mutable, will abort if not
-  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer,
-    std::unique_ptr<Memcopy> memcopy = nullptr);
+  explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);
   ~FixedSizeBufferWriter();
 
   Status Close() override;
@@ -125,13 +82,19 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   Status Write(const uint8_t* data, int64_t nbytes) override;
   Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
 
+  void set_memcopy_threads(int num_threads);
+  void set_memcopy_blocksize(int64_t blocksize);
+  void set_memcopy_threshold(int64_t threshold);
  private:
   std::mutex lock_;
   std::shared_ptr<Buffer> buffer_;
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t position_;
-  std::unique_ptr<Memcopy> memcopy_;
+
+  int memcopy_num_threads_;
+  int64_t memcopy_blocksize_;
+  int64_t memcopy_threshold_;
 };
 
 class ARROW_EXPORT BufferReader : public RandomAccessFile {

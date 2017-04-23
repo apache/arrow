@@ -29,71 +29,21 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/memory.h"
 
 namespace arrow {
 namespace io {
-
-void SerialMemcopy::memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) {
-  std::memcpy(dst, src, nbytes);
-}
-
-void ParallelMemcopy::memcopy(uint8_t* dst, const uint8_t* src, uint64_t nbytes) {
-  if (nbytes >= BYTES_IN_MB) {
-    memcopy_aligned(dst, src, nbytes, block_size_);
-  } else {
-    memcpy(dst, src, nbytes);
-  }
-}
-
-void ParallelMemcopy::memcopy_aligned(
-    uint8_t* dst, const uint8_t* src, uint64_t nbytes, uint64_t block_size) {
-  uint64_t num_threads = threadpool_.size();
-  uint64_t src_address = reinterpret_cast<uint64_t>(src);
-  uint64_t left_address = (src_address + block_size - 1) & ~(block_size - 1);
-  uint64_t right_address = (src_address + nbytes) & ~(block_size - 1);
-  uint64_t num_blocks = (right_address - left_address) / block_size;
-  // Update right address
-  right_address = right_address - (num_blocks % num_threads) * block_size;
-  // Now we divide these blocks between available threads. The remainder is
-  // handled on the main thread.
-
-  uint64_t chunk_size = (right_address - left_address) / num_threads;
-  uint64_t prefix = left_address - src_address;
-  uint64_t suffix = src_address + nbytes - right_address;
-  // Now the data layout is | prefix | k * num_threads * block_size | suffix |.
-  // We have chunk_size = k * block_size, therefore the data layout is
-  // | prefix | num_threads * chunk_size | suffix |.
-  // Each thread gets a "chunk" of k blocks.
-
-  // Start all threads first and handle leftovers while threads run.
-  for (uint64_t i = 0; i < num_threads; i++) {
-    threadpool_[i] = std::thread(memcpy, dst + prefix + i * chunk_size,
-        reinterpret_cast<uint8_t*>(left_address) + i * chunk_size, chunk_size);
-  }
-
-  memcpy(dst, src, prefix);
-  memcpy(dst + prefix + num_threads * chunk_size,
-      reinterpret_cast<uint8_t*>(right_address), suffix);
-  for (auto& t : threadpool_) {
-    if (t.joinable()) { t.join(); }
-  }
-}
 
 // ----------------------------------------------------------------------
 // OutputStream that writes to resizable buffer
 
 static constexpr int64_t kBufferMinimumSize = 256;
 
-BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer, std::unique_ptr<Memcopy> memcopy)
+BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
       capacity_(buffer->size()),
       position_(0),
-      mutable_data_(buffer->mutable_data()),
-      memcopy_(std::move(memcopy)) {
-    if (!memcopy_) {
-      memcopy_ = std::unique_ptr<SerialMemcopy>(new SerialMemcopy());
-    }
-  }
+      mutable_data_(buffer->mutable_data()) {}
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
     std::shared_ptr<BufferOutputStream>* out) {
@@ -131,7 +81,7 @@ Status BufferOutputStream::Tell(int64_t* position) {
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   DCHECK(buffer_);
   RETURN_NOT_OK(Reserve(nbytes));
-  memcopy_->memcopy(mutable_data_ + position_, data, nbytes);
+  memcpy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;
   return Status::OK();
 }
@@ -152,16 +102,17 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // In-memory buffer writer
 
+static constexpr int kMemcopyDefaultNumThreads = 1;
+static constexpr int64_t kMemcopyDefaultBlocksize = 64;
+static constexpr int64_t kMemcopyDefaultThreshold = 1024 * 1024;
+
 /// Input buffer must be mutable, will abort if not
-FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer, std::unique_ptr<Memcopy> memcopy) : memcopy_(std::move(memcopy)) {
+FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer) : memcopy_num_threads_(kMemcopyDefaultNumThreads), memcopy_blocksize_(kMemcopyDefaultBlocksize), memcopy_threshold_(kMemcopyDefaultThreshold) {
   buffer_ = buffer;
   DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
   mutable_data_ = buffer->mutable_data();
   size_ = buffer->size();
   position_ = 0;
-  if (!memcopy_) {
-    memcopy_ = std::unique_ptr<SerialMemcopy>(new SerialMemcopy());
-  }
 }
 
 FixedSizeBufferWriter::~FixedSizeBufferWriter() {}
@@ -185,7 +136,11 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 }
 
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
-  memcopy_->memcopy(mutable_data_ + position_, data, nbytes);
+  if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
+    parallel_memcopy(mutable_data_ + position_, data, nbytes, memcopy_blocksize_, memcopy_num_threads_);
+  } else {
+    memcpy(mutable_data_ + position_, data, nbytes);
+  }
   position_ += nbytes;
   return Status::OK();
 }
@@ -195,6 +150,18 @@ Status FixedSizeBufferWriter::WriteAt(
   std::lock_guard<std::mutex> guard(lock_);
   RETURN_NOT_OK(Seek(position));
   return Write(data, nbytes);
+}
+
+void FixedSizeBufferWriter::set_memcopy_threads(int num_threads) {
+  memcopy_num_threads_ = num_threads;
+}
+
+void FixedSizeBufferWriter::set_memcopy_blocksize(int64_t blocksize) {
+  memcopy_blocksize_ = blocksize;
+}
+
+void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
+  memcopy_threshold_ = threshold;
 }
 
 // ----------------------------------------------------------------------
