@@ -365,7 +365,7 @@ def test_date_time_types(tmpdir):
     data3 = np.array([start, start + 1, start + 2], dtype='int64')
     a3 = pa.Array.from_pandas(data3, type=t3)
 
-    t4 = pa.time32('s')
+    t4 = pa.time32('ms')
     data4 = np.arange(3, dtype='i4')
     a4 = pa.Array.from_pandas(data4, type=t4)
 
