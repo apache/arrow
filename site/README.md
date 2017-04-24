@@ -43,12 +43,13 @@ After following the above instructions the base `site/` directory, run:
 bundle exec jekyll build
 rsync -r build/ asf-site/
 cd asf-site
+git status
 ```
 
 Now `git add` any new files, then commit everything, and push:
 
 ```
-
+git push
 ```
 
 ### Updating Code Documentation
