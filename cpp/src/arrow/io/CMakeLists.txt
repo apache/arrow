@@ -22,6 +22,8 @@ ADD_ARROW_TEST(io-file-test)
 ADD_ARROW_TEST(io-hdfs-test)
 ADD_ARROW_TEST(io-memory-test)
 
+ADD_ARROW_BENCHMARK(io-memory-benchmark)
+
 # Headers: top level
 install(FILES
   file.h

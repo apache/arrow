@@ -29,6 +29,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/memory.h"
 
 namespace arrow {
 namespace io {
@@ -80,7 +81,7 @@ Status BufferOutputStream::Tell(int64_t* position) {
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
   DCHECK(buffer_);
   RETURN_NOT_OK(Reserve(nbytes));
-  std::memcpy(mutable_data_ + position_, data, nbytes);
+  memcpy(mutable_data_ + position_, data, nbytes);
   position_ += nbytes;
   return Status::OK();
 }
@@ -101,8 +102,15 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // In-memory buffer writer
 
+static constexpr int kMemcopyDefaultNumThreads = 1;
+static constexpr int64_t kMemcopyDefaultBlocksize = 64;
+static constexpr int64_t kMemcopyDefaultThreshold = 1024 * 1024;
+
 /// Input buffer must be mutable, will abort if not
-FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer) {
+FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer)
+    : memcopy_num_threads_(kMemcopyDefaultNumThreads),
+      memcopy_blocksize_(kMemcopyDefaultBlocksize),
+      memcopy_threshold_(kMemcopyDefaultThreshold) {
   buffer_ = buffer;
   DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
   mutable_data_ = buffer->mutable_data();
@@ -131,7 +139,12 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 }
 
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
-  std::memcpy(mutable_data_ + position_, data, nbytes);
+  if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
+    parallel_memcopy(mutable_data_ + position_, data, nbytes,
+                     memcopy_blocksize_, memcopy_num_threads_);
+  } else {
+    memcpy(mutable_data_ + position_, data, nbytes);
+  }
   position_ += nbytes;
   return Status::OK();
 }
@@ -141,6 +154,18 @@ Status FixedSizeBufferWriter::WriteAt(
   std::lock_guard<std::mutex> guard(lock_);
   RETURN_NOT_OK(Seek(position));
   return Write(data, nbytes);
+}
+
+void FixedSizeBufferWriter::set_memcopy_threads(int num_threads) {
+  memcopy_num_threads_ = num_threads;
+}
+
+void FixedSizeBufferWriter::set_memcopy_blocksize(int64_t blocksize) {
+  memcopy_blocksize_ = blocksize;
+}
+
+void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
+  memcopy_threshold_ = threshold;
 }
 
 // ----------------------------------------------------------------------

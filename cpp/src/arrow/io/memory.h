@@ -81,12 +81,20 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   Status Write(const uint8_t* data, int64_t nbytes) override;
   Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
 
+  void set_memcopy_threads(int num_threads);
+  void set_memcopy_blocksize(int64_t blocksize);
+  void set_memcopy_threshold(int64_t threshold);
+
  private:
   std::mutex lock_;
   std::shared_ptr<Buffer> buffer_;
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t position_;
+
+  int memcopy_num_threads_;
+  int64_t memcopy_blocksize_;
+  int64_t memcopy_threshold_;
 };
 
 class ARROW_EXPORT BufferReader : public RandomAccessFile {
