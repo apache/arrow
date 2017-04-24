@@ -374,12 +374,18 @@ def test_date_time_types(tmpdir):
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5],
                                  ['date32', 'date64', 'timestamp[us]',
-                                  'time32[s]', 'time32[us]'])
+                                  'time32[s]', 'time64[us]'])
+
+    # date64 as date32
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5],
+                                    ['date32', 'date64', 'timestamp[us]',
+                                     'time32[s]', 'time64[us]'])
+
     pq.write_table(table, buf, version="2.0")
     buf.seek(0)
 
     result = pq.read_table(buf)
-    assert result.equals(table)
+    assert result.equals(expected)
 
 
 @parquet
