@@ -35,6 +35,7 @@ structures.
    :caption: Getting Started
 
    install
+   development
    pandas
    filesystems
    parquet
