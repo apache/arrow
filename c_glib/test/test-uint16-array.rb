@@ -16,6 +16,15 @@
 # under the License.
 
 class TestUInt16Array < Test::Unit::TestCase
+  def test_buffer
+    builder = Arrow::UInt16ArrayBuilder.new
+    builder.append(1)
+    builder.append(2)
+    builder.append(4)
+    array = builder.finish
+    assert_equal([1, 2, 4].pack("S*"), array.buffer.data.to_s)
+  end
+
   def test_value
     builder = Arrow::UInt16ArrayBuilder.new
     builder.append(1)

@@ -115,6 +115,51 @@ GType garrow_null_array_get_type(void) G_GNUC_CONST;
 GArrowNullArray *garrow_null_array_new(gint64 length);
 
 
+#define GARROW_TYPE_PRIMITIVE_ARRAY             \
+  (garrow_primitive_array_get_type())
+#define GARROW_PRIMITIVE_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_PRIMITIVE_ARRAY,      \
+                              GArrowPrimitiveArray))
+#define GARROW_PRIMITIVE_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_PRIMITIVE_ARRAY, \
+                           GArrowPrimitiveArrayClass))
+#define GARROW_IS_PRIMITIVE_ARRAY(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_PRIMITIVE_ARRAY))
+#define GARROW_IS_PRIMITIVE_ARRAY_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_PRIMITIVE_ARRAY))
+#define GARROW_PRIMITIVE_ARRAY_GET_CLASS(obj)                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_PRIMITIVE_ARRAY,       \
+                             GArrowPrimitiveArrayClass))
+
+typedef struct _GArrowPrimitiveArray         GArrowPrimitiveArray;
+typedef struct _GArrowPrimitiveArrayClass    GArrowPrimitiveArrayClass;
+
+/**
+ * GArrowPrimitiveArray:
+ *
+ * It wraps `arrow::PrimitiveArray`.
+ */
+struct _GArrowPrimitiveArray
+{
+  /*< private >*/
+  GArrowArray parent_instance;
+};
+
+struct _GArrowPrimitiveArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GType garrow_primitive_array_get_type(void) G_GNUC_CONST;
+
+GArrowBuffer *garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array);
+
+
 #define GARROW_TYPE_BOOLEAN_ARRAY               \
   (garrow_boolean_array_get_type())
 #define GARROW_BOOLEAN_ARRAY(obj)                               \
@@ -147,12 +192,12 @@ typedef struct _GArrowBooleanArrayClass    GArrowBooleanArrayClass;
 struct _GArrowBooleanArray
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowBooleanArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType          garrow_boolean_array_get_type  (void) G_GNUC_CONST;
@@ -192,12 +237,12 @@ typedef struct _GArrowInt8ArrayClass    GArrowInt8ArrayClass;
 struct _GArrowInt8Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowInt8ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_int8_array_get_type(void) G_GNUC_CONST;
@@ -238,12 +283,12 @@ typedef struct _GArrowUInt8ArrayClass    GArrowUInt8ArrayClass;
 struct _GArrowUInt8Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowUInt8ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_uint8_array_get_type(void) G_GNUC_CONST;
@@ -284,12 +329,12 @@ typedef struct _GArrowInt16ArrayClass    GArrowInt16ArrayClass;
 struct _GArrowInt16Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowInt16ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_int16_array_get_type(void) G_GNUC_CONST;
@@ -330,12 +375,12 @@ typedef struct _GArrowUInt16ArrayClass    GArrowUInt16ArrayClass;
 struct _GArrowUInt16Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowUInt16ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_uint16_array_get_type(void) G_GNUC_CONST;
@@ -376,12 +421,12 @@ typedef struct _GArrowInt32ArrayClass    GArrowInt32ArrayClass;
 struct _GArrowInt32Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowInt32ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_int32_array_get_type(void) G_GNUC_CONST;
@@ -422,12 +467,12 @@ typedef struct _GArrowUInt32ArrayClass    GArrowUInt32ArrayClass;
 struct _GArrowUInt32Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowUInt32ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_uint32_array_get_type(void) G_GNUC_CONST;
@@ -468,12 +513,12 @@ typedef struct _GArrowInt64ArrayClass    GArrowInt64ArrayClass;
 struct _GArrowInt64Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowInt64ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_int64_array_get_type(void) G_GNUC_CONST;
@@ -514,12 +559,12 @@ typedef struct _GArrowUInt64ArrayClass    GArrowUInt64ArrayClass;
 struct _GArrowUInt64Array
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowUInt64ArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_uint64_array_get_type(void) G_GNUC_CONST;
@@ -560,12 +605,12 @@ typedef struct _GArrowFloatArrayClass    GArrowFloatArrayClass;
 struct _GArrowFloatArray
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowFloatArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_float_array_get_type(void) G_GNUC_CONST;
@@ -606,12 +651,12 @@ typedef struct _GArrowDoubleArrayClass    GArrowDoubleArrayClass;
 struct _GArrowDoubleArray
 {
   /*< private >*/
-  GArrowArray parent_instance;
+  GArrowPrimitiveArray parent_instance;
 };
 
 struct _GArrowDoubleArrayClass
 {
-  GArrowArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GType garrow_double_array_get_type(void) G_GNUC_CONST;

@@ -16,6 +16,15 @@
 # under the License.
 
 class TestInt64Array < Test::Unit::TestCase
+  def test_buffer
+    builder = Arrow::Int64ArrayBuilder.new
+    builder.append(-1)
+    builder.append(2)
+    builder.append(-4)
+    array = builder.finish
+    assert_equal([-1, 2, -4].pack("q*"), array.buffer.data.to_s)
+  end
+
   def test_value
     builder = Arrow::Int64ArrayBuilder.new
     builder.append(-1)

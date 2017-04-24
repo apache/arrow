@@ -16,6 +16,15 @@
 # under the License.
 
 class TestBooleanArray < Test::Unit::TestCase
+  def test_buffer
+    builder = Arrow::BooleanArrayBuilder.new
+    builder.append(true)
+    builder.append(false)
+    builder.append(true)
+    array = builder.finish
+    assert_equal([0b101].pack("C*"), array.buffer.data.to_s)
+  end
+
   def test_value
     builder = Arrow::BooleanArrayBuilder.new
     builder.append(true)
