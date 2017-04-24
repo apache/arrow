@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -117,7 +118,7 @@ TEST(TestBufferReader, RetainParentReference) {
 TEST(TestMemcopy, ParallelMemcopy) {
   for (int i = 0; i < 5; ++i) {
     // randomize size so the memcopy alignment is tested
-    int64_t total_size = 3 * 1024 * 1024 + random() % 100;
+    int64_t total_size = 3 * 1024 * 1024 + std::rand() % 100;
 
     auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
     buffer1->Resize(total_size);
