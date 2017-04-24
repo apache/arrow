@@ -62,6 +62,14 @@ mvn site
 rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
 ```
 
+#### C++
+
+```
+cd ../cpp/apidoc
+doxygen Doxyfile
+rsync -r html/ ../../site/asf-site/docs/cpp
+```
+
 #### Python
 
 First, build PyArrow with all optional extensions (Apache Parquet, jemalloc).
