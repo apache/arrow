@@ -1,0 +1,171 @@
+---
+layout: default
+---
+    <div class="container">
+      <div class="jumbotron">
+        <h1>Apache Arrow</h1>
+        <p class="lead">Powering Columnar In-Memory Analytics</p>
+        <p>
+          <a class="btn btn-lg btn-success" href="mailto:dev-subscribe@arrow.apache.org" role="button">Join Mailing List</a>
+        </p>
+      </div>
+      <div class="row">
+        <div class="col-lg-4">
+          <h2>Fast</h2>
+          <p>Apache Arrow&#8482; enables execution engines to take advantage of the latest SIMD (Single input multiple data) operations included in modern processors, for native vectorized optimization of analytical data processing. Columnar layout of data also allows for a better use of CPU caches by placing all data relevant to a column operation in as compact of a format as possible.</p>
+        </div>
+        <div class="col-lg-4">
+          <h2>Flexible</h2>
+          <p>Arrow acts as a new high-performance interface between various systems. It is also focused on supporting a wide variety of industry-standard programming languages. Java, C, C++, Python are underway and more languages are expected soon.</p>
+        </div>
+        <div class="col-lg-4">
+          <h2>Standard</h2>
+          <p>Apache Arrow is backed by key developers of 13 major open source projects, including Calcite, Cassandra, Drill, Hadoop, HBase, Ibis, Impala, Kudu, Pandas, Parquet, Phoenix, Spark, and Storm making it the de-facto standard for columnar in-memory analytics.</p>
+        </div>
+     </div> <!-- close "row" div -->
+
+      <div class="row marketing">
+        <div class="col-lg-4">
+          <h4>Developer Mailing List</h4>
+            <ul>
+            <li><a href="mailto:dev-subscribe@arrow.apache.org">Subscribe</a></li>
+            <li><a href="mailto:dev-unsubscribe@arrow.apache.org">Unsubscribe</a></li>
+            <li><a href="mailto:dev@arrow.apache.org">Post</a></li>
+            <li><a href="http://mail-archives.apache.org/mod_mbox/arrow-dev/">Archive</a></li>
+            </ul>
+          </div>
+        <div class="col-lg-4">
+          <h4>Developer Resources</h4>
+            <p>Arrow is still early in development. </p>
+            <p>Source Code (<a href="https://git-wip-us.apache.org/repos/asf?p=arrow.git">http</a>) (<a href="git://git.apache.org/arrow.git">git</a>)</p>
+            <p><a href="https://issues.apache.org/jira/browse/ARROW">Issue Tracker (JIRA)</a></p>
+            <p><a href="https://apachearrowslackin.herokuapp.com">Chat Room (Slack)</a></p>
+        </div>
+        <div class="col-lg-4">
+          <h4>Latest release</h4>
+            <p>Apache Arrow 0.2.0 is an early release and the APIs are still evolving. The metadata and physical data representation should be fairly stable as we have spent time finalizing the details. </p>
+            <p><a href="https://dist.apache.org/repos/dist/release/arrow/arrow-0.2.0">source release</a></p>
+            <p><a href="https://github.com/apache/arrow/releases/tag/apache-arrow-0.2.0">tag apache-arrow-0.2.0</a></p>
+            <p><a href="http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.2.0%22">java artifacts on maven central</a></p>
+        </div>
+    </div>
+<h2>Performance Advantage of Columnar In-Memory</h2>
+<div align="center">
+  <img src="img/simd.png" alt="SIMD" style="width:60%" />
+</div>
+<h2>Advantages of a Common Data Layer</h2>
+
+<div class="row">
+<div class="col-lg-4" style="width:50%">
+<img src="img/copy2.png" alt="common data layer" style="width:100%" />
+<ul>
+    <li>Each system has its own internal memory format</li>
+    <li>70-80% CPU wasted on serialization and deserialization</li>
+    <li>Similar functionality implemented in multiple projects</li>
+</ul>
+</div>
+<div class="col-lg-4" style="width:50%">
+<img src="img/shared2.png" alt="common data layer" style="width:100%" />
+<ul>
+    <li>All systems utilize the same memory format</li>
+    <li>No overhead for cross-system communication</li>
+    <li>Projects can share functionality (eg, Parquet-to-Arrow reader)</li>
+</ul>
+</div>
+</div>
+<h2>Committers</h2>
+<table class="table"><thead>
+<tr>
+<th>Name</th>
+<th>Alias (email is &lt;alias&gt;@apache.org)</th>
+</tr>
+</thead><tbody>
+<tr>
+<td>Jacques Nadeau</td>
+<td>jacques</td>
+</tr>
+<tr>
+<td>Todd Lipcon</td>
+<td>todd</td>
+</tr>
+<tr>
+<td>Ted Dunning</td>
+<td>tdunning</td>
+</tr>
+<tr>
+<td>Michael Stack</td>
+<td>stack</td>
+</tr>
+<tr>
+<td>P. Taylor Goetz</td>
+<td>ptgoetz</td>
+</tr>
+<tr>
+<td>Julian Hyde</td>
+<td>jhyde</td>
+</tr>
+<tr>
+<td>Reynold Xin</td>
+<td>rxin</td>
+</tr>
+<tr>
+<td>James Taylor</td>
+<td>jamestaylor</td>
+</tr>
+<tr>
+<td>Julien Le Dem</td>
+<td>julien</td>
+</tr>
+<tr>
+<td>Jake Luciani</td>
+<td>jake</td>
+</tr>
+<tr>
+<td>Jason Altekruse</td>
+<td>json</td>
+</tr>
+<tr>
+<td>Alex Levenson</td>
+<td>alexlevenson</td>
+</tr>
+<tr>
+<td>Parth Chandra</td>
+<td>parthc</td>
+</tr>
+<tr>
+<td>Marcel Kornacker</td>
+<td>marcel</td>
+</tr>
+<tr>
+<td>Steven Phillips</td>
+<td>smp</td>
+</tr>
+<tr>
+<td>Hanifi Gunes</td>
+<td>hg</td>
+</tr>
+<tr>
+<td>Abdelhakim Deneche</td>
+<td>adeneche</td>
+</tr>
+<tr>
+<td>Wes McKinney</td>
+<td>wesm</td>
+</tr>
+<tr>
+<td>David Alves</td>
+<td>dralves</td>
+</tr>
+<tr>
+<td>Ippokratis Pandis</td>
+<td>ippokratis</td>
+</tr>
+<tr>
+<td>Uwe L. Korn</td>
+<td>uwe</td>
+</tr>
+</tbody></table>
+
+    </div> <!-- /container -->
+  </body>
+</html>

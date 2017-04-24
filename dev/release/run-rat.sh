@@ -58,13 +58,15 @@ $RAT $1 \
   -e "*.html" \
   -e "*.css" \
   -e "*.png" \
+  -e "*.svg" \
   -e "*.devhelp2" \
+  -e "*.scss" \
   > rat.txt
 cat rat.txt
 UNAPPROVED=`cat rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
 
 if [ "0" -eq "${UNAPPROVED}" ]; then
-  echo "No unnaproved licenses"
+  echo "No unapproved licenses"
 else
   echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
   exit 1
