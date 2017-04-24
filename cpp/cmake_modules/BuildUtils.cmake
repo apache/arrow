@@ -147,11 +147,16 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   if (ARROW_BUILD_STATIC)
+      if (MSVC)
+        set(LIB_NAME_STATIC ${LIB_NAME}_static)
+      else()
+        set(LIB_NAME_STATIC ${LIB_NAME})
+      endif()
       add_library(${LIB_NAME}_static STATIC $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-      OUTPUT_NAME ${LIB_NAME})
+      OUTPUT_NAME ${LIB_NAME_STATIC})
 
   target_link_libraries(${LIB_NAME}_static
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS}
