@@ -24,7 +24,7 @@
 namespace arrow {
 
 uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
-	uintptr_t value = reinterpret_cast<uintptr_t>(address);
+  uintptr_t value = reinterpret_cast<uintptr_t>(address);
   return reinterpret_cast<uint8_t*>(value & bits);
 }
 
@@ -64,6 +64,6 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   }
 }
 
-}
+} // namespace arrow
 
 #endif  // ARROW_UTIL_MEMORY_H

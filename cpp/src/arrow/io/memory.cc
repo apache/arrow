@@ -107,7 +107,10 @@ static constexpr int64_t kMemcopyDefaultBlocksize = 64;
 static constexpr int64_t kMemcopyDefaultThreshold = 1024 * 1024;
 
 /// Input buffer must be mutable, will abort if not
-FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer) : memcopy_num_threads_(kMemcopyDefaultNumThreads), memcopy_blocksize_(kMemcopyDefaultBlocksize), memcopy_threshold_(kMemcopyDefaultThreshold) {
+FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer)
+    : memcopy_num_threads_(kMemcopyDefaultNumThreads),
+      memcopy_blocksize_(kMemcopyDefaultBlocksize),
+      memcopy_threshold_(kMemcopyDefaultThreshold) {
   buffer_ = buffer;
   DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
   mutable_data_ = buffer->mutable_data();
@@ -137,7 +140,8 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
   if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-    parallel_memcopy(mutable_data_ + position_, data, nbytes, memcopy_blocksize_, memcopy_num_threads_);
+    parallel_memcopy(mutable_data_ + position_, data, nbytes,
+                     memcopy_blocksize_, memcopy_num_threads_);
   } else {
     memcpy(mutable_data_ + position_, data, nbytes);
   }

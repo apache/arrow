@@ -53,7 +53,7 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
-		io::FixedSizeBufferWriter writer(buffer1);
+    io::FixedSizeBufferWriter writer(buffer1);
     writer.set_memcopy_threads(4);
     writer.Write(buffer2->data(), buffer2->size());
   }
@@ -72,4 +72,4 @@ BENCHMARK(BM_ParallelMemcopy)
     ->MinTime(1.0)
     ->UseRealTime();
 
-}
+} // namespace arrow

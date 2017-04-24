@@ -56,6 +56,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
+
  private:
   // Ensures there is sufficient space available to write nbytes
   Status Reserve(int64_t nbytes);
@@ -83,6 +84,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   void set_memcopy_threads(int num_threads);
   void set_memcopy_blocksize(int64_t blocksize);
   void set_memcopy_threshold(int64_t threshold);
+
  private:
   std::mutex lock_;
   std::shared_ptr<Buffer> buffer_;
