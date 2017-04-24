@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Internal header
+
 #include "arrow/python/platform.h"
 
 #include <cstdint>
@@ -24,6 +26,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/type.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
@@ -223,6 +226,51 @@ struct arrow_traits<Type::BINARY> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
 };
+
+static inline int numpy_type_size(int npy_type) {
+  switch (npy_type) {
+    case NPY_BOOL:
+      return 1;
+    case NPY_INT8:
+      return 1;
+    case NPY_INT16:
+      return 2;
+    case NPY_INT32:
+      return 4;
+    case NPY_INT64:
+      return 8;
+#if (NPY_INT64 != NPY_LONGLONG)
+    case NPY_LONGLONG:
+      return 8;
+#endif
+    case NPY_UINT8:
+      return 1;
+    case NPY_UINT16:
+      return 2;
+    case NPY_UINT32:
+      return 4;
+    case NPY_UINT64:
+      return 8;
+#if (NPY_UINT64 != NPY_ULONGLONG)
+    case NPY_ULONGLONG:
+      return 8;
+#endif
+    case NPY_FLOAT16:
+      return 2;
+    case NPY_FLOAT32:
+      return 4;
+    case NPY_FLOAT64:
+      return 8;
+    case NPY_DATETIME:
+      return 8;
+    case NPY_OBJECT:
+      return sizeof(void*);
+    default:
+      DCHECK(false) << "unhandled numpy type";
+      break;
+  }
+  return -1;
+}
 
 }  // namespace py
 }  // namespace arrow

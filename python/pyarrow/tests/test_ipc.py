@@ -158,7 +158,8 @@ class TestSocket(MessagingTest, unittest.TestCase):
                 connection.close()
 
         def get_result(self):
-            return(self._schema, self._table if self._do_read_all else self._batches)
+            return(self._schema, self._table if self._do_read_all
+                   else self._batches)
 
     def setUp(self):
         # NOTE: must start and stop server in test

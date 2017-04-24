@@ -444,7 +444,7 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   // Handle LONGLONG->INT64 and other fun things
   int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
 
-  if (traits::npy_type != type_num_compat) {
+  if (numpy_type_size(traits::npy_type) != numpy_type_size(type_num_compat)) {
     return Status::NotImplemented("NumPy type casts not yet implemented");
   }
 
