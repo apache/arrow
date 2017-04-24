@@ -66,8 +66,7 @@ mkdir -p $extract_dir/cpp/build
 cpp_install_dir=$PWD/$extract_dir/cpp/install
 cd $extract_dir/cpp/build
 cmake .. \
-  -DCMAKE_INSTALL_PREFIX=$cpp_install_dir \
-  -DARROW_BUILD_TESTS=no
+  -DCMAKE_INSTALL_PREFIX=$cpp_install_dir
 make -j8
 make install
 cd -
@@ -118,4 +117,3 @@ echo "Success! The release candidate is available here:"
 echo "  https://dist.apache.org/repos/dist/dev/arrow/$tagrc"
 echo ""
 echo "Commit SHA1: $release_hash"
-

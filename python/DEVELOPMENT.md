@@ -101,7 +101,6 @@ pushd arrow/cpp/build
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
       -DARROW_PYTHON=on \
-      -DARROW_BUILD_TESTS=OFF \
       ..
 make -j4
 make install
@@ -173,7 +172,6 @@ set ARROW_HOME=C:\thirdparty
 cmake -G "Visual Studio 14 2015 Win64" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_BUILD_TESTS=off ^
       -DARROW_PYTHON=on ..
 cmake --build . --target INSTALL --config Release
 cd ..\..
