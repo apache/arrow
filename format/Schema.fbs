@@ -100,7 +100,7 @@ enum DateUnit: short {
 ///   leap seconds), where the values are evenly divisible by 86400000
 /// * Days (32 bits) since the UNIX epoch
 table Date {
-  unit: DateUnit;
+  unit: DateUnit = MILLISECOND;
 }
 
 enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
@@ -109,8 +109,8 @@ enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
 /// - SECOND and MILLISECOND: 32 bits
 /// - MICROSECOND and NANOSECOND: 64 bits
 table Time {
-  unit: TimeUnit;
-  bitWidth: int;
+  unit: TimeUnit = MILLISECOND;
+  bitWidth: int = 32;
 }
 
 /// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
