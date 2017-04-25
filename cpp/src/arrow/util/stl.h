@@ -20,7 +20,7 @@
 
 #include <vector>
 
-#include <arrow/util/logging.h>
+#include "arrow/util/logging.h"
 
 namespace arrow {
 

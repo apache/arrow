@@ -15,44 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestBuffer < Test::Unit::TestCase
-  include Helper::Omittable
-
+class TestMutableBuffer < Test::Unit::TestCase
   def setup
     @data = "Hello"
-    @buffer = Arrow::Buffer.new(@data)
+    @buffer = Arrow::MutableBuffer.new(@data)
   end
 
   def test_mutable?
     assert do
-      not @buffer.mutable?
+      @buffer.mutable?
     end
   end
 
-  def test_capacity
-    assert_equal(@data.bytesize, @buffer.capacity)
-  end
-
-  def test_data
-    assert_equal(@data, @buffer.data.to_s)
-  end
-
   def test_mutable_data
-    require_gi(3, 1, 2)
-    assert_nil(@buffer.mutable_data)
-  end
-
-  def test_size
-    assert_equal(@data.bytesize, @buffer.size)
-  end
-
-  def test_parent
-    assert_nil(@buffer.parent)
-  end
-
-  def test_copy
-    copied_buffer = @buffer.copy(1, 3)
-    assert_equal(@data[1, 3], copied_buffer.data.to_s)
+    assert_equal(@data, @buffer.mutable_data.to_s)
   end
 
   def test_slice
