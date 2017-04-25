@@ -304,7 +304,9 @@ template <typename BuilderType>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendData(PyObject* seq, int64_t size) override {
+    /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
+    // Iterate over the items adding each one
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
       RETURN_NOT_OK(appendItem(item));
@@ -458,53 +460,45 @@ class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBui
   }
 };
 
-class UTF8Converter : public TypedConverter<StringBuilder> {
+class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    PyObject* item;
+  inline Status appendItem(OwnedRef &item) override final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
     Py_ssize_t length;
-    for (int64_t i = 0; i < size; ++i) {
-      item = PySequence_GetItem(seq, i);
-      OwnedRef holder(item);
 
-      if (item == Py_None) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
-        continue;
-      } else if (!PyUnicode_Check(item)) {
-        return Status::Invalid("Non-unicode value encountered");
-      }
-      tmp.reset(PyUnicode_AsUTF8String(item));
-      RETURN_IF_PYERROR();
-      bytes_obj = tmp.obj();
-
-      // No error checking
-      length = PyBytes_GET_SIZE(bytes_obj);
-      bytes = PyBytes_AS_STRING(bytes_obj);
-      RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
+    if (item.obj() == Py_None) {
+      RETURN_NOT_OK(typed_builder_->AppendNull());
+      return Status::OK();
+    } else if (!PyUnicode_Check(item.obj())) {
+      return Status::Invalid("Non-unicode value encountered");
     }
+    tmp.reset(PyUnicode_AsUTF8String(item.obj()));
+    RETURN_IF_PYERROR();
+    bytes_obj = tmp.obj();
+    
+    // No error checking
+    length = PyBytes_GET_SIZE(bytes_obj);
+    bytes = PyBytes_AS_STRING(bytes_obj);
+    RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
     return Status::OK();
   }
 };
 
-class ListConverter : public TypedConverter<ListBuilder> {
+class ListConverter : public TypedConverterVisitor<ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  Status AppendData(PyObject* seq, int64_t size) override {
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
-      } else {
-        typed_builder_->Append();
-	PyObject* item_obj = item.obj();
-	int64_t list_size =
-	  static_cast<int64_t>(PySequence_Size(item_obj));
-        RETURN_NOT_OK(value_converter_->AppendData(item_obj, list_size));
-      }
+  inline Status appendItem(OwnedRef &item) override final {
+    if (item.obj() == Py_None) {
+      RETURN_NOT_OK(typed_builder_->AppendNull());
+    } else {
+      typed_builder_->Append();
+      PyObject* item_obj = item.obj();
+      int64_t list_size =
+	static_cast<int64_t>(PySequence_Size(item_obj));
+      RETURN_NOT_OK(value_converter_->AppendData(item_obj, list_size));
     }
     return Status::OK();
   }
@@ -521,37 +515,27 @@ class ListConverter : public TypedConverter<ListBuilder> {
     break;                                                    \
   }
 
-class DecimalConverter : public TypedConverter<arrow::DecimalBuilder> {
+class DecimalConverter : public TypedConverterVisitor<arrow::DecimalBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-
+  inline Status appendItem(OwnedRef &item) override final {
     /// Can the compiler figure out that the case statement below isn't necessary
     /// once we're running?
     const int bit_width =
         std::dynamic_pointer_cast<arrow::DecimalType>(typed_builder_->type())
             ->bit_width();
 
-    OwnedRef ref;
-    PyObject* item = nullptr;
-    for (int64_t i = 0; i < size; ++i) {
-      ref.reset(PySequence_GetItem(seq, i));
-      item = ref.obj();
-
-      /// TODO(phillipc): Check for nan?
-      if (item != Py_None) {
-        switch (bit_width) {
-          DECIMAL_CONVERT_CASE(32, item, typed_builder_)
-          DECIMAL_CONVERT_CASE(64, item, typed_builder_)
-          DECIMAL_CONVERT_CASE(128, item, typed_builder_)
-          default:
-            break;
-        }
-        RETURN_IF_PYERROR();
-      } else {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
+    /// TODO(phillipc): Check for nan?
+    if (item.obj() != Py_None) {
+      switch (bit_width) {
+	  DECIMAL_CONVERT_CASE(32, item.obj(), typed_builder_)
+	  DECIMAL_CONVERT_CASE(64, item.obj(), typed_builder_)
+	  DECIMAL_CONVERT_CASE(128, item.obj(), typed_builder_)
+      default:
+	  return Status::OK();
       }
+      RETURN_IF_PYERROR();
+    } else {
+      RETURN_NOT_OK(typed_builder_->AppendNull());
     }
 
     return Status::OK();
