@@ -303,13 +303,25 @@ class TypedConverter : public SeqConverter {
 template <typename BuilderType>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  Status AppendData(PyObject* obj, int64_t size) override {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      RETURN_NOT_OK(appendItem(item));
+    if (PySequence_Check(obj)) {
+      for (int64_t i = 0; i < size; ++i) {
+	OwnedRef ref(PySequence_GetItem(obj, i));
+	RETURN_NOT_OK(appendItem(ref));
+      }
+    } else if (PyObject_HasAttrString(obj, "__iter__"))  {
+      PyObject* iter = PyObject_GetIter(obj);
+      PyObject* item;
+      while ((item = PyIter_Next(iter))) {
+	OwnedRef ref(item);
+	RETURN_NOT_OK(appendItem(ref));
+      }
+      Py_DECREF(iter);
+    } else {
+      return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
