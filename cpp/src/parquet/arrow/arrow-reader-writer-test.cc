@@ -43,7 +43,9 @@ using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
 using arrow::Status;
 using arrow::Table;
+using arrow::TimeUnit;
 
+using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -58,13 +60,98 @@ const int LARGE_SIZE = 10000;
 
 constexpr uint32_t kDefaultSeed = 0;
 
+LogicalType::type get_logical_type(const ::arrow::DataType& type) {
+  switch (type.id()) {
+    case ArrowId::UINT8:
+      return LogicalType::UINT_8;
+    case ArrowId::INT8:
+      return LogicalType::INT_8;
+    case ArrowId::UINT16:
+      return LogicalType::UINT_16;
+    case ArrowId::INT16:
+      return LogicalType::INT_16;
+    case ArrowId::UINT32:
+      return LogicalType::UINT_32;
+    case ArrowId::INT32:
+      return LogicalType::INT_32;
+    case ArrowId::UINT64:
+      return LogicalType::UINT_64;
+    case ArrowId::INT64:
+      return LogicalType::INT_64;
+    case ArrowId::STRING:
+      return LogicalType::UTF8;
+    case ArrowId::DATE32:
+      return LogicalType::DATE;
+    case ArrowId::DATE64:
+      return LogicalType::DATE;
+    case ArrowId::TIMESTAMP: {
+      const auto& ts_type = static_cast<const ::arrow::TimestampType&>(type);
+      switch (ts_type.unit()) {
+        case TimeUnit::MILLI:
+          return LogicalType::TIMESTAMP_MILLIS;
+        case TimeUnit::MICRO:
+          return LogicalType::TIMESTAMP_MICROS;
+        default:
+          DCHECK(false) << "Only MILLI and MICRO units supported for Arrow timestamps "
+                           "with Parquet.";
+      }
+    }
+    case ArrowId::TIME32:
+      return LogicalType::TIME_MILLIS;
+    case ArrowId::TIME64:
+      return LogicalType::TIME_MICROS;
+    default:
+      break;
+  }
+  return LogicalType::NONE;
+}
+
+ParquetType::type get_physical_type(const ::arrow::DataType& type) {
+  switch (type.id()) {
+    case ArrowId::BOOL:
+      return ParquetType::BOOLEAN;
+    case ArrowId::UINT8:
+    case ArrowId::INT8:
+    case ArrowId::UINT16:
+    case ArrowId::INT16:
+    case ArrowId::UINT32:
+    case ArrowId::INT32:
+      return ParquetType::INT32;
+    case ArrowId::UINT64:
+    case ArrowId::INT64:
+      return ParquetType::INT64;
+    case ArrowId::FLOAT:
+      return ParquetType::FLOAT;
+    case ArrowId::DOUBLE:
+      return ParquetType::DOUBLE;
+    case ArrowId::BINARY:
+      return ParquetType::BYTE_ARRAY;
+    case ArrowId::STRING:
+      return ParquetType::BYTE_ARRAY;
+    case ArrowId::DATE32:
+      return ParquetType::INT32;
+    case ArrowId::DATE64:
+      // Convert to date32 internally
+      return ParquetType::INT32;
+    case ArrowId::TIME32:
+      return ParquetType::INT32;
+    case ArrowId::TIME64:
+      return ParquetType::INT64;
+    case ArrowId::TIMESTAMP:
+      return ParquetType::INT64;
+    default:
+      break;
+  }
+  DCHECK(false) << "cannot reach this code";
+  return ParquetType::INT32;
+}
+
 template <typename TestType>
 struct test_traits {};
 
 template <>
 struct test_traits<::arrow::BooleanType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BOOLEAN;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static uint8_t const value;
 };
 
@@ -73,7 +160,6 @@ const uint8_t test_traits<::arrow::BooleanType>::value(1);
 template <>
 struct test_traits<::arrow::UInt8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::UINT_8;
   static uint8_t const value;
 };
 
@@ -82,7 +168,6 @@ const uint8_t test_traits<::arrow::UInt8Type>::value(64);
 template <>
 struct test_traits<::arrow::Int8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::INT_8;
   static int8_t const value;
 };
 
@@ -91,7 +176,6 @@ const int8_t test_traits<::arrow::Int8Type>::value(-64);
 template <>
 struct test_traits<::arrow::UInt16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::UINT_16;
   static uint16_t const value;
 };
 
@@ -100,7 +184,6 @@ const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::INT_16;
   static int16_t const value;
 };
 
@@ -109,7 +192,6 @@ const int16_t test_traits<::arrow::Int16Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::UINT_32;
   static uint32_t const value;
 };
 
@@ -118,7 +200,6 @@ const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static int32_t const value;
 };
 
@@ -127,7 +208,6 @@ const int32_t test_traits<::arrow::Int32Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static constexpr LogicalType::type logical_enum = LogicalType::UINT_64;
   static uint64_t const value;
 };
 
@@ -136,7 +216,6 @@ const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static int64_t const value;
 };
 
@@ -145,25 +224,22 @@ const int64_t test_traits<::arrow::Int64Type>::value(-1024);
 template <>
 struct test_traits<::arrow::TimestampType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static constexpr LogicalType::type logical_enum = LogicalType::TIMESTAMP_MILLIS;
   static int64_t const value;
 };
 
 const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
 
 template <>
-struct test_traits<::arrow::Date64Type> {
+struct test_traits<::arrow::Date32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static constexpr LogicalType::type logical_enum = LogicalType::DATE;
-  static int64_t const value;
+  static int32_t const value;
 };
 
-const int64_t test_traits<::arrow::Date64Type>::value(14688000000000);
+const int32_t test_traits<::arrow::Date32Type>::value(170000);
 
 template <>
 struct test_traits<::arrow::FloatType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FLOAT;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static float const value;
 };
 
@@ -172,7 +248,6 @@ const float test_traits<::arrow::FloatType>::value(2.1f);
 template <>
 struct test_traits<::arrow::DoubleType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::DOUBLE;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static double const value;
 };
 
@@ -181,14 +256,12 @@ const double test_traits<::arrow::DoubleType>::value(4.2);
 template <>
 struct test_traits<::arrow::StringType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static constexpr LogicalType::type logical_enum = LogicalType::UTF8;
   static std::string const value;
 };
 
 template <>
 struct test_traits<::arrow::BinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static constexpr LogicalType::type logical_enum = LogicalType::NONE;
   static std::string const value;
 };
 
@@ -231,18 +304,19 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
   }
 }
 
+static std::shared_ptr<GroupNode> MakeSimpleSchema(
+    const ::arrow::DataType& type, Repetition::type repetition) {
+  auto pnode = PrimitiveNode::Make(
+      "column1", repetition, get_physical_type(type), get_logical_type(type));
+  NodePtr node_ =
+      GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
+  return std::static_pointer_cast<GroupNode>(node_);
+}
+
 template <typename TestType>
 class TestParquetIO : public ::testing::Test {
  public:
   virtual void SetUp() {}
-
-  std::shared_ptr<GroupNode> MakeSchema(Repetition::type repetition) {
-    auto pnode = PrimitiveNode::Make("column1", repetition,
-        test_traits<TestType>::parquet_enum, test_traits<TestType>::logical_enum);
-    NodePtr node_ =
-        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-    return std::static_pointer_cast<GroupNode>(node_);
-  }
 
   std::unique_ptr<ParquetFileWriter> MakeWriter(
       const std::shared_ptr<GroupNode>& schema) {
@@ -348,8 +422,8 @@ class TestParquetIO : public ::testing::Test {
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
     ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type,
-    ::arrow::Int64Type, ::arrow::TimestampType, ::arrow::Date64Type, ::arrow::FloatType,
-    ::arrow::DoubleType, ::arrow::StringType, ::arrow::BinaryType>
+    ::arrow::Int64Type, ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType,
+    ::arrow::StringType, ::arrow::BinaryType>
     TestTypes;
 
 TYPED_TEST_CASE(TestParquetIO, TestTypes);
@@ -358,7 +432,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
 
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
   this->WriteColumn(schema, values);
 
   this->ReadAndCheckSingleColumnFile(values.get());
@@ -390,7 +465,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
   this->WriteColumn(schema, values);
 
   this->ReadAndCheckSingleColumnFile(values.get());
@@ -399,7 +475,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 TYPED_TEST(TestParquetIO, SingleColumnRequiredSliceWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(2 * SMALL_SIZE, &values));
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
 
   std::shared_ptr<Array> sliced_values = values->Slice(SMALL_SIZE / 2, SMALL_SIZE);
   this->WriteColumn(schema, sliced_values);
@@ -414,7 +491,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredSliceWrite) {
 TYPED_TEST(TestParquetIO, SingleColumnOptionalSliceWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NullableArray<TypeParam>(2 * SMALL_SIZE, SMALL_SIZE, kDefaultSeed, &values));
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
 
   std::shared_ptr<Array> sliced_values = values->Slice(SMALL_SIZE / 2, SMALL_SIZE);
   this->WriteColumn(schema, sliced_values);
@@ -470,7 +548,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   int64_t chunk_size = values->length() / 4;
 
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
   FileWriter writer(default_memory_pool(), this->MakeWriter(schema));
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
@@ -531,7 +610,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
-  std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::OPTIONAL);
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
   FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
@@ -601,7 +681,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   writer->Close();
 
   ::arrow::TimestampBuilder builder(
-      default_memory_pool(), ::arrow::timestamp(::arrow::TimeUnit::NANO));
+      default_memory_pool(), ::arrow::timestamp(TimeUnit::NANO));
   builder.Append(val);
   std::shared_ptr<Array> values;
   ASSERT_OK(builder.Finish(&values));
@@ -715,7 +795,9 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
   void MakeTestFile(
       std::vector<T>& values, int num_chunks, std::unique_ptr<FileReader>* reader) {
-    std::shared_ptr<GroupNode> schema = this->MakeSchema(Repetition::REQUIRED);
+    TestType dummy;
+
+    std::shared_ptr<GroupNode> schema = MakeSimpleSchema(dummy, Repetition::REQUIRED);
     std::unique_ptr<ParquetFileWriter> file_writer = this->MakeWriter(schema);
     size_t chunk_size = values.size() / num_chunks;
     // Convert to Parquet's expected physical type
@@ -785,6 +867,89 @@ TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedRead) {
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
   this->CheckSingleColumnRequiredTableRead(4);
+}
+
+void MakeDateTimeTypesTable(std::shared_ptr<Table>* out) {
+  using ::arrow::ArrayFromVector;
+
+  std::vector<bool> is_valid = {true, true, true, false, true, true};
+
+  // These are only types that roundtrip without modification
+  auto f0 = field("f0", ::arrow::date32());
+  auto f1 = field("f1", ::arrow::timestamp(TimeUnit::MILLI));
+  auto f2 = field("f2", ::arrow::timestamp(TimeUnit::MICRO));
+  auto f3 = field("f3", ::arrow::time32(TimeUnit::MILLI));
+  auto f4 = field("f4", ::arrow::time64(TimeUnit::MICRO));
+  std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1, f2, f3, f4}));
+
+  std::vector<int32_t> t32_values = {
+      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
+  std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
+      1489272000000, 1489272000000, 1489273000000};
+
+  std::shared_ptr<Array> a0, a1, a2, a3, a4;
+  ArrayFromVector<::arrow::Date32Type, int32_t>(f0->type(), is_valid, t32_values, &a0);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(f1->type(), is_valid, t64_values, &a1);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(f2->type(), is_valid, t64_values, &a2);
+  ArrayFromVector<::arrow::Time32Type, int32_t>(f3->type(), is_valid, t32_values, &a3);
+  ArrayFromVector<::arrow::Time64Type, int64_t>(f4->type(), is_valid, t64_values, &a4);
+
+  std::vector<std::shared_ptr<::arrow::Column>> columns = {
+      std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1),
+      std::make_shared<Column>("f2", a2), std::make_shared<Column>("f3", a3),
+      std::make_shared<Column>("f4", a4)};
+  *out = std::make_shared<::arrow::Table>(schema, columns);
+}
+
+TEST(TestArrowReadWrite, DateTimeTypes) {
+  std::shared_ptr<Table> table;
+  MakeDateTimeTypesTable(&table);
+
+  std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result);
+
+  ASSERT_TRUE(table->Equals(*result));
+}
+
+TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
+  using ::arrow::ArrayFromVector;
+
+  std::vector<bool> is_valid = {true, true, true, false, true, true};
+
+  auto f0 = field("f0", ::arrow::date64());
+  auto f1 = field("f1", ::arrow::time32(TimeUnit::SECOND));
+  std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1}));
+
+  std::vector<int64_t> a0_values = {1489190400000, 1489276800000, 1489363200000,
+      1489449600000, 1489536000000, 1489622400000};
+  std::vector<int32_t> a1_values = {0, 1, 2, 3, 4, 5};
+
+  std::shared_ptr<Array> a0, a1, x0, x1;
+  ArrayFromVector<::arrow::Date64Type, int64_t>(f0->type(), is_valid, a0_values, &a0);
+  ArrayFromVector<::arrow::Time32Type, int32_t>(f1->type(), is_valid, a1_values, &a1);
+
+  std::vector<std::shared_ptr<::arrow::Column>> columns = {
+      std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1)};
+  auto table = std::make_shared<::arrow::Table>(schema, columns);
+
+  // Expected schema and values
+  auto e0 = field("f0", ::arrow::date32());
+  auto e1 = field("f1", ::arrow::time32(TimeUnit::MILLI));
+  std::shared_ptr<::arrow::Schema> ex_schema(new ::arrow::Schema({e0, e1}));
+
+  std::vector<int32_t> x0_values = {17236, 17237, 17238, 17239, 17240, 17241};
+  std::vector<int32_t> x1_values = {0, 1000, 2000, 3000, 4000, 5000};
+  ArrayFromVector<::arrow::Date32Type, int32_t>(e0->type(), is_valid, x0_values, &x0);
+  ArrayFromVector<::arrow::Time32Type, int32_t>(e1->type(), is_valid, x1_values, &x1);
+
+  std::vector<std::shared_ptr<::arrow::Column>> ex_columns = {
+      std::make_shared<Column>("f0", x0), std::make_shared<Column>("f1", x1)};
+  auto ex_table = std::make_shared<::arrow::Table>(ex_schema, ex_columns);
+
+  std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result);
+
+  ASSERT_TRUE(result->Equals(*ex_table));
 }
 
 void MakeDoubleTable(

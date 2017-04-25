@@ -502,6 +502,10 @@ NONNULLABLE_BATCH_FAST_PATH(::arrow::Int32Type, Int32Type, int32_t)
 NONNULLABLE_BATCH_FAST_PATH(::arrow::Int64Type, Int64Type, int64_t)
 NONNULLABLE_BATCH_FAST_PATH(::arrow::FloatType, FloatType, float)
 NONNULLABLE_BATCH_FAST_PATH(::arrow::DoubleType, DoubleType, double)
+NONNULLABLE_BATCH_FAST_PATH(::arrow::Date32Type, Int32Type, int32_t)
+NONNULLABLE_BATCH_FAST_PATH(::arrow::TimestampType, Int64Type, int64_t)
+NONNULLABLE_BATCH_FAST_PATH(::arrow::Time32Type, Int32Type, int32_t)
+NONNULLABLE_BATCH_FAST_PATH(::arrow::Time64Type, Int64Type, int64_t)
 
 template <>
 Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96Type>(
@@ -607,6 +611,10 @@ NULLABLE_BATCH_FAST_PATH(::arrow::Int32Type, Int32Type, int32_t)
 NULLABLE_BATCH_FAST_PATH(::arrow::Int64Type, Int64Type, int64_t)
 NULLABLE_BATCH_FAST_PATH(::arrow::FloatType, FloatType, float)
 NULLABLE_BATCH_FAST_PATH(::arrow::DoubleType, DoubleType, double)
+NULLABLE_BATCH_FAST_PATH(::arrow::Date32Type, Int32Type, int32_t)
+NULLABLE_BATCH_FAST_PATH(::arrow::TimestampType, Int64Type, int64_t)
+NULLABLE_BATCH_FAST_PATH(::arrow::Time32Type, Int32Type, int32_t)
+NULLABLE_BATCH_FAST_PATH(::arrow::Time64Type, Int64Type, int64_t)
 
 template <>
 Status ColumnReader::Impl::ReadNullableBatch<::arrow::TimestampType, Int96Type>(
@@ -1036,18 +1044,22 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
     TYPED_BATCH_CASE(INT16, ::arrow::Int16Type, Int32Type)
     TYPED_BATCH_CASE(UINT32, ::arrow::UInt32Type, Int32Type)
     TYPED_BATCH_CASE(INT32, ::arrow::Int32Type, Int32Type)
-    TYPED_BATCH_CASE(DATE64, ::arrow::Date64Type, Int32Type)
     TYPED_BATCH_CASE(UINT64, ::arrow::UInt64Type, Int64Type)
     TYPED_BATCH_CASE(INT64, ::arrow::Int64Type, Int64Type)
     TYPED_BATCH_CASE(FLOAT, ::arrow::FloatType, FloatType)
     TYPED_BATCH_CASE(DOUBLE, ::arrow::DoubleType, DoubleType)
     TYPED_BATCH_CASE(STRING, ::arrow::StringType, ByteArrayType)
     TYPED_BATCH_CASE(BINARY, ::arrow::BinaryType, ByteArrayType)
+    TYPED_BATCH_CASE(DATE32, ::arrow::Date32Type, Int32Type)
+    TYPED_BATCH_CASE(DATE64, ::arrow::Date64Type, Int32Type)
     case ::arrow::Type::TIMESTAMP: {
       ::arrow::TimestampType* timestamp_type =
           static_cast<::arrow::TimestampType*>(field_->type().get());
       switch (timestamp_type->unit()) {
         case ::arrow::TimeUnit::MILLI:
+          return TypedReadBatch<::arrow::TimestampType, Int64Type>(batch_size, out);
+          break;
+        case ::arrow::TimeUnit::MICRO:
           return TypedReadBatch<::arrow::TimestampType, Int64Type>(batch_size, out);
           break;
         case ::arrow::TimeUnit::NANO:
@@ -1058,6 +1070,8 @@ Status ColumnReader::Impl::NextBatch(int batch_size, std::shared_ptr<Array>* out
       }
       break;
     }
+      TYPED_BATCH_CASE(TIME32, ::arrow::Time32Type, Int32Type)
+      TYPED_BATCH_CASE(TIME64, ::arrow::Time64Type, Int64Type)
     default:
       std::stringstream ss;
       ss << "No support for reading columns of type " << field_->type()->ToString();

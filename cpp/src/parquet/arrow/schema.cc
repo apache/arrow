@@ -45,6 +45,7 @@ namespace parquet {
 namespace arrow {
 
 const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
+const auto TIMESTAMP_US = ::arrow::timestamp(::arrow::TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
 
 TypePtr MakeDecimalType(const PrimitiveNode* node) {
@@ -105,17 +106,17 @@ static Status FromInt32(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::INT_16:
       *out = ::arrow::int16();
       break;
+    case LogicalType::INT_32:
+      *out = ::arrow::int32();
+      break;
     case LogicalType::UINT_32:
       *out = ::arrow::uint32();
       break;
     case LogicalType::DATE:
-      *out = ::arrow::date64();
+      *out = ::arrow::date32();
       break;
     case LogicalType::TIME_MILLIS:
       *out = ::arrow::time32(::arrow::TimeUnit::MILLI);
-      break;
-    case LogicalType::TIME_MICROS:
-      *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -135,6 +136,9 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
     case LogicalType::NONE:
       *out = ::arrow::int64();
       break;
+    case LogicalType::INT_64:
+      *out = ::arrow::int64();
+      break;
     case LogicalType::UINT_64:
       *out = ::arrow::uint64();
       break;
@@ -143,6 +147,12 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
       break;
     case LogicalType::TIMESTAMP_MILLIS:
       *out = TIMESTAMP_MS;
+      break;
+    case LogicalType::TIMESTAMP_MICROS:
+      *out = TIMESTAMP_US;
+      break;
+    case LogicalType::TIME_MICROS:
+      *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
       break;
     default:
       std::stringstream ss;
@@ -455,21 +465,30 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       break;
     case ArrowType::TIMESTAMP: {
       auto timestamp_type = static_cast<::arrow::TimestampType*>(field->type().get());
-      if (timestamp_type->unit() != ::arrow::TimestampType::Unit::MILLI) {
-        return Status::NotImplemented(
-            "Other timestamp units than millisecond are not yet support with parquet.");
-      }
+      auto unit = timestamp_type->unit();
       type = ParquetType::INT64;
-      logical_type = LogicalType::TIMESTAMP_MILLIS;
+      if (unit == ::arrow::TimeUnit::MILLI) {
+        logical_type = LogicalType::TIMESTAMP_MILLIS;
+      } else if (unit == ::arrow::TimeUnit::MICRO) {
+        logical_type = LogicalType::TIMESTAMP_MICROS;
+      } else {
+        return Status::NotImplemented(
+            "Only MILLI and MICRO units supported for Arrow timestamps with Parquet.");
+      }
     } break;
     case ArrowType::TIME32:
-      type = ParquetType::INT64;
+      type = ParquetType::INT32;
       logical_type = LogicalType::TIME_MILLIS;
       break;
-    case ArrowType::TIME64:
+    case ArrowType::TIME64: {
+      auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
+      if (time_type->unit() == ::arrow::TimeUnit::NANO) {
+        return Status::NotImplemented(
+            "Nanosecond time not supported in Parquet.");
+      }
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MICROS;
-      break;
+    } break;
     case ArrowType::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, field->name(), field->nullable(), properties, out);

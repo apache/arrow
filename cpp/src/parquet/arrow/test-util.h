@@ -20,6 +20,7 @@
 
 #include "arrow/api.h"
 #include "arrow/test-util.h"
+#include "arrow/type_traits.h"
 
 namespace parquet {
 namespace arrow {
