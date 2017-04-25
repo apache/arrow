@@ -151,30 +151,28 @@ class SeqVisitor {
     memset(nesting_histogram_, 0, MAX_NESTING_LEVELS * sizeof(int));
   }
 
+  // co-recursive with VisitElem
   Status Visit(PyObject* obj, int level = 0) {
-    Py_ssize_t size = PySequence_Size(obj);
 
     if (level > max_nesting_level_) { max_nesting_level_ = level; }
 
-    for (int64_t i = 0; i < size; ++i) {
-      // TODO(wesm): Error checking?
-      // TODO(wesm): Specialize for PyList_GET_ITEM?
-      OwnedRef item_ref(PySequence_GetItem(obj, i));
-      PyObject* item = item_ref.obj();
-
-      if (PyList_Check(item)) {
-        RETURN_NOT_OK(Visit(item, level + 1));
-      } else if (PyDict_Check(item)) {
-        return Status::NotImplemented("No type inference for dicts");
-      } else {
-        // We permit nulls at any level of nesting
-        if (item == Py_None) {
-          // TODO
-        } else {
-          ++nesting_histogram_[level];
-          scalars_.Visit(item);
-        }
+    // Loop through either a sequence or an iterator.
+    // VisitElemt takes ownership of the object we are visiting.
+    if (PySequence_Check(obj)) {
+      Py_ssize_t size = PySequence_Size(obj);
+      for (int64_t i = 0; i < size; ++i) {
+	// TODO(wesm): Specialize for PyList_GET_ITEM?
+	RETURN_NOT_OK(VisitElem(PySequence_GetItem(obj, i), level));
       }
+    } else if (PyObject_HasAttrString(obj, "__iter__")) {
+      PyObject* iter = PyObject_GetIter(obj);
+      PyObject* item;
+      while ((item = PyIter_Next(iter))) {
+	RETURN_NOT_OK(VisitElem(item, level));
+      }
+      Py_DECREF(iter);
+    } else {
+      return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
@@ -228,6 +226,28 @@ class SeqVisitor {
   // Track observed
   int max_nesting_level_;
   int nesting_histogram_[MAX_NESTING_LEVELS];
+
+  // Visits a specific element (inner part of the loop)
+  Status VisitElem(PyObject* item, int level) {
+    // TODO(wesm): Error checking?
+    OwnedRef item_ref(item);
+
+    if (PyList_Check(item)) {
+      RETURN_NOT_OK(Visit(item, level + 1));
+    } else if (PyDict_Check(item)) {
+      return Status::NotImplemented("No type inference for dicts");
+    } else {
+      // We permit nulls at any level of nesting
+      if (item == Py_None) {
+	// TODO
+      } else {
+	++nesting_histogram_[level];
+	scalars_.Visit(item);
+      }
+    }
+    return Status::OK();
+  }
+
 };
 
 Status InferArrowSize(PyObject* obj, int64_t* size) {
@@ -263,7 +283,7 @@ Status InferArrowTypeAndSize(
 
   PyDateTime_IMPORT;
   SeqVisitor seq_visitor;
-  RETURN_NOT_OK(seq_visitor.Visit(obj));
+  RETURN_NOT_OK(seq_visitor.Visit(obj, *size));
   RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
