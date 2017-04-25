@@ -359,120 +359,101 @@ class DateConverter : public TypedConverterVisitor<Date64Builder> {
   }
 };
 
-class TimestampConverter : public TypedConverter<TimestampBuilder> {
+class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        typed_builder_->AppendNull();
-      } else {
-        PyDateTime_DateTime* pydatetime =
-            reinterpret_cast<PyDateTime_DateTime*>(item.obj());
-        struct tm datetime = {0};
-        datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
-        datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
-        datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
-        datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
-        datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
-        datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
-        int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-        RETURN_IF_PYERROR();
-        struct tm epoch = {0};
-        epoch.tm_year = 70;
-        epoch.tm_mday = 1;
-        // Microseconds since the epoch
-        int64_t val = static_cast<int64_t>(
-            lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
-        typed_builder_->Append(val);
-      }
+  inline Status appendItem(OwnedRef &item) override final {
+    if (item.obj() == Py_None) {
+      typed_builder_->AppendNull();
+    } else {
+      PyDateTime_DateTime* pydatetime =
+	reinterpret_cast<PyDateTime_DateTime*>(item.obj());
+      struct tm datetime = {0};
+      datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
+      datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
+      datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
+      datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
+      datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
+      datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
+      int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
+      RETURN_IF_PYERROR();
+      struct tm epoch = {0};
+      epoch.tm_year = 70;
+      epoch.tm_mday = 1;
+      // Microseconds since the epoch
+      int64_t val = static_cast<int64_t>(
+	  lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
+      typed_builder_->Append(val);
     }
     return Status::OK();
   }
 };
 
-class DoubleConverter : public TypedConverter<DoubleBuilder> {
+class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  inline Status appendItem(OwnedRef &item) override final {
     double val;
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        typed_builder_->AppendNull();
-      } else {
-        val = PyFloat_AsDouble(item.obj());
-        RETURN_IF_PYERROR();
-        typed_builder_->Append(val);
-      }
+    if (item.obj() == Py_None) {
+      typed_builder_->AppendNull();
+    } else {
+      val = PyFloat_AsDouble(item.obj());
+      RETURN_IF_PYERROR();
+      typed_builder_->Append(val);
     }
     return Status::OK();
   }
 };
 
-class BytesConverter : public TypedConverter<BinaryBuilder> {
+class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    PyObject* item;
+  inline Status appendItem(OwnedRef &item) override final {
     PyObject* bytes_obj;
-    OwnedRef tmp;
     const char* bytes;
     Py_ssize_t length;
-    for (int64_t i = 0; i < size; ++i) {
-      item = PySequence_GetItem(seq, i);
-      OwnedRef holder(item);
+    OwnedRef tmp;
 
-      if (item == Py_None) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
-        continue;
-      } else if (PyUnicode_Check(item)) {
-        tmp.reset(PyUnicode_AsUTF8String(item));
-        RETURN_IF_PYERROR();
-        bytes_obj = tmp.obj();
-      } else if (PyBytes_Check(item)) {
-        bytes_obj = item;
-      } else {
-        return InvalidConversion(item, "bytes");
-      }
-      // No error checking
-      length = PyBytes_GET_SIZE(bytes_obj);
-      bytes = PyBytes_AS_STRING(bytes_obj);
-      RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
+    if (item.obj() == Py_None) {
+      RETURN_NOT_OK(typed_builder_->AppendNull());
+      return Status::OK();
+    } else if (PyUnicode_Check(item.obj())) {
+      tmp.reset(PyUnicode_AsUTF8String(item.obj()));
+      RETURN_IF_PYERROR();
+      bytes_obj = tmp.obj();
+    } else if (PyBytes_Check(item.obj())) {
+      bytes_obj = item.obj();
+    } else {
+      return InvalidConversion(item.obj(), "bytes");
     }
+    // No error checking
+    length = PyBytes_GET_SIZE(bytes_obj);
+    bytes = PyBytes_AS_STRING(bytes_obj);
+    RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
     return Status::OK();
   }
 };
 
-class FixedWidthBytesConverter : public TypedConverter<FixedSizeBinaryBuilder> {
+class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBuilder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    PyObject* item;
+  inline Status appendItem(OwnedRef &item) override final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
         typed_builder_->type())->byte_width();
-    for (int64_t i = 0; i < size; ++i) {
-      item = PySequence_GetItem(seq, i);
-      OwnedRef holder(item);
-
-      if (item == Py_None) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
-        continue;
-      } else if (PyUnicode_Check(item)) {
-        tmp.reset(PyUnicode_AsUTF8String(item));
-        RETURN_IF_PYERROR();
-        bytes_obj = tmp.obj();
-      } else if (PyBytes_Check(item)) {
-        bytes_obj = item;
-      } else {
-        return InvalidConversion(item, "bytes");
-      }
-      // No error checking
-      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
-      RETURN_NOT_OK(typed_builder_->Append(
-          reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj))));
+    if (item.obj() == Py_None) {
+      RETURN_NOT_OK(typed_builder_->AppendNull());
+      return Status::OK();
+    } else if (PyUnicode_Check(item.obj())) {
+      tmp.reset(PyUnicode_AsUTF8String(item.obj()));
+      RETURN_IF_PYERROR();
+      bytes_obj = tmp.obj();
+    } else if (PyBytes_Check(item.obj())) {
+      bytes_obj = item.obj();
+    } else {
+      return InvalidConversion(item.obj(), "bytes");
     }
+    // No error checking
+    RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
+    RETURN_NOT_OK(typed_builder_->Append(
+		      reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj))));
     return Status::OK();
   }
 };
