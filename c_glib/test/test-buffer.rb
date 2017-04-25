@@ -16,6 +16,8 @@
 # under the License.
 
 class TestBuffer < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @data = "Hello"
     @buffer = Arrow::Buffer.new(@data)
@@ -36,6 +38,7 @@ class TestBuffer < Test::Unit::TestCase
   end
 
   def test_mutable_data
+    require_gi(3, 1, 2)
     assert_nil(@buffer.mutable_data)
   end
 
