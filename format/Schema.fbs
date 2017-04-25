@@ -200,7 +200,7 @@ table VectorLayout {
 
 table KeyValue {
   key: string;
-  value: [ubyte];
+  value: string;
 }
 
 /// ----------------------------------------------------------------------

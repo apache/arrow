@@ -117,6 +117,40 @@ TEST_F(TestSchema, GetFieldByName) {
   ASSERT_TRUE(result == nullptr);
 }
 
+TEST_F(TestSchema, TestCustomMetadataConstruction) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
+  auto schema = std::make_shared<Schema>(fields, metadata);
+  ASSERT_TRUE(metadata.Equals(schema->custom_metadata()));
+}
+
+TEST_F(TestSchema, TestAddCustomMetadata) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
+  auto schema = std::make_shared<Schema>(fields);
+  std::shared_ptr<Schema> new_schema;
+  schema->AddCustomMetadata(metadata, &new_schema);
+  ASSERT_TRUE(metadata.Equals(new_schema->custom_metadata()));
+}
+
+TEST_F(TestSchema, TestRemoveCustomMetadata) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
+  auto schema = std::make_shared<Schema>(fields);
+  std::shared_ptr<Schema> new_schema;
+  schema->RemoveCustomMetadata(&new_schema);
+  ASSERT_EQ(0, new_schema->custom_metadata().size());
+}
+
 #define PRIMITIVE_TEST(KLASS, ENUM, NAME)        \
   TEST(TypesTest, TestPrimitive_##ENUM) {        \
     KLASS tp;                                    \

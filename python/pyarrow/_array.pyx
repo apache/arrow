@@ -244,6 +244,13 @@ cdef class Schema:
         self.schema = schema.get()
         self.sp_schema = schema
 
+    cpdef dict custom_metadata(self):
+        cdef:
+            CKeyValueMetadata metadata = self.schema.custom_metadata()
+            unordered_map[c_string, c_string] result
+        metadata.ToUnorderedMap(&result)
+        return result
+
     def equals(self, other):
         """
         Test if this schema is equal to the other
