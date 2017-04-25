@@ -914,7 +914,7 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    sequence : sequence or iterable-like object of Python objects
+    sequence : sequence-like object of Python objects
     type : pyarrow.DataType, optional
         If not passed, will be inferred from the data
     memory_pool : pyarrow.MemoryPool, optional

@@ -22,6 +22,21 @@ import pyarrow as pa
 import datetime
 import decimal
 
+class TestConvertIterable(unittest.TestCase):
+
+    def test_iterable_types(self):
+        arr1 = pa.array(range(3))
+        arr2 = pa.array((1, 2, 3))
+
+        assert arr1.equals(arr2)
+
+    def test_empty_iterable(self):
+        arr = pa.array(range(0))
+        assert len(arr) == 0
+        assert arr.null_count == 0
+        assert arr.type == pa.null()
+        assert arr.to_pylist() == []
+
 
 class TestConvertSequence(unittest.TestCase):
 
