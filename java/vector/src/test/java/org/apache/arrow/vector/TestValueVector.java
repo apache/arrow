@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
@@ -473,9 +474,46 @@ public class TestValueVector {
 
       vector.getMutator().setSafe(4094, "hello".getBytes(), 0, 5);
       vector.getMutator().setValueCount(4095);
+
       assertEquals(4096 * 4, vector.getFieldBuffers().get(1).capacity());
     }
   }
 
+  @Test
+  public void testCopyFromWithNulls() {
+    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+          final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+      vector.allocateNew();
+
+      for (int i = 0; i < 4095; i++) {
+        if (i % 3 == 0) {
+          continue;
+        }
+        byte[] b = Integer.toString(i).getBytes();
+        vector.getMutator().setSafe(i, b, 0, b.length);
+      }
+
+      vector.getMutator().setValueCount(4095);
+
+      vector2.allocateNew();
+
+      for (int i = 0; i < 4095; i++) {
+        vector2.copyFromSafe(i, i, vector);
+      }
+
+      vector2.getMutator().setValueCount(4095);
+
+      for (int i = 0; i < 4095; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector2.getAccessor().getObject(i));
+        } else {
+          assertEquals(Integer.toString(i), vector2.getAccessor().getObject(i).toString());
+        }
+
+      }
+
+
+    }
+  }
 
 }
