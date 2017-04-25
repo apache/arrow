@@ -164,6 +164,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
+        const unordered_map[c_string, c_string]& key_value_metadata()
 
     cdef cppclass ReaderProperties:
         pass
@@ -229,8 +230,11 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                              const unordered_map[c_string, c_string]& key_value_metadata,
                               shared_ptr[CSchema]* out)
+
     CStatus ToParquetSchema(const CSchema* arrow_schema,
+                            const unordered_map[c_string, c_string]& key_value_metadata,
                             shared_ptr[SchemaDescriptor]* out)
 
 

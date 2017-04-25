@@ -239,6 +239,18 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
+def test_pandas_wire_round_trip():
+    index = pd.Index([1, 2, 3], name='my_index')
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index, columns=columns
+    )
+    buf = pa.to_pandas_wire(df)
+    result = pa.from_pandas_wire(buf)
+    assert_frame_equal(result, df)
+
+
 def write_file(batch, sink):
     writer = pa.FileWriter(sink, batch.schema)
     writer.write_batch(batch)

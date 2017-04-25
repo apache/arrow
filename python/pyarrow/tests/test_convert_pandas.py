@@ -34,6 +34,9 @@ import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 
+DEFAULT_INDEX_FIELD = pa.Field.from_py('__index_level_0__', pa.int64())
+
+
 def _alltypes_example(size=100):
     return pd.DataFrame({
         'uint8': np.arange(size, dtype=np.uint8),
@@ -108,6 +111,8 @@ class TestPandasConversion(unittest.TestCase):
             data[numpy_dtype] = values.astype(numpy_dtype)
             fields.append(pa.Field.from_py(numpy_dtype, arrow_dtype))
 
+        fields.append(DEFAULT_INDEX_FIELD)
+
         df = pd.DataFrame(data)
         schema = pa.Schema.from_fields(fields)
         self._check_pandas_roundtrip(df, expected_schema=schema)
@@ -161,6 +166,7 @@ class TestPandasConversion(unittest.TestCase):
             data[dtype] = values.astype(dtype)
             fields.append(pa.Field.from_py(dtype, arrow_dtype))
 
+        fields.append(DEFAULT_INDEX_FIELD)
         df = pd.DataFrame(data)
         schema = pa.Schema.from_fields(fields)
         self._check_pandas_roundtrip(df, expected_schema=schema)
@@ -201,7 +207,7 @@ class TestPandasConversion(unittest.TestCase):
 
         df = pd.DataFrame({'bools': np.random.randn(num_values) > 0})
         field = pa.Field.from_py('bools', pa.bool_())
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_boolean_nulls(self):
@@ -231,7 +237,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([False, None, True] * 100, dtype=object)
         df = pd.DataFrame({'bools': arr})
         field = pa.Field.from_py('bools', pa.bool_())
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_unicode(self):
@@ -239,7 +245,7 @@ class TestPandasConversion(unittest.TestCase):
         values = [u'foo', None, u'bar', u'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
         field = pa.Field.from_py('strings', pa.string())
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
 
         self._check_pandas_roundtrip(df, expected_schema=schema)
 
@@ -280,7 +286,7 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[ms]')
             })
         field = pa.Field.from_py('datetime64', pa.timestamp('ms'))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, timestamps_to_ms=True,
                                      expected_schema=schema)
 
@@ -292,7 +298,7 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[ns]')
             })
         field = pa.Field.from_py('datetime64', pa.timestamp('ns'))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, timestamps_to_ms=False,
                                      expected_schema=schema)
 
@@ -305,7 +311,7 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[ms]')
             })
         field = pa.Field.from_py('datetime64', pa.timestamp('ms'))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, timestamps_to_ms=True,
                                      expected_schema=schema)
 
@@ -317,7 +323,7 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[ns]')
             })
         field = pa.Field.from_py('datetime64', pa.timestamp('ns'))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         self._check_pandas_roundtrip(df, timestamps_to_ms=False,
                                      expected_schema=schema)
 
@@ -354,7 +360,7 @@ class TestPandasConversion(unittest.TestCase):
                      datetime.date(2040, 2, 26)]})
         table = pa.Table.from_pandas(df)
         field = pa.Field.from_py('date', pa.date32())
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         assert table.schema.equals(schema)
         result = table.to_pandas()
         expected = df.copy()
@@ -527,7 +533,7 @@ class TestPandasConversion(unittest.TestCase):
         })
         converted = pa.Table.from_pandas(expected)
         field = pa.Field.from_py('decimals', pa.decimal(7, 3))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         assert converted.schema.equals(schema)
 
     def test_decimal_32_to_pandas(self):
@@ -550,7 +556,7 @@ class TestPandasConversion(unittest.TestCase):
         })
         converted = pa.Table.from_pandas(expected)
         field = pa.Field.from_py('decimals', pa.decimal(12, 6))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         assert converted.schema.equals(schema)
 
     def test_decimal_64_to_pandas(self):
@@ -573,7 +579,7 @@ class TestPandasConversion(unittest.TestCase):
         })
         converted = pa.Table.from_pandas(expected)
         field = pa.Field.from_py('decimals', pa.decimal(26, 11))
-        schema = pa.Schema.from_fields([field])
+        schema = pa.Schema.from_fields([field, DEFAULT_INDEX_FIELD])
         assert converted.schema.equals(schema)
 
     def test_decimal_128_to_pandas(self):

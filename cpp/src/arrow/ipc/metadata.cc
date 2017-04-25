@@ -45,6 +45,7 @@ namespace ipc {
 using FBB = flatbuffers::FlatBufferBuilder;
 using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
 using FieldOffset = flatbuffers::Offset<flatbuf::Field>;
+using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
@@ -583,6 +584,7 @@ flatbuf::Endianness endianness() {
 
 static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
     DictionaryMemo* dictionary_memo, flatbuffers::Offset<flatbuf::Schema>* out) {
+  /// Fields
   std::vector<FieldOffset> field_offsets;
   for (int i = 0; i < schema.num_fields(); ++i) {
     std::shared_ptr<Field> field = schema.field(i);
@@ -591,7 +593,17 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
     field_offsets.push_back(offset);
   }
 
-  *out = flatbuf::CreateSchema(fbb, endianness(), fbb.CreateVector(field_offsets));
+  /// Custom metadata
+  auto custom_metadata_ = schema.custom_metadata();
+  std::vector<KeyValueOffset> key_value_offsets;
+  key_value_offsets.reserve(custom_metadata_.size());
+  for (auto pair = custom_metadata_.cbegin(); pair != custom_metadata_.cend(); ++pair) {
+    key_value_offsets.push_back(flatbuf::CreateKeyValue(
+        fbb, fbb.CreateString(pair->first), fbb.CreateVector(pair->second)));
+  }
+
+  *out = flatbuf::CreateSchema(fbb, endianness(), fbb.CreateVector(field_offsets),
+      fbb.CreateVector(key_value_offsets));
   return Status::OK();
 }
 
@@ -922,7 +934,7 @@ static Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_f
 
 Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_field) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
-  int num_fields = static_cast<int>(schema->fields()->size());
+  auto num_fields = schema->fields()->size();
   for (int i = 0; i < num_fields; ++i) {
     RETURN_NOT_OK(VisitField(schema->fields()->Get(i), id_to_field));
   }
@@ -932,14 +944,24 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
     std::shared_ptr<Schema>* out) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
-  int num_fields = static_cast<int>(schema->fields()->size());
+  auto num_fields = schema->fields()->size();
 
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   for (int i = 0; i < num_fields; ++i) {
     const flatbuf::Field* field = schema->fields()->Get(i);
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
-  *out = std::make_shared<Schema>(fields);
+
+  std::unordered_map<std::string, std::vector<uint8_t>> custom_metadata;
+  const auto fb_metadata = schema->custom_metadata();
+  custom_metadata.reserve(fb_metadata->size());
+
+  for (auto pair = fb_metadata->begin(); pair != fb_metadata->end(); ++pair) {
+    custom_metadata.insert(std::make_pair(pair->key()->str(),
+        std::vector<uint8_t>(pair->value()->begin(), pair->value()->end())));
+  }
+
+  *out = std::make_shared<Schema>(fields, custom_metadata);
   return Status::OK();
 }
 

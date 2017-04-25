@@ -34,7 +34,6 @@ from pyarrow._error import ArrowException
 from pyarrow._array import field
 from pyarrow.compat import frombytes, tobytes
 
-
 from collections import OrderedDict
 
 
@@ -273,15 +272,15 @@ cdef class Column:
         return chunked_array
 
 
-cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
+cdef int _schema_from_arrays(
+        arrays, names, dict metadata, shared_ptr[CSchema]* schema) except -1:
     cdef:
         Array arr
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
-        cdef shared_ptr[CDataType] type_
-
-    cdef int K = len(arrays)
+        shared_ptr[CDataType] type_
+        int K = len(arrays)
 
     fields.resize(K)
 
@@ -306,15 +305,19 @@ cdef _schema_from_arrays(arrays, names, shared_ptr[CSchema]* schema):
     else:
         raise TypeError(type(arrays[0]))
 
-    schema.reset(new CSchema(fields))
+    schema.reset(new CSchema(fields, metadata))
+    return 0
 
 
-
-cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
+cdef tuple _dataframe_to_arrays(df, bint timestamps_to_ms, Schema schema):
     cdef:
         list names = []
         list arrays = []
+        list levels = getattr(df.index, 'levels', [df.index])
+        dict metadata = {b'indices': [], b'has_name': []}
         DataType type = None
+        size_t ncolumns = len(df.columns)
+        size_t index_column_offset
 
     for name in df.columns:
         col = df[name]
@@ -326,7 +329,19 @@ cdef _dataframe_to_arrays(df, timestamps_to_ms, Schema schema):
         names.append(name)
         arrays.append(arr)
 
-    return names, arrays
+    for i, (level, name) in enumerate(zip(levels, df.index.names)):
+        index_column_offset = ncolumns + i
+        index_array = Array.from_pandas(
+            level, timestamps_to_ms=timestamps_to_ms
+        )
+        arrays.append(index_array)
+        names.append(
+            name if name is not None else '__index_level_{:d}__'.format(i)
+        )
+        metadata[b'indices'].append(index_column_offset)
+        metadata[b'has_name'].append(name is not None)
+
+    return names, arrays, metadata
 
 
 cdef class RecordBatch:
@@ -486,11 +501,11 @@ cdef class RecordBatch:
         -------
         pyarrow.table.RecordBatch
         """
-        names, arrays = _dataframe_to_arrays(df, False, schema)
-        return cls.from_arrays(arrays, names)
+        names, arrays, metadata = _dataframe_to_arrays(df, False, schema)
+        return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(arrays, names):
+    def from_arrays(list arrays, list names, dict metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -512,15 +527,17 @@ cdef class RecordBatch:
             shared_ptr[CRecordBatch] batch
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
+            int64_t i
+            int64_t number_of_arrays = len(arrays)
 
-        if len(arrays) == 0:
+        if not number_of_arrays:
             raise ValueError('Record batch cannot contain no arrays (for now)')
 
         num_rows = len(arrays[0])
-        _schema_from_arrays(arrays, names, &schema)
+        _schema_from_arrays(arrays, names, metadata or {}, &schema)
 
-        for i in range(len(arrays)):
-            arr = arrays[i]
+        c_arrays.reserve(len(arrays))
+        for arr in arrays:
             c_arrays.push_back(arr.sp_array)
 
         batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
@@ -530,15 +547,56 @@ cdef class RecordBatch:
 cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
     cdef:
         PyObject* result_obj
-        CColumn* col
-        int i
+        Column col
+        CTable* ctable = table.get()
+        size_t row_count = ctable.num_rows()
+        CSchema* schema = ctable.schema().get()
+        shared_ptr[CTable] block_table = table
+        list index_arrays = []
+        size_t i
+        size_t total_columns = ctable.num_columns()
+        list names = [
+            frombytes(ctable.column(i).get().name())
+            for i in range(total_columns)
+        ]
+        dict metadata = schema.custom_metadata()
+        list indices = []
+        list indices_have_name = []
+        size_t number_of_index_levels
+        size_t index_start
+
+    if b'indices' in metadata:
+        indices = metadata[b'indices']
+        indices_have_name = metadata[b'has_name']
+        assert len(indices) == len(indices_have_name)
+
+    number_of_index_levels = len(indices)
+    index_start = total_columns - number_of_index_levels
+
+    for i, has_name in zip(indices, indices_have_name):
+        col = Column()
+        col.init(ctable.column(i))
+        idx = _pandas().Index(
+            col.to_pandas().values,
+            name=names[i] if has_name else None
+        )
+        index_arrays.append(idx)
+        ctable.RemoveColumn(i, &block_table)
+        del names[i]
+
+    cdef list axes = [
+        names[:index_start],
+        _pandas().MultiIndex.from_arrays(
+            index_arrays
+        ) if index_arrays else _pandas().RangeIndex(row_count),
+    ]
 
     import pandas.core.internals as _int
     from pandas import RangeIndex, Categorical
     from pyarrow.compat import DatetimeTZDtype
 
     with nogil:
-        check_status(pyarrow.ConvertTableToPandas(table, nthreads,
+        check_status(pyarrow.ConvertTableToPandas(block_table, nthreads,
                                                   &result_obj))
 
     result = PyObject_to_object(result_obj)
@@ -563,12 +621,6 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
             block = _int.make_block(block_arr, placement=placement)
         blocks.append(block)
 
-    names = []
-    for i in range(table.get().num_columns()):
-        col = table.get().column(i).get()
-        names.append(frombytes(col.name()))
-
-    axes = [names, RangeIndex(table.get().num_rows())]
     return _int.BlockManager(blocks, axes)
 
 
@@ -656,13 +708,13 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.table.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays = _dataframe_to_arrays(df,
+        names, arrays, metadata = _dataframe_to_arrays(df,
                                              timestamps_to_ms=timestamps_to_ms,
                                              schema=schema)
-        return cls.from_arrays(arrays, names=names)
+        return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None):
+    def from_arrays(arrays, names=None, dict metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -680,22 +732,25 @@ cdef class Table:
 
         """
         cdef:
-            vector[shared_ptr[CField]] fields
             vector[shared_ptr[CColumn]] columns
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
+            size_t K = len(arrays)
 
-        _schema_from_arrays(arrays, names, &schema)
+        _schema_from_arrays(arrays, names, metadata or {}, &schema)
 
-        cdef int K = len(arrays)
-        columns.resize(K)
+        columns.reserve(K)
 
         for i in range(K):
             if isinstance(arrays[i], Array):
-                columns[i].reset(new CColumn(schema.get().field(i),
-                                             (<Array> arrays[i]).sp_array))
+                columns.push_back(
+                    make_shared[CColumn](
+                        schema.get().field(i),
+                        (<Array> arrays[i]).sp_array
+                    )
+                )
             elif isinstance(arrays[i], Column):
-                columns[i] = (<Column> arrays[i]).sp_column
+                columns.push_back((<Column> arrays[i]).sp_column)
             else:
                 raise ValueError(type(arrays[i]))
 

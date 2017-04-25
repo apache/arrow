@@ -81,3 +81,20 @@ class FileWriter(_io._FileWriter):
     """
     def __init__(self, sink, schema):
         self._open(sink, schema)
+
+
+def to_pandas_wire(df):
+    import pyarrow as pa
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.InMemoryOutputStream()
+    writer = pa.FileWriter(sink, batch.schema)
+    writer.write_batch(batch)
+    writer.close()
+    return sink.get_result()
+
+
+def from_pandas_wire(buf):
+    import pyarrow as pa
+    buffer_reader = pa.BufferReader(buf)
+    reader = pa.FileReader(buffer_reader)
+    return reader.read_all().to_pandas()
