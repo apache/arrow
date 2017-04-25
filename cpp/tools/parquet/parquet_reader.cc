@@ -23,7 +23,7 @@
 
 int main(int argc, char** argv) {
   if (argc > 5 || argc < 2) {
-    std::cerr << "Usage: parquet_reader [--only-metadata] [--no-memory-map] "
+    std::cerr << "Usage: parquet_reader [--only-metadata] [--no-memory-map] [--json]"
                  "[--columns=...] <file>"
               << std::endl;
     return -1;
@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
   std::string filename;
   bool print_values = true;
   bool memory_map = true;
+  bool format_json = false;
 
   // Read command-line options
   const std::string COLUMNS_PREFIX = "--columns=";
@@ -43,6 +44,8 @@ int main(int argc, char** argv) {
       print_values = false;
     } else if ((param = std::strstr(argv[i], "--no-memory-map"))) {
       memory_map = false;
+    } else if ((param = std::strstr(argv[i], "--json"))) {
+      format_json = true;
     } else if ((param = std::strstr(argv[i], COLUMNS_PREFIX.c_str()))) {
       value = std::strtok(param + COLUMNS_PREFIX.length(), ",");
       while (value) {
@@ -58,7 +61,11 @@ int main(int argc, char** argv) {
     std::unique_ptr<parquet::ParquetFileReader> reader =
         parquet::ParquetFileReader::OpenFile(filename, memory_map);
     parquet::ParquetFilePrinter printer(reader.get());
-    printer.DebugPrint(std::cout, columns, print_values);
+    if (format_json) {
+      printer.JSONPrint(std::cout, columns, filename.c_str());
+    } else {
+      printer.DebugPrint(std::cout, columns, print_values, filename.c_str());
+    }
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: " << e.what() << std::endl;
     return -1;
