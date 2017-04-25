@@ -30,11 +30,10 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: tensor
- * @short_description: Base class for all tensor classes
+ * @short_description: Tensor class.
+ * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowTensor is a base class for all tensor classes such as
- * #GArrowInt8Tensor.
- * #GArrowBooleanTensorBuilder to create a new tensor.
+ * #GArrowTensor is a tensor class.
  *
  * Since: 0.3.0
  */

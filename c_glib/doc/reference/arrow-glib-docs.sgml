@@ -41,6 +41,10 @@
       <title>Array builder</title>
       <xi:include href="xml/array-builder.xml"/>
     </chapter>
+    <chapter id="tensor">
+      <title>Tensor</title>
+      <xi:include href="xml/tensor.xml"/>
+    </chapter>
     <chapter id="type">
       <title>Type</title>
       <xi:include href="xml/type.xml"/>
