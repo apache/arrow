@@ -372,20 +372,40 @@ def test_date_time_types(tmpdir):
     t5 = pa.time64('us')
     a5 = pa.Array.from_pandas(data4.astype('int64'), type=t5)
 
-    table = pa.Table.from_arrays([a1, a2, a3, a4, a5],
+    t6 = pa.time32('s')
+    a6 = pa.Array.from_pandas(data4, type=t6)
+
+    ex_t6 = pa.time32('ms')
+    ex_a6 = pa.Array.from_pandas(data4 * 1000, type=ex_t6)
+
+    table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6],
                                  ['date32', 'date64', 'timestamp[us]',
-                                  'time32[s]', 'time64[us]'])
+                                  'time32[s]', 'time64[us]', 'time32[s]'])
 
     # date64 as date32
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5],
+    # time32[s] to time32[ms]
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6],
                                     ['date32', 'date64', 'timestamp[us]',
-                                     'time32[s]', 'time64[us]'])
+                                     'time32[s]', 'time64[us]', 'time32[s]'])
 
     pq.write_table(table, buf, version="2.0")
     buf.seek(0)
 
     result = pq.read_table(buf)
     assert result.equals(expected)
+
+    # Unsupported stuff
+    def _assert_unsupported(array):
+        table = pa.Table.from_arrays([array], ['unsupported'])
+        buf = io.BytesIO()
+
+        with pytest.raises(NotImplementedError):
+            pq.write_table(table, buf, version="2.0")
+
+    t7 = pa.time64('ns')
+    a7 = pa.Array.from_pandas(data4.astype('int64'), type=t7)
+
+    _assert_unsupported(a7)
 
 
 @parquet
