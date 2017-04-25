@@ -201,12 +201,17 @@ public class MessageSerializer {
 
   // Deserializes a record batch given the Flatbuffer metadata and in-memory body
   private static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB,
-      ArrowBuf body) {
+      ArrowBuf body) throws IOException {
     // Now read the body
     int nodesLength = recordBatchFB.nodesLength();
     List<ArrowFieldNode> nodes = new ArrayList<>();
     for (int i = 0; i < nodesLength; ++i) {
       FieldNode node = recordBatchFB.nodes(i);
+      if ((int)node.length() != node.length() ||
+          (int)node.nullCount() != node.nullCount()) {
+        throw new IOException("Cannot currently deserialize record batches with " +
+                              "node length larger than Int.MAX_VALUE");
+      }
       nodes.add(new ArrowFieldNode((int)node.length(), (int)node.nullCount()));
     }
     List<ArrowBuf> buffers = new ArrayList<>();
@@ -214,6 +219,9 @@ public class MessageSerializer {
       Buffer bufferFB = recordBatchFB.buffers(i);
       ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
       buffers.add(vectorBuffer);
+    }
+    if ((int)recordBatchFB.length() != recordBatchFB.length()) {
+      throw new IOException("Cannot currently deserialize record batches over 2GB");
     }
     ArrowRecordBatch arrowRecordBatch =
         new ArrowRecordBatch((int)recordBatchFB.length(), nodes, buffers);
