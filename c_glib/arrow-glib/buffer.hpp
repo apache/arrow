@@ -25,3 +25,5 @@
 
 GArrowBuffer *garrow_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer);
 std::shared_ptr<arrow::Buffer> garrow_buffer_get_raw(GArrowBuffer *buffer);
+
+GArrowMutableBuffer *garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer);
