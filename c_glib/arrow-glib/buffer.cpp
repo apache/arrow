@@ -38,6 +38,11 @@ G_BEGIN_DECLS
  * #GArrowBuffer is immutable.
  *
  * #GArrowMutableBuffer is mutable.
+ *
+ * #GArrowResizableBuffer is mutable and
+ * resizable. #GArrowResizableBuffer isn't instantiatable.
+ *
+ * #GArrowPoolBuffer is mutable, resizable and instantiatable.
  */
 
 typedef struct GArrowBufferPrivate_ {
@@ -357,6 +362,106 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
   return garrow_mutable_buffer_new_raw(&arrow_buffer);
 }
 
+
+G_DEFINE_TYPE(GArrowResizableBuffer,              \
+              garrow_resizable_buffer,            \
+              GARROW_TYPE_MUTABLE_BUFFER)
+
+static void
+garrow_resizable_buffer_init(GArrowResizableBuffer *object)
+{
+}
+
+static void
+garrow_resizable_buffer_class_init(GArrowResizableBufferClass *klass)
+{
+}
+
+/**
+ * garrow_resizable_buffer_resize:
+ * @buffer: A #GArrowResizableBuffer.
+ * @new_size: The new buffer size in bytes.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.3.0
+ */
+gboolean
+garrow_resizable_buffer_resize(GArrowResizableBuffer *buffer,
+                               gint64 new_size,
+                               GError **error)
+{
+  auto arrow_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
+  auto arrow_resizable_buffer =
+    std::static_pointer_cast<arrow::ResizableBuffer>(arrow_buffer);
+  auto status = arrow_resizable_buffer->Resize(new_size);
+  if (status.ok()) {
+    return TRUE;
+  } else {
+    garrow_error_set(error, status, "[resizable-buffer][resize]");
+    return FALSE;
+  }
+}
+
+/**
+ * garrow_resizable_buffer_reserve:
+ * @buffer: A #GArrowResizableBuffer.
+ * @new_capacity: The new buffer capacity in bytes.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.3.0
+ */
+gboolean
+garrow_resizable_buffer_reserve(GArrowResizableBuffer *buffer,
+                                gint64 new_capacity,
+                                GError **error)
+{
+  auto arrow_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
+  auto arrow_resizable_buffer =
+    std::static_pointer_cast<arrow::ResizableBuffer>(arrow_buffer);
+  auto status = arrow_resizable_buffer->Reserve(new_capacity);
+  if (status.ok()) {
+    return TRUE;
+  } else {
+    garrow_error_set(error, status, "[resizable-buffer][capacity]");
+    return FALSE;
+  }
+}
+
+
+G_DEFINE_TYPE(GArrowPoolBuffer,              \
+              garrow_pool_buffer,            \
+              GARROW_TYPE_RESIZABLE_BUFFER)
+
+static void
+garrow_pool_buffer_init(GArrowPoolBuffer *object)
+{
+}
+
+static void
+garrow_pool_buffer_class_init(GArrowPoolBufferClass *klass)
+{
+}
+
+/**
+ * garrow_pool_buffer_new:
+ *
+ * Returns: A newly created #GArrowPoolBuffer.
+ *
+ * Since: 0.3.0
+ */
+GArrowPoolBuffer *
+garrow_pool_buffer_new(void)
+{
+  auto arrow_memory_pool = arrow::default_memory_pool();
+  auto arrow_buffer = std::make_shared<arrow::PoolBuffer>(arrow_memory_pool);
+  return garrow_pool_buffer_new_raw(&arrow_buffer);
+}
+
+
 G_END_DECLS
 
 GArrowBuffer *
@@ -381,5 +486,14 @@ garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffe
   auto buffer = GARROW_MUTABLE_BUFFER(g_object_new(GARROW_TYPE_MUTABLE_BUFFER,
                                                    "buffer", arrow_buffer,
                                                    NULL));
+  return buffer;
+}
+
+GArrowPoolBuffer *
+garrow_pool_buffer_new_raw(std::shared_ptr<arrow::PoolBuffer> *arrow_buffer)
+{
+  auto buffer = GARROW_POOL_BUFFER(g_object_new(GARROW_TYPE_POOL_BUFFER,
+                                                "buffer", arrow_buffer,
+                                                NULL));
   return buffer;
 }
