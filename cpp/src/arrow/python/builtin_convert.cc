@@ -331,37 +331,29 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
   }
 };
 
-class Int64Converter : public TypedConverter<Int64Builder> {
+class Int64Converter : public TypedConverterVisitor<Int64Builder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
+  inline Status appendItem(OwnedRef &item) override final {
     int64_t val;
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        typed_builder_->AppendNull();
-      } else {
-        val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
-        RETURN_IF_PYERROR();
-        typed_builder_->Append(val);
-      }
+    if (item.obj() == Py_None) {
+      typed_builder_->AppendNull();
+    } else {
+      val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
+      typed_builder_->Append(val);
     }
     return Status::OK();
   }
 };
 
-class DateConverter : public TypedConverter<Date64Builder> {
+class DateConverter : public TypedConverterVisitor<Date64Builder> {
  public:
-  Status AppendData(PyObject* seq, int64_t size) override {
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    for (int64_t i = 0; i < size; ++i) {
-      OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        typed_builder_->AppendNull();
-      } else {
-        PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
-        typed_builder_->Append(PyDate_to_ms(pydate));
-      }
+  inline Status appendItem(OwnedRef &item) override final {
+    if (item.obj() == Py_None) {
+      typed_builder_->AppendNull();
+    } else {
+      PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
+      typed_builder_->Append(PyDate_to_ms(pydate));
     }
     return Status::OK();
   }
