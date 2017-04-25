@@ -28,10 +28,16 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: buffer
- * @short_description: Buffer class
+ * @section_id: buffer-classes
+ * @title: Buffer classes
+ * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowBuffer is a class for keeping data. Other classes such as
  * #GArrowArray and #GArrowTensor can use data in buffer.
+ *
+ * #GArrowBuffer is immutable.
+ *
+ * #GArrowMutableBuffer is mutable.
  */
 
 typedef struct GArrowBufferPrivate_ {
@@ -183,6 +189,27 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
 }
 
 /**
+ * garrow_buffer_get_mutable_data:
+ * @buffer: A #GArrowBuffer.
+ *
+ * Returns: (transfer full) (nullable): The data of the buffer. If the
+ *   buffer is imutable, it returns %NULL. The data is owned by the
+ *   buffer. You should not free the data.
+ *
+ * Since: 0.3.0
+ */
+GBytes *
+garrow_buffer_get_mutable_data(GArrowBuffer *buffer)
+{
+  auto arrow_buffer = garrow_buffer_get_raw(buffer);
+  if (!arrow_buffer->is_mutable()) {
+    return NULL;
+  }
+  return g_bytes_new_static(arrow_buffer->mutable_data(),
+                            arrow_buffer->size());
+}
+
+/**
  * garrow_buffer_get_size:
  * @buffer: A #GArrowBuffer.
  *
@@ -271,6 +298,65 @@ garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
   return garrow_buffer_new_raw(&arrow_buffer);
 }
 
+
+G_DEFINE_TYPE(GArrowMutableBuffer,              \
+              garrow_mutable_buffer,            \
+              GARROW_TYPE_BUFFER)
+
+static void
+garrow_mutable_buffer_init(GArrowMutableBuffer *object)
+{
+}
+
+static void
+garrow_mutable_buffer_class_init(GArrowMutableBufferClass *klass)
+{
+}
+
+/**
+ * garrow_mutable_buffer_new:
+ * @data: (array length=size): Data for the buffer.
+ *   They aren't owned by the new buffer.
+ *   You must not free the data while the new buffer is alive.
+ * @size: The number of bytes of the data.
+ *
+ * Returns: A newly created #GArrowMutableBuffer.
+ *
+ * Since: 0.3.0
+ */
+GArrowMutableBuffer *
+garrow_mutable_buffer_new(guint8 *data, gint64 size)
+{
+  auto arrow_buffer = std::make_shared<arrow::MutableBuffer>(data, size);
+  return garrow_mutable_buffer_new_raw(&arrow_buffer);
+}
+
+/**
+ * garrow_mutable_buffer_slice:
+ * @buffer: A #GArrowMutableBuffer.
+ * @offset: An offset in the buffer data in byte.
+ * @size: The number of bytes of the sliced data.
+ *
+ * Returns: (transfer full): A newly created #GArrowMutableBuffer that
+ *   shares data of the base #GArrowMutableBuffer. The created
+ *   #GArrowMutableBuffer has data start with offset from the base
+ *   buffer data and are the specified bytes size.
+ *
+ * Since: 0.3.0
+ */
+GArrowMutableBuffer *
+garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
+                            gint64 offset,
+                            gint64 size)
+{
+  auto arrow_parent_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
+  auto arrow_buffer =
+    std::make_shared<arrow::MutableBuffer>(arrow_parent_buffer,
+                                           offset,
+                                           size);
+  return garrow_mutable_buffer_new_raw(&arrow_buffer);
+}
+
 G_END_DECLS
 
 GArrowBuffer *
@@ -287,4 +373,13 @@ garrow_buffer_get_raw(GArrowBuffer *buffer)
 {
   auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
   return priv->buffer;
+}
+
+GArrowMutableBuffer *
+garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer)
+{
+  auto buffer = GARROW_MUTABLE_BUFFER(g_object_new(GARROW_TYPE_MUTABLE_BUFFER,
+                                                   "buffer", arrow_buffer,
+                                                   NULL));
+  return buffer;
 }
