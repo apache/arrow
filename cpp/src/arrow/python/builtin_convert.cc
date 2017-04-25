@@ -231,11 +231,24 @@ class SeqVisitor {
 };
 
 Status InferArrowSize(PyObject* obj, int64_t* size) {
-  *size = static_cast<int64_t>(PySequence_Size(obj));
+  if (PySequence_Check(obj)) {
+    *size = static_cast<int64_t>(PySequence_Size(obj));
+  } else if (PyObject_HasAttrString(obj, "__iter__")) {
+    PyObject* iter = PyObject_GetIter(obj);
+    *size = 0;
+    PyObject* item;
+    while (item = PyIter_Next(iterator)) {
+      *size += 1;
+      Py_DECREF(item);
+    }
+    Py_DECREF(iter);
+  } else {
+    return Status::TypeError("Object is not a sequence or iterable");
+  }
   if (PyErr_Occurred()) {
     // Not a sequence
     PyErr_Clear();
-    return Status::TypeError("Object is not a sequence");
+    return Status::TypeError("Object is not a sequence or iterable");
   }
   return Status::OK();
 }
@@ -287,21 +300,35 @@ class TypedConverter : public SeqConverter {
   BuilderType* typed_builder_;
 };
 
-class BoolConverter : public TypedConverter<BooleanBuilder> {
+template <typename BuilderType>
+class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendData(PyObject* seq) override {
     int64_t size = static_cast<int64_t>(PySequence_Size(seq));
     RETURN_NOT_OK(typed_builder_->Reserve(size));
     for (int64_t i = 0; i < size; ++i) {
       OwnedRef item(PySequence_GetItem(seq, i));
-      if (item.obj() == Py_None) {
-        typed_builder_->AppendNull();
+      status = appendItem(item);
+      if (status != Status::OK()) {
+	return status;
+      }
+    }
+  }
+
+  appendItem(OwnedRef &item);
+};
+  
+class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
+ public:
+  Status appendItem(OwnedRef &item) override {
+    OwnedRef item(PySequence_GetItem(seq, i));
+    if (item.obj() == Py_None) {
+      typed_builder_->AppendNull();
+    } else {
+      if (item.obj() == Py_True) {
+	typed_builder_->Append(true);
       } else {
-        if (item.obj() == Py_True) {
-          typed_builder_->Append(true);
-        } else {
-          typed_builder_->Append(false);
-        }
+	typed_builder_->Append(false);
       }
     }
     return Status::OK();
