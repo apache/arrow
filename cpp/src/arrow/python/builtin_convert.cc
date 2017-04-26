@@ -91,7 +91,6 @@ class ScalarVisitor {
     } else if (PyFloat_Check(obj)) {
       ++float_count_;
     } else if (IsPyInteger(obj)) {
-      printf("PyInteger during visit...\n");
       ++int_count_;
     } else if (PyDate_CheckExact(obj)) {
       ++date_count_;
@@ -102,14 +101,12 @@ class ScalarVisitor {
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
     } else {
-      printf("Error?...\n");
       // TODO(wesm): accumulate error information somewhere
     }
   }
 
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
-    printf("getting type from scalar our int counts is %d\n", int_count_);
     if (float_count_) {
       return float64();
     } else if (int_count_) {
@@ -162,10 +159,8 @@ class SeqVisitor {
     // Loop through either a sequence or an iterator.
     // VisitElemt takes ownership of the object we are visiting.
     if (PySequence_Check(obj)) {
-      printf("Visitng sequence style...\n");
       Py_ssize_t size = PySequence_Size(obj);
       for (int64_t i = 0; i < size; ++i) {
-	printf("Visiting elem %d\n", i);
 	// TODO(wesm): Specialize for PyList_GET_ITEM?
 	RETURN_NOT_OK(VisitElem(PySequence_GetItem(obj, i), level));
       }
@@ -177,7 +172,7 @@ class SeqVisitor {
       }
       Py_DECREF(iter);
     } else {
-      return Status::TypeError("Object is not a sequence or iterable 1");
+      return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
@@ -238,7 +233,6 @@ class SeqVisitor {
     OwnedRef item_ref(item);
 
     if (PyList_Check(item)) {
-      printf("recursing level pylist level...\n");
       RETURN_NOT_OK(Visit(item, level + 1));
     } else if (PyDict_Check(item)) {
       return Status::NotImplemented("No type inference for dicts");
@@ -269,12 +263,12 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
     }
     Py_DECREF(iter);
   } else {
-    return Status::TypeError("Object is not a sequence or iterable 2");
+    return Status::TypeError("Object is not a sequence or iterable");
   }
   if (PyErr_Occurred()) {
     // Not a sequence
     PyErr_Clear();
-    return Status::TypeError("Object is not a sequence or iterable 3");
+    return Status::TypeError("Object is not a sequence or iterable");
   }
   return Status::OK();
 }
@@ -282,9 +276,6 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
 // Non-exhaustive type inference
 Status InferArrowTypeAndSize(
     PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
-  printf("Infering type and size ");
-  PyObject_Print(obj, stdout, 0);
-  printf("\n");
 
   RETURN_NOT_OK(InferArrowSize(obj, size));
 
@@ -334,9 +325,6 @@ template <typename BuilderType>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendData(PyObject* obj, int64_t size) override {
-    printf("Appending data...");
-    PyObject_Print(obj, stdout, 0);
-    printf("\n");
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
@@ -354,10 +342,7 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
       }
       Py_DECREF(iter);
     } else {
-      printf("non sequence or iterable? ");
-      PyObject_Print(obj, stdout, 0);
-      printf("\n");      
-      return Status::TypeError("Object is not a sequence or iterable 5a");
+      return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
@@ -539,9 +524,6 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
   inline Status appendItem(OwnedRef &item) override final {
-    printf("List converter...\n");
-    PyObject_Print(item.obj(), stdout, 0);
-    printf("boop\n");
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
     } else {
@@ -643,7 +625,6 @@ Status AppendPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
 			const std::shared_ptr<ArrayBuilder>& builder,
 			int64_t size) {
   PyDateTime_IMPORT;
-  printf("fuck type id is %d int is %d and list is %d" , type->id(), Type::INT64, Type::LIST);
   std::shared_ptr<SeqConverter> converter = GetConverter(type);
   if (converter == nullptr) {
     std::stringstream ss;
