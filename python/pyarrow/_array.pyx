@@ -908,18 +908,20 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
 
 
 
-def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
+def array(object sequence, DataType type=None, MemoryPool memory_pool=None, size=None):
     """
     Create pyarrow.Array instance from a Python sequence
 
     Parameters
     ----------
-    sequence : sequence-like or iterable object of Python objects
+    sequence : sequence-like or iterable object of Python objects.
+        If both type and size are specified may be a single use iterable.
     type : pyarrow.DataType, optional
         If not passed, will be inferred from the data
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool
+    size : Size of the elements.
 
     Returns
     -------
@@ -933,11 +935,18 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
     if type is None:
         check_status(pyarrow.ConvertPySequence(sequence, pool, &sp_array))
     else:
-        check_status(
-            pyarrow.ConvertPySequence(
-                sequence, pool, &sp_array, type.sp_type
-            )
-        )
+        if size is None:
+            check_status(
+                pyarrow.ConvertPySequence(
+                    sequence, pool, &sp_array, type.sp_type
+                )
+             )
+        else:
+            check_status(
+                pyarrow.ConvertPySequence(
+                    sequence, pool, &sp_array, type.sp_type, size
+                )
+             )
 
     return box_array(sp_array)
 

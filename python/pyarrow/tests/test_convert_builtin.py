@@ -45,6 +45,12 @@ class TestConvertIterable(unittest.TestCase):
         assert arr.to_pylist() == []
 
 
+class TestLimitedConvertIterator(unittest.TestCase):
+    def test_iterator_types(self):
+        arr1 = pa.array(iter(range(3)), type=pa.int64(), size=3)
+        arr2 = pa.array((0, 1, 2))
+        assert arr1.equals(arr2)
+
 class TestConvertSequence(unittest.TestCase):
 
     def test_sequence_types(self):
