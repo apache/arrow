@@ -72,6 +72,15 @@ TEST(KeyValueMetadataTest, StringAppend) {
   ASSERT_EQ("red", metadata.value(3));
 }
 
+TEST(KeyValueMetadataTest, Copy) {
+  std::vector<std::string> keys = {"foo", "bar"};
+  std::vector<std::string> values = {"bizz", "buzz"};
+
+  KeyValueMetadata metadata(keys, values);
+  auto metadata2 = metadata.Copy();
+  ASSERT_TRUE(metadata.Equals(*metadata2));
+}
+
 TEST(KeyValueMetadataTest, Equals) {
   std::vector<std::string> keys = {"foo", "bar"};
   std::vector<std::string> values = {"bizz", "buzz"};

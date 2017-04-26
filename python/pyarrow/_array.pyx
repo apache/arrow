@@ -226,6 +226,14 @@ cdef class Schema:
 
         return result
 
+    cdef init(self, const vector[shared_ptr[CField]]& fields):
+        self.schema = new CSchema(fields)
+        self.sp_schema.reset(self.schema)
+
+    cdef init_schema(self, const shared_ptr[CSchema]& schema):
+        self.schema = schema.get()
+        self.sp_schema = schema
+
     property names:
 
         def __get__(self):
@@ -236,20 +244,17 @@ cdef class Schema:
                 result.append(name)
             return result
 
-    cdef init(self, const vector[shared_ptr[CField]]& fields):
-        self.schema = new CSchema(fields)
-        self.sp_schema.reset(self.schema)
+    property metadata:
 
-    cdef init_schema(self, const shared_ptr[CSchema]& schema):
-        self.schema = schema.get()
-        self.sp_schema = schema
-
-    cpdef dict custom_metadata(self):
-        cdef:
-            CKeyValueMetadata metadata = self.schema.custom_metadata()
-            unordered_map[c_string, c_string] result
-        metadata.ToUnorderedMap(&result)
-        return result
+        def __get__(self):
+            cdef:
+                const CKeyValueMetadata* metadata = self.schema.metadata()
+                unordered_map[c_string, c_string] result
+            if metadata != NULL:
+                metadata.ToUnorderedMap(&result)
+                return result
+            else:
+                return None
 
     def equals(self, other):
         """
@@ -291,6 +296,48 @@ cdef class Schema:
         result.init(c_fields)
 
         return result
+
+    def add_metadata(self, dict metadata):
+        """
+        Add metadata as dict of string keys and values to Schema
+
+        Parameters
+        ----------
+        metadata : dict
+            Keys and values must be string-like / coercible to bytes
+
+        Returns
+        -------
+        schema : pyarrow.Schema
+        """
+        cdef:
+            shared_ptr[CKeyValueMetadata] meta = (
+                make_shared[CKeyValueMetadata]())
+            c_string key, value
+
+        for py_key, py_value in metadata.items():
+            key = tobytes(py_key)
+            value = tobytes(py_value)
+            meta.get().Append(key, value)
+
+        cdef shared_ptr[CSchema] new_schema
+        with nogil:
+            check_status(self.schema.AddMetadata(meta, &new_schema))
+
+        return box_schema(new_schema)
+
+    def remove_metadata(self):
+        """
+        Create new schema without metadata, if any
+
+        Returns
+        -------
+        schema : pyarrow.Schema
+        """
+        cdef shared_ptr[CSchema] new_schema
+        with nogil:
+            check_status(self.schema.RemoveMetadata(&new_schema))
+        return box_schema(new_schema)
 
     def __str__(self):
         return frombytes(self.schema.ToString())

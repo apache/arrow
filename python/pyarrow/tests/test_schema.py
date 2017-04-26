@@ -152,6 +152,30 @@ def test_field_empty():
         repr(f)
 
 
+def test_schema_add_remove_metadata():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+
+    s1 = pa.schema(fields)
+
+    assert s1.metadata is None
+
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+
+    s2 = s1.add_metadata(metadata)
+    assert s2.metadata == metadata
+
+    s3 = s2.remove_metadata()
+    assert s3.metadata is None
+
+    # idempotent
+    s4 = s3.remove_metadata()
+    assert s4.metadata is None
+
+
 def test_schema_equals():
     fields = [
         pa.field('foo', pa.int32()),

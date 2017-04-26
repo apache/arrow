@@ -140,8 +140,8 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
   if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-    parallel_memcopy(mutable_data_ + position_, data, nbytes,
-                     memcopy_blocksize_, memcopy_num_threads_);
+    parallel_memcopy(mutable_data_ + position_, data, nbytes, memcopy_blocksize_,
+        memcopy_num_threads_);
   } else {
     memcpy(mutable_data_ + position_, data, nbytes);
   }
