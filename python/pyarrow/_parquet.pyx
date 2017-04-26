@@ -501,6 +501,17 @@ cdef class ParquetReader:
         array.init(carray)
         return array
 
+    def read_schema_field(self, int field_index):
+        cdef:
+            Array array = Array()
+            shared_ptr[CArray] carray
+
+        with nogil:
+            check_status(self.reader.get()
+                         .ReadSchemaField(field_index, &carray));
+
+        array.init(carray)
+        return array
 
 cdef int check_compression_name(name) except -1:
     if name.upper() not in ['NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI']:

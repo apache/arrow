@@ -1354,6 +1354,47 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
   return Status::OK();
 }
 
+inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
+  PyAcquireGIL lock;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto arr = static_cast<StructArray*>(data.chunk(c).get());
+    std::vector<PyObject*> fields_data;
+    // Convert the struct arrays first
+    for (auto& field : arr->fields()) {
+      PyObject* numpy_array;
+      RETURN_NOT_OK(ConvertArrayToPandas(field, nullptr, &numpy_array));
+      fields_data.push_back(numpy_array);
+    }
+
+    // Construct a dictionary for each row
+    const bool has_nulls = data.null_count() > 0;
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      if (has_nulls && arr->IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        PyObject* item = PyDict_New();
+        for (uint field_idx = 0; field_idx < arr->fields().size(); field_idx++) {
+          if (!arr->field(field_idx)->IsNull(i)) {
+            auto name = arr->type()->child(field_idx)->name();
+            PyObject* field_value = PyObject_GetItem(fields_data[field_idx],
+              PyLong_FromLong(i));
+            PyDict_SetItemString(item, name.c_str(), field_value);
+          }
+        }
+        *out_values = item;
+      }
+      ++out_values;
+    }
+
+    // release sub-arrays references
+    for (auto& numpy_array : fields_data) {
+      Py_XDECREF(numpy_array);
+    }
+  }
+  return Status::OK();
+}
+
 template <typename ArrowType>
 inline Status ConvertListsLike(
     const std::shared_ptr<Column>& col, PyObject** out_values) {
@@ -1499,6 +1540,8 @@ class ObjectBlock : public PandasBlock {
           return Status::NotImplemented(ss.str());
         }
       }
+    } else if (type == Type::STRUCT) {
+      RETURN_NOT_OK(ConvertStruct(data, out_buffer));
     } else {
       std::stringstream ss;
       ss << "Unsupported type for object array output: " << col->type()->ToString();
@@ -1960,6 +2003,7 @@ class DataFrameBlockCreator {
           output_type = PandasBlock::DECIMAL;
           break;
         case Type::NA:
+        case Type::STRUCT:
           output_type = PandasBlock::OBJECT;
           break;
         default:
@@ -2355,7 +2399,11 @@ class ArrowDeserializer {
     return ConvertNulls(data_, out_values);
   }
 
-  Status Visit(const StructType& type) { return Status::NotImplemented("struct type"); }
+  Status Visit(const StructType& type) {
+    AllocateOutput(NPY_OBJECT);
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    return ConvertStruct(data_, out_values);
+  }
 
   Status Visit(const UnionType& type) { return Status::NotImplemented("union type"); }
 
