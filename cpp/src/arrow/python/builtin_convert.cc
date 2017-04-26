@@ -153,7 +153,6 @@ class SeqVisitor {
 
   // co-recursive with VisitElem
   Status Visit(PyObject* obj, int level = 0) {
-
     if (level > max_nesting_level_) { max_nesting_level_ = level; }
 
     // Loop through either a sequence or an iterator.
@@ -247,7 +246,6 @@ class SeqVisitor {
     }
     return Status::OK();
   }
-
 };
 
 Status InferArrowSize(PyObject* obj, int64_t* size) {
@@ -349,10 +347,10 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 
   virtual Status appendItem(OwnedRef &item) = 0;
 };
-  
+
 class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -368,7 +366,7 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
 
 class Int64Converter : public TypedConverterVisitor<Int64Builder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     int64_t val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -383,7 +381,7 @@ class Int64Converter : public TypedConverterVisitor<Int64Builder> {
 
 class DateConverter : public TypedConverterVisitor<Date64Builder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -396,7 +394,7 @@ class DateConverter : public TypedConverterVisitor<Date64Builder> {
 
 class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -425,7 +423,7 @@ class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
 
 class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     double val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -440,7 +438,7 @@ class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
 
 class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     PyObject* bytes_obj;
     const char* bytes;
     Py_ssize_t length;
@@ -468,7 +466,7 @@ class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
 
 class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
@@ -495,7 +493,7 @@ class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBui
 
 class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
@@ -510,7 +508,7 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
     tmp.reset(PyUnicode_AsUTF8String(item.obj()));
     RETURN_IF_PYERROR();
     bytes_obj = tmp.obj();
-    
+
     // No error checking
     length = PyBytes_GET_SIZE(bytes_obj);
     bytes = PyBytes_AS_STRING(bytes_obj);
@@ -523,7 +521,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
     } else {
@@ -550,7 +548,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
 
 class DecimalConverter : public TypedConverterVisitor<arrow::DecimalBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) override final {
+  inline Status appendItem(OwnedRef &item) final {
     /// Can the compiler figure out that the case statement below isn't necessary
     /// once we're running?
     const int bit_width =
