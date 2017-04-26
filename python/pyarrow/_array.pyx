@@ -248,7 +248,7 @@ cdef class Schema:
 
         def __get__(self):
             cdef:
-                const CKeyValueMetadata* metadata = self.schema.metadata()
+                const CKeyValueMetadata* metadata = self.schema.metadata().get()
                 unordered_map[c_string, c_string] result
             if metadata != NULL:
                 metadata.ToUnorderedMap(&result)

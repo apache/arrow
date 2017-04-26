@@ -190,7 +190,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CSchema& other)
 
         shared_ptr[CField] field(int i)
-        const CKeyValueMetadata* metadata() const
+        shared_ptr[const CKeyValueMetadata] metadata()
         shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()

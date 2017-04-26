@@ -298,6 +298,15 @@ std::string Schema::ToString() const {
     buffer << field->ToString();
     ++i;
   }
+
+  if (metadata_) {
+    buffer << "\n-- metadata --";
+    for (int64_t i = 0; i < metadata_->size(); ++i) {
+      buffer << "\n" << metadata_->key(i) << ": "
+             << metadata_->value(i);
+    }
+  }
+
   return buffer.str();
 }
 

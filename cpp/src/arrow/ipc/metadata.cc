@@ -596,7 +596,7 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   auto fb_offsets = fbb.CreateVector(field_offsets);
 
   /// Custom metadata
-  const KeyValueMetadata* metadata = schema.metadata();
+  const KeyValueMetadata* metadata = schema.metadata().get();
 
   if (metadata != nullptr) {
     std::vector<KeyValueOffset> key_value_offsets;

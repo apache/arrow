@@ -691,7 +691,7 @@ class ARROW_EXPORT Schema {
   std::shared_ptr<Field> GetFieldByName(const std::string& name);
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
-  const KeyValueMetadata* metadata() const { return metadata_.get(); }
+  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
   // Render a string representation of the schema suitable for debugging
   std::string ToString() const;
