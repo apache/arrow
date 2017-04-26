@@ -31,10 +31,32 @@
 
 namespace arrow {
 
+Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+    std::shared_ptr<Field>* out) const {
+  *out = std::make_shared<Field>(name_, type_, nullable_, metadata);
+  return Status::OK();
+}
+
+Status Field::RemoveMetadata(std::shared_ptr<Field>* out) {
+  *out = std::make_shared<Field>(name_, type_, nullable_);
+  return Status::OK();
+}
+
 bool Field::Equals(const Field& other) const {
-  return (this == &other) ||
-         (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
-             this->type_->Equals(*other.type_.get()));
+  if (this == &other) {
+    return true;
+  }
+  if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
+      this->type_->Equals(*other.type_.get())) {
+    if (metadata_ == nullptr && other.metadata_ == nullptr) {
+      return true;
+    } else if (metadata_ == nullptr ^ other.metadata_ == nullptr) {
+      return false;
+    } else {
+      return metadata_->Equals(*other.metadata_);
+    }
+  }
+  return false;
 }
 
 bool Field::Equals(const std::shared_ptr<Field>& other) const {

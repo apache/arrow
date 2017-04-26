@@ -203,8 +203,15 @@ class NoExtraMeta {};
 class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
-      bool nullable = true)
-      : name_(name), type_(type), nullable_(nullable) {}
+      bool nullable = true,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
+    : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+
+  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
+
+  Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+      std::shared_ptr<Field>* out) const;
+  Status RemoveMetadata(std::shared_ptr<Field>* out);
 
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
@@ -224,6 +231,9 @@ class ARROW_EXPORT Field {
 
   // Fields can be nullable
   bool nullable_;
+
+  // The field's metadata, if any
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 typedef std::shared_ptr<Field> FieldPtr;
