@@ -753,7 +753,8 @@ std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
 std::shared_ptr<Field> ARROW_EXPORT field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true);
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //

@@ -23,6 +23,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/test-util.h"
 #include "arrow/type.h"
 
 using std::shared_ptr;
@@ -48,6 +49,41 @@ TEST(TestField, Equals) {
 
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
+}
+
+TEST(TestField, TestMetadataConstruction) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto metadata2 = metadata->Copy();
+  auto f0 = field("f0", int32(), true, metadata);
+  auto f1 = field("f0", int32(), true, metadata2);
+  ASSERT_TRUE(metadata->Equals(*f0->metadata()));
+  ASSERT_TRUE(f0->Equals(*f1));
+}
+
+TEST(TestField, TestAddMetadata) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32());
+  auto f1 = field("f0", int32(), true, metadata);
+  std::shared_ptr<Field> f2;
+  ASSERT_OK(f0->AddMetadata(metadata, &f2));
+
+  ASSERT_FALSE(f2->Equals(*f0));
+  ASSERT_TRUE(f2->Equals(*f1));
+
+  // Not copied
+  ASSERT_TRUE(metadata.get() == f1->metadata().get());
+}
+
+TEST(TestField, TestRemoveMetadata) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32());
+  auto f1 = field("f0", int32(), true, metadata);
+  std::shared_ptr<Field> f2;
+  ASSERT_OK(f1->RemoveMetadata(&f2));
+  ASSERT_TRUE(f2->metadata() == nullptr);
 }
 
 class TestSchema : public ::testing::Test {

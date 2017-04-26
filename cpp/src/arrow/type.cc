@@ -50,7 +50,7 @@ bool Field::Equals(const Field& other) const {
       this->type_->Equals(*other.type_.get())) {
     if (metadata_ == nullptr && other.metadata_ == nullptr) {
       return true;
-    } else if (metadata_ == nullptr ^ other.metadata_ == nullptr) {
+    } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
       return false;
     } else {
       return metadata_->Equals(*other.metadata_);
@@ -422,8 +422,9 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 }
 
 std::shared_ptr<Field> field(
-    const std::string& name, const TypePtr& type, bool nullable) {
-  return std::make_shared<Field>(name, type, nullable);
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  return std::make_shared<Field>(name, type, nullable, metadata);
 }
 
 std::shared_ptr<DataType> decimal(int precision, int scale) {
