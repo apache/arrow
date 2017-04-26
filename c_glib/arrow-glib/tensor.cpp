@@ -30,7 +30,7 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: tensor
- * @short_description: Tensor class.
+ * @short_description: Tensor class
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowTensor is a tensor class.
