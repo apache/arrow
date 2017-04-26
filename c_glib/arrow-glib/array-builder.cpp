@@ -237,12 +237,7 @@ garrow_boolean_array_builder_append(GArrowBooleanArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(static_cast<bool>(value));
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[boolean-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[boolean-array-builder][append]");
 }
 
 /**
@@ -261,12 +256,9 @@ garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[boolean-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[boolean-array-builder][append-null]");
 }
 
 
@@ -318,12 +310,7 @@ garrow_int8_array_builder_append(GArrowInt8ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int8-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int8-array-builder][append]");
 }
 
 /**
@@ -342,12 +329,7 @@ garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int8-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int8-array-builder][append-null]");
 }
 
 
@@ -399,12 +381,7 @@ garrow_uint8_array_builder_append(GArrowUInt8ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint8-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[uint8-array-builder][append]");
 }
 
 /**
@@ -423,12 +400,7 @@ garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint8-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[uint8-array-builder][append-null]");
 }
 
 
@@ -480,12 +452,7 @@ garrow_int16_array_builder_append(GArrowInt16ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int16-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int16-array-builder][append]");
 }
 
 /**
@@ -504,12 +471,7 @@ garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int16-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int16-array-builder][append-null]");
 }
 
 
@@ -561,12 +523,7 @@ garrow_uint16_array_builder_append(GArrowUInt16ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint16-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[uint16-array-builder][append]");
 }
 
 /**
@@ -585,12 +542,9 @@ garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint16-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[uint16-array-builder][append-null]");
 }
 
 
@@ -642,12 +596,7 @@ garrow_int32_array_builder_append(GArrowInt32ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int32-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int32-array-builder][append]");
 }
 
 /**
@@ -666,12 +615,7 @@ garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int32-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int32-array-builder][append-null]");
 }
 
 
@@ -723,12 +667,7 @@ garrow_uint32_array_builder_append(GArrowUInt32ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint32-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[uint32-array-builder][append]");
 }
 
 /**
@@ -747,12 +686,9 @@ garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint32-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[uint32-array-builder][append-null]");
 }
 
 
@@ -804,12 +740,7 @@ garrow_int64_array_builder_append(GArrowInt64ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int64-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int64-array-builder][append]");
 }
 
 /**
@@ -828,12 +759,7 @@ garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[int64-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[int64-array-builder][append-null]");
 }
 
 
@@ -885,12 +811,7 @@ garrow_uint64_array_builder_append(GArrowUInt64ArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[uint64-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[uint64-array-builder][append]");
 }
 
 /**
@@ -912,7 +833,7 @@ garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
   if (status.ok()) {
     return TRUE;
   } else {
-    garrow_error_set(error, status, "[uint64-array-builder][append-null]");
+    garrow_error_check(error, status, "[uint64-array-builder][append-null]");
     return FALSE;
   }
 }
@@ -966,12 +887,7 @@ garrow_float_array_builder_append(GArrowFloatArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[float-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[float-array-builder][append]");
 }
 
 /**
@@ -990,12 +906,7 @@ garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[float-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[float-array-builder][append-null]");
 }
 
 
@@ -1047,12 +958,7 @@ garrow_double_array_builder_append(GArrowDoubleArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[double-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[double-array-builder][append]");
 }
 
 /**
@@ -1071,12 +977,9 @@ garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[double-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[double-array-builder][append-null]");
 }
 
 
@@ -1130,12 +1033,7 @@ garrow_binary_array_builder_append(GArrowBinaryArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append(value, length);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[binary-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[binary-array-builder][append]");
 }
 
 /**
@@ -1154,12 +1052,9 @@ garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[binary-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[binary-array-builder][append-null]");
 }
 
 
@@ -1212,12 +1107,7 @@ garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
 
   auto status = arrow_builder->Append(value,
                                       static_cast<gint32>(strlen(value)));
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[string-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[string-array-builder][append]");
 }
 
 
@@ -1305,12 +1195,7 @@ garrow_list_array_builder_append(GArrowListArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[list-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[list-array-builder][append]");
 }
 
 /**
@@ -1331,12 +1216,7 @@ garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[list-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[list-array-builder][append-null]");
 }
 
 /**
@@ -1427,12 +1307,7 @@ garrow_struct_array_builder_append(GArrowStructArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->Append();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[struct-array-builder][append]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[struct-array-builder][append]");
 }
 
 /**
@@ -1453,12 +1328,9 @@ garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
 
   auto status = arrow_builder->AppendNull();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[struct-array-builder][append-null]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[struct-array-builder][append-null]");
 }
 
 /**

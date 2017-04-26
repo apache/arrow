@@ -204,7 +204,7 @@ garrow_file_output_stream_open(const gchar *path,
     std::string context("[io][file-output-stream][open]: <");
     context += path;
     context += ">";
-    garrow_error_set(error, status, context.c_str());
+    garrow_error_check(error, status, context.c_str());
     return NULL;
   }
 }

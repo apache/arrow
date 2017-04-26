@@ -66,12 +66,7 @@ garrow_readable_read(GArrowReadable *readable,
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
   auto status = arrow_readable->Read(n_bytes, n_read_bytes, buffer);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][readable][read]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][readable][read]");
 }
 
 G_END_DECLS

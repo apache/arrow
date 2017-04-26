@@ -23,6 +23,6 @@
 
 #include <arrow-glib/error.h>
 
-void garrow_error_set(GError **error,
-                      const arrow::Status &status,
-                      const char *context);
+gboolean garrow_error_check(GError **error,
+                            const arrow::Status &status,
+                            const char *context);

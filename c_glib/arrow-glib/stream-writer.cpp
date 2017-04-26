@@ -150,10 +150,9 @@ garrow_stream_writer_open(GArrowOutputStream *sink,
     arrow::ipc::StreamWriter::Open(garrow_output_stream_get_raw(sink).get(),
                                  garrow_schema_get_raw(schema),
                                  &arrow_stream_writer);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[ipc][stream-writer][open]")) {
     return garrow_stream_writer_new_raw(&arrow_stream_writer);
   } else {
-    garrow_error_set(error, status, "[ipc][stream-writer][open]");
     return NULL;
   }
 }
@@ -179,12 +178,9 @@ garrow_stream_writer_write_record_batch(GArrowStreamWriter *stream_writer,
     arrow_record_batch.get();
 
   auto status = arrow_stream_writer->WriteRecordBatch(*arrow_record_batch_raw);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[ipc][stream-writer][write-record-batch]");
-    return FALSE;
-  }
+  return garrow_error_check(error,
+                            status,
+                            "[ipc][stream-writer][write-record-batch]");
 }
 
 /**
@@ -202,12 +198,7 @@ garrow_stream_writer_close(GArrowStreamWriter *stream_writer,
     garrow_stream_writer_get_raw(stream_writer);
 
   auto status = arrow_stream_writer->Close();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[ipc][stream-writer][close]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[ipc][stream-writer][close]");
 }
 
 G_END_DECLS
