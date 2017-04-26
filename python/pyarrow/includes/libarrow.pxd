@@ -172,8 +172,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] type()
         c_bool nullable()
 
+        c_string ToString()
+        c_bool Equals(const CField& other)
+
+        shared_ptr[const CKeyValueMetadata] metadata()
+
         CField(const c_string& name, const shared_ptr[CDataType]& type,
                c_bool nullable)
+
+        CField(const c_string& name, const shared_ptr[CDataType]& type,
+               c_bool nullable, const shared_ptr[CKeyValueMetadata]& metadata)
+
+        # Removed const in Cython so don't have to cast to get code to generate
+        CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
+                            shared_ptr[CField]* out)
+        CStatus RemoveMetadata(shared_ptr[CField]* out)
+
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
