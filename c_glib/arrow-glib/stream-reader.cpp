@@ -147,10 +147,9 @@ garrow_stream_reader_open(GArrowInputStream *stream,
   auto status =
     arrow::ipc::StreamReader::Open(garrow_input_stream_get_raw(stream),
                                    &arrow_stream_reader);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[ipc][stream-reader][open]")) {
     return garrow_stream_reader_new_raw(&arrow_stream_reader);
   } else {
-    garrow_error_set(error, status, "[ipc][stream-reader][open]");
     return NULL;
   }
 }
@@ -187,14 +186,15 @@ garrow_stream_reader_get_next_record_batch(GArrowStreamReader *stream_reader,
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
   auto status = arrow_stream_reader->GetNextRecordBatch(&arrow_record_batch);
 
-  if (status.ok()) {
+  if (garrow_error_check(error,
+                       status,
+                       "[ipc][stream-reader][get-next-record-batch]")) {
     if (arrow_record_batch == nullptr) {
       return NULL;
     } else {
       return garrow_record_batch_new_raw(&arrow_record_batch);
     }
   } else {
-    garrow_error_set(error, status, "[ipc][stream-reader][get-next-record-batch]");
     return NULL;
   }
 }

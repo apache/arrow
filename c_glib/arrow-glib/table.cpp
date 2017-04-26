@@ -226,10 +226,9 @@ garrow_table_add_column(GArrowTable *table,
   const auto arrow_column = garrow_column_get_raw(column);
   std::shared_ptr<arrow::Table> arrow_new_table;
   auto status = arrow_table->AddColumn(i, arrow_column, &arrow_new_table);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[table][add-column]")) {
     return garrow_table_new_raw(&arrow_new_table);
   } else {
-    garrow_error_set(error, status, "[table][add-column]");
     return NULL;
   }
 }
@@ -253,10 +252,9 @@ garrow_table_remove_column(GArrowTable *table,
   const auto arrow_table = garrow_table_get_raw(table);
   std::shared_ptr<arrow::Table> arrow_new_table;
   auto status = arrow_table->RemoveColumn(i, &arrow_new_table);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[table][remove-column]")) {
     return garrow_table_new_raw(&arrow_new_table);
   } else {
-    garrow_error_set(error, status, "[table][remove-column]");
     return NULL;
   }
 }

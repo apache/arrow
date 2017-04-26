@@ -260,7 +260,7 @@ garrow_memory_mapped_file_open(const gchar *path,
     std::string context("[io][memory-mapped-file][open]: <");
     context += path;
     context += ">";
-    garrow_error_set(error, status, context.c_str());
+    garrow_error_check(error, status, context.c_str());
     return NULL;
   }
 }

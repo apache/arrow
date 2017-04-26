@@ -63,19 +63,20 @@ garrow_error_code(const arrow::Status &status)
 
 G_END_DECLS
 
-void
-garrow_error_set(GError **error,
-                 const arrow::Status &status,
-                 const char *context)
+gboolean
+garrow_error_check(GError **error,
+                   const arrow::Status &status,
+                   const char *context)
 {
   if (status.ok()) {
-    return;
+    return TRUE;
+  } else {
+    g_set_error(error,
+                GARROW_ERROR,
+                garrow_error_code(status),
+                "%s: %s",
+                context,
+                status.ToString().c_str());
+    return FALSE;
   }
-
-  g_set_error(error,
-              GARROW_ERROR,
-              garrow_error_code(status),
-              "%s: %s",
-              context,
-              status.ToString().c_str());
 }

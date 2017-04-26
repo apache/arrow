@@ -66,12 +66,7 @@ garrow_writeable_file_write_at(GArrowWriteableFile *writeable_file,
     garrow_writeable_file_get_raw(writeable_file);
 
   auto status = arrow_writeable_file->WriteAt(position, data, n_bytes);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][writeable-file][write-at]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][writeable-file][write-at]");
 }
 
 G_END_DECLS

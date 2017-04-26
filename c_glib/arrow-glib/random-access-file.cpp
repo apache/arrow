@@ -61,10 +61,9 @@ garrow_random_access_file_get_size(GArrowRandomAccessFile *file,
   int64_t size;
 
   auto status = arrow_random_access_file->GetSize(&size);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[io][random-access-file][get-size]")) {
     return size;
   } else {
-    garrow_error_set(error, status, "[io][random-access-file][get-size]");
     return 0;
   }
 }
@@ -110,12 +109,7 @@ garrow_random_access_file_read_at(GArrowRandomAccessFile *file,
                                                  n_bytes,
                                                  n_read_bytes,
                                                  buffer);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][random-access-file][read-at]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][random-access-file][read-at]");
 }
 
 G_END_DECLS
