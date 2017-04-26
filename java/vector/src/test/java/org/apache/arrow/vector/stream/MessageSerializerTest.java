@@ -31,6 +31,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.file.ArrowBlock;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.file.WriteChannel;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
@@ -41,6 +42,8 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -85,6 +88,21 @@ public class MessageSerializerTest {
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     Schema deserialized = MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)));
     assertEquals(schema, deserialized);
+  }
+
+  @Rule
+  public ExpectedException expectedEx = ExpectedException.none();
+
+  @Test
+  public void testdeSerializeRecordBatchLongMetaData() throws IOException {
+    expectedEx.expect(IOException.class);
+    expectedEx.expectMessage("Cannot currently deserialize record batches over 2GB");
+    int offset = 0;
+    int metadataLength = 1;
+    long bodyLength = Integer.MAX_VALUE + 10L;
+    ArrowBlock block = new ArrowBlock(offset, metadataLength, bodyLength);
+    long totalLen = block.getMetadataLength() + block.getBodyLength();
+    MessageSerializer.deserializeRecordBatch(null, block, null);
   }
 
   @Test
