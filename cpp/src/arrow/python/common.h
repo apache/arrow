@@ -80,11 +80,15 @@ struct ARROW_EXPORT PyObjectStringify {
     if (PyUnicode_Check(obj)) {
       bytes_obj = PyUnicode_AsUTF8String(obj);
       tmp_obj.reset(bytes_obj);
+      bytes = PyBytes_AsString(bytes_obj);
+      size = PyBytes_GET_SIZE(bytes_obj);
+    } else if (PyBytes_Check(obj)) {
+      bytes = PyBytes_AsString(obj);
+      size = PyBytes_GET_SIZE(obj);
     } else {
-      bytes_obj = obj;
+      bytes = nullptr;
+      size = -1;
     }
-    bytes = PyBytes_AsString(bytes_obj);
-    size = PyBytes_GET_SIZE(bytes_obj);
   }
 };
 

@@ -46,12 +46,19 @@ static Status CheckPyError() {
     PyObject *exc_type, *exc_value, *traceback;
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
     PyObjectStringify stringified(exc_value);
-    std::string message(stringified.bytes);
     Py_XDECREF(exc_type);
     Py_XDECREF(exc_value);
     Py_XDECREF(traceback);
     PyErr_Clear();
-    return Status::IOError(message);
+
+    // ARROW-866: in some esoteric cases, formatting exc_value can fail. This
+    // was encountered when calling tell() on a socket file
+    if (stringified.bytes != nullptr) {
+      std::string message(stringified.bytes);
+      return Status::IOError(message);
+    } else {
+      return Status::IOError("Error message was null");
+    }
   }
   return Status::OK();
 }
