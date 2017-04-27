@@ -41,21 +41,6 @@ PythonFile::~PythonFile() {
   Py_DECREF(file_);
 }
 
-static Status CheckPyError() {
-  if (PyErr_Occurred()) {
-    PyObject *exc_type, *exc_value, *traceback;
-    PyErr_Fetch(&exc_type, &exc_value, &traceback);
-    PyObjectStringify stringified(exc_value);
-    std::string message(stringified.bytes);
-    Py_XDECREF(exc_type);
-    Py_XDECREF(exc_value);
-    Py_XDECREF(traceback);
-    PyErr_Clear();
-    return Status::IOError(message);
-  }
-  return Status::OK();
-}
-
 // This is annoying: because C++11 does not allow implicit conversion of string
 // literals to non-const char*, we need to go through some gymnastics to use
 // PyObject_CallMethod without a lot of pain (its arguments are non-const
@@ -71,7 +56,7 @@ Status PythonFile::Close() {
   // whence: 0 for relative to start of file, 2 for end of file
   PyObject* result = cpp_PyObject_CallMethod(file_, "close", "()");
   Py_XDECREF(result);
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
   return Status::OK();
 }
 
@@ -79,13 +64,13 @@ Status PythonFile::Seek(int64_t position, int whence) {
   // whence: 0 for relative to start of file, 2 for end of file
   PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
   Py_XDECREF(result);
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
   return Status::OK();
 }
 
 Status PythonFile::Read(int64_t nbytes, PyObject** out) {
   PyObject* result = cpp_PyObject_CallMethod(file_, "read", "(i)", nbytes);
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
   *out = result;
   return Status::OK();
 }
@@ -93,24 +78,24 @@ Status PythonFile::Read(int64_t nbytes, PyObject** out) {
 Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
   PyObject* py_data =
       PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
 
   PyObject* result = cpp_PyObject_CallMethod(file_, "write", "(O)", py_data);
   Py_XDECREF(py_data);
   Py_XDECREF(result);
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
   return Status::OK();
 }
 
 Status PythonFile::Tell(int64_t* position) {
   PyObject* result = cpp_PyObject_CallMethod(file_, "tell", "()");
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
 
   *position = PyLong_AsLongLong(result);
   Py_DECREF(result);
 
   // PyLong_AsLongLong can raise OverflowError
-  ARROW_RETURN_NOT_OK(CheckPyError());
+  PY_RETURN_IF_ERROR(StatusCode::IOError);
 
   return Status::OK();
 }

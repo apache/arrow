@@ -98,27 +98,26 @@ struct ARROW_EXPORT PyObjectStringify {
     if (PyUnicode_Check(obj)) {
       bytes_obj = PyUnicode_AsUTF8String(obj);
       tmp_obj.reset(bytes_obj);
+      bytes = PyBytes_AsString(bytes_obj);
+      size = PyBytes_GET_SIZE(bytes_obj);
+    } else if (PyBytes_Check(obj)) {
+      bytes = PyBytes_AsString(obj);
+      size = PyBytes_GET_SIZE(obj);
     } else {
-      bytes_obj = obj;
+      bytes = nullptr;
+      size = -1;
     }
-    bytes = PyBytes_AsString(bytes_obj);
-    size = PyBytes_GET_SIZE(bytes_obj);
   }
 };
 
+Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+
 // TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR()                         \
-  if (PyErr_Occurred()) {                           \
-    PyObject *exc_type, *exc_value, *traceback;     \
-    PyErr_Fetch(&exc_type, &exc_value, &traceback); \
-    PyObjectStringify stringified(exc_value);       \
-    std::string message(stringified.bytes);         \
-    Py_DECREF(exc_type);                            \
-    Py_XDECREF(exc_value);                          \
-    Py_XDECREF(traceback);                          \
-    PyErr_Clear();                                  \
-    return Status::UnknownError(message);           \
-  }
+#define RETURN_IF_PYERROR()                     \
+  RETURN_NOT_OK(CheckPyError());
+
+#define PY_RETURN_IF_ERROR(CODE)                \
+  RETURN_NOT_OK(CheckPyError(CODE));
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);

@@ -64,5 +64,27 @@ PyBuffer::~PyBuffer() {
   Py_XDECREF(obj_);
 }
 
+Status CheckPyError(StatusCode code) {
+  if (PyErr_Occurred()) {
+    PyObject *exc_type, *exc_value, *traceback;
+    PyErr_Fetch(&exc_type, &exc_value, &traceback);
+    PyObjectStringify stringified(exc_value);
+    Py_XDECREF(exc_type);
+    Py_XDECREF(exc_value);
+    Py_XDECREF(traceback);
+    PyErr_Clear();
+
+    // ARROW-866: in some esoteric cases, formatting exc_value can fail. This
+    // was encountered when calling tell() on a socket file
+    if (stringified.bytes != nullptr) {
+      std::string message(stringified.bytes);
+      return Status(code, message);
+    } else {
+      return Status(code, "Error message was null");
+    }
+  }
+  return Status::OK();
+}
+
 }  // namespace py
 }  // namespace arrow
