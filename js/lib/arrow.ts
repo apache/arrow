@@ -24,6 +24,7 @@ var Footer = org.apache.arrow.flatbuf.Footer;
 var Message = org.apache.arrow.flatbuf.Message;
 var MessageHeader = org.apache.arrow.flatbuf.MessageHeader;
 var RecordBatch = org.apache.arrow.flatbuf.RecordBatch;
+var DictionaryBatch = org.apache.arrow.flatbuf.DictionaryBatch;
 var Schema = org.apache.arrow.flatbuf.Schema;
 var Type = org.apache.arrow.flatbuf.Type;
 var VectorType = org.apache.arrow.flatbuf.VectorType;
@@ -34,17 +35,19 @@ export class ArrowReader {
     private schema: any = [];
     private vectors: Vector[];
     private vectorMap: any = {};
+    private dictionaries: any = {};
     private batches: any = [];
     private batchIndex: number = 0;
 
-    constructor(bb, schema, vectors: Vector[], batches) {
+    constructor(bb, schema, vectors: Vector[], batches, dictionaries) {
         this.bb = bb;
         this.schema = schema;
         this.vectors = vectors;
-        for (var i: any = 0; i < vectors.length; i += 1|0) {
+        for (var i = 0; i < vectors.length; i += 1|0) {
             this.vectorMap[vectors[i].name] = vectors[i]
         }
         this.batches = batches;
+        this.dictionaries = dictionaries;
     }
 
     loadNextBatch() {
@@ -101,26 +104,40 @@ export function getStreamReader(buf) : ArrowReader {
     var schema = _loadSchema(bb),
         field,
         vectors: Vector[] = [],
-        i,
-        len,
-        recordBatch,
-        recordBatches = [];
+        i,j,
+        iLen,jLen,
+        batch,
+        recordBatches = [],
+        dictionaryBatches = [],
+        dictionaries = {};
 
-    for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
+    for (i = 0, iLen = schema.fieldsLength(); i < iLen; i += 1|0) {
         field = schema.fields(i);
-        vectors.push(vectorFromField(field));
+        _createDictionaryVectors(field, dictionaries);
+        vectors.push(vectorFromField(field, dictionaries));
     }
 
     while (bb.position() < bb.capacity()) {
-      // TODO read dictionaries before record batches
-      recordBatch = _loadRecordBatch(bb);
-      if (recordBatch == null) {
+      batch = _loadBatch(bb);
+      if (batch == null) {
           break;
+      } else if (batch.type == MessageHeader.DictionaryBatch) {
+          dictionaryBatches.push(batch);
+      } else if (batch.type == MessageHeader.RecordBatch) {
+          recordBatches.push(batch)
+      } else {
+          console.error("Expected batch type" + MessageHeader.RecordBatch + " or " +
+              MessageHeader.DictionaryBatch + " but got " + batch.type);
       }
-      recordBatches.push(recordBatch)
     }
 
-    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches);
+    // load dictionary vectors
+    for (i = 0; i < dictionaryBatches.length; i += 1|0) {
+      batch = dictionaryBatches[i];
+      loadVectors(bb, [dictionaries[batch.id]], batch);
+    }
+
+    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches, dictionaries);
 }
 
 export function getFileReader (buf) : ArrowReader {
@@ -190,31 +207,68 @@ function _loadFooter(bb) {
 }
 
 function _loadSchema(bb) {
-    return _loadMessage(bb, MessageHeader.Schema, new Schema()).header;
-}
-
-function _loadRecordBatch(bb) {
-    var i, loaded = _loadMessage(bb, MessageHeader.RecordBatch, new RecordBatch());
-    if (loaded == null) {
+    var message =_loadMessage(bb);
+    if (message.headerType() != MessageHeader.Schema) {
+        console.error("Expected header type " + MessageHeader.Schema + " but got " + message.headerType());
         return;
     }
-    var nodes_ = [], nodesLength = loaded.header.nodesLength();
-    var buffer, buffers_ = [], buffersLength = loaded.header.buffersLength();
+    return message.header(new Schema());
+}
+
+function _loadBatch(bb) {
+    var message = _loadMessage(bb);
+    if (message == null) {
+        return;
+    } else if (message.headerType() == MessageHeader.RecordBatch) {
+        var batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low }
+        return _loadRecordBatch(bb, batch);
+    } else if (message.headerType() == MessageHeader.DictionaryBatch) {
+        var batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low }
+        return _loadDictionaryBatch(bb, batch);
+    } else {
+        console.error("Expected header type " + MessageHeader.RecordBatch + " or " + MessageHeader.DictionaryBatch +
+            " but got " + message.headerType());
+        return;
+    }
+}
+
+function _loadRecordBatch(bb, batch) {
+    var data = batch.header;
+    var i, nodes_ = [], nodesLength = data.nodesLength();
+    var buffer, buffers_ = [], buffersLength = data.buffersLength();
 
     for (i = 0; i < nodesLength; i += 1) {
-        nodes_.push(loaded.header.nodes(i));
+        nodes_.push(data.nodes(i));
     }
     for (i = 0; i < buffersLength; i += 1) {
-        buffer = loaded.header.buffers(i);
+        buffer = data.buffers(i);
         buffers_.push({ offset: bb.position() + buffer.offset().low, length: buffer.length().low });
     }
     // position the buffer after the body to read the next message
-    bb.setPosition(bb.position() + loaded.length);
+    bb.setPosition(bb.position() + batch.length);
 
-    return { nodes: nodes_, buffers: buffers_, length: loaded.header.length().low };
+    return { nodes: nodes_, buffers: buffers_, length: data.length().low, type: MessageHeader.RecordBatch };
 }
 
-function _loadMessage(bb, type, container) {
+function _loadDictionaryBatch(bb, batch) {
+    var id_ = batch.header.id().toFloat64().toString(), data = batch.header.data();
+    var i, nodes_ = [], nodesLength = data.nodesLength();
+    var buffer, buffers_ = [], buffersLength = data.buffersLength();
+
+    for (i = 0; i < nodesLength; i += 1) {
+        nodes_.push(data.nodes(i));
+    }
+    for (i = 0; i < buffersLength; i += 1) {
+        buffer = data.buffers(i);
+        buffers_.push({ offset: bb.position() + buffer.offset().low, length: buffer.length().low });
+    }
+    // position the buffer after the body to read the next message
+    bb.setPosition(bb.position() + batch.length);
+
+    return { id: id_, nodes: nodes_, buffers: buffers_, length: data.length().low, type: MessageHeader.DictionaryBatch };
+}
+
+function _loadMessage(bb) {
     var messageLength: number = Int32FromByteBuffer(bb, bb.position());
     if (messageLength == 0) {
       return;
@@ -224,14 +278,80 @@ function _loadMessage(bb, type, container) {
     // position the buffer at the end of the message so it's ready to read further
     bb.setPosition(bb.position() + messageLength);
 
-    if (message == null) {
-      console.error("Unexpected end of input");
-      return;
-    } else if (message.headerType() != type) {
-      console.error("Expected header type " + type + " but got " + message.headerType());
-      return;
+    return message;
+}
+
+function _createDictionaryVectors(field, dictionaries) {
+    var encoding = field.dictionary();
+    if (encoding != null) {
+        var id = encoding.id().toFloat64().toString();
+        if (dictionaries[id] == null) {
+            // create a field for the dictionary
+            var dictionaryField = _createDictionaryField(id, field);
+            dictionaries[id] = vectorFromField(dictionaryField, null);
+        }
     }
-    return { header: message.header(container), length: message.bodyLength().low };
+
+    // recursively examine child fields
+    for (var i = 0, len = field.childrenLength(); i < len; i += 1|0) {
+        _createDictionaryVectors(field.children(i), dictionaries);
+    }
+}
+
+function _createDictionaryField(id, field) {
+    var builder = new flatbuffers.Builder();
+    var nameOffset = builder.createString("dict-" + id);
+
+    var typeType = field.typeType();
+    var typeOffset;
+    if (typeType === Type.Int) {
+        var type = field.type(new org.apache.arrow.flatbuf.Int());
+        org.apache.arrow.flatbuf.Int.startInt(builder);
+        org.apache.arrow.flatbuf.Int.addBitWidth(builder, type.bitWidth());
+        org.apache.arrow.flatbuf.Int.addIsSigned(builder, type.isSigned());
+        typeOffset = org.apache.arrow.flatbuf.Int.endInt(builder);
+    } else if (typeType === Type.FloatingPoint) {
+        var type = field.type(new org.apache.arrow.flatbuf.FloatingPoint());
+        org.apache.arrow.flatbuf.FloatingPoint.startFloatingPoint(builder);
+        org.apache.arrow.flatbuf.FloatingPoint.addPrecision(builder, type.precision());
+        typeOffset = org.apache.arrow.flatbuf.FloatingPoint.endFloatingPoint(builder);
+    } else if (typeType === Type.Utf8) {
+        org.apache.arrow.flatbuf.Utf8.startUtf8(builder);
+        typeOffset = org.apache.arrow.flatbuf.Utf8.endUtf8(builder);
+    } else if (typeType === Type.Date) {
+        var type = field.type(new org.apache.arrow.flatbuf.Date());
+        org.apache.arrow.flatbuf.Date.startDate(builder);
+        org.apache.arrow.flatbuf.Date.addUnit(builder, type.unit());
+        typeOffset = org.apache.arrow.flatbuf.Date.endDate(builder);
+    } else {
+        throw "Unimplemented dictionary type " + typeType;
+    }
+    if (field.childrenLength() > 0) {
+      throw "Dictionary encoded fields can't have children"
+    }
+    var childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, []);
+
+    var layout, layoutOffsets = [];
+    for (var i = 0, len = field.layoutLength(); i < len; i += 1|0) {
+        layout = field.layout(i);
+        org.apache.arrow.flatbuf.VectorLayout.startVectorLayout(builder);
+        org.apache.arrow.flatbuf.VectorLayout.addBitWidth(builder, layout.bitWidth());
+        org.apache.arrow.flatbuf.VectorLayout.addType(builder, layout.type());
+        layoutOffsets.push(org.apache.arrow.flatbuf.VectorLayout.endVectorLayout(builder));
+    }
+    var layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, layoutOffsets);
+
+    org.apache.arrow.flatbuf.Field.startField(builder);
+    org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
+    org.apache.arrow.flatbuf.Field.addNullable(builder, field.nullable());
+    org.apache.arrow.flatbuf.Field.addTypeType(builder, typeType);
+    org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
+    org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
+    org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
+    var offset = org.apache.arrow.flatbuf.Field.endField(builder);
+    builder.finish(offset);
+
+    return org.apache.arrow.flatbuf.Field.getRootAsField(builder.bb);
 }
 
 function Int32FromByteBuffer(bb, offset) {
@@ -323,7 +443,16 @@ function loadVectors(bb, vectors: Vector[], recordBatch) {
 function loadVector(bb, vector: Vector, recordBatch, indices) {
     var node = recordBatch.nodes[indices.nodeIndex], ownBuffersLength, ownBuffers = [], i;
     indices.nodeIndex += 1;
-    ownBuffersLength = vector.field.layoutLength();
+
+    // dictionary vectors are always ints, so will have a data vector plus optional null vector
+    if (vector.field.dictionary() == null) {
+        ownBuffersLength = vector.field.layoutLength();
+    } else if (vector.field.nullable()) {
+        ownBuffersLength = 2;
+    } else {
+        ownBuffersLength = 1;
+    }
+
     for (i = 0; i < ownBuffersLength; i += 1) {
         ownBuffers.push(recordBatch.buffers[indices.bufferIndex + i]);
     }

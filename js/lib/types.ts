@@ -36,11 +36,12 @@ export abstract class Vector {
         this.field = field;
         this.name = field.name();
     }
+
     /* Access datum at index i */
     abstract get(i);
     /* Return array representing data in the range [start, end) */
     abstract slice(start: number, end: number);
-    /* Return array of internal vectors */
+    /* Return array of child vectors, for container types */
     abstract getChildVectors();
 
     /**
@@ -126,6 +127,7 @@ class SimpleVector<T extends ArrayView> extends Vector {
 }
 
 class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
+
     protected validityView: BitArray;
 
     get(i: number) {
@@ -139,6 +141,10 @@ class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
     loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
@@ -208,6 +214,37 @@ class NullableInt64Vector extends NullableSimpleVector<Uint32Array>  {
     }
 }
 
+class DateVector extends SimpleVector<Uint32Array> {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get (i) {
+        return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
+    }
+}
+
+class NullableDateVector extends DateVector {
+    private validityView: BitArray;
+
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+    }
+
+    get (i) {
+        if (this.validityView.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+
+    getValidityVector() {
+        return this.validityView;
+    }
+}
+
 class Utf8Vector extends SimpleVector<Uint8Array> {
     protected offsetView: Int32Array;
     static decoder: TextDecoder = new TextDecoder('utf8');
@@ -232,6 +269,10 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
         }
         return result;
     }
+
+    getOffsetView() {
+        return this.offsetView;
+    }
 }
 
 class NullableUtf8Vector extends Utf8Vector {
@@ -249,6 +290,10 @@ class NullableUtf8Vector extends Utf8Vector {
         } else {
             return null;
         }
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
@@ -308,6 +353,10 @@ class NullableListVector extends ListVector {
             return null;
         }
     }
+
+    getValidityVector() {
+        return this.validityView;
+    }
 }
 
 class FixedSizeListVector extends Vector {
@@ -339,6 +388,10 @@ class FixedSizeListVector extends Vector {
         }
         return result;
     }
+
+    getListSize() {
+        return this.size;
+    }
 }
 
 class NullableFixedSizeListVector extends FixedSizeListVector {
@@ -354,6 +407,10 @@ class NullableFixedSizeListVector extends FixedSizeListVector {
         } else {
             return null;
         }
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
@@ -389,100 +446,144 @@ class StructVector extends Vector {
         }
         return result;
     }
-}
 
-class DateVector extends SimpleVector<Uint32Array> {
-    constructor(field) {
-        super(field, Uint32Array);
-    }
-
-    get (i) {
-        return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
-class NullableDateVector extends DateVector {
-    private validityView: BitArray;
+class DictionaryVector extends Vector {
+
+    private indices: Vector;
+    private dictionary: Vector;
+
+    constructor (field, indices: Vector, dictionary: Vector) {
+        super(field);
+        this.indices = indices;
+        this.dictionary = dictionary;
+    }
+
+    get(i) {
+        var encoded = this.indices.get(i);
+        if (encoded == null) {
+            return null;
+        } else {
+            return this.dictionary.get(encoded);
+        }
+    }
+
+    /** Get the dictionary encoded value */
+    public getEncoded(i) {
+        return this.indices.get(i);
+    }
+
+    slice(start, end) {
+        return this.indices.slice(start, end); // TODO decode
+    }
+
+    getChildVectors() {
+        return this.indices.getChildVectors();
+    }
 
     loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
-        this.loadDataBuffer(bb, buffers[1]);
+        this.indices.loadData(bb, node, buffers);
     }
 
-    get (i) {
-        if (this.validityView.get(i)) {
-            return super.get(i);
-        } else {
-            return null;
-        }
+    /** Get the index (encoded) vector */
+    public getIndexVector() {
+        return this.indices;
+    }
+
+    /** Get the dictionary vector */
+    public getDictionaryVector() {
+        return this.dictionary;
+    }
+
+    toString() {
+        return this.indices.toString();
     }
 }
 
-var BASIC_TYPES = [Type.Int, Type.FloatingPoint, Type.Utf8, Type.Date];
-
-export function vectorFromField(field) : Vector {
-    var typeType = field.typeType();
-    if (BASIC_TYPES.indexOf(typeType) >= 0) {
-        if (typeType === Type.Int) {
-            var type = field.type(new org.apache.arrow.flatbuf.Int());
-            var bitWidth = type.bitWidth();
-            var VectorConstructor : {new(Field): Vector};
-            if (type.isSigned()) {
-                if (bitWidth == 64) {
-                    VectorConstructor = field.nullable() ? NullableInt64Vector : Int64Vector;
-                } else if (bitWidth == 32) {
-                    VectorConstructor = field.nullable() ? NullableInt32Vector : Int32Vector;
-                } else if (bitWidth == 16) {
-                    VectorConstructor = field.nullable() ? NullableInt16Vector : Int16Vector;
-                } else if (bitWidth == 8) {
-                    VectorConstructor = field.nullable() ? NullableInt8Vector : Int8Vector;
-                } else {
-                     throw "Unimplemented Int bit width " + bitWidth;
-                }
+export function vectorFromField(field, dictionaries) : Vector {
+    var dictionary = field.dictionary(), nullable = field.nullable();
+    if (dictionary == null) {
+        var typeType = field.typeType();
+        if (typeType === Type.List) {
+            var dataVector = vectorFromField(field.children(0), dictionaries);
+            return nullable ? new NullableListVector(field, dataVector) : new ListVector(field, dataVector);
+        } else if (typeType === Type.FixedSizeList) {
+            var dataVector = vectorFromField(field.children(0), dictionaries);
+            var size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
+            if (nullable) {
+              return new NullableFixedSizeListVector(field, size, dataVector);
             } else {
-                if (bitWidth == 64) {
-                    VectorConstructor = field.nullable() ? NullableUint64Vector : Uint64Vector;
-                } else if (bitWidth == 32) {
-                    VectorConstructor = field.nullable() ? NullableUint32Vector : Uint32Vector;
-                } else if (bitWidth == 16) {
-                    VectorConstructor = field.nullable() ? NullableUint16Vector : Uint16Vector;
-                } else if (bitWidth == 8) {
-                    VectorConstructor = field.nullable() ? NullableUint8Vector : Uint8Vector;
-                } else {
-                    throw "Unimplemented Int bit width " + bitWidth;
-                }
+              return new FixedSizeListVector(field, size, dataVector);
             }
-        } else if (typeType === Type.FloatingPoint) {
-            var precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
-            if (precision == org.apache.arrow.flatbuf.Precision.SINGLE) {
-                VectorConstructor = field.nullable() ? NullableFloat32Vector : Float32Vector;
-            } else if (precision == org.apache.arrow.flatbuf.Precision.DOUBLE) {
-                VectorConstructor = field.nullable() ? NullableFloat64Vector : Float64Vector;
-            } else {
-                throw "Unimplemented FloatingPoint precision " + precision;
+         } else if (typeType === Type.Struct_) {
+            var vectors : Vector[] = [];
+            for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
+                vectors.push(vectorFromField(field.children(i), dictionaries));
             }
-        } else if (typeType === Type.Utf8) {
-            VectorConstructor = field.nullable() ? NullableUtf8Vector : Utf8Vector;
-        } else if (typeType === Type.Date) {
-            VectorConstructor = field.nullable() ? NullableDateVector : DateVector;
-        }
-        return new VectorConstructor(field);
-    } else if (typeType === Type.List) {
-        var dataVector = vectorFromField(field.children(0));
-        return field.nullable() ? new NullableListVector(field, dataVector) : new ListVector(field, dataVector);
-    } else if (typeType === Type.FixedSizeList) {
-        var dataVector = vectorFromField(field.children(0));
-        var size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
-        if (field.nullable()) {
-          return new NullableFixedSizeListVector(field, size, dataVector);
+            return new StructVector(field, vectors);
         } else {
-          return new FixedSizeListVector(field, size, dataVector);
+            if (typeType === Type.Int) {
+                var type = field.type(new org.apache.arrow.flatbuf.Int());
+                return _createIntVector(field, type.bitWidth(), type.isSigned(), nullable)
+            } else if (typeType === Type.FloatingPoint) {
+                var precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
+                if (precision == org.apache.arrow.flatbuf.Precision.SINGLE) {
+                    return nullable ? new NullableFloat32Vector(field) : new Float32Vector(field);
+                } else if (precision == org.apache.arrow.flatbuf.Precision.DOUBLE) {
+                    return nullable ? new NullableFloat64Vector(field) : new Float64Vector(field);
+                } else {
+                    throw "Unimplemented FloatingPoint precision " + precision;
+                }
+            } else if (typeType === Type.Utf8) {
+                return nullable ? new NullableUtf8Vector(field) : new Utf8Vector(field);
+            } else if (typeType === Type.Date) {
+                return nullable ? new NullableDateVector(field) : new DateVector(field);
+            } else {
+                throw "Unimplemented type " + typeType;
+            }
         }
-     } else if (typeType === Type.Struct_) {
-        var vectors : Vector[] = [];
-        for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
-            vectors.push(vectorFromField(field.children(i)));
+    } else {
+        // determine arrow type - default is signed 32 bit int
+        var type = dictionary.indexType(), bitWidth = 32, signed = true;
+        if (type != null) {
+            bitWidth = type.bitWidth();
+            signed = type.isSigned();
         }
-        return new StructVector(field, vectors);
+        var indices = _createIntVector(field, bitWidth, signed, nullable);
+        return new DictionaryVector(field, indices, dictionaries[dictionary.id().toFloat64().toString()]);
+    }
+}
+
+function _createIntVector(field, bitWidth, signed, nullable) {
+    if (bitWidth == 64) {
+        if (signed) {
+            return nullable ? new NullableInt64Vector(field) : new Int64Vector(field);
+        } else {
+            return nullable ? new NullableUint64Vector(field) : new Uint64Vector(field);
+        }
+    } else if (bitWidth == 32) {
+        if (signed) {
+            return nullable ? new NullableInt32Vector(field) : new Int32Vector(field);
+        } else {
+            return nullable ? new NullableUint32Vector(field) : new Uint32Vector(field);
+        }
+    } else if (bitWidth == 16) {
+        if (signed) {
+            return nullable ? new NullableInt16Vector(field) : new Int16Vector(field);
+        } else {
+            return nullable ? new NullableUint16Vector(field) : new Uint16Vector(field);
+        }
+    } else if (bitWidth == 8) {
+        if (signed) {
+            return nullable ? new NullableInt8Vector(field) : new Int8Vector(field);
+        } else {
+            return nullable ? new NullableUint8Vector(field) : new Uint8Vector(field);
+        }
+    } else {
+         throw "Unimplemented Int bit width " + bitWidth;
     }
 }
