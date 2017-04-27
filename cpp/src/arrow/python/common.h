@@ -92,19 +92,12 @@ struct ARROW_EXPORT PyObjectStringify {
   }
 };
 
+Status CheckPyError();
+
 // TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR()                         \
-  if (PyErr_Occurred()) {                           \
-    PyObject *exc_type, *exc_value, *traceback;     \
-    PyErr_Fetch(&exc_type, &exc_value, &traceback); \
-    PyObjectStringify stringified(exc_value);       \
-    std::string message(stringified.bytes);         \
-    Py_DECREF(exc_type);                            \
-    Py_XDECREF(exc_value);                          \
-    Py_XDECREF(traceback);                          \
-    PyErr_Clear();                                  \
-    return Status::UnknownError(message);           \
-  }
+#define RETURN_IF_PYERROR()                     \
+  RETURN_NOT_OK(CheckPyError());
+
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);
