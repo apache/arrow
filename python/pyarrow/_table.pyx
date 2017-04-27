@@ -272,11 +272,12 @@ cdef class Column:
         return chunked_array
 
 
-cdef CKeyValueMetadata key_value_metadata_from_dict(dict metadata):
+cdef shared_ptr[const CKeyValueMetadata] key_value_metadata_from_dict(
+    dict metadata):
     cdef:
         unordered_map[c_string, c_string] unordered_metadata = metadata
-        CKeyValueMetadata c_metadata = CKeyValueMetadata(unordered_metadata)
-    return c_metadata
+    return (<shared_ptr[const CKeyValueMetadata]>
+            make_shared[CKeyValueMetadata](unordered_metadata))
 
 
 cdef int _schema_from_arrays(

@@ -19,10 +19,12 @@
 #define ARROW_UTIL_KEY_VALUE_METADATA_H
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -44,11 +46,15 @@ class ARROW_EXPORT KeyValueMetadata {
   std::string key(int64_t i) const;
   std::string value(int64_t i) const;
 
+  std::shared_ptr<KeyValueMetadata> Copy() const;
+
   bool Equals(const KeyValueMetadata& other) const;
 
  private:
   std::vector<std::string> keys_;
   std::vector<std::string> values_;
+
+  DISALLOW_COPY_AND_ASSIGN(KeyValueMetadata);
 };
 
 }  // namespace arrow

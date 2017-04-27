@@ -593,20 +593,27 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
     field_offsets.push_back(offset);
   }
 
+  auto fb_offsets = fbb.CreateVector(field_offsets);
+
   /// Custom metadata
-  const auto& custom_metadata_ = schema.custom_metadata();
-  std::vector<KeyValueOffset> key_value_offsets;
-  size_t metadata_size = custom_metadata_.size();
-  key_value_offsets.reserve(metadata_size);
-  for (size_t i = 0; i < metadata_size; ++i) {
-    const auto& key = custom_metadata_.key(i);
-    const auto& value = custom_metadata_.value(i);
-    key_value_offsets.push_back(
-        flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
+  const KeyValueMetadata* metadata = schema.metadata().get();
+
+  if (metadata != nullptr) {
+    std::vector<KeyValueOffset> key_value_offsets;
+    size_t metadata_size = metadata->size();
+    key_value_offsets.reserve(metadata_size);
+    for (size_t i = 0; i < metadata_size; ++i) {
+      const auto& key = metadata->key(i);
+      const auto& value = metadata->value(i);
+      key_value_offsets.push_back(
+          flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
+    }
+    *out = flatbuf::CreateSchema(
+        fbb, endianness(), fb_offsets, fbb.CreateVector(key_value_offsets));
+  } else {
+    *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets);
   }
 
-  *out = flatbuf::CreateSchema(fbb, endianness(), fbb.CreateVector(field_offsets),
-      fbb.CreateVector(key_value_offsets));
   return Status::OK();
 }
 
@@ -955,17 +962,16 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
-  KeyValueMetadata custom_metadata;
+  auto metadata = std::make_shared<KeyValueMetadata>();
   auto fb_metadata = schema->custom_metadata();
   if (fb_metadata != nullptr) {
-    custom_metadata.reserve(fb_metadata->size());
-
+    metadata->reserve(fb_metadata->size());
     for (const auto& pair : *fb_metadata) {
-      custom_metadata.Append(pair->key()->str(), pair->value()->str());
+      metadata->Append(pair->key()->str(), pair->value()->str());
     }
   }
 
-  *out = std::make_shared<Schema>(fields, custom_metadata);
+  *out = std::make_shared<Schema>(fields, metadata);
   return Status::OK();
 }
 

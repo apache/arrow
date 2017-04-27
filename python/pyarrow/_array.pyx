@@ -172,7 +172,14 @@ cdef class DecimalType(FixedSizeBinaryType):
 
 
 cdef class Field:
+    """
+    Represents a named field, with a data type, nullability, and optional
+    metadata
 
+    Notes
+    -----
+    Do not use this class's constructor directly; use pyarrow.field
+    """
     def __cinit__(self):
         pass
 
@@ -181,31 +188,76 @@ cdef class Field:
         self.field = field.get()
         self.type = box_data_type(field.get().type())
 
-    @classmethod
-    def from_py(cls, object name, DataType type, bint nullable=True):
-        cdef Field result = Field()
-        result.type = type
-        result.sp_field.reset(new CField(tobytes(name), type.sp_type,
-                                         nullable))
-        result.field = result.sp_field.get()
+    def equals(self, Field other):
+        """
+        Test if this field is equal to the other
+        """
+        return self.field.Equals(deref(other.field))
 
-        return result
+    def __str__(self):
+        self._check_null()
+        return 'pyarrow.Field<{0}>'.format(frombytes(self.field.ToString()))
 
     def __repr__(self):
-        return 'Field({0!r}, type={1})'.format(self.name, str(self.type))
+        return self.__str__()
 
     property nullable:
 
         def __get__(self):
+            self._check_null()
             return self.field.nullable()
 
     property name:
 
         def __get__(self):
-            if box_field(self.sp_field) is None:
-                raise ReferenceError(
-                    'Field not initialized (references NULL pointer)')
+            self._check_null()
             return frombytes(self.field.name())
+
+    property metadata:
+
+        def __get__(self):
+            self._check_null()
+            return box_metadata(self.field.metadata().get())
+
+    def _check_null(self):
+        if self.field == NULL:
+            raise ReferenceError(
+                'Field not initialized (references NULL pointer)')
+
+    def add_metadata(self, dict metadata):
+        """
+        Add metadata as dict of string keys and values to Field
+
+        Parameters
+        ----------
+        metadata : dict
+            Keys and values must be string-like / coercible to bytes
+
+        Returns
+        -------
+        field : pyarrow.Field
+        """
+        cdef shared_ptr[CKeyValueMetadata] c_meta
+        convert_metadata(metadata, &c_meta)
+
+        cdef shared_ptr[CField] new_field
+        with nogil:
+            check_status(self.field.AddMetadata(c_meta, &new_field))
+
+        return box_field(new_field)
+
+    def remove_metadata(self):
+        """
+        Create new field without metadata, if any
+
+        Returns
+        -------
+        field : pyarrow.Field
+        """
+        cdef shared_ptr[CField] new_field
+        with nogil:
+            new_field = self.field.RemoveMetadata()
+        return box_field(new_field)
 
 
 cdef class Schema:
@@ -226,6 +278,14 @@ cdef class Schema:
 
         return result
 
+    cdef init(self, const vector[shared_ptr[CField]]& fields):
+        self.schema = new CSchema(fields)
+        self.sp_schema.reset(self.schema)
+
+    cdef init_schema(self, const shared_ptr[CSchema]& schema):
+        self.schema = schema.get()
+        self.sp_schema = schema
+
     property names:
 
         def __get__(self):
@@ -236,20 +296,10 @@ cdef class Schema:
                 result.append(name)
             return result
 
-    cdef init(self, const vector[shared_ptr[CField]]& fields):
-        self.schema = new CSchema(fields)
-        self.sp_schema.reset(self.schema)
+    property metadata:
 
-    cdef init_schema(self, const shared_ptr[CSchema]& schema):
-        self.schema = schema.get()
-        self.sp_schema = schema
-
-    cpdef dict custom_metadata(self):
-        cdef:
-            CKeyValueMetadata metadata = self.schema.custom_metadata()
-            unordered_map[c_string, c_string] result
-        metadata.ToUnorderedMap(&result)
-        return result
+        def __get__(self):
+            return box_metadata(self.schema.metadata().get())
 
     def equals(self, other):
         """
@@ -274,29 +324,55 @@ cdef class Schema:
         """
         return box_field(self.schema.GetFieldByName(tobytes(name)))
 
-    @classmethod
-    def from_fields(cls, fields):
-        cdef:
-            Schema result
-            Field field
-            vector[shared_ptr[CField]] c_fields
+    def add_metadata(self, dict metadata):
+        """
+        Add metadata as dict of string keys and values to Schema
 
-        c_fields.resize(len(fields))
+        Parameters
+        ----------
+        metadata : dict
+            Keys and values must be string-like / coercible to bytes
 
-        for i in range(len(fields)):
-            field = fields[i]
-            c_fields[i] = field.sp_field
+        Returns
+        -------
+        schema : pyarrow.Schema
+        """
+        cdef shared_ptr[CKeyValueMetadata] c_meta
+        convert_metadata(metadata, &c_meta)
 
-        result = Schema()
-        result.init(c_fields)
+        cdef shared_ptr[CSchema] new_schema
+        with nogil:
+            check_status(self.schema.AddMetadata(c_meta, &new_schema))
 
-        return result
+        return box_schema(new_schema)
+
+    def remove_metadata(self):
+        """
+        Create new schema without metadata, if any
+
+        Returns
+        -------
+        schema : pyarrow.Schema
+        """
+        cdef shared_ptr[CSchema] new_schema
+        with nogil:
+            new_schema = self.schema.RemoveMetadata()
+        return box_schema(new_schema)
 
     def __str__(self):
         return frombytes(self.schema.ToString())
 
     def __repr__(self):
         return self.__str__()
+
+
+cdef box_metadata(const CKeyValueMetadata* metadata):
+    cdef unordered_map[c_string, c_string] result
+    if metadata != NULL:
+        metadata.ToUnorderedMap(&result)
+        return result
+    else:
+        return None
 
 
 cdef dict _type_cache = {}
@@ -315,8 +391,49 @@ cdef DataType primitive_type(Type type):
 #------------------------------------------------------------
 # Type factory functions
 
-def field(name, type, bint nullable=True):
-    return Field.from_py(name, type, nullable)
+cdef int convert_metadata(dict metadata,
+                          shared_ptr[CKeyValueMetadata]* out) except -1:
+    cdef:
+        shared_ptr[CKeyValueMetadata] meta = (
+            make_shared[CKeyValueMetadata]())
+        c_string key, value
+
+    for py_key, py_value in metadata.items():
+        key = tobytes(py_key)
+        value = tobytes(py_value)
+        meta.get().Append(key, value)
+    out[0] = meta
+    return 0
+
+
+def field(name, DataType type, bint nullable=True, dict metadata=None):
+    """
+    Create a pyarrow.Field instance
+
+    Parameters
+    ----------
+    name : string or bytes
+    type : pyarrow.DataType
+    nullable : boolean, default True
+    metadata : dict, default None
+        Keys and values must be coercible to bytes
+
+    Returns
+    -------
+    field : pyarrow.Field
+    """
+    cdef:
+        shared_ptr[CKeyValueMetadata] c_meta
+        Field result = Field()
+
+    if metadata is not None:
+        convert_metadata(metadata, &c_meta)
+
+    result.sp_field.reset(new CField(tobytes(name), type.sp_type,
+                                     nullable, c_meta))
+    result.field = result.sp_field.get()
+    result.type = type
+    return result
 
 
 cdef set PRIMITIVE_TYPES = set([
@@ -554,7 +671,28 @@ def struct(fields):
 
 
 def schema(fields):
-    return Schema.from_fields(fields)
+    """
+    Construct pyarrow.Schema from collection of fields
+
+    Parameters
+    ----------
+    field : list or iterable
+
+    Returns
+    -------
+    schema : pyarrow.Schema
+    """
+    cdef:
+        Schema result
+        Field field
+        vector[shared_ptr[CField]] c_fields
+
+    for i, field in enumerate(fields):
+        c_fields.push_back(field.sp_field)
+
+    result = Schema()
+    result.init(c_fields)
+    return result
 
 
 cdef DataType box_data_type(const shared_ptr[CDataType]& type):

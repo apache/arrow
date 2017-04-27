@@ -91,6 +91,10 @@ std::string KeyValueMetadata::value(int64_t i) const {
   return values_[static_cast<size_t>(i)];
 }
 
+std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Copy() const {
+  return std::make_shared<KeyValueMetadata>(keys_, values_);
+}
+
 bool KeyValueMetadata::Equals(const KeyValueMetadata& other) const {
   return size() == other.size() &&
          std::equal(keys_.cbegin(), keys_.cend(), other.keys_.cbegin()) &&

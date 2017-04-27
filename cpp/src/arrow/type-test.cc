@@ -23,6 +23,7 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/test-util.h"
 #include "arrow/type.h"
 
 using std::shared_ptr;
@@ -48,6 +49,40 @@ TEST(TestField, Equals) {
 
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
+}
+
+TEST(TestField, TestMetadataConstruction) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto metadata2 = metadata->Copy();
+  auto f0 = field("f0", int32(), true, metadata);
+  auto f1 = field("f0", int32(), true, metadata2);
+  ASSERT_TRUE(metadata->Equals(*f0->metadata()));
+  ASSERT_TRUE(f0->Equals(*f1));
+}
+
+TEST(TestField, TestAddMetadata) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32());
+  auto f1 = field("f0", int32(), true, metadata);
+  std::shared_ptr<Field> f2;
+  ASSERT_OK(f0->AddMetadata(metadata, &f2));
+
+  ASSERT_FALSE(f2->Equals(*f0));
+  ASSERT_TRUE(f2->Equals(*f1));
+
+  // Not copied
+  ASSERT_TRUE(metadata.get() == f1->metadata().get());
+}
+
+TEST(TestField, TestRemoveMetadata) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32());
+  auto f1 = field("f0", int32(), true, metadata);
+  std::shared_ptr<Field> f2 = f1->RemoveMetadata();
+  ASSERT_TRUE(f2->metadata() == nullptr);
 }
 
 class TestSchema : public ::testing::Test {
@@ -117,38 +152,42 @@ TEST_F(TestSchema, GetFieldByName) {
   ASSERT_TRUE(result == nullptr);
 }
 
-TEST_F(TestSchema, TestCustomMetadataConstruction) {
+TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
-  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto schema = std::make_shared<Schema>(fields, metadata);
-  ASSERT_TRUE(metadata.Equals(schema->custom_metadata()));
+  ASSERT_TRUE(metadata->Equals(*schema->metadata()));
 }
 
-TEST_F(TestSchema, TestAddCustomMetadata) {
+TEST_F(TestSchema, TestAddMetadata) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto schema = std::make_shared<Schema>(fields);
+  std::shared_ptr<Schema> new_schema;
+  schema->AddMetadata(metadata, &new_schema);
+  ASSERT_TRUE(metadata->Equals(*new_schema->metadata()));
+
+  // Not copied
+  ASSERT_TRUE(metadata.get() == new_schema->metadata().get());
+}
+
+TEST_F(TestSchema, TestRemoveMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto schema = std::make_shared<Schema>(fields);
-  std::shared_ptr<Schema> new_schema;
-  schema->AddCustomMetadata(metadata, &new_schema);
-  ASSERT_TRUE(metadata.Equals(new_schema->custom_metadata()));
-}
-
-TEST_F(TestSchema, TestRemoveCustomMetadata) {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8(), false);
-  auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
-  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
-  auto schema = std::make_shared<Schema>(fields);
-  std::shared_ptr<Schema> new_schema;
-  schema->RemoveCustomMetadata(&new_schema);
-  ASSERT_EQ(0, new_schema->custom_metadata().size());
+  std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
+  ASSERT_TRUE(new_schema->metadata() == nullptr);
 }
 
 #define PRIMITIVE_TEST(KLASS, ENUM, NAME)        \

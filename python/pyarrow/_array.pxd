@@ -81,8 +81,6 @@ cdef class Schema:
     cdef init(self, const vector[shared_ptr[CField]]& fields)
     cdef init_schema(self, const shared_ptr[CSchema]& schema)
 
-    cpdef dict custom_metadata(self)
-
 
 cdef class Scalar:
     cdef readonly:

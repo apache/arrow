@@ -23,6 +23,10 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
         CKeyValueMetadata(const unordered_map[c_string, c_string]&)
+
+        c_bool Equals(const CKeyValueMetadata& other)
+
+        void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
@@ -168,8 +172,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] type()
         c_bool nullable()
 
+        c_string ToString()
+        c_bool Equals(const CField& other)
+
+        shared_ptr[const CKeyValueMetadata] metadata()
+
         CField(const c_string& name, const shared_ptr[CDataType]& type,
                c_bool nullable)
+
+        CField(const c_string& name, const shared_ptr[CDataType]& type,
+               c_bool nullable, const shared_ptr[CKeyValueMetadata]& metadata)
+
+        # Removed const in Cython so don't have to cast to get code to generate
+        CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
+                            shared_ptr[CField]* out)
+        shared_ptr[CField] RemoveMetadata()
+
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
@@ -177,15 +195,24 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
         CSchema(const vector[shared_ptr[CField]]& fields,
-                const CKeyValueMetadata& custom_metadata)
+                const shared_ptr[const CKeyValueMetadata]& metadata)
+
+        # Does not actually exist, but gets Cython to not complain
+        CSchema(const vector[shared_ptr[CField]]& fields,
+                const shared_ptr[CKeyValueMetadata]& metadata)
 
         c_bool Equals(const CSchema& other)
 
         shared_ptr[CField] field(int i)
-        const CKeyValueMetadata& custom_metadata() const
+        shared_ptr[const CKeyValueMetadata] metadata()
         shared_ptr[CField] GetFieldByName(c_string& name)
         int num_fields()
         c_string ToString()
+
+        # Removed const in Cython so don't have to cast to get code to generate
+        CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
+                            shared_ptr[CSchema]* out)
+        shared_ptr[CSchema] RemoveMetadata()
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)

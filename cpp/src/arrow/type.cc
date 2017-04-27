@@ -31,10 +31,31 @@
 
 namespace arrow {
 
+Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+    std::shared_ptr<Field>* out) const {
+  *out = std::make_shared<Field>(name_, type_, nullable_, metadata);
+  return Status::OK();
+}
+
+std::shared_ptr<Field> Field::RemoveMetadata() const {
+  return std::make_shared<Field>(name_, type_, nullable_);
+}
+
 bool Field::Equals(const Field& other) const {
-  return (this == &other) ||
-         (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
-             this->type_->Equals(*other.type_.get()));
+  if (this == &other) {
+    return true;
+  }
+  if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
+      this->type_->Equals(*other.type_.get())) {
+    if (metadata_ == nullptr && other.metadata_ == nullptr) {
+      return true;
+    } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
+      return false;
+    } else {
+      return metadata_->Equals(*other.metadata_);
+    }
+  }
+  return false;
 }
 
 bool Field::Equals(const std::shared_ptr<Field>& other) const {
@@ -233,8 +254,8 @@ std::string NullType::ToString() const {
 // Schema implementation
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
-    const KeyValueMetadata& custom_metadata)
-    : fields_(fields), custom_metadata_(custom_metadata) {}
+    const std::shared_ptr<const KeyValueMetadata>& metadata)
+    : fields_(fields), metadata_(metadata) {}
 
 bool Schema::Equals(const Schema& other) const {
   if (this == &other) { return true; }
@@ -266,26 +287,25 @@ Status Schema::AddField(
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), custom_metadata_);
+  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), metadata_);
   return Status::OK();
 }
 
-Status Schema::AddCustomMetadata(
-    const KeyValueMetadata& custom_metadata, std::shared_ptr<Schema>* out) const {
-  *out = std::make_shared<Schema>(fields_, custom_metadata);
+Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+    std::shared_ptr<Schema>* out) const {
+  *out = std::make_shared<Schema>(fields_, metadata);
   return Status::OK();
 }
 
-Status Schema::RemoveCustomMetadata(std::shared_ptr<Schema>* out) {
-  *out = std::make_shared<Schema>(fields_, KeyValueMetadata());
-  return Status::OK();
+std::shared_ptr<Schema> Schema::RemoveMetadata() const {
+  return std::make_shared<Schema>(fields_);
 }
 
 Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), custom_metadata_);
+  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), metadata_);
   return Status::OK();
 }
 
@@ -298,6 +318,15 @@ std::string Schema::ToString() const {
     buffer << field->ToString();
     ++i;
   }
+
+  if (metadata_) {
+    buffer << "\n-- metadata --";
+    for (int64_t i = 0; i < metadata_->size(); ++i) {
+      buffer << "\n" << metadata_->key(i) << ": "
+             << metadata_->value(i);
+    }
+  }
+
   return buffer.str();
 }
 
@@ -391,8 +420,9 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 }
 
 std::shared_ptr<Field> field(
-    const std::string& name, const TypePtr& type, bool nullable) {
-  return std::make_shared<Field>(name, type, nullable);
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  return std::make_shared<Field>(name, type, nullable, metadata);
 }
 
 std::shared_ptr<DataType> decimal(int precision, int scale) {

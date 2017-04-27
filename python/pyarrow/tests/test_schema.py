@@ -118,7 +118,7 @@ def test_field():
     assert f.name == 'foo'
     assert f.nullable
     assert f.type is t
-    assert repr(f) == "Field('foo', type=string)"
+    assert repr(f) == "pyarrow.Field<foo: string>"
 
     f = pa.field('foo', t, False)
     assert not f.nullable
@@ -150,6 +150,52 @@ def test_field_empty():
     f = pa.Field()
     with pytest.raises(ReferenceError):
         repr(f)
+
+
+def test_field_add_remove_metadata():
+    f0 = pa.field('foo', pa.int32())
+
+    assert f0.metadata is None
+
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+
+    f1 = f0.add_metadata(metadata)
+    assert f1.metadata == metadata
+
+    f3 = f1.remove_metadata()
+    assert f3.metadata is None
+
+    # idempotent
+    f4 = f3.remove_metadata()
+    assert f4.metadata is None
+
+    f5 = pa.field('foo', pa.int32(), True, metadata)
+    f6 = f0.add_metadata(metadata)
+    assert f5.equals(f6)
+
+
+def test_schema_add_remove_metadata():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+
+    s1 = pa.schema(fields)
+
+    assert s1.metadata is None
+
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+
+    s2 = s1.add_metadata(metadata)
+    assert s2.metadata == metadata
+
+    s3 = s2.remove_metadata()
+    assert s3.metadata is None
+
+    # idempotent
+    s4 = s3.remove_metadata()
+    assert s4.metadata is None
 
 
 def test_schema_equals():
