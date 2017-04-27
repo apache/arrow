@@ -493,6 +493,20 @@ def test_read_single_row_group():
 
 
 @parquet
+def test_parquet_piece_read(tmpdir):
+    df = _test_dataframe(1000)
+    table = pa.Table.from_pandas(df)
+
+    path = tmpdir.join('parquet_piece_read.parquet').strpath
+    pq.write_table(table, path, version='2.0')
+
+    piece1 = pq.ParquetDatasetPiece(path)
+
+    result = piece1.read()
+    assert result.equals(table)
+
+
+@parquet
 def test_parquet_piece_basics():
     path = '/baz.parq'
 

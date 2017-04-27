@@ -208,6 +208,9 @@ class ParquetDatasetPiece(object):
             reader = self._open(open_file_func)
         elif file is not None:
             reader = ParquetFile(file)
+        else:
+            # try to read the local path
+            reader = ParquetFile(self.path)
 
         if self.row_group is not None:
             table = reader.read_row_group(self.row_group, columns=columns,
