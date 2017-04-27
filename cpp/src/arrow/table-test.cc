@@ -233,6 +233,11 @@ TEST_F(TestTable, Ctors) {
   table_.reset(new Table(schema_, columns_, length));
   ASSERT_OK(table_->ValidateColumns());
   ASSERT_EQ(length, table_->num_rows());
+
+  ASSERT_OK(MakeTable(schema_, arrays_, &table_));
+  ASSERT_OK(table_->ValidateColumns());
+  ASSERT_EQ(length, table_->num_rows());
+  ASSERT_EQ(3, table_->num_columns());
 }
 
 TEST_F(TestTable, Metadata) {
