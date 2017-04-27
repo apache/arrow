@@ -318,7 +318,7 @@ class TypedConverter : public SeqConverter {
   BuilderType* typed_builder_;
 };
 
-template <typename BuilderType>
+template <typename BuilderType, class Derived>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendData(PyObject* obj, int64_t size) override {
@@ -328,28 +328,31 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     if (PySequence_Check(obj)) {
       for (int64_t i = 0; i < size; ++i) {
 	OwnedRef ref(PySequence_GetItem(obj, i));
-	RETURN_NOT_OK(appendItem(ref));
+	RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
       }
     } else if (PyObject_HasAttrString(obj, "__iter__")) {
       PyObject* iter = PyObject_GetIter(obj);
+      OwnedRef iter_ref(iter);
       PyObject* item;
       while ((item = PyIter_Next(iter))) {
 	OwnedRef ref(item);
-	RETURN_NOT_OK(appendItem(ref));
+	RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
       }
-      Py_DECREF(iter);
     } else {
       return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
 
-  virtual Status AppendItem(const OwnedRef& item) = 0;
+  Status AppendItem(const OwnedRef& item) {
+    return Status::NotImplemented;
+  };
 };
 
-class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
+class BoolConverter : public TypedConverterVisitor<
+  BooleanBuilder, BoolConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -363,9 +366,10 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
   }
 };
 
-class Int64Converter : public TypedConverterVisitor<Int64Builder> {
+class Int64Converter : public TypedConverterVisitor<
+  Int64Builder, Int64Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     int64_t val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -378,9 +382,10 @@ class Int64Converter : public TypedConverterVisitor<Int64Builder> {
   }
 };
 
-class DateConverter : public TypedConverterVisitor<Date64Builder> {
+class DateConverter : public TypedConverterVisitor<
+  Date64Builder, DateConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -391,9 +396,10 @@ class DateConverter : public TypedConverterVisitor<Date64Builder> {
   }
 };
 
-class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
+class TimestampConverter : public TypedConverterVisitor<
+  TimestampBuilder, TimestampConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -420,9 +426,10 @@ class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
   }
 };
 
-class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
+class DoubleConverter : public TypedConverterVisitor<
+  DoubleBuilder, DoubleConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     double val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -435,9 +442,10 @@ class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
   }
 };
 
-class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
+class BytesConverter : public TypedConverterVisitor<
+  BinaryBuilder, BytesConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     const char* bytes;
     Py_ssize_t length;
@@ -463,9 +471,10 @@ class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
   }
 };
 
-class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBuilder> {
+class FixedWidthBytesConverter : public TypedConverterVisitor<
+  FixedSizeBinaryBuilder, FixedWidthBytesConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
     Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
@@ -490,9 +499,10 @@ class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBui
   }
 };
 
-class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
+class UTF8Converter : public TypedConverterVisitor<
+  StringBuilder, UTF8Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
@@ -516,11 +526,12 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
   }
 };
 
-class ListConverter : public TypedConverterVisitor<ListBuilder> {
+class ListConverter : public TypedConverterVisitor<
+  ListBuilder, ListConverter> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
     } else {
@@ -545,9 +556,10 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
     break;                                                    \
   }
 
-class DecimalConverter : public TypedConverterVisitor<arrow::DecimalBuilder> {
+class DecimalConverter : public TypedConverterVisitor<
+  arrow::DecimalBuilder, DecimalConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) final {
+  inline Status AppendItem(const OwnedRef& item) {
     /// Can the compiler figure out that the case statement below isn't necessary
     /// once we're running?
     const int bit_width =
