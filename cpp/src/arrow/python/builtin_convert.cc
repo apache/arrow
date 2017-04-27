@@ -156,20 +156,20 @@ class SeqVisitor {
     if (level > max_nesting_level_) { max_nesting_level_ = level; }
 
     // Loop through either a sequence or an iterator.
-    // VisitElemt takes ownership of the object we are visiting.
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
       for (int64_t i = 0; i < size; ++i) {
 	// TODO(wesm): Specialize for PyList_GET_ITEM?
-	RETURN_NOT_OK(VisitElem(PySequence_GetItem(obj, i), level));
+	OwnedRef ref = OwnedRef(PySequence_GetItem(obj, i));
+	RETURN_NOT_OK(VisitElem(ref, level));
       }
     } else if (PyObject_HasAttrString(obj, "__iter__")) {
-      PyObject* iter = PyObject_GetIter(obj);
+      OwnedRef iter = OwnedRef(PyObject_GetIter(obj));
       PyObject* item;
-      while ((item = PyIter_Next(iter))) {
-	RETURN_NOT_OK(VisitElem(item, level));
+      while ((item = PyIter_Next(iter.obj()))) {
+	OwnedRef ref = OwnedRef(item);
+	RETURN_NOT_OK(VisitElem(ref, level));
       }
-      Py_DECREF(iter);
     } else {
       return Status::TypeError("Object is not a sequence or iterable");
     }
@@ -227,21 +227,18 @@ class SeqVisitor {
   int nesting_histogram_[MAX_NESTING_LEVELS];
 
   // Visits a specific element (inner part of the loop)
-  Status VisitElem(PyObject* item, int level) {
-    // TODO(wesm): Error checking?
-    OwnedRef item_ref(item);
-
-    if (PyList_Check(item)) {
-      RETURN_NOT_OK(Visit(item, level + 1));
-    } else if (PyDict_Check(item)) {
+  Status VisitElem(OwnedRef &item_ref, int level) {
+    if (PyList_Check(item_ref.obj())) {
+      RETURN_NOT_OK(Visit(item_ref.obj(), level + 1));
+    } else if (PyDict_Check(item_ref.obj())) {
       return Status::NotImplemented("No type inference for dicts");
     } else {
       // We permit nulls at any level of nesting
-      if (item == Py_None) {
+      if (item_ref.obj() == Py_None) {
 	// TODO
       } else {
 	++nesting_histogram_[level];
-	scalars_.Visit(item);
+	scalars_.Visit(item_ref.obj());
       }
     }
     return Status::OK();
