@@ -14,13 +14,13 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-cdef extern from 'arrow/python/init.h' namespace 'arrow::py':
-    void InitNumPy()
+cdef extern from 'arrow/python/init.h':
+    int arrow_init_numpy() except -1
 
 cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
     void set_numpy_nan(object o)
 
-InitNumPy()
+arrow_init_numpy()
 
 import numpy as np
 set_numpy_nan(np.nan)

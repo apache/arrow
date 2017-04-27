@@ -155,8 +155,8 @@ class TestPandasConversion(unittest.TestCase):
 
         for dtype, arrow_dtype in numpy_dtypes:
             info = np.iinfo(dtype)
-            values = np.random.randint(info.min,
-                                       min(info.max, np.iinfo('i8').max),
+            values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
+                                       min(info.max, np.iinfo(np.int_).max),
                                        size=num_values)
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))

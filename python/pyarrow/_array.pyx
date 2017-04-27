@@ -1288,8 +1288,7 @@ cdef class Array:
 
         with nogil:
             check_status(
-                pyarrow.ConvertArrayToPandas(self.sp_array, <PyObject*> self,
-                                             &out))
+                pyarrow.ConvertArrayToPandas(self.sp_array, self, &out))
         return wrap_array_output(out)
 
     def to_pylist(self):
@@ -1326,8 +1325,7 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         cdef:
             PyObject* out
 
-        check_status(pyarrow.TensorToNdarray(deref(self.tp), <PyObject*> self,
-                                             &out))
+        check_status(pyarrow.TensorToNdarray(deref(self.tp), self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):

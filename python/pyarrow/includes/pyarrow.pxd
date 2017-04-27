@@ -47,14 +47,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out);
 
-    CStatus TensorToNdarray(const CTensor& tensor, PyObject* base,
+    CStatus TensorToNdarray(const CTensor& tensor, object base,
                             PyObject** out)
 
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
-                                 PyObject* py_ref, PyObject** out)
+                                 object py_ref, PyObject** out)
 
     CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
-                                  PyObject* py_ref, PyObject** out)
+                                  object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
                                  int nthreads, PyObject** out)

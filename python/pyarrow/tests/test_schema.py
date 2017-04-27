@@ -206,7 +206,6 @@ def test_schema_equals():
     ]
 
     sch1 = pa.schema(fields)
-    print(dir(sch1))
     sch2 = pa.schema(fields)
     assert sch1.equals(sch2)
 

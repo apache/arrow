@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 import unittest
 import pytest
 
@@ -251,6 +252,9 @@ class TestFeatherReader(unittest.TestCase):
         self._check_pandas_roundtrip(df, null_counts=[1 * repeats])
 
     def test_delete_partial_file_on_error(self):
+        if sys.platform == 'win32':
+            pytest.skip('Windows hangs on to file handle for some reason')
+
         # strings will fail
         df = pd.DataFrame(
             {
@@ -361,6 +365,7 @@ class TestFeatherReader(unittest.TestCase):
 
     def test_overwritten_file(self):
         path = random_path()
+        self.test_files.append(path)
 
         num_values = 100
         np.random.seed(0)
