@@ -256,7 +256,7 @@ cdef class Field:
         """
         cdef shared_ptr[CField] new_field
         with nogil:
-            check_status(self.field.RemoveMetadata(&new_field))
+            new_field = self.field.RemoveMetadata()
         return box_field(new_field)
 
 
@@ -356,7 +356,7 @@ cdef class Schema:
         """
         cdef shared_ptr[CSchema] new_schema
         with nogil:
-            check_status(self.schema.RemoveMetadata(&new_schema))
+            new_schema = self.schema.RemoveMetadata()
         return box_schema(new_schema)
 
     def __str__(self):

@@ -211,7 +211,8 @@ class ARROW_EXPORT Field {
 
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
       std::shared_ptr<Field>* out) const;
-  Status RemoveMetadata(std::shared_ptr<Field>* out);
+
+  std::shared_ptr<Field> RemoveMetadata() const;
 
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
@@ -713,7 +714,7 @@ class ARROW_EXPORT Schema {
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
       std::shared_ptr<Schema>* out) const;
 
-  Status RemoveMetadata(std::shared_ptr<Schema>* out);
+  std::shared_ptr<Schema> RemoveMetadata() const;
 
   int num_fields() const { return static_cast<int>(fields_.size()); }
 

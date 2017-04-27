@@ -186,7 +186,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # Removed const in Cython so don't have to cast to get code to generate
         CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
                             shared_ptr[CField]* out)
-        CStatus RemoveMetadata(shared_ptr[CField]* out)
+        shared_ptr[CField] RemoveMetadata()
 
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
@@ -212,7 +212,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         # Removed const in Cython so don't have to cast to get code to generate
         CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
                             shared_ptr[CSchema]* out)
-        CStatus RemoveMetadata(shared_ptr[CSchema]* out)
+        shared_ptr[CSchema] RemoveMetadata()
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)

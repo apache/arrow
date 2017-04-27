@@ -81,8 +81,7 @@ TEST(TestField, TestRemoveMetadata) {
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto f0 = field("f0", int32());
   auto f1 = field("f0", int32(), true, metadata);
-  std::shared_ptr<Field> f2;
-  ASSERT_OK(f1->RemoveMetadata(&f2));
+  std::shared_ptr<Field> f2 = f1->RemoveMetadata();
   ASSERT_TRUE(f2->metadata() == nullptr);
 }
 
@@ -187,8 +186,7 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto schema = std::make_shared<Schema>(fields);
-  std::shared_ptr<Schema> new_schema;
-  schema->RemoveMetadata(&new_schema);
+  std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
   ASSERT_TRUE(new_schema->metadata() == nullptr);
 }
 

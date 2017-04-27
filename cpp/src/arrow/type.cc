@@ -37,9 +37,8 @@ Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadat
   return Status::OK();
 }
 
-Status Field::RemoveMetadata(std::shared_ptr<Field>* out) {
-  *out = std::make_shared<Field>(name_, type_, nullable_);
-  return Status::OK();
+std::shared_ptr<Field> Field::RemoveMetadata() const {
+  return std::make_shared<Field>(name_, type_, nullable_);
 }
 
 bool Field::Equals(const Field& other) const {
@@ -298,9 +297,8 @@ Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metada
   return Status::OK();
 }
 
-Status Schema::RemoveMetadata(std::shared_ptr<Schema>* out) {
-  *out = std::make_shared<Schema>(fields_);
-  return Status::OK();
+std::shared_ptr<Schema> Schema::RemoveMetadata() const {
+  return std::make_shared<Schema>(fields_);
 }
 
 Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
