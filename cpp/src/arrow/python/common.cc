@@ -64,7 +64,7 @@ PyBuffer::~PyBuffer() {
   Py_XDECREF(obj_);
 }
 
-Status CheckPyError() {
+Status CheckPyError(StatusCode code) {
   if (PyErr_Occurred()) {
     PyObject *exc_type, *exc_value, *traceback;
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
@@ -78,9 +78,9 @@ Status CheckPyError() {
     // was encountered when calling tell() on a socket file
     if (stringified.bytes != nullptr) {
       std::string message(stringified.bytes);
-      return Status::IOError(message);
+      return Status(code, message);
     } else {
-      return Status::IOError("Error message was null");
+      return Status(code, "Error message was null");
     }
   }
   return Status::OK();

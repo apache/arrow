@@ -92,12 +92,14 @@ struct ARROW_EXPORT PyObjectStringify {
   }
 };
 
-Status CheckPyError();
+Status CheckPyError(StatusCode code = StatusCode::UnknownError);
 
 // TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR()                     \
   RETURN_NOT_OK(CheckPyError());
 
+#define PY_RETURN_IF_ERROR(CODE)                \
+  RETURN_NOT_OK(CheckPyError(CODE));
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);
