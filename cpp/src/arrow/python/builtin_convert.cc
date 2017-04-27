@@ -250,13 +250,13 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
     *size = static_cast<int64_t>(PySequence_Size(obj));
   } else if (PyObject_HasAttrString(obj, "__iter__")) {
     PyObject* iter = PyObject_GetIter(obj);
+    OwnedRef iter_ref(iter);
     *size = 0;
     PyObject* item;
     while ((item = PyIter_Next(iter))) {
+      OwnedRef item_ref(item);
       *size += 1;
-      Py_DECREF(item);
     }
-    Py_DECREF(iter);
   } else {
     return Status::TypeError("Object is not a sequence or iterable");
   }
@@ -354,15 +354,14 @@ class BoolConverter : public TypedConverterVisitor<
  public:
   inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
-      typed_builder_->AppendNull();
+      return typed_builder_->AppendNull();
     } else {
       if (item.obj() == Py_True) {
-	typed_builder_->Append(true);
+	return typed_builder_->Append(true);
       } else {
-	typed_builder_->Append(false);
+	return typed_builder_->Append(false);
       }
     }
-    return Status::OK();
   }
 };
 
@@ -372,13 +371,12 @@ class Int64Converter : public TypedConverterVisitor<
   inline Status AppendItem(const OwnedRef& item) {
     int64_t val;
     if (item.obj() == Py_None) {
-      typed_builder_->AppendNull();
+      return typed_builder_->AppendNull();
     } else {
       val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
       RETURN_IF_PYERROR();
-      typed_builder_->Append(val);
+      return typed_builder_->Append(val);
     }
-    return Status::OK();
   }
 };
 
@@ -387,12 +385,11 @@ class DateConverter : public TypedConverterVisitor<
  public:
   inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
-      typed_builder_->AppendNull();
+      return typed_builder_->AppendNull();
     } else {
       PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
-      typed_builder_->Append(PyDate_to_ms(pydate));
+      return typed_builder_->Append(PyDate_to_ms(pydate));
     }
-    return Status::OK();
   }
 };
 
@@ -401,7 +398,7 @@ class TimestampConverter : public TypedConverterVisitor<
  public:
   inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
-      typed_builder_->AppendNull();
+      return typed_builder_->AppendNull();
     } else {
       PyDateTime_DateTime* pydatetime =
 	reinterpret_cast<PyDateTime_DateTime*>(item.obj());
@@ -420,9 +417,8 @@ class TimestampConverter : public TypedConverterVisitor<
       // Microseconds since the epoch
       int64_t val = static_cast<int64_t>(
 	  lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
-      typed_builder_->Append(val);
+      return typed_builder_->Append(val);
     }
-    return Status::OK();
   }
 };
 
@@ -432,13 +428,12 @@ class DoubleConverter : public TypedConverterVisitor<
   inline Status AppendItem(const OwnedRef& item) {
     double val;
     if (item.obj() == Py_None) {
-      typed_builder_->AppendNull();
+      return typed_builder_->AppendNull();
     } else {
       val = PyFloat_AsDouble(item.obj());
       RETURN_IF_PYERROR();
-      typed_builder_->Append(val);
+      return typed_builder_->Append(val);
     }
-    return Status::OK();
   }
 };
 
@@ -466,8 +461,7 @@ class BytesConverter : public TypedConverterVisitor<
     // No error checking
     length = PyBytes_GET_SIZE(bytes_obj);
     bytes = PyBytes_AS_STRING(bytes_obj);
-    RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
-    return Status::OK();
+    return typed_builder_->Append(bytes, static_cast<int32_t>(length));
   }
 };
 
@@ -493,9 +487,8 @@ class FixedWidthBytesConverter : public TypedConverterVisitor<
     }
     // No error checking
     RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
-    RETURN_NOT_OK(typed_builder_->Append(
-		      reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj))));
-    return Status::OK();
+    return typed_builder_->Append(
+	reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj)));
   }
 };
 
@@ -509,8 +502,7 @@ class UTF8Converter : public TypedConverterVisitor<
     Py_ssize_t length;
 
     if (item.obj() == Py_None) {
-      RETURN_NOT_OK(typed_builder_->AppendNull());
-      return Status::OK();
+      return typed_builder_->AppendNull() ;
     } else if (!PyUnicode_Check(item.obj())) {
       return Status::Invalid("Non-unicode value encountered");
     }
@@ -521,8 +513,7 @@ class UTF8Converter : public TypedConverterVisitor<
     // No error checking
     length = PyBytes_GET_SIZE(bytes_obj);
     bytes = PyBytes_AS_STRING(bytes_obj);
-    RETURN_NOT_OK(typed_builder_->Append(bytes, static_cast<int32_t>(length)));
-    return Status::OK();
+    return typed_builder_->Append(bytes, static_cast<int32_t>(length));
   }
 };
 
@@ -533,15 +524,14 @@ class ListConverter : public TypedConverterVisitor<
 
   inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
-      RETURN_NOT_OK(typed_builder_->AppendNull());
+      return typed_builder_->AppendNull();
     } else {
       typed_builder_->Append();
       PyObject* item_obj = item.obj();
       int64_t list_size =
 	static_cast<int64_t>(PySequence_Size(item_obj));
-      RETURN_NOT_OK(value_converter_->AppendData(item_obj, list_size));
+      return value_converter_->AppendData(item_obj, list_size);
     }
-    return Status::OK();
   }
 
  protected:

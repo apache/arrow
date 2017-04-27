@@ -908,7 +908,8 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
 
 
 
-def array(object sequence, DataType type=None, MemoryPool memory_pool=None, size=None):
+def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
+          size=None):
     """
     Create pyarrow.Array instance from a Python sequence
 
