@@ -227,7 +227,7 @@ class SeqVisitor {
   int nesting_histogram_[MAX_NESTING_LEVELS];
 
   // Visits a specific element (inner part of the loop)
-  Status VisitElem(OwnedRef &item_ref, int level) {
+  Status VisitElem(const OwnedRef &item_ref, int level) {
     if (PyList_Check(item_ref.obj())) {
       RETURN_NOT_OK(Visit(item_ref.obj(), level + 1));
     } else if (PyDict_Check(item_ref.obj())) {
@@ -299,6 +299,8 @@ class SeqConverter {
 
   virtual Status AppendData(PyObject* seq, int64_t size) = 0;
 
+  virtual ~SeqConverter() {}
+
  protected:
   std::shared_ptr<ArrayBuilder> builder_;
 };
@@ -342,12 +344,12 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     return Status::OK();
   }
 
-  virtual Status appendItem(OwnedRef &item) = 0;
+  virtual Status AppendItem(const OwnedRef& item) = 0;
 };
 
 class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -363,7 +365,7 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder> {
 
 class Int64Converter : public TypedConverterVisitor<Int64Builder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     int64_t val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -378,7 +380,7 @@ class Int64Converter : public TypedConverterVisitor<Int64Builder> {
 
 class DateConverter : public TypedConverterVisitor<Date64Builder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -391,7 +393,7 @@ class DateConverter : public TypedConverterVisitor<Date64Builder> {
 
 class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
     } else {
@@ -420,7 +422,7 @@ class TimestampConverter : public TypedConverterVisitor<TimestampBuilder> {
 
 class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     double val;
     if (item.obj() == Py_None) {
       typed_builder_->AppendNull();
@@ -435,7 +437,7 @@ class DoubleConverter : public TypedConverterVisitor<DoubleBuilder> {
 
 class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     PyObject* bytes_obj;
     const char* bytes;
     Py_ssize_t length;
@@ -463,7 +465,7 @@ class BytesConverter : public TypedConverterVisitor<BinaryBuilder> {
 
 class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
@@ -490,7 +492,7 @@ class FixedWidthBytesConverter : public TypedConverterVisitor<FixedSizeBinaryBui
 
 class UTF8Converter : public TypedConverterVisitor<StringBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
@@ -518,7 +520,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
  public:
   Status Init(const std::shared_ptr<ArrayBuilder>& builder) override;
 
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
     } else {
@@ -545,7 +547,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder> {
 
 class DecimalConverter : public TypedConverterVisitor<arrow::DecimalBuilder> {
  public:
-  inline Status appendItem(OwnedRef &item) final {
+  inline Status AppendItem(const OwnedRef& item) final {
     /// Can the compiler figure out that the case statement below isn't necessary
     /// once we're running?
     const int bit_width =
