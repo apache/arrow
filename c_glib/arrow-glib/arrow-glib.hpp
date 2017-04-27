@@ -40,7 +40,6 @@
 
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/file-mode.hpp>
-#include <arrow-glib/file-output-stream.hpp>
 #include <arrow-glib/input-stream.hpp>
 #include <arrow-glib/memory-mapped-file.hpp>
 #include <arrow-glib/output-stream.hpp>

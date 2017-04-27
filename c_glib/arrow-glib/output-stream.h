@@ -42,4 +42,56 @@ typedef struct _GArrowOutputStreamInterface GArrowOutputStreamInterface;
 
 GType garrow_output_stream_get_type(void) G_GNUC_CONST;
 
+
+#define GARROW_TYPE_FILE_OUTPUT_STREAM          \
+  (garrow_file_output_stream_get_type())
+#define GARROW_FILE_OUTPUT_STREAM(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_FILE_OUTPUT_STREAM,   \
+                              GArrowFileOutputStream))
+#define GARROW_FILE_OUTPUT_STREAM_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_FILE_OUTPUT_STREAM,      \
+                           GArrowFileOutputStreamClass))
+#define GARROW_IS_FILE_OUTPUT_STREAM(obj)                       \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_FILE_OUTPUT_STREAM))
+#define GARROW_IS_FILE_OUTPUT_STREAM_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_FILE_OUTPUT_STREAM))
+#define GARROW_FILE_OUTPUT_STREAM_GET_CLASS(obj)                \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_FILE_OUTPUT_STREAM,    \
+                             GArrowFileOutputStreamClass))
+
+typedef struct _GArrowFileOutputStream         GArrowFileOutputStream;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowFileOutputStreamClass    GArrowFileOutputStreamClass;
+#endif
+
+/**
+ * GArrowFileOutputStream:
+ *
+ * It wraps `arrow::io::FileOutputStream`.
+ */
+struct _GArrowFileOutputStream
+{
+  /*< private >*/
+  GObject parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowFileOutputStreamClass
+{
+  GObjectClass parent_class;
+};
+#endif
+
+GType garrow_file_output_stream_get_type(void) G_GNUC_CONST;
+
+GArrowFileOutputStream *garrow_file_output_stream_open(const gchar *path,
+                                                       gboolean append,
+                                                       GError **error);
+
+
 G_END_DECLS
