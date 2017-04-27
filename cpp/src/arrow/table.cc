@@ -369,7 +369,7 @@ Status Table::ValidateColumns() const {
 Status ARROW_EXPORT MakeTable(const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Array>>& arrays, std::shared_ptr<Table>* table) {
   // Make sure the length of the schema corresponds to the length of the vector
-  if (schema->num_fields() != arrays.size()) {
+  if (schema->num_fields() != static_cast<int>(arrays.size())) {
     std::stringstream ss;
     ss << "Schema and Array vector have different lengths: " << schema->num_fields()
        << " != " << arrays.size();
