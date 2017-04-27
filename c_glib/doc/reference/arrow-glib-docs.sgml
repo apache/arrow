@@ -87,9 +87,8 @@
     <chapter id="output">
       <title>Output</title>
       <xi:include href="xml/writeable.xml"/>
-      <xi:include href="xml/output-stream.xml"/>
       <xi:include href="xml/writeable-file.xml"/>
-      <xi:include href="xml/file-output-stream.xml"/>
+      <xi:include href="xml/output-stream.xml"/>
     </chapter>
     <chapter id="input-output">
       <title>Input and output</title>

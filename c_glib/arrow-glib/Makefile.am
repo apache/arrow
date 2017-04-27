@@ -59,7 +59,6 @@ libarrow_glib_la_headers =			\
 libarrow_glib_la_headers +=			\
 	file.h					\
 	file-mode.h				\
-	file-output-stream.h			\
 	input-stream.h				\
 	memory-mapped-file.h			\
 	output-stream.h				\
@@ -102,7 +101,6 @@ libarrow_glib_la_sources =			\
 libarrow_glib_la_sources +=			\
 	file.cpp				\
 	file-mode.cpp				\
-	file-output-stream.cpp			\
 	input-stream.cpp			\
 	memory-mapped-file.cpp			\
 	output-stream.cpp			\
@@ -137,7 +135,6 @@ libarrow_glib_la_cpp_headers =			\
 libarrow_glib_la_cpp_headers +=			\
 	file.hpp				\
 	file-mode.hpp				\
-	file-output-stream.hpp			\
 	input-stream.hpp			\
 	memory-mapped-file.hpp			\
 	output-stream.hpp			\

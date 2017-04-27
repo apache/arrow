@@ -35,7 +35,6 @@
 
 #include <arrow-glib/file.h>
 #include <arrow-glib/file-mode.h>
-#include <arrow-glib/file-output-stream.h>
 #include <arrow-glib/input-stream.h>
 #include <arrow-glib/memory-mapped-file.h>
 #include <arrow-glib/output-stream.h>
