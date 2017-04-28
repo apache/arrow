@@ -28,6 +28,7 @@
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"
@@ -202,8 +203,16 @@ class NoExtraMeta {};
 class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
-      bool nullable = true)
-      : name_(name), type_(type), nullable_(nullable) {}
+      bool nullable = true,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
+    : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+
+  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
+
+  Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+      std::shared_ptr<Field>* out) const;
+
+  std::shared_ptr<Field> RemoveMetadata() const;
 
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
@@ -223,6 +232,9 @@ class ARROW_EXPORT Field {
 
   // Fields can be nullable
   bool nullable_;
+
+  // The field's metadata, if any
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 typedef std::shared_ptr<Field> FieldPtr;
@@ -677,7 +689,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
 class ARROW_EXPORT Schema {
  public:
-  explicit Schema(const std::vector<std::shared_ptr<Field>>& fields);
+  explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
   // Returns true if all of the schema fields are equal
   bool Equals(const Schema& other) const;
@@ -689,6 +702,7 @@ class ARROW_EXPORT Schema {
   std::shared_ptr<Field> GetFieldByName(const std::string& name);
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
+  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
   // Render a string representation of the schema suitable for debugging
   std::string ToString() const;
@@ -697,11 +711,18 @@ class ARROW_EXPORT Schema {
       int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
+  Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+      std::shared_ptr<Schema>* out) const;
+
+  std::shared_ptr<Schema> RemoveMetadata() const;
+
   int num_fields() const { return static_cast<int>(fields_.size()); }
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
   std::unordered_map<std::string, int> name_to_index_;
+
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 // ----------------------------------------------------------------------
@@ -733,7 +754,8 @@ std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
 std::shared_ptr<Field> ARROW_EXPORT field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true);
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //

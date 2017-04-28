@@ -349,6 +349,66 @@ def test_column_of_lists(tmpdir):
 
 
 @parquet
+def test_date_time_types(tmpdir):
+    buf = io.BytesIO()
+
+    t1 = pa.date32()
+    data1 = np.array([17259, 17260, 17261], dtype='int32')
+    a1 = pa.Array.from_pandas(data1, type=t1)
+
+    t2 = pa.date64()
+    data2 = data1.astype('int64') * 86400000
+    a2 = pa.Array.from_pandas(data2, type=t2)
+
+    t3 = pa.timestamp('us')
+    start = pd.Timestamp('2000-01-01').value / 1000
+    data3 = np.array([start, start + 1, start + 2], dtype='int64')
+    a3 = pa.Array.from_pandas(data3, type=t3)
+
+    t4 = pa.time32('ms')
+    data4 = np.arange(3, dtype='i4')
+    a4 = pa.Array.from_pandas(data4, type=t4)
+
+    t5 = pa.time64('us')
+    a5 = pa.Array.from_pandas(data4.astype('int64'), type=t5)
+
+    t6 = pa.time32('s')
+    a6 = pa.Array.from_pandas(data4, type=t6)
+
+    ex_t6 = pa.time32('ms')
+    ex_a6 = pa.Array.from_pandas(data4 * 1000, type=ex_t6)
+
+    table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6],
+                                 ['date32', 'date64', 'timestamp[us]',
+                                  'time32[s]', 'time64[us]', 'time32[s]'])
+
+    # date64 as date32
+    # time32[s] to time32[ms]
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6],
+                                    ['date32', 'date64', 'timestamp[us]',
+                                     'time32[s]', 'time64[us]', 'time32[s]'])
+
+    pq.write_table(table, buf, version="2.0")
+    buf.seek(0)
+
+    result = pq.read_table(buf)
+    assert result.equals(expected)
+
+    # Unsupported stuff
+    def _assert_unsupported(array):
+        table = pa.Table.from_arrays([array], ['unsupported'])
+        buf = io.BytesIO()
+
+        with pytest.raises(NotImplementedError):
+            pq.write_table(table, buf, version="2.0")
+
+    t7 = pa.time64('ns')
+    a7 = pa.Array.from_pandas(data4.astype('int64'), type=t7)
+
+    _assert_unsupported(a7)
+
+
+@parquet
 def test_multithreaded_read():
     df = alltypes_sample(size=10000)
 
@@ -430,6 +490,20 @@ def test_read_single_row_group():
                   for i in range(K)]
     result = pa.concat_tables(row_groups)
     tm.assert_frame_equal(df[cols], result.to_pandas())
+
+
+@parquet
+def test_parquet_piece_read(tmpdir):
+    df = _test_dataframe(1000)
+    table = pa.Table.from_pandas(df)
+
+    path = tmpdir.join('parquet_piece_read.parquet').strpath
+    pq.write_table(table, path, version='2.0')
+
+    piece1 = pq.ParquetDatasetPiece(path)
+
+    result = piece1.read()
+    assert result.equals(table)
 
 
 @parquet

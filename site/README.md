@@ -82,4 +82,23 @@ python setup.py build_sphinx -s doc/source
 rsync -r doc/_build/html/ ../site/asf-site/docs/python/
 ```
 
+#### C (GLib)
+
+First, build Apache Arrow C++ and Apache Arrow GLib.
+
+```
+mkdir -p ../cpp/build
+cd ../cpp/build
+cmake .. -DCMAKE_BUILD_TYPE=debug
+make
+cd ../../c_glib
+./autogen.sh
+./configure \
+  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
+  --with-arrow-cpp-build-type=debug \
+  --enable-gtk-doc
+LD_LIBRARY_PATH=$PWD/../cpp/build/debug make GTK_DOC_V_XREF=": "
+rsync -r doc/reference/html/ ../site/asf-site/docs/c_glib/
+```
+
 Then add/commit/push from the site/asf-site git checkout.

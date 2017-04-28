@@ -26,7 +26,7 @@
 namespace arrow {
 
 static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const reference
-  constexpr int64_t kTotalSize = 100 * 1024 * 1024; // 100MB
+  constexpr int64_t kTotalSize = 100 * 1024 * 1024;      // 100MB
 
   auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
   buffer1->Resize(kTotalSize);
@@ -43,7 +43,7 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
 }
 
 static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const reference
-  constexpr int64_t kTotalSize = 100 * 1024 * 1024; // 100MB
+  constexpr int64_t kTotalSize = 100 * 1024 * 1024;        // 100MB
 
   auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
   buffer1->Resize(kTotalSize);
@@ -72,4 +72,4 @@ BENCHMARK(BM_ParallelMemcopy)
     ->MinTime(1.0)
     ->UseRealTime();
 
-} // namespace arrow
+}  // namespace arrow

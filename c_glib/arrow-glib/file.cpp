@@ -60,12 +60,7 @@ garrow_file_close(GArrowFile *file,
   auto arrow_file = garrow_file_get_raw(file);
 
   auto status = arrow_file->Close();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][file][close]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][file][close]");
 }
 
 /**
@@ -83,10 +78,9 @@ garrow_file_tell(GArrowFile *file,
 
   gint64 position;
   auto status = arrow_file->Tell(&position);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[io][file][tell]")) {
     return position;
   } else {
-    garrow_error_set(error, status, "[io][file][tell]");
     return -1;
   }
 }

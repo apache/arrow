@@ -47,6 +47,7 @@ namespace py {
 
 inline int import_numpy() {
 #ifdef NUMPY_IMPORT_ARRAY
+  std::cout << "Importing NumPy" << std::endl;
   import_array1(-1);
   import_umath1(-1);
 #endif

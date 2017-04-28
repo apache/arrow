@@ -944,6 +944,7 @@ set(ARROW_SRCS
 
   src/arrow/util/bit-util.cc
   src/arrow/util/decimal.cc
+  src/arrow/util/key_value_metadata.cc
 )
 
 if (ARROW_IPC)

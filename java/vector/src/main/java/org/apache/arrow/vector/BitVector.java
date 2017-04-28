@@ -251,11 +251,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   public void transferTo(BitVector target) {
     target.clear();
-    if (target.data != null) {
-      target.data.release();
-    }
-    target.data = data;
-    target.data.retain(1);
+    target.data = data.transferOwnership(target.allocator).buffer;
     target.valueCount = valueCount;
     clear();
   }

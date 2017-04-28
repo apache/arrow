@@ -73,7 +73,7 @@ def dataframe_with_arrays():
     ]
 
     df = pd.DataFrame(arrays)
-    schema = pa.Schema.from_fields(fields)
+    schema = pa.schema(fields)
 
     return df, schema
 
@@ -114,6 +114,6 @@ def dataframe_with_lists():
     ]
 
     df = pd.DataFrame(arrays)
-    schema = pa.Schema.from_fields(fields)
+    schema = pa.schema(fields)
 
     return df, schema

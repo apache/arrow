@@ -19,9 +19,10 @@
 
 from libc.stdint cimport *
 from libcpp cimport bool as c_bool
-from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
+from libcpp.unordered_map cimport unordered_map
 
 from cpython cimport PyObject
 cimport cpython

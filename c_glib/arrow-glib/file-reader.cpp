@@ -146,10 +146,9 @@ garrow_file_reader_open(GArrowRandomAccessFile *file,
   auto status =
     arrow::ipc::FileReader::Open(garrow_random_access_file_get_raw(file),
                                  &arrow_file_reader);
-  if (status.ok()) {
+  if (garrow_error_check(error, status, "[ipc][file-reader][open]")) {
     return garrow_file_reader_new_raw(&arrow_file_reader);
   } else {
-    garrow_error_set(error, status, "[ipc][file-reader][open]");
     return NULL;
   }
 }
@@ -217,10 +216,11 @@ garrow_file_reader_get_record_batch(GArrowFileReader *file_reader,
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
   auto status = arrow_file_reader->GetRecordBatch(i, &arrow_record_batch);
 
-  if (status.ok()) {
+  if (garrow_error_check(error,
+                         status,
+                         "[ipc][file-reader][get-record-batch]")) {
     return garrow_record_batch_new_raw(&arrow_record_batch);
   } else {
-    garrow_error_set(error, status, "[ipc][file-reader][get-record-batch]");
     return NULL;
   }
 }

@@ -55,7 +55,6 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
 }
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
-  PyAcquireGIL lock;
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
   ref->reset(module);
@@ -66,7 +65,6 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
   /// Assumes that ImportModule was called first
   DCHECK_NE(module.obj(), nullptr) << "Cannot import from nullptr Python module";
 
-  PyAcquireGIL lock;
   PyObject* attr = PyObject_GetAttrString(module.obj(), name.c_str());
   RETURN_IF_PYERROR();
   ref->reset(attr);

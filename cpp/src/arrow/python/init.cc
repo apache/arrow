@@ -15,20 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/platform.h"
-
 // Trigger the array import (inversion of NO_IMPORT_ARRAY)
 #define NUMPY_IMPORT_ARRAY
 
 #include "arrow/python/init.h"
 #include "arrow/python/numpy_interop.h"
 
-namespace arrow {
-namespace py {
-
-void InitNumPy() {
-  import_numpy();
+int arrow_init_numpy() {
+  return arrow::py::import_numpy();
 }
-
-}  // namespace py
-}  // namespace arrow

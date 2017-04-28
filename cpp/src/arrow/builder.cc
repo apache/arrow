@@ -363,8 +363,6 @@ ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
   return Status::OK();
 }
 
-template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& val);
-
 Status DecimalBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Init(capacity));
   if (byte_width_ == 16) {

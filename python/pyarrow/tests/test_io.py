@@ -230,12 +230,13 @@ def test_nativefile_write_memoryview():
 
 
 @pytest.fixture
-def sample_disk_data(request):
+def sample_disk_data(request, tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
 
-    path = guid()
+    path = os.path.join(str(tmpdir), guid())
+
     with open(path, 'wb') as f:
         f.write(data)
 
@@ -298,68 +299,62 @@ def _try_delete(path):
         pass
 
 
-def test_memory_map_writer():
+def test_memory_map_writer(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
 
-    path = guid()
-    try:
-        with open(path, 'wb') as f:
-            f.write(data)
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(data)
 
-        f = pa.memory_map(path, mode='r+w')
+    f = pa.memory_map(path, mode='r+w')
 
-        f.seek(10)
-        f.write('peekaboo')
-        assert f.tell() == 18
+    f.seek(10)
+    f.write('peekaboo')
+    assert f.tell() == 18
 
-        f.seek(10)
-        assert f.read(8) == b'peekaboo'
+    f.seek(10)
+    assert f.read(8) == b'peekaboo'
 
-        f2 = pa.memory_map(path, mode='r+w')
+    f2 = pa.memory_map(path, mode='r+w')
 
-        f2.seek(10)
-        f2.write(b'booapeak')
-        f2.seek(10)
+    f2.seek(10)
+    f2.write(b'booapeak')
+    f2.seek(10)
 
-        f.seek(10)
-        assert f.read(8) == b'booapeak'
+    f.seek(10)
+    assert f.read(8) == b'booapeak'
 
-        # Does not truncate file
-        f3 = pa.memory_map(path, mode='w')
-        f3.write('foo')
+    # Does not truncate file
+    f3 = pa.memory_map(path, mode='w')
+    f3.write('foo')
 
-        with pa.memory_map(path) as f4:
-            assert f4.size() == SIZE
+    with pa.memory_map(path) as f4:
+        assert f4.size() == SIZE
 
-        with pytest.raises(IOError):
-            f3.read(5)
+    with pytest.raises(IOError):
+        f3.read(5)
 
-        f.seek(0)
-        assert f.read(3) == b'foo'
-    finally:
-        _try_delete(path)
+    f.seek(0)
+    assert f.read(3) == b'foo'
 
 
-def test_os_file_writer():
+def test_os_file_writer(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
 
-    path = guid()
-    try:
-        with open(path, 'wb') as f:
-            f.write(data)
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(data)
 
-        # Truncates file
-        f2 = pa.OSFile(path, mode='w')
-        f2.write('foo')
+    # Truncates file
+    f2 = pa.OSFile(path, mode='w')
+    f2.write('foo')
 
-        with pa.OSFile(path) as f3:
-            assert f3.size() == 3
+    with pa.OSFile(path) as f3:
+        assert f3.size() == 3
 
-        with pytest.raises(IOError):
-            f2.read(5)
-    finally:
-        _try_delete(path)
+    with pytest.raises(IOError):
+        f2.read(5)

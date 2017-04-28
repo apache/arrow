@@ -392,9 +392,9 @@ class DateConverter : public TypedConverterVisitor<
     }
   }
 };
-
+  
 class TimestampConverter : public TypedConverterVisitor<
-  TimestampBuilder, TimestampConverter> {
+  Date64Builder, TimestampConverter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
     if (item.obj() == Py_None) {
@@ -402,22 +402,7 @@ class TimestampConverter : public TypedConverterVisitor<
     } else {
       PyDateTime_DateTime* pydatetime =
 	reinterpret_cast<PyDateTime_DateTime*>(item.obj());
-      struct tm datetime = {0};
-      datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
-      datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
-      datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
-      datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
-      datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
-      datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
-      int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-      RETURN_IF_PYERROR();
-      struct tm epoch = {0};
-      epoch.tm_year = 70;
-      epoch.tm_mday = 1;
-      // Microseconds since the epoch
-      int64_t val = static_cast<int64_t>(
-	  lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
-      return typed_builder_->Append(val);
+      return typed_builder_->Append(PyDateTime_to_us(pydatetime));
     }
   }
 };

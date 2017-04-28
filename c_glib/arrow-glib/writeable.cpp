@@ -64,12 +64,7 @@ garrow_writeable_write(GArrowWriteable *writeable,
   const auto arrow_writeable = garrow_writeable_get_raw(writeable);
 
   auto status = arrow_writeable->Write(data, n_bytes);
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][writeable][write]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][writeable][write]");
 }
 
 /**
@@ -88,12 +83,7 @@ garrow_writeable_flush(GArrowWriteable *writeable,
   const auto arrow_writeable = garrow_writeable_get_raw(writeable);
 
   auto status = arrow_writeable->Flush();
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    garrow_error_set(error, status, "[io][writeable][flush]");
-    return FALSE;
-  }
+  return garrow_error_check(error, status, "[io][writeable][flush]");
 }
 
 G_END_DECLS
