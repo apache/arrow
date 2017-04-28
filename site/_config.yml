@@ -38,6 +38,7 @@ baseurl:
 gems:
   - jekyll-feed
   - jekyll-bootstrap-sass
+  - jekyll-jupyter-notebook
 
 bootstrap:
   assets: true
