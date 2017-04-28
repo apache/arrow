@@ -208,6 +208,9 @@ class ARROW_EXPORT Table {
 Status ARROW_EXPORT ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table);
 
+Status ARROW_EXPORT MakeTable(const std::shared_ptr<Schema>& schema,
+    const std::vector<std::shared_ptr<Array>>& arrays, std::shared_ptr<Table>* table);
+
 }  // namespace arrow
 
 #endif  // ARROW_TABLE_H
