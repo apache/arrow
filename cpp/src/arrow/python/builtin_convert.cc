@@ -527,7 +527,7 @@ class ListConverter : public TypedConverterVisitor<
   case bit_width: {                                           \
     arrow::decimal::Decimal##bit_width out;                   \
     RETURN_NOT_OK(PythonDecimalToArrowDecimal((item), &out)); \
-    RETURN_NOT_OK((builder)->Append(out));                    \
+    return ((builder)->Append(out));                          \
     break;                                                    \
   }
 
@@ -552,10 +552,8 @@ class DecimalConverter : public TypedConverterVisitor<
       }
       RETURN_IF_PYERROR();
     } else {
-      RETURN_NOT_OK(typed_builder_->AppendNull());
+      return typed_builder_->AppendNull();
     }
-
-    return Status::OK();
   }
 };
 
