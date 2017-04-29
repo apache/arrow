@@ -364,6 +364,7 @@ class FileMetaData::FileMetaDataImpl {
     }
 
     InitSchema();
+    InitKeyValueMetadata();
   }
   ~FileMetaDataImpl() {}
 
@@ -393,6 +394,10 @@ class FileMetaData::FileMetaDataImpl {
 
   const SchemaDescriptor* schema() const { return &schema_; }
 
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata() const {
+    return key_value_metadata_;
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
@@ -404,6 +409,18 @@ class FileMetaData::FileMetaDataImpl {
   }
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
+
+  void InitKeyValueMetadata() {
+    auto metadata = std::make_shared<KeyValueMetadata>();
+    if (metadata_->__isset.key_value_metadata) {
+      for (const auto& it : metadata_->key_value_metadata) {
+        metadata->Append(it.key, it.value);
+      }
+    }
+    key_value_metadata_ = metadata;
+  }
+
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(
@@ -468,6 +485,10 @@ int FileMetaData::num_schema_elements() const {
 
 const SchemaDescriptor* FileMetaData::schema() const {
   return impl_->schema();
+}
+
+std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const {
+  return impl_->key_value_metadata();
 }
 
 void FileMetaData::WriteTo(OutputStream* dst) {
@@ -769,9 +790,10 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written) {
 // TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
-  explicit FileMetaDataBuilderImpl(
-      const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props)
-      : properties_(props), schema_(schema) {
+  explicit FileMetaDataBuilderImpl(const SchemaDescriptor* schema,
+      const std::shared_ptr<WriterProperties>& props,
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
+      : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
   }
   ~FileMetaDataBuilderImpl() {}
@@ -797,6 +819,18 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     }
     metadata_->__set_num_rows(total_rows);
     metadata_->__set_row_groups(row_groups);
+
+    if (key_value_metadata_) {
+      metadata_->key_value_metadata.clear();
+      metadata_->key_value_metadata.reserve(key_value_metadata_->size());
+      for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
+        format::KeyValue kv_pair;
+        kv_pair.__set_key(key_value_metadata_->key(i));
+        kv_pair.__set_value(key_value_metadata_->value(i));
+        metadata_->key_value_metadata.push_back(kv_pair);
+      }
+      metadata_->__isset.key_value_metadata = true;
+    }
 
     int32_t file_version = 0;
     switch (properties_->version()) {
@@ -829,17 +863,21 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   std::vector<std::unique_ptr<format::RowGroup>> row_groups_;
   std::vector<std::unique_ptr<RowGroupMetaDataBuilder>> row_group_builders_;
   const SchemaDescriptor* schema_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
-    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props) {
-  return std::unique_ptr<FileMetaDataBuilder>(new FileMetaDataBuilder(schema, props));
+    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  return std::unique_ptr<FileMetaDataBuilder>(
+      new FileMetaDataBuilder(schema, props, key_value_metadata));
 }
 
-FileMetaDataBuilder::FileMetaDataBuilder(
-    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props)
+FileMetaDataBuilder::FileMetaDataBuilder(const SchemaDescriptor* schema,
+    const std::shared_ptr<WriterProperties>& props,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
     : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(
-          new FileMetaDataBuilderImpl(schema, props))} {}
+          new FileMetaDataBuilderImpl(schema, props, key_value_metadata))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() {}
 

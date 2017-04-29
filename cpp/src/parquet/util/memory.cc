@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 
 #include "arrow/status.h"
 

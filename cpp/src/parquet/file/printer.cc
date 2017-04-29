@@ -32,9 +32,8 @@ namespace parquet {
 // the fixed initial size is just for an example
 #define COL_WIDTH "30"
 
-void ParquetFilePrinter::DebugPrint(
-    std::ostream& stream, std::list<int> selected_columns, bool print_values,
-    const char* filename) {
+void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
+    bool print_values, const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
@@ -142,8 +141,7 @@ void ParquetFilePrinter::DebugPrint(
 }
 
 void ParquetFilePrinter::JSONPrint(
-    std::ostream& stream, std::list<int> selected_columns,
-    const char* filename) {
+    std::ostream& stream, std::list<int> selected_columns, const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
   stream << "{\n";
   stream << "  \"FileName\": \"" << filename << "\",\n";

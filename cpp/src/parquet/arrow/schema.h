@@ -44,13 +44,27 @@ namespace arrow {
 /// \param column_indices indices of leaf nodes in parquet schema tree. Appearing ordering
 ///                       matters for the converted schema. Repeated indices are ignored
 ///                       except for the first one
+/// \param key_value_metadata optional metadata, can be nullptr
 /// \param out the corresponding arrow schema
 /// \return Status::OK() on a successful conversion.
 ::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out);
+    const std::vector<int>& column_indices,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out);
 
-::arrow::Status PARQUET_EXPORT FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out);
+// Without indices
+::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out);
+
+// Without metadata
+::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    const std::vector<int>& column_indices,
+    std::shared_ptr<::arrow::Schema>* out);
+
+// Without metadata or indices
+::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    std::shared_ptr<::arrow::Schema>* out);
 
 ::arrow::Status PARQUET_EXPORT FieldToNode(const std::shared_ptr<::arrow::Field>& field,
     const WriterProperties& properties, schema::NodePtr* out);

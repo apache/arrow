@@ -322,8 +322,9 @@ Status NodeToFieldInternal(const NodePtr& node,
   return Status::OK();
 }
 
-Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
   const GroupNode* schema_node = parquet_schema->group_node();
 
   int num_fields = static_cast<int>(schema_node->field_count());
@@ -332,12 +333,14 @@ Status FromParquetSchema(
     RETURN_NOT_OK(NodeToField(schema_node->field(i), &fields[i]));
   }
 
-  *out = std::make_shared<::arrow::Schema>(fields);
+  *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
   return Status::OK();
 }
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out) {
+    const std::vector<int>& column_indices,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
   // from the root Parquet node
 
@@ -363,8 +366,19 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
     if (field != nullptr) { fields.push_back(field); }
   }
 
-  *out = std::make_shared<::arrow::Schema>(fields);
+  *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
   return Status::OK();
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    const std::vector<int>& column_indices,
+    std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchema(parquet_schema, column_indices, nullptr, out);
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+    std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchema(parquet_schema, nullptr, out);
 }
 
 Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,
@@ -483,8 +497,7 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::TIME64: {
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        return Status::NotImplemented(
-            "Nanosecond time not supported in Parquet.");
+        return Status::NotImplemented("Nanosecond time not supported in Parquet.");
       }
       type = ParquetType::INT64;
       logical_type = LogicalType::TIME_MICROS;

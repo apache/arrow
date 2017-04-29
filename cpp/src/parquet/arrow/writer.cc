@@ -18,6 +18,7 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "parquet/util/bit-util.h"
@@ -564,8 +565,8 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
 
   int current_column_idx = row_group_writer_->current_column();
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  RETURN_NOT_OK(
-      FromParquetSchema(writer_->schema(), {current_column_idx - 1}, &arrow_schema));
+  RETURN_NOT_OK(FromParquetSchema(writer_->schema(), {current_column_idx - 1},
+      writer_->key_value_metadata(), &arrow_schema));
   LevelBuilder level_builder(pool_);
   std::shared_ptr<Buffer> def_levels_buffer;
   std::shared_ptr<Buffer> rep_levels_buffer;
@@ -658,8 +659,9 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   RETURN_NOT_OK(ToParquetSchema(&schema, *properties, &parquet_schema));
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties);
+      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
 
   writer->reset(new FileWriter(pool, std::move(base_writer)));
   return Status::OK();

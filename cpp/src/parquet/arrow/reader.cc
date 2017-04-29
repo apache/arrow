@@ -117,6 +117,8 @@ class FileColumnIterator {
 
   const ColumnDescriptor* descr() const { return schema_->Column(column_index_); }
 
+  std::shared_ptr<FileMetaData> metadata() const { return reader_->metadata(); }
+
   int column_index() const { return column_index_; }
 
  protected:
@@ -296,7 +298,8 @@ Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<Array>* out) {
 Status FileReader::Impl::GetSchema(
     const std::vector<int>& indices, std::shared_ptr<::arrow::Schema>* out) {
   auto descr = reader_->metadata()->schema();
-  return FromParquetSchema(descr, indices, out);
+  auto parquet_key_value_metadata = reader_->metadata()->key_value_metadata();
+  return FromParquetSchema(descr, indices, parquet_key_value_metadata, out);
 }
 
 Status FileReader::Impl::ReadRowGroup(int row_group_index,
@@ -723,13 +726,12 @@ Status ColumnReader::Impl::InitValidBits(int batch_size) {
 Status ColumnReader::Impl::WrapIntoListArray(const int16_t* def_levels,
     const int16_t* rep_levels, int64_t total_levels_read, std::shared_ptr<Array>* array) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
-  RETURN_NOT_OK(
-      FromParquetSchema(input_->schema(), {input_->column_index()}, &arrow_schema));
+  RETURN_NOT_OK(FromParquetSchema(input_->schema(), {input_->column_index()},
+      input_->metadata()->key_value_metadata(), &arrow_schema));
   std::shared_ptr<Field> current_field = arrow_schema->field(0);
 
   if (current_field->type()->id() == ::arrow::Type::STRUCT) {
-    return Status::NotImplemented(
-        "Structs are not yet supported.");
+    return Status::NotImplemented("Structs are not yet supported.");
   }
 
   if (descr_->max_repetition_level() > 0) {

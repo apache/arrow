@@ -205,9 +205,10 @@ void RowGroupSerializer::Close() {
 
 std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
     const std::shared_ptr<OutputStream>& sink, const std::shared_ptr<GroupNode>& schema,
-    const std::shared_ptr<WriterProperties>& properties) {
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
   std::unique_ptr<ParquetFileWriter::Contents> result(
-      new FileSerializer(sink, schema, properties));
+      new FileSerializer(sink, schema, properties, key_value_metadata));
 
   return result;
 }
@@ -274,14 +275,15 @@ void FileSerializer::WriteMetaData() {
 
 FileSerializer::FileSerializer(const std::shared_ptr<OutputStream>& sink,
     const std::shared_ptr<GroupNode>& schema,
-    const std::shared_ptr<WriterProperties>& properties)
-    : sink_(sink),
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
+    : ParquetFileWriter::Contents(schema, key_value_metadata),
+      sink_(sink),
       is_open_(true),
       properties_(properties),
       num_row_groups_(0),
-      num_rows_(0) {
-  schema_.Init(schema);
-  metadata_ = FileMetaDataBuilder::Make(&schema_, properties);
+      num_rows_(0),
+      metadata_(FileMetaDataBuilder::Make(&schema_, properties, key_value_metadata)) {
   StartFile();
 }
 
