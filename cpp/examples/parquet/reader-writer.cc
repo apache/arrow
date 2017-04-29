@@ -46,7 +46,7 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 constexpr int FIXED_LENGTH = 10;
-const std::string PARQUET_FILENAME = "parquet_cpp_example.parquet";
+const char PARQUET_FILENAME[] = "parquet_cpp_example.parquet";
 
 using parquet::Repetition;
 using parquet::Type;
