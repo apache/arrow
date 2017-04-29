@@ -177,8 +177,8 @@ void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative) {
   /// TODO(phillipc): boost multiprecision is unreliable here, int128_t can't be
   /// roundtripped
   const auto& backend(decimal.value.backend());
-  auto boost_bytes = reinterpret_cast<const uint8_t*>(backend.limbs());
-  std::memcpy(*bytes, boost_bytes, BYTES_IN_128_BITS);
+  const size_t bytes_in_use = LIMB_SIZE * backend.size();
+  std::memcpy(*bytes, backend.limbs(), bytes_in_use);
   *is_negative = backend.isneg();
 }
 

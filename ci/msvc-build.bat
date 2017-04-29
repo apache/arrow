@@ -53,5 +53,4 @@ cd ..\..\python
 python setup.py build_ext --inplace  || exit /B
 python -c "import pyarrow"  || exit /B
 
-@rem TODO: re-enable when last tests are fixed
-@rem py.test pyarrow -v -s || exit /B
+py.test pyarrow -v -s || exit /B
