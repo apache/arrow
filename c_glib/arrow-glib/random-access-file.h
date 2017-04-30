@@ -45,11 +45,9 @@ GType garrow_random_access_file_get_type(void) G_GNUC_CONST;
 guint64 garrow_random_access_file_get_size(GArrowRandomAccessFile *file,
                                               GError **error);
 gboolean garrow_random_access_file_get_support_zero_copy(GArrowRandomAccessFile *file);
-gboolean garrow_random_access_file_read_at(GArrowRandomAccessFile *file,
-                                              gint64 position,
-                                              gint64 n_bytes,
-                                              gint64 *n_read_bytes,
-                                              guint8 *buffer,
-                                              GError **error);
+GArrowBuffer *garrow_random_access_file_read_at(GArrowRandomAccessFile *file,
+                                                gint64 position,
+                                                gint64 n_bytes,
+                                                GError **error);
 
 G_END_DECLS

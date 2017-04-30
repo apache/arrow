@@ -23,6 +23,7 @@
 
 #include <arrow/api.h>
 
+#include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/random-access-file.hpp>
 
@@ -88,28 +89,29 @@ garrow_random_access_file_get_support_zero_copy(GArrowRandomAccessFile *file)
  * @file: A #GArrowRandomAccessFile.
  * @position: The read start position.
  * @n_bytes: The number of bytes to be read.
- * @n_read_bytes: (out): The read number of bytes.
- * @buffer: (array length=n_bytes): The buffer to be read data.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: %TRUE on success, %FALSE if there was an error.
+ * Returns: (transfer full) (nullable): #GArrowBuffer that has read
+ *   data on success, %NULL if there was an error.
  */
-gboolean
+GArrowBuffer *
 garrow_random_access_file_read_at(GArrowRandomAccessFile *file,
                                      gint64 position,
                                      gint64 n_bytes,
-                                     gint64 *n_read_bytes,
-                                     guint8 *buffer,
                                      GError **error)
 {
   const auto arrow_random_access_file =
     garrow_random_access_file_get_raw(file);
 
+  std::shared_ptr<arrow::Buffer> arrow_buffer;
   auto status = arrow_random_access_file->ReadAt(position,
                                                  n_bytes,
-                                                 n_read_bytes,
-                                                 buffer);
-  return garrow_error_check(error, status, "[io][random-access-file][read-at]");
+                                                 &arrow_buffer);
+  if (garrow_error_check(error, status, "[io][random-access-file][read-at]")) {
+    return garrow_buffer_new_raw(&arrow_buffer);
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS
