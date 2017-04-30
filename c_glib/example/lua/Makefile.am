@@ -15,37 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS	=					\
-	lua
-
-AM_CPPFLAGS =					\
-	-I$(top_builddir)			\
-	-I$(top_srcdir)
-
-AM_CFLAGS =					\
-	$(GLIB_CFLAGS)				\
-	$(GARROW_CFLAGS)
-
-AM_LDFLAGS =						\
-	$(GLIB_LIBS)					\
-	$(builddir)/../arrow-glib/libarrow-glib.la
-
-noinst_PROGRAMS =				\
-	build					\
-	read-batch				\
-	read-stream
-
-build_SOURCES =					\
-	build.c
-
-read_batch_SOURCES =				\
-	read-batch.c
-
-read_stream_SOURCES =				\
-	read-stream.c
-
-dist_example_DATA =				\
+lua_exampledir = $(exampledir)/lua
+dist_lua_example_DATA =				\
 	README.md				\
-	$(build_SOURCES)			\
-	$(read_batch_SOURCES)			\
-	$(read_stream_SOURCES)
+	read-batch.lua				\
+	read-stream.lua				\
+	write-batch.lua				\
+	write-stream.lua
