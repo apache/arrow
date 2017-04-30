@@ -620,7 +620,11 @@ class StreamWriter::StreamWriterImpl {
   virtual Status Close() {
     // Write the schema if not already written
     // User is responsible for closing the OutputStream
-    return CheckStarted();
+    RETURN_NOT_OK(CheckStarted());
+
+    // Write 0 EOS message
+    const int32_t kEos = 0;
+    return Write(reinterpret_cast<const uint8_t*>(&kEos), sizeof(int32_t));
   }
 
   Status CheckStarted() {
