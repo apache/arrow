@@ -18,7 +18,7 @@
 class TestInt32DataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::Int32DataType.new
-    assert_equal(Arrow::Type::INT32, data_type.type)
+    assert_equal(Arrow::Type::INT32, data_type.id)
   end
 
   def test_to_s

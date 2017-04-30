@@ -18,7 +18,7 @@
 class TestUInt16DataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::UInt16DataType.new
-    assert_equal(Arrow::Type::UINT16, data_type.type)
+    assert_equal(Arrow::Type::UINT16, data_type.id)
   end
 
   def test_to_s
