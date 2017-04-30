@@ -1,0 +1,12 @@
+<div>
+  <aside>
+    <h4>Posts</h4>
+    <ul>
+        {% for post in site.posts %}
+        <li class="{% if page.title == post.title %}current{% endif %}">
+          <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+  </aside>
+</div>
