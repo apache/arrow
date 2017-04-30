@@ -22,7 +22,9 @@
 #endif
 
 #include <arrow/api.h>
+#include <arrow/io/memory.h>
 
+#include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/output-stream.hpp>
@@ -40,114 +42,87 @@ G_BEGIN_DECLS
  * output is file based and writeable
  *
  * #GArrowFileOutputStream is a class for file output stream.
+ *
+ * #GArrowBufferOutputStream is a class for buffer output stream.
  */
 
-G_DEFINE_INTERFACE(GArrowOutputStream,
-                   garrow_output_stream,
-                   G_TYPE_OBJECT)
-
-static void
-garrow_output_stream_default_init (GArrowOutputStreamInterface *iface)
-{
-}
-
-
-typedef struct GArrowFileOutputStreamPrivate_ {
-  std::shared_ptr<arrow::io::FileOutputStream> file_output_stream;
-} GArrowFileOutputStreamPrivate;
+typedef struct GArrowOutputStreamPrivate_ {
+  std::shared_ptr<arrow::io::OutputStream> output_stream;
+} GArrowOutputStreamPrivate;
 
 enum {
   PROP_0,
-  PROP_FILE_OUTPUT_STREAM
+  PROP_OUTPUT_STREAM
 };
 
 static std::shared_ptr<arrow::io::FileInterface>
-garrow_file_output_stream_get_raw_file_interface(GArrowFile *file)
+garrow_output_stream_get_raw_file_interface(GArrowFile *file)
 {
-  auto file_output_stream = GARROW_FILE_OUTPUT_STREAM(file);
-  auto arrow_file_output_stream =
-    garrow_file_output_stream_get_raw(file_output_stream);
-  return arrow_file_output_stream;
+  auto output_stream = GARROW_OUTPUT_STREAM(file);
+  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
+  return arrow_output_stream;
 }
 
 static void
-garrow_file_interface_init(GArrowFileInterface *iface)
+garrow_output_stream_file_interface_init(GArrowFileInterface *iface)
 {
-  iface->get_raw = garrow_file_output_stream_get_raw_file_interface;
+  iface->get_raw = garrow_output_stream_get_raw_file_interface;
 }
 
 static std::shared_ptr<arrow::io::Writeable>
-garrow_file_output_stream_get_raw_writeable_interface(GArrowWriteable *writeable)
+garrow_output_stream_get_raw_writeable_interface(GArrowWriteable *writeable)
 {
-  auto file_output_stream = GARROW_FILE_OUTPUT_STREAM(writeable);
-  auto arrow_file_output_stream =
-    garrow_file_output_stream_get_raw(file_output_stream);
-  return arrow_file_output_stream;
+  auto output_stream = GARROW_OUTPUT_STREAM(writeable);
+  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
+  return arrow_output_stream;
 }
 
 static void
-garrow_writeable_interface_init(GArrowWriteableInterface *iface)
+garrow_output_stream_writeable_interface_init(GArrowWriteableInterface *iface)
 {
-  iface->get_raw = garrow_file_output_stream_get_raw_writeable_interface;
+  iface->get_raw = garrow_output_stream_get_raw_writeable_interface;
 }
 
-static std::shared_ptr<arrow::io::OutputStream>
-garrow_file_output_stream_get_raw_output_stream_interface(GArrowOutputStream *output_stream)
-{
-  auto file_output_stream = GARROW_FILE_OUTPUT_STREAM(output_stream);
-  auto arrow_file_output_stream =
-    garrow_file_output_stream_get_raw(file_output_stream);
-  return arrow_file_output_stream;
-}
-
-static void
-garrow_output_stream_interface_init(GArrowOutputStreamInterface *iface)
-{
-  iface->get_raw = garrow_file_output_stream_get_raw_output_stream_interface;
-}
-
-G_DEFINE_TYPE_WITH_CODE(GArrowFileOutputStream,
-                        garrow_file_output_stream,
+G_DEFINE_TYPE_WITH_CODE(GArrowOutputStream,
+                        garrow_output_stream,
                         G_TYPE_OBJECT,
-                        G_ADD_PRIVATE(GArrowFileOutputStream)
+                        G_ADD_PRIVATE(GArrowOutputStream)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_FILE,
-                                              garrow_file_interface_init)
+                                              garrow_output_stream_file_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_WRITEABLE,
-                                              garrow_writeable_interface_init)
-                        G_IMPLEMENT_INTERFACE(GARROW_TYPE_OUTPUT_STREAM,
-                                              garrow_output_stream_interface_init));
+                                              garrow_output_stream_writeable_interface_init));
 
-#define GARROW_FILE_OUTPUT_STREAM_GET_PRIVATE(obj)              \
+#define GARROW_OUTPUT_STREAM_GET_PRIVATE(obj)                   \
   (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_FILE_OUTPUT_STREAM,  \
-                               GArrowFileOutputStreamPrivate))
+                               GARROW_TYPE_OUTPUT_STREAM,       \
+                               GArrowOutputStreamPrivate))
 
 static void
-garrow_file_output_stream_finalize(GObject *object)
+garrow_output_stream_finalize(GObject *object)
 {
-  GArrowFileOutputStreamPrivate *priv;
+  GArrowOutputStreamPrivate *priv;
 
-  priv = GARROW_FILE_OUTPUT_STREAM_GET_PRIVATE(object);
+  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
 
-  priv->file_output_stream = nullptr;
+  priv->output_stream = nullptr;
 
-  G_OBJECT_CLASS(garrow_file_output_stream_parent_class)->finalize(object);
+  G_OBJECT_CLASS(garrow_output_stream_parent_class)->finalize(object);
 }
 
 static void
-garrow_file_output_stream_set_property(GObject *object,
+garrow_output_stream_set_property(GObject *object,
                                           guint prop_id,
                                           const GValue *value,
                                           GParamSpec *pspec)
 {
-  GArrowFileOutputStreamPrivate *priv;
+  GArrowOutputStreamPrivate *priv;
 
-  priv = GARROW_FILE_OUTPUT_STREAM_GET_PRIVATE(object);
+  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_FILE_OUTPUT_STREAM:
-    priv->file_output_stream =
-      *static_cast<std::shared_ptr<arrow::io::FileOutputStream> *>(g_value_get_pointer(value));
+  case PROP_OUTPUT_STREAM:
+    priv->output_stream =
+      *static_cast<std::shared_ptr<arrow::io::OutputStream> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -156,7 +131,7 @@ garrow_file_output_stream_set_property(GObject *object,
 }
 
 static void
-garrow_file_output_stream_get_property(GObject *object,
+garrow_output_stream_get_property(GObject *object,
                                           guint prop_id,
                                           GValue *value,
                                           GParamSpec *pspec)
@@ -169,28 +144,43 @@ garrow_file_output_stream_get_property(GObject *object,
 }
 
 static void
-garrow_file_output_stream_init(GArrowFileOutputStream *object)
+garrow_output_stream_init(GArrowOutputStream *object)
 {
 }
 
 static void
-garrow_file_output_stream_class_init(GArrowFileOutputStreamClass *klass)
+garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
 {
   GObjectClass *gobject_class;
   GParamSpec *spec;
 
   gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_file_output_stream_finalize;
-  gobject_class->set_property = garrow_file_output_stream_set_property;
-  gobject_class->get_property = garrow_file_output_stream_get_property;
+  gobject_class->finalize     = garrow_output_stream_finalize;
+  gobject_class->set_property = garrow_output_stream_set_property;
+  gobject_class->get_property = garrow_output_stream_get_property;
 
-  spec = g_param_spec_pointer("file-output-stream",
-                              "io::FileOutputStream",
-                              "The raw std::shared<arrow::io::FileOutputStream> *",
+  spec = g_param_spec_pointer("output-stream",
+                              "io::OutputStream",
+                              "The raw std::shared<arrow::io::OutputStream> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FILE_OUTPUT_STREAM, spec);
+  g_object_class_install_property(gobject_class, PROP_OUTPUT_STREAM, spec);
+}
+
+
+G_DEFINE_TYPE(GArrowFileOutputStream,
+              garrow_file_output_stream,
+              GARROW_TYPE_OUTPUT_STREAM);
+
+static void
+garrow_file_output_stream_init(GArrowFileOutputStream *file_output_stream)
+{
+}
+
+static void
+garrow_file_output_stream_class_init(GArrowFileOutputStreamClass *klass)
+{
 }
 
 /**
@@ -204,8 +194,8 @@ garrow_file_output_stream_class_init(GArrowFileOutputStreamClass *klass)
  */
 GArrowFileOutputStream *
 garrow_file_output_stream_open(const gchar *path,
-                                  gboolean append,
-                                  GError **error)
+                               gboolean append,
+                               GError **error)
 {
   std::shared_ptr<arrow::io::FileOutputStream> arrow_file_output_stream;
   auto status =
@@ -223,13 +213,56 @@ garrow_file_output_stream_open(const gchar *path,
   }
 }
 
+
+G_DEFINE_TYPE(GArrowBufferOutputStream,
+              garrow_buffer_output_stream,
+              GARROW_TYPE_OUTPUT_STREAM);
+
+static void
+garrow_buffer_output_stream_init(GArrowBufferOutputStream *buffer_output_stream)
+{
+}
+
+static void
+garrow_buffer_output_stream_class_init(GArrowBufferOutputStreamClass *klass)
+{
+}
+
+/**
+ * garrow_buffer_output_stream_new:
+ * @buffer: The resizable buffer to be output.
+ *
+ * Returns: (transfer full): A newly created #GArrowBufferOutputStream.
+ */
+GArrowBufferOutputStream *
+garrow_buffer_output_stream_new(GArrowResizableBuffer *buffer)
+{
+  auto arrow_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
+  auto arrow_resizable_buffer =
+    std::static_pointer_cast<arrow::ResizableBuffer>(arrow_buffer);
+  auto arrow_buffer_output_stream =
+    std::make_shared<arrow::io::BufferOutputStream>(arrow_resizable_buffer);
+  return garrow_buffer_output_stream_new_raw(&arrow_buffer_output_stream);
+}
 G_END_DECLS
+
+GArrowOutputStream *
+garrow_output_stream_new_raw(std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream)
+{
+  auto output_stream =
+    GARROW_OUTPUT_STREAM(g_object_new(GARROW_TYPE_OUTPUT_STREAM,
+                                      "output-stream", arrow_output_stream,
+                                      NULL));
+  return output_stream;
+}
 
 std::shared_ptr<arrow::io::OutputStream>
 garrow_output_stream_get_raw(GArrowOutputStream *output_stream)
 {
-  auto *iface = GARROW_OUTPUT_STREAM_GET_IFACE(output_stream);
-  return iface->get_raw(output_stream);
+  GArrowOutputStreamPrivate *priv;
+
+  priv = GARROW_OUTPUT_STREAM_GET_PRIVATE(output_stream);
+  return priv->output_stream;
 }
 
 
@@ -238,16 +271,17 @@ garrow_file_output_stream_new_raw(std::shared_ptr<arrow::io::FileOutputStream> *
 {
   auto file_output_stream =
     GARROW_FILE_OUTPUT_STREAM(g_object_new(GARROW_TYPE_FILE_OUTPUT_STREAM,
-                                           "file-output-stream", arrow_file_output_stream,
+                                           "output-stream", arrow_file_output_stream,
                                            NULL));
   return file_output_stream;
 }
 
-std::shared_ptr<arrow::io::FileOutputStream>
-garrow_file_output_stream_get_raw(GArrowFileOutputStream *file_output_stream)
+GArrowBufferOutputStream *
+garrow_buffer_output_stream_new_raw(std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream)
 {
-  GArrowFileOutputStreamPrivate *priv;
-
-  priv = GARROW_FILE_OUTPUT_STREAM_GET_PRIVATE(file_output_stream);
-  return priv->file_output_stream;
+  auto buffer_output_stream =
+    GARROW_BUFFER_OUTPUT_STREAM(g_object_new(GARROW_TYPE_BUFFER_OUTPUT_STREAM,
+                                             "output-stream", arrow_buffer_output_stream,
+                                             NULL));
+  return buffer_output_stream;
 }
