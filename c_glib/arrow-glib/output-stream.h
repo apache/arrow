@@ -21,24 +21,53 @@
 
 #include <glib-object.h>
 
+#include <arrow-glib/buffer.h>
+
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_OUTPUT_STREAM            \
+#define GARROW_TYPE_OUTPUT_STREAM               \
   (garrow_output_stream_get_type())
-#define GARROW_OUTPUT_STREAM(obj)                            \
+#define GARROW_OUTPUT_STREAM(obj)                               \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_OUTPUT_STREAM,     \
+                              GARROW_TYPE_OUTPUT_STREAM,        \
                               GArrowOutputStream))
-#define GARROW_IS_OUTPUT_STREAM(obj)                         \
+#define GARROW_OUTPUT_STREAM_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_OUTPUT_STREAM,   \
+                           GArrowOutputStreamClass))
+#define GARROW_IS_OUTPUT_STREAM(obj)                            \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
                               GARROW_TYPE_OUTPUT_STREAM))
-#define GARROW_OUTPUT_STREAM_GET_IFACE(obj)                          \
-  (G_TYPE_INSTANCE_GET_INTERFACE((obj),                                 \
-                                 GARROW_TYPE_OUTPUT_STREAM,          \
-                                 GArrowOutputStreamInterface))
+#define GARROW_IS_OUTPUT_STREAM_CLASS(klass)            \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_OUTPUT_STREAM))
+#define GARROW_OUTPUT_STREAM_GET_CLASS(obj)             \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_OUTPUT_STREAM, \
+                             GArrowOutputStreamClass))
 
 typedef struct _GArrowOutputStream          GArrowOutputStream;
-typedef struct _GArrowOutputStreamInterface GArrowOutputStreamInterface;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowOutputStreamClass     GArrowOutputStreamClass;
+#endif
+
+/**
+ * GArrowOutputStream:
+ *
+ * It wraps `arrow::io::OutputStream`.
+ */
+struct _GArrowOutputStream
+{
+  /*< private >*/
+  GObject parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowOutputStreamClass
+{
+  GObjectClass parent_class;
+};
+#endif
 
 GType garrow_output_stream_get_type(void) G_GNUC_CONST;
 
@@ -77,13 +106,13 @@ typedef struct _GArrowFileOutputStreamClass    GArrowFileOutputStreamClass;
 struct _GArrowFileOutputStream
 {
   /*< private >*/
-  GObject parent_instance;
+  GArrowOutputStream parent_instance;
 };
 
 #ifndef __GTK_DOC_IGNORE__
 struct _GArrowFileOutputStreamClass
 {
-  GObjectClass parent_class;
+  GArrowOutputStreamClass parent_class;
 };
 #endif
 
@@ -93,5 +122,53 @@ GArrowFileOutputStream *garrow_file_output_stream_open(const gchar *path,
                                                        gboolean append,
                                                        GError **error);
 
+
+#define GARROW_TYPE_BUFFER_OUTPUT_STREAM        \
+  (garrow_buffer_output_stream_get_type())
+#define GARROW_BUFFER_OUTPUT_STREAM(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_BUFFER_OUTPUT_STREAM, \
+                              GArrowBufferOutputStream))
+#define GARROW_BUFFER_OUTPUT_STREAM_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_BUFFER_OUTPUT_STREAM,    \
+                           GArrowBufferOutputStreamClass))
+#define GARROW_IS_BUFFER_OUTPUT_STREAM(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_BUFFER_OUTPUT_STREAM))
+#define GARROW_IS_BUFFER_OUTPUT_STREAM_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_BUFFER_OUTPUT_STREAM))
+#define GARROW_BUFFER_OUTPUT_STREAM_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_BUFFER_OUTPUT_STREAM,  \
+                             GArrowBufferOutputStreamClass))
+
+typedef struct _GArrowBufferOutputStream         GArrowBufferOutputStream;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowBufferOutputStreamClass    GArrowBufferOutputStreamClass;
+#endif
+
+/**
+ * GArrowBufferOutputStream:
+ *
+ * It wraps `arrow::io::BufferOutputStream`.
+ */
+struct _GArrowBufferOutputStream
+{
+  /*< private >*/
+  GArrowOutputStream parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowBufferOutputStreamClass
+{
+  GArrowOutputStreamClass parent_class;
+};
+#endif
+
+GType garrow_buffer_output_stream_get_type(void) G_GNUC_CONST;
+
+GArrowBufferOutputStream *garrow_buffer_output_stream_new(GArrowResizableBuffer *buffer);
 
 G_END_DECLS
