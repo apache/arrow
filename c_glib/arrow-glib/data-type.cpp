@@ -192,13 +192,13 @@ garrow_data_type_to_string(GArrowDataType *data_type)
 }
 
 /**
- * garrow_data_type_type:
+ * garrow_data_type_get_id:
  * @data_type: A #GArrowDataType.
  *
- * Returns: The type of the data type.
+ * Returns: The #GArrowType of the data type.
  */
 GArrowType
-garrow_data_type_type(GArrowDataType *data_type)
+garrow_data_type_get_id(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   return garrow_type_from_raw(arrow_data_type->id());

@@ -73,7 +73,7 @@ GType      garrow_data_type_get_type  (void) G_GNUC_CONST;
 gboolean   garrow_data_type_equal     (GArrowDataType *data_type,
                                        GArrowDataType *other_data_type);
 gchar     *garrow_data_type_to_string (GArrowDataType *data_type);
-GArrowType garrow_data_type_type      (GArrowDataType *data_type);
+GArrowType garrow_data_type_get_id    (GArrowDataType *data_type);
 
 
 #define GARROW_TYPE_NULL_DATA_TYPE              \

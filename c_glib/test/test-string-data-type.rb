@@ -18,7 +18,7 @@
 class TestStringDataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::StringDataType.new
-    assert_equal(Arrow::Type::STRING, data_type.type)
+    assert_equal(Arrow::Type::STRING, data_type.id)
   end
 
   def test_to_s

@@ -18,7 +18,7 @@
 class TestBooleanDataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::BooleanDataType.new
-    assert_equal(Arrow::Type::BOOL, data_type.type)
+    assert_equal(Arrow::Type::BOOL, data_type.id)
   end
 
   def test_to_s

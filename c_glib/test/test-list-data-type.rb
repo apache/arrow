@@ -19,7 +19,7 @@ class TestListDataType < Test::Unit::TestCase
   def test_type
     field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
     data_type = Arrow::ListDataType.new(field)
-    assert_equal(Arrow::Type::LIST, data_type.type)
+    assert_equal(Arrow::Type::LIST, data_type.id)
   end
 
   def test_to_s
