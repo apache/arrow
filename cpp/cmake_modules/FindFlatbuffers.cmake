@@ -33,18 +33,18 @@
 
 if( NOT "${FLATBUFFERS_HOME}" STREQUAL "")
     file( TO_CMAKE_PATH "${FLATBUFFERS_HOME}" _native_path )
-    list( APPEND _flatbuffers_roots ${_native_path} )
+    list( APPEND _flatbuffers_roots "${_native_path}" )
 elseif ( Flatbuffers_HOME )
-    list( APPEND _flatbuffers_roots ${Flatbuffers_HOME} )
+    list( APPEND _flatbuffers_roots "${Flatbuffers_HOME}" )
 endif()
 
 # Try the parameterized roots, if they exist
 if ( _flatbuffers_roots )
     find_path( FLATBUFFERS_INCLUDE_DIR NAMES flatbuffers/flatbuffers.h
-        PATHS ${_flatbuffers_roots} NO_DEFAULT_PATH
+        PATHS "${_flatbuffers_roots}" NO_DEFAULT_PATH
         PATH_SUFFIXES "include" )
     find_library( FLATBUFFERS_LIBRARIES NAMES flatbuffers
-        PATHS ${_flatbuffers_roots} NO_DEFAULT_PATH
+        PATHS "${_flatbuffers_roots}" NO_DEFAULT_PATH
         PATH_SUFFIXES "lib" )
 else ()
     find_path( FLATBUFFERS_INCLUDE_DIR NAMES flatbuffers/flatbuffers.h )
@@ -52,7 +52,7 @@ else ()
 endif ()
 
 find_program(FLATBUFFERS_COMPILER flatc
-  ${FLATBUFFERS_HOME}/bin
+  "${FLATBUFFERS_HOME}/bin"
   /usr/local/bin
   /usr/bin
   NO_DEFAULT_PATH
@@ -60,9 +60,9 @@ find_program(FLATBUFFERS_COMPILER flatc
 
 if (FLATBUFFERS_INCLUDE_DIR AND FLATBUFFERS_LIBRARIES)
   set(FLATBUFFERS_FOUND TRUE)
-  get_filename_component( FLATBUFFERS_LIBS ${FLATBUFFERS_LIBRARIES} PATH )
+  get_filename_component( FLATBUFFERS_LIBS "${FLATBUFFERS_LIBRARIES}" PATH )
   set(FLATBUFFERS_LIB_NAME libflatbuffers)
-  set(FLATBUFFERS_STATIC_LIB ${FLATBUFFERS_LIBS}/${FLATBUFFERS_LIB_NAME}.a)
+  set(FLATBUFFERS_STATIC_LIB "${FLATBUFFERS_LIBS}/${FLATBUFFERS_LIB_NAME}.a")
 else ()
   set(FLATBUFFERS_FOUND FALSE)
 endif ()
@@ -75,7 +75,7 @@ else ()
   if (NOT Flatbuffers_FIND_QUIETLY)
     set(FLATBUFFERS_ERR_MSG "Could not find the Flatbuffers library. Looked in ")
     if ( _flatbuffers_roots )
-      set(FLATBUFFERS_ERR_MSG "${FLATBUFFERS_ERR_MSG} in ${_flatbuffers_roots}.")
+      set(FLATBUFFERS_ERR_MSG "${FLATBUFFERS_ERR_MSG} ${_flatbuffers_roots}.")
     else ()
       set(FLATBUFFERS_ERR_MSG "${FLATBUFFERS_ERR_MSG} system search paths.")
     endif ()
