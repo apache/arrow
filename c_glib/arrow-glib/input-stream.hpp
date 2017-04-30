@@ -20,19 +20,11 @@
 #pragma once
 
 #include <arrow/io/interfaces.h>
+#include <arrow/io/memory.h>
 
 #include <arrow-glib/input-stream.h>
 
-/**
- * GArrowInputStreamInterface:
- *
- * It wraps `arrow::io::InputStream`.
- */
-struct _GArrowInputStreamInterface
-{
-  GTypeInterface parent_iface;
-
-  std::shared_ptr<arrow::io::InputStream> (*get_raw)(GArrowInputStream *file);
-};
-
+GArrowInputStream *garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input_stream);
 std::shared_ptr<arrow::io::InputStream> garrow_input_stream_get_raw(GArrowInputStream *input_stream);
+
+GArrowBufferReader *garrow_buffer_reader_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader);

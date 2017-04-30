@@ -82,21 +82,6 @@ garrow_readable_interface_init(GArrowReadableInterface *iface)
   iface->get_raw = garrow_memory_mapped_file_get_raw_readable_interface;
 }
 
-static std::shared_ptr<arrow::io::InputStream>
-garrow_memory_mapped_file_get_raw_input_stream_interface(GArrowInputStream *input_stream)
-{
-  auto memory_mapped_file = GARROW_MEMORY_MAPPED_FILE(input_stream);
-  auto arrow_memory_mapped_file =
-    garrow_memory_mapped_file_get_raw(memory_mapped_file);
-  return arrow_memory_mapped_file;
-}
-
-static void
-garrow_input_stream_interface_init(GArrowInputStreamInterface *iface)
-{
-  iface->get_raw = garrow_memory_mapped_file_get_raw_input_stream_interface;
-}
-
 static std::shared_ptr<arrow::io::RandomAccessFile>
 garrow_memory_mapped_file_get_raw_random_access_file_interface(GArrowRandomAccessFile *file)
 {
@@ -150,8 +135,6 @@ G_DEFINE_TYPE_WITH_CODE(GArrowMemoryMappedFile,
                                               garrow_file_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_READABLE,
                                               garrow_readable_interface_init)
-                        G_IMPLEMENT_INTERFACE(GARROW_TYPE_INPUT_STREAM,
-                                              garrow_input_stream_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_RANDOM_ACCESS_FILE,
                                               garrow_random_access_file_interface_init)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_WRITEABLE,
