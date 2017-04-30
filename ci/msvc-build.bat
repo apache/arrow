@@ -35,7 +35,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_CXXFLAGS="/WX" ^
+      -DARROW_CXXFLAGS="/WX /MP" ^
       -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
