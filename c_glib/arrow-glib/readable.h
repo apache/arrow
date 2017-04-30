@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <glib-object.h>
+#include <arrow-glib/buffer.h>
 
 G_BEGIN_DECLS
 
@@ -42,10 +42,8 @@ typedef struct _GArrowReadableInterface GArrowReadableInterface;
 
 GType garrow_readable_get_type(void) G_GNUC_CONST;
 
-gboolean garrow_readable_read(GArrowReadable *readable,
-                                 gint64 n_bytes,
-                                 gint64 *n_read_bytes,
-                                 guint8 *buffer,
-                                 GError **error);
+GArrowBuffer *garrow_readable_read(GArrowReadable *readable,
+                                   gint64 n_bytes,
+                                   GError **error);
 
 G_END_DECLS

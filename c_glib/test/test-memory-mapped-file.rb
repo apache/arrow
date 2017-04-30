@@ -22,9 +22,8 @@ class TestMemoryMappedFile < Test::Unit::TestCase
     tempfile.close
     file = Arrow::MemoryMappedFile.open(tempfile.path, :read)
     begin
-      buffer = " " * 5
-      file.read(buffer)
-      assert_equal("Hello", buffer)
+      buffer = file.read(5)
+      assert_equal("Hello", buffer.data.to_s)
     ensure
       file.close
     end
@@ -48,9 +47,8 @@ class TestMemoryMappedFile < Test::Unit::TestCase
     tempfile.close
     file = Arrow::MemoryMappedFile.open(tempfile.path, :read)
     begin
-      buffer = " " * 5
-      _success, n_read_bytes = file.read(buffer)
-      assert_equal("Hello", buffer.byteslice(0, n_read_bytes))
+      buffer = file.read(5)
+      assert_equal("Hello", buffer.data.to_s)
     ensure
       file.close
     end
@@ -62,9 +60,8 @@ class TestMemoryMappedFile < Test::Unit::TestCase
     tempfile.close
     file = Arrow::MemoryMappedFile.open(tempfile.path, :read)
     begin
-      buffer = " " * 5
-      _success, n_read_bytes = file.read_at(6, buffer)
-      assert_equal("World", buffer.byteslice(0, n_read_bytes))
+      buffer = file.read_at(6, 5)
+      assert_equal("World", buffer.data.to_s)
     ensure
       file.close
     end
@@ -116,8 +113,7 @@ class TestMemoryMappedFile < Test::Unit::TestCase
     tempfile.close
     file = Arrow::MemoryMappedFile.open(tempfile.path, :read)
     begin
-      buffer = " " * 5
-      file.read(buffer)
+      file.read(5)
       assert_equal(5, file.tell)
     ensure
       file.close
