@@ -147,7 +147,7 @@ void FromBytes(const uint8_t* bytes, Decimal64* decimal) {
 constexpr static const size_t BYTES_IN_128_BITS = 128 / CHAR_BIT;
 constexpr static const size_t LIMB_SIZE =
     sizeof(std::remove_pointer<int128_t::backend_type::limb_pointer>::type);
-constexpr static const size_t BYTES_PER_LIMB = BYTES_IN_128_BITS / LIMB_SIZE;
+constexpr static const size_t LIMBS_IN_INT128 = BYTES_IN_128_BITS / LIMB_SIZE;
 
 void FromBytes(const uint8_t* bytes, bool is_negative, Decimal128* decimal) {
   DCHECK_NE(bytes, nullptr);
@@ -155,7 +155,7 @@ void FromBytes(const uint8_t* bytes, bool is_negative, Decimal128* decimal) {
 
   auto& decimal_value(decimal->value);
   int128_t::backend_type& backend(decimal_value.backend());
-  backend.resize(BYTES_PER_LIMB, BYTES_PER_LIMB);
+  backend.resize(LIMBS_IN_INT128, LIMBS_IN_INT128);
   std::memcpy(backend.limbs(), bytes, BYTES_IN_128_BITS);
   if (is_negative) { decimal->value = -decimal->value; }
 }
@@ -177,8 +177,8 @@ void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative) {
   /// TODO(phillipc): boost multiprecision is unreliable here, int128_t can't be
   /// roundtripped
   const auto& backend(decimal.value.backend());
-  auto boost_bytes = reinterpret_cast<const uint8_t*>(backend.limbs());
-  std::memcpy(*bytes, boost_bytes, BYTES_IN_128_BITS);
+  const size_t bytes_in_use = LIMB_SIZE * backend.size();
+  std::memcpy(*bytes, backend.limbs(), bytes_in_use);
   *is_negative = backend.isneg();
 }
 
