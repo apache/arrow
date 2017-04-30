@@ -194,10 +194,12 @@ You can use Arrow GLib with non C languages with GObject Introspection
 based bindings. Here are languages that support GObject Introspection:
 
   * Ruby: [red-arrow gem](https://rubygems.org/gems/red-arrow) should be used.
+    * Examples: https://github.com/red-data-tools/red-arrow/tree/master/example
 
   * Python: [PyGObject](https://wiki.gnome.org/Projects/PyGObject) should be used. (Note that you should use PyArrow than Arrow GLib.)
 
   * Lua: [LGI](https://github.com/pavouk/lgi) should be used.
+    * Examples: `example/lua/` directory.
 
   * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used.
 

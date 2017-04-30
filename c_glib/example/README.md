@@ -16,7 +16,9 @@
 
 There are example codes in this directory.
 
-C example codes exist in this directory.
+C example codes exist in this directory. Language bindings example
+codes exists in sub directories. For example, Lua example codes exists
+in `lua/` sub directory.
 
 ## C example codes
 
@@ -39,4 +41,3 @@ Here are example codes in this directory:
 
   * `read-stream.c`: It shows how to read Arrow array from file in
     stream mode.
-
