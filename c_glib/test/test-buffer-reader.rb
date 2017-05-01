@@ -19,8 +19,7 @@ class TestBufferReader < Test::Unit::TestCase
   def test_read
     buffer = Arrow::Buffer.new("Hello World")
     buffer_reader = Arrow::BufferReader.new(buffer)
-    read_buffer = " " * 5
-    _success, n_read_bytes = buffer_reader.read(read_buffer)
-    assert_equal("Hello", read_buffer.byteslice(0, n_read_bytes))
+    read_buffer = buffer_reader.read(5)
+    assert_equal("Hello", read_buffer.data.to_s)
   end
 end
