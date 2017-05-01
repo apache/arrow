@@ -14,18 +14,14 @@ FROM quay.io/pypa/manylinux1_x86_64:latest
 # Install dependencies
 RUN yum install -y flex zlib-devel
 
-ADD scripts /scripts
-WORKDIR /
-RUN /scripts/build_openssl.sh
-RUN /scripts/build_boost.sh
+ADD scripts/build_openssl.sh /
+RUN /build_openssl.sh
 
-WORKDIR /
-RUN wget https://github.com/jemalloc/jemalloc/releases/download/4.4.0/jemalloc-4.4.0.tar.bz2 -O jemalloc-4.4.0.tar.bz2
-RUN tar xf jemalloc-4.4.0.tar.bz2
-WORKDIR /jemalloc-4.4.0
-RUN ./configure
-RUN make -j5
-RUN make install
+ADD scripts/build_boost.sh /
+RUN /build_boost.sh
+
+ADD scripts/build_jemalloc.sh /
+RUN /build_jemalloc.sh
 
 WORKDIR /
 # Install cmake manylinux1 package

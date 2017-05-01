@@ -58,7 +58,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
   - language: cpp
     before_script:
-    - docker pull quay.io/pypa/manylinux1_x86_64
+    - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-927
     script: |
         pushd python/manylinux1
         git clone ../../ arrow
