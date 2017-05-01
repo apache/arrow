@@ -34,8 +34,8 @@ public class ComplexCopier {
 
   /**
    * Do a deep copy of the value in input into output
-   * @param in
-   * @param out
+   * @param input field to read from
+   * @param output field to write to
    */
   public static void copy(FieldReader input, FieldWriter output) {
     writeValue(input, output);

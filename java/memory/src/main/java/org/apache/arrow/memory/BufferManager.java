@@ -25,14 +25,6 @@ import io.netty.buffer.ArrowBuf;
  * re-allocation the old buffer will be freed. Managing a list of these buffers
  * prevents some parts of the system from needing to define a correct location
  * to place the final call to free them.
- * <p>
- * The current uses of these types of buffers are within the pluggable components of Drill.
- * In UDFs, memory management should not be a concern. We provide access to re-allocatable
- * ArrowBufs to give UDF writers general purpose buffers we can account for. To prevent the need
- * for UDFs to contain boilerplate to close all of the buffers they request, this list
- * is tracked at a higher level and all of the buffers are freed once we are sure that
- * the code depending on them is done executing (currently {@link FragmentContext}
- * and {@link QueryContext}.
  */
 public interface BufferManager extends AutoCloseable {
 

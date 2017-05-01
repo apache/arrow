@@ -150,7 +150,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    *
    * Note that the maximum number of values a vector can allocate is Integer.MAX_VALUE / value width.
    *
-   * @param valueCount
+   * @param valueCount the number of values to allocate for
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the new buffer
    */
   @Override

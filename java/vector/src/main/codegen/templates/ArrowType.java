@@ -100,7 +100,7 @@ public abstract class ArrowType {
   /**
    * to visit the ArrowTypes
    * <code>
-   *   type.accept(new ArrowTypeVisitor<Type>() {
+   *   type.accept(new ArrowTypeVisitor&lt;Type&gt;() {
    *   ...
    *   });
    * </code>

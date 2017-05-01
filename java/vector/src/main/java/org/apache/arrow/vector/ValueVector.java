@@ -52,7 +52,7 @@ import io.netty.buffer.ArrowBuf;
  *
  * This interface "should" strive to guarantee this order of operation:
  * <blockquote>
- * allocate > mutate > setvaluecount > access > clear (or allocate to start the process over).
+ * allocate &gt; mutate &gt; setvaluecount &gt; access &gt; clear (or allocate to start the process over).
  * </blockquote>
  */
 public interface ValueVector extends Closeable, Iterable<ValueVector> {
@@ -84,6 +84,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Returns the maximum number of values that can be stored in this vector instance.
+   * @return the maximum number of values that can be stored in this vector instance.
    */
   int getValueCapacity();
 
@@ -100,13 +101,16 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Get information about how this field is materialized.
+   * @return the field corresponding to this vector
    */
   Field getField();
 
   MinorType getMinorType();
 
   /**
-   * Returns a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   * to transfer quota responsibility
+   * @param allocator the target allocator
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
    * the same type.
    */
   TransferPair getTransferPair(BufferAllocator allocator);
@@ -116,31 +120,33 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack);
 
   /**
-   * Returns a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to transfer underlying
+   * makes a new transfer pair used to transfer underlying buffers
+   * @param target the target for the transfer
+   * @return a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to transfer underlying
    * buffers into the target vector.
    */
   TransferPair makeTransferPair(ValueVector target);
 
   /**
-   * Returns an {@link org.apache.arrow.vector.ValueVector.Accessor accessor} that is used to read from this vector
+   * @return an {@link org.apache.arrow.vector.ValueVector.Accessor accessor} that is used to read from this vector
    * instance.
    */
   Accessor getAccessor();
 
   /**
-   * Returns an {@link org.apache.arrow.vector.ValueVector.Mutator mutator} that is used to write to this vector
+   * @return an {@link org.apache.arrow.vector.ValueVector.Mutator mutator} that is used to write to this vector
    * instance.
    */
   Mutator getMutator();
 
   /**
-   * Returns a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports reading values
+   * @return a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports reading values
    * from this vector.
    */
   FieldReader getReader();
 
   /**
-   * Returns the number of bytes that is used by this vector instance.
+   * @return the number of bytes that is used by this vector instance.
    */
   int getBufferSize();
 
@@ -177,21 +183,23 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
      *
      * @param index
      *          Index of the value to get
+     * @return the friendly java type
      */
     Object getObject(int index);
 
     /**
-     * Returns the number of values that is stored in this vector.
+     * @return the number of values that is stored in this vector.
      */
     int getValueCount();
 
     /**
-     * Returns true if the value at the given index is null, false otherwise.
+     * @param index the index to check for nullity
+     * @return true if the value at the given index is null, false otherwise.
      */
     boolean isNull(int index);
 
     /**
-     * Returns the number of null values
+     * @return the number of null values
      */
     int getNullCount();
   }
@@ -214,6 +222,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
     /**
      * @deprecated  this has nothing to do with value vector abstraction and should be removed.
+     * @param values the number of values to generate
      */
     @Deprecated
     void generateTestData(int values);

@@ -50,7 +50,7 @@ public class VectorLoader {
   /**
    * Loads the record batch in the vectors
    * will not close the record batch
-   * @param recordBatch
+   * @param recordBatch the batch to load
    */
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();

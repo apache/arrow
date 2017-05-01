@@ -22,9 +22,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Buffer;
 import org.apache.arrow.flatbuf.DictionaryBatch;
 import org.apache.arrow.flatbuf.FieldNode;
@@ -42,6 +39,10 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+
+import com.google.flatbuffers.FlatBufferBuilder;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Utility class for serializing Messages. Messages are all serialized a similar way.
@@ -69,6 +70,10 @@ public class MessageSerializer {
 
   /**
    * Serialize a schema object.
+   * @param out where to write the schema
+   * @param schema the object to serialize to out
+   * @return the resulting size of the serialized schema
+   * @throws IOException if something went wrong
    */
   public static long serialize(WriteChannel out, Schema schema) throws IOException {
     FlatBufferBuilder builder = new FlatBufferBuilder();
@@ -81,6 +86,9 @@ public class MessageSerializer {
 
   /**
    * Deserializes a schema object. Format is from serialize().
+   * @param in the channel to deserialize from
+   * @return the deserialized object
+   * @throws IOException if something went wrong
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
     Message message = deserializeMessage(in);
@@ -98,6 +106,10 @@ public class MessageSerializer {
 
   /**
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
+   * @param out where to write the batch
+   * @param batch the object to serialize to out
+   * @return the serialized block metadata
+   * @throws IOException if something went wrong
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch)
           throws IOException {
@@ -153,6 +165,11 @@ public class MessageSerializer {
 
   /**
    * Deserializes a RecordBatch
+   * @param in the channel to deserialize from
+   * @param message the object to derialize to
+   * @param alloc to allocate buffers
+   * @return the deserialized object
+   * @throws IOException if something went wrong
    */
   private static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
       throws IOException {
@@ -171,6 +188,11 @@ public class MessageSerializer {
   /**
    * Deserializes a RecordBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
+   * @param in the channel to deserialize from
+   * @param block the object to derialize to
+   * @param alloc to allocate buffers
+   * @return the deserialized object
+   * @throws IOException if something went wrong
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
       BufferAllocator alloc) throws IOException {
@@ -231,6 +253,10 @@ public class MessageSerializer {
 
   /**
    * Serializes a dictionary ArrowRecordBatch. Returns the offset and length of the written batch.
+   * @param out where to serialize
+   * @param batch the batch to serialize
+   * @return the metadata of the serialized block
+   * @throws IOException if something went wrong
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
     long start = out.getCurrentPosition();
@@ -264,6 +290,11 @@ public class MessageSerializer {
 
   /**
    * Deserializes a DictionaryBatch
+   * @param in where to read from
+   * @param message the message message metadata to deserialize
+   * @param alloc the allocator for new buffers
+   * @return the corresponding dictionary batch
+   * @throws IOException if something went wrong
    */
   private static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
                                                                  Message message,
@@ -284,6 +315,11 @@ public class MessageSerializer {
   /**
    * Deserializes a DictionaryBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
+   * @param in where to read from
+   * @param block block metadata for deserializing
+   * @param alloc to allocate new buffers
+   * @return the corresponding dictionary
+   * @throws IOException if something went wrong
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
                                                                 ArrowBlock block,
@@ -331,6 +367,11 @@ public class MessageSerializer {
 
   /**
    * Serializes a message header.
+   * @param builder to write the flatbuf to
+   * @param headerType headerType field
+   * @param headerOffset header offset field
+   * @param bodyLength body length field
+   * @return the corresponding ByteBuffer
    */
   private static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
       int headerOffset, int bodyLength) {

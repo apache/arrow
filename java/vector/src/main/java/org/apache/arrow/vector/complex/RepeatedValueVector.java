@@ -33,14 +33,12 @@ public interface RepeatedValueVector extends ValueVector {
   final static int DEFAULT_REPEAT_PER_RECORD = 5;
 
   /**
-   * Returns the underlying offset vector or null if none exists.
-   *
-   * TODO(DRILL-2995): eliminate exposing low-level interfaces.
+   * @return the underlying offset vector or null if none exists.
    */
   UInt4Vector getOffsetVector();
 
   /**
-   * Returns the underlying data vector or null if none exists.
+   * @return the underlying data vector or null if none exists.
    */
   ValueVector getDataVector();
 
@@ -52,22 +50,21 @@ public interface RepeatedValueVector extends ValueVector {
 
   interface RepeatedAccessor extends ValueVector.Accessor {
     /**
-     * Returns total number of cells that vector contains.
-     *
      * The result includes empty, null valued cells.
+     * @return total number of cells that vector contains.
      */
     int getInnerValueCount();
 
 
     /**
-     * Returns number of cells that the value at the given index contains.
+     * @param index the index of the value for which we want the size
+     * @return number of cells that the value at the given index contains.
      */
     int getInnerValueCountAt(int index);
 
     /**
-     * Returns true if the value at the given index is empty, false otherwise.
-     *
      * @param index  value index
+     * @return true if the value at the given index is empty, false otherwise.
      */
     boolean isEmpty(int index);
   }

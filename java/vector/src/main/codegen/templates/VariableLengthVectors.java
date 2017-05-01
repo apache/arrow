@@ -139,7 +139,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   /**
    * Return the number of bytes contained in the current var len byte vector.
-   * @return
+   * @return the number of bytes contained in the current var len byte vector
    */
   public int getVarByteLength(){
     final int valueCount = getAccessor().getValueCount();

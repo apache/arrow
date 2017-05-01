@@ -18,15 +18,7 @@
 
 package org.apache.arrow.memory;
 
-import com.google.common.base.Preconditions;
-
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.PooledByteBufAllocatorL;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-
-import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.util.AutoCloseableLock;
-import org.apache.arrow.memory.util.HistoricalLog;
+import static org.apache.arrow.memory.BaseAllocator.indent;
 
 import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,7 +26,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static org.apache.arrow.memory.BaseAllocator.indent;
+import org.apache.arrow.memory.BaseAllocator.Verbosity;
+import org.apache.arrow.memory.util.AutoCloseableLock;
+import org.apache.arrow.memory.util.HistoricalLog;
+
+import com.google.common.base.Preconditions;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.PooledByteBufAllocatorL;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
  * Manages the relationship between one or more allocators and a particular UDLE. Ensures that
@@ -328,6 +328,8 @@ public class AllocationManager {
      * Decrement the ledger's reference count. If the ledger is decremented to zero, this ledger
      * should release its
      * ownership back to the AllocationManager
+     * @param decrement amout to decrease the reference count by
+     * @return the new reference count
      */
     public int decrement(int decrement) {
       allocator.assertOpen();

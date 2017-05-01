@@ -42,6 +42,7 @@ public class SchemaChangeCallBack implements CallBack {
   /**
    * Returns the value of schema-changed state, <strong>resetting</strong> the
    * schema-changed state to {@code false}.
+   * @return the previous schema-changed state
    */
   public boolean getSchemaChangedAndReset() {
     final boolean current = schemaChanged;

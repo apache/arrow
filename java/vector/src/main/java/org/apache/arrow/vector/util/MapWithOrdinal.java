@@ -24,16 +24,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of map that supports constant time look-up by a generic key or an ordinal.
@@ -194,7 +196,7 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
    * assignment. A new ordinal is assigned if key does not exists. Otherwise the same ordinal is re-used but the value
    * is replaced.
    *
-   * {@see java.util.Map#put}
+   * @see java.util.Map#put
    */
   @Override
   public V put(K key, V value) {
@@ -217,11 +219,11 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
   }
 
   /**
-   * Removes the element corresponding to the key if exists extending the semantics of {@link Map#remove} with ordinal
+   * Removes the element corresponding to the key if exists extending the semantics of {@link java.util.Map#remove} with ordinal
    * re-cycling. The ordinal corresponding to the given key may be re-assigned to another tuple. It is important that
-   * consumer checks the ordinal value via {@link #getOrdinal(Object)} before attempting to look-up by ordinal.
+   * consumer checks the ordinal value via {@link org.apache.arrow.vector.util.MapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
    *
-   * {@see java.util.Map#remove}
+   * @see java.util.Map#remove
    */
   @Override
   public V remove(Object key) {

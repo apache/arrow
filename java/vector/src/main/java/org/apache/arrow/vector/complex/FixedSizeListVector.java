@@ -26,11 +26,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -52,6 +47,12 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 
 public class FixedSizeListVector extends BaseValueVector implements FieldVector, PromotableVector {
 
@@ -236,7 +237,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   /**
-   * Returns 1 if inner vector is explicitly set via #addOrGetVector else 0
+   * @return 1 if inner vector is explicitly set via #addOrGetVector else 0
    */
   public int size() {
     return vector == ZeroVector.INSTANCE ? 0 : 1;
