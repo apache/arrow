@@ -17,40 +17,37 @@
 
 @echo on
 
-set CONDA_ENV=C:\arrow-conda-env
-set ARROW_HOME=C:\arrow-install
-
-conda create -p %CONDA_ENV% -q -y python=%PYTHON% ^
+conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
-call activate %CONDA_ENV%
+conda install -n arrow -q -y -c conda-forge flatbuffers rapidjson
+call activate arrow
+
+set ARROW_HOME=%CONDA_PREFIX%\Library
+set FLATBUFFERS_HOME=%CONDA_PREFIX%\Library
+set RAPIDJSON_HOME=%CONDA_PREFIX%\Library
 
 @rem Build and test Arrow C++ libraries
 
-cd cpp
-mkdir build
-cd build
+mkdir cpp\build
+cd cpp\build
+
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_CXXFLAGS="/WX" ^
-      -DARROW_PYTHON=on ^
+      -DARROW_CXXFLAGS="/WX /MP" ^
+      -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
+set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
 
 ctest -VV  || exit /B
 
-set PYTHONPATH=
-
 @rem Build and import pyarrow
-
-set PATH=%ARROW_HOME%\bin;%PATH%
+set PYTHONPATH=
 
 cd ..\..\python
 python setup.py build_ext --inplace  || exit /B
-python -c "import pyarrow"  || exit /B
-
 py.test pyarrow -v -s || exit /B
