@@ -40,8 +40,8 @@ export abstract class Vector {
     /* Use recordBatch fieldNodes and Buffers to construct this Vector */
     public loadData(recordBatch: any, buffer: any, bufReader: any, baseOffset: any) {
         var fieldNode = recordBatch.nodes(bufReader.node_index);
-        this.length = fieldNode.length();
-        this.null_count = fieldNode.length();
+        this.length = fieldNode.length().low;
+        this.null_count = fieldNode.nullCount().low;
         bufReader.node_index += 1|0;
 
         this.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
