@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
       }
     }
 
-    int64_t total_rows[num_columns];
+    std::vector<int64_t> total_rows(num_columns);
 
     for (int r = 0; r < reader->metadata()->num_row_groups(); ++r) {
       auto group_reader = reader->RowGroup(r);
