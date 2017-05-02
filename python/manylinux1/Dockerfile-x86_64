@@ -9,46 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
-
-FROM quay.io/pypa/manylinux1_x86_64:latest
-
-# Install dependencies
-RUN yum install -y flex zlib-devel
-
-# Build a newer OpenSSL version to support Thrift 0.10.0, note that we don't trigger the SSL code in Arrow.
-WORKDIR /
-RUN wget --no-check-certificate https://www.openssl.org/source/openssl-1.0.2k.tar.gz -O openssl-1.0.2k.tar.gz
-RUN tar xf openssl-1.0.2k.tar.gz
-WORKDIR openssl-1.0.2k
-RUN ./config -fpic shared --prefix=/usr
-RUN make -j5
-RUN make install
-
-WORKDIR /
-RUN wget --no-check-certificate http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz -O /boost_1_60_0.tar.gz
-RUN tar xf boost_1_60_0.tar.gz
-WORKDIR /boost_1_60_0
-RUN ./bootstrap.sh
-RUN ./bjam cxxflags=-fPIC cflags=-fPIC --prefix=/usr --with-filesystem --with-date_time --with-system --with-regex install
-
-WORKDIR /
-RUN wget https://github.com/jemalloc/jemalloc/releases/download/4.4.0/jemalloc-4.4.0.tar.bz2 -O jemalloc-4.4.0.tar.bz2
-RUN tar xf jemalloc-4.4.0.tar.bz2
-WORKDIR /jemalloc-4.4.0
-RUN ./configure
-RUN make -j5
-RUN make install
-
-WORKDIR /
-# Install cmake manylinux1 package
-RUN /opt/python/cp35-cp35m/bin/pip install cmake
-RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
-
-WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git
-WORKDIR /multibuild
-RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-
+FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-927
 
 ADD arrow /arrow
 WORKDIR /arrow/cpp

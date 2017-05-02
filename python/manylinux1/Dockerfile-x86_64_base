@@ -1,0 +1,52 @@
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License. See accompanying LICENSE file.
+FROM quay.io/pypa/manylinux1_x86_64:latest
+
+# Install dependencies
+RUN yum install -y flex zlib-devel
+
+ADD scripts/build_openssl.sh /
+RUN /build_openssl.sh
+
+ADD scripts/build_boost.sh /
+RUN /build_boost.sh
+
+ADD scripts/build_jemalloc.sh /
+RUN /build_jemalloc.sh
+
+WORKDIR /
+# Install cmake manylinux1 package
+RUN /opt/python/cp35-cp35m/bin/pip install cmake
+RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
+
+WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git
+WORKDIR /multibuild
+RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
+
+WORKDIR /
+RUN wget https://github.com/google/googletest/archive/release-1.7.0.tar.gz -O googletest-release-1.7.0.tar.gz
+RUN tar xf googletest-release-1.7.0.tar.gz
+WORKDIR /googletest-release-1.7.0
+RUN cmake -DCMAKE_CXX_FLAGS='-fPIC' -Dgtest_force_shared_crt=ON .
+RUN make -j5
+ENV GTEST_HOME /googletest-release-1.7.0
+
+WORKDIR /
+RUN wget https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -O flatbuffers-1.6.0.tar.gz
+RUN tar xf flatbuffers-1.6.0.tar.gz
+WORKDIR /flatbuffers-1.6.0
+RUN cmake "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_INSTALL_PREFIX:PATH=/usr" "-DFLATBUFFERS_BUILD_TESTS=OFF"
+RUN make -j5
+RUN make install
+ENV FLATBUFFERS_HOME /usr
+

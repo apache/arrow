@@ -31,7 +31,6 @@ cd /arrow/python
 
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
-export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_TESTS=ON'
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_JEMALLOC=1
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -51,7 +50,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
 
     echo "=== (${PYTHON}) Installing build dependencies ==="
     $PIPI_IO "numpy==1.9.0"
-    $PIPI_IO "cython==0.24"
+    $PIPI_IO "cython==0.25.2"
     $PIPI_IO "pandas==0.19.2"
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
