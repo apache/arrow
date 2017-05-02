@@ -39,14 +39,13 @@ package org.apache.arrow.vector.complex.impl;
 abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   /**
    * Retrieve the FieldWriter, promoting if it is not a FieldWriter of the specified type
-   * @param type
-   * @return
+   * @param type the type of the values we want to write
+   * @return the corresponding field writer
    */
   abstract protected FieldWriter getWriter(MinorType type);
 
   /**
-   * Return the current FieldWriter
-   * @return
+   * @return the current FieldWriter
    */
   abstract protected FieldWriter getWriter();
 

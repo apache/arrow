@@ -17,16 +17,16 @@
  */
 package org.apache.arrow.vector.stream;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.file.ArrowReader;
 import org.apache.arrow.vector.file.ReadChannel;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 
 /**
  * This classes reads from an input stream and produces ArrowRecordBatches.
@@ -35,6 +35,8 @@ public class ArrowStreamReader extends ArrowReader<ReadChannel> {
 
     /**
     * Constructs a streaming read, reading bytes from 'in'. Non-blocking.
+    * @param in the stream to read from
+    * @param allocator to allocate new buffers
     */
     public ArrowStreamReader(ReadableByteChannel in, BufferAllocator allocator) {
         super(new ReadChannel(in), allocator);
@@ -46,6 +48,8 @@ public class ArrowStreamReader extends ArrowReader<ReadChannel> {
 
     /**
      * Reads the schema message from the beginning of the stream.
+     * @param in to allocate new buffers
+     * @return the deserialized arrow schema
      */
     @Override
     protected Schema readSchema(ReadChannel in) throws IOException {

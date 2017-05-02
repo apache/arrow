@@ -44,7 +44,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 public class Schema {
 
   /**
-   * @param the list of the fields
+   * @param fields the list of the fields
    * @param name the name of the field to return
    * @return the corresponding field
    * @throws IllegalArgumentException if the field was not found

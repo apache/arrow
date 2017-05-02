@@ -17,8 +17,6 @@
  */
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
-
 public interface VariableWidthVector extends ValueVector{
 
   /**
@@ -31,7 +29,7 @@ public interface VariableWidthVector extends ValueVector{
 
   /**
    * Provide the maximum amount of variable width bytes that can be stored in this vector.
-   * @return
+   * @return the byte capacity of this vector
    */
   int getByteCapacity();
 

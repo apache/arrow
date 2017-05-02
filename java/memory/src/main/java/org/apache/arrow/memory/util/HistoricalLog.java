@@ -18,10 +18,10 @@
 
 package org.apache.arrow.memory.util;
 
-import org.slf4j.Logger;
-
 import java.util.Arrays;
 import java.util.LinkedList;
+
+import org.slf4j.Logger;
 
 /**
  * Utility class that can be used to log activity within a class
@@ -98,19 +98,20 @@ public class HistoricalLog {
    * events with their stack traces.
    *
    * @param sb {@link StringBuilder} to write to
+   * @param includeStackTrace whether to include the stacktrace of each event in the history
    */
   public void buildHistory(final StringBuilder sb, boolean includeStackTrace) {
     buildHistory(sb, 0, includeStackTrace);
   }
 
   /**
-   *
-   * @param sb
-   * @param indent
-   * @param includeStackTrace
+   * build the history and write it to sb
+   * @param sb output
+   * @param indent starting indent (usually "")
+   * @param includeStackTrace whether to include the stacktrace of each event.
    */
-  public synchronized void buildHistory(final StringBuilder sb, int indent, boolean
-      includeStackTrace) {
+  public synchronized void buildHistory(
+      final StringBuilder sb, int indent, boolean includeStackTrace) {
     final char[] indentation = new char[indent];
     final char[] innerIndentation = new char[indent + 2];
     Arrays.fill(indentation, ' ');
@@ -149,16 +150,6 @@ public class HistoricalLog {
       }
     }
   }
-
-  /**
-   * Write the history of this object to the given {@link StringBuilder}. The history
-   * includes the identifying string provided at construction time, and all the recorded
-   * events with their stack traces.
-   *
-   * @param sb {@link StringBuilder} to write to
-   * @param additional an extra string that will be written between the identifying
-   *     information and the history; often used for a current piece of state
-   */
 
   /**
    * Write the history of this object to the given {@link Logger}. The history

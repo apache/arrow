@@ -29,7 +29,7 @@ public interface RepeatedVariableWidthVectorLike {
 
   /**
    * Provide the maximum amount of variable width bytes that can be stored int his vector.
-   * @return
+   * @return the byte capacity
    */
   int getByteCapacity();
 }

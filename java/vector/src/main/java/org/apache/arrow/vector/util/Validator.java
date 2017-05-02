@@ -36,6 +36,8 @@ public class Validator {
     /**
      * Validate two arrow schemas are equal.
      *
+     * @param schema1 the 1st shema to compare
+     * @param schema2 the 2nd shema to compare
      * @throws IllegalArgumentException if they are different.
      */
     public static void compareSchemas(Schema schema1, Schema schema2) {
@@ -47,6 +49,8 @@ public class Validator {
     /**
      * Validate two arrow vectorSchemaRoot are equal.
      *
+     * @param root1 the 1st shema to compare
+     * @param root2 the 2nd shema to compare
      * @throws IllegalArgumentException if they are different.
      */
     public static void compareVectorSchemaRoot(VectorSchemaRoot root1, VectorSchemaRoot root2) {

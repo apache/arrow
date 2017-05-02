@@ -151,14 +151,19 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given ordinal identifier.
+   * @param id the ordinal of the child to return
+   * @return the corresponding child
    */
   public ValueVector getChildByOrdinal(int id) {
     return vectors.getByOrdinal(id);
   }
 
   /**
-   * Returns a {@link org.apache.arrow.vector.ValueVector} instance of subtype of <T> corresponding to the given
+   * Returns a {@link org.apache.arrow.vector.ValueVector} instance of subtype of T corresponding to the given
    * field name if exists or null.
+   * @param name the name of the child to return
+   * @param clazz the expected type of the child
+   * @return the child corresponding to this name
    */
   @Override
   public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
@@ -186,6 +191,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * Inserts the vector with the given name if it does not exist else replaces it with the new value.
    *
    * Note that this method does not enforce any vector type check nor throws a schema change exception.
+   * @param name the name of the child to add
+   * @param vector the vector to add as a child
    */
   protected void putChild(String name, FieldVector vector) {
     putVector(name, vector);
@@ -208,7 +215,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   /**
-   * Returns a sequence of underlying child vectors.
+   * @return a sequence of underlying child vectors.
    */
   protected List<FieldVector> getChildren() {
     int size = vectors.size();
@@ -228,7 +235,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   /**
-   * Returns the number of underlying child vectors.
+   * @return the number of underlying child vectors.
    */
   @Override
   public int size() {
@@ -241,7 +248,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   /**
-   * Returns a list of scalar child vectors recursing the entire vector hierarchy.
+   * @return a list of scalar child vectors recursing the entire vector hierarchy.
    */
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = Lists.newArrayList();
@@ -257,7 +264,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   /**
-   * Returns a vector with its corresponding ordinal mapping if field exists or null.
+   * @param name the name of the child to return
+   * @return a vector with its corresponding ordinal mapping if field exists or null.
    */
   @Override
   public VectorWithOrdinal getChildVectorWithOrdinal(String name) {

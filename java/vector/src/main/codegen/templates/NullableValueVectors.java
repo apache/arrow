@@ -421,9 +421,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     /**
      * Get the element at the specified position.
      *
-     * @param   index   position of the value
-     * @return  value of the element, if not null
-     * @throws  NullValueException if the value is null
+     * @param  index   position of the value
+     * @return value of the element, if not null
      */
     public <#if type.major == "VarLen">byte[]<#else>${minor.javaType!type.javaType}</#if> get(int index) {
       if (isNull(index)) {
@@ -509,7 +508,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
      * Set the variable length element at the specified index to the supplied byte array.
      *
      * @param index   position of the bit to set
-     * @param bytes   array of bytes to write
+     * @param value   array of bytes (or int if smaller than 4 bytes) to write
      */
     public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setCount++;
