@@ -70,8 +70,8 @@ Status CheckPyError(StatusCode code) {
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
     PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
     PyObject *exc_value_str = PyObject_Str(exc_value);
-    char *c_str = PyString_AsString(exc_value_str);
-    std::string message(c_str);
+    PyObjectStringify stringified(exc_value_str);
+    std::string message(stringified.bytes);
     Py_XDECREF(exc_type);
     Py_XDECREF(exc_value);
     Py_XDECREF(exc_value_str);
