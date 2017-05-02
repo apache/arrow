@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
