@@ -22,8 +22,18 @@
 
 #if defined(__APPLE__)
 #include <machine/endian.h>
+#elif defined(_WIN32)
+#define __LITTLE_ENDIAN 1
 #else
 #include <endian.h>
+#endif
+
+#if defined(_MSC_VER)
+#define PARQUET_BYTE_SWAP64 _byteswap_uint64
+#define PARQUET_BYTE_SWAP32 _byteswap_ulong
+#else
+#define PARQUET_BYTE_SWAP64 __builtin_bswap64
+#define PARQUET_BYTE_SWAP32 __builtin_bswap32
 #endif
 
 #include <cstdint>
@@ -199,13 +209,13 @@ class BitUtil {
   }
 
   /// Swaps the byte order (i.e. endianess)
-  static inline int64_t ByteSwap(int64_t value) { return __builtin_bswap64(value); }
+  static inline int64_t ByteSwap(int64_t value) { return PARQUET_BYTE_SWAP64(value); }
   static inline uint64_t ByteSwap(uint64_t value) {
-    return static_cast<uint64_t>(__builtin_bswap64(value));
+    return static_cast<uint64_t>(PARQUET_BYTE_SWAP64(value));
   }
-  static inline int32_t ByteSwap(int32_t value) { return __builtin_bswap32(value); }
+  static inline int32_t ByteSwap(int32_t value) { return PARQUET_BYTE_SWAP32(value); }
   static inline uint32_t ByteSwap(uint32_t value) {
-    return static_cast<uint32_t>(__builtin_bswap32(value));
+    return static_cast<uint32_t>(PARQUET_BYTE_SWAP32(value));
   }
   static inline int16_t ByteSwap(int16_t value) {
     return (((value >> 8) & 0xff) | ((value & 0xff) << 8));

@@ -31,7 +31,7 @@ class BitWriter;
 class RleDecoder;
 class RleEncoder;
 
-class LevelEncoder {
+class PARQUET_EXPORT LevelEncoder {
  public:
   LevelEncoder();
   ~LevelEncoder();
@@ -61,7 +61,7 @@ class LevelEncoder {
   std::unique_ptr<BitWriter> bit_packed_encoder_;
 };
 
-class LevelDecoder {
+class PARQUET_EXPORT LevelDecoder {
  public:
   LevelDecoder();
   ~LevelDecoder();

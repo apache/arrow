@@ -20,6 +20,7 @@
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define PARQUET_EXPORT __declspec(dllexport)
+#define PARQUET_NO_EXPORT
 #else  // Not Windows
 #ifndef PARQUET_EXPORT
 #define PARQUET_EXPORT __attribute__((visibility("default")))

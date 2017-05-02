@@ -852,8 +852,8 @@ class DeltaLengthByteArrayDecoder : public Decoder<ByteArrayType> {
 
   virtual int Decode(ByteArray* buffer, int max_values) {
     max_values = std::min(max_values, num_values_);
-    int lengths[max_values];
-    len_decoder_.Decode(lengths, max_values);
+    std::vector<int> lengths(max_values);
+    len_decoder_.Decode(lengths.data(), max_values);
     for (int i = 0; i < max_values; ++i) {
       buffer[i].len = lengths[i];
       buffer[i].ptr = data_;

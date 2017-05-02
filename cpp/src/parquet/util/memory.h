@@ -68,7 +68,7 @@ using ResizableBuffer = ::arrow::ResizableBuffer;
 using PoolBuffer = ::arrow::PoolBuffer;
 
 template <class T>
-class Vector {
+class PARQUET_EXPORT Vector {
  public:
   explicit Vector(int64_t size, ::arrow::MemoryPool* pool);
   void Resize(int64_t new_size);
@@ -127,7 +127,7 @@ class Vector {
 /// The one remaining (empty) chunk is released:
 ///    delete p;
 
-class ChunkedAllocator {
+class PARQUET_EXPORT ChunkedAllocator {
  public:
   explicit ChunkedAllocator(::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
@@ -390,7 +390,7 @@ class InputStream {
 };
 
 // Implementation of an InputStream when all the bytes are in memory.
-class InMemoryInputStream : public InputStream {
+class PARQUET_EXPORT InMemoryInputStream : public InputStream {
  public:
   InMemoryInputStream(RandomAccessSource* source, int64_t start, int64_t end);
   explicit InMemoryInputStream(const std::shared_ptr<Buffer>& buffer);
@@ -406,7 +406,7 @@ class InMemoryInputStream : public InputStream {
 };
 
 // Implementation of an InputStream when only some of the bytes are in memory.
-class BufferedInputStream : public InputStream {
+class PARQUET_EXPORT BufferedInputStream : public InputStream {
  public:
   BufferedInputStream(::arrow::MemoryPool* pool, int64_t buffer_size,
       RandomAccessSource* source, int64_t start, int64_t end);
@@ -424,9 +424,10 @@ class BufferedInputStream : public InputStream {
   int64_t buffer_size_;
 };
 
-std::shared_ptr<PoolBuffer> AllocateBuffer(::arrow::MemoryPool* pool, int64_t size = 0);
+std::shared_ptr<PoolBuffer> PARQUET_EXPORT AllocateBuffer(
+    ::arrow::MemoryPool* pool, int64_t size = 0);
 
-std::unique_ptr<PoolBuffer> AllocateUniqueBuffer(
+std::unique_ptr<PoolBuffer> PARQUET_EXPORT AllocateUniqueBuffer(
     ::arrow::MemoryPool* pool, int64_t size = 0);
 
 }  // namespace parquet

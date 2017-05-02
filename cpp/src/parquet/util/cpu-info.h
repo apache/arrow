@@ -24,13 +24,15 @@
 #include <cstdint>
 #include <string>
 
+#include "parquet/util/visibility.h"
+
 namespace parquet {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
 /// ask for the sizes of the caches and what hardware features are supported.
 /// On Linux, this information is pulled from a couple of sys files (/proc/cpuinfo and
 /// /sys/devices)
-class CpuInfo {
+class PARQUET_EXPORT CpuInfo {
  public:
   static const int64_t SSSE3 = (1 << 1);
   static const int64_t SSE4_1 = (1 << 2);

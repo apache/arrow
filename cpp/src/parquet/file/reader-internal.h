@@ -30,6 +30,7 @@
 #include "parquet/parquet_types.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -42,7 +43,7 @@ static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
 // and the page metadata.
-class SerializedPageReader : public PageReader {
+class PARQUET_EXPORT SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t num_rows,
       Compression::type codec,
@@ -76,7 +77,7 @@ class SerializedPageReader : public PageReader {
 };
 
 // RowGroupReader::Contents implementation for the Parquet file specification
-class SerializedRowGroup : public RowGroupReader::Contents {
+class PARQUET_EXPORT SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(RandomAccessSource* source, FileMetaData* file_metadata,
       int row_group_number, const ReaderProperties& props);
@@ -97,7 +98,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 // An implementation of ParquetFileReader::Contents that deals with the Parquet
 // file structure, Thrift deserialization, and other internal matters
 
-class SerializedFile : public ParquetFileReader::Contents {
+class PARQUET_EXPORT SerializedFile : public ParquetFileReader::Contents {
  public:
   // Open the file. If no metadata is passed, it is parsed from the footer of
   // the file

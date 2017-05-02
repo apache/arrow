@@ -17,6 +17,8 @@
  * under the License.
  */
 
+cpp_include "parquet/util/windows_compatibility.h"
+
 /**
  * File format description for the parquet file format
  */

@@ -24,62 +24,23 @@ set(PARQUET_ARROW_SRCS
   writer.cc
 )
 
-add_library(parquet_arrow_objlib OBJECT
-  ${PARQUET_ARROW_SRCS}
+# Set dependencies so ExternalProjects are built beforehand
+set(PARQUET_ARROW_DEPENDENCIES ${ARROW_LINK_LIBS} parquet_static)
+SET(PARQUET_ARROW_SHARED_LINK_LIBS ${ARROW_LINK_LIBS} parquet_shared)
+SET(PARQUET_ARROW_STATIC_LINK_LIBS ${ARROW_LINK_LIBS} parquet_static)
+
+ADD_LIB(parquet_arrow
+        SOURCES ${PARQUET_ARROW_SRCS}
+        LIB_BUILD_SHARED ${PARQUET_BUILD_SHARED}
+        LIB_BUILD_STATIC ${PARQUET_BUILD_STATIC}
+        DEPENDENCIES ${PARQUET_ARROW_DEPENDENCIES}
+        SHARED_LINK_FLAGS ${SHARED_LINK_FLAGS}
+        SHARED_LINK_LIBS ${PARQUET_ARROW_SHARED_LINK_LIBS}
+        STATIC_LINK_LIBS ${PARQUET_ARROW_STATIC_LINK_LIBS}
+        ABI_VERSION ${PARQUET_ABI_VERSION}
+        SO_VERSION ${PARQUET_SO_VERSION}
+        LIB_RPATH_ORIGIN ${PARQUET_RPATH_ORIGIN}
 )
-
-# Add dependencies so ExternalProjects are built beforehand
-add_dependencies(parquet_arrow_objlib
-    arrow_static
-    parquet_static)
-
-# SET_TARGET_PROPERTIES(parquet_arrow PROPERTIES LINKER_LANGUAGE CXX)
-
-if (PARQUET_BUILD_SHARED)
-    add_library(parquet_arrow_shared SHARED $<TARGET_OBJECTS:parquet_arrow_objlib>)
-    set_target_properties(parquet_arrow_shared
-      PROPERTIES
-      LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-      LINK_FLAGS "${SHARED_LINK_FLAGS}"
-      OUTPUT_NAME "parquet_arrow"
-      VERSION "${PARQUET_ABI_VERSION}"
-      SOVERSION "${PARQUET_SO_VERSION}")
-    target_link_libraries(parquet_arrow_shared
-      arrow
-      parquet_shared)
-    if (PARQUET_RPATH_ORIGIN)
-        if (APPLE)
-            set(_lib_install_rpath "@loader_path")
-        else()
-            set(_lib_install_rpath "\$ORIGIN")
-        endif()
-        set_target_properties(parquet_arrow_shared PROPERTIES
-            INSTALL_RPATH ${_lib_install_rpath})
-    elseif (APPLE)
-      set_target_properties(parquet_arrow_shared
-        PROPERTIES
-        BUILD_WITH_INSTALL_RPATH ON
-        INSTALL_NAME_DIR "@rpath")
-    endif()
-
-  install(TARGETS parquet_arrow_shared
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-if (PARQUET_BUILD_STATIC)
-    add_library(parquet_arrow_static STATIC $<TARGET_OBJECTS:parquet_arrow_objlib>)
-    set_target_properties(parquet_arrow_static
-      PROPERTIES
-      LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
-      OUTPUT_NAME "parquet_arrow")
-  target_link_libraries(parquet_arrow_static
-      arrow_static
-      parquet_static)
-  install(TARGETS parquet_arrow_static
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
 
 ADD_PARQUET_TEST(arrow-schema-test)
 ADD_PARQUET_TEST(arrow-reader-writer-test)

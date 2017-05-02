@@ -15,38 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_STOPWATCH_H
-#define PARQUET_UTIL_STOPWATCH_H
+#ifndef PARQUET_UTIL_WINDOWS_COMPATIBILITY
+#define PARQUET_UTIL_WINDOWS_COMPATIBILITY
 
-#include <stdio.h>
-#ifndef _MSC_VER
-#include <sys/time.h>
+#ifdef _WIN32
+
+// Windows defines min and max macros that mess up std::min/max
+#ifndef NOMINMAX
+#define NOMINMAX
 #endif
 
-#include <ctime>
-#include <iostream>
+#include <windows.h>
+#include <winsock2.h>
 
-namespace parquet {
-
-class StopWatch {
- public:
-  StopWatch() {}
-
-  void Start() { gettimeofday(&start_time, 0); }
-
-  // Returns time in nanoseconds.
-  uint64_t Stop() {
-    struct timeval t_time;
-    gettimeofday(&t_time, 0);
-
-    return (1000L * 1000L * 1000L * (t_time.tv_sec - start_time.tv_sec) +
-            (t_time.tv_usec - start_time.tv_usec));
-  }
-
- private:
-  struct timeval start_time;
-};
-
-}  // namespace parquet
-
+#ifdef OPTIONAL
+#undef OPTIONAL
 #endif
+
+#endif  // _WIN32
+
+#endif  // PARQUET_UTIL_WINDOWS_COMPATIBILITY

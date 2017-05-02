@@ -46,7 +46,7 @@ class Codec {
 };
 
 // Snappy codec.
-class SnappyCodec : public Codec {
+class PARQUET_EXPORT SnappyCodec : public Codec {
  public:
   virtual void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
       uint8_t* output_buffer);
@@ -60,7 +60,7 @@ class SnappyCodec : public Codec {
 };
 
 // Brotli codec.
-class BrotliCodec : public Codec {
+class PARQUET_EXPORT BrotliCodec : public Codec {
  public:
   void Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
       uint8_t* output_buffer) override;
@@ -74,7 +74,7 @@ class BrotliCodec : public Codec {
 };
 
 // GZip codec.
-class GZipCodec : public Codec {
+class PARQUET_EXPORT GZipCodec : public Codec {
  public:
   /// Compression formats supported by the zlib library
   enum Format {
