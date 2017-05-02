@@ -82,7 +82,6 @@
       <title>Input</title>
       <xi:include href="xml/readable.xml"/>
       <xi:include href="xml/input-stream.xml"/>
-      <xi:include href="xml/random-access-file.xml"/>
     </chapter>
     <chapter id="output">
       <title>Output</title>
@@ -93,7 +92,6 @@
     <chapter id="input-output">
       <title>Input and output</title>
       <xi:include href="xml/file.xml"/>
-      <xi:include href="xml/memory-mapped-file.xml"/>
     </chapter>
   </part>
 

@@ -22,7 +22,7 @@
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 
-#include <arrow-glib/random-access-file.h>
+#include <arrow-glib/input-stream.h>
 
 #include <arrow-glib/metadata-version.h>
 
@@ -70,8 +70,8 @@ struct _GArrowFileReaderClass
 
 GType garrow_file_reader_get_type(void) G_GNUC_CONST;
 
-GArrowFileReader *garrow_file_reader_open(GArrowRandomAccessFile *file,
-                                                 GError **error);
+GArrowFileReader *garrow_file_reader_open(GArrowSeekableInputStream *input_stream,
+                                          GError **error);
 
 GArrowSchema *garrow_file_reader_get_schema(GArrowFileReader *file_reader);
 guint garrow_file_reader_get_n_record_batches(GArrowFileReader *file_reader);

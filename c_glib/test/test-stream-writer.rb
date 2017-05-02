@@ -38,7 +38,7 @@ class TestStreamWriter < Test::Unit::TestCase
       output.close
     end
 
-    input = Arrow::MemoryMappedFile.open(tempfile.path, :read)
+    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
       stream_reader = Arrow::StreamReader.open(input)
       assert_equal(["enabled"],

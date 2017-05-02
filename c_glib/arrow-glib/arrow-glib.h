@@ -36,9 +36,7 @@
 #include <arrow-glib/file.h>
 #include <arrow-glib/file-mode.h>
 #include <arrow-glib/input-stream.h>
-#include <arrow-glib/memory-mapped-file.h>
 #include <arrow-glib/output-stream.h>
-#include <arrow-glib/random-access-file.h>
 #include <arrow-glib/readable.h>
 #include <arrow-glib/writeable.h>
 #include <arrow-glib/writeable-file.h>

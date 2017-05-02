@@ -33,7 +33,7 @@ class TestFileWriter < Test::Unit::TestCase
       output.close
     end
 
-    input = Arrow::MemoryMappedFile.open(tempfile.path, :read)
+    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
       file_reader = Arrow::FileReader.open(input)
       assert_equal(["enabled"],

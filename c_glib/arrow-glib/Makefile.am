@@ -60,9 +60,7 @@ libarrow_glib_la_headers +=			\
 	file.h					\
 	file-mode.h				\
 	input-stream.h				\
-	memory-mapped-file.h			\
 	output-stream.h				\
-	random-access-file.h			\
 	readable.h				\
 	writeable.h				\
 	writeable-file.h
@@ -102,9 +100,7 @@ libarrow_glib_la_sources +=			\
 	file.cpp				\
 	file-mode.cpp				\
 	input-stream.cpp			\
-	memory-mapped-file.cpp			\
 	output-stream.cpp			\
-	random-access-file.cpp			\
 	readable.cpp				\
 	writeable.cpp				\
 	writeable-file.cpp
@@ -136,9 +132,7 @@ libarrow_glib_la_cpp_headers +=			\
 	file.hpp				\
 	file-mode.hpp				\
 	input-stream.hpp			\
-	memory-mapped-file.hpp			\
 	output-stream.hpp			\
-	random-access-file.hpp			\
 	readable.hpp				\
 	writeable.hpp				\
 	writeable-file.hpp
