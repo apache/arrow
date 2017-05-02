@@ -11,10 +11,10 @@ git co -b release-0_1_0
 #setup gpg agent for signing artifacts
 source dev/release/setup-gpg-agent.sh
 
-# prepare release v 0.1.0 (run tests, sign artifacts). Next version will be 0.1.1-SNAPSHOT, RC 0
-sh dev/release/00-prepare.sh 0.1.0 0.1.1 0
+# prepare release v 0.1.0 (run tests, sign artifacts). Next version will be 0.1.1-SNAPSHOT
+sh dev/release/00-prepare.sh 0.1.0 0.1.1
 # push the tag
-git push apache apache-arrow-0.1.0-rc0
+git push apache apache-arrow-0.1.0
 # tag and push to maven repo (repo will have to be finalized separately)
 sh dev/release/01-perform.sh
 # create the source release

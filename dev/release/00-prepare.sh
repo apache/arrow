@@ -21,12 +21,11 @@ set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ "$#" -eq 3 ]; then
+if [ "$#" -eq 2 ]; then
   version=$1
   nextVersion=$2
   nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
-  rcnum=$3
-  tag=apache-arrow-${version}-rc${rcnum}
+  tag=apache-arrow-${version}
 
   echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}" 
 
@@ -40,7 +39,7 @@ if [ "$#" -eq 3 ]; then
   echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
 
 else  
-  echo "Usage: $0 <version> <nextVersion> <rc-num>"
+  echo "Usage: $0 <version> <nextVersion>"
   exit
 fi
 
