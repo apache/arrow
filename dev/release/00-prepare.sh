@@ -26,7 +26,7 @@ if [ "$#" -eq 3 ]; then
   nextVersion=$2
   nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
   rcnum=$3
-  tag=apache-arrow-${version}-rc${rcnum}
+  tag=apache-arrow-${version}
 
   echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}" 
 
