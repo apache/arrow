@@ -151,7 +151,8 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
 
   parquet_fields.push_back(PrimitiveNode::Make("flba-binary", Repetition::OPTIONAL,
       ParquetType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, 12));
-  arrow_fields.push_back(std::make_shared<Field>("flba-binary", BINARY));
+  arrow_fields.push_back(
+      std::make_shared<Field>("flba-binary", ::arrow::fixed_size_binary(12)));
 
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));

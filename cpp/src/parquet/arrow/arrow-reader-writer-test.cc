@@ -128,6 +128,8 @@ ParquetType::type get_physical_type(const ::arrow::DataType& type) {
       return ParquetType::BYTE_ARRAY;
     case ArrowId::STRING:
       return ParquetType::BYTE_ARRAY;
+    case ArrowId::FIXED_SIZE_BINARY:
+      return ParquetType::FIXED_LEN_BYTE_ARRAY;
     case ArrowId::DATE32:
       return ParquetType::INT32;
     case ArrowId::DATE64:
@@ -265,9 +267,15 @@ struct test_traits<::arrow::BinaryType> {
   static std::string const value;
 };
 
+template <>
+struct test_traits<::arrow::FixedSizeBinaryType> {
+  static constexpr ParquetType::type parquet_enum = ParquetType::FIXED_LEN_BYTE_ARRAY;
+  static std::string const value;
+};
+
 const std::string test_traits<::arrow::StringType>::value("Test");
 const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");
-
+const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");
 template <typename T>
 using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
 
@@ -306,8 +314,17 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
 
 static std::shared_ptr<GroupNode> MakeSimpleSchema(
     const ::arrow::DataType& type, Repetition::type repetition) {
+  int byte_width;
+  // Decimal is not implemented yet.
+  switch (type.id()) {
+    case ::arrow::Type::FIXED_SIZE_BINARY:
+      byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
+      break;
+    default:
+      byte_width = -1;
+  }
   auto pnode = PrimitiveNode::Make(
-      "column1", repetition, get_physical_type(type), get_logical_type(type));
+      "column1", repetition, get_physical_type(type), get_logical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
   return std::static_pointer_cast<GroupNode>(node_);
@@ -423,7 +440,7 @@ class TestParquetIO : public ::testing::Test {
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
     ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type,
     ::arrow::Int64Type, ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType,
-    ::arrow::StringType, ::arrow::BinaryType>
+    ::arrow::StringType, ::arrow::BinaryType, ::arrow::FixedSizeBinaryType>
     TestTypes;
 
 TYPED_TEST_CASE(TestParquetIO, TestTypes);

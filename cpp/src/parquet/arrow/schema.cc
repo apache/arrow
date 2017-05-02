@@ -73,7 +73,7 @@ static Status FromByteArray(const PrimitiveNode* node, TypePtr* out) {
 static Status FromFLBA(const PrimitiveNode* node, TypePtr* out) {
   switch (node->logical_type()) {
     case LogicalType::NONE:
-      *out = ::arrow::binary();
+      *out = ::arrow::fixed_size_binary(node->type_length());
       break;
     case LogicalType::DECIMAL:
       *out = MakeDecimalType(node);
@@ -469,6 +469,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::BINARY:
       type = ParquetType::BYTE_ARRAY;
       break;
+    case ArrowType::FIXED_SIZE_BINARY: {
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      auto fixed_size_binary_type =
+          static_cast<::arrow::FixedSizeBinaryType*>(field->type().get());
+      length = fixed_size_binary_type->byte_width();
+    } break;
     case ArrowType::DATE32:
       type = ParquetType::INT32;
       logical_type = LogicalType::DATE;

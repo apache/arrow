@@ -44,6 +44,9 @@ template <typename ArrowType>
 using is_arrow_binary = std::is_same<ArrowType, ::arrow::BinaryType>;
 
 template <typename ArrowType>
+using is_arrow_fixed_size_binary = std::is_same<ArrowType, ::arrow::FixedSizeBinaryType>;
+
+template <typename ArrowType>
 using is_arrow_bool = std::is_same<ArrowType, ::arrow::BooleanType>;
 
 template <class ArrowType>
@@ -94,6 +97,19 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   BuilderType builder(::arrow::default_memory_pool());
   for (size_t i = 0; i < size; i++) {
     builder.Append("test-string");
+  }
+  return builder.Finish(out);
+}
+
+template <typename ArrowType>
+typename std::enable_if<is_arrow_fixed_size_binary<ArrowType>::value, Status>::type
+NonNullArray(size_t size, std::shared_ptr<Array>* out) {
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
+  // set byte_width to the length of "fixed": 5
+  // todo: find a way to generate test data with more diversity.
+  BuilderType builder(::arrow::default_memory_pool(), ::arrow::fixed_size_binary(5));
+  for (size_t i = 0; i < size; i++) {
+    builder.Append("fixed");
   }
   return builder.Finish(out);
 }
@@ -196,6 +212,36 @@ NullableArray(
     } else {
       ::arrow::test::random_bytes(kBufferSize, seed + i, buffer);
       builder.Append(buffer, kBufferSize);
+    }
+  }
+  return builder.Finish(out);
+}
+
+// This helper function only supports (size/2) nulls yet,
+// same as NullableArray<String|Binary>(..)
+template <typename ArrowType>
+typename std::enable_if<is_arrow_fixed_size_binary<ArrowType>::value, Status>::type
+NullableArray(
+    size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<::arrow::Array>* out) {
+  std::vector<uint8_t> valid_bytes(size, 1);
+
+  for (size_t i = 0; i < num_nulls; i++) {
+    valid_bytes[i * 2] = 0;
+  }
+
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
+  const int byte_width = 10;
+  BuilderType builder(
+      ::arrow::default_memory_pool(), ::arrow::fixed_size_binary(byte_width));
+
+  const int kBufferSize = byte_width;
+  uint8_t buffer[kBufferSize];
+  for (size_t i = 0; i < size; i++) {
+    if (!valid_bytes[i]) {
+      builder.AppendNull();
+    } else {
+      ::arrow::test::random_bytes(kBufferSize, seed + i, buffer);
+      builder.Append(buffer);
     }
   }
   return builder.Finish(out);
