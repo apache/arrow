@@ -4,7 +4,8 @@
   "description": "",
   "main": "dist/arrow.js",
   "scripts": {
-    "postinstall": "./postinstall.sh",
+    "postinstall": "./flatbuffers.sh",
+    "build": "./flatbuffers.sh && tsc && webpack",
     "test": "./node_modules/mocha/bin/mocha ./spec/arrow.js"
   },
   "author": "",

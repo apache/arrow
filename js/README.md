@@ -20,6 +20,7 @@ From this directory, run:
 $ npm install   # pull dependencies
 $ tsc           # build typescript
 $ webpack       # bundle for the browser
+$ npm test      # run unit tests
 ```
 
 ### Usage
