@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestBufferReader < Test::Unit::TestCase
+class TestBufferInputStream < Test::Unit::TestCase
   def test_read
     buffer = Arrow::Buffer.new("Hello World")
-    buffer_reader = Arrow::BufferReader.new(buffer)
-    read_buffer = buffer_reader.read(5)
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    read_buffer = buffer_input_stream.read(5)
     assert_equal("Hello", read_buffer.data.to_s)
   end
 end

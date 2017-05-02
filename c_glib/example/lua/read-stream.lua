@@ -20,7 +20,7 @@ local Arrow = lgi.Arrow
 
 local input_path = arg[1] or "/tmp/stream.arrow";
 
-local input = Arrow.MemoryMappedFile.open(input_path, Arrow.FileMode.READ)
+local input = Arrow.MemoryMappedInputStream.new(input_path)
 local reader = Arrow.StreamReader.open(input)
 
 local i = 0

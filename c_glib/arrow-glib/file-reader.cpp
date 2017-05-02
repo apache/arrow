@@ -27,7 +27,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
-#include <arrow-glib/random-access-file.hpp>
+#include <arrow-glib/input-stream.hpp>
 
 #include <arrow-glib/file-reader.hpp>
 #include <arrow-glib/metadata-version.hpp>
@@ -132,19 +132,21 @@ garrow_file_reader_class_init(GArrowFileReaderClass *klass)
 
 /**
  * garrow_file_reader_open:
- * @file: The file to be read.
+ * @input_stream: The seekable input stream to read data.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly opened
  *   #GArrowFileReader or %NULL on error.
  */
 GArrowFileReader *
-garrow_file_reader_open(GArrowRandomAccessFile *file,
-                            GError **error)
+garrow_file_reader_open(GArrowSeekableInputStream *input_stream,
+                        GError **error)
 {
+  auto arrow_random_access_file =
+    garrow_seekable_input_stream_get_raw(input_stream);
   std::shared_ptr<arrow::ipc::FileReader> arrow_file_reader;
   auto status =
-    arrow::ipc::FileReader::Open(garrow_random_access_file_get_raw(file),
+    arrow::ipc::FileReader::Open(arrow_random_access_file,
                                  &arrow_file_reader);
   if (garrow_error_check(error, status, "[ipc][file-reader][open]")) {
     return garrow_file_reader_new_raw(&arrow_file_reader);

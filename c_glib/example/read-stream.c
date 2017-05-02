@@ -87,14 +87,12 @@ int
 main(int argc, char **argv)
 {
   const char *input_path = "/tmp/stream.arrow";
-  GArrowMemoryMappedFile *input;
+  GArrowMemoryMappedInputStream *input;
   GError *error = NULL;
 
   if (argc > 1)
     input_path = argv[1];
-  input = garrow_memory_mapped_file_open(input_path,
-                                         GARROW_FILE_MODE_READ,
-                                         &error);
+  input = garrow_memory_mapped_input_stream_new(input_path, &error);
   if (!input) {
     g_print("failed to open file: %s\n", error->message);
     g_error_free(error);

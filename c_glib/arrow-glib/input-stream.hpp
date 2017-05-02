@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow/io/file.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/io/memory.h>
 
@@ -27,4 +28,9 @@
 GArrowInputStream *garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input_stream);
 std::shared_ptr<arrow::io::InputStream> garrow_input_stream_get_raw(GArrowInputStream *input_stream);
 
-GArrowBufferReader *garrow_buffer_reader_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader);
+std::shared_ptr<arrow::io::RandomAccessFile> garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *input_stream);
+
+GArrowBufferInputStream *garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader);
+std::shared_ptr<arrow::io::BufferReader> garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *input_stream);
+
+GArrowMemoryMappedInputStream *garrow_memory_mapped_input_stream_new_raw(std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_memory_mapped_file);

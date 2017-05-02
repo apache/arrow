@@ -20,7 +20,7 @@ local Arrow = lgi.Arrow
 
 local input_path = arg[1] or "/tmp/batch.arrow";
 
-local input = Arrow.MemoryMappedFile.open(input_path, Arrow.FileMode.READ)
+local input = Arrow.MemoryMappedInputStream.new(input_path)
 local reader = Arrow.FileReader.open(input)
 
 for i = 0, reader:get_n_record_batches() - 1 do
