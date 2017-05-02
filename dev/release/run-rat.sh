@@ -56,6 +56,7 @@ $RAT $1 \
   -e arrow-glib-overrides.txt \
   -e gtk-doc.make \
   -e "*.html" \
+  -e "*.sgml" \
   -e "*.css" \
   -e "*.png" \
   -e "*.svg" \
