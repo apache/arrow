@@ -42,7 +42,7 @@ try:
 
         pdapi = pd.api.types
     elif pdver < '0.19.0':
-        from pandas.core.dtypes import DatetimeTZDtype
+        from pandas.types.dtypes import DatetimeTZDtype
         pdapi = pd.core.common
     else:
         from pandas.types.dtypes import DatetimeTZDtype
