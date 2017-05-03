@@ -5,6 +5,9 @@ $container-desktop: 960px;
 $container-large-desktop: $container-desktop;
 $grid-gutter-width: 15px;
 
+$font-family-base: "Droid Serif",Georgia,Helvetica,sans-serif;
+$font-size-base: 14px;
+
 @import "bootstrap-sprockets";
 @import "bootstrap";
 @import "font-awesome";
