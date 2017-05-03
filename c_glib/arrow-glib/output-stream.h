@@ -118,9 +118,9 @@ struct _GArrowFileOutputStreamClass
 
 GType garrow_file_output_stream_get_type(void) G_GNUC_CONST;
 
-GArrowFileOutputStream *garrow_file_output_stream_open(const gchar *path,
-                                                       gboolean append,
-                                                       GError **error);
+GArrowFileOutputStream *garrow_file_output_stream_new(const gchar *path,
+                                                      gboolean append,
+                                                      GError **error);
 
 
 #define GARROW_TYPE_BUFFER_OUTPUT_STREAM        \

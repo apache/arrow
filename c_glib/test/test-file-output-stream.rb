@@ -16,12 +16,12 @@
 # under the License.
 
 class TestFileOutputStream < Test::Unit::TestCase
-  sub_test_case(".open") do
+  sub_test_case(".new") do
     def test_create
       tempfile = Tempfile.open("arrow-io-file-output-stream")
       tempfile.write("Hello")
       tempfile.close
-      file = Arrow::FileOutputStream.open(tempfile.path, false)
+      file = Arrow::FileOutputStream.new(tempfile.path, false)
       file.close
       assert_equal("", File.read(tempfile.path))
     end
@@ -30,7 +30,7 @@ class TestFileOutputStream < Test::Unit::TestCase
       tempfile = Tempfile.open("arrow-io-file-output-stream")
       tempfile.write("Hello")
       tempfile.close
-      file = Arrow::FileOutputStream.open(tempfile.path, true)
+      file = Arrow::FileOutputStream.new(tempfile.path, true)
       file.close
       assert_equal("Hello", File.read(tempfile.path))
     end

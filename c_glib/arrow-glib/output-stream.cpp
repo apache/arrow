@@ -184,18 +184,18 @@ garrow_file_output_stream_class_init(GArrowFileOutputStreamClass *klass)
 }
 
 /**
- * garrow_file_output_stream_open:
+ * garrow_file_output_stream_new:
  * @path: The path of the file output stream.
  * @append: Whether the path is opened as append mode or recreate mode.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): A newly opened
- *   #GArrowFileOutputStream or %NULL on error.
+ * Returns: (nullable): A newly opened #GArrowFileOutputStream or
+ *   %NULL on error.
  */
 GArrowFileOutputStream *
-garrow_file_output_stream_open(const gchar *path,
-                               gboolean append,
-                               GError **error)
+garrow_file_output_stream_new(const gchar *path,
+                              gboolean append,
+                              GError **error)
 {
   std::shared_ptr<arrow::io::FileOutputStream> arrow_file_output_stream;
   auto status =

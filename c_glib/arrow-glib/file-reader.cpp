@@ -131,16 +131,16 @@ garrow_file_reader_class_init(GArrowFileReaderClass *klass)
 }
 
 /**
- * garrow_file_reader_open:
+ * garrow_file_reader_new:
  * @input_stream: The seekable input stream to read data.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): A newly opened
- *   #GArrowFileReader or %NULL on error.
+ * Returns: (nullable): A newly created #GArrowFileReader or %NULL on
+ *   error.
  */
 GArrowFileReader *
-garrow_file_reader_open(GArrowSeekableInputStream *input_stream,
-                        GError **error)
+garrow_file_reader_new(GArrowSeekableInputStream *input_stream,
+                       GError **error)
 {
   auto arrow_random_access_file =
     garrow_seekable_input_stream_get_raw(input_stream);

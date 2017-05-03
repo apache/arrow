@@ -18,11 +18,11 @@
 class TestFileWriter < Test::Unit::TestCase
   def test_write_record_batch
     tempfile = Tempfile.open("arrow-ipc-file-writer")
-    output = Arrow::FileOutputStream.open(tempfile.path, false)
+    output = Arrow::FileOutputStream.new(tempfile.path, false)
     begin
       field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
       schema = Arrow::Schema.new([field])
-      file_writer = Arrow::FileWriter.open(output, schema)
+      file_writer = Arrow::FileWriter.new(output, schema)
       begin
         record_batch = Arrow::RecordBatch.new(schema, 0, [])
         file_writer.write_record_batch(record_batch)
@@ -35,7 +35,7 @@ class TestFileWriter < Test::Unit::TestCase
 
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
-      file_reader = Arrow::FileReader.open(input)
+      file_reader = Arrow::FileReader.new(input)
       assert_equal(["enabled"],
                    file_reader.schema.fields.collect(&:name))
     ensure

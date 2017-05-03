@@ -65,9 +65,9 @@ struct _GArrowFileWriterClass
 
 GType garrow_file_writer_get_type(void) G_GNUC_CONST;
 
-GArrowFileWriter *garrow_file_writer_open(GArrowOutputStream *sink,
-                                                 GArrowSchema *schema,
-                                                 GError **error);
+GArrowFileWriter *garrow_file_writer_new(GArrowOutputStream *sink,
+                                         GArrowSchema *schema,
+                                         GError **error);
 
 gboolean garrow_file_writer_write_record_batch(GArrowFileWriter *file_writer,
                                                    GArrowRecordBatch *record_batch,

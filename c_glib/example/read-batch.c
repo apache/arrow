@@ -103,8 +103,8 @@ main(int argc, char **argv)
   {
     GArrowFileReader *reader;
 
-    reader = garrow_file_reader_open(GARROW_SEEKABLE_INPUT_STREAM(input),
-                                     &error);
+    reader = garrow_file_reader_new(GARROW_SEEKABLE_INPUT_STREAM(input),
+                                    &error);
     if (!reader) {
       g_print("failed to open file reader: %s\n", error->message);
       g_error_free(error);
