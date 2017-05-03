@@ -159,14 +159,14 @@ public class BaseFileTest {
       LocalDateTime dt = makeDateTimeFromCount(i);
       // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
       dateWriter.setPosition(i);
-      long dateLong = dt.minusMillis(dt.getMillisOfDay()).toDateTime(DateTimeZone.UTC).getMillis();
+      long dateLong = org.apache.arrow.vector.util.DateUtility.toMillis(dt.minusMillis(dt.getMillisOfDay()));
       dateWriter.writeDateMilli(dateLong);
       // Time is a value in milliseconds since midnight, stored as 32-bit integer
       timeWriter.setPosition(i);
       timeWriter.writeTimeMilli(dt.getMillisOfDay());
       // Timestamp is milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
-      timeStampMilliWriter.writeTimeStampMilli(dt.toDateTime(DateTimeZone.UTC).getMillis());
+      timeStampMilliWriter.writeTimeStampMilli(org.apache.arrow.vector.util.DateUtility.toMillis(dt));
     }
     writer.setValueCount(count);
   }
@@ -178,7 +178,7 @@ public class BaseFileTest {
       long dateVal = ((NullableDateMilliVector)root.getVector("date")).getAccessor().get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
       LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
-      Assert.assertEquals(dateExpected.toDateTime(DateTimeZone.UTC).getMillis(), dateVal);
+      Assert.assertEquals(org.apache.arrow.vector.util.DateUtility.toMillis(dateExpected), dateVal);
       long timeVal = ((NullableTimeMilliVector)root.getVector("time")).getAccessor().get(i);
       Assert.assertEquals(dt.getMillisOfDay(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getAccessor().getObject(i);
