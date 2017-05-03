@@ -35,7 +35,7 @@ sass:
   style: compressed
 
 # The base path where the website is deployed
-baseurl:
+baseurl: https://wesm.github.io/arrow-site-test
 
 gems:
   - jekyll-feed
