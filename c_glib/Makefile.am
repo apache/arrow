@@ -24,6 +24,7 @@ SUBDIRS =					\
 
 EXTRA_DIST =					\
 	README.md				\
+	test					\
 	version
 
 arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
