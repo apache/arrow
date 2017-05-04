@@ -1061,6 +1061,19 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   ASSERT_TRUE(result->Equals(expected));
 }
 
+TEST(TestArrowWrite, CheckChunkSize) {
+  const int num_columns = 2;
+  const int num_rows = 128;
+  const int64_t chunk_size = 0; // note the chunk_size is 0
+  std::shared_ptr<Table> table;
+  MakeDoubleTable(num_columns, num_rows, 1, &table);
+
+  auto sink = std::make_shared<InMemoryOutputStream>();
+
+  ASSERT_RAISES(
+      Invalid, WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
+}
+
 class TestNestedSchemaRead : public ::testing::Test {
  protected:
   virtual void SetUp() {

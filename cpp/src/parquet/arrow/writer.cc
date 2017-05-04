@@ -717,6 +717,10 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
     }
   }
 
+  if (chunk_size <= 0) {
+    return Status::Invalid("chunk size per row_group must be greater than 0");
+  }
+
   for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
     int64_t offset = chunk * chunk_size;
     int64_t size = std::min(chunk_size, table.num_rows() - offset);
