@@ -49,26 +49,37 @@ def get_issues_for_version(version):
     return asf_jira.search_issues(jql, maxResults=9999)
 
 
-def format_changelog_markdown(issues, out):
+LINK_TEMPLATE = '[{0}](https://issues.apache.org/jira/browse/{0})'
+
+
+def format_changelog_markdown(issues, out, links=False):
     issues_by_type = defaultdict(list)
     for issue in issues:
         issues_by_type[issue.fields.issuetype.name].append(issue)
+
 
     for issue_type, issue_group in sorted(issues_by_type.items()):
         issue_group.sort(key=lambda x: x.key)
 
         out.write('## {0}\n\n'.format(issue_type))
         for issue in issue_group:
-            out.write('* {0} - {1}\n'.format(issue.key,
+            if links:
+                name = LINK_TEMPLATE.format(issue.key)
+            else:
+                name = issue.key
+            out.write('* {0} - {1}\n'.format(name,
                                              issue.fields.summary))
         out.write('\n')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: make_changelog.py $FIX_VERSION')
+    if len(sys.argv) < 2:
+        print('Usage: make_changelog.py $FIX_VERSION [$LINKS]')
 
     buf = StringIO()
+
+    links = len(sys.argv) > 2 and sys.argv[2] == '1'
+
     issues_for_version = get_issues_for_version(sys.argv[1])
-    format_changelog_markdown(issues_for_version, buf)
+    format_changelog_markdown(issues_for_version, buf, links=links)
     print(buf.getvalue())
