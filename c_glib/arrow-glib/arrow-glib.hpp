@@ -20,18 +20,15 @@
 #pragma once
 
 #include <arrow-glib/arrow-glib.h>
+
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/array-builder.hpp>
-#include <arrow-glib/boolean-array.hpp>
-#include <arrow-glib/boolean-data-type.hpp>
+#include <arrow-glib/buffer.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/column.hpp>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/double-array.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
-#include <arrow-glib/float-array.hpp>
-#include <arrow-glib/numeric-tensor.hpp>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
@@ -41,11 +38,10 @@
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/file-mode.hpp>
 #include <arrow-glib/input-stream.hpp>
-#include <arrow-glib/memory-mapped-file.hpp>
 #include <arrow-glib/output-stream.hpp>
-#include <arrow-glib/random-access-file.hpp>
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/writeable.hpp>
+#include <arrow-glib/writeable-file.hpp>
 
 #include <arrow-glib/file-reader.hpp>
 #include <arrow-glib/file-writer.hpp>
