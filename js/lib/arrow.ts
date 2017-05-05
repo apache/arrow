@@ -85,14 +85,18 @@ export class ArrowReader {
     }
 }
 
-export function getReader(buf) {
-    var bb = new ByteBuffer(buf);
+export function getSchema(buf) { return getReader(buf).getSchema(); }
 
-    // if this is the file format (vs streaming), skip past the magic bytes
-    if (_checkMagic(bb.bytes_, 0)) {
-      // TODO stop before logging error for reading past record batches
-      bb.setPosition(MAGIC.length);
+export function getReader(buf) : ArrowReader {
+    if (_checkMagic(buf, 0)) {
+        return getFileReader(buf);
+    } else {
+        return getStreamReader(buf);
     }
+}
+
+export function getStreamReader(buf) : ArrowReader {
+    var bb = new ByteBuffer(buf);
 
     var schema = _loadSchema(bb),
         field,
@@ -117,6 +121,72 @@ export function getReader(buf) {
     }
 
     return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches);
+}
+
+export function getFileReader (buf) : ArrowReader {
+    var bb = new ByteBuffer(buf);
+
+    var footer = _loadFooter(bb);
+
+    var schema = footer.schema();
+    var i, len, field,
+        vectors: Vector[] = [],
+        recordBatchBlock,
+        recordBatchBlocks = [];
+
+    for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
+        field = schema.fields(i);
+        vectors.push(vectorFromField(field));
+    }
+
+    for (i = 0; i < footer.recordBatchesLength(); i += 1|0) {
+        recordBatchBlock = footer.recordBatches(i);
+        recordBatchBlocks.push({
+            offset: recordBatchBlock.offset().low,
+            metaDataLength: recordBatchBlock.metaDataLength(),
+            bodyLength: recordBatchBlock.bodyLength().low,
+        })
+    }
+
+    var recordBatches = recordBatchBlocks.map(function (block) {
+        bb.setPosition(block.offset);
+        return _loadRecordBatch(bb);
+    })
+
+    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches);
+}
+
+function _loadFooter(bb) {
+    var fileLength: number = bb.bytes_.length;
+
+    if (fileLength < MAGIC.length*2 + 4) {
+      console.error("file too small " + fileLength);
+      return;
+    }
+
+    if (!_checkMagic(bb.bytes_, 0)) {
+      console.error("missing magic bytes at beginning of file")
+      return;
+    }
+
+    if (!_checkMagic(bb.bytes_, fileLength - MAGIC.length)) {
+      console.error("missing magic bytes at end of file")
+      return;
+    }
+
+    var footerLengthOffset: number = fileLength - MAGIC.length - 4;
+    bb.setPosition(footerLengthOffset);
+    var footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset)
+
+    if (footerLength <= 0 || footerLength + MAGIC.length*2 + 4 > fileLength)  {
+      console.log("Invalid footer length: " + footerLength)
+    }
+
+    var footerOffset: number = footerLengthOffset - footerLength;
+    bb.setPosition(footerOffset);
+    var footer = Footer.getRootAsFooter(bb);
+
+    return footer;
 }
 
 function _loadSchema(bb) {

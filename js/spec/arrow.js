@@ -46,7 +46,7 @@ describe('arrow random-access file', function () {
   describe('schema', function () {
     var schema;
     beforeEach(function () {
-      schema = arrow.loadSchema(buf);
+      schema = arrow.getSchema(buf);
     });
 
     it('should read the number of fields', function () {
@@ -65,8 +65,9 @@ describe('arrow random-access file', function () {
   describe('data', function() {
     fields.forEach(function (field, i) {
       it('should read ' + field.type + ' vector ' + field.name, function () {
-        var vectors = arrow.loadVectors(buf);
-        var vector = vectors[field.name];
+        var reader = arrow.getReader(buf);
+        reader.loadNextBatch();
+        var vector = reader.getVector(field.name)
         assert.isDefined(vector, "vector " + field.name);
         assert.lengthOf(vector, field.data.length, "vector " + field.name)
         for (i = 0; i < vector.length; i += 1|0) {

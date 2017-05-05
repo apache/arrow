@@ -41,7 +41,7 @@ var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
 var reader = arrow.getReader(buf);
 reader.loadNextBatch();
 
-for (var i = 0; i < vectors[program.schema[0]].length; i += 1|0) {
+for (var i = 0; i < reader.getVector(program.schema[0]).length; i += 1|0) {
     console.log(program.schema.map(function (field) {
         return '' + reader.getVector(field).get(i);
     }).join(','));

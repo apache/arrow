@@ -50,7 +50,7 @@ export abstract class Vector {
      *   buffers: { offset: number, length: number }[]
      */
     public loadData(bb, node, buffers) {
-        this.length = node.length();
+        this.length = node.length().low;
         this.null_count = node.nullCount().low;
         this.loadBuffers(bb, node, buffers);
     }
