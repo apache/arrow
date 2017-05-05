@@ -143,7 +143,7 @@ You need to install Arrow C++ before you install Arrow GLib. See Arrow
 C++ document about how to install Arrow C++.
 
 You need [GTK-Doc](https://www.gtk.org/gtk-doc/) and
-[GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection)
+[GObject Introspection](https://wiki.gnome.org/Projects/GObjectIntrospection)
 to build Arrow GLib. You can install them by the followings:
 
 On Debian GNU/Linux or Ubuntu:
@@ -206,3 +206,51 @@ based bindings. Here are languages that support GObject Introspection:
 See also
 [Projects/GObjectIntrospection/Users - GNOME Wiki!](https://wiki.gnome.org/Projects/GObjectIntrospection/Users)
 for other languages.
+
+## How to run test
+
+Arrow GLib has unit tests. You can confirm that you install Apache
+GLib correctly by running unit tests.
+
+You need to install the followings to run unit tests:
+
+  * [Ruby](https://www.ruby-lang.org/)
+  * [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection)
+  * [test-unit gem](https://rubygems.org/gems/test-unit)
+
+You can install them by the followings:
+
+On Debian GNU/Linux or Ubuntu:
+
+```text
+% sudo apt install -y -V ruby-dev
+% sudo gem install gobject-introspection test-unit
+```
+
+On CentOS 7 or later:
+
+```text
+% sudo yum install -y git
+% git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
+% git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
+% echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+% echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+% exec ${SHELL} --login
+% sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
+% rbenv install 2.4.1
+% rbenv global 2.4.1
+% gem install gobject-introspection test-unit
+```
+
+On macOS with [Homebrew](https://brew.sh/):
+
+```text
+% gem install gobject-introspection test-unit
+```
+
+Now, you can run unit tests by the followings:
+
+```text
+% cd c_glib
+% test/run-test.sh
+```

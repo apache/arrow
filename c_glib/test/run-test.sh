@@ -22,7 +22,7 @@ lib_dir="${base_dir}/arrow-glib/.libs"
 
 LD_LIBRARY_PATH="${lib_dir}:${LD_LIBRARY_PATH}"
 
-if [ "${NO_MAKE}" != "yes" ]; then
+if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
   make -j8 > /dev/null || exit $?
 fi
 
