@@ -148,29 +148,47 @@ export function getFileReader (buf) : ArrowReader {
     var schema = footer.schema();
     var i, len, field,
         vectors: Vector[] = [],
-        recordBatchBlock,
-        recordBatchBlocks = [];
+        block,
+        recordBatchBlocks = [],
+        dictionaryBatchBlocks = [];
 
     for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
         field = schema.fields(i);
-        vectors.push(vectorFromField(field));
+        _createDictionaryVectors(field, dictionaries);
+        vectors.push(vectorFromField(field, dictionaries));
     }
 
-    for (i = 0; i < footer.recordBatchesLength(); i += 1|0) {
-        recordBatchBlock = footer.recordBatches(i);
-        recordBatchBlocks.push({
-            offset: recordBatchBlock.offset().low,
-            metaDataLength: recordBatchBlock.metaDataLength(),
-            bodyLength: recordBatchBlock.bodyLength().low,
+    for (i = 0; i < footer.dictionariesLength(); i += 1|0) {
+        block = footer.dictionaries(i);
+        dictionaryBatchBlocks.push({
+            offset: block.offset().low,
+            metaDataLength: block.metaDataLength(),
+            bodyLength: block.bodyLength().low,
         })
     }
 
+    for (i = 0; i < footer.recordBatchesLength(); i += 1|0) {
+        block = footer.recordBatches(i);
+        recordBatchBlocks.push({
+            offset: block.offset().low,
+            metaDataLength: block.metaDataLength(),
+            bodyLength: block.bodyLength().low,
+        })
+    }
+
+    var dictionaries = dictionaryBatchBlocks.map(function (block) {
+        bb.setPosition(block.offset);
+        // TODO: Make sure this is a dictionary batch
+        return _loadBatch(bb);
+    });
+
     var recordBatches = recordBatchBlocks.map(function (block) {
         bb.setPosition(block.offset);
-        return _loadRecordBatch(bb);
-    })
+        // TODO: Make sure this is a record batch
+        return _loadBatch(bb);
+    });
 
-    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches);
+    return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches, dictionaries);
 }
 
 function _loadFooter(bb) {
