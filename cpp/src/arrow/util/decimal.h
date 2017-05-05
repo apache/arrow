@@ -21,7 +21,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <iterator>
-#include <regex>
 #include <string>
 
 #include "arrow/status.h"
