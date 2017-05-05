@@ -70,8 +70,8 @@ struct _GArrowFileReaderClass
 
 GType garrow_file_reader_get_type(void) G_GNUC_CONST;
 
-GArrowFileReader *garrow_file_reader_open(GArrowSeekableInputStream *input_stream,
-                                          GError **error);
+GArrowFileReader *garrow_file_reader_new(GArrowSeekableInputStream *input_stream,
+                                         GError **error);
 
 GArrowSchema *garrow_file_reader_get_schema(GArrowFileReader *file_reader);
 guint garrow_file_reader_get_n_record_batches(GArrowFileReader *file_reader);

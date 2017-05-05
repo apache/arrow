@@ -34,8 +34,8 @@ local fields = {
 }
 local schema = Arrow.Schema.new(fields)
 
-local output = Arrow.FileOutputStream.open(output_path, false)
-local writer = Arrow.StreamWriter.open(output, schema)
+local output = Arrow.FileOutputStream.new(output_path, false)
+local writer = Arrow.StreamWriter.new(output, schema)
 
 function build_array(builder, values)
    for _, value in pairs(values) do

@@ -70,8 +70,8 @@ struct _GArrowStreamReaderClass
 
 GType garrow_stream_reader_get_type(void) G_GNUC_CONST;
 
-GArrowStreamReader *garrow_stream_reader_open(GArrowInputStream *stream,
-                                                     GError **error);
+GArrowStreamReader *garrow_stream_reader_new(GArrowInputStream *stream,
+                                             GError **error);
 
 GArrowSchema *garrow_stream_reader_get_schema(GArrowStreamReader *stream_reader);
 GArrowRecordBatch *garrow_stream_reader_get_next_record_batch(GArrowStreamReader *stream_reader,

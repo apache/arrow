@@ -102,8 +102,8 @@ main(int argc, char **argv)
   {
     GArrowStreamReader *reader;
 
-    reader = garrow_stream_reader_open(GARROW_INPUT_STREAM(input),
-                                       &error);
+    reader = garrow_stream_reader_new(GARROW_INPUT_STREAM(input),
+                                      &error);
     if (!reader) {
       g_print("failed to open stream reader: %s\n", error->message);
       g_error_free(error);

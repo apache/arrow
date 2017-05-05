@@ -132,16 +132,16 @@ garrow_stream_reader_class_init(GArrowStreamReaderClass *klass)
 }
 
 /**
- * garrow_stream_reader_open:
+ * garrow_stream_reader_new:
  * @stream: The stream to be read.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): A newly opened
- *   #GArrowStreamReader or %NULL on error.
+ * Returns: (nullable): A newly created #GArrowStreamReader or %NULL
+ *   on error.
  */
 GArrowStreamReader *
-garrow_stream_reader_open(GArrowInputStream *stream,
-                              GError **error)
+garrow_stream_reader_new(GArrowInputStream *stream,
+                         GError **error)
 {
   std::shared_ptr<arrow::ipc::StreamReader> arrow_stream_reader;
   auto status =

@@ -57,18 +57,18 @@ garrow_file_writer_class_init(GArrowFileWriterClass *klass)
 }
 
 /**
- * garrow_file_writer_open:
+ * garrow_file_writer_new:
  * @sink: The output of the writer.
  * @schema: The schema of the writer.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): A newly opened
- *   #GArrowFileWriter or %NULL on error.
+ * Returns: (nullable): A newly created #GArrowFileWriter or %NULL on
+ *   error.
  */
 GArrowFileWriter *
-garrow_file_writer_open(GArrowOutputStream *sink,
-                            GArrowSchema *schema,
-                            GError **error)
+garrow_file_writer_new(GArrowOutputStream *sink,
+                       GArrowSchema *schema,
+                       GError **error)
 {
   std::shared_ptr<arrow::ipc::FileWriter> arrow_file_writer;
   auto status =
