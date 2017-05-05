@@ -18,6 +18,62 @@
 local lgi = require 'lgi'
 local Arrow = lgi.Arrow
 
+local torch = require 'torch'
+
+Arrow.Array.torch_types = function(self)
+   return nil
+end
+
+Arrow.Array.to_torch = function(self)
+   local types = self:torch_types()
+   if not types then
+      return nil
+   end
+
+   local storage_type = types[1]
+   local tensor_type = types[2]
+
+   local size = self:get_length()
+   local storage = storage_type(size)
+   if not storage then
+      return nil
+   end
+
+   for i = 1, size do
+      storage[i] = self:get_value(i - 1)
+   end
+   return tensor_type(storage)
+end
+
+Arrow.UInt8Array.torch_types = function(self)
+   return {torch.ByteStorage, torch.ByteTensor}
+end
+
+Arrow.Int8Array.torch_types = function(self)
+   return {torch.CharStorage, torch.CharTensor}
+end
+
+Arrow.Int16Array.torch_types = function(self)
+   return {torch.ShortStorage, torch.ShortTensor}
+end
+
+Arrow.Int32Array.torch_types = function(self)
+   return {torch.IntStorage, torch.IntTensor}
+end
+
+Arrow.Int64Array.torch_types = function(self)
+   return {torch.LongStorage, torch.LongTensor}
+end
+
+Arrow.FloatArray.torch_types = function(self)
+   return {torch.FloatStorage, torch.FloatTensor}
+end
+
+Arrow.DoubleArray.torch_types = function(self)
+   return {torch.DoubleStorage, torch.DoubleTensor}
+end
+
+
 local input_path = arg[1] or "/tmp/stream.arrow";
 
 local input = Arrow.MemoryMappedInputStream.new(input_path)
@@ -35,14 +91,8 @@ while true do
    for j = 0, record_batch:get_n_columns() - 1 do
       local column = record_batch:get_column(j)
       local column_name = record_batch:get_column_name(j)
-      io.write("  "..column_name..": [")
-      for k = 0, record_batch:get_n_rows() - 1 do
-	 if k > 0 then
-	    io.write(", ")
-	 end
-	 io.write(column:get_value(k))
-      end
-      print("]")
+      print("  "..column_name..":")
+      print(column:to_torch())
    end
 
    i = i + 1
