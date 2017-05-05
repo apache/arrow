@@ -24,21 +24,54 @@ var arrow = require('../dist/arrow.js');
 test_files = [
   {
     name: 'simple',
+    batches: 1,
     fields: [
       {
         "name": "foo",
         "type": "Int",
-        "data": [1, null, 3, 4, 5]
+        "data": [[1, null, 3, 4, 5]]
       },
       {
         "name": "bar",
         "type": "FloatingPoint",
-        "data": [1.0, null, null, 4.0, 5.0]
+        "data": [[1.0, null, null, 4.0, 5.0]]
       },
       {
         "name": "baz",
         "type": "Utf8",
-        "data": ["aa", null, null, "bbb", "cccc"]
+        "data": [["aa", null, null, "bbb", "cccc"]]
+      }
+    ]
+  },
+  {
+    name: 'struct_example',
+    batches: 2,
+    fields: [
+      {
+        "name": "struct_nullable",
+        "type": "Struct",
+        "data": [
+          [
+            null,
+            [null, 'MhRNxD4'],
+            [137773603, '3F9HBxK'],
+            [410361374, 'aVd88fp'],
+            null,
+            [null, '3loZrRf'],
+            null
+          ], [
+            null,
+            [null,null],
+            [null,null],
+            null,
+            [null, '78SLiRw'],
+            null,
+            null,
+            [null, '0ilsf82'],
+            [null, 'LjS9MbU'],
+            [null, null],
+          ]
+        ]
       }
     ]
   }
@@ -67,22 +100,31 @@ function makeSchemaChecks(fields) {
   });
 }
 
-function makeDataChecks (fields) {
+function makeDataChecks (batches, fields) {
   describe('data', function() {
+    var reader;
+    beforeEach(function () {
+        reader = arrow.getReader(buf)
+    });
+    it('should read the correct number of record batches', function () {
+        assert.equal(reader.getBatchCount(), batches);
+    });
     fields.forEach(function (field, i) {
       it('should read ' + field.type + ' vector ' + field.name, function () {
-        var reader = arrow.getReader(buf);
-        reader.loadNextBatch();
-        var vector = reader.getVector(field.name)
-        assert.isDefined(vector, "vector " + field.name);
-        assert.lengthOf(vector, field.data.length, "vector " + field.name)
-        for (i = 0; i < vector.length; i += 1|0) {
-          if (field.type == "Date") {
-            assert.equal(vector.get(i).getTime(), field.data[i].getTime(),
-                         "vector " + field.name + " index " + i);
-          } else {
-            assert.deepEqual(vector.get(i), field.data[i],
-                             "vector " + field.name + " index " + i);
+        for (var batch_idx = 0; batch_idx < batches; batch_idx += 1|0) {
+          reader.loadNextBatch();
+          var batch = field.data[batch_idx];
+          var vector = reader.getVector(field.name)
+          assert.isDefined(vector, "vector " + field.name);
+          assert.lengthOf(vector, batch.length, "vector " + field.name)
+          for (i = 0; i < vector.length; i += 1|0) {
+            if (field.type == "Date") {
+              assert.equal(vector.get(i).getTime(), batch[i].getTime(),
+                           "vector " + field.name + " index " + i);
+            } else {
+              assert.deepEqual(vector.get(i), batch[i],
+                               "vector " + field.name + " index " + i);
+            }
           }
         }
       });
@@ -99,7 +141,7 @@ describe('arrow random-access file', function () {
       });
 
       makeSchemaChecks(fields);
-      makeDataChecks(fields);
+      makeDataChecks(test_file.batches, fields);
     })
   });
 });
@@ -113,7 +155,7 @@ describe('arrow streaming file format', function () {
       });
 
       makeSchemaChecks(fields);
-      makeDataChecks(fields);
+      makeDataChecks(test_file.batches, fields);
     })
   });
 });
