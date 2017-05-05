@@ -36,6 +36,7 @@ structures.
 
    install
    development
+   memory
    pandas
    filesystems
    parquet

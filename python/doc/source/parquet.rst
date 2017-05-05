@@ -15,6 +15,9 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. currentmodule:: pyarrow
+.. _parquet:
+
 Reading/Writing Parquet files
 =============================
 
@@ -29,7 +32,7 @@ Reading Parquet
 
 To read a Parquet file into Arrow memory, you can use the following code
 snippet. It will read the whole Parquet file into memory as an
-:class:`~pyarrow.table.Table`.
+:class:`~pyarrow.Table`.
 
 .. code-block:: python
 
@@ -41,9 +44,9 @@ As DataFrames stored as Parquet are often stored in multiple files, a
 convenience method :meth:`~pyarrow.parquet.read_multiple_files` is provided.
 
 If you already have the Parquet available in memory or get it via non-file
-source, you can utilize :class:`pyarrow.io.BufferReader` to read it from
-memory. As input to the :class:`~pyarrow.io.BufferReader` you can either supply
-a Python ``bytes`` object or a :class:`pyarrow.io.Buffer`.
+source, you can utilize :class:`pyarrow.BufferReader` to read it from
+memory. As input to the :class:`~pyarrow.BufferReader` you can either supply
+a Python ``bytes`` object or a :class:`pyarrow.Buffer`.
 
 .. code:: python
 

@@ -18,7 +18,7 @@
 jemalloc MemoryPool
 ===================
 
-Arrow's default :class:`~pyarrow.memory.MemoryPool` uses the system's allocator
+Arrow's default :class:`~pyarrow.MemoryPool` uses the system's allocator
 through the POSIX APIs. Although this already provides aligned allocation, the
 POSIX interface doesn't support aligned reallocation. The default reallocation
 strategy is to allocate a new region, copy over the old data and free the
@@ -27,10 +27,9 @@ the existing memory allocation to the requested size. While this may still be
 linear in the size of allocated memory, it is magnitudes faster as only the page
 mapping in the kernel is touched, not the actual data.
 
-The :mod:`~pyarrow.jemalloc` allocator is not enabled by default to allow the
-use of the system allocator and/or other allocators like ``tcmalloc``. You can
-either explicitly make it the default allocator or pass it only to single
-operations.
+The jemalloc-based allocator is not enabled by default to allow the use of the
+system allocator and/or other allocators like ``tcmalloc``. You can either
+explicitly make it the default allocator or pass it only to single operations.
 
 .. code:: python
 
