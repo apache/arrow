@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 markdown: kramdown
+permalink: /blog/:year/:month/:day/:title/
 repository: https://github.com/apache/arrow
 destination: build
+excerpt_separator: ""
 
 exclude:
   - Gemfile

@@ -1,0 +1,34 @@
+{% include top.html %}
+{% capture homepage %}http://people.apache.org/~{{ page.author }}{% endcapture %}
+
+<body class="wrap">
+  <div class="container">
+    {% include header.html %}
+
+    <h2>
+      {{ page.title }}
+      <a href="{{ page.url }}" class="permalink" title="Permalink">∞</a>
+    </h2>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div>
+          <span class="label label-default">Published</span>
+          <span class="published">
+            <i class="fa fa-calendar"></i>
+            {{ page.date | date_to_string }}
+          </span>
+        </div>
+        <div>
+          <span class="label label-default">By</span>
+          <a href="{{ homepage }}"><i class="fa fa-user"></i> {{ page.author }}</a>
+        </div>
+      </div>
+    </div>
+
+    {{ content }}
+
+    {% include footer.html %}
+  </div>
+</body>
+</html>

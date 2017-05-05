@@ -1,12 +1,33 @@
 <nav class="navbar navbar-default">
   <div class="container-fluid">
     <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#arrow-navbar">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
       <a class="navbar-brand" href="{{ site.baseurl }}/">Apache Arrow&#8482;&nbsp;&nbsp;&nbsp;</a>
     </div>
 
     <!-- Collect the nav links, forms, and other content for toggling -->
-    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+    <div class="collapse navbar-collapse" id="arrow-navbar">
       <ul class="nav navbar-nav">
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"
+             role="button" aria-haspopup="true"
+             aria-expanded="false">Project Links<span class="caret"></span>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="{{ site.baseurl }}/install/">Install</a></li>
+            <li><a href="{{ site.baseurl }}/blog/">Blog</a></li>
+            <li><a href="https://issues.apache.org/jira/browse/ARROW">Issue Tracker</a></li>
+            <li><a href="https://github.com/apache/arrow">Source Code</a></li>
+            <li><a href="http://mail-archives.apache.org/mod_mbox/arrow-dev/">Mailing List</a></li>
+            <li><a href="https://apachearrowslackin.herokuapp.com">Slack Channel</a></li>
+            <li><a href="{{ site.baseurl }}/committers/">Committers</a></li>
+          </ul>
+        </li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"
              role="button" aria-haspopup="true"
@@ -22,13 +43,13 @@
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"
              role="button" aria-haspopup="true"
-             aria-expanded="false">Code Documentation<span class="caret"></span>
+             aria-expanded="false">Documentation<span class="caret"></span>
           </a>
           <ul class="dropdown-menu">
-            <li><a href="{{ site.baseurl }}/docs/cpp">C++</a></li>
-            <li><a href="{{ site.baseurl }}/docs/java">Java</a></li>
             <li><a href="{{ site.baseurl }}/docs/python">Python</a></li>
-            <li><a href="{{ site.baseurl }}/docs/c_glib">C (GLib)</a></li>
+            <li><a href="{{ site.baseurl }}/docs/cpp">C++ API</a></li>
+            <li><a href="{{ site.baseurl }}/docs/java">Java API</a></li>
+            <li><a href="{{ site.baseurl }}/docs/c_glib">C GLib API</a></li>
           </ul>
         </li>
         <!-- <li><a href="{{ site.baseurl }}/blog">Blog</a></li> -->
