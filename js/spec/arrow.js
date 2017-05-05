@@ -18,31 +18,35 @@
 var fs = require('fs');
 var chai = require('chai');
 var assert = chai.assert;
+var path= require('path');
 var arrow = require('../dist/arrow.js');
 
-fields = [
+test_files = [
   {
-    "name": "foo",
-    "type": "Int",
-    "data": [1, null, 3, 4, 5]
-  },
-  {
-    "name": "bar",
-    "type": "FloatingPoint",
-    "data": [1.0, null, null, 4.0, 5.0]
-  },
-  {
-    "name": "baz",
-    "type": "Utf8",
-    "data": ["aa", null, null, "bbb", "cccc"]
+    name: 'simple',
+    fields: [
+      {
+        "name": "foo",
+        "type": "Int",
+        "data": [1, null, 3, 4, 5]
+      },
+      {
+        "name": "bar",
+        "type": "FloatingPoint",
+        "data": [1.0, null, null, 4.0, 5.0]
+      },
+      {
+        "name": "baz",
+        "type": "Utf8",
+        "data": ["aa", null, null, "bbb", "cccc"]
+      }
+    ]
   }
 ];
 
-describe('arrow random-access file', function () {
-  var buf;
-  beforeEach(function () {
-    buf = fs.readFileSync(__dirname + '/simple.arrow');
-  });
+var buf;
+
+function makeSchemaChecks(fields) {
   describe('schema', function () {
     var schema;
     beforeEach(function () {
@@ -61,7 +65,9 @@ describe('arrow random-access file', function () {
       }
     });
   });
+}
 
+function makeDataChecks (fields) {
   describe('data', function() {
     fields.forEach(function (field, i) {
       it('should read ' + field.type + ' vector ' + field.name, function () {
@@ -81,5 +87,33 @@ describe('arrow random-access file', function () {
         }
       });
     });
+  });
+}
+
+describe('arrow random-access file', function () {
+  test_files.forEach(function (test_file) {
+    describe(test_file.name, function () {
+      var fields = test_file.fields
+      beforeEach(function () {
+        buf = fs.readFileSync(path.resolve(__dirname, test_file.name + '.arrow'));
+      });
+
+      makeSchemaChecks(fields);
+      makeDataChecks(fields);
+    })
+  });
+});
+
+describe('arrow streaming file format', function () {
+  test_files.forEach(function (test_file) {
+    describe(test_file.name, function () {
+      var fields = test_file.fields
+      beforeEach(function () {
+        buf = fs.readFileSync(path.resolve(__dirname, test_file.name + '-stream.arrow'));
+      });
+
+      makeSchemaChecks(fields);
+      makeDataChecks(fields);
+    })
   });
 });
