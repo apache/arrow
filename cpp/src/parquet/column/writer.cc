@@ -187,9 +187,10 @@ int64_t ColumnWriter::Close() {
   }
 
   if (num_rows_ != expected_rows_) {
-    throw ParquetException(
-        "Less than the number of expected rows written in"
-        " the current column chunk");
+    std::stringstream ss;
+    ss << "Written rows: " << num_rows_ << " != expected rows: " << expected_rows_
+       << "in the current column chunk";
+    throw ParquetException(ss.str());
   }
 
   return total_bytes_written_;
