@@ -93,4 +93,14 @@ TEST(TestTensor, IsContiguous) {
   ASSERT_FALSE(t3.is_contiguous());
 }
 
+TEST(TestTensor, ZeroDimensionalTensor) {
+  std::vector<int64_t> shape = {0};
+
+  std::shared_ptr<MutableBuffer> buffer;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), 0, &buffer));
+
+  Tensor t(int64(), buffer, shape);
+  ASSERT_EQ(t.strides().size(), 1);
+}
+
 }  // namespace arrow

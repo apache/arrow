@@ -41,6 +41,11 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
     remaining *= dimsize;
   }
 
+  if (remaining == 0) {
+    strides->assign(shape.size(), type.bit_width() / 8);
+    return;
+  }
+
   for (int64_t dimsize : shape) {
     remaining /= dimsize;
     strides->push_back(remaining);
@@ -50,6 +55,12 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
 static void ComputeColumnMajorStrides(const FixedWidthType& type,
     const std::vector<int64_t>& shape, std::vector<int64_t>* strides) {
   int64_t total = type.bit_width() / 8;
+  for (int64_t dimsize : shape) {
+    if (dimsize == 0) {
+      strides->assign(shape.size(), type.bit_width() / 8);
+      return;
+    }
+  }
   for (int64_t dimsize : shape) {
     strides->push_back(total);
     total *= dimsize;
