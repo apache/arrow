@@ -18,7 +18,8 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $ARROW_JAVA_DIR
 
-mvn package
+echo "mvn package"
+mvn -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
 
 popd
 

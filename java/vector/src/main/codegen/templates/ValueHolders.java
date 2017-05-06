@@ -29,6 +29,9 @@ package org.apache.arrow.vector.holders;
 
 <#include "/@includes/vv_imports.ftl" />
 
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 public final class ${className} implements ValueHolder{
   
     <#if mode.name == "Repeated">

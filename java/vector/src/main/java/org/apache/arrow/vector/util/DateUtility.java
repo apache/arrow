@@ -18,6 +18,9 @@
 
 package org.apache.arrow.vector.util;
 
+import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
+import org.joda.time.LocalDateTimes;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -679,4 +682,11 @@ public class DateUtility {
       (period.getMillis());
     }
 
+    public static long toMillis(LocalDateTime localDateTime) {
+      return LocalDateTimes.getLocalMillis(localDateTime);
+    }
+
+    public static int toMillisOfDay(final LocalDateTime localDateTime) {
+      return localDateTime.toDateTime(DateTimeZone.UTC).millisOfDay().get();
+    }
 }

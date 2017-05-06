@@ -544,7 +544,8 @@ class JSONRecordBatch(object):
 
 class JSONFile(object):
 
-    def __init__(self, schema, batches):
+    def __init__(self, name, schema, batches):
+        self.name = name
         self.schema = schema
         self.batches = batches
 
@@ -579,7 +580,7 @@ def get_field(name, type_, nullable=True):
         raise TypeError(dtype)
 
 
-def _generate_file(fields, batch_sizes):
+def _generate_file(name, fields, batch_sizes):
     schema = JSONSchema(fields)
     batches = []
     for size in batch_sizes:
@@ -590,7 +591,7 @@ def _generate_file(fields, batch_sizes):
 
         batches.append(JSONRecordBatch(size, columns))
 
-    return JSONFile(schema, batches)
+    return JSONFile(name, schema, batches)
 
 
 def generate_primitive_case(batch_sizes):
@@ -604,7 +605,7 @@ def generate_primitive_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, True))
         fields.append(get_field(type_ + "_nonnullable", type_, False))
 
-    return _generate_file(fields, batch_sizes)
+    return _generate_file("primitive", fields, batch_sizes)
 
 
 def generate_datetime_case():
@@ -619,11 +620,11 @@ def generate_datetime_case():
         TimestampType('f7', 'ms'),
         TimestampType('f8', 'us'),
         TimestampType('f9', 'ns'),
-        TimestampType('f10', 'ms', tz='America/New_York')
+        TimestampType('f10', 'ms', tz=None)
     ]
 
     batch_sizes = [7, 10]
-    return _generate_file(fields, batch_sizes)
+    return _generate_file("datetime", fields, batch_sizes)
 
 
 def generate_nested_case():
@@ -637,7 +638,7 @@ def generate_nested_case():
     ]
 
     batch_sizes = [7, 10]
-    return _generate_file(fields, batch_sizes)
+    return _generate_file("nested", fields, batch_sizes)
 
 
 def get_generated_json_files():
@@ -655,7 +656,7 @@ def get_generated_json_files():
 
     generated_paths = []
     for file_obj in file_objs:
-        out_path = os.path.join(temp_dir, guid() + '.json')
+        out_path = os.path.join(temp_dir, 'generated_' + file_obj.name + '.json')
         file_obj.write(out_path)
         generated_paths.append(out_path)
 
@@ -684,11 +685,15 @@ class IntegrationRunner(object):
                                                        consumer.name))
 
         for json_path in self.json_files:
+            print('=====================================================================================')
             print('Testing file {0}'.format(json_path))
+            print('=====================================================================================')
+
+            name = os.path.splitext(os.path.basename(json_path))[0]
 
             # Make the random access file
             print('-- Creating binary inputs')
-            producer_file_path = os.path.join(self.temp_dir, guid())
+            producer_file_path = os.path.join(self.temp_dir, guid() + '_' + name + '.json_to_arrow')
             producer.json_to_file(json_path, producer_file_path)
 
             # Validate the file
@@ -696,8 +701,8 @@ class IntegrationRunner(object):
             consumer.validate(json_path, producer_file_path)
 
             print('-- Validating stream')
-            producer_stream_path = os.path.join(self.temp_dir, guid())
-            consumer_file_path = os.path.join(self.temp_dir, guid())
+            producer_stream_path = os.path.join(self.temp_dir, guid() + '_' + name + '.arrow_to_stream')
+            consumer_file_path = os.path.join(self.temp_dir, guid() + '_' + name + '.stream_to_arrow')
             producer.file_to_stream(producer_file_path,
                                     producer_stream_path)
             consumer.stream_to_file(producer_stream_path,

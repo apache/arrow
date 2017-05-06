@@ -38,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 /**
  * Arrow types
+ * Source code generated using FreeMarker template ${.template_name}
  **/
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,

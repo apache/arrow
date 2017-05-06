@@ -84,7 +84,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     
   }
 
-@Override
+  @Override
   public void read(${name}Holder h) {
   <#list fields as field>
     h.${field.name} = holder.${field.name};
@@ -99,7 +99,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     h.isSet = isSet() ? 1 : 0;
   }
 
-
+  // read friendly type
   @Override
   public ${friendlyType} read${safeType}(){
 <#if nullMode == "Nullable">
@@ -114,15 +114,15 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
       byte[] value = new byte [length];
       holder.buffer.getBytes(holder.start, value, 0, length);
 
-<#if minor.class == "VarBinary">
+  <#if minor.class == "VarBinary">
       return value;
-<#elseif minor.class == "Var16Char">
+  <#elseif minor.class == "Var16Char">
       return new String(value);
-<#elseif minor.class == "VarChar">
+  <#elseif minor.class == "VarChar">
       Text text = new Text();
       text.set(value);
       return text;
-</#if>
+  </#if>
 
 <#elseif minor.class == "Interval">
       Period p = new Period();

@@ -241,7 +241,7 @@ public class Types {
       }
     },
     // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, "UTC")) {
+    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, null)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableTimeStampSecVector(name, fieldType, allocator);
@@ -253,7 +253,7 @@ public class Types {
       }
     },
     // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, "UTC")) {
+    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, null)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableTimeStampMilliVector(name, fieldType, allocator);
@@ -265,7 +265,7 @@ public class Types {
       }
     },
     // time in microsecond from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, "UTC")) {
+    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, null)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableTimeStampMicroVector(name, fieldType, allocator);
@@ -277,7 +277,7 @@ public class Types {
       }
     },
     // time in nanosecond from the Unix epoch, 00:00:00.000000000 on 1 January 1970, UTC.
-    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, "UTC")) {
+    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, null)) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableTimeStampNanoVector(name, fieldType, allocator);
@@ -580,6 +580,9 @@ public class Types {
       }
 
       @Override public MinorType visit(Timestamp type) {
+        if (type.getTimezone() != null) {
+          throw new IllegalArgumentException("only timezone-less timestamps are supported for now: " + type);
+        }
         switch (type.getUnit()) {
           case SECOND:
             return MinorType.TIMESTAMPSEC;

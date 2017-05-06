@@ -28,7 +28,9 @@ import org.apache.arrow.vector.types.Types.MinorType;
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
@@ -122,7 +124,7 @@ public class UnionReader extends AbstractFieldReader {
   }
 
   <#list ["Object", "Integer", "Long", "Boolean",
-          "Character", "DateTime", "Double", "Float",
+          "Character", "LocalDateTime", "Double", "Float",
           "Text", "Byte", "Short", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>

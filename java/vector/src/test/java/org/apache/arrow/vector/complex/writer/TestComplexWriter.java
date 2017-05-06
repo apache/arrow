@@ -56,8 +56,7 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -602,10 +601,10 @@ public class TestComplexWriter {
     final long expectedMicros = 981173106123456L;
     final long expectedMillis = 981173106123L;
     final long expectedSecs = 981173106L;
-    final DateTime expectedSecDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 0).withZoneRetainFields(DateTimeZone.getDefault());
-    final DateTime expectedMilliDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 123).withZoneRetainFields(DateTimeZone.getDefault());
-    final DateTime expectedMicroDateTime = expectedMilliDateTime;
-    final DateTime expectedNanoDateTime = expectedMilliDateTime;
+    final LocalDateTime expectedSecDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 0);
+    final LocalDateTime expectedMilliDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+    final LocalDateTime expectedMicroDateTime = expectedMilliDateTime;
+    final LocalDateTime expectedNanoDateTime = expectedMilliDateTime;
 
     // write
     MapVector parent = new MapVector("parent", allocator, null);
@@ -650,28 +649,28 @@ public class TestComplexWriter {
 
     FieldReader secReader = rootReader.reader("sec");
     secReader.setPosition(0);
-    DateTime secDateTime = secReader.readDateTime();
+    LocalDateTime secDateTime = secReader.readLocalDateTime();
     Assert.assertEquals(expectedSecDateTime, secDateTime);
     long secLong = secReader.readLong();
     Assert.assertEquals(expectedSecs, secLong);
 
     FieldReader milliReader = rootReader.reader("milli");
     milliReader.setPosition(1);
-    DateTime milliDateTime = milliReader.readDateTime();
+    LocalDateTime milliDateTime = milliReader.readLocalDateTime();
     Assert.assertEquals(expectedMilliDateTime, milliDateTime);
     long milliLong = milliReader.readLong();
     Assert.assertEquals(expectedMillis, milliLong);
 
     FieldReader microReader = rootReader.reader("micro");
     microReader.setPosition(2);
-    DateTime microDateTime = microReader.readDateTime();
+    LocalDateTime microDateTime = microReader.readLocalDateTime();
     Assert.assertEquals(expectedMicroDateTime, microDateTime);
     long microLong = microReader.readLong();
     Assert.assertEquals(expectedMicros, microLong);
 
     FieldReader nanoReader = rootReader.reader("nano");
     nanoReader.setPosition(3);
-    DateTime nanoDateTime = nanoReader.readDateTime();
+    LocalDateTime nanoDateTime = nanoReader.readLocalDateTime();
     Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
     long nanoLong = nanoReader.readLong();
     Assert.assertEquals(expectedNanos, nanoLong);

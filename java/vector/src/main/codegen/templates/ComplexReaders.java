@@ -47,6 +47,9 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class ${name}ReaderImpl extends AbstractFieldReader {
   
@@ -123,12 +126,16 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
 package org.apache.arrow.vector.complex.reader;
 
 <#include "/@includes/vv_imports.ftl" />
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public interface ${name}Reader extends BaseReader{
   
   public void read(${minor.class?cap_first}Holder h);
   public void read(Nullable${minor.class?cap_first}Holder h);
   public Object readObject();
+  // read friendly type
   public ${friendlyType} read${safeType}();
   public boolean isSet();
   public void copyAsValue(${minor.class}Writer writer);
