@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -22,6 +22,7 @@ MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
 source /multibuild/manylinux_utils.sh
 
 for PYTHON in ${PYTHON_VERSIONS}; do
+    PYTHON_INTERPRETER="$(cpython_path $PYTHON)/bin/python"
     PIP="$(cpython_path $PYTHON)/bin/pip"
     PIPI_IO="$PIP install -f $MANYLINUX_URL"
     PATH="$PATH:$(cpython_path $PYTHON)"
@@ -29,6 +30,12 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Installing build dependencies ==="
     $PIPI_IO "numpy==1.9.0"
     $PIPI_IO "cython==0.25.2"
-    $PIPI_IO "pandas==0.19.2"
+    $PIPI_IO "pandas==0.20.1"
     $PIPI_IO "virtualenv==15.1.0"
+
+    echo "=== (${PYTHON}) Preparing virtualenv for tests ==="
+    "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}
+    source /venv-test-${PYTHON}/bin/activate
+    pip install pytest 'numpy==1.12.1' 'pandas==0.20.1'
+    deactivate
 done

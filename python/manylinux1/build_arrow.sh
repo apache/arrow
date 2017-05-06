@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -72,13 +72,9 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
-    # Fix version to keep build reproducible"
-    rm -rf venv
-    "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download venv
-    source ./venv/bin/activate
+    source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
-    pip install pytest pandas
-    py.test venv/lib/*/site-packages/pyarrow
+    py.test /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
