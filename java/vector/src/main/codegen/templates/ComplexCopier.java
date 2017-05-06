@@ -72,7 +72,8 @@ public class ComplexCopier {
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
-  <#if !minor.class?starts_with("Decimal")>
+
+  <#if !minor.typeParams?? >
 
       case ${name?upper_case}:
         if (reader.isSet()) {
@@ -94,7 +95,7 @@ public class ComplexCopier {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#if !minor.typeParams?? >
     case ${name?upper_case}:
       return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>(name);
     </#if>
@@ -113,7 +114,7 @@ public class ComplexCopier {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#if !minor.typeParams?? >
     case ${name?upper_case}:
     return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>();
     </#if>

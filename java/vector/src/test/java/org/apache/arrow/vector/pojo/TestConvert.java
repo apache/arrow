@@ -83,7 +83,8 @@ public class TestConvert {
         )));
     childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal() } )), ImmutableList.<Field>of(
         new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
-        new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of())
+        new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of()),
+        new Field("child5.3", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null)
         )));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);

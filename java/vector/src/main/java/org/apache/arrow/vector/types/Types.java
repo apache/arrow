@@ -39,6 +39,7 @@ import org.apache.arrow.vector.NullableTimeMilliVector;
 import org.apache.arrow.vector.NullableTimeNanoVector;
 import org.apache.arrow.vector.NullableTimeSecVector;
 import org.apache.arrow.vector.NullableTimeStampMicroVector;
+import org.apache.arrow.vector.NullableTimeStampMilliTZVector;
 import org.apache.arrow.vector.NullableTimeStampMilliVector;
 import org.apache.arrow.vector.NullableTimeStampNanoVector;
 import org.apache.arrow.vector.NullableTimeStampSecVector;
@@ -72,6 +73,7 @@ import org.apache.arrow.vector.complex.impl.TimeMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeSecWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampMilliTZWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampSecWriterImpl;
@@ -369,11 +371,6 @@ public class Types {
     },
     DECIMAL(null) {
       @Override
-      public ArrowType getType() {
-        throw new UnsupportedOperationException("Cannot get simple type for Decimal type");
-      }
-
-      @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableDecimalVector(name, fieldType, allocator);
       }
@@ -440,11 +437,6 @@ public class Types {
     },
     FIXED_SIZE_LIST(null) {
       @Override
-      public ArrowType getType() {
-        throw new UnsupportedOperationException("Cannot get simple type for FixedSizeList type");
-      }
-
-      @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new FixedSizeListVector(name, allocator, fieldType, schemaChangeCallback);
       }
@@ -467,6 +459,17 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UnionWriter((UnionVector) vector);
       }
+    },
+    TIMESTAMPMILLITZ(null) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableTimeStampMilliTZVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeStampMilliTZWriterImpl((NullableTimeStampMilliTZVector) vector);
+      }
     };
 
     private final ArrowType type;
@@ -475,7 +478,10 @@ public class Types {
       this.type = type;
     }
 
-    public ArrowType getType() {
+    public final ArrowType getType() {
+      if (type == null) {
+        throw new UnsupportedOperationException("Cannot get simple type for type " + name());
+      }
       return type;
     }
 

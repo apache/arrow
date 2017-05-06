@@ -121,7 +121,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
-      <#if !minor.class?starts_with("Decimal")>
+      <#if !minor.typeParams??>
     case ${name?upper_case}:
       return get${name}Writer();
       </#if>
@@ -136,7 +136,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
 
-          <#if !minor.class?starts_with("Decimal")>
+          <#if !minor.typeParams?? >
 
   private ${name}Writer ${name?uncap_first}Writer;
 
@@ -206,7 +206,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.class?starts_with("Decimal")>
+  <#if !minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     data.getMutator().setType(idx(), MinorType.MAP);

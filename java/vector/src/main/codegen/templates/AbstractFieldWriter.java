@@ -59,7 +59,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   <#if minor.class == "Decimal">
-  public void writeDecimal(int start, ArrowBuf buffer) {
+  public void write${minor.class}(int start, ArrowBuf buffer) {
     fail("${name}");
   }
   <#else>
@@ -114,9 +114,11 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if minor.class?starts_with("Decimal") >
-  public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
-    fail("${capName}");
+  <#if minor.typeParams?? >
+
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    fail("${capName}(" + <#list minor.typeParams as typeParam>"${typeParam.name}: " + ${typeParam.name} + ", " + </#list>")");
     return null;
   }
   </#if>
