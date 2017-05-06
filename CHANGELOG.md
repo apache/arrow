@@ -87,7 +87,7 @@
 * ARROW-787 - [GLib] Fix compilation errors caused by ARROW-758
 * ARROW-793 - [GLib] Wrong indent
 * ARROW-794 - [C++] Check whether data is contiguous in ipc::WriteTensor
-* ARROW-797 - [Python] Add updated pyarrow.* public API listing in Sphinx docs
+* ARROW-797 - [Python] Add updated pyarrow. public API listing in Sphinx docs
 * ARROW-800 - [C++] Boost headers being transitively included in pyarrow
 * ARROW-805 - listing empty HDFS directory returns an error instead of returning empty list
 * ARROW-809 - C++: Writing sliced record batch to IPC writes the entire array
@@ -128,7 +128,7 @@
 * ARROW-542 - [Java] Implement dictionaries in stream/file encoding
 * ARROW-563 - C++: Support non-standard gcc version strings
 * ARROW-566 - Python: Deterministic position of libarrow in manylinux1 wheels
-* ARROW-569 - [C++] Set version for *.pc
+* ARROW-569 - [C++] Set version for .pc
 * ARROW-577 - [C++] Refactor StreamWriter and FileWriter to have private implementations
 * ARROW-580 - C++: Also provide jemalloc_X targets if only a static or shared version is found
 * ARROW-582 - [Java] Add Date/Time Support to JSON File
@@ -195,7 +195,7 @@
 * ARROW-811 - [GLib] Add GArrowBuffer
 * ARROW-815 - [Java] Allow for expanding underlying buffer size after allocation
 * ARROW-816 - [C++] Use conda packages for RapidJSON, Flatbuffers to speed up builds
-* ARROW-818 - [Python] Review public pyarrow.* API completeness and update docs
+* ARROW-818 - [Python] Review public pyarrow. API completeness and update docs
 * ARROW-820 - [C++] Build dependencies for Parquet library without arrow support
 * ARROW-825 - [Python] Generalize pyarrow.from_pylist to accept any object implementing the PySequence protocol
 * ARROW-827 - [Python] Variety of Parquet improvements to support Dask integration
@@ -291,7 +291,7 @@
 * ARROW-718 - [Python] Expose arrow::Tensor with conversions to/from NumPy arrays
 * ARROW-722 - [Python] pandas conversions for new date and time types/metadata
 * ARROW-729 - [Java] Add vector type for 32-bit date as days since UNIX epoch
-* ARROW-733 - [C++/Format] Change name of Fixed Width Binary to Fixed *Size* Binary for consistency
+* ARROW-733 - [C++/Format] Change name of Fixed Width Binary to Fixed Size Binary for consistency
 * ARROW-734 - [Python] Support for pyarrow on Windows / MSVC
 * ARROW-735 - [C++] Developer instruction document for MSVC on Windows
 * ARROW-737 - [C++] Support obtaining mutable slices of mutable buffers
