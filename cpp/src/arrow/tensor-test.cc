@@ -100,6 +100,7 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   ASSERT_OK(AllocateBuffer(default_memory_pool(), 0, &buffer));
 
   Tensor t(int64(), buffer, shape);
+  ASSERT_TRUE(t.strides().size() == 1);
 }
 
 }  // namespace arrow

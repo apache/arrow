@@ -42,6 +42,7 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
   }
 
   if (remaining == 0) {
+    strides->assign(shape.size(), type.bit_width() / 8);
     return;
   }
 
@@ -56,6 +57,7 @@ static void ComputeColumnMajorStrides(const FixedWidthType& type,
   int64_t total = type.bit_width() / 8;
   for (int64_t dimsize : shape) {
     if (dimsize == 0) {
+      strides->assign(shape.size(), type.bit_width() / 8);
       return;
     }
   }
