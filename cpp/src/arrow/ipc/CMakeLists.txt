@@ -21,19 +21,22 @@
 ADD_ARROW_TEST(feather-test)
 ADD_ARROW_TEST(ipc-read-write-test)
 ADD_ARROW_TEST(ipc-json-test)
-ADD_ARROW_TEST(json-integration-test)
 
-if (ARROW_BUILD_TESTS)
-  target_link_libraries(json-integration-test
-    gflags)
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  ADD_ARROW_TEST(json-integration-test)
 
-  if (UNIX)
-    if (APPLE)
-      set_target_properties(json-integration-test
-        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-    else()
-      target_link_libraries(json-integration-test
-        pthread)
+  if (ARROW_BUILD_TESTS)
+    target_link_libraries(json-integration-test
+      gflags)
+
+    if (UNIX)
+      if (APPLE)
+        set_target_properties(json-integration-test
+          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+      else()
+        target_link_libraries(json-integration-test
+          pthread)
+      endif()
     endif()
   endif()
 endif()
