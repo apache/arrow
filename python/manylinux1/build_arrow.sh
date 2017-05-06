@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@ PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7 3.4 3.5 3.6}"
 MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
 
 source /multibuild/manylinux_utils.sh
+
+# Quit on failure
+set -e
 
 cd /arrow/python
 
