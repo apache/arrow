@@ -9,7 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
-FROM quay.io/pypa/manylinux1_x86_64:ARROW-947
+FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Install dependencies
 RUN yum install -y flex zlib-devel
