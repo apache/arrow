@@ -57,3 +57,5 @@ WORKDIR /multibuild
 RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 WORKDIR /
 
+ADD scripts/build_virtualenvs.sh /
+RUN /build_virtualenvs.sh

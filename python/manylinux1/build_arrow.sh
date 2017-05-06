@@ -48,11 +48,6 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PIPI_IO="$PIP install -f $MANYLINUX_URL"
     PATH="$PATH:$(cpython_path $PYTHON)"
 
-    echo "=== (${PYTHON}) Installing build dependencies ==="
-    $PIPI_IO "numpy==1.9.0"
-    $PIPI_IO "cython==0.25.2"
-    $PIPI_IO "pandas==0.19.2"
-
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}
     mkdir -p "${ARROW_BUILD_DIR}"
@@ -78,7 +73,6 @@ for PYTHON in ${PYTHON_VERSIONS}; do
 
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     # Fix version to keep build reproducible"
-    $PIPI_IO "virtualenv==15.1.0"
     rm -rf venv
     "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download venv
     source ./venv/bin/activate
