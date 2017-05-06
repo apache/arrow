@@ -40,7 +40,7 @@ conda config --add channels https://repo.continuum.io/pkgs/free
 conda config --add channels conda-forge
 conda info -a
 
-conda install --yes conda-build jinja2 anaconda-client
-
 # faster builds, please
 conda install -y nomkl
+
+conda install --y conda-build jinja2 anaconda-client cmake curl
