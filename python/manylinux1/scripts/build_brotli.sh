@@ -11,11 +11,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
 
-wget https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -O flatbuffers-1.6.0.tar.gz
-tar xf flatbuffers-1.6.0.tar.gz
-pushd flatbuffers-1.6.0
-cmake "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_INSTALL_PREFIX:PATH=/usr" "-DFLATBUFFERS_BUILD_TESTS=OFF"
+export BROTLI_VERSION="0.6.0"
+wget "https://github.com/google/brotli/archive/v${BROTLI_VERSION}.tar.gz" -O brotli-${BROTLI_VERSION}.tar.gz
+tar xf brotli-${BROTLI_VERSION}.tar.gz
+pushd brotli-${BROTLI_VERSION}
+mkdir build
+pushd build
+cmake -DCMAKE_BUILD_TYPE=release \
+    "-DCMAKE_CXX_FLAGS=-fPIC" \
+    "-DCMAKE_C_FLAGS=-fPIC" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=OFF \
+    ..
 make -j5
 make install
 popd
-rm -rf flatbuffers-1.6.0.tar.gz flatbuffers-1.6.0
+popd
+rm -rf brotli-${BROTLI_VERSION}.tar.gz brotli-${BROTLI_VERSION}

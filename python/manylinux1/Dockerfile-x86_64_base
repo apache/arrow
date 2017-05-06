@@ -36,6 +36,14 @@ ADD scripts/build_flatbuffers.sh /
 RUN /build_flatbuffers.sh
 ENV FLATBUFFERS_HOME /usr
 
+ADD scripts/build_thrift.sh /
+RUN /build_thrift.sh
+ENV THRIFT_HOME /usr
+
+ADD scripts/build_brotli.sh /
+RUN /build_brotli.sh
+ENV BROTLI_HOME /usr
+
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git
 WORKDIR /multibuild
