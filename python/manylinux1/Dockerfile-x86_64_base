@@ -9,7 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
-FROM quay.io/pypa/manylinux1_x86_64:latest
+FROM quay.io/pypa/manylinux1_x86_64:ARROW-947
 
 # Install dependencies
 RUN yum install -y flex zlib-devel
@@ -43,6 +43,10 @@ ENV THRIFT_HOME /usr
 ADD scripts/build_brotli.sh /
 RUN /build_brotli.sh
 ENV BROTLI_HOME /usr
+
+ADD scripts/build_snappy.sh /
+RUN /build_snappy.sh
+ENV SNAPPY_HOME /usr
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git
