@@ -692,6 +692,7 @@ if (ARROW_JEMALLOC)
   find_package(jemalloc)
 
   if(NOT JEMALLOC_FOUND)
+    set(ARROW_JEMALLOC_USE_SHARED OFF)
     set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
     set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
     set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
