@@ -4,13 +4,11 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
-    - kalakris-cmake
     packages:
     - gcc-4.9   # Needed for C++11
     - g++-4.9   # Needed for C++11
     - gdb
     - ccache
-    - cmake
     - valgrind
     - libboost-dev
     - libboost-filesystem-dev

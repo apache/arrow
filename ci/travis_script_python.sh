@@ -23,7 +23,7 @@ export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 build_parquet_cpp() {
   export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
-  conda create -y -q -p $PARQUET_HOME python=3.6
+  conda create -y -q -p $PARQUET_HOME python=3.6 cmake curl
   source activate $PARQUET_HOME
 
   # In case some package wants to download the MKL
@@ -89,7 +89,7 @@ python_version_tests() {
   export ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
   export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib
 
-  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
   source activate $CONDA_ENV_DIR
 
   python --version
