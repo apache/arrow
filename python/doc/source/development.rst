@@ -93,8 +93,11 @@ about our build toolchain:
 .. code-block:: shell
 
    export ARROW_BUILD_TYPE=release
+
    export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
+   export ARROW_HOME=$CONDA_PREFIX
+   export PARQUET_HOME=$CONDA_PREFIX
 
 Now build and install the Arrow C++ libraries:
 
@@ -104,7 +107,7 @@ Now build and install the Arrow C++ libraries:
    pushd arrow/cpp/build
 
    cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-         -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
+         -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
          -DARROW_PYTHON=on \
          -DARROW_BUILD_TESTS=OFF \
          ..
@@ -121,7 +124,7 @@ toolchain:
    pushd parquet-cpp/build
 
    cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-         -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
+         -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
          -DPARQUET_BUILD_BENCHMARKS=off \
          -DPARQUET_BUILD_EXECUTABLES=off \
          -DPARQUET_ZLIB_VENDORED=off \
