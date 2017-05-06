@@ -101,13 +101,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Rely on jemalloc shared libraries where relevant"
     ON)
 
+  option(ARROW_HDFS
+    "Build the Arrow HDFS bridge"
+    ON)
+
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
-
-  option(ARROW_BOOST_HEADER_ONLY
-    "Only use header-only libraries from Boost (the hdfs bridge will not be built)"
-    OFF)
 
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
@@ -138,6 +138,12 @@ endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+endif()
+
+if(ARROW_HDFS)
+  set(ARROW_BOOST_HEADER_ONLY 0)
+else()
+  set(ARROW_BOOST_HEADER_ONLY 1)
 endif()
 
 include(BuildUtils)
