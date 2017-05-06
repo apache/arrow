@@ -28,25 +28,34 @@ WORKDIR /
 RUN /opt/python/cp35-cp35m/bin/pip install cmake
 RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
 
+ADD scripts/build_gtest.sh /
+RUN /build_gtest.sh
+ENV GTEST_HOME /googletest-release-1.7.0
+
+ADD scripts/build_flatbuffers.sh /
+RUN /build_flatbuffers.sh
+ENV FLATBUFFERS_HOME /usr
+
+ADD scripts/build_thrift.sh /
+RUN /build_thrift.sh
+ENV THRIFT_HOME /usr
+
+ADD scripts/build_brotli.sh /
+RUN /build_brotli.sh
+ENV BROTLI_HOME /usr
+
+ADD scripts/build_snappy.sh /
+RUN /build_snappy.sh
+ENV SNAPPY_HOME /usr
+
+ADD scripts/build_ccache.sh /
+RUN /build_ccache.sh
+
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git
 WORKDIR /multibuild
 RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-
 WORKDIR /
-RUN wget https://github.com/google/googletest/archive/release-1.7.0.tar.gz -O googletest-release-1.7.0.tar.gz
-RUN tar xf googletest-release-1.7.0.tar.gz
-WORKDIR /googletest-release-1.7.0
-RUN cmake -DCMAKE_CXX_FLAGS='-fPIC' -Dgtest_force_shared_crt=ON .
-RUN make -j5
-ENV GTEST_HOME /googletest-release-1.7.0
 
-WORKDIR /
-RUN wget https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -O flatbuffers-1.6.0.tar.gz
-RUN tar xf flatbuffers-1.6.0.tar.gz
-WORKDIR /flatbuffers-1.6.0
-RUN cmake "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_INSTALL_PREFIX:PATH=/usr" "-DFLATBUFFERS_BUILD_TESTS=OFF"
-RUN make -j5
-RUN make install
-ENV FLATBUFFERS_HOME /usr
-
+ADD scripts/build_virtualenvs.sh /
+RUN /build_virtualenvs.sh
