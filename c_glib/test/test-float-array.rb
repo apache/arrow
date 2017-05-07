@@ -16,6 +16,16 @@
 # under the License.
 
 class TestFloatArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    assert_equal(build_float_array([-1.1, 2.2, nil]),
+                 Arrow::FloatArray.new(3,
+                                       Arrow::Buffer.new([-1.1, 2.2].pack("f*")),
+                                       Arrow::Buffer.new([0b011].pack("C*")),
+                                       -1))
+  end
+
   def test_buffer
     builder = Arrow::FloatArrayBuilder.new
     builder.append(-1.1)

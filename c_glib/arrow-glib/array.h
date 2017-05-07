@@ -211,6 +211,12 @@ struct _GArrowBooleanArrayClass
 };
 
 GType          garrow_boolean_array_get_type  (void) G_GNUC_CONST;
+
+GArrowBooleanArray *garrow_boolean_array_new(gint64 length,
+                                             GArrowBuffer *data,
+                                             GArrowBuffer *null_bitmap,
+                                             gint64 n_nulls);
+
 gboolean       garrow_boolean_array_get_value (GArrowBooleanArray *array,
                                                gint64 i);
 
@@ -256,6 +262,11 @@ struct _GArrowInt8ArrayClass
 };
 
 GType garrow_int8_array_get_type(void) G_GNUC_CONST;
+
+GArrowInt8Array *garrow_int8_array_new(gint64 length,
+                                       GArrowBuffer *data,
+                                       GArrowBuffer *null_bitmap,
+                                       gint64 n_nulls);
 
 gint8 garrow_int8_array_get_value(GArrowInt8Array *array,
                                   gint64 i);
@@ -303,6 +314,11 @@ struct _GArrowUInt8ArrayClass
 
 GType garrow_uint8_array_get_type(void) G_GNUC_CONST;
 
+GArrowUInt8Array *garrow_uint8_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
+
 guint8 garrow_uint8_array_get_value(GArrowUInt8Array *array,
                                     gint64 i);
 
@@ -348,6 +364,11 @@ struct _GArrowInt16ArrayClass
 };
 
 GType garrow_int16_array_get_type(void) G_GNUC_CONST;
+
+GArrowInt16Array *garrow_int16_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
 
 gint16 garrow_int16_array_get_value(GArrowInt16Array *array,
                                     gint64 i);
@@ -395,6 +416,11 @@ struct _GArrowUInt16ArrayClass
 
 GType garrow_uint16_array_get_type(void) G_GNUC_CONST;
 
+GArrowUInt16Array *garrow_uint16_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
 guint16 garrow_uint16_array_get_value(GArrowUInt16Array *array,
                                       gint64 i);
 
@@ -440,6 +466,11 @@ struct _GArrowInt32ArrayClass
 };
 
 GType garrow_int32_array_get_type(void) G_GNUC_CONST;
+
+GArrowInt32Array *garrow_int32_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
 
 gint32 garrow_int32_array_get_value(GArrowInt32Array *array,
                                     gint64 i);
@@ -487,6 +518,11 @@ struct _GArrowUInt32ArrayClass
 
 GType garrow_uint32_array_get_type(void) G_GNUC_CONST;
 
+GArrowUInt32Array *garrow_uint32_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
 guint32 garrow_uint32_array_get_value(GArrowUInt32Array *array,
                                       gint64 i);
 
@@ -532,6 +568,11 @@ struct _GArrowInt64ArrayClass
 };
 
 GType garrow_int64_array_get_type(void) G_GNUC_CONST;
+
+GArrowInt64Array *garrow_int64_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
 
 gint64 garrow_int64_array_get_value(GArrowInt64Array *array,
                                     gint64 i);
@@ -579,6 +620,11 @@ struct _GArrowUInt64ArrayClass
 
 GType garrow_uint64_array_get_type(void) G_GNUC_CONST;
 
+GArrowUInt64Array *garrow_uint64_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
 guint64 garrow_uint64_array_get_value(GArrowUInt64Array *array,
                                       gint64 i);
 
@@ -624,6 +670,11 @@ struct _GArrowFloatArrayClass
 };
 
 GType garrow_float_array_get_type(void) G_GNUC_CONST;
+
+GArrowFloatArray *garrow_float_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
 
 gfloat garrow_float_array_get_value(GArrowFloatArray *array,
                                     gint64 i);
@@ -671,6 +722,11 @@ struct _GArrowDoubleArrayClass
 
 GType garrow_double_array_get_type(void) G_GNUC_CONST;
 
+GArrowDoubleArray *garrow_double_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
 gdouble garrow_double_array_get_value(GArrowDoubleArray *array,
                                       gint64 i);
 
@@ -716,6 +772,12 @@ struct _GArrowBinaryArrayClass
 };
 
 GType garrow_binary_array_get_type(void) G_GNUC_CONST;
+
+GArrowBinaryArray *garrow_binary_array_new(gint64 length,
+                                           GArrowBuffer *value_offsets,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
 
 GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
                                       gint64 i);
@@ -763,6 +825,12 @@ struct _GArrowStringArrayClass
 
 GType garrow_string_array_get_type(void) G_GNUC_CONST;
 
+GArrowStringArray *garrow_string_array_new(gint64 length,
+                                           GArrowBuffer *value_offsets,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
 gchar *garrow_string_array_get_string(GArrowStringArray *array,
                                       gint64 i);
 
@@ -808,6 +876,12 @@ struct _GArrowListArrayClass
 };
 
 GType garrow_list_array_get_type(void) G_GNUC_CONST;
+
+GArrowListArray *garrow_list_array_new(gint64 length,
+                                       GArrowBuffer *value_offsets,
+                                       GArrowArray *values,
+                                       GArrowBuffer *null_bitmap,
+                                       gint64 n_nulls);
 
 GArrowDataType *garrow_list_array_get_value_type(GArrowListArray *array);
 GArrowArray *garrow_list_array_get_value(GArrowListArray *array,
@@ -855,6 +929,12 @@ struct _GArrowStructArrayClass
 };
 
 GType garrow_struct_array_get_type(void) G_GNUC_CONST;
+
+GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
+                                           gint64 length,
+                                           GList *children,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
 
 GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);

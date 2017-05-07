@@ -16,6 +16,19 @@
 # under the License.
 
 class TestBinaryArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    value_offsets = Arrow::Buffer.new([0, 2, 5, 5].pack("l*"))
+    data = Arrow::Buffer.new("\x00\x01\x02\x03\x04")
+    assert_equal(build_binary_array(["\x00\x01", "\x02\x03\x04", nil]),
+                 Arrow::BinaryArray.new(3,
+                                        value_offsets,
+                                        data,
+                                        Arrow::Buffer.new([0b011].pack("C*")),
+                                        -1))
+  end
+
   def test_value
     data = "\x00\x01\x02"
     builder = Arrow::BinaryArrayBuilder.new

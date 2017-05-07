@@ -16,6 +16,16 @@
 # under the License.
 
 class TestUInt8Array < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    assert_equal(build_uint8_array([1, 2, nil]),
+                 Arrow::UInt8Array.new(3,
+                                       Arrow::Buffer.new([1, 2].pack("C*")),
+                                       Arrow::Buffer.new([0b011].pack("C*")),
+                                       -1))
+  end
+
   def test_buffer
     builder = Arrow::UInt8ArrayBuilder.new
     builder.append(1)
