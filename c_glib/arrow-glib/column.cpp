@@ -161,6 +161,24 @@ garrow_column_new_chunked_array(GArrowField *field,
 }
 
 /**
+ * garrow_column_equal:
+ * @column: A #GArrowColumn.
+ * @other_column: A #GArrowColumn to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_column_equal(GArrowColumn *column, GArrowColumn *other_column)
+{
+  const auto arrow_column = garrow_column_get_raw(column);
+  const auto arrow_other_column = garrow_column_get_raw(other_column);
+  return arrow_column->Equals(arrow_other_column);
+}
+
+/**
  * garrow_column_get_length:
  * @column: A #GArrowColumn.
  *

@@ -23,6 +23,19 @@ class TestBuffer < Test::Unit::TestCase
     @buffer = Arrow::Buffer.new(@data)
   end
 
+  def test_equal
+    assert_equal(@buffer,
+                 Arrow::Buffer.new(@data.dup))
+  end
+
+  def test_equal_n_bytes
+    buffer1 = Arrow::Buffer.new("Hello!")
+    buffer2 = Arrow::Buffer.new("Hello World!")
+    assert do
+      buffer1.equal_n_bytes(buffer2, 5)
+    end
+  end
+
   def test_mutable?
     assert do
       not @buffer.mutable?

@@ -18,6 +18,19 @@
 class TestChunkedArray < Test::Unit::TestCase
   include Helper::Buildable
 
+  def test_equal
+    chunks1 = [
+      build_boolean_array([true, false]),
+      build_boolean_array([true]),
+    ]
+    chunks2 = [
+      build_boolean_array([true]),
+      build_boolean_array([false, true]),
+    ]
+    assert_equal(Arrow::ChunkedArray.new(chunks1),
+                 Arrow::ChunkedArray.new(chunks2))
+  end
+
   def test_length
     chunks = [
       build_boolean_array([true, false]),

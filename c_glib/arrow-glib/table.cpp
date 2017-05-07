@@ -149,6 +149,24 @@ garrow_table_new(GArrowSchema *schema,
 }
 
 /**
+ * garrow_table_equal:
+ * @table: A #GArrowTable.
+ * @other_table: A #GArrowTable to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  const auto arrow_other_table = garrow_table_get_raw(other_table);
+  return arrow_table->Equals(*arrow_other_table);
+}
+
+/**
  * garrow_table_get_schema:
  * @table: A #GArrowTable.
  *

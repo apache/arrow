@@ -59,6 +59,11 @@ GType          garrow_buffer_get_type     (void) G_GNUC_CONST;
 
 GArrowBuffer  *garrow_buffer_new          (const guint8 *data,
                                            gint64 size);
+gboolean       garrow_buffer_equal        (GArrowBuffer *buffer,
+                                           GArrowBuffer *other_buffer);
+gboolean       garrow_buffer_equal_n_bytes(GArrowBuffer *buffer,
+                                           GArrowBuffer *other_buffer,
+                                           gint64 n_bytes);
 gboolean       garrow_buffer_is_mutable   (GArrowBuffer *buffer);
 gint64         garrow_buffer_get_capacity (GArrowBuffer *buffer);
 GBytes        *garrow_buffer_get_data     (GArrowBuffer *buffer);

@@ -144,6 +144,26 @@ garrow_chunked_array_new(GList *chunks)
 }
 
 /**
+ * garrow_chunked_array_equal:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @other_chunked_array: A #GArrowChunkedArray to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_chunked_array_equal(GArrowChunkedArray *chunked_array,
+                           GArrowChunkedArray *other_chunked_array)
+{
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  const auto arrow_other_chunked_array =
+    garrow_chunked_array_get_raw(other_chunked_array);
+  return arrow_chunked_array->Equals(arrow_other_chunked_array);
+}
+
+/**
  * garrow_chunked_array_get_length:
  * @chunked_array: A #GArrowChunkedArray.
  *

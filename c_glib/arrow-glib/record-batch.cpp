@@ -154,6 +154,26 @@ garrow_record_batch_new(GArrowSchema *schema,
 }
 
 /**
+ * garrow_record_batch_equal:
+ * @record_batch: A #GArrowRecordBatch.
+ * @other_record_batch: A #GArrowRecordBatch to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_record_batch_equal(GArrowRecordBatch *record_batch,
+                          GArrowRecordBatch *other_record_batch)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  const auto arrow_other_record_batch =
+    garrow_record_batch_get_raw(other_record_batch);
+  return arrow_record_batch->Equals(*arrow_other_record_batch);
+}
+
+/**
  * garrow_record_batch_get_schema:
  * @record_batch: A #GArrowRecordBatch.
  *

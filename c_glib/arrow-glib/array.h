@@ -58,6 +58,16 @@ struct _GArrowArrayClass
 
 GType          garrow_array_get_type    (void) G_GNUC_CONST;
 
+gboolean       garrow_array_equal       (GArrowArray *array,
+                                         GArrowArray *other_array);
+gboolean       garrow_array_equal_approx(GArrowArray *array,
+                                         GArrowArray *other_array);
+gboolean       garrow_array_equal_range (GArrowArray *array,
+                                         gint64 start_index,
+                                         GArrowArray *other_array,
+                                         gint64 other_start_index,
+                                         gint64 end_index);
+
 gboolean       garrow_array_is_null     (GArrowArray *array,
                                          gint64 i);
 gint64         garrow_array_get_length  (GArrowArray *array);
