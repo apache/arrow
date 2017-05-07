@@ -674,3 +674,20 @@ class TestPandasConversion(unittest.TestCase):
 
         self._check_pandas_roundtrip(df, schema=partial_schema,
                                      expected_schema=expected_schema)
+
+    def test_structarray_to_pandas(self):
+        ints = pa.array([None, 2, 3])
+        strs = pa.array(['a', None, 'c'])
+        bools = pa.array([True, False, None])
+        arr = pa.StructArray.from_arrays(
+            ['ints', 'strs', 'bools'],
+            [ints, strs, bools])
+
+        expected = [
+            {'strs': 'a', 'bools': True},
+            {'ints': 2, 'bools': False},
+            {'ints': 3, 'strs': 'c'},
+        ]
+
+        # Make sure pandas converts the same
+        assert (arr.to_pandas() == expected).all()

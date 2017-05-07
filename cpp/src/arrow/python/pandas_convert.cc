@@ -1356,14 +1356,15 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
 
 inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
+  std::vector<OwnedRef> fields_data;
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<StructArray*>(data.chunk(c).get());
-    std::vector<PyObject*> fields_data;
+    fields_data.resize(arr->fields().size());
     // Convert the struct arrays first
-    for (auto& field : arr->fields()) {
+    for (size_t i = 0; i < arr->fields().size(); i++) {
       PyObject* numpy_array;
-      RETURN_NOT_OK(ConvertArrayToPandas(field, nullptr, &numpy_array));
-      fields_data.push_back(numpy_array);
+      RETURN_NOT_OK(ConvertArrayToPandas(arr->field(i), nullptr, &numpy_array));
+      fields_data[i].reset(numpy_array);
     }
 
     // Construct a dictionary for each row
@@ -1374,22 +1375,22 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
         *out_values = Py_None;
       } else {
         PyObject* item = PyDict_New();
+        RETURN_IF_PYERROR();
         for (uint field_idx = 0; field_idx < arr->fields().size(); field_idx++) {
           if (!arr->field(field_idx)->IsNull(i)) {
             auto name = arr->type()->child(field_idx)->name();
-            PyObject* field_value = PyObject_GetItem(fields_data[field_idx],
-              PyLong_FromLong(i));
-            PyDict_SetItemString(item, name.c_str(), field_value);
+            auto array = reinterpret_cast<PyArrayObject*>(fields_data[field_idx].obj());
+            auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
+            PyObject* field_value = PyArray_GETITEM(array, ptr);
+            RETURN_IF_PYERROR();
+            auto setitem_result = PyDict_SetItemString(item, name.c_str(), field_value);
+            DCHECK_EQ(setitem_result, 0);
+            RETURN_IF_PYERROR();
           }
         }
         *out_values = item;
       }
       ++out_values;
-    }
-
-    // release sub-arrays references
-    for (auto& numpy_array : fields_data) {
-      Py_XDECREF(numpy_array);
     }
   }
   return Status::OK();

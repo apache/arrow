@@ -164,23 +164,3 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
-
-    def test_struct(self):
-        ints = pa.array([1, 2, 3])
-        strs = pa.array(['a', 'b', 'c'])
-        bools = pa.array([True, False, True])
-        arr = pa._array.StructArray.from_arrays(
-            ['ints', 'strs', 'bools'],
-            [ints, strs, bools])
-
-        expected = [
-            {'ints': 1, 'strs': 'a', 'bools': True},
-            {'ints': 2, 'strs': 'b', 'bools': False},
-            {'ints': 3, 'strs': 'c', 'bools': True},
-        ]
-
-        pylist = arr.to_pylist()
-        assert pylist == expected
-
-        # Make sure pandas converts the same
-        assert (arr.to_pandas() == expected).all()

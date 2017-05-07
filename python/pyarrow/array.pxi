@@ -1009,7 +1009,7 @@ cdef class StructValue(ArrayValue):
         return {
             name: value for name, value in (
                 (name, child_array[self.index].as_py())
-                for (name, child_array) in
+                for name, child_array in
                 izip(child_names, boxed_arrays)
             ) if value is not None
         }
@@ -1616,12 +1616,16 @@ cdef class StructArray(Array):
             vector[shared_ptr[CArray]] c_arrays
             shared_ptr[CArray] c_result
 
+        if len(arrays) == 0:
+            raise ValueError("arrays list is empty")
+
         length = len(arrays[0])
 
-        for array in arrays:
+        c_arrays.resize(len(arrays))
+        for i, array in enumerate(arrays):
             if len(array) != length:
                 raise ValueError("All arrays must have the same length")
-            c_arrays.push_back(array.sp_array)
+            c_arrays[i] = array.sp_array
 
         cdef DataType struct_type = struct([
             field(name, array.type)

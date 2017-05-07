@@ -18,6 +18,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from cpython cimport PyObject
+from libcpp cimport nullptr
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
