@@ -155,6 +155,55 @@ pass in a custom memory pool:
 On-Disk and Memory Mapped Files
 -------------------------------
 
+PyArrow includes two ways to interact with data on disk: standard operating
+system-level file APIs, and memory-mapped files. In regular Python we can
+write:
+
+.. ipython:: python
+
+   with open('example.dat', 'wb') as f:
+       f.write(b'some example data')
+
+Using pyarrow's :class:`~pyarrow.OSFile` class, you can write:
+
+.. ipython:: python
+
+   with pa.OSFile('example2.dat', 'wb') as f:
+       f.write(b'some example data')
+
+For reading files, you can use ``OSFile`` or
+:class:`~pyarrow.MemoryMappedFile`. The difference between these is that
+:class:`~pyarrow.OSFile` allocates new memory on each read, like Python file
+objects. In reads from memory maps, the library constructs a buffer referencing
+the mapped memory without any memory allocation or copying:
+
+.. ipython:: python
+
+   file_obj = pa.OSFile('example.dat')
+   mmap = pa.memory_map('example.dat')
+   file_obj.read(4)
+   mmap.read(4)
+
+The ``read`` method implements the standard Python file ``read`` API. To read
+into Arrow Buffer objects, use ``read_buffer``:
+
+.. ipython:: python
+
+   mmap.seek(0)
+   buf = mmap.read_buffer(4)
+   buf.to_pybytes()
+
+Many tools in PyArrow, particular the Apache Parquet interface and the file and
+stream messaging tools, are more efficient when used with these ``NativeFile``
+types than with normal Python file objects.
+
+.. ipython:: python
+   :suppress:
+
+   buf = mmap = file_obj = None
+   !rm example.dat
+   !rm example2.dat
+
 In-Memory Reading and Writing
 -----------------------------
 

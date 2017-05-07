@@ -15,10 +15,10 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-File interfaces and Memory Maps
-===============================
+Filesystem Interfaces
+=====================
 
-PyArrow features a number of file-like interfaces
+In this section, we discuss filesystem-like interfaces in PyArrow.
 
 Hadoop File System (HDFS)
 -------------------------

@@ -18,8 +18,8 @@
 .. currentmodule:: pyarrow
 .. _parquet:
 
-Reading/Writing Parquet files
-=============================
+Apache Arrow with Apache Parquet files
+======================================
 
 If you have built ``pyarrow`` with Parquet support, i.e. ``parquet-cpp`` was
 found during the build, you can read files in the Parquet format to/from Arrow
