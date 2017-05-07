@@ -16,6 +16,11 @@
 # under the License.
 
 class TestField < Test::Unit::TestCase
+  def test_equal
+    assert_equal(Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+                 Arrow::Field.new("enabled", Arrow::BooleanDataType.new))
+  end
+
   def test_name
     field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
     assert_equal("enabled", field.name)

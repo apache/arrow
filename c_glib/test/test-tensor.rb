@@ -40,6 +40,19 @@ class TestTensor < Test::Unit::TestCase
                                 names)
   end
 
+  def test_equal
+    data = Arrow::Buffer.new(@raw_data.pack("c*"))
+    strides = []
+    names = ["a", "b", "c"]
+    other_tensor = Arrow::Tensor.new(Arrow::Int8DataType.new,
+                                     data,
+                                     @shape,
+                                     strides,
+                                     names)
+    assert_equal(@tensor,
+                 other_tensor)
+  end
+
   def test_value_data_type
     assert_equal(Arrow::Int8DataType, @tensor.value_data_type.class)
   end

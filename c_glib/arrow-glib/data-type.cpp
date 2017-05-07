@@ -164,9 +164,10 @@ garrow_data_type_class_init(GArrowDataTypeClass *klass)
 /**
  * garrow_data_type_equal:
  * @data_type: A #GArrowDataType.
- * @other_data_type: A #GArrowDataType.
+ * @other_data_type: A #GArrowDataType to be compared.
  *
- * Returns: Whether they are equal or not.
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
  */
 gboolean
 garrow_data_type_equal(GArrowDataType *data_type,

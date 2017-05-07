@@ -145,6 +145,45 @@ garrow_buffer_new(const guint8 *data, gint64 size)
 }
 
 /**
+ * garrow_buffer_equal:
+ * @buffer: A #GArrowBuffer.
+ * @other_buffer: A #GArrowBuffer to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_buffer_equal(GArrowBuffer *buffer, GArrowBuffer *other_buffer)
+{
+  const auto arrow_buffer = garrow_buffer_get_raw(buffer);
+  const auto arrow_other_buffer = garrow_buffer_get_raw(other_buffer);
+  return arrow_buffer->Equals(*arrow_other_buffer);
+}
+
+/**
+ * garrow_buffer_equal_n_bytes:
+ * @buffer: A #GArrowBuffer.
+ * @other_buffer: A #GArrowBuffer to be compared.
+ * @n_bytes: The number of first bytes to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data in the first
+ *   `n_bytes`, %FALSE otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_buffer_equal_n_bytes(GArrowBuffer *buffer,
+                            GArrowBuffer *other_buffer,
+                            gint64 n_bytes)
+{
+  const auto arrow_buffer = garrow_buffer_get_raw(buffer);
+  const auto arrow_other_buffer = garrow_buffer_get_raw(other_buffer);
+  return arrow_buffer->Equals(*arrow_other_buffer, n_bytes);
+}
+
+/**
  * garrow_buffer_is_mutable:
  * @buffer: A #GArrowBuffer.
  *

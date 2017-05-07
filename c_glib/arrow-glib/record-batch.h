@@ -70,6 +70,9 @@ GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
                                            GList *columns);
 
+gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
+                                   GArrowRecordBatch *other_record_batch);
+
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
 GArrowArray  *garrow_record_batch_get_column     (GArrowRecordBatch *record_batch,
                                                   guint i);

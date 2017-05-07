@@ -16,6 +16,17 @@
 # under the License.
 
 class TestSchema < Test::Unit::TestCase
+  def test_equal
+    fields1 = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+    ]
+    fields2 = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+    ]
+    assert_equal(Arrow::Schema.new(fields1),
+                 Arrow::Schema.new(fields2))
+  end
+
   def test_field
     field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
     schema = Arrow::Schema.new([field])

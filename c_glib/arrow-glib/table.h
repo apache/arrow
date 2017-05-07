@@ -69,6 +69,9 @@ GType           garrow_table_get_type      (void) G_GNUC_CONST;
 GArrowTable    *garrow_table_new           (GArrowSchema *schema,
                                             GList *columns);
 
+gboolean        garrow_table_equal         (GArrowTable *table,
+                                            GArrowTable *other_table);
+
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
 GArrowColumn   *garrow_table_get_column    (GArrowTable *table,
                                             guint i);

@@ -66,6 +66,20 @@ class TestTable < Test::Unit::TestCase
       @table = Arrow::Table.new(schema, columns)
     end
 
+    def test_equal
+      fields = [
+        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+      ]
+      schema = Arrow::Schema.new(fields)
+      columns = [
+        Arrow::Column.new(fields[0], build_boolean_array([true])),
+        Arrow::Column.new(fields[1], build_boolean_array([false])),
+      ]
+      other_table = Arrow::Table.new(schema, columns)
+      assert_equal(@table, other_table)
+    end
+
     def test_schema
       assert_equal(["visible", "valid"],
                    @table.schema.fields.collect(&:name))

@@ -143,6 +143,24 @@ garrow_schema_new(GList *fields)
 }
 
 /**
+ * garrow_schema_equal:
+ * @schema: A #GArrowSchema.
+ * @other_schema: A #GArrowSchema to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_schema_equal(GArrowSchema *schema, GArrowSchema *other_schema)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  const auto arrow_other_schema = garrow_schema_get_raw(other_schema);
+  return arrow_schema->Equals(*arrow_other_schema);
+}
+
+/**
  * garrow_schema_get_field:
  * @schema: A #GArrowSchema.
  * @i: The index of the target field.

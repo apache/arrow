@@ -171,6 +171,24 @@ garrow_tensor_new(GArrowDataType *data_type,
 }
 
 /**
+ * garrow_tensor_equal:
+ * @tensor: A #GArrowTensor.
+ * @other_tensor: A #GArrowTensor to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_tensor_equal(GArrowTensor *tensor, GArrowTensor *other_tensor)
+{
+  const auto arrow_tensor = garrow_tensor_get_raw(tensor);
+  const auto arrow_other_tensor = garrow_tensor_get_raw(other_tensor);
+  return arrow_tensor->Equals(*arrow_other_tensor);
+}
+
+/**
  * garrow_tensor_get_value_data_type:
  * @tensor: A #GArrowTensor.
  *

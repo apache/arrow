@@ -189,6 +189,72 @@ garrow_array_class_init(GArrowArrayClass *klass)
 }
 
 /**
+ * garrow_array_equal:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->Equals(arrow_other_array);
+}
+
+/**
+ * garrow_array_equal_approx:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: %TRUE if both of them have the approx same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal_approx(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->ApproxEquals(arrow_other_array);
+}
+
+/**
+ * garrow_array_equal_range:
+ * @array: A #GArrowArray.
+ * @start_index: The start index of @array to be used.
+ * @other_array: A #GArrowArray to be compared.
+ * @other_start_index: The start index of @other_array to be used.
+ * @end_index: The end index of @array to be used. The end index of
+ *   @other_array is "@other_start_index + (@end_index -
+ *   @start_index)".
+ *
+ * Returns: %TRUE if both of them have the same data in the range,
+ *   %FALSE otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal_range(GArrowArray *array,
+                         gint64 start_index,
+                         GArrowArray *other_array,
+                         gint64 other_start_index,
+                         gint64 end_index)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->RangeEquals(*arrow_other_array,
+                                  start_index,
+                                  end_index,
+                                  other_start_index);
+}
+
+/**
  * garrow_array_is_null:
  * @array: A #GArrowArray.
  * @i: The index of the target value.
