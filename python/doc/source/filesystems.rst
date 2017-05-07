@@ -20,6 +20,8 @@ Filesystem Interfaces
 
 In this section, we discuss filesystem-like interfaces in PyArrow.
 
+.. _hdfs:
+
 Hadoop File System (HDFS)
 -------------------------
 

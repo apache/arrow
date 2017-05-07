@@ -37,6 +37,7 @@ structures.
    install
    development
    memory
+   ipc
    pandas
    filesystems
    parquet

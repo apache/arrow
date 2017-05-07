@@ -191,6 +191,7 @@ into Arrow Buffer objects, use ``read_buffer``:
 
    mmap.seek(0)
    buf = mmap.read_buffer(4)
+   print(buf)
    buf.to_pybytes()
 
 Many tools in PyArrow, particular the Apache Parquet interface and the file and
@@ -207,5 +208,26 @@ types than with normal Python file objects.
 In-Memory Reading and Writing
 -----------------------------
 
-Using the Hadoop Filesystem
----------------------------
+To assist with serialization and deserialization of in-memory data, we have
+file interfaces that and read and write to Arrow Buffers.
+
+.. ipython:: python
+
+   writer = pa.InMemoryOutputStream()
+   writer.write(b'hello, friends')
+
+   buf = writer.get_result()
+   buf
+   buf.size
+   reader = pa.BufferReader(buf)
+   reader.seek(7)
+   reader.read(7)
+
+These have similar semantics to Python's built-in ``io.BytesIO``.
+
+Hadoop Filesystem
+-----------------
+
+:class:`~pyarrow.HdfsFile` is an implementation of :class:`~pyarrow.NativeFile`
+that can read and write to the Hadoop filesytem. Read more in the
+:ref:`Filesystems Section <hdfs>`.
