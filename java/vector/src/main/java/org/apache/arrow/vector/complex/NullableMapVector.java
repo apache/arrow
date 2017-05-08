@@ -27,6 +27,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVectorDefinitionSetter;
 import org.apache.arrow.vector.ValueVector;
@@ -36,6 +37,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -70,9 +72,25 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   @Override
+  public Field getField() {
+    Field f = super.getField();
+    return new Field(f.getName(), true, f.getType(), f.getChildren());
+  }
+
+  @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
     this.valueCount = fieldNode.getLength();
+  }
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf bitsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitsData);
+    for (FieldVector child : getChildrenFromFields()) {
+      child.loadFieldBuffers(buffersIterator, buf);
+    }
   }
 
   @Override
@@ -246,12 +264,15 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   public final class Mutator extends MapVector.Mutator implements NullableVectorDefinitionSetter {
 
+    int lastSet;
+
     private Mutator(){
     }
 
     @Override
     public void setIndexDefined(int index){
       bits.getMutator().setSafe(index, 1);
+      lastSet = index;
     }
 
     public void setNull(int index){
@@ -263,6 +284,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
       assert valueCount >= 0;
       super.setValueCount(valueCount);
       bits.getMutator().setValueCount(valueCount);
+      lastSet = valueCount;
     }
 
     @Override

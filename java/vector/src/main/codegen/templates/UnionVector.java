@@ -15,6 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.UnionVector.TransferImpl;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.TransferPair;
+
+import java.util.List;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
 
@@ -108,6 +118,16 @@ public class UnionVector implements FieldVector {
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 0, typeVector.getBufferSizeFor(fieldNode.getLength()));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
     this.valueCount = fieldNode.getLength();
+  }
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf buffer = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    typeVector.load(buffer);
+    for (FieldVector child : internalMap.getChildrenFromFields()) {
+      child.loadFieldBuffers(buffersIterator, buf);
+    }
   }
 
   @Override

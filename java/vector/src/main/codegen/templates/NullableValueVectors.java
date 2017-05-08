@@ -133,6 +133,27 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     bits.valueCount = fieldNode.getLength();
   }
 
+
+  @Override
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    buffersIterator.next();
+    ArrowBuf bitData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    bits.load(bitData);
+    <#if type.major == "VarLen">
+    buffersIterator.next();
+    ArrowBuf offsetsData = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    values.offsetVector.load(offsetsData);
+    if (buffersIterator.length() == 0) {
+      values.offsetVector.allocateNew(1);
+      values.offsetVector.zeroVector();
+    }
+    getMutator().lastSet = (int) buffersIterator.length() / 4 - 1;
+    </#if>
+    buffersIterator.next();
+    ArrowBuf data = buf.slice((int) buffersIterator.offset(), (int) buffersIterator.length());
+    values.load(data);
+  }
+
   public List<ArrowBuf> getFieldBuffers() {
     return org.apache.arrow.vector.BaseDataValueVector.unload(getFieldInnerVectors());
   }

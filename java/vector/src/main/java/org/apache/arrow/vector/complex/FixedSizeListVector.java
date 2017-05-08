@@ -33,6 +33,7 @@ import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.BuffersIterator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -119,6 +120,11 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     BaseDataValueVector.load(fieldNode, innerVectors, ownBuffers);
+  }
+
+  public void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf) {
+    // TODO: to be fixed in https://github.com/apache/arrow/pull/508
+    throw new UnsupportedOperationException();
   }
 
   @Override

@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,19 +17,31 @@
  */
 package org.apache.arrow.vector;
 
-import org.apache.arrow.vector.schema.ArrowFieldNode;
+import java.util.Iterator;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.flatbuf.Buffer;
+import org.apache.arrow.flatbuf.RecordBatch;
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
+import com.google.common.base.Preconditions;
 
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
+public class BuffersIterator {
+  private final RecordBatch recordBatch;
+  private final Buffer buffer = new Buffer();
+  private int index = -1;
 
-  void load(ArrowBuf data);
+  public BuffersIterator(RecordBatch recordBatch) {
+    this.recordBatch = recordBatch;
+  }
 
-  ArrowBuf unLoad();
+  public boolean next() {
+    return ++index < recordBatch.buffersLength();
+  }
 
+  public long offset() {
+    return recordBatch.buffers(buffer, index).offset();
+  }
+
+  public long length() {
+    return recordBatch.buffers(buffer, index).length();
+  }
 }

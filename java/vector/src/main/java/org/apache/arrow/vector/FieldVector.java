@@ -52,6 +52,13 @@ public interface FieldVector extends ValueVector {
   void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers);
 
   /**
+   * load data into vector using just the Buffers flatbuffer and backing ArrowBuf
+   * @param buffersIterator
+   * @param buf
+   */
+  void loadFieldBuffers(BuffersIterator buffersIterator, ArrowBuf buf);
+
+  /**
    * (same size as getFieldVectors() since it is their content)
    * @return the buffers containing the data for this vector (ready for reading)
    */
