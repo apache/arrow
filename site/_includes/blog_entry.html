@@ -20,6 +20,24 @@ limitations under the License.
       <a href="{{ post.url }}" class="permalink" title="Permalink">∞</a>
     </h2>
 
+    {% capture discard %}
+      {% for c in site.data.contributors %}
+        {% if c.apacheId == post.author %}
+          {% assign author_name = c.name %}
+          {% if c.homepage %}
+            {% assign homepage = c.homepage %}
+          {% else %}
+            {% capture homepage %}http://github.com/{{ c.githubId }}{% endcapture %}
+          {% endif %}
+          {% if c.avatar %}
+            {% assign avatar = c.avatar %}
+          {% else %}
+            {% capture avatar %}http://github.com/{{ c.githubId }}.png{% endcapture %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endcapture %}{% assign discard = nil %}
+
     <div class="panel">
       <div class="panel-body">
         <div>
@@ -31,7 +49,7 @@ limitations under the License.
         </div>
         <div>
           <span class="label label-default">By</span>
-          <a href="{{ homepage }}"><i class="fa fa-user"></i> {{ post.author }}</a>
+          <a href="{{ homepage }}"><i class="fa fa-user"></i> {{ author_name }} ({{ post.author }})</a>
         </div>
       </div>
     </div>
