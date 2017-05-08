@@ -230,12 +230,16 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       ValueVector currentVector = container.getChild(name);
       ${vectName}Vector v = container.addOrGet(name, 
           FieldType.nullable(
-          <#if minor.arrowType??>
-            <#assign first = true />
-            new ${minor.arrowType}(<#if minor.arrowTypeConstructorPrefix??>
-              ${minor.arrowTypeConstructorPrefix}, </#if><#if minor.typeParams??><#list minor.typeParams as typeParam><#if first == true><#assign first = false /><#else>,
-              </#if>${typeParam.name}</#list></#if>
-            )
+          <#if minor.typeParams??>
+            <#if minor.arrowTypeConstructorParams??>
+              <#assign constructorParams = minor.arrowTypeConstructorParams />
+            <#else>
+              <#assign constructorParams = [] />
+              <#list minor.typeParams as typeParam>
+                <#assign constructorParams = constructorParams + [ typeParam.name ] />
+              </#list>
+            </#if>    
+            new ${minor.arrowType}(${constructorParams?join(", ")})
           <#else>
             MinorType.${upperName}.getType()
           </#if>

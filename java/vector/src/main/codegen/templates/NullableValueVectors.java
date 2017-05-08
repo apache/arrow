@@ -61,12 +61,27 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   private final List<BufferBacked> innerVectors;
 
-  <#if minor.class == "Decimal">
-  private final int precision;
-  private final int scale;
+  <#if minor.typeParams??>
+     <#list minor.typeParams as typeParam>
+  private final ${typeParam.type} ${typeParam.name};
+    </#list>
 
-  public ${className}(String name, BufferAllocator allocator, int precision, int scale) {
-    this(name, FieldType.nullable(new Decimal(precision, scale)), allocator);
+  /**
+   * Assumes the type is nullable and not dictionary encoded
+   * @param name name of the field
+   * @param allocator allocator to use to resize the vector<#list minor.typeParams as typeParam>
+   * @param ${typeParam.name} type parameter ${typeParam.name}</#list>
+   */
+  public ${className}(String name, BufferAllocator allocator<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    <#if minor.arrowTypeConstructorParams??>
+       <#assign constructorParams = minor.arrowTypeConstructorParams />
+    <#else>
+       <#assign constructorParams = [] />
+       <#list minor.typeParams as typeParam>
+         <#assign constructorParams = constructorParams + [ typeParam.name ] />
+      </#list>
+    </#if>
+    this(name, FieldType.nullable(new ${minor.arrowType}(${constructorParams?join(", ")})), allocator);
   }
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
@@ -76,11 +91,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   public ${className}(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator);
-    <#if minor.class == "Decimal">
-    Decimal decimal = (Decimal)fieldType.getType();
-    this.precision = decimal.getPrecision();
-    this.scale = decimal.getScale();
-    this.values = new ${valuesName}(valuesField, allocator, precision, scale);
+    <#if minor.typeParams??>
+    ${minor.arrowType} arrowType = (${minor.arrowType})fieldType.getType();
+    <#list minor.typeParams as typeParam>
+    this.${typeParam.name} = arrowType.get${typeParam.name?cap_first}();
+    </#list>
+    this.values = new ${valuesName}(valuesField, allocator<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
     <#else>
     this.values = new ${valuesName}(valuesField, allocator);
     </#if>
