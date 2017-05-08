@@ -27,6 +27,12 @@ the usage of the C++ API for Arrow and the leaf libraries that add additional
 functionality such as using [jemalloc](http://jemalloc.net/) as an allocator
 for Arrow structures.
 
+Table of Contents
+-----------------
+
+ * Instructions on how to build Arrow C++ on [Windows](Windows.md)
+ * How to access [HDFS](HDFS.md)
+
 Getting Started
 ---------------
 
