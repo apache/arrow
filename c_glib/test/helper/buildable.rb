@@ -61,6 +61,61 @@ module Helper
       build_array(Arrow::DoubleArrayBuilder, values)
     end
 
+    def build_binary_array(values)
+      build_array(Arrow::BinaryArrayBuilder, values)
+    end
+
+    def build_string_array(values)
+      build_array(Arrow::StringArrayBuilder, values)
+    end
+
+    def build_list_array(value_builder_class, values_list)
+      value_builder = value_builder_class.new
+      builder = Arrow::ListArrayBuilder.new(value_builder)
+      values_list.each do |values|
+        if values.nil?
+          builder.append_null
+        else
+          builder.append
+          values.each do |value|
+            if value.nil?
+              value_builder.append_null
+            else
+              value_builder.append(value)
+            end
+          end
+        end
+      end
+      builder.finish
+    end
+
+    def build_struct_array(fields, structs)
+      field_builders = fields.collect do |field|
+        data_type_name = field.data_type.class.name
+        builder_name = data_type_name.gsub(/DataType/, "ArrayBuilder")
+        Arrow.const_get(builder_name).new
+      end
+      data_type = Arrow::StructDataType.new(fields)
+      builder = Arrow::StructArrayBuilder.new(data_type, field_builders)
+      structs.each do |struct|
+        if struct.nil?
+          builder.append_null
+        else
+          builder.append
+          struct.each do |name, value|
+            field_builder_index = fields.index {|field| field.name == name}
+            field_builder = builder.get_field_builder(field_builder_index)
+            if value.nil?
+              field_builder.append_null
+            else
+              field_builder.append(value)
+            end
+          end
+        end
+      end
+      builder.finish
+    end
+
     private
     def build_array(builder_class, values)
       builder = builder_class.new

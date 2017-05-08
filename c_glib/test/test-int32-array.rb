@@ -16,6 +16,16 @@
 # under the License.
 
 class TestInt32Array < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    assert_equal(build_int32_array([-1, 2, nil]),
+                 Arrow::Int32Array.new(3,
+                                       Arrow::Buffer.new([-1, 2].pack("l*")),
+                                       Arrow::Buffer.new([0b011].pack("C*")),
+                                       -1))
+  end
+
   def test_buffer
     builder = Arrow::Int32ArrayBuilder.new
     builder.append(-1)

@@ -504,6 +504,9 @@ garrow_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 std::shared_ptr<arrow::Buffer>
 garrow_buffer_get_raw(GArrowBuffer *buffer)
 {
+  if (!buffer)
+    return nullptr;
+
   auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
   return priv->buffer;
 }
