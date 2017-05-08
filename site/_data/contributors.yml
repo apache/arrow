@@ -13,36 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-markdown: kramdown
-permalink: /blog/:year/:month/:day/:title/
-repository: https://github.com/apache/arrow
-destination: build
-excerpt_separator: ""
-
-exclude:
-  - Gemfile
-  - Gemfile.lock
-  - _docs/format/*
-  - asf-site
-  - scripts
-  - README.md
-
-collections:
-  docs:
-    output: true
-  release:
-    output: true
-
-sass:
-  style: compressed
-
-# The base path where the website is deployed
-baseurl:
-
-gems:
-  - jekyll-feed
-  - jekyll-bootstrap-sass
-  - jekyll-jupyter-notebook
-
-bootstrap:
-  assets: true
+# Database of contributors to Apache Arrow (WIP)
+# Blogs and other pages use this data
+#
+- name: Wes McKinney
+  apacheId: wesm
+  githubId: wesm
+  homepage: http://wesmckinney.com
+  role: PMC
+- name: Uwe Korn
+  apacheId: uwe
+  githubId: xhochy
+  role: PMC
+- name: Julien Le Dem
+  apacheId: julienledem
+  githubId: julienledem
+  role: PMC
+# End contributors.yml
