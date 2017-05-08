@@ -620,7 +620,9 @@ def generate_datetime_case():
         TimestampType('f7', 'ms'),
         TimestampType('f8', 'us'),
         TimestampType('f9', 'ns'),
-        TimestampType('f10', 'ms', tz=None)
+        TimestampType('f10', 'ms', tz=None),
+        TimestampType('f11', 'ms', tz='UTC'),
+        TimestampType('f12', 'ms', tz='US/Eastern')
     ]
 
     batch_sizes = [7, 10]
