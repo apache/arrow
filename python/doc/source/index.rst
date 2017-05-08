@@ -36,8 +36,11 @@ structures.
 
    install
    development
-   pandas
+   memory
+   data
+   ipc
    filesystems
+   pandas
    parquet
    api
    getting_involved

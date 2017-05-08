@@ -25,18 +25,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import inspect
 import os
 import sys
 
 import sphinx_rtd_theme
-
-on_rtd = os.environ.get('READTHEDOCS') == 'True'
-
-if not on_rtd:
-    # Hack: On RTD we use the pyarrow package from conda-forge as we cannot
-    # build pyarrow there.
-    sys.path.insert(0, os.path.abspath('..'))
 
 sys.path.extend([
     os.path.join(os.path.dirname(__file__),
@@ -60,6 +52,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
+    'IPython.sphinxext.ipython_directive',
+    'IPython.sphinxext.ipython_console_highlighting'
 ]
 
 # numpydoc configuration
@@ -86,7 +80,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pyarrow'
-copyright = u'2016 Apache Software Foundation'
+copyright = u'2016-2017 Apache Software Foundation'
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -156,7 +150,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinxdoc'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

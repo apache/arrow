@@ -522,6 +522,7 @@ cdef class Buffer:
         buffer.strides = self.strides
         buffer.suboffsets = NULL
 
+
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))

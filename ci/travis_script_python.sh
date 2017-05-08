@@ -117,7 +117,7 @@ python_version_tests() {
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
-      pip install -r doc/requirements.txt
+      conda install -y -q --file=doc/requirements.txt
       python setup.py build_sphinx -s doc/source
   fi
 }

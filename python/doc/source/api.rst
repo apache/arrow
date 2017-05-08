@@ -22,7 +22,7 @@
 API Reference
 *************
 
-.. _api.functions:
+.. _api.types:
 
 Type and Schema Factory Functions
 ---------------------------------
@@ -58,6 +58,8 @@ Type and Schema Factory Functions
    schema
    from_numpy_dtype
 
+.. _api.value:
+
 Scalar Value Types
 ------------------
 
@@ -88,6 +90,7 @@ Scalar Value Types
    TimestampValue
    DecimalValue
 
+.. _api.array:
 
 Array Types and Constructors
 ----------------------------
@@ -122,6 +125,8 @@ Array Types and Constructors
    DecimalArray
    ListArray
 
+.. _api.table:
+
 Tables and Record Batches
 -------------------------
 
@@ -134,6 +139,8 @@ Tables and Record Batches
    Table
    get_record_batch_size
 
+.. _api.tensor:
+
 Tensor type and Functions
 -------------------------
 
@@ -144,6 +151,8 @@ Tensor type and Functions
    write_tensor
    get_tensor_size
    read_tensor
+
+.. _api.io:
 
 Input / Output and Shared Memory
 --------------------------------
@@ -160,6 +169,8 @@ Input / Output and Shared Memory
    create_memory_map
    PythonFile
 
+.. _api.ipc:
+
 Interprocess Communication and Messaging
 ----------------------------------------
 
@@ -170,6 +181,8 @@ Interprocess Communication and Messaging
    FileWriter
    StreamReader
    StreamWriter
+
+.. _api.memory_pool:
 
 Memory Pools
 ------------
@@ -182,6 +195,8 @@ Memory Pools
    jemalloc_memory_pool
    total_allocated_bytes
    set_memory_pool
+
+.. _api.type_classes:
 
 Type Classes
 ------------
@@ -200,6 +215,8 @@ Type Classes
    Schema
 
 .. currentmodule:: pyarrow.parquet
+
+.. _api.parquet:
 
 Apache Parquet
 --------------
