@@ -21,14 +21,39 @@
 Reading and Writing the Apache Parquet Format
 =============================================
 
-If you have built ``pyarrow`` with Parquet support, i.e. ``parquet-cpp`` was
-found during the build, you can read files in the Parquet format to/from Arrow
-memory structures. The Parquet support code is located in the
-:mod:`pyarrow.parquet` module and your package needs to be built with the
-``--with-parquet`` flag for ``build_ext``.
+The `Apache Parquet <http://parquet.apache.org/>`_ project provides a
+standardized open-source columnar storage format for use in data analysis
+systems. It was created originally for use in `Apache Hadoop
+<http://hadoop.apache.org/>`_ with systems like `Apache Drill
+<http://drill.apache.org>`_, `Apache Hive <http://hive.apache.org>`_, `Apache
+Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
+<http://spark.apache.org>`_ adopting it as a shared standard for high
+performance data IO.
 
-Reading Parquet
----------------
+Apache Arrow is an ideal in-memory transport layer for data that is being read
+or written with Parquet files. We have been concurrently developing the `C++
+implementation of Apache Parquet <http://github.com/apache/parquet-cpp>`_,
+which includes a native, multithreaded C++ adapter to and from in-memory Arrow
+data. PyArrow includes Python bindings to this code, which thus enables reading
+and writing Parquet files with pandas as well.
+
+Obtaining PyArrow with Parquet Support
+--------------------------------------
+
+If you installed ``pyarrow`` with pip or conda, it should be built with Parquet
+support bundled:
+
+.. ipython:: python
+
+   import pyarrow.parquet as pq
+
+If you are building ``pyarrow`` from source, you must also build `parquet-cpp
+<http://github.com/apache/parquet-cpp>`_ and enable the Parquet extensions when
+building ``pyarrow``. See the :ref:`Development <development>` page for more
+details.
+
+Reading Single Parquet Files
+----------------------------
 
 To read a Parquet file into Arrow memory, you can use the following code
 snippet. It will read the whole Parquet file into memory as an
@@ -56,6 +81,9 @@ a Python ``bytes`` object or a :class:`pyarrow.Buffer`.
     buf = ... # either bytes or paio.Buffer
     reader = paio.BufferReader(buf)
     table = pq.read_table(reader)
+
+Reading Multiples Files and Partitioned Datasets
+------------------------------------------------
 
 Writing Parquet
 ---------------

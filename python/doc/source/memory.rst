@@ -113,8 +113,8 @@ Memory Pools
 ------------
 
 All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
-are tracked in an instance of ``arrow::MemoryPool``. This means that we can the
-precisely track amount of memory that has been allocated:
+are tracked in an instance of ``arrow::MemoryPool``. This means that we can
+then precisely track amount of memory that has been allocated:
 
 .. ipython:: python
 
@@ -209,7 +209,7 @@ In-Memory Reading and Writing
 -----------------------------
 
 To assist with serialization and deserialization of in-memory data, we have
-file interfaces that and read and write to Arrow Buffers.
+file interfaces that can read and write to Arrow Buffers.
 
 .. ipython:: python
 
