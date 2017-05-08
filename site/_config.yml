@@ -30,6 +30,8 @@ exclude:
 collections:
   docs:
     output: true
+  release:
+    output: true
 
 sass:
   style: compressed

@@ -13,7 +13,8 @@ breaks in the future.
 
 ### Source release
 
-* [**Source Release**][1] ([md5][3])
+* **Source Release**: [apache-arrow-0.3.0.tar.gz][6]
+* **Verification**: [md5][3], [asc][7]
 * [Git tag d8db8f8][2]
 
 ### Java Packages
@@ -22,8 +23,14 @@ breaks in the future.
 
 ### C++ and Python Conda Packages (Unofficial)
 
-We have provided binary packages for Linux, OS X, and Windows (VC 14 runtime)
-on [conda-forge][5]:
+We have provided binary conda packages on [conda-forge][5] for the following
+platforms:
+
+* Linux and OS X (Python 2.7, 3.5, and 3.6)
+* Windows (Python 3.5 and 3.6)
+
+Install them with:
+
 
 ```shell
 conda install arrow-cpp -c conda-forge
@@ -46,3 +53,5 @@ with the wheel.
 [3]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz.md5
 [4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.3.0%22
 [5]: http://conda-forge.github.io
+[6]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
+[7]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz.asc
