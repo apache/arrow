@@ -78,15 +78,9 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write(holder);
   }
 
-    <#if minor.class == "Decimal">
-  public void write${minor.class}(int start, ArrowBuf buffer) {
-    getWriter(MinorType.${name?upper_case}).write${minor.class}(start, buffer);
-  }
-    <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
-    </#if>
 
   </#list></#list>
   public void writeNull() {

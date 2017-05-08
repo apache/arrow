@@ -50,7 +50,7 @@ public final class ${className} implements ValueHolder{
     
     <#if mode.name == "Optional">public int isSet;
     <#else>public final int isSet = 1;</#if>
-    <#assign fields = minor.fields!type.fields />
+    <#assign fields = (minor.fields!type.fields) + (minor.typeParams![]) />
     <#list fields as field>
     public ${field.type} ${field.name};
     </#list>

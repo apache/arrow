@@ -29,7 +29,7 @@
 <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
 <#assign safeType=friendlyType />
 <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-<#assign fields = minor.fields!type.fields />
+<#assign fields = minor.fields!type.fields + minor.typeParams![]/>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${holderMode}${name}HolderReaderImpl.java" />
 <#include "/@includes/license.ftl" />
@@ -81,7 +81,6 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     <#else>
     return true;
     </#if>
-    
   }
 
   @Override
@@ -102,44 +101,42 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   // read friendly type
   @Override
   public ${friendlyType} read${safeType}(){
-<#if nullMode == "Nullable">
+  <#if nullMode == "Nullable">
     if (!isSet()) {
       return null;
     }
-</#if>
+  </#if>
 
-<#if type.major == "VarLen">
+  <#if type.major == "VarLen">
 
       int length = holder.end - holder.start;
       byte[] value = new byte [length];
       holder.buffer.getBytes(holder.start, value, 0, length);
 
-  <#if minor.class == "VarBinary">
+    <#if minor.class == "VarBinary">
       return value;
-  <#elseif minor.class == "Var16Char">
-      return new String(value);
-  <#elseif minor.class == "VarChar">
+    <#elseif minor.class == "VarChar">
       Text text = new Text();
       text.set(value);
       return text;
-  </#if>
+    </#if>
 
-<#elseif minor.class == "Interval">
+  <#elseif minor.class == "Interval">
       Period p = new Period();
       return p.plusMonths(holder.months).plusDays(holder.days).plusMillis(holder.milliseconds);
 
-<#elseif minor.class == "IntervalDay">
+  <#elseif minor.class == "IntervalDay">
       Period p = new Period();
       return p.plusDays(holder.days).plusMillis(holder.milliseconds);
 
-<#elseif minor.class == "Bit" >
+  <#elseif minor.class == "Bit" >
       return new Boolean(holder.value != 0);
-<#elseif minor.class == "Decimal" >
+  <#elseif minor.class == "Decimal" >
         return (BigDecimal) readSingleObject();
-<#else>
+  <#else>
       ${friendlyType} value = new ${friendlyType}(this.holder.value);
       return value;
-</#if>
+  </#if>
 
   }
 
@@ -149,73 +146,44 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   }
 
   private Object readSingleObject() {
-<#if nullMode == "Nullable">
+  <#if nullMode == "Nullable">
     if (!isSet()) {
       return null;
     }
-</#if>
+  </#if>
 
-<#if type.major == "VarLen">
-      <#if minor.class != "Decimal">
-      int length = holder.end - holder.start;
-      byte[] value = new byte [length];
-      holder.buffer.getBytes(holder.start, value, 0, length);
-      </#if>
-
-<#if minor.class == "VarBinary">
-      return value;
-<#elseif minor.class == "Var16Char">
-      return new String(value);
-<#elseif minor.class == "VarChar">
-      Text text = new Text();
-      text.set(value);
-      return text;
-<#elseif minor.class == "Decimal" >
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(holder.buffer, holder.start, holder.scale);
-</#if>
-
-<#elseif minor.class == "Interval">
-      Period p = new Period();
-      return p.plusMonths(holder.months).plusDays(holder.days).plusMillis(holder.milliseconds);
-
-<#elseif minor.class == "IntervalDay">
-      Period p = new Period();
-      return p.plusDays(holder.days).plusMillis(holder.milliseconds);
-
-<#elseif minor.class == "Decimal28Dense" ||
-         minor.class == "Decimal38Dense">
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromDense(holder.buffer,
-                                                                                holder.start,
-                                                                                holder.nDecimalDigits,
-                                                                                holder.scale,
-                                                                                holder.maxPrecision,
-                                                                                holder.WIDTH);
-
-<#elseif minor.class == "Decimal28Sparse" ||
-         minor.class == "Decimal38Sparse">
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromSparse(holder.buffer,
-                                                                                 holder.start,
-                                                                                 holder.nDecimalDigits,
-                                                                                 holder.scale);
-
-<#elseif minor.class == "Bit" >
-      return new Boolean(holder.value != 0);
-<#elseif minor.class == "Decimal">
-        byte[] bytes = new byte[${type.width}];
-        holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
-        ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
-        return value;
-<#else>
-      ${friendlyType} value = new ${friendlyType}(this.holder.value);
-      return value;
-</#if>
+  <#if type.major == "VarLen">
+    int length = holder.end - holder.start;
+    byte[] value = new byte [length];
+    holder.buffer.getBytes(holder.start, value, 0, length);
+    <#if minor.class == "VarBinary">
+    return value;
+    <#elseif minor.class == "VarChar">
+    Text text = new Text();
+    text.set(value);
+    return text;
+    </#if>
+  <#elseif minor.class == "IntervalDay">
+    Period p = new Period();
+    return p.plusDays(holder.days).plusMillis(holder.milliseconds);
+  <#elseif minor.class == "Bit" >
+    return new Boolean(holder.value != 0);
+  <#elseif minor.class == "Decimal">
+    byte[] bytes = new byte[${type.width}];
+    holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
+    ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
+    return value;
+  <#else>
+    ${friendlyType} value = new ${friendlyType}(this.holder.value);
+    return value;
+  </#if>
   }
 
-<#if nullMode != "Nullable">
+  <#if nullMode != "Nullable">
   public void copyAsValue(${minor.class?cap_first}Writer writer){
     writer.write(holder);
   }
-</#if>
+  </#if>
 }
 
 </#list>
