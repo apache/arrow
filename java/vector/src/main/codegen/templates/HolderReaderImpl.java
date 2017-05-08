@@ -100,52 +100,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
 
   // read friendly type
   @Override
-  public ${friendlyType} read${safeType}(){
-  <#if nullMode == "Nullable">
-    if (!isSet()) {
-      return null;
-    }
-  </#if>
-
-  <#if type.major == "VarLen">
-
-      int length = holder.end - holder.start;
-      byte[] value = new byte [length];
-      holder.buffer.getBytes(holder.start, value, 0, length);
-
-    <#if minor.class == "VarBinary">
-      return value;
-    <#elseif minor.class == "VarChar">
-      Text text = new Text();
-      text.set(value);
-      return text;
-    </#if>
-
-  <#elseif minor.class == "Interval">
-      Period p = new Period();
-      return p.plusMonths(holder.months).plusDays(holder.days).plusMillis(holder.milliseconds);
-
-  <#elseif minor.class == "IntervalDay">
-      Period p = new Period();
-      return p.plusDays(holder.days).plusMillis(holder.milliseconds);
-
-  <#elseif minor.class == "Bit" >
-      return new Boolean(holder.value != 0);
-  <#elseif minor.class == "Decimal" >
-        return (BigDecimal) readSingleObject();
-  <#else>
-      ${friendlyType} value = new ${friendlyType}(this.holder.value);
-      return value;
-  </#if>
-
-  }
-
-  @Override
-  public Object readObject() {
-    return readSingleObject();
-  }
-
-  private Object readSingleObject() {
+  public ${friendlyType} read${safeType}() {
   <#if nullMode == "Nullable">
     if (!isSet()) {
       return null;
@@ -177,6 +132,11 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     ${friendlyType} value = new ${friendlyType}(this.holder.value);
     return value;
   </#if>
+  }
+
+  @Override
+  public Object readObject() {
+    return read${safeType}();
   }
 
   <#if nullMode != "Nullable">
