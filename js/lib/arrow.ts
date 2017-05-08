@@ -149,8 +149,10 @@ export function getFileReader (buf) : ArrowReader {
     var i, len, field,
         vectors: Vector[] = [],
         block,
+        batch,
         recordBatchBlocks = [],
-        dictionaryBatchBlocks = [];
+        dictionaryBatchBlocks = [],
+        dictionaries = {};
 
     for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
         field = schema.fields(i);
@@ -176,7 +178,7 @@ export function getFileReader (buf) : ArrowReader {
         })
     }
 
-    var dictionaries = dictionaryBatchBlocks.map(function (block) {
+    var dictionaryBatches = dictionaryBatchBlocks.map(function (block) {
         bb.setPosition(block.offset);
         // TODO: Make sure this is a dictionary batch
         return _loadBatch(bb);
@@ -187,6 +189,12 @@ export function getFileReader (buf) : ArrowReader {
         // TODO: Make sure this is a record batch
         return _loadBatch(bb);
     });
+
+    // load dictionary vectors
+    for (i = 0; i < dictionaryBatches.length; i += 1|0) {
+        batch = dictionaryBatches[i];
+        loadVectors(bb, [dictionaries[batch.id]], batch);
+    }
 
     return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches, dictionaries);
 }
