@@ -41,6 +41,8 @@ a series of interrelated classes:
 
 We will examine these in the sections below in a series of examples.
 
+.. _data.types:
+
 Type Metadata
 -------------
 
@@ -114,6 +116,8 @@ A `struct` is a collection of named fields:
 See :ref:`Data Types API <api.types>` for a full listing of data type
 functions.
 
+.. _data.schema:
+
 Schemas
 -------
 
@@ -136,6 +140,8 @@ Python:
 
 In some applications, you may not create schemas directly, only using the ones
 that are embedded in :ref:`IPC messages <ipc>`.
+
+.. _data.array:
 
 Arrays
 ------
@@ -229,6 +235,8 @@ When using :class:`~.DictionaryArray` with pandas, the analogue is
 
    dict_array.to_pandas()
 
+.. _data.record_batch:
+
 Record Batches
 --------------
 
@@ -261,6 +269,8 @@ A record batch can be sliced without copying memory like an array:
 
    batch2 = batch.slice(1, 3)
    batch2[1]
+
+.. _data.table:
 
 Tables
 ------

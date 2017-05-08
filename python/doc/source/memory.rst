@@ -70,6 +70,8 @@ required, and such conversions are also zero-copy:
 
    memoryview(buf)
 
+.. _io.native_file:
+
 Native Files
 ------------
 
