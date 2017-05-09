@@ -26,7 +26,9 @@ other development instructions for Windows here.
 Microsoft provides the free Visual Studio 2017 Community edition. When doing
 development, you must launch the developer command prompt using
 
-```"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64```
+```
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+```
 
 It's easiest to configure a console emulator like [cmder][3] to automatically
 launch this when starting a new development console.
