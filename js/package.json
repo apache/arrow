@@ -9,6 +9,7 @@
     "test": "./node_modules/mocha/bin/mocha ./spec/arrow.js"
   },
   "author": "",
+  "repository": "https://github.com/apache/arrow/",
   "license": "Apache-2.0",
   "devDependencies": {
     "awesome-typescript-loader": "^3.1.3",
