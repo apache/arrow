@@ -55,12 +55,20 @@ There are supported platforms:
   * Debian GNU/Linux Jessie
   * Ubuntu 16.04 LTS
   * Ubuntu 16.10
+  * Ubuntu 17.04
   * CentOS 7
 
 You can feedback to https://github.com/kou/arrow-packages about
 packages things.
 
 #### Debian GNU/Linux jessie
+
+You need to install `apt-transport-https` to use HTTPS for APT
+repository.
+
+```text
+% sudo apt install -y apt-transport-https
+```
 
 You need to add the following apt-lines to
 `/etc/apt/sources.list.d/groonga.list`:
@@ -84,7 +92,7 @@ Now you can install Arrow GLib packages:
 % sudo apt install -y libarrow-glib-dev
 ```
 
-#### Ubuntu 16.04 LTS and Ubuntu 16.10
+#### Ubuntu
 
 You need to add an APT repository:
 
