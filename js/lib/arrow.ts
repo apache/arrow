@@ -178,13 +178,19 @@ function parseBuffer(buffer) {
 }
 
 function loadBuffersIntoVectors(recordBatchBlocks, bb, vectors : Vector[]) {
-    var fieldNode, recordBatchBlock, recordBatch, numBuffers, bufReader = {index: 0, node_index: 1}, field_ctr = 0;
+    var fieldNode, recordBatchBlock, recordBatch, numBuffers, bufReader = {index: 0, node_index: 1}, field_ctr = 0, message;
     var buffer = bb.bytes_.buffer;
     var baseOffset = bb.bytes_.byteOffset;
     for (var i = recordBatchBlocks.length - 1; i >= 0; i -= 1|0) {
         recordBatchBlock = recordBatchBlocks[i];
-        bb.setPosition(recordBatchBlock.offset.low);
-        recordBatch = arrow.flatbuf.RecordBatch.getRootAsRecordBatch(bb);
+        bb.setPosition(recordBatchBlock.offset.low + 4);
+        message = arrow.flatbuf.Message.getRootAsMessage(bb);
+        if (message.headerType() != arrow.flatbuf.MessageHeader.RecordBatch) {
+            console.error('message is not a record batch!');
+            return;
+        }
+        recordBatch = message.header(new arrow.flatbuf.RecordBatch());
+        field_ctr = 0;
         bufReader.index = 0;
         bufReader.node_index = 0;
         numBuffers = recordBatch.buffersLength();
