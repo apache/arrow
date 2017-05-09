@@ -20,14 +20,14 @@ import { org } from './Arrow_generated';
 import { vectorFromField, Vector } from './types';
 
 import ByteBuffer = flatbuffers.ByteBuffer;
-var Footer = org.apache.arrow.flatbuf.Footer;
-var Message = org.apache.arrow.flatbuf.Message;
-var MessageHeader = org.apache.arrow.flatbuf.MessageHeader;
-var RecordBatch = org.apache.arrow.flatbuf.RecordBatch;
-var DictionaryBatch = org.apache.arrow.flatbuf.DictionaryBatch;
-var Schema = org.apache.arrow.flatbuf.Schema;
-var Type = org.apache.arrow.flatbuf.Type;
-var VectorType = org.apache.arrow.flatbuf.VectorType;
+const Footer = org.apache.arrow.flatbuf.Footer;
+const Message = org.apache.arrow.flatbuf.Message;
+const MessageHeader = org.apache.arrow.flatbuf.MessageHeader;
+const RecordBatch = org.apache.arrow.flatbuf.RecordBatch;
+const DictionaryBatch = org.apache.arrow.flatbuf.DictionaryBatch;
+const Schema = org.apache.arrow.flatbuf.Schema;
+const Type = org.apache.arrow.flatbuf.Type;
+const VectorType = org.apache.arrow.flatbuf.VectorType;
 
 export class ArrowReader {
 
@@ -43,7 +43,7 @@ export class ArrowReader {
         this.bb = bb;
         this.schema = schema;
         this.vectors = vectors;
-        for (var i = 0; i < vectors.length; i += 1|0) {
+        for (let i = 0; i < vectors.length; i += 1|0) {
             this.vectorMap[vectors[i].name] = vectors[i]
         }
         this.batches = batches;
@@ -52,7 +52,7 @@ export class ArrowReader {
 
     loadNextBatch() {
         if (this.batchIndex < this.batches.length) {
-            var batch = this.batches[this.batchIndex];
+            const batch = this.batches[this.batchIndex];
             this.batchIndex += 1;
             loadVectors(this.bb, this.vectors, batch);
             return batch.length;
@@ -99,17 +99,17 @@ export function getReader(buf) : ArrowReader {
 }
 
 export function getStreamReader(buf) : ArrowReader {
-    var bb = new ByteBuffer(buf);
+    const bb = new ByteBuffer(buf);
 
-    var schema = _loadSchema(bb),
-        field,
-        vectors: Vector[] = [],
-        i,j,
-        iLen,jLen,
-        batch,
-        recordBatches = [],
-        dictionaryBatches = [],
-        dictionaries = {};
+    const schema = _loadSchema(bb);
+    let field;
+    const vectors: Vector[] = [];
+    let i;
+    let iLen;
+    let batch;
+    const recordBatches = [];
+    const dictionaryBatches = [];
+    const dictionaries = {};
 
     for (i = 0, iLen = schema.fieldsLength(); i < iLen; i += 1|0) {
         field = schema.fields(i);
@@ -141,18 +141,20 @@ export function getStreamReader(buf) : ArrowReader {
 }
 
 export function getFileReader (buf) : ArrowReader {
-    var bb = new ByteBuffer(buf);
+    const bb = new ByteBuffer(buf);
 
-    var footer = _loadFooter(bb);
+    const footer = _loadFooter(bb);
 
-    var schema = footer.schema();
-    var i, len, field,
-        vectors: Vector[] = [],
-        block,
-        batch,
-        recordBatchBlocks = [],
-        dictionaryBatchBlocks = [],
-        dictionaries = {};
+    const schema = footer.schema();
+    let i;
+    let len;
+    let field;
+    const vectors: Vector[] = [];
+    let block;
+    let batch;
+    const recordBatchBlocks = [];
+    const dictionaryBatchBlocks = [];
+    const dictionaries = {};
 
     for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
         field = schema.fields(i);
@@ -178,13 +180,13 @@ export function getFileReader (buf) : ArrowReader {
         })
     }
 
-    var dictionaryBatches = dictionaryBatchBlocks.map(function (block) {
+    const dictionaryBatches = dictionaryBatchBlocks.map(function (block) {
         bb.setPosition(block.offset);
         // TODO: Make sure this is a dictionary batch
         return _loadBatch(bb);
     });
 
-    var recordBatches = recordBatchBlocks.map(function (block) {
+    const recordBatches = recordBatchBlocks.map(function (block) {
         bb.setPosition(block.offset);
         // TODO: Make sure this is a record batch
         return _loadBatch(bb);
@@ -200,7 +202,7 @@ export function getFileReader (buf) : ArrowReader {
 }
 
 function _loadFooter(bb) {
-    var fileLength: number = bb.bytes_.length;
+    const fileLength: number = bb.bytes_.length;
 
     if (fileLength < MAGIC.length*2 + 4) {
       console.error("file too small " + fileLength);
@@ -217,23 +219,23 @@ function _loadFooter(bb) {
       return;
     }
 
-    var footerLengthOffset: number = fileLength - MAGIC.length - 4;
+    const footerLengthOffset: number = fileLength - MAGIC.length - 4;
     bb.setPosition(footerLengthOffset);
-    var footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset)
+    const footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset)
 
     if (footerLength <= 0 || footerLength + MAGIC.length*2 + 4 > fileLength)  {
       console.log("Invalid footer length: " + footerLength)
     }
 
-    var footerOffset: number = footerLengthOffset - footerLength;
+    const footerOffset: number = footerLengthOffset - footerLength;
     bb.setPosition(footerOffset);
-    var footer = Footer.getRootAsFooter(bb);
+    const footer = Footer.getRootAsFooter(bb);
 
     return footer;
 }
 
 function _loadSchema(bb) {
-    var message =_loadMessage(bb);
+    const message =_loadMessage(bb);
     if (message.headerType() != MessageHeader.Schema) {
         console.error("Expected header type " + MessageHeader.Schema + " but got " + message.headerType());
         return;
@@ -242,14 +244,14 @@ function _loadSchema(bb) {
 }
 
 function _loadBatch(bb) {
-    var message = _loadMessage(bb);
+    const message = _loadMessage(bb);
     if (message == null) {
         return;
     } else if (message.headerType() == MessageHeader.RecordBatch) {
-        var batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low }
+        const batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low }
         return _loadRecordBatch(bb, batch);
     } else if (message.headerType() == MessageHeader.DictionaryBatch) {
-        var batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low }
+        const batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low }
         return _loadDictionaryBatch(bb, batch);
     } else {
         console.error("Expected header type " + MessageHeader.RecordBatch + " or " + MessageHeader.DictionaryBatch +
@@ -259,9 +261,13 @@ function _loadBatch(bb) {
 }
 
 function _loadRecordBatch(bb, batch) {
-    var data = batch.header;
-    var i, nodes_ = [], nodesLength = data.nodesLength();
-    var buffer, buffers_ = [], buffersLength = data.buffersLength();
+    const data = batch.header;
+    let i;
+    const nodes_ = [];
+    const nodesLength = data.nodesLength();
+    let buffer;
+    const buffers_ = []
+    const buffersLength = data.buffersLength();
 
     for (i = 0; i < nodesLength; i += 1) {
         nodes_.push(data.nodes(i));
@@ -277,9 +283,14 @@ function _loadRecordBatch(bb, batch) {
 }
 
 function _loadDictionaryBatch(bb, batch) {
-    var id_ = batch.header.id().toFloat64().toString(), data = batch.header.data();
-    var i, nodes_ = [], nodesLength = data.nodesLength();
-    var buffer, buffers_ = [], buffersLength = data.buffersLength();
+    const id_ = batch.header.id().toFloat64().toString();
+    const data = batch.header.data();
+    let i;
+    const nodes_ = [];
+    const nodesLength = data.nodesLength();
+    let buffer;
+    const buffers_ = [];
+    const buffersLength = data.buffersLength();
 
     for (i = 0; i < nodesLength; i += 1) {
         nodes_.push(data.nodes(i));
@@ -291,16 +302,20 @@ function _loadDictionaryBatch(bb, batch) {
     // position the buffer after the body to read the next message
     bb.setPosition(bb.position() + batch.length);
 
-    return { id: id_, nodes: nodes_, buffers: buffers_, length: data.length().low, type: MessageHeader.DictionaryBatch };
+    return {id: id_,
+            nodes: nodes_,
+            buffers: buffers_,
+            length: data.length().low,
+            type: MessageHeader.DictionaryBatch };
 }
 
 function _loadMessage(bb) {
-    var messageLength: number = Int32FromByteBuffer(bb, bb.position());
+    const messageLength: number = Int32FromByteBuffer(bb, bb.position());
     if (messageLength == 0) {
       return;
     }
     bb.setPosition(bb.position() + 4);
-    var message = Message.getRootAsMessage(bb);
+    const message = Message.getRootAsMessage(bb);
     // position the buffer at the end of the message so it's ready to read further
     bb.setPosition(bb.position() + messageLength);
 
@@ -308,36 +323,36 @@ function _loadMessage(bb) {
 }
 
 function _createDictionaryVectors(field, dictionaries) {
-    var encoding = field.dictionary();
+    const encoding = field.dictionary();
     if (encoding != null) {
-        var id = encoding.id().toFloat64().toString();
+        const id = encoding.id().toFloat64().toString();
         if (dictionaries[id] == null) {
             // create a field for the dictionary
-            var dictionaryField = _createDictionaryField(id, field);
+            const dictionaryField = _createDictionaryField(id, field);
             dictionaries[id] = vectorFromField(dictionaryField, null);
         }
     }
 
     // recursively examine child fields
-    for (var i = 0, len = field.childrenLength(); i < len; i += 1|0) {
+    for (let i = 0, len = field.childrenLength(); i < len; i += 1|0) {
         _createDictionaryVectors(field.children(i), dictionaries);
     }
 }
 
 function _createDictionaryField(id, field) {
-    var builder = new flatbuffers.Builder();
-    var nameOffset = builder.createString("dict-" + id);
+    const builder = new flatbuffers.Builder();
+    const nameOffset = builder.createString("dict-" + id);
 
-    var typeType = field.typeType();
-    var typeOffset;
+    const typeType = field.typeType();
+    let typeOffset;
     if (typeType === Type.Int) {
-        var type = field.type(new org.apache.arrow.flatbuf.Int());
+        const type = field.type(new org.apache.arrow.flatbuf.Int());
         org.apache.arrow.flatbuf.Int.startInt(builder);
         org.apache.arrow.flatbuf.Int.addBitWidth(builder, type.bitWidth());
         org.apache.arrow.flatbuf.Int.addIsSigned(builder, type.isSigned());
         typeOffset = org.apache.arrow.flatbuf.Int.endInt(builder);
     } else if (typeType === Type.FloatingPoint) {
-        var type = field.type(new org.apache.arrow.flatbuf.FloatingPoint());
+        const type = field.type(new org.apache.arrow.flatbuf.FloatingPoint());
         org.apache.arrow.flatbuf.FloatingPoint.startFloatingPoint(builder);
         org.apache.arrow.flatbuf.FloatingPoint.addPrecision(builder, type.precision());
         typeOffset = org.apache.arrow.flatbuf.FloatingPoint.endFloatingPoint(builder);
@@ -345,7 +360,7 @@ function _createDictionaryField(id, field) {
         org.apache.arrow.flatbuf.Utf8.startUtf8(builder);
         typeOffset = org.apache.arrow.flatbuf.Utf8.endUtf8(builder);
     } else if (typeType === Type.Date) {
-        var type = field.type(new org.apache.arrow.flatbuf.Date());
+        const type = field.type(new org.apache.arrow.flatbuf.Date());
         org.apache.arrow.flatbuf.Date.startDate(builder);
         org.apache.arrow.flatbuf.Date.addUnit(builder, type.unit());
         typeOffset = org.apache.arrow.flatbuf.Date.endDate(builder);
@@ -355,17 +370,18 @@ function _createDictionaryField(id, field) {
     if (field.childrenLength() > 0) {
       throw "Dictionary encoded fields can't have children"
     }
-    var childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, []);
+    const childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, []);
 
-    var layout, layoutOffsets = [];
-    for (var i = 0, len = field.layoutLength(); i < len; i += 1|0) {
+    let layout;
+    const layoutOffsets = [];
+    for (let i = 0, len = field.layoutLength(); i < len; i += 1|0) {
         layout = field.layout(i);
         org.apache.arrow.flatbuf.VectorLayout.startVectorLayout(builder);
         org.apache.arrow.flatbuf.VectorLayout.addBitWidth(builder, layout.bitWidth());
         org.apache.arrow.flatbuf.VectorLayout.addType(builder, layout.type());
         layoutOffsets.push(org.apache.arrow.flatbuf.VectorLayout.endVectorLayout(builder));
     }
-    var layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, layoutOffsets);
+    const layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, layoutOffsets);
 
     org.apache.arrow.flatbuf.Field.startField(builder);
     org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
@@ -374,7 +390,7 @@ function _createDictionaryField(id, field) {
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
     org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
-    var offset = org.apache.arrow.flatbuf.Field.endField(builder);
+    const offset = org.apache.arrow.flatbuf.Field.endField(builder);
     builder.finish(offset);
 
     return org.apache.arrow.flatbuf.Field.getRootAsField(builder.bb);
@@ -387,14 +403,14 @@ function Int32FromByteBuffer(bb, offset) {
            ((bb.bytes_[offset] & 255));
 }
 
-var MAGIC_STR = "ARROW1";
-var MAGIC = new Uint8Array(MAGIC_STR.length);
-for (var i = 0; i < MAGIC_STR.length; i += 1|0) {
+const MAGIC_STR = "ARROW1";
+const MAGIC = new Uint8Array(MAGIC_STR.length);
+for (let i = 0; i < MAGIC_STR.length; i += 1|0) {
     MAGIC[i] = MAGIC_STR.charCodeAt(i);
 }
 
 function _checkMagic(buf, index) {
-    for (var i = 0; i < MAGIC.length; i += 1|0) {
+    for (let i = 0; i < MAGIC.length; i += 1|0) {
         if (MAGIC[i] != buf[index + i]) {
             return false;
         }
@@ -402,7 +418,7 @@ function _checkMagic(buf, index) {
     return true;
 }
 
-var TYPEMAP = {}
+const TYPEMAP = {}
 TYPEMAP[Type.NONE]          = "NONE";
 TYPEMAP[Type.Null]          = "Null";
 TYPEMAP[Type.Int]           = "Int";
@@ -420,20 +436,20 @@ TYPEMAP[Type.FixedSizeList] = "FixedSizeList";
 TYPEMAP[Type.Struct_]       = "Struct";
 TYPEMAP[Type.Union]         = "Union";
 
-var VECTORTYPEMAP = {};
+const VECTORTYPEMAP = {};
 VECTORTYPEMAP[VectorType.OFFSET]   = 'OFFSET';
 VECTORTYPEMAP[VectorType.DATA]     = 'DATA';
 VECTORTYPEMAP[VectorType.VALIDITY] = 'VALIDITY';
 VECTORTYPEMAP[VectorType.TYPE]     = 'TYPE';
 
 function parseField(field) {
-    var children = [];
-    for (var i = 0; i < field.childrenLength(); i += 1|0) {
+    const children = [];
+    for (let i = 0; i < field.childrenLength(); i += 1|0) {
         children.push(parseField(field.children(i)));
     }
 
-    var layouts = [];
-    for (var i = 0; i < field.layoutLength(); i += 1|0) {
+    const layouts = [];
+    for (let i = 0; i < field.layoutLength(); i += 1|0) {
         layouts.push(VECTORTYPEMAP[field.layout(i).type()]);
     }
 
@@ -447,17 +463,16 @@ function parseField(field) {
 }
 
 function parseSchema(schema) {
-    var result = [];
-    var this_result, type;
-    for (var i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
+    const result = [];
+    for (let i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
         result.push(parseField(schema.fields(i)));
     }
     return result;
 }
 
 function loadVectors(bb, vectors: Vector[], recordBatch) {
-    var indices = { bufferIndex: 0, nodeIndex: 0 }, i;
-    for (i = 0; i < vectors.length; i += 1) {
+    const indices = { bufferIndex: 0, nodeIndex: 0 };
+    for (let i = 0; i < vectors.length; i += 1) {
         loadVector(bb, vectors[i], recordBatch, indices);
     }
 }
@@ -467,7 +482,10 @@ function loadVectors(bb, vectors: Vector[], recordBatch) {
  *   recordBatch: { nodes: org.apache.arrow.flatbuf.FieldNode[], buffers: { offset: number, length: number }[] }
  */
 function loadVector(bb, vector: Vector, recordBatch, indices) {
-    var node = recordBatch.nodes[indices.nodeIndex], ownBuffersLength, ownBuffers = [], i;
+    const node = recordBatch.nodes[indices.nodeIndex]
+    let ownBuffersLength;
+    const ownBuffers = [];
+    let i;
     indices.nodeIndex += 1;
 
     // dictionary vectors are always ints, so will have a data vector plus optional null vector
@@ -486,7 +504,7 @@ function loadVector(bb, vector: Vector, recordBatch, indices) {
 
     vector.loadData(bb, node, ownBuffers);
 
-    var children = vector.getChildVectors();
+    const children = vector.getChildVectors();
     for (i = 0; i < children.length; i++) {
         loadVector(bb, children[i], recordBatch, indices);
     }

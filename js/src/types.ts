@@ -19,7 +19,7 @@ import { BitArray } from './bitarray';
 import { TextDecoder } from 'text-encoding';
 import { org } from './Arrow_generated';
 
-var Type = org.apache.arrow.flatbuf.Type;
+const Type = org.apache.arrow.flatbuf.Type;
 
 interface ArrayView {
     slice(start: number, end: number) : ArrayView
@@ -64,8 +64,8 @@ export abstract class Vector {
      *   buffer: org.apache.arrow.flatbuf.Buffer
      */
     static loadValidityBuffer(bb, buffer) : BitArray {
-        var arrayBuffer = bb.bytes_.buffer;
-        var offset = bb.bytes_.byteOffset + buffer.offset;
+        const arrayBuffer = bb.bytes_.buffer;
+        const offset = bb.bytes_.byteOffset + buffer.offset;
         return new BitArray(arrayBuffer, offset, buffer.length * 8);
     }
 
@@ -74,9 +74,9 @@ export abstract class Vector {
      *   buffer: org.apache.arrow.flatbuf.Buffer
      */
     static loadOffsetBuffer(bb, buffer) : Int32Array {
-        var arrayBuffer = bb.bytes_.buffer;
-        var offset  = bb.bytes_.byteOffset + buffer.offset;
-        var length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
+        const arrayBuffer = bb.bytes_.buffer;
+        const offset  = bb.bytes_.byteOffset + buffer.offset;
+        const length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
         return new Int32Array(arrayBuffer, offset, length);
     }
 
@@ -107,9 +107,9 @@ class SimpleVector<T extends ArrayView> extends Vector {
       * buffer: org.apache.arrow.flatbuf.Buffer
       */
     protected loadDataBuffer(bb, buffer) {
-        var arrayBuffer = bb.bytes_.buffer;
-        var offset  = bb.bytes_.byteOffset + buffer.offset;
-        var length = buffer.length / this.TypedArray.BYTES_PER_ELEMENT;
+        const arrayBuffer = bb.bytes_.buffer;
+        const offset  = bb.bytes_.byteOffset + buffer.offset;
+        const length = buffer.length / this.TypedArray.BYTES_PER_ELEMENT;
         this.dataView = new this.TypedArray(arrayBuffer, offset, length);
     }
 
@@ -263,8 +263,8 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
     }
 
     slice(start: number, end: number) {
-        var result: string[] = [];
-        for (var i: number = start; i < end; i += 1|0) {
+        const result: string[] = [];
+        for (let i: number = start; i < end; i += 1|0) {
             result.push(this.get(i));
         }
         return result;
@@ -316,11 +316,11 @@ class ListVector extends Uint32Vector {
     }
 
     get(i) {
-        var offset = super.get(i)
+        const offset = super.get(i)
         if (offset === null) {
             return null;
         }
-        var next_offset = super.get(i + 1)
+        const next_offset = super.get(i + 1)
         return this.dataVector.slice(offset, next_offset)
     }
 
@@ -329,8 +329,8 @@ class ListVector extends Uint32Vector {
     }
 
     slice(start: number, end: number) {
-        var result = [];
-        for (var i = start; i < end; i += 1|0) {
+        const result = [];
+        for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
         }
         return result;
@@ -382,8 +382,8 @@ class FixedSizeListVector extends Vector {
     }
 
     slice(start : number, end : number) {
-        var result = [];
-        for (var i = start; i < end; i += 1|0) {
+        const result = [];
+        for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
         }
         return result;
@@ -440,8 +440,8 @@ class StructVector extends Vector {
     }
 
     slice(start : number, end : number) {
-        var result = [];
-        for (var i = start; i < end; i += 1|0) {
+        const result = [];
+        for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
         }
         return result;
@@ -464,7 +464,7 @@ class DictionaryVector extends Vector {
     }
 
     get(i) {
-        var encoded = this.indices.get(i);
+        const encoded = this.indices.get(i);
         if (encoded == null) {
             return null;
         } else {
@@ -505,32 +505,33 @@ class DictionaryVector extends Vector {
 }
 
 export function vectorFromField(field, dictionaries) : Vector {
-    var dictionary = field.dictionary(), nullable = field.nullable();
+    const dictionary = field.dictionary();
+    const nullable = field.nullable();
     if (dictionary == null) {
-        var typeType = field.typeType();
+        const typeType = field.typeType();
         if (typeType === Type.List) {
-            var dataVector = vectorFromField(field.children(0), dictionaries);
+            const dataVector = vectorFromField(field.children(0), dictionaries);
             return nullable ? new NullableListVector(field, dataVector) : new ListVector(field, dataVector);
         } else if (typeType === Type.FixedSizeList) {
-            var dataVector = vectorFromField(field.children(0), dictionaries);
-            var size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
+            const dataVector = vectorFromField(field.children(0), dictionaries);
+            const size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
             if (nullable) {
               return new NullableFixedSizeListVector(field, size, dataVector);
             } else {
               return new FixedSizeListVector(field, size, dataVector);
             }
          } else if (typeType === Type.Struct_) {
-            var vectors : Vector[] = [];
-            for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
+            const vectors : Vector[] = [];
+            for (let i : number = 0; i < field.childrenLength(); i += 1|0) {
                 vectors.push(vectorFromField(field.children(i), dictionaries));
             }
             return new StructVector(field, vectors);
         } else {
             if (typeType === Type.Int) {
-                var type = field.type(new org.apache.arrow.flatbuf.Int());
+                const type = field.type(new org.apache.arrow.flatbuf.Int());
                 return _createIntVector(field, type.bitWidth(), type.isSigned(), nullable)
             } else if (typeType === Type.FloatingPoint) {
-                var precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
+                const precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
                 if (precision == org.apache.arrow.flatbuf.Precision.SINGLE) {
                     return nullable ? new NullableFloat32Vector(field) : new Float32Vector(field);
                 } else if (precision == org.apache.arrow.flatbuf.Precision.DOUBLE) {
@@ -548,12 +549,14 @@ export function vectorFromField(field, dictionaries) : Vector {
         }
     } else {
         // determine arrow type - default is signed 32 bit int
-        var type = dictionary.indexType(), bitWidth = 32, signed = true;
+        const type = dictionary.indexType();
+        let bitWidth = 32;
+        let signed = true;
         if (type != null) {
             bitWidth = type.bitWidth();
             signed = type.isSigned();
         }
-        var indices = _createIntVector(field, bitWidth, signed, nullable);
+        const indices = _createIntVector(field, bitWidth, signed, nullable);
         return new DictionaryVector(field, indices, dictionaries[dictionary.id().toFloat64().toString()]);
     }
 }
