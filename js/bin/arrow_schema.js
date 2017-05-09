@@ -19,7 +19,11 @@
 
 var fs = require('fs');
 var process = require('process');
-var loadSchema = require('../dist/arrow.js').loadSchema;
+var arrow = require('../dist/arrow.js');
 
 var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
-console.log(JSON.stringify(loadSchema(buf), null, '\t'));
+var reader = arrow.getReader(buf);
+console.log(JSON.stringify(reader.getSchema(), null, '\t'));
+//console.log(JSON.stringify(reader.getVectors(), null, '\t'));
+console.log('block count: ' + reader.getBatchCount());
+

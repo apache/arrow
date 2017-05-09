@@ -19,7 +19,7 @@
 
 var fs = require('fs')
 var process = require('process');
-var loadVectors = require('../dist/arrow.js').loadVectors;
+var arrow = require('../dist/arrow.js');
 var program = require('commander');
 
 function list (val) {
@@ -38,10 +38,11 @@ if (!program.schema) {
 }
 
 var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
-var vectors = loadVectors(buf);
+var reader = arrow.getReader(buf);
+reader.loadNextBatch();
 
-for (var i = 0; i < vectors[program.schema[0]].length; i += 1|0) {
+for (var i = 0; i < reader.getVector(program.schema[0]).length; i += 1|0) {
     console.log(program.schema.map(function (field) {
-        return '' + vectors[field].get(i);
+        return '' + reader.getVector(field).get(i);
     }).join(','));
 }

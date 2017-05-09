@@ -17,22 +17,9 @@
 
 export class BitArray {
     private view: Uint8Array;
-    constructor(buffer: ArrayBuffer, offset: number, length: number) {
-        //if (ArrayBuffer.isView(buffer)) {
-        //    var og_view = buffer;
-        //    buffer = buffer.buffer;
-        //    offset = og_view.offset;
-        //    length = og_view.length/og_view.BYTES_PER_ELEMENT*8;
-        //} else if (buffer instanceof ArrayBuffer) {
-        var offset = offset || 0;
-        var length = length;// || buffer.length*8;
-        //} else if (buffer instanceof Number) {
-        //    length = buffer;
-        //    buffer = new ArrayBuffer(Math.ceil(length/8));
-        //    offset = 0;
-        //}
 
-        this.view = new Uint8Array(buffer, offset, Math.ceil(length/8));
+    constructor(buffer: ArrayBuffer, offset: number, length: number) {
+        this.view = new Uint8Array(buffer, offset || 0, Math.ceil(length / 8));
     }
 
     get(i) {

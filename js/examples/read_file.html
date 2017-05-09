@@ -40,9 +40,11 @@ function addCell (tr, type, name) {
 }
 reader.onload = function (evt) {
   var buf = new Uint8Array(evt.target.result);
-  var schema = arrow.loadSchema(buf);
-  var vectors = arrow.loadVectors(buf);
+  var schema = arrow.loadSchemaFromStream(buf);
+  var vectors = arrow.loadVectorsFromStream(buf);
   var length = vectors[schema[0].name].length;
+console.log(JSON.stringify(schema, null, '\t'));
+console.log(JSON.stringify(vectors, null, '\t'));
 
   var thead = document.getElementById("thead");
   var tbody = document.getElementById("tbody");

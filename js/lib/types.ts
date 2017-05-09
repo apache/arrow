@@ -18,7 +18,8 @@
 import { BitArray } from './bitarray';
 import { TextDecoder } from 'text-encoding';
 import { org } from './Arrow_generated';
-var arrow = org.apache.arrow;
+
+var Type = org.apache.arrow.flatbuf.Type;
 
 interface ArrayView {
     slice(start: number, end: number) : ArrayView
@@ -26,72 +27,90 @@ interface ArrayView {
 }
 
 export abstract class Vector {
+    field: any;
     name: string;
     length: number;
     null_count: number;
-    constructor(name: string) {
-        this.name = name;
+
+    constructor(field) {
+        this.field = field;
+        this.name = field.name();
     }
+
     /* Access datum at index i */
     abstract get(i);
     /* Return array representing data in the range [start, end) */
     abstract slice(start: number, end: number);
+    /* Return array of child vectors, for container types */
+    abstract getChildVectors();
 
-    /* Use recordBatch fieldNodes and Buffers to construct this Vector */
-    public loadData(recordBatch: any, buffer: any, bufReader: any, baseOffset: any) {
-        var fieldNode = recordBatch.nodes(bufReader.node_index);
-        this.length = fieldNode.length();
-        this.null_count = fieldNode.length();
-        bufReader.node_index += 1|0;
-
-        this.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
+    /**
+     * Use recordBatch fieldNodes and Buffers to construct this Vector
+     *   bb: flatbuffers.ByteBuffer
+     *   node: org.apache.arrow.flatbuf.FieldNode
+     *   buffers: { offset: number, length: number }[]
+     */
+    public loadData(bb, node, buffers) {
+        this.length = node.length().low;
+        this.null_count = node.nullCount().low;
+        this.loadBuffers(bb, node, buffers);
     }
 
-    protected abstract loadBuffers(recordBatch: any, buffer: any, bufReader: any, baseOffset: any);
+    protected abstract loadBuffers(bb, node, buffers);
 
-    /* Helper function for loading a VALIDITY buffer (for Nullable types) */
-    static loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset) : BitArray {
-        var buf_meta = recordBatch.buffers(bufReader.index);
-        var offset = baseOffset + buf_meta.offset().low;
-        var length = buf_meta.length().low;
-        bufReader.index += 1|0;
-        return new BitArray(buffer, offset, length*8);
+    /**
+     * Helper function for loading a VALIDITY buffer (for Nullable types)
+     *   bb: flatbuffers.ByteBuffer
+     *   buffer: org.apache.arrow.flatbuf.Buffer
+     */
+    static loadValidityBuffer(bb, buffer) : BitArray {
+        var arrayBuffer = bb.bytes_.buffer;
+        var offset = bb.bytes_.byteOffset + buffer.offset;
+        return new BitArray(arrayBuffer, offset, buffer.length * 8);
     }
 
-    /* Helper function for loading an OFFSET buffer */
-    static loadOffsetBuffer(recordBatch, buffer, bufReader, baseOffset) : Int32Array {
-        var buf_meta = recordBatch.buffers(bufReader.index);
-        var offset = baseOffset + buf_meta.offset().low;
-        var length = buf_meta.length().low/Int32Array.BYTES_PER_ELEMENT;
-        bufReader.index += 1|0;
-        return new Int32Array(buffer, offset, length);
+    /**
+     * Helper function for loading an OFFSET buffer
+     *   buffer: org.apache.arrow.flatbuf.Buffer
+     */
+    static loadOffsetBuffer(bb, buffer) : Int32Array {
+        var arrayBuffer = bb.bytes_.buffer;
+        var offset  = bb.bytes_.byteOffset + buffer.offset;
+        var length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
+        return new Int32Array(arrayBuffer, offset, length);
     }
 
 }
 
 class SimpleVector<T extends ArrayView> extends Vector {
     protected dataView: T;
-    private TypedArray: {new(buffer: any, offset: number, length: number) : T, BYTES_PER_ELEMENT: number};
+    private TypedArray: { new(buffer: any, offset: number, length: number): T, BYTES_PER_ELEMENT: number };
 
-    constructor (TypedArray: {new(buffer: any, offset: number, length: number): T, BYTES_PER_ELEMENT: number}, name: string) {
-        super(name);
+    constructor (field, TypedArray: { new(buffer: any, offset: number, length: number): T, BYTES_PER_ELEMENT: number }) {
+        super(field);
         this.TypedArray = TypedArray;
+    }
+
+    getChildVectors() {
+        return [];
     }
 
     get(i) {
         return this.dataView[i];
     }
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.dataView = this.loadDataBuffer(recordBatch, buffer, bufReader, baseOffset);
+    loadBuffers(bb, node, buffers) {
+        this.loadDataBuffer(bb, buffers[0]);
     }
 
-    loadDataBuffer(recordBatch, buffer, bufReader, baseOffset) : T {
-        var buf_meta = recordBatch.buffers(bufReader.index);
-        var offset = baseOffset + buf_meta.offset().low;
-        var length = buf_meta.length().low/this.TypedArray.BYTES_PER_ELEMENT;
-        bufReader.index += 1|0;
-        return new this.TypedArray(buffer, offset, length);
+    /**
+      * buffer: org.apache.arrow.flatbuf.Buffer
+      */
+    protected loadDataBuffer(bb, buffer) {
+        var arrayBuffer = bb.bytes_.buffer;
+        var offset  = bb.bytes_.byteOffset + buffer.offset;
+        var length = buffer.length / this.TypedArray.BYTES_PER_ELEMENT;
+        this.dataView = new this.TypedArray(arrayBuffer, offset, length);
     }
 
     getDataView() {
@@ -108,77 +127,173 @@ class SimpleVector<T extends ArrayView> extends Vector {
 }
 
 class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
-    private validityView: BitArray;
+
+    protected validityView: BitArray;
 
     get(i: number) {
-        if (this.validityView.get(i)) return this.dataView[i];
-        else                          return null
+        if (this.validityView.get(i)) {
+            return this.dataView[i];
+        } else {
+          return null;
+        }
     }
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-        this.dataView = this.loadDataBuffer(recordBatch, buffer, bufReader, baseOffset);
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
     }
 
+    getValidityVector() {
+        return this.validityView;
+    }
 }
 
-class Uint8Vector   extends SimpleVector<Uint8Array>   { constructor(name: string) { super(Uint8Array,  name);  }; }
-class Uint16Vector  extends SimpleVector<Uint16Array>  { constructor(name: string) { super(Uint16Array, name);  }; }
-class Uint32Vector  extends SimpleVector<Uint32Array>  { constructor(name: string) { super(Uint32Array, name);  }; }
-class Int8Vector    extends SimpleVector<Uint8Array>   { constructor(name: string) { super(Uint8Array,  name);  }; }
-class Int16Vector   extends SimpleVector<Uint16Array>  { constructor(name: string) { super(Uint16Array, name);  }; }
-class Int32Vector   extends SimpleVector<Uint32Array>  { constructor(name: string) { super(Uint32Array, name);  }; }
-class Float32Vector extends SimpleVector<Float32Array> { constructor(name: string) { super(Float32Array, name); }; }
-class Float64Vector extends SimpleVector<Float64Array> { constructor(name: string) { super(Float64Array, name); }; }
+class Uint8Vector   extends SimpleVector<Uint8Array>   { constructor(field) { super(field, Uint8Array);   }; }
+class Uint16Vector  extends SimpleVector<Uint16Array>  { constructor(field) { super(field, Uint16Array);  }; }
+class Uint32Vector  extends SimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  }; }
+class Int8Vector    extends SimpleVector<Uint8Array>   { constructor(field) { super(field, Uint8Array);   }; }
+class Int16Vector   extends SimpleVector<Uint16Array>  { constructor(field) { super(field, Uint16Array);  }; }
+class Int32Vector   extends SimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  }; }
+class Float32Vector extends SimpleVector<Float32Array> { constructor(field) { super(field, Float32Array); }; }
+class Float64Vector extends SimpleVector<Float64Array> { constructor(field) { super(field, Float64Array); }; }
 
-class NullableUint8Vector   extends NullableSimpleVector<Uint8Array>   { constructor(name: string) { super(Uint8Array,  name);  }; }
-class NullableUint16Vector  extends NullableSimpleVector<Uint16Array>  { constructor(name: string) { super(Uint16Array, name);  }; }
-class NullableUint32Vector  extends NullableSimpleVector<Uint32Array>  { constructor(name: string) { super(Uint32Array, name);  }; }
-class NullableInt8Vector    extends NullableSimpleVector<Uint8Array>   { constructor(name: string) { super(Uint8Array,  name);  }; }
-class NullableInt16Vector   extends NullableSimpleVector<Uint16Array>  { constructor(name: string) { super(Uint16Array, name);  }; }
-class NullableInt32Vector   extends NullableSimpleVector<Uint32Array>  { constructor(name: string) { super(Uint32Array, name);  }; }
-class NullableFloat32Vector extends NullableSimpleVector<Float32Array> { constructor(name: string) { super(Float32Array, name); }; }
-class NullableFloat64Vector extends NullableSimpleVector<Float64Array> { constructor(name: string) { super(Float64Array, name); }; }
+class NullableUint8Vector   extends NullableSimpleVector<Uint8Array>   { constructor(field) { super(field, Uint8Array);   }; }
+class NullableUint16Vector  extends NullableSimpleVector<Uint16Array>  { constructor(field) { super(field, Uint16Array);  }; }
+class NullableUint32Vector  extends NullableSimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  }; }
+class NullableInt8Vector    extends NullableSimpleVector<Uint8Array>   { constructor(field) { super(field, Uint8Array);   }; }
+class NullableInt16Vector   extends NullableSimpleVector<Uint16Array>  { constructor(field) { super(field, Uint16Array);  }; }
+class NullableInt32Vector   extends NullableSimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  }; }
+class NullableFloat32Vector extends NullableSimpleVector<Float32Array> { constructor(field) { super(field, Float32Array); }; }
+class NullableFloat64Vector extends NullableSimpleVector<Float64Array> { constructor(field) { super(field, Float64Array); }; }
+
+class Uint64Vector extends SimpleVector<Uint32Array>  {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get(i: number) {
+        return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
+    }
+}
+
+class NullableUint64Vector extends NullableSimpleVector<Uint32Array>  {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get(i: number) {
+        if (this.validityView.get(i)) {
+            return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
+        } else {
+          return null;
+        }
+    }
+}
+
+class Int64Vector extends NullableSimpleVector<Uint32Array>  {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get(i: number) {
+        return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
+    }
+}
+
+class NullableInt64Vector extends NullableSimpleVector<Uint32Array>  {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get(i: number) {
+        if (this.validityView.get(i)) {
+            return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
+        } else {
+          return null;
+        }
+    }
+}
+
+class DateVector extends SimpleVector<Uint32Array> {
+    constructor(field) {
+        super(field, Uint32Array);
+    }
+
+    get (i) {
+        return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
+    }
+}
+
+class NullableDateVector extends DateVector {
+    private validityView: BitArray;
+
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+    }
+
+    get (i) {
+        if (this.validityView.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+
+    getValidityVector() {
+        return this.validityView;
+    }
+}
 
 class Utf8Vector extends SimpleVector<Uint8Array> {
     protected offsetView: Int32Array;
     static decoder: TextDecoder = new TextDecoder('utf8');
 
-    constructor(name: string) {
-        super(Uint8Array, name);
+    constructor(field) {
+        super(field, Uint8Array);
     }
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.offsetView = Vector.loadOffsetBuffer(recordBatch, buffer, bufReader, baseOffset);
-        this.dataView = this.loadDataBuffer(recordBatch, buffer, bufReader, baseOffset);
+    loadBuffers(bb, node, buffers) {
+        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
     }
 
     get(i) {
-        return Utf8Vector.decoder.decode
-            (this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
+        return Utf8Vector.decoder.decode(this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
     }
 
     slice(start: number, end: number) {
-        var rtrn: string[] = [];
+        var result: string[] = [];
         for (var i: number = start; i < end; i += 1|0) {
-            rtrn.push(this.get(i));
+            result.push(this.get(i));
         }
-        return rtrn;
+        return result;
+    }
+
+    getOffsetView() {
+        return this.offsetView;
     }
 }
 
 class NullableUtf8Vector extends Utf8Vector {
     private validityView: BitArray;
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-        this.offsetView = Vector.loadOffsetBuffer(recordBatch, buffer, bufReader, baseOffset);
-        this.dataView = this.loadDataBuffer(recordBatch, buffer, bufReader, baseOffset);
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[1]);
+        this.loadDataBuffer(bb, buffers[2]);
     }
 
     get(i) {
-        if (!this.validityView.get(i)) return null;
-        return super.get(i);
+        if (this.validityView.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
@@ -186,14 +301,17 @@ class NullableUtf8Vector extends Utf8Vector {
 class ListVector extends Uint32Vector {
     private dataVector: Vector;
 
-    constructor(name, dataVector : Vector) {
-        super(name);
+    constructor(field, dataVector: Vector) {
+        super(field);
         this.dataVector = dataVector;
     }
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        super.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
-        this.dataVector.loadData(recordBatch, buffer, bufReader, baseOffset);
+    getChildVectors() {
+        return [this.dataVector];
+    }
+
+    loadBuffers(bb, node, buffers) {
+        super.loadBuffers(bb, node, buffers);
         this.length -= 1;
     }
 
@@ -210,119 +328,262 @@ class ListVector extends Uint32Vector {
         return "length: " + (this.length);
     }
 
-    slice(start : number, end : number) { return []; };
+    slice(start: number, end: number) {
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
+        }
+        return result;
+    }
 }
 
 class NullableListVector extends ListVector {
     private validityView: BitArray;
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-        super.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+        this.length -= 1;
     }
 
     get(i) {
-        if (!this.validityView.get(i)) return null;
-        return super.get(i);
+        if (this.validityView.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+
+    getValidityVector() {
+        return this.validityView;
+    }
+}
+
+class FixedSizeListVector extends Vector {
+    private size: number
+    private dataVector: Vector;
+
+    constructor(field, size: number, dataVector: Vector) {
+        super(field);
+        this.size = size;
+        this.dataVector = dataVector;
+    }
+
+    getChildVectors() {
+        return [this.dataVector];
+    }
+
+    loadBuffers(bb, node, buffers) {
+        // no buffers to load
+    }
+
+    get(i: number) {
+        return this.dataVector.slice(i * this.size, (i + 1) * this.size);
+    }
+
+    slice(start : number, end : number) {
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
+        }
+        return result;
+    }
+
+    getListSize() {
+        return this.size;
+    }
+}
+
+class NullableFixedSizeListVector extends FixedSizeListVector {
+    private validityView: BitArray;
+
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+    }
+
+    get(i: number) {
+        if (this.validityView.get(i)) {
+            return super.get(i);
+        } else {
+            return null;
+        }
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
 class StructVector extends Vector {
     private validityView: BitArray;
-    private vectors : Vector[];
-    constructor(name: string, vectors: Vector[]) {
-        super(name);
+    private vectors: Vector[];
+
+    constructor(field, vectors: Vector[]) {
+        super(field);
         this.vectors = vectors;
     }
 
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-        this.vectors.forEach((v: Vector) => v.loadData(recordBatch, buffer, bufReader, baseOffset));
+    getChildVectors() {
+        return this.vectors;
+    }
+
+    loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 
     get(i : number) {
-        if (!this.validityView.get(i)) return null;
-        return this.vectors.map((v: Vector) => v.get(i));
+        if (this.validityView.get(i)) {
+          return this.vectors.map((v: Vector) => v.get(i));
+        } else {
+            return null;
+        }
     }
 
     slice(start : number, end : number) {
-        var rtrn = [];
-        for (var i: number = start; i < end; i += 1|0) {
-            rtrn.push(this.get(i));
+        var result = [];
+        for (var i = start; i < end; i += 1|0) {
+            result.push(this.get(i));
         }
-        return rtrn;
+        return result;
+    }
+
+    getValidityVector() {
+        return this.validityView;
     }
 }
 
-class DateVector extends SimpleVector<Uint32Array> {
-    constructor (name: string) {
-        super(Uint32Array, name);
+class DictionaryVector extends Vector {
+
+    private indices: Vector;
+    private dictionary: Vector;
+
+    constructor (field, indices: Vector, dictionary: Vector) {
+        super(field);
+        this.indices = indices;
+        this.dictionary = dictionary;
     }
 
-    get (i) {
-        return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
+    get(i) {
+        var encoded = this.indices.get(i);
+        if (encoded == null) {
+            return null;
+        } else {
+            return this.dictionary.get(encoded);
+        }
+    }
+
+    /** Get the dictionary encoded value */
+    public getEncoded(i) {
+        return this.indices.get(i);
+    }
+
+    slice(start, end) {
+        return this.indices.slice(start, end); // TODO decode
+    }
+
+    getChildVectors() {
+        return this.indices.getChildVectors();
+    }
+
+    loadBuffers(bb, node, buffers) {
+        this.indices.loadData(bb, node, buffers);
+    }
+
+    /** Get the index (encoded) vector */
+    public getIndexVector() {
+        return this.indices;
+    }
+
+    /** Get the dictionary vector */
+    public getDictionaryVector() {
+        return this.dictionary;
+    }
+
+    toString() {
+        return this.indices.toString();
     }
 }
 
-class NullableDateVector extends DateVector {
-    private validityView: BitArray;
-
-    loadBuffers(recordBatch, buffer, bufReader, baseOffset) {
-        this.validityView = Vector.loadValidityBuffer(recordBatch, buffer, bufReader, baseOffset);
-        super.loadBuffers(recordBatch, buffer, bufReader, baseOffset);
-    }
-
-    get (i) {
-        if (!this.validityView.get(i)) return null;
-        return super.get(i);
-    }
-}
-
-var BASIC_TYPES = [arrow.flatbuf.Type.Int, arrow.flatbuf.Type.FloatingPoint, arrow.flatbuf.Type.Utf8, arrow.flatbuf.Type.Date];
-
-export function vectorFromField(field) : Vector {
-    var typeType = field.typeType();
-    if (BASIC_TYPES.indexOf(typeType) >= 0) {
-        var type = field.typeType();
-        if (type === arrow.flatbuf.Type.Int) {
-            type = field.type(new arrow.flatbuf.Int());
-            var VectorConstructor : {new(string) : Vector};
-            if (type.isSigned()) {
-                if (type.bitWidth() == 32)
-                    VectorConstructor = field.nullable() ? NullableInt32Vector : Int32Vector;
-                else if (type.bitWidth() == 16)
-                    VectorConstructor = field.nullable() ? NullableInt16Vector : Int16Vector;
-                else if (type.bitWidth() == 8)
-                    VectorConstructor = field.nullable() ? NullableInt8Vector : Int8Vector;
+export function vectorFromField(field, dictionaries) : Vector {
+    var dictionary = field.dictionary(), nullable = field.nullable();
+    if (dictionary == null) {
+        var typeType = field.typeType();
+        if (typeType === Type.List) {
+            var dataVector = vectorFromField(field.children(0), dictionaries);
+            return nullable ? new NullableListVector(field, dataVector) : new ListVector(field, dataVector);
+        } else if (typeType === Type.FixedSizeList) {
+            var dataVector = vectorFromField(field.children(0), dictionaries);
+            var size = field.type(new org.apache.arrow.flatbuf.FixedSizeList()).listSize();
+            if (nullable) {
+              return new NullableFixedSizeListVector(field, size, dataVector);
             } else {
-                if (type.bitWidth() == 32)
-                    VectorConstructor = field.nullable() ? NullableUint32Vector : Uint32Vector;
-                else if (type.bitWidth() == 16)
-                    VectorConstructor = field.nullable() ? NullableUint16Vector : Uint16Vector;
-                else if (type.bitWidth() == 8)
-                    VectorConstructor = field.nullable() ? NullableUint8Vector : Uint8Vector;
+              return new FixedSizeListVector(field, size, dataVector);
             }
-        } else if (type === arrow.flatbuf.Type.FloatingPoint) {
-            type = field.type(new arrow.flatbuf.FloatingPoint());
-            if (type.precision() == arrow.flatbuf.Precision.SINGLE)
-                VectorConstructor = field.nullable() ? NullableFloat32Vector : Float32Vector;
-            else if (type.precision() == arrow.flatbuf.Precision.DOUBLE)
-                VectorConstructor = field.nullable() ? NullableFloat64Vector : Float64Vector;
-        } else if (type === arrow.flatbuf.Type.Utf8) {
-            VectorConstructor = field.nullable() ? NullableUtf8Vector : Utf8Vector;
-        } else if (type === arrow.flatbuf.Type.Date) {
-            VectorConstructor = field.nullable() ? NullableDateVector : DateVector;
+         } else if (typeType === Type.Struct_) {
+            var vectors : Vector[] = [];
+            for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
+                vectors.push(vectorFromField(field.children(i), dictionaries));
+            }
+            return new StructVector(field, vectors);
+        } else {
+            if (typeType === Type.Int) {
+                var type = field.type(new org.apache.arrow.flatbuf.Int());
+                return _createIntVector(field, type.bitWidth(), type.isSigned(), nullable)
+            } else if (typeType === Type.FloatingPoint) {
+                var precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
+                if (precision == org.apache.arrow.flatbuf.Precision.SINGLE) {
+                    return nullable ? new NullableFloat32Vector(field) : new Float32Vector(field);
+                } else if (precision == org.apache.arrow.flatbuf.Precision.DOUBLE) {
+                    return nullable ? new NullableFloat64Vector(field) : new Float64Vector(field);
+                } else {
+                    throw "Unimplemented FloatingPoint precision " + precision;
+                }
+            } else if (typeType === Type.Utf8) {
+                return nullable ? new NullableUtf8Vector(field) : new Utf8Vector(field);
+            } else if (typeType === Type.Date) {
+                return nullable ? new NullableDateVector(field) : new DateVector(field);
+            } else {
+                throw "Unimplemented type " + typeType;
+            }
         }
+    } else {
+        // determine arrow type - default is signed 32 bit int
+        var type = dictionary.indexType(), bitWidth = 32, signed = true;
+        if (type != null) {
+            bitWidth = type.bitWidth();
+            signed = type.isSigned();
+        }
+        var indices = _createIntVector(field, bitWidth, signed, nullable);
+        return new DictionaryVector(field, indices, dictionaries[dictionary.id().toFloat64().toString()]);
+    }
+}
 
-        return new VectorConstructor(field.name());
-    } else if (typeType === arrow.flatbuf.Type.List) {
-        var dataVector = vectorFromField(field.children(0));
-        return field.nullable() ? new NullableListVector(field.name(), dataVector) : new ListVector(field.name(), dataVector);
-    } else if (typeType === arrow.flatbuf.Type.Struct_) {
-        var vectors : Vector[] = [];
-        for (var i : number = 0; i < field.childrenLength(); i += 1|0) {
-            vectors.push(vectorFromField(field.children(i)));
+function _createIntVector(field, bitWidth, signed, nullable) {
+    if (bitWidth == 64) {
+        if (signed) {
+            return nullable ? new NullableInt64Vector(field) : new Int64Vector(field);
+        } else {
+            return nullable ? new NullableUint64Vector(field) : new Uint64Vector(field);
         }
-        return new StructVector(field.name(), vectors);
+    } else if (bitWidth == 32) {
+        if (signed) {
+            return nullable ? new NullableInt32Vector(field) : new Int32Vector(field);
+        } else {
+            return nullable ? new NullableUint32Vector(field) : new Uint32Vector(field);
+        }
+    } else if (bitWidth == 16) {
+        if (signed) {
+            return nullable ? new NullableInt16Vector(field) : new Int16Vector(field);
+        } else {
+            return nullable ? new NullableUint16Vector(field) : new Uint16Vector(field);
+        }
+    } else if (bitWidth == 8) {
+        if (signed) {
+            return nullable ? new NullableInt8Vector(field) : new Int8Vector(field);
+        } else {
+            return nullable ? new NullableUint8Vector(field) : new Uint8Vector(field);
+        }
+    } else {
+         throw "Unimplemented Int bit width " + bitWidth;
     }
 }

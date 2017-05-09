@@ -20,6 +20,7 @@ From this directory, run:
 $ npm install   # pull dependencies
 $ tsc           # build typescript
 $ webpack       # bundle for the browser
+$ npm test      # run unit tests
 ```
 
 ### Usage
@@ -42,9 +43,19 @@ Include `dist/arrow-bundle.js` in a `<script />` tag:
 See [examples/read_file.html](examples/read_file.html) for a usage example - or try it out now at [theneuralbit.github.io/arrow](http://theneuralbit.github.io/arrow)
 
 ### API
-##### `arrow.loadSchema(buffer)`
+##### `arrow.getReader(buffer)`
+Returns an `ArrowReader` object representing the Arrow file or stream contained in
+the `buffer`.
+
+##### `ArrowReader.loadNextBatch()`
+Loads the next record batch and returns it's length.
+
+##### `ArrowReader.getSchema()`
 Returns a JSON representation of the file's Arrow schema.
 
-##### `arrow.loadVectors(buffer)`
-Returns a dictionary of `Vector` objects, one for each column, indexed by the column's name.
+##### `ArrowReader.getVectors()`
+Returns a list of `Vector` objects, one for each column.
 Vector objects have, at minimum, a `get(i)` method and a `length` attribute.
+
+##### `ArrowReader.getVector(name: String)`
+Return a Vector object for column `name`

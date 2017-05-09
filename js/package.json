@@ -4,16 +4,20 @@
   "description": "",
   "main": "dist/arrow.js",
   "scripts": {
-    "postinstall": "./postinstall.sh",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "./flatbuffers.sh",
+    "build": "./flatbuffers.sh && tsc && webpack",
+    "test": "./node_modules/mocha/bin/mocha ./spec/arrow.js"
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "flatbuffers": "^1.5.0",
-    "text-encoding": "^0.6.4"
+    "chai": "^3.5.0",
+    "mocha": "^3.3.0",
+    "webpack": "^2.3.3"
   },
   "dependencies": {
+    "flatbuffers": "^1.5.0",
+    "text-encoding": "^0.6.4",
     "commander": "^2.9.0"
   }
 }
