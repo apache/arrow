@@ -39,12 +39,10 @@ function addCell (tr, type, name) {
   tr.appendChild(td);
 }
 reader.onload = function (evt) {
-  var buf = new Uint8Array(evt.target.result);
-  var schema = arrow.loadSchemaFromStream(buf);
-  var vectors = arrow.loadVectorsFromStream(buf);
-  var length = vectors[schema[0].name].length;
+  var reader = new arrow.getReader(new Uint8Array(evt.target.result));
+  var schema = reader.getSchema();
+  var length = reader.loadNextBatch();
 console.log(JSON.stringify(schema, null, '\t'));
-console.log(JSON.stringify(vectors, null, '\t'));
 
   var thead = document.getElementById("thead");
   var tbody = document.getElementById("tbody");
@@ -58,7 +56,7 @@ console.log(JSON.stringify(vectors, null, '\t'));
 
   for (var i = 0; i < length; i += 1|0) {
     var tr = document.createElement("tr");
-    schema.forEach(function (d) { addCell(tr, "td", vectors[d.name].get(i)); });
+    schema.forEach(function (d) { addCell(tr, "td", reader.getVector(d.name).get(i)); });
     tbody.appendChild(tr);
   }
 }
@@ -76,6 +74,6 @@ function handleFiles(files) {
       <tbody id="tbody">
       </tbody>
     </table>
-    <script type="text/javascript" src="../dist/arrow-bundle.js"></script>
+    <script type="text/javascript" src="../_bundles/arrow.js"></script>
   </body>
 </html>

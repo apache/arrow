@@ -10,12 +10,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License. See accompanying LICENSE file.
 
+var path = require('path');
+var UglifyJSPlugin = require('uglifyjs-webpack-plugin');
+
 module.exports = {
-  entry: './dist/arrow.js',
+  entry: {
+    'arrow': './src/arrow.ts',
+    'arrow.min': './src/arrow.ts'
+  },
   output: {
-    path: __dirname + '/dist',
-    filename: 'arrow-bundle.js',
-    libraryTarget: 'var',
-    library: 'arrow'
+    path: path.resolve(__dirname, '_bundles'),
+    filename: '[name].js',
+    libraryTarget: 'umd',
+    library: 'arrow',
+    umdNamedDefine: true
+  },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  devtool: 'source-map',
+  plugins: [
+    new UglifyJSPlugin({
+      minimize: true,
+      sourceMap: true,
+      include: /\.min\.js$/
+    })
+  ],
+  module: {
+    loaders: [{
+      test: /\.ts$/,
+      loader: 'awesome-typescript-loader',
+      exclude: /node_modules/,
+      query: {
+        declaration: false
+      }
+    }]
   }
 };

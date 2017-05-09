@@ -18,9 +18,8 @@ From this directory, run:
 
 ``` bash
 $ npm install   # pull dependencies
-$ tsc           # build typescript
-$ webpack       # bundle for the browser
-$ npm test      # run unit tests
+$ npm run build # build typescript (run tsc and webpack)
+$ npm run test  # run the unit tests (node.js only)
 ```
 
 ### Usage
@@ -30,17 +29,17 @@ The library is designed to be used with node.js or in the browser, this reposito
 Import the arrow module:
 
 ``` js
-var arrow = require("arrow.js");
+var arrow = require("arrow");
 ```
 
 See [bin/arrow_schema.js](bin/arrow_schema.js) and [bin/arrow2csv.js](bin/arrow2csv.js) for usage examples.
 
 #### Browser
-Include `dist/arrow-bundle.js` in a `<script />` tag:
+Include `_bundles/arrow.js` in a `<script />` tag:
 ``` html
-<script src="arrow-bundle.js"/>
+<script src="_bundles/arrow.js"/>
 ```
-See [examples/read_file.html](examples/read_file.html) for a usage example - or try it out now at [theneuralbit.github.io/arrow](http://theneuralbit.github.io/arrow)
+See [examples/read_file.html](examples/read_file.html) for a usage example.
 
 ### API
 ##### `arrow.getReader(buffer)`

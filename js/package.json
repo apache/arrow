@@ -2,17 +2,21 @@
   "name": "arrow",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/arrow.js",
+  "main": "lib/arrow.js",
   "scripts": {
-    "postinstall": "./flatbuffers.sh",
-    "build": "./flatbuffers.sh && tsc && webpack",
+    "build": "./flatbuffers.sh && tsc && tsc -m es6 --outDir lib-esm && webpack",
+    "clean": "rm -rf lib lib-esm _bundles",
     "test": "./node_modules/mocha/bin/mocha ./spec/arrow.js"
   },
   "author": "",
+  "repository": "https://github.com/apache/arrow/",
   "license": "Apache-2.0",
   "devDependencies": {
+    "awesome-typescript-loader": "^3.1.3",
     "chai": "^3.5.0",
     "mocha": "^3.3.0",
+    "typescript": "^2.3.2",
+    "uglifyjs-webpack-plugin": "^0.4.3",
     "webpack": "^2.3.3"
   },
   "dependencies": {

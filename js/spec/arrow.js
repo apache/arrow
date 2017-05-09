@@ -19,7 +19,7 @@ var fs = require('fs');
 var chai = require('chai');
 var assert = chai.assert;
 var path= require('path');
-var arrow = require('../dist/arrow.js');
+var arrow = require('../lib/arrow.js');
 
 test_files = [
   {

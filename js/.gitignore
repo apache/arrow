@@ -1,6 +1,7 @@
-lib/*_generated.js
-dist
+src/Arrow_generated.js
+lib
+lib-esm
+_bundles
 node_modules
-typings
 .idea
 *.iml
