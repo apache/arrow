@@ -41,3 +41,8 @@ Makefile.in
 /example/build
 /example/read-batch
 /example/read-stream
+!/example/go/Makefile
+/example/go/read-batch
+/example/go/read-stream
+/example/go/write-batch
+/example/go/write-stream
