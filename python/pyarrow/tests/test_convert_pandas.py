@@ -271,12 +271,6 @@ class TestPandasConversion(unittest.TestCase):
         with self.assertRaises(pa.ArrowInvalid):
             pa.Table.from_pandas(df, schema=schema)
 
-    def test_timestamps_not_mutate_default_datetime64(self):
-        # ARROW-991
-        t = pa.timestamp('ms')
-        pa.array([1, 2, 3, 4], type=t).to_pandas()
-        assert np.dtype('datetime64').metadata is None
-
     def test_timestamps_notimezone_no_nulls(self):
         df = pd.DataFrame({
             'datetime64': np.array([
