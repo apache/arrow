@@ -661,10 +661,10 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
   // 2nd January 1970, 11:35min 145738543ns
   Int96 day;
-  day.value[2] = 2440589l;
+  day.value[2] = UINT32_C(2440589);
   int64_t seconds = (11 * 60 + 35) * 60;
   *(reinterpret_cast<int64_t*>(&(day.value))) =
-      seconds * 1000l * 1000l * 1000l + 145738543;
+      seconds * INT64_C(1000) * INT64_C(1000) * INT64_C(1000) + 145738543;
   // Compute the corresponding nanosecond timestamp
   struct tm datetime = {0};
   datetime.tm_year = 70;
@@ -676,7 +676,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   epoch.tm_year = 70;
   epoch.tm_mday = 1;
   // Nanoseconds since the epoch
-  int64_t val = lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000000;
+  int64_t val = lrint(difftime(mktime(&datetime), mktime(&epoch))) * INT64_C(1000000000);
   val += 145738543;
 
   std::vector<std::shared_ptr<schema::Node>> fields(
@@ -1064,7 +1064,7 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
-  const int64_t chunk_size = 0; // note the chunk_size is 0
+  const int64_t chunk_size = 0;  // note the chunk_size is 0
   std::shared_ptr<Table> table;
   MakeDoubleTable(num_columns, num_rows, 1, &table);
 

@@ -329,7 +329,7 @@ class BitUtil {
   // Returns the minimum number of bits needed to represent the value of 'x'
   static inline int NumRequiredBits(uint64_t x) {
     for (int i = 63; i >= 0; --i) {
-      if (x & 1L << i) return i + 1;
+      if (x & (UINT64_C(1) << i)) return i + 1;
     }
     return 0;
   }
