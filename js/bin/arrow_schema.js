@@ -19,7 +19,7 @@
 
 var fs = require('fs');
 var process = require('process');
-var arrow = require('../dist/arrow.js');
+var arrow = require('../lib/arrow.js');
 
 var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
 var reader = arrow.getReader(buf);
