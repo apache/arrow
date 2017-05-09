@@ -205,7 +205,7 @@ class ARROW_EXPORT Field {
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
       bool nullable = true,
       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
-    : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+      : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
@@ -753,8 +753,8 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
-std::shared_ptr<Field> ARROW_EXPORT field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
+std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
+    const std::shared_ptr<DataType>& type, bool nullable = true,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------

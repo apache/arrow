@@ -1947,10 +1947,9 @@ class DataFrameBlockCreator {
   BlockMap datetimetz_blocks_;
 };
 
-inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
+inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out) {
   if (type == NPY_DATETIME) {
-    PyArray_Descr* descr = PyArray_DESCR(out);
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
     if (datatype->id() == Type::TIMESTAMP) {
       auto timestamp_type = static_cast<TimestampType*>(datatype);
 
@@ -1975,6 +1974,27 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out)
   }
 }
 
+static inline PyObject* NewArray1DFromType(
+    DataType* arrow_type, int type, int64_t length, void* data) {
+  npy_intp dims[1] = {length};
+
+  PyArray_Descr* descr;
+  if (type == NPY_DATETIME) {
+    // It is not safe to mutate the result of DescrFromType
+    descr = PyArray_DescrNewFromType(type);
+  } else {
+    descr = PyArray_DescrFromType(type);
+  }
+
+  if (descr == nullptr) {
+    // Error occurred, trust error state is set
+    return nullptr;
+  }
+
+  set_numpy_metadata(type, arrow_type, descr);
+  return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data, 0, nullptr);
+}
+
 class ArrowDeserializer {
  public:
   ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref)
@@ -1983,17 +2003,8 @@ class ArrowDeserializer {
   Status AllocateOutput(int type) {
     PyAcquireGIL lock;
 
-    npy_intp dims[1] = {col_->length()};
-    result_ = PyArray_SimpleNew(1, dims, type);
+    result_ = NewArray1DFromType(col_->type().get(), type, col_->length(), nullptr);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
-
-    if (arr_ == NULL) {
-      // Error occurred, trust that SimpleNew set the error state
-      return Status::OK();
-    }
-
-    set_numpy_metadata(type, col_->type().get(), arr_);
-
     return Status::OK();
   }
 
@@ -2010,16 +2021,13 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
-    npy_intp dims[1] = {col_->length()};
-    result_ = PyArray_SimpleNewFromData(1, dims, npy_type, data);
+    result_ = NewArray1DFromType(col_->type().get(), npy_type, col_->length(), data);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
 
     if (arr_ == NULL) {
-      // Error occurred, trust that SimpleNew set the error state
+      // Error occurred, trust that error set
       return Status::OK();
     }
-
-    set_numpy_metadata(npy_type, col_->type().get(), arr_);
 
     if (PyArray_SetBaseObject(arr_, py_ref_) == -1) {
       // Error occurred, trust that SetBaseObject set the error state

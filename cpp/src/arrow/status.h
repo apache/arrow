@@ -91,8 +91,7 @@ class ARROW_EXPORT Status {
   Status() : state_(NULL) {}
   ~Status() { delete[] state_; }
 
-  Status(StatusCode code, const std::string& msg)
-    : Status(code, msg, -1) {}
+  Status(StatusCode code, const std::string& msg) : Status(code, msg, -1) {}
 
   // Copy the specified status.
   Status(const Status& s);
