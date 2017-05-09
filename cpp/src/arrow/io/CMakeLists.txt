@@ -19,7 +19,9 @@
 # arrow_io : Arrow IO interfaces
 
 ADD_ARROW_TEST(io-file-test)
-ADD_ARROW_TEST(io-hdfs-test)
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  ADD_ARROW_TEST(io-hdfs-test)
+endif()
 ADD_ARROW_TEST(io-memory-test)
 
 ADD_ARROW_BENCHMARK(io-memory-benchmark)

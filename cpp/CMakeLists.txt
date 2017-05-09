@@ -101,6 +101,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Rely on jemalloc shared libraries where relevant"
     ON)
 
+  option(ARROW_HDFS
+    "Build the Arrow HDFS bridge"
+    ON)
+
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
@@ -134,6 +138,12 @@ endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+endif()
+
+if(ARROW_HDFS)
+  set(ARROW_BOOST_HEADER_ONLY 0)
+else()
+  set(ARROW_BOOST_HEADER_ONLY 1)
 endif()
 
 include(BuildUtils)
@@ -437,44 +447,54 @@ if (ARROW_BOOST_USE_SHARED)
     add_definitions(-DBOOST_ALL_DYN_LINK)
   endif()
 
-  find_package(Boost COMPONENTS system filesystem REQUIRED)
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-    set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+  if (ARROW_BOOST_HEADER_ONLY)
+    find_package(Boost)
   else()
-    set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-    set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    find_package(Boost COMPONENTS system filesystem REQUIRED)
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    else()
+      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_shared)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
   endif()
-  set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
 else()
   # Find static boost headers and libs
   # TODO Differentiate here between release and debug builds
   set(Boost_USE_STATIC_LIBS ON)
-  find_package(Boost COMPONENTS system filesystem regex REQUIRED)
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+  if (ARROW_BOOST_HEADER_ONLY)
+    find_package(Boost)
   else()
-    set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    else()
+      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
   endif()
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
 
-ADD_THIRDPARTY_LIB(boost_system
-    STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  ADD_THIRDPARTY_LIB(boost_system
+      STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
+      SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
 
-ADD_THIRDPARTY_LIB(boost_filesystem
-    STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
+  ADD_THIRDPARTY_LIB(boost_filesystem
+      STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
+      SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
-SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+  SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -938,8 +958,6 @@ set(ARROW_SRCS
   src/arrow/visitor.cc
 
   src/arrow/io/file.cc
-  src/arrow/io/hdfs.cc
-  src/arrow/io/hdfs-internal.cc
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
 
@@ -947,6 +965,13 @@ set(ARROW_SRCS
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
+
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/io/hdfs.cc
+    src/arrow/io/hdfs-internal.cc
+  )
+endif()
 
 if (ARROW_IPC)
   set(ARROW_SRCS ${ARROW_SRCS}
