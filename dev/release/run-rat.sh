@@ -34,7 +34,11 @@ $RAT $1 \
   -e status.h \
   -e asan_symbolize.py \
   -e cpplint.py \
+  -e BuildUtils.cmake \
   -e FindPythonLibsNew.cmake \
+  -e FindNumPy.cmake \
+  -e SetupCxxFlags.cmake \
+  -e CompilerInfo.cmake \
   -e pax_global_header \
   -e MANIFEST.in \
   -e __init__.pxd \
