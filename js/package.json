@@ -2,7 +2,7 @@
   "name": "arrow",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/arrow.js",
+  "main": "lib/arrow.js",
   "scripts": {
     "build": "./flatbuffers.sh && tsc && tsc -m es6 --outDir lib-esm && webpack",
     "clean": "rm -rf lib lib-esm _bundles",
