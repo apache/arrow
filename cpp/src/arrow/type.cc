@@ -42,9 +42,7 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
 }
 
 bool Field::Equals(const Field& other) const {
-  if (this == &other) {
-    return true;
-  }
+  if (this == &other) { return true; }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
     if (metadata_ == nullptr && other.metadata_ == nullptr) {
@@ -322,8 +320,7 @@ std::string Schema::ToString() const {
   if (metadata_) {
     buffer << "\n-- metadata --";
     for (int64_t i = 0; i < metadata_->size(); ++i) {
-      buffer << "\n" << metadata_->key(i) << ": "
-             << metadata_->value(i);
+      buffer << "\n" << metadata_->key(i) << ": " << metadata_->value(i);
     }
   }
 
@@ -419,8 +416,8 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
   return std::make_shared<DictionaryType>(index_type, dict_values);
 }
 
-std::shared_ptr<Field> field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable,
+std::shared_ptr<Field> field(const std::string& name,
+    const std::shared_ptr<DataType>& type, bool nullable,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Field>(name, type, nullable, metadata);
 }
