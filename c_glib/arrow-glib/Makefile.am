@@ -67,10 +67,9 @@ libarrow_glib_la_headers +=			\
 
 libarrow_glib_la_headers +=			\
 	file-reader.h				\
-	file-writer.h				\
 	stream-reader.h				\
-	stream-writer.h				\
-	metadata-version.h
+	metadata-version.h			\
+	writer.h
 
 libarrow_glib_la_generated_headers =		\
 	enums.h
@@ -107,10 +106,9 @@ libarrow_glib_la_sources +=			\
 
 libarrow_glib_la_sources +=			\
 	file-reader.cpp				\
-	file-writer.cpp				\
 	metadata-version.cpp			\
 	stream-reader.cpp			\
-	stream-writer.cpp
+	writer.cpp
 
 libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
@@ -139,10 +137,9 @@ libarrow_glib_la_cpp_headers +=			\
 
 libarrow_glib_la_cpp_headers +=			\
 	file-reader.hpp				\
-	file-writer.hpp				\
 	metadata-version.hpp			\
 	stream-reader.hpp			\
-	stream-writer.hpp
+	writer.hpp
 
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\

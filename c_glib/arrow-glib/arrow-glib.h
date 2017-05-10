@@ -42,7 +42,6 @@
 #include <arrow-glib/writeable-file.h>
 
 #include <arrow-glib/file-reader.h>
-#include <arrow-glib/file-writer.h>
 #include <arrow-glib/metadata-version.h>
 #include <arrow-glib/stream-reader.h>
-#include <arrow-glib/stream-writer.h>
+#include <arrow-glib/writer.h>
