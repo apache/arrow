@@ -32,6 +32,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
@@ -45,25 +46,25 @@ public class TestConvert {
 
   @Test
   public void simple() {
-    Field initialField = new Field("a", true, new Int(32, true), null);
+    Field initialField = new Field("a", FieldType.nullable(new Int(32, true)), null);
     run(initialField);
   }
 
   @Test
   public void complex() {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
-    childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
-    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
+    childrenBuilder.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), ImmutableList.<Field>of()));
 
-    Field initialField = new Field("a", true, Struct.INSTANCE, childrenBuilder.build());
+    Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
     run(initialField);
   }
 
   @Test
   public void schema() {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
-    childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
-    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
+    childrenBuilder.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), ImmutableList.<Field>of()));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);
   }
@@ -71,18 +72,18 @@ public class TestConvert {
   @Test
   public void nestedSchema() {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
-    childrenBuilder.add(new Field("child1", true, Utf8.INSTANCE, null));
-    childrenBuilder.add(new Field("child2", true, new FloatingPoint(SINGLE), ImmutableList.<Field>of()));
-    childrenBuilder.add(new Field("child3", true, new Struct(), ImmutableList.<Field>of(
-        new Field("child3.1", true, Utf8.INSTANCE, null),
-        new Field("child3.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
+    childrenBuilder.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
+    childrenBuilder.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), ImmutableList.<Field>of()));
+    childrenBuilder.add(new Field("child3", FieldType.nullable(new Struct()), ImmutableList.<Field>of(
+        new Field("child3.1", FieldType.nullable(Utf8.INSTANCE), null),
+        new Field("child3.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of())
         )));
-    childrenBuilder.add(new Field("child4", true, new List(), ImmutableList.<Field>of(
-        new Field("child4.1", true, Utf8.INSTANCE, null)
+    childrenBuilder.add(new Field("child4", FieldType.nullable(new List()), ImmutableList.<Field>of(
+        new Field("child4.1", FieldType.nullable(Utf8.INSTANCE), null)
         )));
-    childrenBuilder.add(new Field("child5", true, new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal() } ), ImmutableList.<Field>of(
-        new Field("child5.1", true, new Timestamp(TimeUnit.MILLISECOND, null), null),
-        new Field("child5.2", true, new FloatingPoint(DOUBLE), ImmutableList.<Field>of())
+    childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal() } )), ImmutableList.<Field>of(
+        new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
+        new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of())
         )));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);

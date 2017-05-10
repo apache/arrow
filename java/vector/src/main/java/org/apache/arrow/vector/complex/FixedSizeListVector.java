@@ -26,6 +26,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -48,18 +53,17 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
-
 public class FixedSizeListVector extends BaseValueVector implements FieldVector, PromotableVector {
+
+  public static FixedSizeListVector empty(String name, int size, BufferAllocator allocator) {
+    FieldType fieldType = FieldType.nullable(new ArrowType.FixedSizeList(size));
+    return new FixedSizeListVector(name, allocator, fieldType, null);
+  }
 
   private FieldVector vector;
   private final BitVector bits;
   private final int listSize;
-  private final DictionaryEncoding dictionary;
+  private final FieldType fieldType;
   private final List<BufferBacked> innerVectors;
 
   private UnionFixedSizeListReader reader;
@@ -67,17 +71,26 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   private Mutator mutator = new Mutator();
   private Accessor accessor = new Accessor();
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public FixedSizeListVector(String name,
                              BufferAllocator allocator,
                              int listSize,
                              DictionaryEncoding dictionary,
                              CallBack schemaChangeCallback) {
+    this(name, allocator, new FieldType(true, new ArrowType.FixedSizeList(listSize), dictionary), schemaChangeCallback);
+  }
+
+  public FixedSizeListVector(String name,
+                             BufferAllocator allocator,
+                             FieldType fieldType,
+                             CallBack schemaChangeCallback) {
     super(name, allocator);
-    Preconditions.checkArgument(listSize > 0, "list size must be positive");
     this.bits = new BitVector("$bits$", allocator);
     this.vector = ZeroVector.INSTANCE;
-    this.listSize = listSize;
-    this.dictionary = dictionary;
+    this.fieldType = fieldType;
+    this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
+    Preconditions.checkArgument(listSize > 0, "list size must be positive");
     this.innerVectors = Collections.singletonList((BufferBacked) bits);
     this.reader = new UnionFixedSizeListReader(this);
   }
@@ -85,7 +98,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public Field getField() {
     List<Field> children = ImmutableList.of(getDataVector().getField());
-    return new Field(name, true, new ArrowType.FixedSizeList(listSize), children);
+    return new Field(name, fieldType, children);
   }
 
   @Override
@@ -103,8 +116,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       throw new IllegalArgumentException("Lists have only one child. Found: " + children);
     }
     Field field = children.get(0);
-    FieldType type = new FieldType(field.isNullable(), field.getType(), field.getDictionary());
-    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(type);
+    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
     if (!addOrGetVector.isCreated()) {
       throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
     }
@@ -348,14 +360,12 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     TransferPair pairs[] = new TransferPair[2];
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new FixedSizeListVector(name, allocator, listSize, dictionary, callBack));
+      this(new FixedSizeListVector(name, allocator, fieldType, callBack));
     }
 
     public TransferImpl(FixedSizeListVector to) {
       this.to = to;
-      Field field = vector.getField();
-      FieldType type = new FieldType(field.isNullable(), field.getType(), field.getDictionary());
-      to.addOrGetVector(type);
+      to.addOrGetVector(vector.getField().getFieldType());
       pairs[0] = bits.makeTransferPair(to.bits);
       pairs[1] = getDataVector().makeTransferPair(to.getDataVector());
     }

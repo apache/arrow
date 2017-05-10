@@ -21,14 +21,11 @@ package org.apache.arrow.vector.types.pojo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
-
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.schema.TypeLayout;
-import org.apache.arrow.vector.schema.VectorLayout;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -37,7 +34,15 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
+
+import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.schema.TypeLayout;
+import org.apache.arrow.vector.schema.VectorLayout;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
 
@@ -46,7 +51,7 @@ public class Field {
   }
 
   public static Field nullable(String name, ArrowType type) {
-    return new Field(name, true, type, null, null);
+    return new Field(name, FieldType.nullable(type), null);
   }
 
   private final String name;
@@ -61,28 +66,32 @@ public class Field {
       @JsonProperty("type") ArrowType type,
       @JsonProperty("dictionary") DictionaryEncoding dictionary,
       @JsonProperty("children") List<Field> children,
-      @JsonProperty("typeLayout") TypeLayout typeLayout) {
-    this(name, new FieldType(nullable, type, dictionary), children, typeLayout);
+      @JsonProperty("typeLayout") TypeLayout typeLayout,
+      @JsonProperty("metadata") Map<String, String> metadata) {
+    this(name, new FieldType(nullable, type, dictionary, metadata), children, typeLayout);
   }
 
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
-    super();
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
-    this.children = children == null ? ImmutableList.<Field>of() : children;
+    this.children = children == null ? ImmutableList.<Field>of() : ImmutableList.copyOf(children);
     this.typeLayout = checkNotNull(typeLayout);
   }
 
-  public Field(String name, FieldType fieldType, List<Field> children) {
-    this(name, fieldType, children, TypeLayout.getTypeLayout(fieldType.getType()));
-  }
-
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
-    this(name, nullable, type, null, children);
+    this(name, new FieldType(nullable, type, null, null), children);
   }
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
-    this(name, new FieldType(nullable, type, dictionary), children);
+    this(name, new FieldType(nullable, type, dictionary, null), children);
+  }
+
+  public Field(String name, FieldType fieldType, List<Field> children) {
+    this(name, fieldType, children, fieldType == null ? null : TypeLayout.getTypeLayout(fieldType.getType()));
   }
 
   public FieldVector createVector(BufferAllocator allocator) {
@@ -114,7 +123,14 @@ public class Field {
       childrenBuilder.add(convertField(field.children(i)));
     }
     List<Field> children = childrenBuilder.build();
-    return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()));
+    ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
+    for (int i = 0; i < field.customMetadataLength(); i++) {
+      KeyValue kv = field.customMetadata(i);
+      String key = kv.key(), value = kv.value();
+      metadataBuilder.put(key == null ? "" : key, value == null ? "" : value);
+    }
+    Map<String, String> metadata = metadataBuilder.build();
+    return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()), metadata);
   }
 
   public void validate() {
@@ -147,7 +163,19 @@ public class Field {
       VectorLayout vectorLayout = typeLayout.getVectors().get(i);
       buffersData[i] = vectorLayout.writeTo(builder);
     }
-    int layoutOffset =  org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
+    int layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
+    int[] metadataOffsets = new int[getMetadata().size()];
+    Iterator<Entry<String, String>> metadataIterator = getMetadata().entrySet().iterator();
+    for (int i = 0; i < metadataOffsets.length; i ++) {
+      Entry<String, String> kv = metadataIterator.next();
+      int keyOffset = builder.createString(kv.getKey());
+      int valueOffset = builder.createString(kv.getValue());
+      KeyValue.startKeyValue(builder);
+      KeyValue.addKey(builder, keyOffset);
+      KeyValue.addValue(builder, valueOffset);
+      metadataOffsets[i] = KeyValue.endKeyValue(builder);
+    }
+    int metadataOffset = org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
     org.apache.arrow.flatbuf.Field.startField(builder);
     if (name != null) {
       org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
@@ -157,6 +185,7 @@ public class Field {
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
     org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
+    org.apache.arrow.flatbuf.Field.addCustomMetadata(builder, metadataOffset);
     if (dictionary != null) {
       org.apache.arrow.flatbuf.Field.addDictionary(builder, dictionaryOffset);
     }
@@ -193,9 +222,14 @@ public class Field {
     return typeLayout;
   }
 
+  @JsonInclude(Include.NON_EMPTY)
+  public Map<String, String> getMetadata() {
+    return fieldType.getMetadata();
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(name, isNullable(), getType(), getDictionary(), children);
+    return Objects.hash(name, isNullable(), getType(), getDictionary(), getMetadata(), children);
   }
 
   @Override
@@ -205,10 +239,11 @@ public class Field {
     }
     Field that = (Field) obj;
     return Objects.equals(this.name, that.name) &&
-            Objects.equals(this.isNullable(), that.isNullable()) &&
-            Objects.equals(this.getType(), that.getType()) &&
-           Objects.equals(this.getDictionary(), that.getDictionary()) &&
-            Objects.equals(this.children, that.children);
+             Objects.equals(this.isNullable(), that.isNullable()) &&
+             Objects.equals(this.getType(), that.getType()) &&
+             Objects.equals(this.getDictionary(), that.getDictionary()) &&
+             Objects.equals(this.getMetadata(), that.getMetadata()) &&
+             Objects.equals(this.children, that.children);
   }
 
   @Override

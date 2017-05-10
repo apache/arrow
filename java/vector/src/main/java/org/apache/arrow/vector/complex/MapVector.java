@@ -17,6 +17,8 @@
  */
 package org.apache.arrow.vector.complex;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -24,6 +26,10 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Ordering;
+import com.google.common.primitives.Ints;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseValueVector;
@@ -33,26 +39,36 @@ import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Ordering;
-import com.google.common.primitives.Ints;
-
 public class MapVector extends AbstractMapVector {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
+
+  public static MapVector empty(String name, BufferAllocator allocator) {
+    FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+    return new MapVector(name, allocator, fieldType, null);
+  }
 
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
+  protected final FieldType fieldType;
   public int valueCount;
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public MapVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+  }
+
+  public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
+    this.fieldType = checkNotNull(fieldType);
   }
 
   @Override
@@ -119,7 +135,7 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new MapTransferPair(this, new MapVector(name, allocator, callBack), false);
+    return new MapTransferPair(this, new MapVector(name, allocator, fieldType, callBack), false);
   }
 
   @Override
@@ -129,7 +145,7 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new MapTransferPair(this, new MapVector(ref, allocator, callBack), false);
+    return new MapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected static class MapTransferPair implements TransferPair{
@@ -212,8 +228,8 @@ public class MapVector extends AbstractMapVector {
       @Override
       public int compare(@Nullable ValueVector left, @Nullable ValueVector right) {
         return Ints.compare(
-            Preconditions.checkNotNull(left).getValueCapacity(),
-            Preconditions.checkNotNull(right).getValueCapacity()
+            checkNotNull(left).getValueCapacity(),
+            checkNotNull(right).getValueCapacity()
         );
       }
     };
@@ -294,7 +310,7 @@ public class MapVector extends AbstractMapVector {
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    return new Field(name, false, Struct.INSTANCE, children);
+    return new Field(name, fieldType, children);
   }
 
   @Override

@@ -55,10 +55,9 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return type;
   }
 
-
   @Override
   public Field getField() {
-    return new Field("", true, new Null(), null);
+    return new Field("", FieldType.nullable(new Null()), null);
   }
 
   public void copyAsValue(MapWriter writer) {}

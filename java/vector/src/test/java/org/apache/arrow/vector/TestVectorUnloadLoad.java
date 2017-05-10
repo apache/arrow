@@ -42,6 +42,7 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -58,7 +59,7 @@ public class TestVectorUnloadLoad {
 
     try (
         BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", originalVectorsAllocator, null)) {
+        MapVector parent = MapVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -106,7 +107,7 @@ public class TestVectorUnloadLoad {
     Schema schema;
     try (
         BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", originalVectorsAllocator, null)) {
+        MapVector parent = MapVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -182,8 +183,8 @@ public class TestVectorUnloadLoad {
   @Test
   public void testLoadEmptyValidityBuffer() throws IOException {
     Schema schema = new Schema(asList(
-        new Field("intDefined", true, new ArrowType.Int(32, true), Collections.<Field>emptyList()),
-        new Field("intNull", true, new ArrowType.Int(32, true), Collections.<Field>emptyList())
+        new Field("intDefined", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
+        new Field("intNull", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
                                      ));
     int count = 10;
     ArrowBuf validity = allocator.buffer(10).slice(0, 0);

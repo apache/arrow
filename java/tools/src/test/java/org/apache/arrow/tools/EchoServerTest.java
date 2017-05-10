@@ -137,8 +137,8 @@ public class EchoServerTest {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
     Field field = new Field(
-        "testField", true,
-        new ArrowType.Int(8, true),
+        "testField",
+        new FieldType(true, new ArrowType.Int(8, true), null, null),
         Collections.<Field>emptyList());
     NullableTinyIntVector vector =
         new NullableTinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
@@ -161,7 +161,7 @@ public class EchoServerTest {
         NullableIntVector writeVector =
             new NullableIntVector(
                 "varchar",
-                new FieldType(true, MinorType.INT.getType(), writeEncoding),
+                new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
                 allocator);
         NullableVarCharVector writeDictionaryVector =
             new NullableVarCharVector(
@@ -237,7 +237,7 @@ public class EchoServerTest {
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          NullableVarCharVector writeDictionaryVector =
              new NullableVarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
-         ListVector writeVector = new ListVector("list", allocator, null, null)) {
+         ListVector writeVector = ListVector.empty("list", allocator)) {
 
       // data being written:
       // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
@@ -247,7 +247,7 @@ public class EchoServerTest {
       writeDictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
       writeDictionaryVector.getMutator().setValueCount(2);
 
-      writeVector.addOrGetVector(new FieldType(true, MinorType.INT.getType(), writeEncoding));
+      writeVector.addOrGetVector(new FieldType(true, MinorType.INT.getType(), writeEncoding, null));
       writeVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(writeVector);
       listWriter.startList();

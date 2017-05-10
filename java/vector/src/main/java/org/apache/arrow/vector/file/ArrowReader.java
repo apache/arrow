@@ -40,6 +40,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 public abstract class ArrowReader<T extends ReadChannel> implements DictionaryProvider, AutoCloseable {
@@ -192,13 +193,13 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
       // get existing or create dictionary vector
       if (!dictionaries.containsKey(encoding.getId())) {
         // create a new dictionary vector for the values
-        Field dictionaryField = new Field(field.getName(), field.isNullable(), field.getType(), null, children);
+        Field dictionaryField = new Field(field.getName(), new FieldType(field.isNullable(), field.getType(), null, null), children);
         FieldVector dictionaryVector = dictionaryField.createVector(allocator);
         dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
       }
     }
 
-    return new Field(field.getName(), field.isNullable(), type, encoding, updatedChildren);
+    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
   }
 
   private void load(ArrowDictionaryBatch dictionaryBatch) {

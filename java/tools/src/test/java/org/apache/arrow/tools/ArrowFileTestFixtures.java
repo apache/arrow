@@ -99,7 +99,7 @@ public class ArrowFileTestFixtures {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), testInFile);
     }
