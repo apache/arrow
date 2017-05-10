@@ -149,7 +149,10 @@ func main() {
 	}
 
 	recordBatch := arrow.NewRecordBatch(schema, 4, columns)
-	writer.WriteRecordBatch(recordBatch)
+	_, err = writer.WriteRecordBatch(recordBatch)
+	if err != nil {
+		log.Fatalf("Failed to write record batch #1: %v", err)
+	}
 
 	slicedColumns := make([]*arrow.Array, len(columns))
 	for i, column := range columns {
@@ -157,6 +160,10 @@ func main() {
 	}
 	recordBatch = arrow.NewRecordBatch(schema, 3, slicedColumns)
 	writer.WriteRecordBatch(recordBatch)
+	_, err = writer.WriteRecordBatch(recordBatch)
+	if err != nil {
+		log.Fatalf("Failed to write record batch #2: %v", err)
+	}
 
 	writer.Close()
 }
