@@ -349,9 +349,7 @@ def test_column_of_lists(tmpdir):
 
 
 @parquet
-def test_date_time_types(tmpdir):
-    buf = io.BytesIO()
-
+def test_date_time_types():
     t1 = pa.date32()
     data1 = np.array([17259, 17260, 17261], dtype='int32')
     a1 = pa.Array.from_pandas(data1, type=t1)
@@ -388,11 +386,7 @@ def test_date_time_types(tmpdir):
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]', 'time32[s]'])
 
-    pq.write_table(table, buf, version="2.0")
-    buf.seek(0)
-
-    result = pq.read_table(buf)
-    assert result.equals(expected)
+    _check_roundtrip(table, expected=expected, version='2.0')
 
     # Unsupported stuff
     def _assert_unsupported(array):
@@ -406,6 +400,29 @@ def test_date_time_types(tmpdir):
     a7 = pa.Array.from_pandas(data4.astype('int64'), type=t7)
 
     _assert_unsupported(a7)
+
+
+@parquet
+def test_fixed_size_binary():
+    t0 = pa.binary(10)
+    data = [b'fooooooooo', None, b'barooooooo', b'quxooooooo']
+    a0 = pa.array(data, type=t0)
+
+    table = pa.Table.from_arrays([a0],
+                                 ['binary[10]'])
+    _check_roundtrip(table)
+
+
+def _check_roundtrip(table, expected=None, **params):
+    buf = io.BytesIO()
+    pq.write_table(table, buf, **params)
+    buf.seek(0)
+
+    if expected is None:
+        expected = table
+
+    result = pq.read_table(buf)
+    assert result.equals(expected)
 
 
 @parquet
