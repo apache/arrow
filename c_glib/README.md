@@ -50,77 +50,7 @@ released in the future.
 
 ### Package
 
-There are supported platforms:
-
-  * Debian GNU/Linux Jessie
-  * Ubuntu 16.04 LTS
-  * Ubuntu 16.10
-  * Ubuntu 17.04
-  * CentOS 7
-
-You can feedback to https://github.com/kou/arrow-packages about
-packages things.
-
-#### Debian GNU/Linux jessie
-
-You need to install `apt-transport-https` to use HTTPS for APT
-repository.
-
-```text
-% sudo apt install -y apt-transport-https
-```
-
-You need to add the following apt-lines to
-`/etc/apt/sources.list.d/groonga.list`:
-
-```text
-deb https://packages.groonga.org/debian/ jessie main
-deb-src https://packages.groonga.org/debian/ jessie main
-```
-
-Then you need to run the following command lines:
-
-```text
-% sudo apt update
-% sudo apt install -y --allow-unauthenticated groonga-keyring
-% sudo apt update
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo apt install -y libarrow-glib-dev
-```
-
-#### Ubuntu
-
-You need to add an APT repository:
-
-```text
-% sudo apt install -y software-properties-common
-% sudo add-apt-repository -y ppa:groonga/ppa
-% sudo apt update
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo apt install -y libarrow-glib-dev
-```
-
-#### CentOS 7
-
-You need to add a Yum repository:
-
-```text
-% sudo yum install -y https://packages.groonga.org/centos/groonga-release-1.3.0-1.noarch.rpm
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo yum install -y --enablerepo=epel arrow-glib-devel
-```
+See [install document][../site/install.md] for details.
 
 ### How to build by users
 
