@@ -32,4 +32,6 @@ init:
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
 build_script:
- - call ci\msvc-build.bat
+  - git config core.symlinks true
+  - git reset --hard
+  - call ci\msvc-build.bat
