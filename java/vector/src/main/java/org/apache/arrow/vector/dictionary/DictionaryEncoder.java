@@ -29,6 +29,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 public class DictionaryEncoder {
@@ -53,8 +54,9 @@ public class DictionaryEncoder {
     }
 
     Field valueField = vector.getField();
-    Field indexField = new Field(valueField.getName(), valueField.isNullable(),
-      dictionary.getEncoding().getIndexType(), dictionary.getEncoding(), null);
+    FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
+      dictionary.getEncoding(), valueField.getMetadata());
+    Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
     FieldVector indices = indexField.createVector(vector.getAllocator());

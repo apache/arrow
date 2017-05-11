@@ -42,8 +42,8 @@ public class TestListVector {
 
   @Test
   public void testCopyFrom() throws Exception {
-    try (ListVector inVector = new ListVector("input", allocator, null, null);
-         ListVector outVector = new ListVector("output", allocator, null, null)) {
+    try (ListVector inVector = ListVector.empty("input", allocator);
+         ListVector outVector = ListVector.empty("output", allocator)) {
       UnionListWriter writer = inVector.getWriter();
       writer.allocate();
 

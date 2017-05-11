@@ -41,6 +41,7 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.junit.Before;
@@ -71,7 +72,7 @@ public class TestArrowReaderWriter {
 
   @Test
   public void test() throws IOException {
-    Schema schema = new Schema(asList(new Field("testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
+    Schema schema = new Schema(asList(new Field("testField", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())));
     ArrowType type = schema.getFields().get(0).getType();
     FieldVector vector = TestUtils.newVector(FieldVector.class, "testField", type, allocator);
     vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());

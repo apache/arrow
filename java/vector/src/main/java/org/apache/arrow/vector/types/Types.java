@@ -122,7 +122,7 @@ public class Types {
     MAP(Struct.INSTANCE) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new NullableMapVector(name, allocator, fieldType.getDictionary(), schemaChangeCallback);
+        return new NullableMapVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
       @Override
@@ -430,7 +430,7 @@ public class Types {
     LIST(List.INSTANCE) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new ListVector(name, allocator, fieldType.getDictionary(), schemaChangeCallback);
+        return new ListVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
       @Override
@@ -446,8 +446,7 @@ public class Types {
 
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        int size = ((FixedSizeList)fieldType.getType()).getListSize();
-        return new FixedSizeListVector(name, allocator, size, fieldType.getDictionary(), schemaChangeCallback);
+        return new FixedSizeListVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
       @Override

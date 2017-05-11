@@ -29,6 +29,7 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -98,7 +99,7 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public Field getField() {
-    return new Field(name, true, new Null(), null);
+    return new Field(name, FieldType.nullable(new Null()), null);
   }
 
   @Override

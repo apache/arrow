@@ -18,12 +18,17 @@
  ******************************************************************************/
 package org.apache.arrow.vector.complex;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Collections.singletonList;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -41,6 +46,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -48,12 +54,11 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
-
 public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
+
+  public static ListVector empty(String name, BufferAllocator allocator) {
+    return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
+  }
 
   final UInt4Vector offsets;
   final BitVector bits;
@@ -62,19 +67,27 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   private Accessor accessor = new Accessor();
   private UnionListReader reader;
   private CallBack callBack;
-  private final DictionaryEncoding dictionary;
+  private final FieldType fieldType;
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, null, callBack);
+    this(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), callBack);
   }
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
+    this(name, allocator, new FieldType(true, ArrowType.List.INSTANCE, dictionary, null), callBack);
+  }
+
+  public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.bits = new BitVector("$bits$", allocator);
     this.offsets = getOffsetVector();
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, offsets));
     this.reader = new UnionListReader(this);
-    this.dictionary = dictionary;
+    this.fieldType = checkNotNull(fieldType);
     this.callBack = callBack;
   }
 
@@ -168,7 +181,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     TransferPair pairs[] = new TransferPair[3];
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new ListVector(name, allocator, dictionary, callBack));
+      this(new ListVector(name, allocator, fieldType, callBack));
     }
 
     public TransferImpl(ListVector to) {
@@ -266,8 +279,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public Field getField() {
-    return new Field(name, true, new org.apache.arrow.vector.types.pojo.ArrowType.List(),
-            ImmutableList.of(getDataVector().getField()));
+    return new Field(name, fieldType, ImmutableList.of(getDataVector().getField()));
   }
 
   @Override

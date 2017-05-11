@@ -19,6 +19,10 @@ package org.apache.arrow.vector.types.pojo;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.Types;
@@ -28,18 +32,24 @@ import org.apache.arrow.vector.util.CallBack;
 public class FieldType {
 
   public static FieldType nullable(ArrowType type) {
-    return new FieldType(true, type, null);
+    return new FieldType(true, type, null, null);
   }
 
   private final boolean nullable;
   private final ArrowType type;
   private final DictionaryEncoding dictionary;
+  private final Map<String, String> metadata;
 
   public FieldType(boolean nullable, ArrowType type, DictionaryEncoding dictionary) {
+    this(nullable, type, dictionary, null);
+  }
+
+  public FieldType(boolean nullable, ArrowType type, DictionaryEncoding dictionary, Map<String, String> metadata) {
     super();
     this.nullable = nullable;
     this.type = checkNotNull(type);
     this.dictionary = dictionary;
+    this.metadata = metadata == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(metadata);
   }
 
   public boolean isNullable() {
@@ -50,6 +60,9 @@ public class FieldType {
   }
   public DictionaryEncoding getDictionary() {
     return dictionary;
+  }
+  public Map<String, String> getMetadata() {
+    return metadata;
   }
 
   public FieldVector createNewSingleVector(String name, BufferAllocator allocator, CallBack schemaCallBack) {

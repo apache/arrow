@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
@@ -38,7 +39,7 @@ public class TestArrowFooter {
   @Test
   public void test() {
     Schema schema = new Schema(asList(
-        new Field("a", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())
+        new Field("a", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())
         ));
     ArrowFooter footer = new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
     ArrowFooter newFooter = roundTrip(footer);

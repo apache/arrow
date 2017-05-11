@@ -17,16 +17,13 @@
  */
 package org.apache.arrow.vector.complex.writer;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.SchemaChangeCallBack;
@@ -48,9 +45,11 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
@@ -59,8 +58,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestComplexWriter {
 
@@ -101,7 +98,7 @@ public class TestComplexWriter {
   }
 
   private MapVector populateMapVector(CallBack callBack) {
-    MapVector parent = new MapVector("parent", allocator, callBack);
+    MapVector parent = new MapVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -118,7 +115,7 @@ public class TestComplexWriter {
 
   @Test
   public void nullableMap() {
-    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       for (int i = 0; i < COUNT; i++) {
@@ -142,7 +139,7 @@ public class TestComplexWriter {
    */
   @Test
   public void nullableMap2() {
-    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       MapWriter mapWriter = rootWriter.map("map");
@@ -181,7 +178,7 @@ public class TestComplexWriter {
 
   @Test
   public void testList() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -210,7 +207,7 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarType() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
@@ -233,7 +230,7 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarTypeNullable() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
@@ -262,7 +259,7 @@ public class TestComplexWriter {
 
   @Test
   public void listMapType() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     MapWriter mapWriter = listWriter.map();
@@ -290,7 +287,7 @@ public class TestComplexWriter {
 
   @Test
   public void listListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -315,7 +312,7 @@ public class TestComplexWriter {
    */
   @Test
   public void listListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();
@@ -353,7 +350,7 @@ public class TestComplexWriter {
 
   @Test
   public void unionListListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -382,7 +379,7 @@ public class TestComplexWriter {
    */
   @Test
   public void unionListListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();
@@ -454,7 +451,7 @@ public class TestComplexWriter {
 
   @Test
   public void promotableWriter() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     for (int i = 0; i < 100; i++) {
@@ -503,7 +500,7 @@ public class TestComplexWriter {
    */
   @Test
   public void promotableWriterSchema() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     rootWriter.bigInt("a");
@@ -536,7 +533,7 @@ public class TestComplexWriter {
   @Test
   public void mapWriterMixedCaseFieldNames() {
     // test case-sensitive MapWriter
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("rootCaseSensitive", parent, false, true);
     MapWriter rootWriterCaseSensitive = writer.rootAsMap();
     rootWriterCaseSensitive.bigInt("int_field");
@@ -607,7 +604,7 @@ public class TestComplexWriter {
     final LocalDateTime expectedNanoDateTime = expectedMilliDateTime;
 
     // write
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -678,7 +675,7 @@ public class TestComplexWriter {
 
   @Test
   public void complexCopierWithList() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     ListWriter listWriter = rootWriter.list("list");

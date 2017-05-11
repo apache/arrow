@@ -36,6 +36,7 @@ import org.apache.arrow.vector.stream.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,7 +118,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       }
     }
 
-    return new Field(field.getName(), field.isNullable(), type, encoding, updatedChildren);
+    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
   }
 
   public void start() throws IOException {

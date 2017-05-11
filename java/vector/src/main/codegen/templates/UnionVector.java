@@ -77,7 +77,7 @@ public class UnionVector implements FieldVector {
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
-    this.internalMap = new MapVector("internal", allocator, callBack);
+    this.internalMap = new MapVector("internal", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
     this.typeVector = new UInt1Vector("types", allocator);
     this.callBack = callBack;
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(typeVector));
@@ -125,7 +125,7 @@ public class UnionVector implements FieldVector {
   }
 
   private FieldType fieldType(MinorType type) {
-    return new FieldType(true, type.getType(), null);
+    return FieldType.nullable(type.getType());
   }
 
   private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
@@ -250,7 +250,7 @@ public class UnionVector implements FieldVector {
       typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, true, new ArrowType.Union(Sparse, typeIds), childFields);
+    return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
   }
 
   @Override

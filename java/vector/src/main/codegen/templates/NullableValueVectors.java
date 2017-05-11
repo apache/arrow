@@ -66,11 +66,11 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final int scale;
 
   public ${className}(String name, BufferAllocator allocator, int precision, int scale) {
-    this(name, new FieldType(true, new Decimal(precision, scale), null), allocator);
+    this(name, FieldType.nullable(new Decimal(precision, scale)), allocator);
   }
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
-    this(name, new FieldType(true, org.apache.arrow.vector.types.Types.MinorType.${minor.class?upper_case}.getType(), null), allocator);
+    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.${minor.class?upper_case}.getType()), allocator);
   }
   </#if>
 

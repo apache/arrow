@@ -49,7 +49,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testIntType() {
-    try (FixedSizeListVector vector = new FixedSizeListVector("list", allocator, 2, null, null)) {
+    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
       NullableIntVector nested = (NullableIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
       NullableIntVector.Mutator mutator = nested.getMutator();
       vector.allocateNew();
@@ -77,7 +77,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testFloatTypeNullable() {
-    try (FixedSizeListVector vector = new FixedSizeListVector("list", allocator, 2, null, null)) {
+    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
       NullableFloat4Vector nested = (NullableFloat4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
       NullableFloat4Vector.Mutator mutator = nested.getMutator();
       vector.allocateNew();
@@ -112,7 +112,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testNestedInList() {
-    try (ListVector vector = new ListVector("list", allocator, null, null)) {
+    try (ListVector vector = ListVector.empty("list", allocator)) {
       ListVector.Mutator mutator = vector.getMutator();
       FixedSizeListVector tuples = (FixedSizeListVector) vector.addOrGetVector(FieldType.nullable(new ArrowType.FixedSizeList(2))).getVector();
       FixedSizeListVector.Mutator tupleMutator = tuples.getMutator();

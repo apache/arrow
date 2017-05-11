@@ -23,6 +23,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.collect.ObjectArrays;
+
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.BitVector;
@@ -32,18 +35,21 @@ import org.apache.arrow.vector.NullableVectorDefinitionSetter;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableMapWriter;
-import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
-import com.google.common.collect.ObjectArrays;
-
-import io.netty.buffer.ArrowBuf;
-
 public class NullableMapVector extends MapVector implements FieldVector {
+
+  public static NullableMapVector empty(String name, BufferAllocator allocator) {
+    FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
+    return new NullableMapVector(name, allocator, fieldType, null);
+  }
 
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
   private final NullableMapWriter writer = new NullableMapWriter(this);
@@ -51,20 +57,26 @@ public class NullableMapVector extends MapVector implements FieldVector {
   protected final BitVector bits;
 
   private final List<BufferBacked> innerVectors;
-  private final DictionaryEncoding dictionary;
 
   private final Accessor accessor;
   private final Mutator mutator;
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, null, callBack);
+    this(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), callBack);
   }
 
+  // deprecated, use FieldType or static constructor instead
+  @Deprecated
   public NullableMapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
-    super(name, checkNotNull(allocator), callBack);
+    this(name, allocator, new FieldType(true, ArrowType.Struct.INSTANCE, dictionary, null), callBack);
+  }
+
+  public NullableMapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+    super(name, checkNotNull(allocator), fieldType, callBack);
     this.bits = new BitVector("$bits$", allocator);
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
-    this.dictionary = dictionary;
     this.accessor = new Accessor();
     this.mutator = new Mutator();
   }
@@ -96,7 +108,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, dictionary, null), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, fieldType, null), false);
   }
 
   @Override
@@ -106,12 +118,12 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, dictionary, null), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, dictionary, callBack), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected class NullableMapTransferPair extends MapTransferPair {
