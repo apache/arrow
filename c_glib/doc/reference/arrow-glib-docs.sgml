@@ -108,8 +108,7 @@
     </chapter>
     <chapter id="writer">
       <title>Writer</title>
-      <xi:include href="xml/file-writer.xml"/>
-      <xi:include href="xml/stream-writer.xml"/>
+      <xi:include href="xml/writer.xml"/>
     </chapter>
   </part>
 

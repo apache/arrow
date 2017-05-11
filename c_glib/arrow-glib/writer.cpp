@@ -30,16 +30,20 @@
 
 #include <arrow-glib/output-stream.hpp>
 
-#include <arrow-glib/stream-writer.hpp>
+#include <arrow-glib/writer.hpp>
 
 G_BEGIN_DECLS
 
 /**
- * SECTION: stream-writer
- * @short_description: Stream writer class
+ * SECTION: writer
+ * @section_id: writer-classes
+ * @title: Writer classes
+ * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowStreamWriter is a class for sending data by stream based
- * IPC.
+ * #GArrowStreamWriter is a class for writing data in stream mode.
+ *
+ * #GArrowFileWriter is a class for writing data in random access
+ * mode.
  */
 
 typedef struct GArrowStreamWriterPrivate_ {
@@ -55,9 +59,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowStreamWriter,
                            garrow_stream_writer,
                            G_TYPE_OBJECT);
 
-#define GARROW_STREAM_WRITER_GET_PRIVATE(obj)               \
+#define GARROW_STREAM_WRITER_GET_PRIVATE(obj)                   \
   (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_STREAM_WRITER,   \
+                               GARROW_TYPE_STREAM_WRITER,       \
                                GArrowStreamWriterPrivate))
 
 static void
@@ -74,9 +78,9 @@ garrow_stream_writer_finalize(GObject *object)
 
 static void
 garrow_stream_writer_set_property(GObject *object,
-                                    guint prop_id,
-                                    const GValue *value,
-                                    GParamSpec *pspec)
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
 {
   GArrowStreamWriterPrivate *priv;
 
@@ -95,9 +99,9 @@ garrow_stream_writer_set_property(GObject *object,
 
 static void
 garrow_stream_writer_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
 {
   switch (prop_id) {
   default:
@@ -167,15 +171,12 @@ garrow_stream_writer_new(GArrowOutputStream *sink,
  */
 gboolean
 garrow_stream_writer_write_record_batch(GArrowStreamWriter *stream_writer,
-                                            GArrowRecordBatch *record_batch,
-                                            GError **error)
+                                        GArrowRecordBatch *record_batch,
+                                        GError **error)
 {
-  auto arrow_stream_writer =
-    garrow_stream_writer_get_raw(stream_writer);
-  auto arrow_record_batch =
-    garrow_record_batch_get_raw(record_batch);
-  auto arrow_record_batch_raw =
-    arrow_record_batch.get();
+  auto arrow_stream_writer = garrow_stream_writer_get_raw(stream_writer);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  auto arrow_record_batch_raw = arrow_record_batch.get();
 
   auto status = arrow_stream_writer->WriteRecordBatch(*arrow_record_batch_raw);
   return garrow_error_check(error,
@@ -192,13 +193,53 @@ garrow_stream_writer_write_record_batch(GArrowStreamWriter *stream_writer,
  */
 gboolean
 garrow_stream_writer_close(GArrowStreamWriter *stream_writer,
-                               GError **error)
+                           GError **error)
 {
-  auto arrow_stream_writer =
-    garrow_stream_writer_get_raw(stream_writer);
+  auto arrow_stream_writer = garrow_stream_writer_get_raw(stream_writer);
 
   auto status = arrow_stream_writer->Close();
   return garrow_error_check(error, status, "[ipc][stream-writer][close]");
+}
+
+
+G_DEFINE_TYPE(GArrowFileWriter,
+              garrow_file_writer,
+              GARROW_TYPE_STREAM_WRITER);
+
+static void
+garrow_file_writer_init(GArrowFileWriter *object)
+{
+}
+
+static void
+garrow_file_writer_class_init(GArrowFileWriterClass *klass)
+{
+}
+
+/**
+ * garrow_file_writer_new:
+ * @sink: The output of the writer.
+ * @schema: The schema of the writer.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowFileWriter or %NULL on
+ *   error.
+ */
+GArrowFileWriter *
+garrow_file_writer_new(GArrowOutputStream *sink,
+                       GArrowSchema *schema,
+                       GError **error)
+{
+  std::shared_ptr<arrow::ipc::FileWriter> arrow_file_writer;
+  auto status =
+    arrow::ipc::FileWriter::Open(garrow_output_stream_get_raw(sink).get(),
+                                 garrow_schema_get_raw(schema),
+                                 &arrow_file_writer);
+  if (garrow_error_check(error, status, "[ipc][file-writer][open]")) {
+    return garrow_file_writer_new_raw(&arrow_file_writer);
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS
@@ -220,4 +261,24 @@ garrow_stream_writer_get_raw(GArrowStreamWriter *stream_writer)
 
   priv = GARROW_STREAM_WRITER_GET_PRIVATE(stream_writer);
   return priv->stream_writer;
+}
+
+GArrowFileWriter *
+garrow_file_writer_new_raw(std::shared_ptr<arrow::ipc::FileWriter> *arrow_file_writer)
+{
+  auto file_writer =
+    GARROW_FILE_WRITER(g_object_new(GARROW_TYPE_FILE_WRITER,
+                                    "stream-writer", arrow_file_writer,
+                                    NULL));
+  return file_writer;
+}
+
+arrow::ipc::FileWriter *
+garrow_file_writer_get_raw(GArrowFileWriter *file_writer)
+{
+  auto arrow_stream_writer =
+    garrow_stream_writer_get_raw(GARROW_STREAM_WRITER(file_writer));
+  auto arrow_file_writer_raw =
+    dynamic_cast<arrow::ipc::FileWriter *>(arrow_stream_writer.get());
+  return arrow_file_writer_raw;
 }
