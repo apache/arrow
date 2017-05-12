@@ -38,10 +38,12 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake -DARROW_TEST_MEMCHECK=on \
           $CMAKE_COMMON_FLAGS \
           -DARROW_CXXFLAGS="-Wconversion -Werror" \
+          -DARROW_NO_DEPRECATED_API=on \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
           -DARROW_CXXFLAGS=-Werror \
+          -DARROW_NO_DEPRECATED_API=on \
           $ARROW_CPP_DIR
 fi
 

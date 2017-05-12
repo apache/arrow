@@ -30,12 +30,12 @@ namespace arrow {
 // $ <program that produces streaming output> | stream-to-file > file.arrow
 Status ConvertToFile() {
   std::shared_ptr<io::InputStream> input(new io::StdinStream);
-  std::shared_ptr<ipc::StreamReader> reader;
-  RETURN_NOT_OK(ipc::StreamReader::Open(input, &reader));
+  std::shared_ptr<ipc::InputStreamReader> reader;
+  RETURN_NOT_OK(ipc::InputStreamReader::Open(input, &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<ipc::FileWriter> writer;
-  RETURN_NOT_OK(ipc::FileWriter::Open(&sink, reader->schema(), &writer));
+  std::shared_ptr<ipc::BatchFileWriter> writer;
+  RETURN_NOT_OK(ipc::BatchFileWriter::Open(&sink, reader->schema(), &writer));
 
   std::shared_ptr<RecordBatch> batch;
   while (true) {

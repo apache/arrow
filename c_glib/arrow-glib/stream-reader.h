@@ -55,7 +55,7 @@ typedef struct _GArrowStreamReaderClass    GArrowStreamReaderClass;
 /**
  * GArrowStreamReader:
  *
- * It wraps `arrow::ipc::StreamReader`.
+ * It wraps `arrow::ipc::InputStreamReader`.
  */
 struct _GArrowStreamReader
 {

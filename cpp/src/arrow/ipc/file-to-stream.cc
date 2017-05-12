@@ -28,14 +28,14 @@ namespace arrow {
 // Reads a file on the file system and prints to stdout the stream version of it.
 Status ConvertToStream(const char* path) {
   std::shared_ptr<io::ReadableFile> in_file;
-  std::shared_ptr<ipc::FileReader> reader;
+  std::shared_ptr<ipc::BatchFileReader> reader;
 
   RETURN_NOT_OK(io::ReadableFile::Open(path, &in_file));
-  RETURN_NOT_OK(ipc::FileReader::Open(in_file, &reader));
+  RETURN_NOT_OK(ipc::BatchFileReader::Open(in_file, &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<ipc::StreamWriter> writer;
-  RETURN_NOT_OK(ipc::StreamWriter::Open(&sink, reader->schema(), &writer));
+  std::shared_ptr<ipc::OutputStreamWriter> writer;
+  RETURN_NOT_OK(ipc::OutputStreamWriter::Open(&sink, reader->schema(), &writer));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> chunk;
     RETURN_NOT_OK(reader->GetRecordBatch(i, &chunk));

@@ -101,7 +101,12 @@ def jemalloc_memory_pool():
 
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 
-from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter
+from pyarrow.ipc import (BatchFileReader, BatchFileWriter,
+                         BatchStreamReader, BatchStreamWriter)
 
 
 localfs = LocalFilesystem.get_instance()
+
+
+# DEPRECATED
+from pyarrow.ipc import FileReader, FileWriter, StreamReader, StreamWriter

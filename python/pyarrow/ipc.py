@@ -20,7 +20,7 @@
 import pyarrow.lib as lib
 
 
-class StreamReader(lib._StreamReader):
+class BatchStreamReader(lib._BatchStreamReader):
     """
     Reader for the Arrow streaming binary format
 
@@ -37,7 +37,7 @@ class StreamReader(lib._StreamReader):
             yield self.get_next_batch()
 
 
-class StreamWriter(lib._StreamWriter):
+class BatchStreamWriter(lib._BatchStreamWriter):
     """
     Writer for the Arrow streaming binary format
 
@@ -52,7 +52,7 @@ class StreamWriter(lib._StreamWriter):
         self._open(sink, schema)
 
 
-class FileReader(lib._FileReader):
+class BatchFileReader(lib._BatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -68,7 +68,7 @@ class FileReader(lib._FileReader):
         self._open(source, footer_offset=footer_offset)
 
 
-class FileWriter(lib._FileWriter):
+class BatchFileWriter(lib._BatchFileWriter):
     """
     Writer to create the Arrow binary file format
 
@@ -81,3 +81,9 @@ class FileWriter(lib._FileWriter):
     """
     def __init__(self, sink, schema):
         self._open(sink, schema)
+
+
+StreamWriter = BatchStreamWriter
+StreamReader = BatchStreamWriter
+FileWriter = BatchFileWriter
+FileReader = BatchFileReader
