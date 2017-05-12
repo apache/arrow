@@ -32,7 +32,7 @@ git clone ../../ arrow
 # Build the native baseimage
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
 # Build the python packages
-docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+docker run --rm -t -i -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```

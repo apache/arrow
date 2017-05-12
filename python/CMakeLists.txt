@@ -246,6 +246,7 @@ endfunction(bundle_arrow_lib)
 
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow
+  file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
 endif()

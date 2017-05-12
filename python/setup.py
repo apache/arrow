@@ -225,6 +225,8 @@ class build_ext(_build_ext):
                     os.symlink(lib_filename, link_name)
 
         if self.bundle_arrow_cpp:
+            print(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
+            shutil.move(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
             if self.with_jemalloc:
