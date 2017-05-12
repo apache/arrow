@@ -731,7 +731,7 @@ cdef class Table:
         pandas.DataFrame
         """
         if nthreads is None:
-            nthreads = pyarrow._config.cpu_count()
+            nthreads = cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return _pandas().DataFrame(mgr)

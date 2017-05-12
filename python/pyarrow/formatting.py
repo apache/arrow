@@ -17,7 +17,7 @@
 
 # Pretty-printing and other formatting utilities for Arrow data structures
 
-import pyarrow._array as _array
+import pyarrow.lib as lib
 
 
 def array_format(arr, window=None):
@@ -42,7 +42,7 @@ def array_format(arr, window=None):
 
 
 def value_format(x, indent_level=0):
-    if isinstance(x, _array.ListValue):
+    if isinstance(x, lib.ListValue):
         contents = ',\n'.join(value_format(item) for item in x)
         return '[{0}]'.format(_indent(contents, 1).strip())
     else:

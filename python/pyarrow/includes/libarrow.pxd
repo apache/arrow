@@ -678,3 +678,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef cppclass PyBytesReader(CBufferReader):
         PyBytesReader(object fo)
+
+cdef extern from 'arrow/python/init.h':
+    int arrow_init_numpy() except -1
+
+cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
+    void set_numpy_nan(object o)

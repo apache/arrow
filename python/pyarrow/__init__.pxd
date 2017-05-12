@@ -21,7 +21,7 @@ from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
                                         CTable, CTensor)
 
 
-cdef extern from "arrow/python/pyarrow_api.h" namespace "arrow::py":
+cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
     cdef int import_pyarrow() except -1
     cdef object wrap_data_type(const shared_ptr[CDataType]& type)
     cdef object wrap_field(const shared_ptr[CField]& field)

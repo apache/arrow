@@ -25,9 +25,7 @@ except DistributionNotFound:
    pass
 
 
-import pyarrow._config
-from pyarrow._config import cpu_count, set_cpu_count
-
+from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,

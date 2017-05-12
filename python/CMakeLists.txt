@@ -265,7 +265,6 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  _config
   lib
 )
 
