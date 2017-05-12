@@ -170,7 +170,9 @@ class build_ext(_build_ext):
 
             if 'PYARROW_PARALLEL' in os.environ:
                 args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+            print("-- Running cmake --build for pyarrow")
             self.spawn(args)
+            print("-- Finished cmake --build for pyarrow")
         else:
             import shlex
             cmake_generator = 'Visual Studio 14 2015 Win64'
@@ -189,7 +191,9 @@ class build_ext(_build_ext):
             self.spawn(cmake_command)
             print("-- Finished cmake for pyarrow")
             # Do the build
+            print("-- Running cmake --build for pyarrow")
             self.spawn(['cmake', '--build', '.', '--config', self.build_type])
+            print("-- Finished cmake --build for pyarrow")
 
         if self.inplace:
             # a bit hacky
