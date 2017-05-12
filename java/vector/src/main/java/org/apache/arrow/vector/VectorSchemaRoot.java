@@ -41,11 +41,15 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors, int rowCount) {
-    if (fields.size() != fieldVectors.size()) {
+    this(new Schema(fields), fieldVectors, rowCount);
+  }
+
+  public VectorSchemaRoot(Schema schema, List<FieldVector> fieldVectors, int rowCount) {
+    if (schema.getFields().size() != fieldVectors.size()) {
       throw new IllegalArgumentException("Fields must match field vectors. Found " +
-          fieldVectors.size() + " vectors and " + fields.size() + " fields");
+          fieldVectors.size() + " vectors and " + schema.getFields().size() + " fields");
     }
-    this.schema = new Schema(fields);
+    this.schema = schema;
     this.rowCount = rowCount;
     this.fieldVectors = fieldVectors;
     for (int i = 0; i < schema.getFields().size(); ++i) {
@@ -65,7 +69,7 @@ public class VectorSchemaRoot implements AutoCloseable {
       throw new IllegalArgumentException("The root vector did not create the right number of children. found " +
         fieldVectors.size() + " expected " + schema.getFields().size());
     }
-    return new VectorSchemaRoot(schema.getFields(), fieldVectors, 0);
+    return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
 
   public List<FieldVector> getFieldVectors() {
