@@ -24,5 +24,7 @@ limitations under the License.
 <hr>
 
 {% for post in site.posts %}
-  {% include blog_entry.html %}
+  {% unless post.categories contains 'translation' %}
+    {% include blog_entry.html %}
+  {% endunless %}
 {% endfor %}
